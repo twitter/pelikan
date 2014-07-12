@@ -75,13 +75,20 @@ typedef enum token_storage {
 struct key {
     size_t  len;
     uint8_t *data;
+};
 
+/*
+ * we store key and value as location in the buffer, this assumes the data
+ * will not be overwritten before the current request is completed.
+ */
 struct request {
     request_state_t state;
     int             token;
 
     request_verb_t  verb;
     request_type_t  type;
+
+    struct key
 
     uint32_t        flag;
     uint32_t        expiry;
@@ -99,7 +106,7 @@ struct request {
 static rstatus_t
 memcache_sub_unary(struct request *req, struct mbuf *buf)
 {
-    uint8_t *token;
+    uint8_t *p, *pt;
 
     ASSERT(req != NULL);
     ASSERT(buf != NULL);
@@ -110,11 +117,10 @@ memcache_sub_unary(struct request *req, struct mbuf *buf)
         UNARY_SENTINEL
     } token;
 
-    token = r->token;
+    token = (enum token_unary)req->token;
     ASSERT(token >= UNARY_START && token < UNARY_SENTINEL);
 
-    /* only advance rpos if a token is completely read/identified */
-    token = mbuf->rpos;
+    /* unary commands are a special as it expects nothing but CRLF */
     for (p = mbuf->rpos; p < wpos; p++) {
         uint8_t ch = *p;
 
@@ -122,6 +128,7 @@ memcache_sub_unary(struct request *req, struct mbuf *buf)
         case UANRY_START:
             if (ch == CR) {
                 token = UNARY_CRLF;
+                mbuf->rpos = p;
             } else if (ch == ' ') {
                 log_debug(LOG_VERB, "unnecessary white space in unary command");
             } else {
@@ -132,6 +139,7 @@ memcache_sub_unary(struct request *req, struct mbuf *buf)
 
         case UNARY_CRLF:
             if (ch == LF) {
+                /* end state */
                 mbuf->rpos = p + 1;
                 return CC_OK;
             } else {
@@ -151,7 +159,7 @@ memcache_sub_unary(struct request *req, struct mbuf *buf)
 static rstatus_t
 memcache_sub_delete(struct request *req, struct mbuf *buf)
 {
-    uint8_t *token;
+    uint8_t *p, *pt;
 
     ASSERT(req != NULL);
     ASSERT(buf != NULL);
@@ -164,27 +172,28 @@ memcache_sub_delete(struct request *req, struct mbuf *buf)
         DELETE_SENTINEL
     } token;
 
-    token = r->token;
+    token = (enum token_delete)r->token;
     ASSERT(state >= DELETE_START && state < DELETE_SENTINEL);
 
-    /* only advance rpos if a token is completely read/identified */
-    token = mbuf->rpos;
+    /*
+     * pt always points to the start of the current token.
+     * rpos in mbuf is only advanced if a token is fully parsed.
+     */
+    pt = mbuf->rpos;
     for (p = mbuf->rpos; p < wpos; p++) {
         uint8_t ch = *p;
 
         switch (token) {
-        case UANRY_START:
-            if (ch == CR) {
-                state = UNARY_CRLF;
-            } else if (ch == ' ') {
-                log_debug(LOG_VERB, "unnecessary white space in unary command");
-            } else {
-                req->swallow = true;
-                return CC_ERROR;
+        case DELETE_START:
+            if (ch != ' ') {
+                token = DELETE_KEY;
             }
             break;
 
-        case UNARY_CRLF:
+        case DELETE_KEY:
+            if (ch == ' ' || ch == CR) {
+            }
+        case DELETE_CRLF:
             if (ch == LF) {
                 mbuf->rpos = p + 1;
                 return CC_OK;
