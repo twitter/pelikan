@@ -11,8 +11,6 @@
 #define MAX_TOKEN_LEN 256
 #define MAX_BATCH_SIZE 50
 
-#define INT64_MAXLEN 20
-
 typedef enum request_state {
     PARSING,
     EXECUTING,
@@ -22,10 +20,9 @@ typedef enum request_state {
 } request_state_t;
 
 typedef enum parse_state {
-    REQ_START,
-    REQ_VERB,
-    REQ_POST_VERB,
-    REQ_SENTINEL
+    VERB,
+    POST_VERB,
+    SENTINEL
 } parse_state_t;
 
 typedef enum request_verb {
@@ -35,8 +32,11 @@ typedef enum request_verb {
     ADD,
     REPLACE,
     DELETE,
+    CAS,
     INCR,
     DECR,
+    APPEND,
+    PREPEND,
     STATS,
     QUIT,
     RV_SENTINEL
@@ -56,17 +56,6 @@ typedef enum token_retrieve {
     RETRIEVE_KEYS,
     RETRIEVE_CRLF,
     RETRIEVE_SENTINEL
-} token_retrieve_t;
-
-typedef enum token_storage {
-    TOKEN_STORAGE_START,
-    TOKEN_STORAGE_KEY,
-    TOKEN_STORAGE_FLAG,
-    TOKEN_STORAGE_EXPIRE,
-    TOKEN_STORAGE_VLEN,
-    TOKEN_STORAGE_NOREPLY,
-    TOKEN_STORAGE_CRLF,
-    TOKEN_STORAGE_SENTINEL
 } token_retrieve_t;
 
 struct token {
@@ -118,6 +107,12 @@ _memcache_mark_serror(struct request *req, struct mbuf *buf, uint8_t *npos)
 static inline void
 _memcache_mark_cerror(struct request *req, struct mbuf *buf, uint8_t *npos)
 {
+    /*
+     * NOTE(yao): swallow always runs to the next CRLF, so if we set npos to be
+     * after the current one, we run the risk of swallowing another request that
+     * might have been totally legit.
+     * Therefore, call this cerror with the new position right at or before CRLF
+     */
     req->swallow = true;
     req->cerror = true;
 
@@ -239,7 +234,8 @@ memcache_sub_unary(struct request *req, struct mbuf *buf)
 
 
 static inline rstatus_t
-_memcache_check_key(struct request *req, struct mbuf *buf, struct token *t, bool *end, uint8_t *p)
+_memcache_check_key(struct request *req, struct mbuf *buf, bool *end,
+        struct token *t, uint8_t *p)
 {
     rstatus_t status;
     struct token *k; /* a key token */
@@ -258,17 +254,13 @@ _memcache_check_key(struct request *req, struct mbuf *buf, struct token *t, bool
             if (t->len == 0) {
                 log_warn("ill formatted request: no key provided");
 
-                _memcache_mark_cerror(req, buf, p + CRLF_LEN);
-
-                return CC_ERROR;
+                goto key_cerror;
             }
 
             if (!*end) {
                 log_warn("ill formatted request: missing field(s)");
 
-                _memcache_mark_cerror(req, buf, p + CRLF_LEN);
-
-                return CC_ERROR;
+                goto key_cerror;
             } else {
                 complete = true;
             }
@@ -301,6 +293,11 @@ _memcache_check_key(struct request *req, struct mbuf *buf, struct token *t, bool
     }
 
     return CC_UNFIN;
+
+error:
+    _memcache_mark_cerror(req, buf, p);
+
+    return CC_ERROR;
 }
 
 
@@ -318,7 +315,7 @@ _memcache_chase_key(struct request *req, struct mbuf *buf, bool *end)
             return CC_ERROR;
         }
 
-        status = _memcache_check_key(req, buf, &t, end, p);
+        status = _memcache_check_key(req, buf, end, &t, p);
         switch (status) {
         case CC_UNFIN:
             break;
@@ -339,7 +336,8 @@ _memcache_chase_key(struct request *req, struct mbuf *buf, bool *end)
 
 
 static inline rstatus_t
-_memcache_check_noreply(struct request *req, struct mbuf *buf, struct token *t, bool *end, uint8_t *p)
+_memcache_check_noreply(struct request *req, struct mbuf *buf, bool *end,
+        struct token *t, uint8_t *p)
 {
     bool complete = false;
     /* *end should always be true according to the protocol */
@@ -401,7 +399,7 @@ _memcache_chase_noreply(struct request *req, struct mbuf *buf, bool *end)
             return CC_ERROR;
         }
 
-        status = _memcache_check_noreply(req, buf, &t, end, p);
+        status = _memcache_check_noreply(req, buf, end, &t, p);
         switch (status) {
         case CC_UNFIN:
             break;
@@ -420,11 +418,9 @@ _memcache_chase_noreply(struct request *req, struct mbuf *buf, bool *end)
 }
 
 
-/* parse delete command (post verb) */
 static rstatus_t
-memcache_sub_delete(struct request *req, struct mbuf *buf)
+memcache_delete(struct request *req, struct mbuf *buf)
 {
-    uint8_t *p;
     rstatus_t status;
     bool end;
 
@@ -439,7 +435,7 @@ memcache_sub_delete(struct request *req, struct mbuf *buf)
     } tstate;
 
     tstate = (enum token_delete)req->tstate;
-    ASSERT(tstate >= DELETE_START && tstate < DELETE_SENTINEL);
+    ASSERT(tstate >= DELETE_KEY && tstate < DELETE_SENTINEL);
 
     switch (tstate) {
     case DELETE_KEY:
@@ -471,7 +467,8 @@ memcache_sub_delete(struct request *req, struct mbuf *buf)
 
 
 static inline rstatus_t
-_memcache_check_uint(uint64_t *num, struct request *req, struct mbuf *buf, struct token *t, bool *end, uint8_t *p, uint64_t max)
+_memcache_check_uint(uint64_t *num, struct request *req, struct mbuf *buf,
+        bool *end, struct token *t, uint8_t *p, uint64_t max)
 {
     bool complete = false;
 
@@ -488,17 +485,13 @@ _memcache_check_uint(uint64_t *num, struct request *req, struct mbuf *buf, struc
             if (t->len == 0) {
                 log_warn("ill formatted request: no integer provided");
 
-                _memcache_mark_cerror(req, buf, p + CRLF_LEN);
-
-                return CC_ERROR;
+                goto error;
             }
 
             if (!*end) {
                 log_warn("ill formatted request: missing field(s)");
 
-                _memcache_mark_cerror(req, buf, p + CRLF_LEN);
-
-                return CC_ERROR;
+                goto error;
             } else {
                 complete = true;
             }
@@ -515,9 +508,7 @@ _memcache_check_uint(uint64_t *num, struct request *req, struct mbuf *buf, struc
 
             log_warn("ill formatted request: integer too big");
 
-            _memcache_mark_cerror(req, buf, p + 1);
-
-            return CC_ERROR;
+            goto error;
         }
 
         t->len++;
@@ -527,24 +518,27 @@ _memcache_check_uint(uint64_t *num, struct request *req, struct mbuf *buf, struc
     } else {
         log_warn("ill formatted request: non-digit char in integer field");
 
-        _memcache_mark_cerror(req, buf, p + 1);
-
-        return CC_ERROR;
+        goto error;
     }
 
     return CC_UNFIN;
+
+error:
+    _memcache_mark_cerror(req, buf, p);
+
+    return CC_ERROR;
 }
 
 
 static rstatus_t
-_memcache_chase_delta(struct request *req, struct mbuf *buf, bool *crlf)
+_memcache_chase_uint(uint64_t *num, struct request *req, struct mbuf *buf,
+        bool *end, uint64_t max)
 {
     uint8_t *p;
     rstatus_t status;
     struct token t;
-    int64_t delta;
 
-    delta = 0;
+    *num = 0;
     _memcache_token_init(&t);
     for (p = mbuf->rpos; p < wpos; p++) {
         status = _memcache_token_check_size(req, buf, p);
@@ -552,14 +546,12 @@ _memcache_chase_delta(struct request *req, struct mbuf *buf, bool *crlf)
             return CC_ERROR;
         }
 
-        status = _memcache_check_integer(&delta, req, buf, &t, p, INT64_MAX);
+        status = _memcache_check_uint(num, req, buf, &t, end, p, max);
         switch (status) {
         case CC_UNFIN:
             break;
 
         case CC_OK:
-            req->delta = delta;
-
         case CC_ERROR: /* fall-through intended */
             return status;
 
@@ -573,13 +565,11 @@ _memcache_chase_delta(struct request *req, struct mbuf *buf, bool *crlf)
 }
 
 
-
-/* parse delete command (post verb) */
 static rstatus_t
-memcache_sub_numeric(struct request *req, struct mbuf *buf)
+memcache_arithmetic(struct request *req, struct mbuf *buf)
 {
-    uint8_t *p;
     rstatus_t status;
+    uint64_t delta;
     bool end;
 
     ASSERT(req != NULL);
@@ -594,13 +584,12 @@ memcache_sub_numeric(struct request *req, struct mbuf *buf)
     } tstate;
 
     tstate = (enum token_numeric)req->tstate;
-    ASSERT(tstate >= NUMERIC_START && tstate < NUMERIC_SENTINEL);
+    ASSERT(tstate >= NUMERIC_KEY && tstate < NUMERIC_SENTINEL);
 
     switch (tstate) {
     case NUMERIC_KEY:
         end = false;
         status = _memcache_chase_key(req, buf, &end);
-
         if (status != CC_OK) {
             return status;
         }
@@ -609,8 +598,11 @@ memcache_sub_numeric(struct request *req, struct mbuf *buf)
 
     case NUMERIC_DELTA: /* fall-through intended */
         end = true;
-        status = _memcache_chase_delta(req, buf, &end);
-
+        delta = 0;
+        status = _memcache_chase_uint(&delta, req, buf, &end, INT64_MAX);
+        if (status== CC_OK) {
+            req->delta = (int64_t)delta;
+        }
         if (status != CC_OK || *end) {
             return status;
         }
@@ -620,7 +612,7 @@ memcache_sub_numeric(struct request *req, struct mbuf *buf)
     case NUMERIC_NOREPLY: /* fall-through intended */
         end = true;
         status = _memcache_chase_noreply(req, buf, &end);
-        if (status != CC_OK || crlf) {
+        if (status != CC_OK || *end) {
             return status;
         }
 
@@ -634,6 +626,97 @@ memcache_sub_numeric(struct request *req, struct mbuf *buf)
         break;
     }
 }
+
+
+static rstatus_t
+memcache_store(struct request *req, struct mbuf *buf)
+{
+    uint8_t *p;
+    rstatus_t status;
+    uint64_t num;
+    bool end;
+
+    ASSERT(req != NULL);
+    ASSERT(buf != NULL);
+
+    enum token_store {
+        STORE_KEY = 0,
+        STORE_FLAG,
+        STORE_EXPIRE,
+        STORE_VLEN,
+        STORE_NOREPLY,
+        STORE_CRLF,
+        STORE_SENTINEL
+    } tstate;
+
+    tstate = (enum token_store)req->tstate;
+    ASSERT(tstate >= STORE_KEY && tstate < STORE_SENTINEL);
+
+    switch (tstate) {
+    case STORE_KEY:
+        end = false;
+        status = _memcache_chase_key(req, buf, &end);
+        if (status != CC_OK) {
+            return status;
+        }
+
+        req->tstate = STORE_FLAG;
+
+    case STORE_FLAG: /* fall-through intended */
+        end = false;
+        num = 0;
+        status = _memcache_chase_uint(&num, req, buf, &end, UINT32_MAX);
+        if (status== CC_OK) {
+            req->flag = (uint32_t)num;
+        } else {
+            return status;
+        }
+
+        req->tstate = STORE_EXPIRE;
+
+    case STORE_EXPIRE: /* fall-through intended */
+        end = false;
+        num = 0;
+        status = _memcache_chase_uint(&num, req, buf, &end, UINT32_MAX);
+        if (status== CC_OK) {
+            req->flag = (uint32_t)num;
+        } else {
+            return status;
+        }
+
+        req->tstate = STORE_VLEN;
+
+    case STORE_VLEN: /* fall-through intended */
+        end = true;
+        num = 0;
+        status = _memcache_chase_uint(&num, req, buf, &end, UINT32_MAX);
+        if (status== CC_OK) {
+            req->vlen = (uint32_t)num;
+        }
+        if (status != CC_OK || end) {
+            return status;
+        }
+
+        req->tstate = STORE_NOREPLY;
+
+    case STORE_NOREPLY: /* fall-through intended */
+        end = true;
+        status = _memcache_chase_noreply(req, buf, &end);
+        if (status != CC_OK || end) {
+            return status;
+        }
+
+        req->tstate = STORE_CRLF;
+
+    case STORE_CRLF: /* fall-through intended */
+        return _memcache_chase_crlf(req, buf);
+
+    default:
+        NOT_REACHED();
+        break;
+    }
+}
+
 
 /* parse the first line / "header" according to memcache ASCII protocol */
 void
