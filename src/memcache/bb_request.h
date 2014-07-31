@@ -1,6 +1,7 @@
 #ifndef __BB_MEMCACHE_H__
 #define __BB_MEMCACHE_H__
 
+#include <cc_define.h>
 #include <cc_mbuf.h>
 
 #define MAX_KEY_LEN 250
@@ -39,15 +40,6 @@ typedef enum request_verb {
     RV_SENTINEL
 } request_verb_t;
 
-typedef enum request_type {
-    UNARY,
-    DELETE,
-    RETRIEVE,
-    STORE,
-    ARITHMETIC,
-    RT_SENTINEL
-} request_type_t;
-
 struct token {
     uint32_t len; /* size of the key */
     uint8_t *pos; /* start position of the key (in rbuf) */
@@ -61,11 +53,10 @@ struct token {
  */
 struct request {
     request_state_t rstate;     /* request state */
-    request_parse_t pstate;     /* parsing state */
+    parse_state_t   pstate;     /* parsing state */
     int             tstate;     /* token state */
 
     request_verb_t  verb;
-    request_type_t  type;
 
     struct array    *keys;      /* element is of struct token type */
 
@@ -81,8 +72,8 @@ struct request {
     unsigned        swallow:1;  /* caused by either client or server error */
 };
 
-void request_init(struct request *req);
-rstatus_t request_reset(struct request *req);
+rstatus_t request_init(struct request *req);
+void request_reset(struct request *req);
 rstatus_t request_parse_hdr(struct request *req, struct mbuf *buf);
 
 #endif

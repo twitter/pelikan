@@ -5,6 +5,7 @@
 #include <cc_define.h>
 #include <cc_mbuf.h>
 #include <cc_mm.h>
+#include <cc_string.h>
 #include <cc_util.h>
 
 #include <memcache/bb_request.h>
@@ -65,7 +66,7 @@ _token_start(struct token *t, uint8_t *p)
  */
 
 static inline rstatus_t
-_token_check_size(struct request req, struct mbuf *buf, uint8_t *p)
+_token_check_size(struct request *req, struct mbuf *buf, uint8_t *p)
 {
     /* TODO(yao): allow caller to provide token size limit for each field*/
     if (p - buf->rpos >= MAX_TOKEN_LEN) {
@@ -106,7 +107,7 @@ _chase_crlf(struct request *req, struct mbuf *buf)
     uint8_t *p;
     rstatus_t status;
 
-    for (p = mbuf->rpos; p < wpos; p++) {
+    for (p = buf->rpos; p < buf->wpos; p++) {
         status = _token_check_size(req, buf, p);
         if (status != CC_OK) {
             return CC_ERROR;
@@ -200,7 +201,7 @@ _check_key(struct request *req, struct mbuf *buf, bool *end,
 
         k->pos = t->pos;
         k->len = t->len;
-        buf->rpos = p + *end ? CRLF_LEN : 1;
+        buf->rpos = *end ? (p + CRLF_LEN) : (p + 1);
 
         return CC_OK;
     }
@@ -224,6 +225,7 @@ error:
 static inline rstatus_t
 _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, uint8_t *p)
 {
+    rstatus_t status;
     bool complete = false;
     /* *end should always be true according to the protocol */
 
@@ -252,22 +254,22 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
 
         switch (p - t->pos) {
         case 3:
-            if (str3cmp(m, 'g', 'e', 't')) {
+            if (str3cmp(t->pos, 'g', 'e', 't')) {
                 req->verb = GET;
                 break;
             }
 
-            if (str3cmp(m, 's', 'e', 't')) {
+            if (str3cmp(t->pos, 's', 'e', 't')) {
                 req->verb = SET;
                 break;
             }
 
-            if (str3cmp(m, 'a', 'd', 'd')) {
+            if (str3cmp(t->pos, 'a', 'd', 'd')) {
                 req->verb = ADD;
                 break;
             }
 
-            if (str3cmp(m, 'c', 'a', 's')) {
+            if (str3cmp(t->pos, 'c', 'a', 's')) {
                 req->verb = ADD;
                 break;
             }
@@ -275,22 +277,22 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
             break;
 
         case 4:
-            if (str4cmp(m, 'g', 'e', 't', 's')) {
+            if (str4cmp(t->pos, 'g', 'e', 't', 's')) {
                 req->verb = GETS;
                 break;
             }
 
-            if (str4cmp(m, 'i', 'n', 'c', 'r')) {
+            if (str4cmp(t->pos, 'i', 'n', 'c', 'r')) {
                 req->verb = INCR;
                 break;
             }
 
-            if (str4cmp(m, 'd', 'e', 'c', 'r')) {
+            if (str4cmp(t->pos, 'd', 'e', 'c', 'r')) {
                 req->verb = DECR;
                 break;
             }
 
-            if (str4cmp(m, 'q', 'u', 'i', 't')) {
+            if (str4cmp(t->pos, 'q', 'u', 'i', 't')) {
                 req->verb = QUIT;
                 break;
             }
@@ -298,7 +300,7 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
             break;
 
         case 5:
-            if (str5cmp(m, 's', 't', 'a', 't', 's')) {
+            if (str5cmp(t->pos, 's', 't', 'a', 't', 's')) {
                 req->verb = STATS;
                 break;
             }
@@ -306,12 +308,12 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
             break;
 
         case 6:
-            if (str6cmp(m, 'd', 'e', 'l', 'e', 't', 'e')) {
+            if (str6cmp(t->pos, 'd', 'e', 'l', 'e', 't', 'e')) {
                 req->verb = DELETE;
                 break;
             }
 
-            if (str6cmp(m, 'a', 'p', 'p', 'e', 'n', 'd')) {
+            if (str6cmp(t->pos, 'a', 'p', 'p', 'e', 'n', 'd')) {
                 req->verb = APPEND;
                 break;
             }
@@ -319,12 +321,12 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
             break;
 
         case 7:
-            if (str7cmp(m, 'r', 'e', 'p', 'l', 'a', 'c', 'e')) {
+            if (str7cmp(t->pos, 'r', 'e', 'p', 'l', 'a', 'c', 'e')) {
                 req->verb = REPLACE;
                 break;
             }
 
-            if (str7cmp(m, 'p', 'r', 'e', 'p', 'e', 'n', 'd')) {
+            if (str7cmp(t->pos, 'p', 'r', 'e', 'p', 'e', 'n', 'd')) {
                 req->verb = PREPEND;
                 break;
             }
@@ -337,7 +339,7 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
 
             return CC_ERROR;
         } else {
-            buf->rpos = p + *end ? CRLF_LEN : 1;
+            buf->rpos = *end ? (p + CRLF_LEN) : (p + 1);
 
             return CC_OK;
         }
@@ -351,12 +353,18 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
     }
 
     return CC_UNFIN;
+
+error:
+    _mark_cerror(req, buf, p);
+
+    return CC_ERROR;
 }
 
 
 static inline rstatus_t
 _check_noreply(struct request *req, struct mbuf *buf, bool *end, struct token *t, uint8_t *p)
 {
+    rstatus_t status;
     bool complete = false;
     /* *end should always be true according to the protocol */
 
@@ -383,7 +391,7 @@ _check_noreply(struct request *req, struct mbuf *buf, bool *end, struct token *t
     if (complete) {
         if (t->len == 7 && str7cmp(t->pos, 'n', 'o', 'r', 'e', 'p', 'l', 'y')) {
             req->noreply = 1;
-            buf->rpos = p + *end ? CRLF_LEN : 1;
+            buf->rpos = *end ? (p + CRLF_LEN) : (p + 1);
 
             return CC_OK;
         } else {
@@ -411,7 +419,7 @@ _chase_string(struct request *req, struct mbuf *buf, bool *end, check_token_t ch
     struct token t;
 
     _token_init(&t);
-    for (p = mbuf->rpos; p < wpos; p++) {
+    for (p = buf->rpos; p < buf->wpos; p++) {
         status = _token_check_size(req, buf, p);
         if (status != CC_OK) {
             return CC_ERROR;
@@ -440,6 +448,7 @@ static inline rstatus_t
 _check_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
         struct token *t, uint8_t *p, uint64_t max)
 {
+    rstatus_t status;
     bool complete = false;
 
     if (*p == ' ' && t->len == 0) { /* pre-key spaces */
@@ -482,7 +491,8 @@ _check_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
         }
 
         t->len++;
-        *num = *num * 10ULL + (uint64_t)(*p - '0');
+        *num = *num * 10ULL;
+        *num += (uint64_t)(*p - '0');
 
         return CC_UNFIN;
     } else {
@@ -510,13 +520,13 @@ _chase_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
 
     *num = 0;
     _token_init(&t);
-    for (p = mbuf->rpos; p < wpos; p++) {
+    for (p = buf->rpos; p < buf->wpos; p++) {
         status = _token_check_size(req, buf, p);
         if (status != CC_OK) {
             return CC_ERROR;
         }
 
-        status = _check_uint(num, req, buf, &t, end, p, max);
+        status = _check_uint(num, req, buf, end, &t, p, max);
         switch (status) {
         case CC_UNFIN:
             break;
@@ -542,41 +552,44 @@ _subrequest_delete(struct request *req, struct mbuf *buf)
     bool end;
 
     enum token_delete {
-        KEY = 0,
-        NOREPLY,
-        CRLF,
-        SENTINEL
+        T_KEY = 0,
+        T_NOREPLY,
+        T_CRLF,
+        T_SENTINEL
     } tstate;
 
     tstate = (enum token_delete)req->tstate;
-    ASSERT(tstate >= KEY && tstate < SENTINEL);
+    ASSERT(tstate >= T_KEY && tstate < T_SENTINEL);
 
     switch (tstate) {
-    case KEY:
+    case T_KEY:
         end = true;
         status = _chase_string(req, buf, &end, &_check_key);
         if (status != CC_OK || end) {
             return status;
         }
 
-        req->tstate = NOREPLY;
+        req->tstate = T_NOREPLY;
 
-    case NOREPLY: /* fall-through intended */
+    case T_NOREPLY: /* fall-through intended */
         end = true;
         status = _chase_string(req, buf, &end, &_check_noreply);
         if (status != CC_OK || end) {
             return status;
         }
 
-        req->tstate = CRLF;
+        req->tstate = T_CRLF;
 
-    case CRLF: /* fall-through intended */
+    case T_CRLF: /* fall-through intended */
         return _chase_crlf(req, buf);
 
     default:
         NOT_REACHED();
         break;
     }
+
+    NOT_REACHED();
+    return CC_ERROR;
 }
 
 
@@ -588,90 +601,93 @@ _subrequest_arithmetic(struct request *req, struct mbuf *buf)
     bool end;
 
     enum token_arithmetic {
-        KEY = 0,
-        DELTA,
-        NOREPLY,
-        CRLF,
-        SENTINEL
+        T_KEY = 0,
+        T_DELTA,
+        T_NOREPLY,
+        T_CRLF,
+        T_SENTINEL
     } tstate;
 
     tstate = (enum token_arithmetic)req->tstate;
-    ASSERT(tstate >= KEY && tstate < SENTINEL);
+    ASSERT(tstate >= T_KEY && tstate < T_SENTINEL);
 
     switch (tstate) {
-    case KEY:
+    case T_KEY:
         end = false;
         status = _chase_string(req, buf, &end, &_check_key);
         if (status != CC_OK) {
             return status;
         }
 
-        req->tstate = DELTA;
+        req->tstate = T_DELTA;
 
-    case DELTA: /* fall-through intended */
+    case T_DELTA: /* fall-through intended */
         end = true;
         delta = 0;
         status = _chase_uint(&delta, req, buf, &end, INT64_MAX);
         if (status== CC_OK) {
             req->delta = (int64_t)delta;
         }
-        if (status != CC_OK || *end) {
+        if (status != CC_OK || end) {
             return status;
         }
 
-        req->tstate = NOREPLY;
+        req->tstate = T_NOREPLY;
 
-    case NOREPLY: /* fall-through intended */
+    case T_NOREPLY: /* fall-through intended */
         end = true;
         status = _chase_string(req, buf, &end, &_check_noreply);
-        if (status != CC_OK || *end) {
+        if (status != CC_OK || end) {
             return status;
         }
 
-        req->tstate = CRLF;
+        req->tstate = T_CRLF;
 
-    case CRLF: /* fall-through intended */
+    case T_CRLF: /* fall-through intended */
         return _chase_crlf(req, buf);
 
     default:
         NOT_REACHED();
         break;
     }
+
+    NOT_REACHED();
+    return CC_ERROR;
 }
 
 
 static rstatus_t
 _subrequest_store(struct request *req, struct mbuf *buf, bool cas)
 {
-    uint8_t *p;
     rstatus_t status;
     uint64_t num;
     bool end;
 
     enum token_store {
-        KEY = 0,
-        FLAG,
-        EXPIRE,
-        VLEN,
-        NOREPLY,
-        CRLF,
-        SENTINEL
+        T_KEY = 0,
+        T_FLAG,
+        T_EXPIRE,
+        T_VLEN,
+        T_CAS,
+        T_NOREPLY,
+        T_CRLF,
+        T_SENTINEL
     } tstate;
 
     tstate = (enum token_store)req->tstate;
-    ASSERT(tstate >= KEY && tstate < SENTINEL);
+    ASSERT(tstate >= T_KEY && tstate < T_SENTINEL);
 
     switch (tstate) {
-    case KEY:
+    case T_KEY:
         end = false;
         status = _chase_string(req, buf, &end, &_check_key);
         if (status != CC_OK) {
             return status;
         }
 
-        req->tstate = FLAG;
+        req->tstate = T_FLAG;
 
-    case FLAG: /* fall-through intended */
+    case T_FLAG: /* fall-through intended */
         end = false;
         num = 0;
         status = _chase_uint(&num, req, buf, &end, UINT32_MAX);
@@ -681,9 +697,9 @@ _subrequest_store(struct request *req, struct mbuf *buf, bool cas)
             return status;
         }
 
-        req->tstate = EXPIRE;
+        req->tstate = T_EXPIRE;
 
-    case EXPIRE: /* fall-through intended */
+    case T_EXPIRE: /* fall-through intended */
         end = false;
         num = 0;
         status = _chase_uint(&num, req, buf, &end, UINT32_MAX);
@@ -693,9 +709,9 @@ _subrequest_store(struct request *req, struct mbuf *buf, bool cas)
             return status;
         }
 
-        req->tstate = VLEN;
+        req->tstate = T_VLEN;
 
-    case VLEN: /* fall-through intended */
+    case T_VLEN: /* fall-through intended */
         if (cas) {
             end = false;
         } else {
@@ -710,9 +726,9 @@ _subrequest_store(struct request *req, struct mbuf *buf, bool cas)
             return status;
         }
 
-        req->tstate = cas ? CAS : NOREPLY;
+        req->tstate = cas ? T_CAS : T_NOREPLY;
 
-    case CAS: /* fall-through intended */
+    case T_CAS: /* fall-through intended */
         if (cas) {
             end = true;
             num = 0;
@@ -724,25 +740,28 @@ _subrequest_store(struct request *req, struct mbuf *buf, bool cas)
                 return status;
             }
 
-            req->tstate = NOREPLY;
+            req->tstate = T_NOREPLY;
         }
 
-    case NOREPLY: /* fall-through intended */
+    case T_NOREPLY: /* fall-through intended */
         end = true;
         status = _chase_string(req, buf, &end, &_check_noreply);
         if (status != CC_OK || end) {
             return status;
         }
 
-        req->tstate = CRLF;
+        req->tstate = T_CRLF;
 
-    case CRLF: /* fall-through intended */
+    case T_CRLF: /* fall-through intended */
         return _chase_crlf(req, buf);
 
     default:
         NOT_REACHED();
         break;
     }
+
+    NOT_REACHED();
+    return CC_ERROR;
 }
 
 
@@ -759,6 +778,9 @@ _subrequest_retrieve(struct request *req, struct mbuf *buf)
             return status;
         }
     }
+
+    NOT_REACHED();
+    return CC_ERROR;
 }
 
 void
@@ -800,14 +822,17 @@ rstatus_t request_init(struct request *req)
 rstatus_t
 request_parse_hdr(struct request *req, struct mbuf *buf)
 {
-    rstatus_t status;
+    rstatus_t status = CC_ERROR;
+    bool end = false;
+
 
     ASSERT(req != NULL);
     ASSERT(buf != NULL);
     ASSERT(req->rstate == PARSING);
+    ASSERT(req->pstate == VERB || req->pstate == POST_VERB);
 
     if (req->pstate == VERB) {
-        bool end = true;
+        end = true;
 
         status = _chase_string(req, buf, &end, &_check_verb);
         if (status == CC_OK) {
@@ -824,13 +849,20 @@ request_parse_hdr(struct request *req, struct mbuf *buf)
             status = _subrequest_retrieve(req, buf);
             break;
 
+        case DELETE:
+            status = _subrequest_delete(req, buf);
+
         case ADD:
         case SET:
         case REPLACE:
         case APPEND:
         case PREPEND:
+            status = _subrequest_store(req, buf, false);
+
+            break;
+
         case CAS:
-            status = _subrequest_store(req, buf);
+            status = _subrequest_store(req, buf, true);
 
             break;
 
@@ -842,7 +874,12 @@ request_parse_hdr(struct request *req, struct mbuf *buf)
 
         case STATS:
         case QUIT:
-            if (!*end) {
+            if (!end) {
+                /*
+                 * If pstate was POST_VERB when this function is called, end
+                 * cannot be true, as the only time we quit without a full
+                 * request is when the request is 'unfinished'.
+                 */
                 req->swallow = 1;
 
                 return CC_ERROR;
