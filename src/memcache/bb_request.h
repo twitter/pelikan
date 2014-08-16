@@ -10,6 +10,7 @@ struct request;
 
 typedef enum request_state {
     PARSING,
+    PARSED,
     EXECUTING,
     REPLYING,
     DONE,
@@ -40,12 +41,6 @@ typedef enum request_verb {
     RV_SENTINEL
 } request_verb_t;
 
-struct token {
-    uint32_t len; /* size of the key */
-    uint8_t *pos; /* start position of the key (in rbuf) */
-};
-
-
 /*
  * NOTE(yao): we store key and value as location in rbuf, this assumes the data
  * will not be overwritten before the current request is completed.
@@ -58,7 +53,7 @@ struct request {
 
     request_verb_t  verb;
 
-    struct array    *keys;      /* element is of struct token type */
+    struct array    *keys;      /* element is of string type (in cc_string.h) */
 
     uint32_t        flag;
     uint32_t        expiry;

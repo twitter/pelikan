@@ -36,11 +36,11 @@ START_TEST(test_request_parse_hdr)
 
     request_init(&req);
     buf = mbuf_get();
-    cmd = "quit\r\n";
+    cmd = "delete foo\r\n";
     mbuf_copy(buf, cmd, cc_strlen(cmd));
     ret = request_parse_hdr(&req, buf);
     ck_assert(ret == CC_OK);
-    ck_assert_msg(req.verb == QUIT);
+    ck_assert_msg(req.verb == DELETE);
 }
 END_TEST
 

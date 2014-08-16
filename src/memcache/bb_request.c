@@ -14,7 +14,7 @@
 #define MAX_BATCH_SIZE 50
 
 typedef rstatus_t (*check_token_t)(struct request *req, struct mbuf *buf,
-        bool *end, struct token *t, uint8_t *p);
+        bool *end, struct string *t, uint8_t *p);
 
 static inline void
 _mark_serror(struct request *req, struct mbuf *buf, uint8_t *npos)
@@ -44,19 +44,11 @@ _mark_cerror(struct request *req, struct mbuf *buf, uint8_t *npos)
     buf->rpos = npos;
 }
 
-/* NOTE(yao): if token proves useful outside of the parser we should move it out */
 static inline void
-_token_init(struct token *t)
+_token_start(struct string *t, uint8_t *p)
 {
-    t->len = 0;
-    t->pos = NULL;
-}
-
-static inline void
-_token_start(struct token *t, uint8_t *p)
-{
-    t->pos = p;
     t->len = 1;
+    t->data = p;
 }
 
 /*
@@ -149,10 +141,10 @@ _chase_crlf(struct request *req, struct mbuf *buf)
 
 static inline rstatus_t
 _check_key(struct request *req, struct mbuf *buf, bool *end,
-        struct token *t, uint8_t *p)
+        struct string *t, uint8_t *p)
 {
     rstatus_t status;
-    struct token *k; /* a key token */
+    struct string *k; /* a key token */
     bool complete = false;
 
     if (*p == ' ' && t->len == 0) { /* pre-key spaces */
@@ -199,7 +191,7 @@ _check_key(struct request *req, struct mbuf *buf, bool *end,
         k = array_push(req->keys);
         /* push should never fail as keys are preallocated for MAX_BATCH_SIZE */
 
-        k->pos = t->pos;
+        k->data = t->data;
         k->len = t->len;
         buf->rpos = *end ? (p + CRLF_LEN) : (p + 1);
 
@@ -223,7 +215,7 @@ error:
 
 
 static inline rstatus_t
-_check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, uint8_t *p)
+_check_verb(struct request *req, struct mbuf *buf, bool *end, struct string *t, uint8_t *p)
 {
     rstatus_t status;
     bool complete = false;
@@ -252,24 +244,24 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
     if (complete) {
         ASSERT(req->verb == UNKNOWN);
 
-        switch (p - t->pos) {
+        switch (p - t->data) {
         case 3:
-            if (str3cmp(t->pos, 'g', 'e', 't')) {
+            if (str3cmp(t->data, 'g', 'e', 't')) {
                 req->verb = GET;
                 break;
             }
 
-            if (str3cmp(t->pos, 's', 'e', 't')) {
+            if (str3cmp(t->data, 's', 'e', 't')) {
                 req->verb = SET;
                 break;
             }
 
-            if (str3cmp(t->pos, 'a', 'd', 'd')) {
+            if (str3cmp(t->data, 'a', 'd', 'd')) {
                 req->verb = ADD;
                 break;
             }
 
-            if (str3cmp(t->pos, 'c', 'a', 's')) {
+            if (str3cmp(t->data, 'c', 'a', 's')) {
                 req->verb = ADD;
                 break;
             }
@@ -277,22 +269,22 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
             break;
 
         case 4:
-            if (str4cmp(t->pos, 'g', 'e', 't', 's')) {
+            if (str4cmp(t->data, 'g', 'e', 't', 's')) {
                 req->verb = GETS;
                 break;
             }
 
-            if (str4cmp(t->pos, 'i', 'n', 'c', 'r')) {
+            if (str4cmp(t->data, 'i', 'n', 'c', 'r')) {
                 req->verb = INCR;
                 break;
             }
 
-            if (str4cmp(t->pos, 'd', 'e', 'c', 'r')) {
+            if (str4cmp(t->data, 'd', 'e', 'c', 'r')) {
                 req->verb = DECR;
                 break;
             }
 
-            if (str4cmp(t->pos, 'q', 'u', 'i', 't')) {
+            if (str4cmp(t->data, 'q', 'u', 'i', 't')) {
                 req->verb = QUIT;
                 break;
             }
@@ -300,7 +292,7 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
             break;
 
         case 5:
-            if (str5cmp(t->pos, 's', 't', 'a', 't', 's')) {
+            if (str5cmp(t->data, 's', 't', 'a', 't', 's')) {
                 req->verb = STATS;
                 break;
             }
@@ -308,12 +300,12 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
             break;
 
         case 6:
-            if (str6cmp(t->pos, 'd', 'e', 'l', 'e', 't', 'e')) {
+            if (str6cmp(t->data, 'd', 'e', 'l', 'e', 't', 'e')) {
                 req->verb = DELETE;
                 break;
             }
 
-            if (str6cmp(t->pos, 'a', 'p', 'p', 'e', 'n', 'd')) {
+            if (str6cmp(t->data, 'a', 'p', 'p', 'e', 'n', 'd')) {
                 req->verb = APPEND;
                 break;
             }
@@ -321,12 +313,12 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct token *t, u
             break;
 
         case 7:
-            if (str7cmp(t->pos, 'r', 'e', 'p', 'l', 'a', 'c', 'e')) {
+            if (str7cmp(t->data, 'r', 'e', 'p', 'l', 'a', 'c', 'e')) {
                 req->verb = REPLACE;
                 break;
             }
 
-            if (str7cmp(t->pos, 'p', 'r', 'e', 'p', 'e', 'n', 'd')) {
+            if (str7cmp(t->data, 'p', 'r', 'e', 'p', 'e', 'n', 'd')) {
                 req->verb = PREPEND;
                 break;
             }
@@ -362,7 +354,7 @@ error:
 
 
 static inline rstatus_t
-_check_noreply(struct request *req, struct mbuf *buf, bool *end, struct token *t, uint8_t *p)
+_check_noreply(struct request *req, struct mbuf *buf, bool *end, struct string *t, uint8_t *p)
 {
     rstatus_t status;
     bool complete = false;
@@ -389,7 +381,7 @@ _check_noreply(struct request *req, struct mbuf *buf, bool *end, struct token *t
     }
 
     if (complete) {
-        if (t->len == 7 && str7cmp(t->pos, 'n', 'o', 'r', 'e', 'p', 'l', 'y')) {
+        if (t->len == 7 && str7cmp(t->data, 'n', 'o', 'r', 'e', 'p', 'l', 'y')) {
             req->noreply = 1;
             buf->rpos = *end ? (p + CRLF_LEN) : (p + 1);
 
@@ -416,9 +408,9 @@ _chase_string(struct request *req, struct mbuf *buf, bool *end, check_token_t ch
 {
     uint8_t *p;
     rstatus_t status;
-    struct token t;
+    struct string t;
 
-    _token_init(&t);
+    string_init(&t);
     for (p = buf->rpos; p < buf->wpos; p++) {
         status = _token_check_size(req, buf, p);
         if (status != CC_OK) {
@@ -446,7 +438,7 @@ _chase_string(struct request *req, struct mbuf *buf, bool *end, check_token_t ch
 
 static inline rstatus_t
 _check_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
-        struct token *t, uint8_t *p, uint64_t max)
+        struct string *t, uint8_t *p, uint64_t max)
 {
     rstatus_t status;
     bool complete = false;
@@ -516,10 +508,10 @@ _chase_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
 {
     uint8_t *p;
     rstatus_t status;
-    struct token t;
+    struct string t;
 
     *num = 0;
-    _token_init(&t);
+    string_init(&t);
     for (p = buf->rpos; p < buf->wpos; p++) {
         status = _token_check_size(req, buf, p);
         if (status != CC_OK) {
@@ -810,7 +802,7 @@ request_init(struct request *req)
 
     ASSERT(req != NULL);
 
-    status = array_create(&req->keys, MAX_BATCH_SIZE, sizeof(struct token));
+    status = array_create(&req->keys, MAX_BATCH_SIZE, sizeof(struct string));
     if (status != CC_OK) {
         return status;
     }
