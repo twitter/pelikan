@@ -14,7 +14,7 @@
 #define MAX_BATCH_SIZE 50
 
 typedef rstatus_t (*check_token_t)(struct request *req, struct mbuf *buf,
-        bool *end, struct string *t, uint8_t *p);
+        bool *end, struct bstring *t, uint8_t *p);
 
 static inline void
 _mark_serror(struct request *req, struct mbuf *buf, uint8_t *npos)
@@ -45,7 +45,7 @@ _mark_cerror(struct request *req, struct mbuf *buf, uint8_t *npos)
 }
 
 static inline void
-_token_start(struct string *t, uint8_t *p)
+_token_start(struct bstring *t, uint8_t *p)
 {
     t->len = 1;
     t->data = p;
@@ -141,10 +141,10 @@ _chase_crlf(struct request *req, struct mbuf *buf)
 
 static inline rstatus_t
 _check_key(struct request *req, struct mbuf *buf, bool *end,
-        struct string *t, uint8_t *p)
+        struct bstring *t, uint8_t *p)
 {
     rstatus_t status;
-    struct string *k; /* a key token */
+    struct bstring *k; /* a key token */
     bool complete = false;
 
     if (*p == ' ' && t->len == 0) { /* pre-key spaces */
@@ -215,7 +215,7 @@ error:
 
 
 static inline rstatus_t
-_check_verb(struct request *req, struct mbuf *buf, bool *end, struct string *t, uint8_t *p)
+_check_verb(struct request *req, struct mbuf *buf, bool *end, struct bstring *t, uint8_t *p)
 {
     rstatus_t status;
     bool complete = false;
@@ -354,7 +354,8 @@ error:
 
 
 static inline rstatus_t
-_check_noreply(struct request *req, struct mbuf *buf, bool *end, struct string *t, uint8_t *p)
+_check_noreply(struct request *req, struct mbuf *buf, bool *end,
+        struct bstring *t, uint8_t *p)
 {
     rstatus_t status;
     bool complete = false;
@@ -404,13 +405,14 @@ _check_noreply(struct request *req, struct mbuf *buf, bool *end, struct string *
 
 
 static rstatus_t
-_chase_string(struct request *req, struct mbuf *buf, bool *end, check_token_t checker)
+_chase_string(struct request *req, struct mbuf *buf, bool *end,
+        check_token_t checker)
 {
     uint8_t *p;
     rstatus_t status;
-    struct string t;
+    struct bstring t;
 
-    string_init(&t);
+    bstring_init(&t);
     for (p = buf->rpos; p < buf->wpos; p++) {
         status = _token_check_size(req, buf, p);
         if (status != CC_OK) {
@@ -438,7 +440,7 @@ _chase_string(struct request *req, struct mbuf *buf, bool *end, check_token_t ch
 
 static inline rstatus_t
 _check_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
-        struct string *t, uint8_t *p, uint64_t max)
+        struct bstring *t, uint8_t *p, uint64_t max)
 {
     rstatus_t status;
     bool complete = false;
@@ -508,10 +510,10 @@ _chase_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
 {
     uint8_t *p;
     rstatus_t status;
-    struct string t;
+    struct bstring t;
 
     *num = 0;
-    string_init(&t);
+    bstring_init(&t);
     for (p = buf->rpos; p < buf->wpos; p++) {
         status = _token_check_size(req, buf, p);
         if (status != CC_OK) {
@@ -556,7 +558,7 @@ _subrequest_delete(struct request *req, struct mbuf *buf)
     switch (tstate) {
     case T_KEY:
         end = true;
-        status = _chase_string(req, buf, &end, &_check_key);
+        status = _chase_string(req, buf, &end, _check_key);
         if (status != CC_OK || end) {
             return status;
         }
@@ -795,20 +797,33 @@ request_reset(struct request *req)
     req->swallow = 0;
 }
 
-rstatus_t
-request_init(struct request *req)
+struct request *
+request_create()
 {
     rstatus_t status;
+    struct request *req = cc_alloc(sizeof(struct request));
 
-    ASSERT(req != NULL);
+    if (req == NULL) {
+        return NULL;
+    }
 
-    status = array_create(&req->keys, MAX_BATCH_SIZE, sizeof(struct string));
+    status = array_create(&req->keys, MAX_BATCH_SIZE, sizeof(struct bstring));
     if (status != CC_OK) {
-        return status;
+        return NULL;
     }
 
     request_reset(req);
-    return CC_OK;
+
+    return req;
+}
+
+void
+request_destroy(struct request *req)
+{
+    ASSERT(req != NULL);
+
+    array_destroy(&req->keys);
+    cc_free(req);
 }
 
 /* parse the first line("header") according to memcache ASCII protocol */
@@ -828,6 +843,7 @@ request_parse_hdr(struct request *req, struct mbuf *buf)
         end = true;
 
         status = _chase_string(req, buf, &end, &_check_verb);
+
         if (status == CC_OK) {
             req->pstate = POST_VERB;
         } else {
@@ -840,10 +856,13 @@ request_parse_hdr(struct request *req, struct mbuf *buf)
         case GET:
         case GETS:
             status = _subrequest_retrieve(req, buf);
+
             break;
 
         case DELETE:
             status = _subrequest_delete(req, buf);
+
+            break;
 
         case ADD:
         case SET:

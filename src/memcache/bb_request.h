@@ -53,7 +53,7 @@ struct request {
 
     request_verb_t  verb;
 
-    struct array    *keys;      /* element is of string type (in cc_string.h) */
+    struct array    *keys;      /* elements are byte strings (in cc_string.h) */
 
     uint32_t        flag;
     uint32_t        expiry;
@@ -67,7 +67,8 @@ struct request {
     unsigned        swallow:1;  /* caused by either client or server error */
 };
 
-rstatus_t request_init(struct request *req);
+struct request *request_create(void);
+void request_destroy(struct request *req);
 void request_reset(struct request *req);
 rstatus_t request_parse_hdr(struct request *req, struct mbuf *buf);
 

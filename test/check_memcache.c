@@ -2,45 +2,59 @@
 
 #include <check.h>
 
+#include <cc_array.h>
 #include <cc_define.h>
 #include <cc_mbuf.h>
 #include <cc_string.h>
 
 #include <memcache/bb_request.h>
 
-START_TEST(test_request_init)
-{
-    rstatus_t ret;
-    struct request req;
 
-    ret = request_init(&req);
-    ck_assert_msg(ret == CC_OK, "request init failed");
-
-}
-END_TEST
-
-START_TEST(test_request_parse_hdr)
+START_TEST(test_quit)
 {
     uint8_t *cmd;
     struct mbuf *buf;
-    struct request req;
-    rstatus_t ret;
+    struct request *req;
+    rstatus_t status;
 
-    cmd = "quit\r\n";
-    request_init(&req);
+    cmd = (uint8_t *)"quit\r\n";
+    req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, cc_strlen(cmd));
-    ret = request_parse_hdr(&req, buf);
-    ck_assert(ret == CC_OK);
-    ck_assert_msg(req.verb == QUIT);
+    status = request_parse_hdr(req, buf);
 
-    request_init(&req);
+    ck_assert(status == CC_OK);
+    ck_assert(req->verb == QUIT);
+
+    request_destroy(req);
+    mbuf_put(buf);
+}
+END_TEST
+
+START_TEST(test_delete)
+{
+    uint8_t *cmd;
+    struct mbuf *buf;
+    struct request *req;
+    struct array *keys;
+    struct bstring *key;
+    rstatus_t status;
+
+    cmd = (uint8_t *)"delete foo\r\n";
+    req = request_create();
     buf = mbuf_get();
-    cmd = "delete foo\r\n";
-    mbuf_copy(buf, cmd, cc_strlen(cmd));
-    ret = request_parse_hdr(&req, buf);
-    ck_assert(ret == CC_OK);
-    ck_assert_msg(req.verb == DELETE);
+    mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
+    status = request_parse_hdr(req, buf);
+
+    ck_assert_msg(status == CC_OK, "status: %d", (int)status);
+    ck_assert_msg(req->verb == DELETE);
+    keys = req->keys;
+    ck_assert(array_nelem(keys) == 1);
+    key = keys->data;
+    ck_assert(key->len == 3);
+
+    request_destroy(req);
+    mbuf_put(buf);
 }
 END_TEST
 
@@ -51,8 +65,8 @@ memcache_suite(void)
 
     /* basic tests */
     TCase *tc_basic = tcase_create("basic");
-    tcase_add_test(tc_basic, test_request_init);
-    tcase_add_test(tc_basic, test_request_parse_hdr);
+    tcase_add_test(tc_basic, test_quit);
+    tcase_add_test(tc_basic, test_delete);
     suite_add_tcase(s, tc_basic);
 
     return s;

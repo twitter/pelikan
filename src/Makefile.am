@@ -16,7 +16,7 @@ AM_CFLAGS += -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wmissin
 
 AM_LDFLAGS =
 AM_LDFLAGS += @CCOMMON_LIBS@
-AM_LDFLAGS += -rdynamic
+#AM_LDFLAGS += -rdynamic
 
 
 bin_PROGRAMS = slimcache
