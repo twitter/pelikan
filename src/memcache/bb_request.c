@@ -803,13 +803,14 @@ request_reset(struct request *req)
     req->swallow = 0;
 }
 
-rstatus_t request_init(struct request *req)
+rstatus_t
+request_init(struct request *req)
 {
     rstatus_t status;
 
     ASSERT(req != NULL);
 
-    status = array_alloc(&req->keys, MAX_BATCH_SIZE, sizeof(struct token));
+    status = array_create(&req->keys, MAX_BATCH_SIZE, sizeof(struct token));
     if (status != CC_OK) {
         return status;
     }

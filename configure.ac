@@ -117,7 +117,8 @@ PKG_CHECK_MODULES([CCOMMON], [ccommon-1.0 >= 1.0])
 
 # Define Makefiles
 AC_CONFIG_FILES([Makefile
-                 src/Makefile])
+                 src/Makefile
+                 test/Makefile])
 
 
 # Generate the "configure" script
