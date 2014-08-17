@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <inttypes.h>
 
 #include <cc_array.h>
 #include <cc_debug.h>
@@ -262,7 +263,7 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct bstring *t,
             }
 
             if (str3cmp(t->data, 'c', 'a', 's')) {
-                req->verb = ADD;
+                req->verb = CAS;
                 break;
             }
 
@@ -472,6 +473,9 @@ _check_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
     }
 
     if (complete) {
+        log_debug(LOG_VVERB, "end?: %d, num: %"PRIu64, *end, num);
+
+        buf->rpos = *end ? (p + CRLF_LEN) : (p + 1);
         return CC_OK;
     }
 
@@ -698,7 +702,7 @@ _subrequest_store(struct request *req, struct mbuf *buf, bool cas)
         num = 0;
         status = _chase_uint(&num, req, buf, &end, UINT32_MAX);
         if (status== CC_OK) {
-            req->flag = (uint32_t)num;
+            req->expiry = (uint32_t)num;
         } else {
             return status;
         }
@@ -903,6 +907,10 @@ request_parse_hdr(struct request *req, struct mbuf *buf)
             NOT_REACHED();
             break;
         }
+    }
+
+    if (status == CC_OK) {
+        req->pstate = PARSED;
     }
 
     return status;
