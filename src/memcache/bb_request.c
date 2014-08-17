@@ -220,7 +220,6 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct bstring *t,
 {
     rstatus_t status;
     bool complete = false;
-    /* *end should always be true according to the protocol */
 
     if (*p == ' ' && t->len == 0) { /* pre-key spaces */
         return CC_UNFIN;
@@ -571,7 +570,7 @@ _subrequest_delete(struct request *req, struct mbuf *buf)
 
     case T_NOREPLY: /* fall-through intended */
         end = true;
-        status = _chase_string(req, buf, &end, &_check_noreply);
+        status = _chase_string(req, buf, &end, _check_noreply);
         if (status != CC_OK || end) {
             return status;
         }
@@ -612,7 +611,7 @@ _subrequest_arithmetic(struct request *req, struct mbuf *buf)
     switch (tstate) {
     case T_KEY:
         end = false;
-        status = _chase_string(req, buf, &end, &_check_key);
+        status = _chase_string(req, buf, &end, _check_key);
         if (status != CC_OK) {
             return status;
         }
@@ -634,7 +633,7 @@ _subrequest_arithmetic(struct request *req, struct mbuf *buf)
 
     case T_NOREPLY: /* fall-through intended */
         end = true;
-        status = _chase_string(req, buf, &end, &_check_noreply);
+        status = _chase_string(req, buf, &end, _check_noreply);
         if (status != CC_OK || end) {
             return status;
         }
@@ -678,7 +677,7 @@ _subrequest_store(struct request *req, struct mbuf *buf, bool cas)
     switch (tstate) {
     case T_KEY:
         end = false;
-        status = _chase_string(req, buf, &end, &_check_key);
+        status = _chase_string(req, buf, &end, _check_key);
         if (status != CC_OK) {
             return status;
         }
@@ -743,7 +742,7 @@ _subrequest_store(struct request *req, struct mbuf *buf, bool cas)
 
     case T_NOREPLY: /* fall-through intended */
         end = true;
-        status = _chase_string(req, buf, &end, &_check_noreply);
+        status = _chase_string(req, buf, &end, _check_noreply);
         if (status != CC_OK || end) {
             return status;
         }
@@ -771,7 +770,7 @@ _subrequest_retrieve(struct request *req, struct mbuf *buf)
 
     while (true) {
         end = true;
-        status = _chase_string(req, buf, &end, &_check_key);
+        status = _chase_string(req, buf, &end, _check_key);
         if (status != CC_OK || end) {
             return status;
         }
@@ -847,7 +846,7 @@ request_parse_hdr(struct request *req, struct mbuf *buf)
     if (req->pstate == VERB) {
         end = true;
 
-        status = _chase_string(req, buf, &end, &_check_verb);
+        status = _chase_string(req, buf, &end, _check_verb);
 
         if (status == CC_OK) {
             req->pstate = POST_VERB;
