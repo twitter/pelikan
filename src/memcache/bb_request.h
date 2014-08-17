@@ -49,7 +49,7 @@ typedef enum request_verb {
 struct request {
     request_state_t rstate;     /* request state */
     parse_state_t   pstate;     /* parsing state */
-    int             tstate;     /* token state */
+    int             tstate;     /* token state post verb, differs by command */
 
     request_verb_t  verb;
 

@@ -505,6 +505,7 @@ int main(void)
 
     Suite *suite = memcache_suite();
     SRunner *srunner = srunner_create(suite);
+    srunner_set_log(srunner, "check_memcache.log");
     srunner_run_all(srunner, CK_NORMAL);
     nfail = srunner_ntests_failed(srunner);
     srunner_free(srunner);

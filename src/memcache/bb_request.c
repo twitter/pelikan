@@ -786,6 +786,7 @@ request_reset(struct request *req)
 {
     req->rstate = PARSING;
     req->pstate = VERB;
+    req->tstate = 0;
     req->verb = UNKNOWN;
 
     req->keys->nelem = 0;
