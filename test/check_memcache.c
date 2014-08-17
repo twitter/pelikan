@@ -467,6 +467,47 @@ START_TEST(test_delete_noreply)
 }
 END_TEST
 
+START_TEST(test_set_resume)
+{
+    uint8_t *cmd_pt1, *cmd_pt2;
+    struct mbuf *buf;
+    struct request *req;
+    struct array *keys;
+    struct bstring *key;
+    rstatus_t status;
+
+    cmd_pt1 = (uint8_t *)"set foo 11";
+    cmd_pt2 = (uint8_t *)"1 86400 3\r\n";
+    req = request_create();
+    buf = mbuf_get();
+    mbuf_copy(buf, cmd_pt1, (uint32_t)cc_strlen(cmd_pt1));
+    status = request_parse_hdr(req, buf);
+
+    ck_assert(status == CC_UNFIN);
+    ck_assert(req->pstate == POST_VERB);
+    ck_assert(req->verb = SET);
+    ck_assert(buf->rpos - buf->start == sizeof("set foo ") - 1);
+
+    mbuf_copy(buf, cmd_pt2, (uint32_t)cc_strlen(cmd_pt2));
+    status = request_parse_hdr(req, buf);
+
+    ck_assert_msg(status == CC_OK, "status: %d", (int)status);
+    ck_assert(req->pstate == PARSED);
+    keys = req->keys;
+    ck_assert(array_nelem(keys) == 1);
+    key = keys->data;
+    ck_assert(key->len == 3);
+    ck_assert(cc_strncmp(key->data, "foo", 3) == 0);
+    ck_assert(req->flag == 111);
+    ck_assert(req->expiry == 86400);
+    ck_assert(req->vlen == 3);
+
+    request_destroy(req);
+    mbuf_put(buf);
+}
+END_TEST
+
+
 
 Suite *
 memcache_suite(void)
@@ -490,6 +531,7 @@ memcache_suite(void)
     tcase_add_test(tc_basic, test_incr);
     tcase_add_test(tc_basic, test_decr);
     tcase_add_test(tc_basic, test_delete_noreply);
+    tcase_add_test(tc_basic, test_set_resume);
     suite_add_tcase(s, tc_basic);
 
     return s;
