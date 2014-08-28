@@ -4,8 +4,6 @@
 #include <cc_define.h>
 #include <cc_mbuf.h>
 
-#define MAX_KEY_LEN 250
-
 struct request;
 
 typedef enum request_state {

@@ -9,7 +9,9 @@
 #include <cc_string.h>
 #include <cc_util.h>
 
-#include <memcache/bb_request.h>
+#include <bb_constant.h>
+
+#include <bb_request.h>
 
 #define MAX_TOKEN_LEN 256
 #define MAX_BATCH_SIZE 50

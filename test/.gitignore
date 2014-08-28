@@ -1,2 +1,5 @@
 # check test results
 *.trs
+
+# check test binary
+check_tests
