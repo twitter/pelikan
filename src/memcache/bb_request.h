@@ -1,5 +1,5 @@
-#ifndef __BB_MEMCACHE_H__
-#define __BB_MEMCACHE_H__
+#ifndef _BB_REQUEST_H_
+#define _BB_REQUEST_H_
 
 #include <cc_define.h>
 #include <cc_mbuf.h>
@@ -70,4 +70,4 @@ void request_destroy(struct request *req);
 void request_reset(struct request *req);
 rstatus_t request_parse_hdr(struct request *req, struct mbuf *buf);
 
-#endif
+#endif /* _BB_REQUEST_H_ */
