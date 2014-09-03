@@ -1,13 +1,13 @@
-#include <stdlib.h>
+#include <bb_cuckoo.h>
+
+#include <bb_item.h>
 
 #include <cc_define.h>
 #include <cc_log.h>
 #include <cc_lookup3.h>
 #include <cc_mm.h>
 
-#include <bb_item.h>
-
-#include <bb_cuckoo.h>
+#include <stdlib.h>
 
 /* TODO(yao): make the MAX_DISPLACE configurable */
 #define D            4

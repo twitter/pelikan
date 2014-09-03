@@ -1,12 +1,13 @@
 #ifndef _BB_CUCKOO_H_
 #define _BB_CUCKOO_H_
 
-#include <inttypes.h>
+#include <bb_item.h>
 
-#include <cc_string.h>
 #include <bb_time.h>
 
-#include <bb_item.h>
+#include <cc_string.h>
+
+#include <inttypes.h>
 
 rstatus_t cuckoo_setup(size_t size, uint32_t item);
 void cuckoo_teardown(void);

@@ -1,5 +1,6 @@
-#include <ctype.h>
-#include <inttypes.h>
+#include <bb_request.h>
+
+#include <bb_constant.h>
 
 #include <cc_array.h>
 #include <cc_debug.h>
@@ -9,9 +10,8 @@
 #include <cc_string.h>
 #include <cc_util.h>
 
-#include <bb_constant.h>
-
-#include <bb_request.h>
+#include <ctype.h>
+#include <inttypes.h>
 
 #define MAX_TOKEN_LEN 256
 #define MAX_BATCH_SIZE 50

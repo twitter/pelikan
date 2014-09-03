@@ -1,16 +1,16 @@
 #ifndef _BB_ITEM_H_
 #define _BB_ITEM_H_
 
-#define DEFAULT_KEY_LEN 255
-
-#include <inttypes.h>
-#include <stdbool.h>
+#include <bb_time.h>
 
 #include <cc_debug.h>
 #include <cc_string.h>
 #include <cc_util.h>
 
-#include <bb_time.h>
+#include <inttypes.h>
+#include <stdbool.h>
+
+#define DEFAULT_KEY_LEN 255
 
 bool cas_enabled;
 uint64_t cas_val;
