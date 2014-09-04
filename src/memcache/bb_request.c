@@ -13,8 +13,6 @@
 #include <ctype.h>
 #include <inttypes.h>
 
-#define MAX_TOKEN_LEN 256
-#define MAX_BATCH_SIZE 50
 
 typedef rstatus_t (*check_token_t)(struct request *req, struct mbuf *buf,
         bool *end, struct bstring *t, uint8_t *p);
