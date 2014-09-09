@@ -1,11 +1,10 @@
 #ifndef _BB_CUCKOO_H_
 #define _BB_CUCKOO_H_
 
-#include <bb_item.h>
+#include <cuckoo/bb_item.h>
+#include <time/bb_time.h>
 
-#include <bb_time.h>
-
-#include <cc_string.h>
+#include <cc_bstring.h>
 
 #include <inttypes.h>
 

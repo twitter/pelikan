@@ -1,10 +1,10 @@
 #ifndef _BB_ITEM_H_
 #define _BB_ITEM_H_
 
-#include <bb_time.h>
+#include <time/bb_time.h>
 
+#include <cc_bstring.h>
 #include <cc_debug.h>
-#include <cc_string.h>
 #include <cc_util.h>
 
 #include <inttypes.h>

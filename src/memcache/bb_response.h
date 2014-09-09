@@ -3,9 +3,11 @@
 
 #include <cc_bstring.h>
 #include <cc_define.h>
+#include <cc_mbuf.h>
 
 /* TODO(yao): move this into the header */
-#define RSP_TABLE(ACTION)                           \
+#define RSP_MSG(ACTION)                             \
+    ACTION( RSP_CRLF,           CRLF              ) \
     ACTION( RSP_VALUE,          "VALUE "          ) \
     ACTION( RSP_STAT,           "STAT "           ) \
     ACTION( RSP_END,            "END\r\n"         ) \
@@ -19,16 +21,13 @@
 
 #define GET_INDEX(_name, _str) _name,
 typedef enum rsp_index {
-    RSP_TABLE( GET_INDEX )
+    RSP_MSG( GET_INDEX )
     RSP_SENTINAL
 } rsp_index_t;
 #undef GET_INDEX
 
-#define GET_STRING(_name, _str) str2bstr(_str),
-struct bstring rsp_strings[] = {
-    RSP_TABLE( GET_STRING )
-    null_bstring
-};
-#undef GET_STRING
+rstatus_t rsp_write_msg(struct mbuf *buf, rsp_index_t idx);
+rstatus_t rsp_write_uint64(struct mbuf *buf, uint64_t val);
+rstatus_t rsp_write_bstring(struct mbuf *buf, struct bstring *str);
 
 #endif

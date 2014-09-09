@@ -3,11 +3,11 @@
 #include <bb_constant.h>
 
 #include <cc_array.h>
+#include <cc_bstring.h>
 #include <cc_debug.h>
 #include <cc_define.h>
 #include <cc_mbuf.h>
 #include <cc_mm.h>
-#include <cc_string.h>
 #include <cc_util.h>
 
 #include <ctype.h>

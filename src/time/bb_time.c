@@ -1,7 +1,8 @@
-#include <cc_log.h>
-
 #include <bb_time.h>
 
+#include <cc_log.h>
+
+#include <time.h>
 
 /*
  * From memcache protocol specification:
