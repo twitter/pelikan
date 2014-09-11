@@ -16,8 +16,8 @@
     ACTION( RSP_EXISTS,         "EXISTS\r\n"      ) \
     ACTION( RSP_NOT_FOUND,      "NOT_FOUND\r\n"   ) \
     ACTION( RSP_DELETED,        "DELETED\r\n"     ) \
-    ACTION( RSP_CLIENT_ERROR,   "CLIENT_ERROR "   ) \
-    ACTION( RSP_SERVER_ERROR,   "SERVER_ERROR "   ) \
+    ACTION( RSP_CLIENT_ERROR,   "CLIENT_ERROR\r\n") \
+    ACTION( RSP_SERVER_ERROR,   "SERVER_ERROR\r\n") \
 
 #define GET_INDEX(_name, _str) _name,
 typedef enum rsp_index {
@@ -26,8 +26,9 @@ typedef enum rsp_index {
 } rsp_index_t;
 #undef GET_INDEX
 
-rstatus_t rsp_write_msg(struct mbuf *buf, rsp_index_t idx);
-rstatus_t rsp_write_uint64(struct mbuf *buf, uint64_t val);
-rstatus_t rsp_write_bstring(struct mbuf *buf, struct bstring *str);
+rstatus_t rsp_write_msg(struct mbuf *buf, rsp_index_t idx, bool noreply);
+rstatus_t rsp_write_uint64(struct mbuf *buf, uint64_t val, bool noreply);
+rstatus_t rsp_write_bstring(struct mbuf *buf, struct bstring *str, bool noreply);
+rstatus_t rsp_write_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas);
 
 #endif

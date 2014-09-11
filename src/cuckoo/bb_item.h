@@ -12,8 +12,10 @@
 
 #define DEFAULT_KEY_LEN 255
 
+#define CAS_VAL_MIN 1
+
 bool cas_enabled;
-uint64_t cas_val;
+uint64_t cas_val; /* incremented before assignment, so 0 is a special value */
 
 /*
  * val_type_t and struct val makes it easier to use one object to communicate
@@ -76,7 +78,7 @@ struct item {
 #define ITEM_HDR_SIZE sizeof(struct item)
 
 #define ITEM_CAS_POS(it) ((it)->data)
-#define ITEM_KEY_POS(it) ((it)->data + cas_enabled * sizeof(uint64_t))
+#define ITEM_KEY_POS(it) ((it)->data +cas_enabled * sizeof(uint64_t))
 #define ITEM_VAL_POS(it) (ITEM_KEY_POS(it) + (it)->klen)
 
 static inline uint8_t
@@ -95,7 +97,7 @@ static inline uint64_t
 item_cas(struct item *it)
 {
     if (!cas_enabled) {
-        return 0; /* when cas disabled, allow gets/cas to work as get/set */
+        return CAS_VAL_MIN; /* when cas disabled, still allow gets to work */
     }
 
     return (*(uint64_t *)ITEM_CAS_POS(it));
@@ -184,14 +186,9 @@ item_val(struct val *val, struct item *it)
 static inline void
 item_value_update(struct item *it, struct val *val)
 {
-    /* FIXME(yao): this function is only used by incr/decr, so we don't have to
-     * worry about the caller not updating the size of data_curr after updating
-     * the value, as incr/decr always operate on integers, which have the same
-     * storage size. However, it is a brittle assumption.
-     */
     if (cas_enabled) {
-        *(uint64_t *)ITEM_CAS_POS(it) = cas_val;
         cas_val++;
+        *(uint64_t *)ITEM_CAS_POS(it) = cas_val;
     }
 
     if (val->type == VAL_TYPE_INT) {
@@ -201,6 +198,13 @@ item_value_update(struct item *it, struct val *val)
         it->vlen = (uint8_t)val->vstr.len;
         cc_memcpy(ITEM_VAL_POS(it), val->vstr.data, val->vstr.len);
     }
+}
+
+static inline void
+item_update(struct item *it, struct val *val, rel_time_t expire)
+{
+    it->expire = expire;
+    item_value_update(it, val);
 }
 
 static inline void
@@ -217,10 +221,9 @@ item_set(struct item *it, struct bstring *key, struct val *val, rel_time_t expir
         //stats_thread_decr_by(data_curr, item_datalen(it));
     }
 
-    it->expire = expire;
     it->klen = (uint8_t)key->len;
     cc_memcpy(ITEM_KEY_POS(it), key->data, key->len);
-    item_value_update(it, val);
+    item_update(it, val, expire);
 
     //stats_thread_incr(item_curr);
     //stats_thread_incr_by(data_curr, item_datalen(it));

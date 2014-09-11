@@ -621,9 +621,9 @@ _subrequest_arithmetic(struct request *req, struct mbuf *buf)
     case T_DELTA: /* fall-through intended */
         end = true;
         delta = 0;
-        status = _chase_uint(&delta, req, buf, &end, INT64_MAX);
+        status = _chase_uint(&delta, req, buf, &end, UINT64_MAX);
         if (status== CC_OK) {
-            req->delta = (int64_t)delta;
+            req->delta = delta;
         }
         if (status != CC_OK || end) {
             return status;

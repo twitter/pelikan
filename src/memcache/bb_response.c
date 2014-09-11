@@ -1,4 +1,4 @@
-#include <bb_response.h>
+#include <memcache/bb_response.h>
 
 #include <cc_print.h>
 #include <cc_util.h>
@@ -11,8 +11,8 @@ static struct bstring rsp_strings[] = {
 #undef GET_STRING
 
 
-rstatus_t
-rsp_write_msg(struct mbuf *buf, rsp_index_t idx)
+static rstatus_t
+_rsp_write_msg(struct mbuf *buf, rsp_index_t idx)
 {
     uint32_t wsize;
     struct bstring *str;
@@ -36,7 +36,17 @@ rsp_write_msg(struct mbuf *buf, rsp_index_t idx)
 }
 
 rstatus_t
-rsp_write_uint64(struct mbuf *buf, uint64_t val)
+rsp_write_msg(struct mbuf *buf, rsp_index_t idx, bool noreply)
+{
+    if (noreply) {
+        return CC_OK;
+    }
+
+    return _rsp_write_msg(buf, idx);
+}
+
+static rstatus_t
+_rsp_write_uint64(struct mbuf *buf, uint64_t val)
 {
     size_t n;
     uint32_t wsize;
@@ -61,7 +71,17 @@ rsp_write_uint64(struct mbuf *buf, uint64_t val)
 }
 
 rstatus_t
-rsp_write_bstring(struct mbuf *buf, struct bstring *str)
+rsp_write_uint64(struct mbuf *buf, uint64_t val, bool noreply)
+{
+    if (noreply) {
+        return CC_OK;
+    }
+
+    return _rsp_write_uint64(buf, val);
+}
+
+static rstatus_t
+_rsp_write_bstring(struct mbuf *buf, struct bstring *str)
 {
     uint32_t wsize;
 
@@ -82,3 +102,63 @@ rsp_write_bstring(struct mbuf *buf, struct bstring *str)
     return CC_OK;
 }
 
+rstatus_t
+rsp_write_bstring(struct mbuf *buf, struct bstring *str, bool noreply)
+{
+    if (noreply) {
+        return CC_OK;
+    }
+
+    return _rsp_write_bstring(buf, str);
+}
+
+rstatus_t
+rsp_write_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas)
+{
+    rstatus_t status = CC_OK;
+
+    status = _rsp_write_msg(buf, RSP_VALUE);
+    if (status != CC_OK) {
+        return status;
+    }
+
+    status = _rsp_write_bstring(buf, key);
+    if (status != CC_OK) {
+        return status;
+    }
+
+    status = _rsp_write_uint64(buf, flag);
+    if (status != CC_OK) {
+        return status;
+    }
+
+    status = _rsp_write_uint64(buf, val->len);
+    if (status != CC_OK) {
+        return status;
+    }
+
+    if (cas) {
+        status = _rsp_write_uint64(buf, cas);
+        if (status != CC_OK) {
+            return status;
+        }
+
+    }
+
+    status = _rsp_write_msg(buf, RSP_CRLF);
+    if (status != CC_OK) {
+        return status;
+    }
+
+    status = _rsp_write_bstring(buf, val);
+    if (status != CC_OK) {
+        return status;
+    }
+
+    status = _rsp_write_bstring(buf, RSP_CRLF);
+    if (status != CC_OK) {
+        return status;
+    }
+
+    return status;
+}

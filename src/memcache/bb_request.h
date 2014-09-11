@@ -18,7 +18,7 @@ typedef enum request_state {
 typedef enum parse_state {
     VERB,
     POST_VERB,
-    SENTINEL
+    PS_SENTINEL
 } parse_state_t;
 
 typedef enum request_verb {
@@ -52,11 +52,12 @@ struct request {
     request_verb_t  verb;
 
     struct array    *keys;      /* elements are byte strings (in cc_string.h) */
+    void            *data;      /* usually points to the value */
 
     uint32_t        flag;
     uint32_t        expiry;
     uint32_t        vlen;
-    int64_t         delta;
+    uint64_t        delta;
     uint64_t        cas;
 
     unsigned        noreply:1;
