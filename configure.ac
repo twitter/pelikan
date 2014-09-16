@@ -111,6 +111,56 @@ AS_IF([test "x$disable_stats" = xyes],
   [AC_DEFINE([HAVE_STATS], [1], [Define to 1 if stats is not disabled])])
 AC_MSG_RESULT($disable_stats)
 
+# This is called on Linux systems
+AC_CACHE_CHECK([if epoll works], [ac_cv_epoll_works],
+  AC_TRY_RUN([
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/epoll.h>
+int
+main(int argc, char **argv)
+{
+    int fd;
+
+    fd = epoll_create(256);
+    if (fd < 0) {
+        perror("epoll_create:");
+        exit(1);
+    }
+    exit(0);
+}
+  ], [ac_cv_epoll_works=yes], [ac_cv_epoll_works=no]))
+AS_IF([test "x$ac_cv_epoll_works" = "xyes"],
+      [AC_DEFINE([HAVE_EPOLL], [1], [Define to 1 if epoll is supported])], [])
+
+# This is called on Darwin systems
+AC_CACHE_CHECK([if kqueue works], [ac_cv_kqueue_works],
+  AC_TRY_RUN([
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/event.h>
+#include <sys/time.h>
+int
+main(int argc, char **argv)
+{
+    int fd;
+
+    fd = kqueue();
+    if (fd < 0) {
+        perror("kqueue:");
+        exit(1);
+    }
+    exit(0);
+}
+  ], [ac_cv_kqueue_works=yes], [ac_cv_kqueue_works=no]))
+AS_IF([test "x$ac_cv_kqueue_works" = "xyes"],
+      [AC_DEFINE([HAVE_KQUEUE], [1], [Define to 1 if kqueue is supported])], [])
+
+AS_IF([test "x$ac_cv_epoll_works" = "xno" &&
+       test "x$ac_cv_kqueue_works" = "xno"],
+      [AC_MSG_ERROR([either epoll or kqueue support is required])], [])
+
 # Check whether the test libraries are present
 PKG_CHECK_MODULES([CHECK], [check >= 0.9.10])
 PKG_CHECK_MODULES([CCOMMON], [ccommon-1.0 >= 1.0])

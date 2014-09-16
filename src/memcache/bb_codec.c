@@ -17,19 +17,6 @@ typedef rstatus_t (*check_token_t)(struct request *req, struct mbuf *buf,
         bool *end, struct bstring *t, uint8_t *p);
 
 static inline void
-_mark_serror(struct request *req, struct mbuf *buf, uint8_t *npos)
-{
-    /*
-     * NOTE(yao): some server errors can actually be rescued internally, such
-     * as by retrying. For simplicity, we simply abort the request for now
-     */
-    req->swallow = true;
-    req->serror = true;
-
-    buf->rpos = npos;
-}
-
-static inline void
 _mark_cerror(struct request *req, struct mbuf *buf, uint8_t *npos)
 {
     /*

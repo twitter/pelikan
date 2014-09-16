@@ -12,11 +12,14 @@ static struct reqpool {
     uint32_t  nfree;
     uint32_t  nused;
     uint32_t  nmax;
+    bool      initialized;
 } reqpool;
 
 void
 request_reset(struct request *req)
 {
+    ASSERT(req != NULL && req->keys != NULL);
+
     req->rstate = PARSING;
     req->pstate = VERB;
     req->tstate = 0;
@@ -78,6 +81,7 @@ request_pool_create(uint32_t low_wm, uint32_t high_wm)
     reqpool.nmax = high_wm;
     reqpool.nfree = 0;
     reqpool.nused = 0;
+    reqpool.initialized = true;
 
     for (n = 0; n < low_wm; ++n) {
         req = cc_alloc(sizeof(struct request));
@@ -104,6 +108,8 @@ request_pool_destroy(void)
     uint32_t n;
     struct request *req;
 
+    ASSERT(reqpool.initialized);
+
     log_debug(LOG_INFO, "destroying request pool: free %"PRIu32", used %"PRIu32,
             reqpool.nfree, reqpool.nused);
 
@@ -126,6 +132,8 @@ struct request *
 request_get(void)
 {
     struct request *req;
+
+    ASSERT(reqpool.initialized);
 
     if (reqpool.nfree > 0) {
         req = STAILQ_FIRST(&reqpool.free_rq);
@@ -154,6 +162,8 @@ request_get(void)
 void
 request_put(struct request *req)
 {
+    ASSERT(reqpool.initialized);
+
     STAILQ_INSERT_TAIL(&reqpool.free_rq, req, next);
     reqpool.nfree++;
 
