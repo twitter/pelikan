@@ -1,6 +1,14 @@
 #ifndef __BB_RESPONSE_H__
 #define __BB_RESPONSE_H__
 
+/*
+ * NOTE(yao): the asymmetry between request and response source files (and the
+ * lack of response.c) is a result of asymmetrical handling of requests and
+ * responses at the backend. Should we write a client, we will end up with
+ * composing functions of requests and parsing functions of responses only. If
+ * we write a proxy, we will end up implementing all the functionalities.
+ */
+
 #include <cc_bstring.h>
 #include <cc_define.h>
 #include <cc_mbuf.h>
@@ -25,10 +33,5 @@ typedef enum rsp_index {
     RSP_SENTINAL
 } rsp_index_t;
 #undef GET_INDEX
-
-rstatus_t rsp_write_msg(struct mbuf *buf, rsp_index_t idx, bool noreply);
-rstatus_t rsp_write_uint64(struct mbuf *buf, uint64_t val, bool noreply);
-rstatus_t rsp_write_bstring(struct mbuf *buf, struct bstring *str, bool noreply);
-rstatus_t rsp_write_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas);
 
 #endif

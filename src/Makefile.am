@@ -28,7 +28,7 @@ broadbill_slimcache_SOURCES = 						\
 		memcache/bb_constant.h					\
 		memcache/bb_request.c memcache/bb_request.h		\
 		memcache/bb_codec.c memcache/bb_codec.h			\
-		memcache/bb_response.c memcache/bb_response.h		\
+		memcache/bb_response.h					\
 		slimcache/bb_process.c slimcache/bb_process.h		\
 		time/bb_time.c time/bb_time.h				\
 		bb_main.c

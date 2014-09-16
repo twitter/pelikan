@@ -26,7 +26,7 @@ process_get_key(struct mbuf *buf, struct bstring *key)
             val.vstr.len = (uint32_t)size;
         }
 
-        rsp_write_keyval(buf, key, &val.vstr, item_flag(it), 0);
+        compose_rsp_keyval(buf, key, &val.vstr, item_flag(it), 0);
     } else {
         //stats_thread_incr_get_key_miss);
     }
@@ -49,7 +49,7 @@ process_get(struct request *req, struct mbuf *buf)
         status = process_get_key(buf, key);
 
     }
-    status = rsp_write_msg(buf, RSP_END, false);
+    status = compose_rsp_msg(buf, RSP_END, false);
 
     return status;
 }
@@ -74,7 +74,7 @@ process_gets_key(struct mbuf *buf, struct bstring *key)
             val.vstr.len = (uint32_t)size;
         }
 
-        rsp_write_keyval(buf, key, &val.vstr, item_flag(it), item_cas(it));
+        compose_rsp_keyval(buf, key, &val.vstr, item_flag(it), item_cas(it));
     } else {
         //stats_thread_incr(gets_key_miss);
     }
@@ -98,7 +98,7 @@ process_gets(struct request *req, struct mbuf *buf)
         status = process_gets_key(buf, key);
 
     }
-    status = rsp_write_msg(buf, RSP_END, false);
+    status = compose_rsp_msg(buf, RSP_END, false);
 
     return status;
 }
@@ -117,11 +117,11 @@ process_delete(struct request *req, struct mbuf *buf)
 
         item_delete(it);
 
-        status = rsp_write_msg(buf, RSP_DELETED, req->noreply);
+        status = compose_rsp_msg(buf, RSP_DELETED, req->noreply);
     } else {
         //stats_thread_incr(delete_miss);
 
-        status = rsp_write_msg(buf, RSP_NOT_FOUND, req->noreply);
+        status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
     return status;
@@ -164,7 +164,7 @@ process_set(struct request *req, struct mbuf *buf)
     }
 
     //stats_thread_incr(set_success);
-    status = rsp_write_msg(buf, RSP_STORED, req->noreply);
+    status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
 
     return status;
 }
@@ -185,13 +185,13 @@ process_add(struct request *req, struct mbuf *buf)
     it = cuckoo_lookup(key);
     if (it != NULL) {
         //stats_thread_incr(add_exist);
-        status = rsp_write_msg(buf, RSP_NOT_STORED, req->noreply);
+        status = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
     } else {
         expire = time_reltime(req->expiry);
         process_value(&val, req->data);
         cuckoo_insert(key, &val, expire);
         //stats_thread_incr(add_success);
-        status = rsp_write_msg(buf, RSP_STORED, req->noreply);
+        status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
     }
 
     return status;
@@ -216,10 +216,10 @@ process_replace(struct request *req, struct mbuf *buf)
         process_value(&val, req->data);
         item_update(it, &val, expire);
         //stats_thread_incr(replace_success);
-        status = rsp_write_msg(buf, RSP_STORED, req->noreply);
+        status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
     } else {
         //stats_thread_incr(replace_miss);
-        status = rsp_write_msg(buf, RSP_NOT_STORED, req->noreply);
+        status = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
     }
 
     return status;
@@ -245,14 +245,14 @@ process_cas(struct request *req, struct mbuf *buf)
             process_value(&val, req->data);
             item_update(it, &val, expire);
             //stats_thread_incr(cas_success);
-            status = rsp_write_msg(buf, RSP_STORED, req->noreply);
+            status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
         } else {
             //stats_thread_incr(cas_badval);
-            status = rsp_write_msg(buf, RSP_EXISTS, req->noreply);
+            status = compose_rsp_msg(buf, RSP_EXISTS, req->noreply);
         }
     } else {
         //stats_thread_incr(cas_miss);
-        status = rsp_write_msg(buf, RSP_NOT_FOUND, req->noreply);
+        status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
     return status;
@@ -274,17 +274,17 @@ process_incr(struct request *req, struct mbuf *buf)
             //stats_thread_incr(cmd_error);
             log_debug(LOG_NOTICE, "value type not int, cannot apply incr on "
                     "key %s", ITEM_KEY_POS(it));  /* FIXME(yao): binary key */
-            return rsp_write_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+            return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
         }
 
         new_val.type = VAL_TYPE_INT;
         new_val.vint = item_value_int(it) + req->delta;
         item_value_update(it, &new_val);
         //stats_thread_incr(incr_success);
-        status = rsp_write_uint64(buf, new_val.vint, req->noreply);
+        status = compose_rsp_uint64(buf, new_val.vint, req->noreply);
     } else {
         //stats_thread_incr(incr_miss);
-        status = rsp_write_msg(buf, RSP_NOT_FOUND, req->noreply);
+        status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
     return status;
@@ -306,17 +306,17 @@ process_decr(struct request *req, struct mbuf *buf)
             //stats_thread_incr(cmd_error);
             log_debug(LOG_NOTICE, "value type not int, cannot apply decr on "
                     "key %s", ITEM_KEY_POS(it));  /* FIXME(yao): binary key */
-            return rsp_write_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+            return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
         }
 
         new_val.type = VAL_TYPE_INT;
         new_val.vint = item_value_int(it) - req->delta;
         item_value_update(it, &new_val);
         //stats_thread_incr(decr_success);
-        status = rsp_write_uint64(buf, new_val.vint, req->noreply);
+        status = compose_rsp_uint64(buf, new_val.vint, req->noreply);
     } else {
         //stats_thread_incr(decr_miss);
-        status = rsp_write_msg(buf, RSP_NOT_FOUND, req->noreply);
+        status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
     return status;
