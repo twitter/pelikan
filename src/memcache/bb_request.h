@@ -1,10 +1,14 @@
 #ifndef _BB_REQUEST_H_
 #define _BB_REQUEST_H_
 
-#include <cc_define.h>
-#include <cc_mbuf.h>
+#include <memcache/bb_constant.h>
 
-struct request;
+#include <cc_array.h>
+#include <cc_define.h>
+#include <cc_mm.h>
+#include <cc_queue.h>
+
+#include <inttypes.h>
 
 typedef enum request_state {
     PARSING,
@@ -45,30 +49,36 @@ typedef enum request_verb {
  * Whether this is a reasonable design decision eventually remains to be seen.
  */
 struct request {
-    request_state_t rstate;     /* request state */
-    parse_state_t   pstate;     /* parsing state */
-    int             tstate;     /* token state post verb, differs by command */
+    STAILQ_ENTRY(request)   next;       /* allow request pooling */
 
-    request_verb_t  verb;
+    request_state_t         rstate;     /* request state */
+    parse_state_t           pstate;     /* parsing state */
+    int                     tstate;     /* token state post verb */
 
-    struct array    *keys;      /* elements are byte strings (in cc_string.h) */
-    void            *data;      /* usually points to the value */
+    request_verb_t          verb;
 
-    uint32_t        flag;
-    uint32_t        expiry;
-    uint32_t        vlen;
-    uint64_t        delta;
-    uint64_t        cas;
+    struct array            *keys;      /* elements are bstrings */
+    void                    *data;      /* usually points to the value */
 
-    unsigned        noreply:1;
-    unsigned        serror:1;   /* server error */
-    unsigned        cerror:1;   /* client error */
-    unsigned        swallow:1;  /* caused by either client or server error */
+    uint32_t                flag;
+    uint32_t                expiry;
+    uint32_t                vlen;
+    uint64_t                delta;
+    uint64_t                cas;
+
+    unsigned                noreply:1;
+    unsigned                serror:1;   /* server error */
+    unsigned                cerror:1;   /* client error */
+    unsigned                swallow:1;  /* caused by errors */
 };
 
 struct request *request_create(void);
 void request_destroy(struct request *req);
 void request_reset(struct request *req);
-rstatus_t request_parse_hdr(struct request *req, struct mbuf *buf);
+
+rstatus_t request_pool_create(uint32_t low_wm, uint32_t high_wm);
+void request_pool_destroy(void);
+struct request *request_get(void);
+void request_put(struct request *req);
 
 #endif /* _BB_REQUEST_H_ */

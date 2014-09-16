@@ -21,5 +21,6 @@ check_tests_SOURCES =	 				\
 	$(top_srcdir)/src/memcache/bb_request.h
 
 check_tests_CFLAGS = @CHECK_CFLAGS@ @CCOMMON_CFLAGS@
-check_tests_LDADD = @CHECK_LIBS@ @CCOMMON_LIBS@ \
-		       $(top_srcdir)/src/memcache/bb_request.o
+check_tests_LDADD = @CHECK_LIBS@ @CCOMMON_LIBS@ 		\
+		      $(top_srcdir)/src/memcache/bb_request.o	\
+		      $(top_srcdir)/src/memcache/bb_codec.o
