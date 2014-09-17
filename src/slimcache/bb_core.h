@@ -7,9 +7,8 @@
 #include <cc_define.h>
 #include <cc_stream.h>
 
-stream_handler_t handler;
-
-rstatus_t core_read(struct stream *stream);
-rstatus_t core_write(struct stream *stream);
+rstatus_t core_setup(void);
+void core_teardown(void);
+rstatus_t core_evwait(void);
 
 #endif /* _BB_CORE_H_ */

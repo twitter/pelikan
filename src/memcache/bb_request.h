@@ -76,9 +76,9 @@ struct request *request_create(void);
 void request_destroy(struct request *req);
 void request_reset(struct request *req);
 
-rstatus_t request_pool_create(uint32_t low_wm, uint32_t high_wm);
+void request_pool_create(uint32_t max);
 void request_pool_destroy(void);
-struct request *request_get(void);
-void request_put(struct request *req);
+struct request *request_borrow(void);
+void request_return(struct request *req);
 
 #endif /* _BB_REQUEST_H_ */

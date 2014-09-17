@@ -3,17 +3,10 @@
 #include <cc_bstring.h>
 #include <cc_debug.h>
 #include <cc_log.h>
+#include <cc_pool.h>
 
-STAILQ_HEAD(rq, request);
-
-static struct reqpool {
-    struct rq free_rq;
-    struct rq used_rq;
-    uint32_t  nfree;
-    uint32_t  nused;
-    uint32_t  nmax;
-    bool      initialized;
-} reqpool;
+FREEPOOL(req_pool, reqq, request);
+struct req_pool reqp;
 
 void
 request_reset(struct request *req)
@@ -69,105 +62,45 @@ request_destroy(struct request *req)
 }
 
 
-rstatus_t
-request_pool_create(uint32_t low_wm, uint32_t high_wm)
+void
+request_pool_create(uint32_t max)
 {
-    uint32_t n;
-    struct request *req;
+    log_debug(LOG_INFO, "creating request pool: max %"PRIu32, max);
 
-    ASSERT(high_wm >= low_wm);
-
-    STAILQ_INIT(&reqpool.free_rq);
-    STAILQ_INIT(&reqpool.used_rq);
-    reqpool.nmax = high_wm;
-    reqpool.nfree = 0;
-    reqpool.nused = 0;
-    reqpool.initialized = true;
-
-    for (n = 0; n < low_wm; ++n) {
-        req = cc_alloc(sizeof(struct request));
-        if (req == NULL) {
-            log_error("request pool create failed: OOM, allocated %"PRIu32", "
-                    "target %"PRIu32, n, low_wm);
-
-            request_pool_destroy();
-            return CC_ENOMEM;
-        }
-        STAILQ_INSERT_TAIL(&reqpool.free_rq, req, next);
-        reqpool.nfree++;
-    }
-
-    log_debug(LOG_INFO, "creating request pool: allocated %"PRIu32", max %"
-            PRIu32, reqpool.nfree, reqpool.nmax);
-
-    return CC_OK;
+    FREEPOOL_CREATE(&reqp, max);
 }
 
 void
 request_pool_destroy(void)
 {
-    uint32_t n;
-    struct request *req;
+    struct request *req, *treq;
 
-    ASSERT(reqpool.initialized);
+    log_debug(LOG_INFO, "destroying request pool: free %"PRIu32, reqp.nfree);
 
-    log_debug(LOG_INFO, "destroying request pool: free %"PRIu32", used %"PRIu32,
-            reqpool.nfree, reqpool.nused);
-
-    for (n = 0; n < reqpool.nfree; ++n) {
-        req = STAILQ_FIRST(&reqpool.free_rq);
-        reqpool.nfree--;
-        STAILQ_REMOVE_HEAD(&reqpool.free_rq, next);
-        request_destroy(req);
-    }
-
-    for (n = 0; n < reqpool.nused; ++n) {
-        req = STAILQ_FIRST(&reqpool.used_rq);
-        reqpool.nused--;
-        STAILQ_REMOVE_HEAD(&reqpool.used_rq, next);
-        request_destroy(req);
-    }
+    FREEPOOL_DESTROY(req, treq, &reqp, next, request_destroy);
 }
 
 struct request *
-request_get(void)
+request_borrow(void)
 {
     struct request *req;
 
-    ASSERT(reqpool.initialized);
+    FREEPOOL_BORROW(req, &reqp, next, request_create);
+    if (req == NULL) {
+        log_debug(LOG_DEBUG, "borrow req failed: OOM %d");
 
-    if (reqpool.nfree > 0) {
-        req = STAILQ_FIRST(&reqpool.free_rq);
-        reqpool.nfree--;
-        STAILQ_REMOVE_HEAD(&reqpool.free_rq, next);
-        STAILQ_INSERT_TAIL(&reqpool.used_rq, req, next);
-        reqpool.nused++;
-
-        log_debug(LOG_VVERB, "getting req %p from reqpool.free_rq", req);
-    } else if (reqpool.nfree + reqpool.nused < reqpool.nmax) {
-        req = request_create();
-        STAILQ_INSERT_TAIL(&reqpool.used_rq, req, next);
-        reqpool.nused++;
-
-        log_debug(LOG_VVERB, "creating new req %p", req);
-    } else {
-        req = NULL;
-
-        log_debug(LOG_VVERB, "returning NULL req: nreq exceeding limit %d",
-                reqpool.nmax);
+        return NULL;
     }
+
+    log_debug(LOG_VVERB, "borrowing req %p", req);
 
     return req;
 }
 
 void
-request_put(struct request *req)
+request_return(struct request *req)
 {
-    ASSERT(reqpool.initialized);
+    log_debug(LOG_VVERB, "return req %p: free %"PRIu32, req, reqp.nfree);
 
-    STAILQ_INSERT_TAIL(&reqpool.free_rq, req, next);
-    reqpool.nfree++;
-
-    log_debug(LOG_VVERB, "put req %p to reqpool.free_rq: free %"PRIu32, req,
-            reqpool.nfree);
+    FREEPOOL_RETURN(&reqp, req, next);
 }

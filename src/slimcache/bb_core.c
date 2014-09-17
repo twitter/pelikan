@@ -6,23 +6,21 @@
 #include <cc_event.h>
 #include <cc_nio.h>
 
+static struct context {
+    struct event_base  *evb;
+    int                timeout;
+} context;
+
+static struct context *ctx = &context;
+
 static void
 core_error(struct stream *stream)
 {
     log_debug(LOG_INFO, "close channel %p", stream->channel);
-    struct conn *c = NULL;
 
-    /* delete event on fd */
-    switch (stream->type) {
-    case CHANNEL_TCP:
-        c = stream->channel;
-        c->handler->close(c);
-
-        break;
-
-    default:
-        NOT_REACHED();
-    }
+    event_del(ctx->evb, stream->handler->fd(stream->channel));
+    stream->handler->destroy(stream->channel);
+    stream_return(stream);
 }
 
 static void
@@ -38,7 +36,7 @@ _post_read(struct stream *stream, size_t nbyte)
     if (stream->data != NULL) {
         req = stream->data;
     } else {
-        req = request_get();
+        req = request_borrow();
         stream->data = req;
     }
 
@@ -110,16 +108,18 @@ _post_read(struct stream *stream, size_t nbyte)
     }
 
     if (!req->swallow) {
-        request_put(req);
+        request_return(req);
         stream->data = NULL;
     }
 
 done:
+    if (mbuf_rsize(stream->wbuf) > 0) {
+        event_add_write(ctx->evb, stream->handler->fd(stream->channel), stream);
+    }
     return;
-    /* raise write event if there's data to write */
 }
 
-rstatus_t
+static rstatus_t
 core_read(struct stream *stream)
 {
     ASSERT(stream != NULL);
@@ -148,7 +148,7 @@ _post_write(struct stream *stream, size_t nbyte)
     mbuf_lshift(stream->wbuf);
 }
 
-rstatus_t
+static rstatus_t
 core_write(struct stream *stream)
 {
     ASSERT(stream != NULL);
@@ -163,34 +163,74 @@ core_write(struct stream *stream)
 }
 
 static void
-core_event(struct stream *stream, uint32_t events)
+core_event(void *arg, uint32_t events)
 {
     rstatus_t status;
+    struct stream *stream = arg;
 
     log_debug(LOG_VERB, "event %04"PRIX32" on stream %d", events, stream);
 
     if (events & EVENT_ERR) {
         core_error(stream);
+
+        return;
     }
 
     if (events & EVENT_READ) {
         status = core_read(stream);
         if (status == CC_ERETRY) { /* retry read */
-            /* add read event */
+            event_add_read(ctx->evb, stream->handler->fd(stream->channel),
+                    stream);
         }
         if (status == CC_ERROR) {
-            /* close channel */
+            core_error(stream);
+
+            return;
         }
     }
 
     if (events & EVENT_WRITE) {
         status = core_write(stream);
         if (status == CC_ERETRY || status == CC_EAGAIN) { /* retry write */
-            /* add write event */
+            event_add_write(ctx->evb, stream->handler->fd(stream->channel),
+                    stream);
         }
         if (status == CC_ERROR) {
-            /* close channel */
+            core_error(stream);
+
+            return;
         }
     }
 }
 
+rstatus_t
+core_setup(void)
+{
+    ctx->timeout = 5;
+    ctx->evb = event_base_create(1024, core_event);
+
+    if (ctx->evb == NULL) {
+        return CC_ERROR;
+    }
+
+    return CC_OK;
+}
+
+void
+core_teardown(void)
+{
+    /* shutdown everything driven by events: streams, stats... */
+}
+
+rstatus_t
+core_evwait(void)
+{
+    int n;
+    n = event_wait(ctx->evb, -1);
+
+    if (n < 0) {
+        return n;
+    }
+
+    return CC_OK;
+}
