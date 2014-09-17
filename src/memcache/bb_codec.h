@@ -7,7 +7,10 @@
 #include <cc_define.h>
 #include <cc_mbuf.h>
 
+rstatus_t parse_swallow(struct mbuf *buf);
 rstatus_t parse_req_hdr(struct request *req, struct mbuf *buf);
+rstatus_t parse_req_val(struct request *req, struct mbuf *buf);
+rstatus_t parse_req(struct request *req, struct mbuf *buf);
 
 rstatus_t compose_rsp_msg(struct mbuf *buf, rsp_index_t idx, bool noreply);
 rstatus_t compose_rsp_uint64(struct mbuf *buf, uint64_t val, bool noreply);

@@ -7,6 +7,8 @@
 #include <cc_define.h>
 #include <cc_stream.h>
 
+stream_handler_t handler;
+
 rstatus_t core_read(struct stream *stream);
 rstatus_t core_write(struct stream *stream);
 

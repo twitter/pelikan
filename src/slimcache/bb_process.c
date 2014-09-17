@@ -154,7 +154,7 @@ process_set(struct request *req, struct mbuf *buf)
 
     key = array_get_idx(req->keys, 0);
     expire = time_reltime(req->expiry);
-    process_value(&val, req->data);
+    process_value(&val, &req->vstr);
 
     it = cuckoo_lookup(key);
     if (it != NULL) {
@@ -188,7 +188,7 @@ process_add(struct request *req, struct mbuf *buf)
         status = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
     } else {
         expire = time_reltime(req->expiry);
-        process_value(&val, req->data);
+        process_value(&val, &req->vstr);
         cuckoo_insert(key, &val, expire);
         //stats_thread_incr(add_success);
         status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
@@ -213,7 +213,7 @@ process_replace(struct request *req, struct mbuf *buf)
     it = cuckoo_lookup(key);
     if (it != NULL) {
         expire = time_reltime(req->expiry);
-        process_value(&val, req->data);
+        process_value(&val, &req->vstr);
         item_update(it, &val, expire);
         //stats_thread_incr(replace_success);
         status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
@@ -242,7 +242,7 @@ process_cas(struct request *req, struct mbuf *buf)
     if (it != NULL) {
         if (item_cas_valid(it, req->cas)) {
             expire = time_reltime(req->expiry);
-            process_value(&val, req->data);
+            process_value(&val, &req->vstr);
             item_update(it, &val, expire);
             //stats_thread_incr(cas_success);
             status = compose_rsp_msg(buf, RSP_STORED, req->noreply);

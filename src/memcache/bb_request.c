@@ -21,11 +21,12 @@ request_reset(struct request *req)
     ASSERT(req != NULL && req->keys != NULL);
 
     req->rstate = PARSING;
-    req->pstate = VERB;
+    req->pstate = REQ_HDR;
     req->tstate = 0;
     req->verb = UNKNOWN;
 
     req->keys->nelem = 0;
+    bstring_init(&req->vstr);
     req->flag = 0;
     req->expiry = 0;
     req->vlen = 0;

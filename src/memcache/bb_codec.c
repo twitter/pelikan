@@ -766,78 +766,28 @@ _subrequest_retrieve(struct request *req, struct mbuf *buf)
     return CC_ERROR;
 }
 
-/* parse the first line("header") according to memcache ASCII protocol */
+/* swallowing the current line, delimited by '\r\n' */
 rstatus_t
-parse_req_hdr(struct request *req, struct mbuf *buf)
+parse_swallow(struct mbuf *buf)
 {
-    rstatus_t status = CC_ERROR;
-    bool end = false;
+    uint8_t *p;
+    rstatus_t status;
 
+    for (p = buf->rpos; p < buf->wpos; p++) {
+        status = _try_crlf(buf, p);
+        switch (status) {
+        case CC_UNFIN:
+            buf->rpos = p;
 
-    ASSERT(req != NULL);
-    ASSERT(buf != NULL);
-    ASSERT(req->rstate == PARSING);
-    ASSERT(req->pstate == VERB || req->pstate == POST_VERB);
+            return CC_UNFIN;
 
-    if (req->pstate == VERB) {
-        end = true;
-
-        status = _chase_string(req, buf, &end, _check_verb);
-
-        if (status == CC_OK) {
-            req->pstate = POST_VERB;
-        } else {
-            return status;
-        }
-    }
-
-    if (req->pstate == POST_VERB) {
-        switch (req->verb) {
-        case GET:
-        case GETS:
-            status = _subrequest_retrieve(req, buf);
-
+        case CC_ERROR: /* not CRLF */
             break;
 
-        case DELETE:
-            status = _subrequest_delete(req, buf);
+        case CC_OK:
+            buf->rpos = p + CRLF_LEN;
 
-            break;
-
-        case ADD:
-        case SET:
-        case REPLACE:
-        case APPEND:
-        case PREPEND:
-            status = _subrequest_store(req, buf, false);
-
-            break;
-
-        case CAS:
-            status = _subrequest_store(req, buf, true);
-
-            break;
-
-        case INCR:
-        case DECR:
-            status = _subrequest_arithmetic(req, buf);
-
-            break;
-
-        case STATS:
-        case QUIT:
-            if (!end) {
-                /*
-                 * If pstate was POST_VERB when this function is called, end
-                 * cannot be true, as the only time we quit without a full
-                 * request is when the request is 'unfinished'.
-                 */
-                req->swallow = 1;
-
-                return CC_ERROR;
-            }
-
-            break;
+            return CC_OK;
 
         default:
             NOT_REACHED();
@@ -845,13 +795,128 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
         }
     }
 
-    if (status == CC_OK) {
-        req->pstate = PARSED;
+    /* there isn't enough data in buf to fully parse the request*/
+    return CC_UNFIN;
+}
+
+/* parse the first line("header") according to memcache ASCII protocol */
+rstatus_t
+parse_req_hdr(struct request *req, struct mbuf *buf)
+{
+    rstatus_t status;
+    uint8_t *rpos;
+    bool end;
+
+
+    ASSERT(req != NULL);
+    ASSERT(buf != NULL);
+    ASSERT(req->rstate == PARSING);
+    ASSERT(req->pstate == REQ_HDR);
+
+    rpos = buf->rpos;
+
+    /* get the verb first */
+    end = true;
+    status = _chase_string(req, buf, &end, _check_verb);
+    if (status != CC_OK) {
+        return status;
+    }
+
+    /* rest of the request header */
+    switch (req->verb) {
+    case GET:
+    case GETS:
+        status = _subrequest_retrieve(req, buf);
+
+        break;
+
+    case DELETE:
+        status = _subrequest_delete(req, buf);
+
+        break;
+
+    case ADD:
+    case SET:
+    case REPLACE:
+    case APPEND:
+    case PREPEND:
+        req->pstate = REQ_VAL;
+        status = _subrequest_store(req, buf, false);
+
+        break;
+
+    case CAS:
+        status = _subrequest_store(req, buf, true);
+
+        break;
+
+    case INCR:
+    case DECR:
+        status = _subrequest_arithmetic(req, buf);
+
+        break;
+
+    case STATS:
+    case QUIT:
+        if (!end) {
+            req->swallow = 1;
+
+            status = CC_ERROR;
+        }
+
+        break;
+
+    default:
+        NOT_REACHED();
+        break;
+    }
+
+    if (status == CC_UNFIN) { /* reset rpos if the hdr is incomplete */
+        buf->rpos = rpos;
     }
 
     return status;
 }
 
+rstatus_t
+parse_req_val(struct request *req, struct mbuf *buf)
+{
+    if (mbuf_rsize(buf) < req->vlen) {
+        return CC_UNFIN;
+    }
+
+    req->vstr.len = req->vlen;
+    req->vstr.data = buf->rpos;
+
+    buf->rpos += req->vlen;
+
+    return CC_OK;
+}
+
+rstatus_t
+parse_req(struct request *req, struct mbuf *buf)
+{
+    rstatus_t status;
+
+    ASSERT(req->rstate == PARSING);
+
+    if (req->pstate == REQ_HDR) {
+        status = parse_req_hdr(req, buf);
+        if (status != CC_OK) {
+            return status;
+        }
+    }
+
+    if (req->pstate == REQ_VAL) {
+        status = parse_req_val(req, buf);
+    }
+
+    if (status == CC_OK) {
+        req->rstate = PARSED;
+    }
+
+    return status;
+}
 
 /* functions related to composing messages */
 

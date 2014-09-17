@@ -4,6 +4,7 @@
 #include <memcache/bb_constant.h>
 
 #include <cc_array.h>
+#include <cc_bstring.h>
 #include <cc_define.h>
 #include <cc_mm.h>
 #include <cc_queue.h>
@@ -13,15 +14,14 @@
 typedef enum request_state {
     PARSING,
     PARSED,
-    EXECUTING,
-    REPLYING,
+    PROCESSING,
     DONE,
     RS_SENTINEL
 } request_state_t;
 
 typedef enum parse_state {
-    VERB,
-    POST_VERB,
+    REQ_HDR,
+    REQ_VAL,
     PS_SENTINEL
 } parse_state_t;
 
@@ -58,7 +58,7 @@ struct request {
     request_verb_t          verb;
 
     struct array            *keys;      /* elements are bstrings */
-    void                    *data;      /* usually points to the value */
+    struct bstring          vstr;       /* the value string */
 
     uint32_t                flag;
     uint32_t                expiry;
