@@ -18,7 +18,7 @@ core_error(struct stream *stream)
 {
     log_debug(LOG_INFO, "close channel %p", stream->channel);
 
-    event_del(ctx->evb, stream->handler->fd(stream->channel));
+    event_deregister(ctx->evb, stream->handler->fd(stream->channel));
     stream->handler->destroy(stream->channel);
     stream_return(stream);
 }
@@ -162,6 +162,36 @@ core_write(struct stream *stream)
     return status;
 }
 
+/* TCP only */
+static void
+core_listen(struct stream *stream)
+{
+    struct stream *s;
+    struct conn *c;
+
+    c = server_accept(stream->channel);
+    if (c == NULL) {
+        log_error("connection establishment failed: cannot accept");
+
+        return;
+    }
+
+    s = stream_borrow();
+    if (s == NULL) {
+        log_error("connection establishment failed: cannot alloc stream");
+        server_close(c);
+
+        return;
+    }
+
+    s->owner = ctx;
+    s->type = CHANNEL_TCP;
+    s->channel = c;
+    s->err = 0;
+    /* assign handlers here */
+    event_register(ctx->evb, c->sd, s);
+}
+
 static void
 core_event(void *arg, uint32_t events)
 {
@@ -177,6 +207,12 @@ core_event(void *arg, uint32_t events)
     }
 
     if (events & EVENT_READ) {
+        if (stream->type == CHANNEL_TCPLISTEN) {
+            core_listen(stream);
+
+            return;
+        }
+
         status = core_read(stream);
         if (status == CC_ERETRY) { /* retry read */
             event_add_read(ctx->evb, stream->handler->fd(stream->channel),
