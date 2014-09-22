@@ -32,4 +32,4 @@ broadbill_slimcache_SOURCES = 						\
 		slimcache/bb_process.c slimcache/bb_process.h		\
 		slimcache/bb_core.c slimcache/bb_core.h			\
 		time/bb_time.c time/bb_time.h				\
-		bb_main.c
+		slimcache/bb_main.c

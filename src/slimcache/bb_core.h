@@ -7,7 +7,9 @@
 #include <cc_define.h>
 #include <cc_stream.h>
 
-rstatus_t core_setup(void);
+#include <netdb.h>
+
+rstatus_t core_setup(struct addrinfo *ai);
 void core_teardown(void);
 rstatus_t core_evwait(void);
 

@@ -5,6 +5,7 @@
 #include <cc_debug.h>
 #include <cc_event.h>
 #include <cc_nio.h>
+#include <cc_stream.h>
 
 static struct context {
     struct event_base  *evb;
@@ -12,6 +13,10 @@ static struct context {
 } context;
 
 static struct context *ctx = &context;
+static struct conn *sc; /* server connection */
+static stream_handler_t server_hdl;
+static stream_handler_t conn_hdl;
+
 
 static void
 core_error(struct stream *stream)
@@ -19,7 +24,7 @@ core_error(struct stream *stream)
     log_debug(LOG_INFO, "close channel %p", stream->channel);
 
     event_deregister(ctx->evb, stream->handler->fd(stream->channel));
-    stream->handler->destroy(stream->channel);
+    stream->handler->close(stream->channel);
     stream_return(stream);
 }
 
@@ -162,9 +167,9 @@ core_write(struct stream *stream)
     return status;
 }
 
-/* TCP only */
+/* TCP only, nbyte is not used */
 static void
-core_listen(struct stream *stream)
+core_listen(struct stream *stream, size_t nbyte)
 {
     struct stream *s;
     struct conn *c;
@@ -188,7 +193,8 @@ core_listen(struct stream *stream)
     s->type = CHANNEL_TCP;
     s->channel = c;
     s->err = 0;
-    /* assign handlers here */
+    s->handler = &conn_hdl;
+    s->data = NULL;
     event_register(ctx->evb, c->sd, s);
 }
 
@@ -208,7 +214,7 @@ core_event(void *arg, uint32_t events)
 
     if (events & EVENT_READ) {
         if (stream->type == CHANNEL_TCPLISTEN) {
-            core_listen(stream);
+            core_listen(stream, 0);
 
             return;
         }
@@ -239,15 +245,60 @@ core_event(void *arg, uint32_t events)
     }
 }
 
-rstatus_t
-core_setup(void)
+static void
+handler_setup(void)
 {
-    ctx->timeout = 5;
-    ctx->evb = event_base_create(1024, core_event);
+    server_hdl.open = NULL; /* created during setup */
+    server_hdl.close = (channel_close_t)server_close;
+    server_hdl.fd = (channel_fd_t)conn_fd;
+    server_hdl.pre_read = NULL;
+    server_hdl.post_read = core_listen;
+    server_hdl.pre_write = NULL; /* server connection doesn't write */
+    server_hdl.post_write = NULL;
 
+    conn_hdl.open = NULL; /* created by server_hdl.post_read */
+    conn_hdl.close = (channel_close_t)conn_close;
+    conn_hdl.fd = (channel_fd_t)conn_fd;
+    conn_hdl.pre_read = NULL;
+    conn_hdl.post_read = _post_read;
+    conn_hdl.pre_write = NULL;
+    conn_hdl.post_write = _post_write;
+}
+
+rstatus_t
+core_setup(struct addrinfo *ai)
+{
+    struct stream *s;
+
+    handler_setup();
+
+    ctx->timeout = 100;
+    ctx->evb = event_base_create(1024, core_event);
     if (ctx->evb == NULL) {
         return CC_ERROR;
     }
+
+    sc = server_listen(ai);
+    if (sc == NULL) {
+        log_error("server connection setup failed");
+
+        return CC_ERROR;
+    }
+
+    s = stream_borrow();
+    if (s == NULL) {
+        log_error("cannot get server stream: OOM");
+        server_close(sc);
+
+        return CC_ERROR;
+    }
+    s->owner = ctx;
+    s->type = CHANNEL_TCPLISTEN;
+    s->channel = sc;
+    s->err = 0;
+    s->handler = &server_hdl;
+    s->data = NULL;
+    event_register(ctx->evb, sc->sd, s);
 
     return CC_OK;
 }
@@ -262,7 +313,7 @@ rstatus_t
 core_evwait(void)
 {
     int n;
-    n = event_wait(ctx->evb, -1);
+    n = event_wait(ctx->evb, ctx->timeout);
 
     if (n < 0) {
         return n;
