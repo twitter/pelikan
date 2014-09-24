@@ -48,7 +48,7 @@ setup(void)
 
     mbuf_setup(8 * KiB);
     array_setup(64);
-    log_setup(LOG_DEBUG, NULL);
+    log_setup(LOG_VERB, NULL);
 
     mbuf_pool_create(0);
     conn_pool_create(0);
