@@ -213,7 +213,7 @@ item_set(struct item *it, struct bstring *key, struct val *val, rel_time_t expir
     /*
      * here we don't have to run the full validity check, because we assume
      * whoever calls this function has already fun the valid check, which would
-     * have deleted an expired key. So we are always replacing a valid keyif
+     * have deleted an expired key. So we are always replacing a valid key if
      * expire is non-zero.
      */
     if (it->expire > 0) {

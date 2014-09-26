@@ -15,9 +15,13 @@ process_get_key(struct mbuf *buf, struct bstring *key)
     uint8_t val_str[CC_UINT64_MAXLEN];
     size_t size;
 
+    log_debug(LOG_VERB, "get key at %p, rsp buf at %p", key, buf);
+
     it = cuckoo_lookup(key);
     if (NULL != it) {
         //stats_thread_incr_get_key_hit);
+
+        log_debug(LOG_VERB, "found key at item %p");
 
         item_val(&val, it);
         if (val.type == VAL_TYPE_INT) { /* print and overwrite val */
@@ -41,7 +45,7 @@ process_get(struct request *req, struct mbuf *buf)
     struct bstring *key;
     uint32_t i;
 
-    log_debug(LOG_VERB, "processing get req %p, response at %p", req, buf);
+    log_debug(LOG_VERB, "processing get req %p, rsp buf at %p", req, buf);
 
     //stats_thread_incr(get);
 
@@ -64,6 +68,8 @@ process_gets_key(struct mbuf *buf, struct bstring *key)
     struct val val;
     uint8_t val_str[CC_UINT64_MAXLEN];
     size_t size;
+
+    log_debug(LOG_VERB, "gets key at %p, rsp buf at %p", key, buf);
 
     it = cuckoo_lookup(key);
     if (NULL != it) {
@@ -91,7 +97,7 @@ process_gets(struct request *req, struct mbuf *buf)
     struct bstring *key;
     uint32_t i;
 
-    log_debug(LOG_VERB, "processing gets req %p, response at %p", req, buf);
+    log_debug(LOG_VERB, "processing gets req %p, rsp buf at %p", req, buf);
 
     //stats_thread_incr(gets);
 
@@ -113,7 +119,7 @@ process_delete(struct request *req, struct mbuf *buf)
     rstatus_t status = CC_OK;
     struct item *it;
 
-    log_debug(LOG_VERB, "processing delete req %p, response at %p", req, buf);
+    log_debug(LOG_VERB, "processing delete req %p, rsp buf at %p", req, buf);
 
     //stats_thread_incr(delete);
 
@@ -158,7 +164,7 @@ process_set(struct request *req, struct mbuf *buf)
     struct item *it;
     struct val val;
 
-    log_debug(LOG_VERB, "processing set req %p, response at %p", req, buf);
+    log_debug(LOG_VERB, "processing set req %p, rsp buf at %p", req, buf);
 
     //stats_thread_incr(set);
 
@@ -188,7 +194,7 @@ process_add(struct request *req, struct mbuf *buf)
     struct item *it;
     struct val val;
 
-    log_debug(LOG_VERB, "processing add req %p, response at %p", req, buf);
+    log_debug(LOG_VERB, "processing add req %p, rsp buf at %p", req, buf);
 
     //stats_thread_incr(add);
 
@@ -218,7 +224,7 @@ process_replace(struct request *req, struct mbuf *buf)
     struct item *it;
     struct val val;
 
-    log_debug(LOG_VERB, "processing replace req %p, response at %p", req, buf);
+    log_debug(LOG_VERB, "processing replace req %p, rsp buf at %p", req, buf);
 
     //stats_thread_incr(replace);
 
@@ -248,7 +254,7 @@ process_cas(struct request *req, struct mbuf *buf)
     struct item *it;
     struct val val;
 
-    log_debug(LOG_VERB, "processing cas req %p, response at %p", req, buf);
+    log_debug(LOG_VERB, "processing cas req %p, rsp buf at %p", req, buf);
 
     //stats_thread_incr(cas);
 
@@ -282,7 +288,7 @@ process_incr(struct request *req, struct mbuf *buf)
     struct item *it;
     struct val new_val;
 
-    log_debug(LOG_VERB, "processing incr req %p, response at %p", req, buf);
+    log_debug(LOG_VERB, "processing incr req %p, rsp buf at %p", req, buf);
 
     key = array_get_idx(req->keys, 0);
 
@@ -316,7 +322,7 @@ process_decr(struct request *req, struct mbuf *buf)
     struct item *it;
     struct val new_val;
 
-    log_debug(LOG_VERB, "processing decr req %p, response at %p", req, buf);
+    log_debug(LOG_VERB, "processing decr req %p, rsp buf at %p", req, buf);
 
     key = array_get_idx(req->keys, 0);
 
@@ -347,7 +353,7 @@ process_request(struct request *req, struct mbuf *buf)
 {
     rstatus_t status;
 
-    log_debug(LOG_VERB, "processing req %p, response at %p", req, buf);
+    log_debug(LOG_VERB, "processing req %p, rsp buf at %p", req, buf);
 
     switch (req->verb) {
     case GET:

@@ -89,7 +89,9 @@ _post_read(struct stream *stream, size_t nbyte)
         }
 
         /* processing */
+        log_debug(LOG_VERB, "wbuf free: %"PRIu32" B", mbuf_wsize(stream->wbuf));
         status = process_request(req, stream->wbuf);
+        log_debug(LOG_VERB, "wbuf free: %"PRIu32" B", mbuf_wsize(stream->wbuf));
 
         if (status != CC_OK) {
             log_error("process request failed: %d", status);

@@ -4,6 +4,8 @@
 
 #include <time.h>
 
+/* NOTE(yao): this whole time module needs a major overhaul */
+
 /*
  * From memcache protocol specification:
  *
@@ -76,8 +78,8 @@ time_started(void)
 rel_time_t
 time_reltime(time_t t)
 {
-    if (t == 0) { /* 0 means never expire */
-        return 0;
+    if (t == 0) { /* 0 means never expire so we set it to the largest reltime */
+        return UINT32_MAX;
     }
 
     if (t > TIME_MAXDELTA) {

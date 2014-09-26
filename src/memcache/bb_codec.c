@@ -964,7 +964,7 @@ _compose_rsp_msg(struct mbuf *buf, rsp_index_t idx)
 
     mbuf_copy(buf, str->data, str->len);
 
-    log_debug(LOG_VERB, "wrote rsp string %d to mbuf %p", idx, buf);
+    log_debug(LOG_VVERB, "wrote rsp string %d to mbuf %p", idx, buf);
 
     return CC_OK;
 }
@@ -975,6 +975,8 @@ compose_rsp_msg(struct mbuf *buf, rsp_index_t idx, bool noreply)
     if (noreply) {
         return CC_OK;
     }
+
+    log_debug(LOG_VERB, "rsp msg id %d", idx);
 
     return _compose_rsp_msg(buf, idx);
 }
@@ -987,7 +989,7 @@ _compose_rsp_uint64(struct mbuf *buf, uint64_t val)
 
     wsize = mbuf_wsize(buf);
 
-    n = cc_scnprintf(buf->wpos, wsize, "%"PRIu64, val);
+    n = cc_scnprintf(buf->wpos, wsize, " %"PRIu64, val);
     if (n >= wsize) {
         log_debug(LOG_INFO, "failed to write val %"PRIu64" to mbuf %p: "
                 "insufficient buffer space", val, buf);
@@ -1000,6 +1002,8 @@ _compose_rsp_uint64(struct mbuf *buf, uint64_t val)
         return CC_ERROR;
     }
 
+    log_debug(LOG_VVERB, "wrote rsp uint %"PRIu64" to mbuf %p", val, buf);
+
     buf->wpos += n;
     return CC_OK;
 }
@@ -1010,6 +1014,8 @@ compose_rsp_uint64(struct mbuf *buf, uint64_t val, bool noreply)
     if (noreply) {
         return CC_OK;
     }
+
+    log_debug(LOG_VERB, "rsp int %"PRIu64, val);
 
     return _compose_rsp_uint64(buf, val);
 }
@@ -1029,9 +1035,8 @@ _compose_rsp_bstring(struct mbuf *buf, struct bstring *str)
     }
 
     mbuf_copy(buf, str->data, str->len);
-    buf->wpos += str->len;
 
-    log_debug(LOG_VERB, "wrote bstring %p to mbuf %p", str, buf);
+    log_debug(LOG_VVERB, "wrote bstring at %p to mbuf %p", str, buf);
 
     return CC_OK;
 }
@@ -1043,6 +1048,8 @@ compose_rsp_bstring(struct mbuf *buf, struct bstring *str, bool noreply)
         return CC_OK;
     }
 
+    log_debug(LOG_VERB, "rsp bstring %"PRIu32" byte", str->len);
+
     return _compose_rsp_bstring(buf, str);
 }
 
@@ -1050,6 +1057,9 @@ rstatus_t
 compose_rsp_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas)
 {
     rstatus_t status = CC_OK;
+
+    log_debug(LOG_VERB, "rsp keyval: %"PRIu32" byte key, %"PRIu32" byte value,"
+            " flag: %"PRIu32", cas: %"PRIu64, key->len, val->len, flag, cas);
 
     status = _compose_rsp_msg(buf, RSP_VALUE);
     if (status != CC_OK) {
