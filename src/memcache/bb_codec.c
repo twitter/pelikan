@@ -813,6 +813,8 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
     ASSERT(req->rstate == PARSING);
     ASSERT(req->pstate == REQ_HDR);
 
+    log_debug(LOG_VERB, "parsing req hdr at %p into %p", buf, req);
+
     rpos = buf->rpos;
 
     /* get the verb first */
@@ -881,6 +883,8 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
 rstatus_t
 parse_req_val(struct request *req, struct mbuf *buf)
 {
+    log_debug(LOG_VERB, "parsing req val at %p into %p", buf, req);
+
     if (mbuf_rsize(buf) < req->vlen) {
         return CC_UNFIN;
     }
@@ -899,6 +903,9 @@ parse_req(struct request *req, struct mbuf *buf)
     rstatus_t status;
 
     ASSERT(req->rstate == PARSING);
+
+    log_debug(LOG_VERB, "parsing req at %p into %p (state: %d)", buf, req,
+            req->pstate);
 
     if (req->pstate == REQ_HDR) {
         status = parse_req_hdr(req, buf);

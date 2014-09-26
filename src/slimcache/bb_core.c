@@ -68,11 +68,7 @@ _post_read(struct stream *stream, size_t nbyte)
         }
     }
 
-    log_debug(LOG_VERB, "rbuf size: %"PRIu32, mbuf_rsize(stream->rbuf));
-
-
     while (mbuf_rsize(stream->rbuf) > 0) {
-        log_debug(LOG_VERB, "parsing");
         /* parsing */
         status = parse_req(req, stream->rbuf);
         if (status == CC_UNFIN) {
