@@ -1,4 +1,4 @@
-#include <bb_cuckoo.h>
+#include <cuckoo/bb_cuckoo.h>
 
 #include <bb_item.h>
 
@@ -24,6 +24,7 @@ static uint32_t iv[D] = {
 static void* ds; /* data store is also the hash table */
 static size_t chunk_size;
 static uint32_t max_item;
+bool cuckoo_initialized;
 
 #define OFFSET2ITEM(o) ((struct item *)((ds) + (o) * chunk_size))
 #define RANDOM(k) (random() % k)
@@ -141,6 +142,8 @@ cuckoo_setup(size_t size, uint32_t item)
         return CC_ERROR;
     }
 
+    cuckoo_initialized = true;
+
     return CC_OK;
 }
 
@@ -156,6 +159,8 @@ cuckoo_lookup(struct bstring *key)
     uint32_t offset[D];
     int i;
     struct item *it;
+
+    ASSERT(cuckoo_initialized == true);
 
     cuckoo_hash(offset, key);
 

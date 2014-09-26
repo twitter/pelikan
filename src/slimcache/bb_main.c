@@ -1,3 +1,5 @@
+#include <cuckoo/bb_cuckoo.h>
+#include <memcache/bb_request.h>
 #include <slimcache/bb_core.h>
 
 #include <cc_mbuf.h>
@@ -53,6 +55,8 @@ setup(void)
     mbuf_pool_create(0);
     conn_pool_create(0);
     stream_pool_create(0);
+    request_pool_create(0);
+    cuckoo_setup(80, 1024);
 
     ret = getaddr(&ai);
     if (ret < 0) {

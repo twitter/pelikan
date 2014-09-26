@@ -36,6 +36,8 @@ _post_read(struct stream *stream, size_t nbyte)
 
     ASSERT(stream != NULL);
 
+    log_debug(LOG_VERB, "post read processing of %zu bytes on stream %p",
+            nbyte, stream);
     //stats_thread_incr_by(data_read, nbyte);
 
     if (stream->data != NULL) {
@@ -66,7 +68,11 @@ _post_read(struct stream *stream, size_t nbyte)
         }
     }
 
+    log_debug(LOG_VERB, "rbuf size: %"PRIu32, mbuf_rsize(stream->rbuf));
+
+
     while (mbuf_rsize(stream->rbuf) > 0) {
+        log_debug(LOG_VERB, "parsing");
         /* parsing */
         status = parse_req(req, stream->rbuf);
         if (status == CC_UNFIN) {
@@ -118,6 +124,7 @@ _post_read(struct stream *stream, size_t nbyte)
     }
 
 done:
+    /* TODO: call stream write directly, use events only for retries */
     if (mbuf_rsize(stream->wbuf) > 0) {
         event_add_write(ctx->evb, stream->handler->fd(stream->channel), stream);
     }
@@ -142,11 +149,8 @@ static void
 _post_write(struct stream *stream, size_t nbyte)
 {
     ASSERT(stream != NULL);
-    ASSERT(mbuf_rsize(stream->wbuf) >= nbyte);
 
     //stats_thread_incr_by(data_written, nbyte);
-
-    stream->wbuf->rpos += nbyte;
 
     /* left-shift rbuf and wbuf */
     mbuf_lshift(stream->rbuf);
