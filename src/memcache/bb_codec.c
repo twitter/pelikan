@@ -1089,7 +1089,7 @@ compose_rsp_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, u
         return status;
     }
 
-    status = _compose_rsp_bstring(buf, RSP_CRLF);
+    status = _compose_rsp_msg(buf, RSP_CRLF);
     if (status != CC_OK) {
         return status;
     }

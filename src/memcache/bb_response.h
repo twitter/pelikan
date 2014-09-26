@@ -12,6 +12,7 @@
 #include <cc_bstring.h>
 #include <cc_define.h>
 #include <cc_mbuf.h>
+#include <cc_util.h>
 
 /* TODO(yao): move this into the header */
 #define RSP_MSG(ACTION)                             \
