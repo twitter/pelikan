@@ -70,6 +70,8 @@ _post_read(struct stream *stream, size_t nbyte)
 
     while (mbuf_rsize(stream->rbuf) > 0) {
         /* parsing */
+        log_debug(LOG_VERB, "%"PRIu32" bytes left", mbuf_rsize(stream->rbuf));
+
         status = parse_req(req, stream->rbuf);
         if (status == CC_UNFIN) {
             goto done;
@@ -88,6 +90,7 @@ _post_read(struct stream *stream, size_t nbyte)
 
         /* processing */
         status = process_request(req, stream->wbuf);
+
         if (status != CC_OK) {
             log_error("process request failed: %d", status);
 

@@ -807,13 +807,12 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
     uint8_t *rpos;
     bool end;
 
-
     ASSERT(req != NULL);
     ASSERT(buf != NULL);
     ASSERT(req->rstate == PARSING);
     ASSERT(req->pstate == REQ_HDR);
 
-    log_debug(LOG_VERB, "parsing req hdr at %p into %p", buf, req);
+    log_debug(LOG_VERB, "parsing hdr at %p into req %p", buf->rpos, req);
 
     rpos = buf->rpos;
 
@@ -823,6 +822,7 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
     if (status != CC_OK) {
         return status;
     }
+    log_debug(LOG_VERB, "buf->rpos: %p", buf->rpos);
 
     /* rest of the request header */
     switch (req->verb) {
@@ -872,6 +872,7 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
         NOT_REACHED();
         break;
     }
+    log_debug(LOG_VERB, "buf->rpos: %p", buf->rpos);
 
     if (status == CC_UNFIN) { /* reset rpos if the hdr is incomplete */
         buf->rpos = rpos;
@@ -883,9 +884,14 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
 rstatus_t
 parse_req_val(struct request *req, struct mbuf *buf)
 {
-    log_debug(LOG_VERB, "parsing req val at %p into %p", buf, req);
+    rstatus_t status;
 
-    if (mbuf_rsize(buf) < req->vlen) {
+    log_debug(LOG_VERB, "parsing val at %p into req %p", buf->rpos, req);
+
+    if (mbuf_rsize(buf) < req->vlen + CRLF_LEN) {
+        log_debug(LOG_VERB, "rbuf has %"PRIu32" out of the %"PRIu32" bytes "
+                "expected", mbuf_rsize(buf), req->vlen + CRLF_LEN);
+
         return CC_UNFIN;
     }
 
@@ -894,7 +900,13 @@ parse_req_val(struct request *req, struct mbuf *buf)
 
     buf->rpos += req->vlen;
 
-    return CC_OK;
+    /* verify CRLF */
+    status = _try_crlf(buf, buf->rpos);
+    if (status == CC_OK) {
+        buf->rpos += CRLF_LEN;
+    }
+
+    return status;
 }
 
 rstatus_t
@@ -904,7 +916,7 @@ parse_req(struct request *req, struct mbuf *buf)
 
     ASSERT(req->rstate == PARSING);
 
-    log_debug(LOG_VERB, "parsing req at %p into %p (state: %d)", buf, req,
+    log_debug(LOG_VERB, "parsing buf %p into req %p (state: %d)", buf, req,
             req->pstate);
 
     if (req->pstate == REQ_HDR) {
@@ -951,9 +963,8 @@ _compose_rsp_msg(struct mbuf *buf, rsp_index_t idx)
     }
 
     mbuf_copy(buf, str->data, str->len);
-    buf->wpos += str->len;
 
-    log_debug(LOG_VVERB, "wrote rsp string %d to mbuf %p", idx, buf);
+    log_debug(LOG_VERB, "wrote rsp string %d to mbuf %p", idx, buf);
 
     return CC_OK;
 }
@@ -1020,7 +1031,7 @@ _compose_rsp_bstring(struct mbuf *buf, struct bstring *str)
     mbuf_copy(buf, str->data, str->len);
     buf->wpos += str->len;
 
-    log_debug(LOG_VVERB, "wrote bstring %p to mbuf %p", str, buf);
+    log_debug(LOG_VERB, "wrote bstring %p to mbuf %p", str, buf);
 
     return CC_OK;
 }

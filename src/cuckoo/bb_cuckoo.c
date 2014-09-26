@@ -192,6 +192,7 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
         break;
       }
     }
+    log_debug(LOG_DEBUG, "inserting into location: %p", it);
 
     if (D == i) {
         displaced = offset[RANDOM(D)];
