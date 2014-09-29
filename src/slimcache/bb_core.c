@@ -19,7 +19,7 @@ static stream_handler_t conn_hdl;
 
 
 static void
-core_error(struct stream *stream)
+core_close(struct stream *stream)
 {
     log_debug(LOG_INFO, "close channel %p", stream->channel);
 
@@ -207,12 +207,13 @@ static void
 core_event(void *arg, uint32_t events)
 {
     rstatus_t status;
+    bool final = false;
     struct stream *stream = arg;
 
     log_debug(LOG_VERB, "event %06"PRIX32" on stream %p", events, stream);
 
     if (events & EVENT_ERR) {
-        core_error(stream);
+        core_close(stream);
 
         return;
     }
@@ -228,9 +229,10 @@ core_event(void *arg, uint32_t events)
         if (status == CC_ERETRY) { /* retry read */
             event_add_read(ctx->evb, stream->handler->fd(stream->channel),
                     stream);
-        }
-        if (status == CC_ERROR) {
-            core_error(stream);
+        } else if (status == CC_ERDHUP) {
+            final = true;
+        } else if (status == CC_ERROR) {
+            core_close(stream);
 
             return;
         }
@@ -241,12 +243,20 @@ core_event(void *arg, uint32_t events)
         if (status == CC_ERETRY || status == CC_EAGAIN) { /* retry write */
             event_add_write(ctx->evb, stream->handler->fd(stream->channel),
                     stream);
-        }
-        if (status == CC_ERROR) {
-            core_error(stream);
 
             return;
         }
+        if (status == CC_ERROR) {
+            core_close(stream);
+
+            return;
+        }
+    }
+
+    if (final) { /* closing stream/channel _after_ all writes are completed */
+        core_close(stream);
+
+        return;
     }
 }
 
