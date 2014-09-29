@@ -848,6 +848,7 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
         break;
 
     case CAS:
+        req->pstate = REQ_VAL;
         status = _subrequest_store(req, buf, true);
 
         break;
