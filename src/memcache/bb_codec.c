@@ -982,14 +982,14 @@ compose_rsp_msg(struct mbuf *buf, rsp_index_t idx, bool noreply)
 }
 
 static rstatus_t
-_compose_rsp_uint64(struct mbuf *buf, uint64_t val)
+_compose_rsp_uint64(struct mbuf *buf, uint64_t val, char *fmt)
 {
     size_t n;
     uint32_t wsize;
 
     wsize = mbuf_wsize(buf);
 
-    n = cc_scnprintf(buf->wpos, wsize, " %"PRIu64, val);
+    n = cc_scnprintf(buf->wpos, wsize, fmt, val);
     if (n >= wsize) {
         log_debug(LOG_INFO, "failed to write val %"PRIu64" to mbuf %p: "
                 "insufficient buffer space", val, buf);
@@ -1017,7 +1017,7 @@ compose_rsp_uint64(struct mbuf *buf, uint64_t val, bool noreply)
 
     log_debug(LOG_VERB, "rsp int %"PRIu64, val);
 
-    return _compose_rsp_uint64(buf, val);
+    return _compose_rsp_uint64(buf, val, "%"PRIu64""CRLF);
 }
 
 static rstatus_t
@@ -1071,18 +1071,18 @@ compose_rsp_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, u
         return status;
     }
 
-    status = _compose_rsp_uint64(buf, flag);
+    status = _compose_rsp_uint64(buf, flag, " %"PRIu64);
     if (status != CC_OK) {
         return status;
     }
 
-    status = _compose_rsp_uint64(buf, val->len);
+    status = _compose_rsp_uint64(buf, val->len, " %"PRIu64);
     if (status != CC_OK) {
         return status;
     }
 
     if (cas) {
-        status = _compose_rsp_uint64(buf, cas);
+        status = _compose_rsp_uint64(buf, cas, " %"PRIu64);
         if (status != CC_OK) {
             return status;
         }
