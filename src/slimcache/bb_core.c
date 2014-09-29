@@ -209,7 +209,7 @@ core_event(void *arg, uint32_t events)
     rstatus_t status;
     struct stream *stream = arg;
 
-    log_debug(LOG_VERB, "event %04"PRIX32" on stream %p", events, stream);
+    log_debug(LOG_VERB, "event %06"PRIX32" on stream %p", events, stream);
 
     if (events & EVENT_ERR) {
         core_error(stream);
