@@ -65,7 +65,7 @@ request_destroy(struct request *req)
 void
 request_pool_create(uint32_t max)
 {
-    log_debug(LOG_INFO, "creating request pool: max %"PRIu32, max);
+    log_info("creating request pool: max %"PRIu32, max);
 
     FREEPOOL_CREATE(&reqp, max);
 }
@@ -75,7 +75,7 @@ request_pool_destroy(void)
 {
     struct request *req, *treq;
 
-    log_debug(LOG_INFO, "destroying request pool: free %"PRIu32, reqp.nfree);
+    log_info("destroying request pool: free %"PRIu32, reqp.nfree);
 
     FREEPOOL_DESTROY(req, treq, &reqp, next, request_destroy);
 }
@@ -87,12 +87,12 @@ request_borrow(void)
 
     FREEPOOL_BORROW(req, &reqp, next, request_create);
     if (req == NULL) {
-        log_debug(LOG_DEBUG, "borrow req failed: OOM %d");
+        log_debug("borrow req failed: OOM %d");
 
         return NULL;
     }
 
-    log_debug(LOG_VVERB, "borrowing req %p", req);
+    log_vverb("borrowing req %p", req);
 
     return req;
 }
@@ -100,7 +100,7 @@ request_borrow(void)
 void
 request_return(struct request *req)
 {
-    log_debug(LOG_VVERB, "return req %p: free %"PRIu32, req, reqp.nfree);
+    log_vverb("return req %p: free %"PRIu32, req, reqp.nfree);
 
     FREEPOOL_RETURN(&reqp, req, next);
 }

@@ -50,11 +50,11 @@ time_update(void)
 
     status = gettimeofday(&timer, NULL);
     if (status < 0) {
-	log_debug(LOG_WARN, "gettimeofday failed!");
+	log_warn("gettimeofday failed!");
     }
     now = (rel_time_t) (timer.tv_sec - time_start);
 
-    log_debug(LOG_VERB, "time updated to %u\n", now);
+    log_verb("time updated to %u\n", now);
 }
 
 rel_time_t
@@ -112,12 +112,12 @@ time_setup(void)
      */
     time_start = time(NULL) - 2;
 
-    log_debug(LOG_INFO, "timer started at %"PRIu64"(2 sec manual setback)",
+    log_info("timer started at %"PRIu64"(2 sec manual setback)",
             (uint64_t)time_start);
 }
 
 void
 time_teardown(void)
 {
-    log_debug(LOG_INFO, "timer ended at %"PRIu64, (uint64_t)time(NULL));
+    log_info("timer ended at %"PRIu64, (uint64_t)time(NULL));
 }

@@ -105,7 +105,7 @@ _chase_crlf(struct request *req, struct mbuf *buf)
 
                 return CC_ERROR;
             } else {
-                log_debug(LOG_VERB, "unnecessary whitespace");
+                log_verb("unnecessary whitespace");
             }
 
             break;
@@ -458,7 +458,7 @@ _check_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
     }
 
     if (complete) {
-        log_debug(LOG_VVERB, "end?: %d, num: %"PRIu64, *end, num);
+        log_vverb("end?: %d, num: %"PRIu64, *end, num);
 
         buf->rpos = *end ? (p + CRLF_LEN) : (p + 1);
         return CC_OK;
@@ -812,7 +812,7 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
     ASSERT(req->rstate == PARSING);
     ASSERT(req->pstate == REQ_HDR);
 
-    log_debug(LOG_VERB, "parsing hdr at %p into req %p", buf->rpos, req);
+    log_verb("parsing hdr at %p into req %p", buf->rpos, req);
 
     rpos = buf->rpos;
 
@@ -822,7 +822,6 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
     if (status != CC_OK) {
         return status;
     }
-    log_debug(LOG_VERB, "buf->rpos: %p", buf->rpos);
 
     /* rest of the request header */
     switch (req->verb) {
@@ -873,7 +872,6 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
         NOT_REACHED();
         break;
     }
-    log_debug(LOG_VERB, "buf->rpos: %p", buf->rpos);
 
     if (status == CC_UNFIN) { /* reset rpos if the hdr is incomplete */
         buf->rpos = rpos;
@@ -887,10 +885,10 @@ parse_req_val(struct request *req, struct mbuf *buf)
 {
     rstatus_t status;
 
-    log_debug(LOG_VERB, "parsing val at %p into req %p", buf->rpos, req);
+    log_verb("parsing val at %p into req %p", buf->rpos, req);
 
     if (mbuf_rsize(buf) < req->vlen + CRLF_LEN) {
-        log_debug(LOG_VERB, "rbuf has %"PRIu32" out of the %"PRIu32" bytes "
+        log_verb("rbuf has %"PRIu32" out of the %"PRIu32" bytes "
                 "expected", mbuf_rsize(buf), req->vlen + CRLF_LEN);
 
         return CC_UNFIN;
@@ -917,7 +915,7 @@ parse_req(struct request *req, struct mbuf *buf)
 
     ASSERT(req->rstate == PARSING);
 
-    log_debug(LOG_VERB, "parsing buf %p into req %p (state: %d)", buf, req,
+    log_verb("parsing buf %p into req %p (state: %d)", buf, req,
             req->pstate);
 
     if (req->pstate == REQ_HDR) {
@@ -957,7 +955,7 @@ _compose_rsp_msg(struct mbuf *buf, rsp_index_t idx)
     str = &rsp_strings[idx];
 
     if (str->len >= wsize) {
-        log_debug(LOG_INFO, "failed to write rsp string %d to mbuf %p: "
+        log_info("failed to write rsp string %d to mbuf %p: "
                 "insufficient buffer space", idx, buf);
 
         return CC_ENOMEM;
@@ -965,7 +963,7 @@ _compose_rsp_msg(struct mbuf *buf, rsp_index_t idx)
 
     mbuf_copy(buf, str->data, str->len);
 
-    log_debug(LOG_VVERB, "wrote rsp string %d to mbuf %p", idx, buf);
+    log_vverb("wrote rsp string %d to mbuf %p", idx, buf);
 
     return CC_OK;
 }
@@ -977,7 +975,7 @@ compose_rsp_msg(struct mbuf *buf, rsp_index_t idx, bool noreply)
         return CC_OK;
     }
 
-    log_debug(LOG_VERB, "rsp msg id %d", idx);
+    log_verb("rsp msg id %d", idx);
 
     return _compose_rsp_msg(buf, idx);
 }
@@ -992,18 +990,18 @@ _compose_rsp_uint64(struct mbuf *buf, uint64_t val, char *fmt)
 
     n = cc_scnprintf(buf->wpos, wsize, fmt, val);
     if (n >= wsize) {
-        log_debug(LOG_INFO, "failed to write val %"PRIu64" to mbuf %p: "
+        log_info("failed to write val %"PRIu64" to mbuf %p: "
                 "insufficient buffer space", val, buf);
 
         return CC_ENOMEM;
     } else if (n == 0) {
-        log_debug(LOG_NOTICE, "failed to write val %"PRIu64" to mbuf %p: "
+        log_notice("failed to write val %"PRIu64" to mbuf %p: "
                 "returned error", val, buf);
 
         return CC_ERROR;
     }
 
-    log_debug(LOG_VVERB, "wrote rsp uint %"PRIu64" to mbuf %p", val, buf);
+    log_vverb("wrote rsp uint %"PRIu64" to mbuf %p", val, buf);
 
     buf->wpos += n;
     return CC_OK;
@@ -1016,7 +1014,7 @@ compose_rsp_uint64(struct mbuf *buf, uint64_t val, bool noreply)
         return CC_OK;
     }
 
-    log_debug(LOG_VERB, "rsp int %"PRIu64, val);
+    log_verb("rsp int %"PRIu64, val);
 
     return _compose_rsp_uint64(buf, val, "%"PRIu64""CRLF);
 }
@@ -1029,7 +1027,7 @@ _compose_rsp_bstring(struct mbuf *buf, struct bstring *str)
     wsize = mbuf_wsize(buf);
 
     if (str->len >= wsize) {
-        log_debug(LOG_INFO, "failed to write bstring %p to mbuf %p: "
+        log_info("failed to write bstring %p to mbuf %p: "
                 "insufficient buffer space", str, buf);
 
         return CC_ENOMEM;
@@ -1037,7 +1035,7 @@ _compose_rsp_bstring(struct mbuf *buf, struct bstring *str)
 
     mbuf_copy(buf, str->data, str->len);
 
-    log_debug(LOG_VVERB, "wrote bstring at %p to mbuf %p", str, buf);
+    log_vverb("wrote bstring at %p to mbuf %p", str, buf);
 
     return CC_OK;
 }
@@ -1049,7 +1047,7 @@ compose_rsp_bstring(struct mbuf *buf, struct bstring *str, bool noreply)
         return CC_OK;
     }
 
-    log_debug(LOG_VERB, "rsp bstring %"PRIu32" byte", str->len);
+    log_verb("rsp bstring %"PRIu32" byte", str->len);
 
     return _compose_rsp_bstring(buf, str);
 }
@@ -1059,7 +1057,7 @@ compose_rsp_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, u
 {
     rstatus_t status = CC_OK;
 
-    log_debug(LOG_VERB, "rsp keyval: %"PRIu32" byte key, %"PRIu32" byte value,"
+    log_verb("rsp keyval: %"PRIu32" byte key, %"PRIu32" byte value,"
             " flag: %"PRIu32", cas: %"PRIu64, key->len, val->len, flag, cas);
 
     status = _compose_rsp_msg(buf, RSP_VALUE);

@@ -33,7 +33,7 @@ bool cuckoo_initialized;
 static bool
 cuckoo_hit(struct item *it, struct bstring *key)
 {
-    log_debug(LOG_VERB, "valid? %d; match? %d", item_valid(it), item_matched(it, key));
+    log_verb("valid? %d; match? %d", item_valid(it), item_matched(it, key));
 
     return item_valid(it) && item_matched(it, key);
 }
@@ -76,7 +76,7 @@ cuckoo_displace(uint32_t displaced)
         for (i = 0; i < D; ++i) {
             it = OFFSET2ITEM(offset[i]);
             if (!item_valid(it)) {
-                log_debug(LOG_VERB, "item at %p is unoccupied");
+                log_verb("item at %p is unoccupied");
 
                 ended = true;
                 noevict = true;
@@ -99,7 +99,7 @@ cuckoo_displace(uint32_t displaced)
 
             if (D == i) {
                 /* all offsets are the same. no candidate for eviction. */
-                log_debug(LOG_VERB, "running out of displacement candidates");
+                log_verb("running out of displacement candidates");
 
                 ended = true;
                 --step; /* discard last step */
@@ -110,7 +110,7 @@ cuckoo_displace(uint32_t displaced)
     }
 
     if (!noevict) {
-        log_debug(LOG_VERB, "one item evicted during replacement");
+        log_verb("one item evicted during replacement");
 
         //stats_thread_decr(item_curr);
         //stats_thread_decr_by(data_curr, item_datalen(OFFSET2ITEM(path[step])));
@@ -119,7 +119,7 @@ cuckoo_displace(uint32_t displaced)
 
     /* move items along the path we have found */
     for (i = step; i > 0; --i) {
-        log_debug(LOG_VVERB, "move item at %p to %p", OFFSET2ITEM(path[i - 1]),
+        log_vverb("move item at %p to %p", OFFSET2ITEM(path[i - 1]),
                 OFFSET2ITEM(path[i]));
 
         cc_memcpy(OFFSET2ITEM(path[i]), OFFSET2ITEM(path[i - 1]), chunk_size);
@@ -137,7 +137,7 @@ cuckoo_setup(size_t size, uint32_t item)
     max_item = item;
     ds = cc_zalloc(max_item * chunk_size);
     if (ds == NULL) {
-        log_debug(LOG_CRIT, "cuckoo data store allocation failed");
+        log_crit("cuckoo data store allocation failed");
 
         return CC_ERROR;
     }
@@ -166,9 +166,9 @@ cuckoo_lookup(struct bstring *key)
 
     for (i = 0; i < D; ++i) {
         it = OFFSET2ITEM(offset[i]);
-        log_debug(LOG_DEBUG, "item location: %p", it);
+        log_debug("item location: %p", it);
         if (cuckoo_hit(it, key)) {
-            log_debug(LOG_DEBUG, "item found: %p", it);
+            log_debug("item found: %p", it);
             return it;
         }
     }
@@ -192,7 +192,7 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
         break;
       }
     }
-    log_debug(LOG_DEBUG, "inserting into location: %p", it);
+    log_debug("inserting into location: %p", it);
 
     if (D == i) {
         displaced = offset[RANDOM(D)];

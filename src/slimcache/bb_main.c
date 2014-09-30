@@ -33,7 +33,7 @@ run(void)
     for (;;) {
         status = core_evwait();
         if (status != CC_OK) {
-            log_debug(LOG_CRIT, "core event loop exits due to failure");
+            log_crit("core event loop exits due to failure");
             break;
         }
     }
@@ -67,7 +67,7 @@ setup(void)
 
     status = core_setup(ai);
     if (status != CC_OK) {
-        log_debug(LOG_CRIT, "cannot start core event loop");
+        log_crit("cannot start core event loop");
 
         return CC_ERROR;
     }
@@ -82,7 +82,7 @@ main(int argc, char **argv)
 
     status = setup();
     if (status != CC_OK) {
-        log_debug(LOG_CRIT, "setup failed");
+        log_crit("setup failed");
 
         return -1;
     }

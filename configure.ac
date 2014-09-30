@@ -62,41 +62,70 @@ AC_TYPE_SSIZE_T
 AC_TYPE_UID_T
 
 # Checks for header files
-
-# Checks for libraries
+AC_HEADER_STDBOOL
+AC_CHECK_HEADERS([stdarg.h stddef.h stdlib.h])
+AC_CHECK_HEADERS([inttypes.h stdint.h limits.h])
+AC_CHECK_HEADERS([ctype.h errno.h execinfo.h time.h])
+AC_CHECK_HEADERS([fcntl.h string.h unistd.h])
+AC_CHECK_HEADERS([sys/mman.h sys/stat.h sys/socket.h sys/types.h sys/uio.h])
 
 # Checks for library functions
-AC_FUNC_FORK
+AAC_FUNC_FORK
+AC_FUNC_MALLOC
+AC_FUNC_REALLOC
+AC_CHECK_FUNCS([dup2])
+AC_CHECK_FUNCS([gethostname])
+AC_CHECK_FUNCS([gettimeofday])
+AC_CHECK_FUNCS([strerror])
+AC_CHECK_FUNCS([socket])
+AC_CHECK_FUNCS([memchr memmove memset])
+AC_CHECK_FUNCS([strchr strndup strtol strtoul strtoull])
+AC_CHECK_FUNCS([backtrace])
+AC_CHECK_FUNCS([read write readv writev])
+
 
 AC_C_BIGENDIAN(
-  [],
+  [AC_DEFINE(HAVE_BIG_ENDIAN, 1, [Define to 1 if machine is big endian])],
   [AC_DEFINE(HAVE_LITTLE_ENDIAN, 1, [Define to 1 if machine is little endian])],
   [AC_MSG_ERROR([endianess of this machine is unknown])],
   [AC_MSG_ERROR([universial endianess not supported])]
 )
 
-## Check whether to enable debug logs and asserts
-AC_MSG_CHECKING([whether to enable debug logs and asserts])
-AC_ARG_ENABLE([debug],
+# Check whether to enable asserts
+AC_MSG_CHECKING([whether to enable assert log and panic])
+AC_ARG_ENABLE([assert],
   [AS_HELP_STRING(
-    [--enable-debug=@<:@panic|assert|log|no@:>@],
-    [enable debug logs and asserts @<:@default=no@:>@])
+    [--enable-assert=@<:@panic|log|no@:>@],
+    [enable assert and assert panic @<:@default=log@:>@])
   ],
   [],
-  [enable_debug=no])
-AS_CASE([x$enable_debug],
+  [enable_assert=log])
+AS_CASE([x$enable_assert],
   [xpanic], [AC_DEFINE([HAVE_ASSERT_PANIC], [1],
                       [Define to 1 if panic on an assert is enabled])
-            AC_DEFINE([HAVE_DEBUG_LOG], [1], [Define to 1 if debug log is enabled])
+            AC_DEFINE([HAVE_LOGGING], [1], [Define to 1 if logging is enabled])
            ],
-  [xassert], [AC_DEFINE([HAVE_ASSERT_LOG], [1],
+  [xlog], [AC_DEFINE([HAVE_ASSERT_LOG], [1],
                      [Define to 1 if log on an assert is enabled])
-           AC_DEFINE([HAVE_DEBUG_LOG], [1], [Define to 1 if debug log is enabled])
+           AC_DEFINE([HAVE_LOGGING], [1], [Define to 1 if logging is enabled])
           ],
-  [xlog], [AC_DEFINE([HAVE_DEBUG_LOG], [1], [Define to 1 if debug log is enabled])],
   [xno], [],
-  [AC_MSG_FAILURE([invalid value ${enable_debug} for --enable-debug])])
-AC_MSG_RESULT([$enable_debug])
+  [AC_MSG_FAILURE([invalid value ${enable_assert} for --enable-assert])])
+AC_MSG_RESULT([$enable_assert])
+
+AC_MSG_CHECKING([whether to disable logging])
+AC_ARG_ENABLE([logging],
+  [AS_HELP_STRING(
+    [--disable-logging],
+    [disable logging])
+  ],
+  [disable_logging=yes],
+  [disable_logging=no])
+AS_IF([test "x$disable_logging" = xyes],
+      [],
+      [AC_DEFINE([HAVE_LOGGING], [1], [Define to 1 if logging is not disabled])])
+AC_MSG_RESULT([$disable_logging])
+
 
 AC_MSG_CHECKING([whether to disable stats])
 AC_ARG_ENABLE([stats],

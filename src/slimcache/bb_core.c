@@ -21,7 +21,7 @@ static stream_handler_t conn_hdl;
 static void
 core_close(struct stream *stream)
 {
-    log_debug(LOG_INFO, "close channel %p", stream->channel);
+    log_info("close channel %p", stream->channel);
 
     event_deregister(ctx->evb, stream->handler->fd(stream->channel));
     stream->handler->close(stream->channel);
@@ -36,7 +36,7 @@ _post_read(struct stream *stream, size_t nbyte)
 
     ASSERT(stream != NULL);
 
-    log_debug(LOG_VERB, "post read processing of %zu bytes on stream %p",
+    log_verb("post read processing of %zu bytes on stream %p",
             nbyte, stream);
     //stats_thread_incr_by(data_read, nbyte);
 
@@ -70,7 +70,7 @@ _post_read(struct stream *stream, size_t nbyte)
 
     while (mbuf_rsize(stream->rbuf) > 0) {
         /* parsing */
-        log_debug(LOG_VERB, "%"PRIu32" bytes left", mbuf_rsize(stream->rbuf));
+        log_verb("%"PRIu32" bytes left", mbuf_rsize(stream->rbuf));
 
         status = parse_req(req, stream->rbuf);
         if (status == CC_UNFIN) {
@@ -89,9 +89,9 @@ _post_read(struct stream *stream, size_t nbyte)
         }
 
         /* processing */
-        log_debug(LOG_VERB, "wbuf free: %"PRIu32" B", mbuf_wsize(stream->wbuf));
+        log_verb("wbuf free: %"PRIu32" B", mbuf_wsize(stream->wbuf));
         status = process_request(req, stream->wbuf);
-        log_debug(LOG_VERB, "wbuf free: %"PRIu32" B", mbuf_wsize(stream->wbuf));
+        log_verb("wbuf free: %"PRIu32" B", mbuf_wsize(stream->wbuf));
 
         if (status != CC_OK) {
             log_error("process request failed: %d", status);
@@ -210,7 +210,7 @@ core_event(void *arg, uint32_t events)
     bool final = false;
     struct stream *stream = arg;
 
-    log_debug(LOG_VERB, "event %06"PRIX32" on stream %p", events, stream);
+    log_verb("event %06"PRIX32" on stream %p", events, stream);
 
     if (events & EVENT_ERR) {
         core_close(stream);
