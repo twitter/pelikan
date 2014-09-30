@@ -955,8 +955,8 @@ _compose_rsp_msg(struct mbuf *buf, rsp_index_t idx)
     str = &rsp_strings[idx];
 
     if (str->len >= wsize) {
-        log_info("failed to write rsp string %d to mbuf %p: "
-                "insufficient buffer space", idx, buf);
+        log_info("failed to write rsp string %d to mbuf %p: insufficient buffer"
+                " space", idx, buf);
 
         return CC_ENOMEM;
     }

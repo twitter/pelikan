@@ -14,7 +14,6 @@
 #include <cc_mbuf.h>
 #include <cc_util.h>
 
-/* TODO(yao): move this into the header */
 #define RSP_MSG(ACTION)                             \
     ACTION( RSP_CRLF,           CRLF              ) \
     ACTION( RSP_VALUE,          "VALUE "          ) \
