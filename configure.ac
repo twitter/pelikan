@@ -70,7 +70,7 @@ AC_CHECK_HEADERS([fcntl.h string.h unistd.h])
 AC_CHECK_HEADERS([sys/mman.h sys/stat.h sys/socket.h sys/types.h sys/uio.h])
 
 # Checks for library functions
-AAC_FUNC_FORK
+AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([dup2])
