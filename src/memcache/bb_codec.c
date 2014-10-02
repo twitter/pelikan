@@ -990,12 +990,12 @@ _compose_rsp_uint64(struct mbuf *buf, uint64_t val, char *fmt)
 
     n = cc_scnprintf(buf->wpos, wsize, fmt, val);
     if (n >= wsize) {
-        log_info("failed to write val %"PRIu64" to mbuf %p: "
+        log_debug("failed to write val %"PRIu64" to mbuf %p: "
                 "insufficient buffer space", val, buf);
 
         return CC_ENOMEM;
     } else if (n == 0) {
-        log_notice("failed to write val %"PRIu64" to mbuf %p: "
+        log_error("failed to write val %"PRIu64" to mbuf %p: "
                 "returned error", val, buf);
 
         return CC_ERROR;
@@ -1035,7 +1035,7 @@ _compose_rsp_bstring(struct mbuf *buf, struct bstring *str)
 
     mbuf_copy(buf, str->data, str->len);
 
-    log_vverb("wrote bstring at %p to mbuf %p", str, buf);
+    log_verb("wrote bstring at %p to mbuf %p", str, buf);
 
     return CC_OK;
 }

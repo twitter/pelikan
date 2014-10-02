@@ -296,7 +296,7 @@ process_incr(struct request *req, struct mbuf *buf)
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
             //stats_thread_incr(cmd_error);
-            log_notice("value type not int, cannot apply incr on "
+            log_warn("value type not int, cannot apply incr on "
                     "key %s", ITEM_KEY_POS(it));  /* FIXME(yao): binary key */
             return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
         }
@@ -330,7 +330,7 @@ process_decr(struct request *req, struct mbuf *buf)
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
             //stats_thread_incr(cmd_error);
-            log_notice("value type not int, cannot apply decr on "
+            log_warn("value type not int, cannot apply decr on "
                     "key %s", ITEM_KEY_POS(it));  /* FIXME(yao): binary key */
             return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
         }
