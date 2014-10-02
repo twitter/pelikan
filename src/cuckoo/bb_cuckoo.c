@@ -166,7 +166,7 @@ cuckoo_lookup(struct bstring *key)
 
     for (i = 0; i < D; ++i) {
         it = OFFSET2ITEM(offset[i]);
-        log_debug("item location: %p", it);
+        log_verb("item location: %p", it);
         if (cuckoo_hit(it, key)) {
             log_debug("item found: %p", it);
             return it;
