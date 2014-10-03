@@ -1,13 +1,13 @@
-#include <stdlib.h>
-
-#include <check.h>
+#include <memcache/bb_codec.h>
 
 #include <cc_array.h>
 #include <cc_define.h>
 #include <cc_mbuf.h>
-#include <cc_string.h>
+#include <cc_bstring.h>
 
-#include <memcache/bb_request.h>
+#include <check.h>
+
+#include <stdlib.h>
 
 /* TODO(yao): simplify buf & req setup/teardown */
 
@@ -22,7 +22,7 @@ START_TEST(test_quit)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -46,7 +46,7 @@ START_TEST(test_delete)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -75,7 +75,7 @@ START_TEST(test_get)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -104,7 +104,7 @@ START_TEST(test_get_multi)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -136,7 +136,7 @@ START_TEST(test_gets)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -165,7 +165,7 @@ START_TEST(test_gets_multi)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -197,7 +197,7 @@ START_TEST(test_set)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -229,7 +229,7 @@ START_TEST(test_add)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -261,7 +261,7 @@ START_TEST(test_replace)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -293,7 +293,7 @@ START_TEST(test_cas)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -326,7 +326,7 @@ START_TEST(test_append)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -358,7 +358,7 @@ START_TEST(test_prepend)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -390,7 +390,7 @@ START_TEST(test_incr)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -420,7 +420,7 @@ START_TEST(test_decr)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -450,7 +450,7 @@ START_TEST(test_delete_noreply)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd, (uint32_t)cc_strlen(cmd));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);
@@ -481,7 +481,7 @@ START_TEST(test_set_resume)
     req = request_create();
     buf = mbuf_get();
     mbuf_copy(buf, cmd_pt1, (uint32_t)cc_strlen(cmd_pt1));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert(status == CC_UNFIN);
     ck_assert(req->pstate == POST_VERB);
@@ -489,7 +489,7 @@ START_TEST(test_set_resume)
     ck_assert(buf->rpos - buf->start == sizeof("set foo ") - 1);
 
     mbuf_copy(buf, cmd_pt2, (uint32_t)cc_strlen(cmd_pt2));
-    status = request_parse_hdr(req, buf);
+    status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
     ck_assert(req->pstate == PARSED);

@@ -1,26 +1,28 @@
-#ifndef __BB_MEMCACHE_H__
-#define __BB_MEMCACHE_H__
+#ifndef _BB_REQUEST_H_
+#define _BB_REQUEST_H_
 
+#include <memcache/bb_constant.h>
+
+#include <cc_array.h>
+#include <cc_bstring.h>
 #include <cc_define.h>
-#include <cc_mbuf.h>
+#include <cc_mm.h>
+#include <cc_queue.h>
 
-#define MAX_KEY_LEN 250
-
-struct request;
+#include <inttypes.h>
 
 typedef enum request_state {
     PARSING,
     PARSED,
-    EXECUTING,
-    REPLYING,
+    PROCESSING,
     DONE,
     RS_SENTINEL
 } request_state_t;
 
 typedef enum parse_state {
-    VERB,
-    POST_VERB,
-    SENTINEL
+    REQ_HDR,
+    REQ_VAL,
+    PS_SENTINEL
 } parse_state_t;
 
 typedef enum request_verb {
@@ -47,29 +49,36 @@ typedef enum request_verb {
  * Whether this is a reasonable design decision eventually remains to be seen.
  */
 struct request {
-    request_state_t rstate;     /* request state */
-    parse_state_t   pstate;     /* parsing state */
-    int             tstate;     /* token state post verb, differs by command */
+    STAILQ_ENTRY(request)   next;       /* allow request pooling */
 
-    request_verb_t  verb;
+    request_state_t         rstate;     /* request state */
+    parse_state_t           pstate;     /* parsing state */
+    int                     tstate;     /* token state post verb */
 
-    struct array    *keys;      /* elements are byte strings (in cc_string.h) */
+    request_verb_t          verb;
 
-    uint32_t        flag;
-    uint32_t        expiry;
-    uint32_t        vlen;
-    int64_t         delta;
-    uint64_t        cas;
+    struct array            *keys;      /* elements are bstrings */
+    struct bstring          vstr;       /* the value string */
 
-    unsigned        noreply:1;
-    unsigned        serror:1;   /* server error */
-    unsigned        cerror:1;   /* client error */
-    unsigned        swallow:1;  /* caused by either client or server error */
+    uint32_t                flag;
+    uint32_t                expiry;
+    uint32_t                vlen;
+    uint64_t                delta;
+    uint64_t                cas;
+
+    unsigned                noreply:1;
+    unsigned                serror:1;   /* server error */
+    unsigned                cerror:1;   /* client error */
+    unsigned                swallow:1;  /* caused by errors */
 };
 
 struct request *request_create(void);
 void request_destroy(struct request *req);
 void request_reset(struct request *req);
-rstatus_t request_parse_hdr(struct request *req, struct mbuf *buf);
 
-#endif
+void request_pool_create(uint32_t max);
+void request_pool_destroy(void);
+struct request *request_borrow(void);
+void request_return(struct request *req);
+
+#endif /* _BB_REQUEST_H_ */
