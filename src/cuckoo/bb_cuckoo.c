@@ -9,9 +9,7 @@
 
 #include <stdlib.h>
 
-/* TODO(yao): make the MAX_DISPLACE configurable */
 #define D            4
-#define MAX_DISPLACE 2
 
 static uint32_t iv[D] = {
     /* these numbers can be picked arbitrarily as long as they are different */
@@ -24,7 +22,7 @@ static uint32_t iv[D] = {
 static void* ds; /* data store is also the hash table */
 static size_t chunk_size;
 static uint32_t max_item;
-bool cuckoo_initialized;
+bool cuckoo_initialized; /* need to make sure memory has been pre-allocate */
 
 #define OFFSET2ITEM(o) ((struct item *)((ds) + (o) * chunk_size))
 #define RANDOM(k) (random() % k)
@@ -57,7 +55,7 @@ cuckoo_displace(uint32_t displaced)
     struct bstring key;
     struct item *it;
     uint32_t offset[D];
-    uint32_t path[MAX_DISPLACE + 1];
+    uint32_t path[CUCKOO_DISPLACE + 1];
     bool ended = false;
     bool noevict = false;
 
@@ -65,7 +63,7 @@ cuckoo_displace(uint32_t displaced)
 
     step = 0;
     path[0] = displaced;
-    while (!ended && step < MAX_DISPLACE) {
+    while (!ended && step < CUCKOO_DISPLACE) {
         step++;
         it = OFFSET2ITEM(displaced);
         key.len = it->klen;

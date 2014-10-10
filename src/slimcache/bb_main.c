@@ -2,13 +2,74 @@
 #include <memcache/bb_request.h>
 #include <slimcache/bb_core.h>
 
+#include <cc_array.h>
+#include <cc_log.h>
 #include <cc_mbuf.h>
 #include <cc_nio.h>
 #include <cc_stream.h>
 
+#include <netdb.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netdb.h>
+#include <sysexits.h>
+
+/*          name        type            default     description */
+#define SERVER_OPTION(ACTION)                                                   \
+    ACTION( host,   OPTION_TYPE_STR,    NULL,       "interfaces listening on"  )\
+    ACTION( port,   OPTION_TYPE_STR,    "22222",    "port listening on"        )
+
+/* we compose our setting by including options needed by modules we use */
+#define SETTING(ACTION)             \
+    ARRAY_OPTION(ACTION)            \
+    CUCKOO_OPTION(ACTION)           \
+    ITEM_OPTION(ACTION)             \
+    MBUF_OPTION(ACTION)             \
+    NIO_OPTION(ACTION)              \
+    SERVER_OPTION(ACTION)           \
+    STREAM_OPTION(ACTION)
+
+static struct setting {
+    SETTING(OPTION_DECLARE)
+} setting = {
+    SETTING(OPTION_INIT)
+};
+
+const unsigned int nopt = OPTION_CARDINALITY(struct setting);
+
+static void
+show_usage(void)
+{
+    log_stderr(
+            "Usage:" CRLF
+            "  broadbill_slimcache [option|config]" CRLF
+            CRLF
+            "Description:" CRLF
+            "broadbill_slimcache is a part of the unified cache backend " CRLF
+            "that uses cuckoo hashing to efficiently store small key/val " CRLF
+            "pairs. It speaks the memcached protocol and supports all " CRLF
+            "ASCII memcached commands except for prepend/append. " CRLF
+            "The storage is preallocated and maximum key/val size allowed " CRLF
+            "has to be specified when starting the service, and cannot be " CRLF
+            "updated after launch." CRLF
+            CRLF
+            "Options:" CRLF
+            "  -h, --help        show this message" CRLF
+            "  -v, --version     show version number" CRLF
+            CRLF
+            "Defaults:" CRLF
+            CRLF
+            "Example:" CRLF
+            "  ./broadbill_slimcache ../template/slimcache.config" CRLF
+            );
+}
+
+static void
+show_version(void)
+{
+    log_stderr("Version: %s", BB_VERSION_STRING);
+}
 
 static int
 getaddr(struct addrinfo **ai)
@@ -79,15 +140,62 @@ int
 main(int argc, char **argv)
 {
     rstatus_t status;
+    FILE *fp = NULL;
+
+    if (argc > 2) {
+        show_usage();
+        exit(EX_USAGE);
+    }
+
+    if (argc == 1) {
+        log_stderr("launching server with default values.");
+    }
+
+    if (argc == 2) {
+        if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+            show_usage();
+
+            exit(EX_OK);
+        }
+        if (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0) {
+            show_version();
+
+            exit(EX_OK);
+        }
+        fp = fopen(argv[1], "r");
+        if (fp == NULL) {
+            log_stderr("cannot open config: incorrect path or doesn't exist");
+
+            exit(EX_DATAERR);
+        }
+    }
+
+    status = option_load_default((struct option *)&setting, nopt);
+    if (status != CC_OK) {
+        log_stderr("fail to load default option values");
+
+        exit(EX_CONFIG);
+    }
+    if (fp != NULL) {
+        log_stderr("load config from %s", argv[1]);
+        status = option_load_file(fp, (struct option *)&setting, nopt);
+        fclose(fp);
+    }
+    if (status != CC_OK) {
+        log_stderr("fail to load config");
+
+        exit(EX_DATAERR);
+    }
+    option_printall((struct option *)&setting, nopt);
 
     status = setup();
     if (status != CC_OK) {
         log_crit("setup failed");
 
-        return -1;
+        exit(EX_CONFIG);
     }
 
     run();
 
-    return 0;
+    exit(EX_OK);
 }

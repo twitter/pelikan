@@ -10,12 +10,16 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+/*          name        type                default     description */
+#define ITEM_OPTION(ACTION)                                                     \
+    ACTION( item_cas,   OPTION_TYPE_BOOL,   "yes",      "support cas in items" )
+
 #define DEFAULT_KEY_LEN 255
 
 #define CAS_VAL_MIN 1
 
-bool cas_enabled;
-uint64_t cas_val; /* incremented before assignment, so 0 is a special value */
+static bool cas_enabled = true;
+static uint64_t cas_val; /* incr'ed before assignment, 0 is a special value */
 
 /*
  * val_type_t and struct val makes it easier to use one object to communicate
@@ -253,9 +257,9 @@ item_valid(struct item *it)
 }
 
 static inline void
-item_setup(bool enabled)
+item_setup(bool cas)
 {
-    cas_enabled = enabled;
+    cas_enabled = cas;
 }
 
 static inline void
