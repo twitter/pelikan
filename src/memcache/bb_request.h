@@ -11,6 +11,12 @@
 
 #include <inttypes.h>
 
+#define REQ_POOLSIZE 0
+
+/*          name                type                default             description */
+#define REQUEST_OPTION(ACTION)                                                              \
+    ACTION( request_poolsize,   OPTION_TYPE_UINT,   str(REQ_POOLSIZE),  "request pool size")
+
 typedef enum request_state {
     PARSING,
     PARSED,

@@ -25,8 +25,10 @@
     ARRAY_OPTION(ACTION)            \
     CUCKOO_OPTION(ACTION)           \
     ITEM_OPTION(ACTION)             \
+    LOG_OPTION(ACTION)              \
     MBUF_OPTION(ACTION)             \
     NIO_OPTION(ACTION)              \
+    REQUEST_OPTION(ACTION)          \
     SERVER_OPTION(ACTION)           \
     STREAM_OPTION(ACTION)
 
@@ -72,13 +74,13 @@ show_version(void)
 }
 
 static int
-getaddr(struct addrinfo **ai)
+getaddr(struct addrinfo **ai, char *hostname, char *servname)
 {
     struct addrinfo hints = { .ai_flags = AI_PASSIVE, .ai_family = AF_UNSPEC,
         .ai_socktype = SOCK_STREAM };
     int ret;
 
-    ret = getaddrinfo("127.0.0.1", "22222", &hints, ai);
+    ret = getaddrinfo(hostname, servname, &hints, ai);
     if (ret < 0) {
         log_error("cannot resolve address");
     }
@@ -109,24 +111,32 @@ setup(void)
     int ret;
     rstatus_t status;
 
-    mbuf_setup(8 * KiB);
-    array_setup(64);
-    log_setup(LOG_VERB, NULL);
+    log_setup((int)setting.log_level.val.vuint, setting.log_name.val.vstr);
+    mbuf_setup((uint32_t)setting.mbuf_size.val.vuint);
+    array_setup((uint32_t)setting.array_nelem_delta.val.vuint);
+    status = cuckoo_setup((size_t)setting.cuckoo_item_size.val.vuint,
+            (uint32_t)setting.cuckoo_nitem.val.vuint);
+    if (status != CC_OK) {
+        /* FIXME: free resources allocated before quitting */
+        log_error("cuckoo module setup failed");
 
-    mbuf_pool_create(0);
-    conn_pool_create(0);
-    stream_pool_create(0);
-    request_pool_create(0);
-    cuckoo_setup(80, 1024);
+        return CC_ERROR;
+    }
 
-    ret = getaddr(&ai);
+    mbuf_pool_create((uint32_t)setting.mbuf_poolsize.val.vuint);
+    conn_pool_create((uint32_t)setting.conn_poolsize.val.vuint);
+    stream_pool_create((uint32_t)setting.stream_poolsize.val.vuint);
+    request_pool_create((uint32_t)setting.conn_poolsize.val.vuint);
+
+    /* set up core after static resources are ready */
+    ret = getaddr(&ai, setting.host.val.vstr, setting.port.val.vstr);
     if (ret < 0) {
         log_error("address invalid");
 
         return CC_ERROR;
     }
-
     status = core_setup(ai);
+    freeaddrinfo(ai); /* freeing it before return to avoid memory leak */
     if (status != CC_OK) {
         log_crit("cannot start core event loop");
 
