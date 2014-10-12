@@ -13,6 +13,7 @@ static struct context {
 } context;
 
 static struct context *ctx = &context;
+static struct stream *ss; /* server stream */
 static struct conn *sc; /* server connection */
 static stream_handler_t server_hdl;
 static stream_handler_t conn_hdl;
@@ -283,8 +284,6 @@ handler_setup(void)
 rstatus_t
 core_setup(struct addrinfo *ai)
 {
-    struct stream *s;
-
     handler_setup();
 
     ctx->timeout = 100;
@@ -300,20 +299,19 @@ core_setup(struct addrinfo *ai)
         return CC_ERROR;
     }
 
-    s = stream_borrow();
-    if (s == NULL) {
+    ss = stream_borrow();
+    if (ss == NULL) {
         log_error("cannot get server stream: OOM");
-        server_close(sc);
 
         return CC_ERROR;
     }
-    s->owner = ctx;
-    s->type = CHANNEL_TCPLISTEN;
-    s->channel = sc;
-    s->err = 0;
-    s->handler = &server_hdl;
-    s->data = NULL;
-    event_register(ctx->evb, sc->sd, s);
+    ss->owner = ctx;
+    ss->type = CHANNEL_TCPLISTEN;
+    ss->channel = sc;
+    ss->err = 0;
+    ss->handler = &server_hdl;
+    ss->data = NULL;
+    event_register(ctx->evb, sc->sd, ss);
 
     return CC_OK;
 }
@@ -321,7 +319,8 @@ core_setup(struct addrinfo *ai)
 void
 core_teardown(void)
 {
-    /* shutdown everything driven by events: streams, stats... */
+    stream_return(ss);
+    event_base_destroy(ctx->evb);
 }
 
 rstatus_t

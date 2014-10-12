@@ -22,7 +22,7 @@ static uint32_t iv[D] = {
 static void* ds; /* data store is also the hash table */
 static size_t chunk_size;
 static uint32_t max_item;
-bool cuckoo_initialized; /* need to make sure memory has been pre-allocate */
+static bool cuckoo_init; /* need to make sure memory has been pre-allocate */
 
 #define OFFSET2ITEM(o) ((struct item *)((ds) + (o) * chunk_size))
 #define RANDOM(k) (random() % k)
@@ -131,6 +131,12 @@ cuckoo_displace(uint32_t displaced)
 rstatus_t
 cuckoo_setup(size_t size, uint32_t item)
 {
+    if (cuckoo_init) {
+        log_error("cuckoo has already been setup, aborting");
+
+        return CC_ERROR;
+    }
+
     chunk_size = size;
     max_item = item;
     ds = cc_zalloc(max_item * chunk_size);
@@ -139,8 +145,7 @@ cuckoo_setup(size_t size, uint32_t item)
 
         return CC_ERROR;
     }
-
-    cuckoo_initialized = true;
+    cuckoo_init = true;
 
     return CC_OK;
 }
@@ -148,7 +153,12 @@ cuckoo_setup(size_t size, uint32_t item)
 void
 cuckoo_teardown(void)
 {
-    cc_free(ds);
+    if (cuckoo_init) {
+        cc_free(ds);
+        cuckoo_init = false;
+    } else {
+        log_warn("cuckoo has never been setup");
+    }
 }
 
 struct item *
@@ -158,7 +168,7 @@ cuckoo_lookup(struct bstring *key)
     int i;
     struct item *it;
 
-    ASSERT(cuckoo_initialized == true);
+    ASSERT(cuckoo_init == true);
 
     cuckoo_hash(offset, key);
 

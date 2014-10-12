@@ -119,16 +119,25 @@ setup(void)
     int ret;
     rstatus_t status;
 
-    log_setup((int)setting.log_level.val.vuint, setting.log_name.val.vstr);
+    ret = log_setup((int)setting.log_level.val.vuint,
+            setting.log_name.val.vstr);
+    if (ret < 0) {
+        log_error("log setup failed");
+
+        goto error;
+    }
+
     mbuf_setup((uint32_t)setting.mbuf_size.val.vuint);
+
     array_setup((uint32_t)setting.array_nelem_delta.val.vuint);
+
     status = cuckoo_setup((size_t)setting.cuckoo_item_size.val.vuint,
             (uint32_t)setting.cuckoo_nitem.val.vuint);
     if (status != CC_OK) {
         /* FIXME: free resources allocated before quitting */
         log_error("cuckoo module setup failed");
 
-        return CC_ERROR;
+        goto error;
     }
 
     mbuf_pool_create((uint32_t)setting.mbuf_poolsize.val.vuint);
@@ -142,17 +151,32 @@ setup(void)
     if (ret < 0) {
         log_error("address invalid");
 
-        return CC_ERROR;
+        goto error;
     }
     status = core_setup(ai);
     freeaddrinfo(ai); /* freeing it before return to avoid memory leak */
     if (status != CC_OK) {
         log_crit("cannot start core event loop");
 
-        return CC_ERROR;
+        goto error;
     }
 
     return CC_OK;
+
+error:
+    core_teardown();
+
+    request_pool_destroy();
+    stream_pool_destroy();
+    conn_pool_destroy();
+    mbuf_pool_destroy();
+
+    cuckoo_teardown();
+    array_teardown();
+    mbuf_teardown();
+    log_teardown();
+
+    return CC_ERROR;
 }
 
 int

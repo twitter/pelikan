@@ -6,7 +6,9 @@
 #include <cc_pool.h>
 
 FREEPOOL(req_pool, reqq, request);
-struct req_pool reqp;
+static struct req_pool reqp;
+
+static bool reqp_init = false;
 
 void
 request_reset(struct request *req)
@@ -65,9 +67,14 @@ request_destroy(struct request *req)
 void
 request_pool_create(uint32_t max)
 {
-    log_info("creating request pool: max %"PRIu32, max);
+    if (!reqp_init) {
+        log_info("creating request pool: max %"PRIu32, max);
 
-    FREEPOOL_CREATE(&reqp, max);
+        FREEPOOL_CREATE(&reqp, max);
+        reqp_init = true;
+    } else {
+        log_warn("request pool has already been created, ignore");
+    }
 }
 
 void
@@ -75,9 +82,14 @@ request_pool_destroy(void)
 {
     struct request *req, *treq;
 
-    log_info("destroying request pool: free %"PRIu32, reqp.nfree);
+    if (reqp_init) {
+        log_info("destroying request pool: free %"PRIu32, reqp.nfree);
 
-    FREEPOOL_DESTROY(req, treq, &reqp, next, request_destroy);
+        FREEPOOL_DESTROY(req, treq, &reqp, next, request_destroy);
+        reqp_init = false;
+    } else {
+        log_warn("request pool was never created, ignore");
+    }
 }
 
 struct request *
@@ -100,6 +112,10 @@ request_borrow(void)
 void
 request_return(struct request *req)
 {
+    if (req == NULL) {
+        return;
+    }
+
     log_vverb("return req %p: free %"PRIu32, req, reqp.nfree);
 
     FREEPOOL_RETURN(&reqp, req, next);
