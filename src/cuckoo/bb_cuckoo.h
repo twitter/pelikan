@@ -14,9 +14,9 @@
 
 /*          name                type                default                 description */
 #define CUCKOO_OPTION(ACTION)                                                                        \
+    ACTION( cuckoo_displace,    OPTION_TYPE_UINT,   str(CUCKOO_DISPLACE),   "# displaces allowed"   )\
     ACTION( cuckoo_item_size,   OPTION_TYPE_UINT,   str(CUCKOO_ITEM_SIZE),  "item size (inclusive)" )\
-    ACTION( cuckoo_nitem,       OPTION_TYPE_UINT,   str(CUCKOO_NITEM),      "# items allocated"     )\
-    ACTION( cuckoo_displace,    OPTION_TYPE_UINT,   str(CUCKOO_DISPLACE),   "# displaces allowed"   )
+    ACTION( cuckoo_nitem,       OPTION_TYPE_UINT,   str(CUCKOO_NITEM),      "# items allocated"     )
 
 rstatus_t cuckoo_setup(size_t size, uint32_t item);
 void cuckoo_teardown(void);

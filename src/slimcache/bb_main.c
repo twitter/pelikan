@@ -15,10 +15,10 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
-/*          name        type            default     description */
-#define SERVER_OPTION(ACTION)                                                   \
-    ACTION( host,   OPTION_TYPE_STR,    NULL,       "interfaces listening on"  )\
-    ACTION( port,   OPTION_TYPE_STR,    "22222",    "port listening on"        )
+/*          name            type                default     description */
+#define SERVER_OPTION(ACTION)                                                           \
+    ACTION( server_host,    OPTION_TYPE_STR,    NULL,       "interfaces listening on"  )\
+    ACTION( server_port,    OPTION_TYPE_STR,    "22222",    "port listening on"        )
 
 /* we compose our setting by including options needed by modules we use */
 #define SETTING(ACTION)             \
@@ -38,39 +38,47 @@ static struct setting {
     SETTING(OPTION_INIT)
 };
 
+#define PRINT_DEFAULT(_name, _type, _default, _description) \
+    log_stdout("  %-31s ( default: %s )", #_name,  _default);
+
+
 const unsigned int nopt = OPTION_CARDINALITY(struct setting);
 
 static void
 show_usage(void)
 {
-    log_stderr(
+    log_stdout(
             "Usage:" CRLF
             "  broadbill_slimcache [option|config]" CRLF
-            CRLF
+            );
+    log_stdout(
             "Description:" CRLF
-            "broadbill_slimcache is a part of the unified cache backend " CRLF
-            "that uses cuckoo hashing to efficiently store small key/val " CRLF
-            "pairs. It speaks the memcached protocol and supports all " CRLF
-            "ASCII memcached commands except for prepend/append. " CRLF
-            "The storage is preallocated and maximum key/val size allowed " CRLF
-            "has to be specified when starting the service, and cannot be " CRLF
-            "updated after launch." CRLF
+            "  broadbill_slimcache is one of the unified cache backends. " CRLF
+            "  It uses cuckoo hashing to efficiently store small key/val " CRLF
+            "  pairs. It speaks the memcached protocol and supports all " CRLF
+            "  ASCII memcached commands (except for prepend/append). " CRLF
             CRLF
+            "  The storage in slimcache is preallocated as a hash table " CRLF
+            "  The maximum key/val size allowed has to be specified when " CRLF
+            "  starting the service, and cannot be updated after launch." CRLF
+            );
+    log_stdout(
             "Options:" CRLF
             "  -h, --help        show this message" CRLF
             "  -v, --version     show version number" CRLF
-            CRLF
-            "Defaults:" CRLF
-            CRLF
+            );
+    log_stdout(
             "Example:" CRLF
             "  ./broadbill_slimcache ../template/slimcache.config" CRLF
             );
+    log_stdout("Setting & Default Values:");
+    SETTING(PRINT_DEFAULT)
 }
 
 static void
 show_version(void)
 {
-    log_stderr("Version: %s", BB_VERSION_STRING);
+    log_stdout("Version: %s", BB_VERSION_STRING);
 }
 
 static int
@@ -129,7 +137,8 @@ setup(void)
     request_pool_create((uint32_t)setting.conn_poolsize.val.vuint);
 
     /* set up core after static resources are ready */
-    ret = getaddr(&ai, setting.host.val.vstr, setting.port.val.vstr);
+    ret = getaddr(&ai, setting.server_host.val.vstr,
+            setting.server_port.val.vstr);
     if (ret < 0) {
         log_error("address invalid");
 
