@@ -1,15 +1,17 @@
 #include <memcache/bb_codec.h>
 
+#include <time/bb_time.h>
+
 #include <cc_array.h>
 #include <cc_debug.h>
 #include <cc_define.h>
 #include <cc_log.h>
 #include <cc_mbuf.h>
 #include <cc_print.h>
+#include <cc_stats.h>
 #include <cc_util.h>
 
 #include <ctype.h>
-
 
 /* functions related to parsing messages */
 
@@ -981,7 +983,7 @@ compose_rsp_msg(struct mbuf *buf, rsp_index_t idx, bool noreply)
 }
 
 static rstatus_t
-_compose_rsp_uint64(struct mbuf *buf, uint64_t val, char *fmt)
+_compose_rsp_uint64(struct mbuf *buf, uint64_t val, const char *fmt)
 {
     size_t n;
     uint32_t wsize;
@@ -1103,5 +1105,79 @@ compose_rsp_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, u
         return status;
     }
 
+    return status;
+}
+
+static rstatus_t
+_compose_rsp_metric(struct mbuf *buf, struct stats *stats, const char *fmt, ...)
+{
+    size_t n;
+    uint32_t wsize;
+    va_list args;
+
+    wsize = mbuf_wsize(buf);
+
+    va_start(args, fmt);
+    n = cc_vscnprintf(buf->wpos, wsize, fmt, args);
+    va_end(args);
+
+    if (n >= wsize) {
+        log_debug("failed to write metric %s to mbuf %p: insufficient space",
+                stats->name, buf);
+
+        return CC_ENOMEM;
+    } else if (n == 0) {
+        log_error("failed to write metric %s to mbuf %p: returned error",
+                stats->name, buf);
+
+        return CC_ERROR;
+    }
+
+    log_vverb("wrote metric %s to mbuf %p", stats->name, buf);
+
+    buf->wpos += n;
+    return CC_OK;
+}
+
+rstatus_t
+compose_rsp_stats(struct mbuf *buf, struct stats sarr[], unsigned int nstats)
+{
+    unsigned int i;
+    rstatus_t status = CC_OK;
+
+    for (i = 0; i < nstats; i++) {
+        switch (sarr[i].type) {
+        case METRIC_COUNTER:
+            status = _compose_rsp_metric(buf, &sarr[i], "STAT %s %"PRIu64 CRLF,
+                             sarr[i].name, sarr[i].counter);
+            break;
+
+        case METRIC_GAUGE:
+            status = _compose_rsp_metric(buf, &sarr[i], "STAT %s %"PRIi64 CRLF,
+                             sarr[i].name, sarr[i].gauge);
+            break;
+
+        case METRIC_DINTMAX:
+            status = _compose_rsp_metric(buf, &sarr[i], "STAT %s %ju" CRLF,
+                             sarr[i].name, sarr[i].vintmax);
+            break;
+
+        case METRIC_DDOUBLE:
+            status = _compose_rsp_metric(buf, &sarr[i], "STAT %s %.6f" CRLF,
+                             sarr[i].name, sarr[i].vdouble);
+            break;
+
+        default:
+            NOT_REACHED();
+            break;
+        }
+        if (status != CC_OK) {
+            return status;
+        }
+    }
+
+    log_verb("wrote %u metrics", nstats);
+
+    status = _compose_rsp_msg(buf, RSP_END);
     return status;
 }

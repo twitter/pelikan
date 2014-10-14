@@ -1,10 +1,15 @@
 #include <slimcache/bb_process.h>
 
+#include <slimcache/bb_global.h>
+
 #include <cuckoo/bb_cuckoo.h>
 
 #include <cc_array.h>
 #include <cc_log.h>
 #include <cc_print.h>
+
+#include <sys/resource.h>
+#include <unistd.h>
 
 static rstatus_t
 process_get_key(struct mbuf *buf, struct bstring *key)
@@ -30,7 +35,7 @@ process_get_key(struct mbuf *buf, struct bstring *key)
             val.vstr.len = (uint32_t)size;
         }
 
-        compose_rsp_keyval(buf, key, &val.vstr, item_flag(it), 0);
+        status = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it), 0);
     } else {
         //stats_thread_incr_get_key_miss);
     }
@@ -53,7 +58,9 @@ process_get(struct request *req, struct mbuf *buf)
 
         key = array_get_idx(req->keys, i);
         status = process_get_key(buf, key);
-
+        if (status != CC_OK) {
+            return status;
+        }
     }
     status = compose_rsp_msg(buf, RSP_END, false);
 
@@ -82,7 +89,8 @@ process_gets_key(struct mbuf *buf, struct bstring *key)
             val.vstr.len = (uint32_t)size;
         }
 
-        compose_rsp_keyval(buf, key, &val.vstr, item_flag(it), item_cas(it));
+        status = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it),
+                item_cas(it));
     } else {
         //stats_thread_incr(gets_key_miss);
     }
@@ -106,7 +114,9 @@ process_gets(struct request *req, struct mbuf *buf)
 
         key = array_get_idx(req->keys, i);
         status = process_gets_key(buf, key);
-
+        if (status != CC_OK) {
+            return status;
+        }
     }
     status = compose_rsp_msg(buf, RSP_END, false);
 
@@ -350,6 +360,48 @@ process_decr(struct request *req, struct mbuf *buf)
     return status;
 }
 
+static rstatus_t
+process_stats(struct request *req, struct mbuf *buf)
+{
+    struct rusage usage;
+
+    gs.pid.vintmax = (intmax_t)getpid();
+    gs.time.vintmax = (intmax_t)time_started() + time_now();
+    gs.uptime.vintmax = (intmax_t)time_now();
+    /* "%02d%02d%02d", MC_VERSION_MAJOR, MC_VERSION_MINOR, MC_VERSION_PATCH */
+    gs.version.vintmax = (intmax_t)BB_VERSION_MAJOR * 10000 +
+        BB_VERSION_MINOR * 100 + BB_VERSION_PATCH;
+
+    /* TODO(yao): put system stats in a single section, potentially a library */
+    getrusage(RUSAGE_SELF, &usage);
+
+    gs.ru_utime.vdouble = (double)usage.ru_utime.tv_sec +
+        usage.ru_utime.tv_usec * 0.000001;
+    gs.ru_stime.vdouble = (double)usage.ru_stime.tv_sec +
+        usage.ru_stime.tv_usec * 0.000001;
+    gs.ru_maxrss.vintmax = (intmax_t)usage.ru_maxrss;
+    gs.ru_ixrss.vintmax = (intmax_t)usage.ru_ixrss;
+    gs.ru_idrss.vintmax = (intmax_t)usage.ru_idrss;
+    gs.ru_isrss.vintmax = (intmax_t)usage.ru_isrss;
+    gs.ru_minflt.vintmax = (intmax_t)usage.ru_minflt;
+    gs.ru_majflt.vintmax = (intmax_t)usage.ru_majflt;
+    gs.ru_nswap.vintmax = (intmax_t)usage.ru_nswap;
+    gs.ru_inblock.vintmax = (intmax_t)usage.ru_inblock;
+    gs.ru_oublock.vintmax = (intmax_t)usage.ru_oublock;
+    gs.ru_msgsnd.vintmax = (intmax_t)usage.ru_msgsnd;
+    gs.ru_msgrcv.vintmax = (intmax_t)usage.ru_msgrcv;
+    gs.ru_nsignals.vintmax = (intmax_t)usage.ru_nsignals;
+/*
+    gs.ru_nvcsw.vintmax = (intmax_t)usage.ru_nvscw;
+    gs.ru_nivcsw.vintmax = (intmax_t)usage.ru_nivscw;
+*/
+    gs.rusage_user.vdouble = gs.ru_utime.vdouble;
+    gs.rusage_system.vdouble = gs.ru_stime.vdouble;
+    gs.rusage_maxrss.vintmax = gs.ru_maxrss.vintmax;
+
+    return compose_rsp_stats(buf, (struct stats *)&gs, nstats);
+}
+
 rstatus_t
 process_request(struct request *req, struct mbuf *buf)
 {
@@ -400,6 +452,11 @@ process_request(struct request *req, struct mbuf *buf)
 
     case DECR:
         status = process_decr(req, buf);
+
+        return status;
+
+    case STATS:
+        status = process_stats(req, buf);
 
         return status;
 

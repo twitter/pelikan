@@ -14,6 +14,13 @@
 #define ITEM_OPTION(ACTION)                                                     \
     ACTION( item_cas,   OPTION_TYPE_BOOL,   "yes",      "support cas in items" )
 
+/*          name            type                description */
+#define ITEM_METRIC(ACTION)                                             \
+    ACTION( data_curr,      METRIC_GAUGE,       "# of bytes stored"    )\
+    ACTION( item_curr,      METRIC_GAUGE,       "current # of items"   )\
+    ACTION( item_displace,  METRIC_COUNTER,     "expired # of items"   )\
+    ACTION( item_expire,    METRIC_COUNTER,     "expired # of items"   )\
+
 #define DEFAULT_KEY_LEN 255
 
 #define CAS_VAL_MIN 1

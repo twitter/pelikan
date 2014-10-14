@@ -6,6 +6,7 @@
 
 #include <cc_define.h>
 #include <cc_mbuf.h>
+#include <cc_stats.h>
 
 rstatus_t parse_swallow(struct mbuf *buf);
 rstatus_t parse_req_hdr(struct request *req, struct mbuf *buf);
@@ -17,4 +18,5 @@ rstatus_t compose_rsp_uint64(struct mbuf *buf, uint64_t val, bool noreply);
 rstatus_t compose_rsp_bstring(struct mbuf *buf, struct bstring *str, bool noreply);
 rstatus_t compose_rsp_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas);
 
+rstatus_t compose_rsp_stats(struct mbuf *buf, struct stats sarr[], unsigned int nstats);
 #endif /* _BB_CODEC_H_ */

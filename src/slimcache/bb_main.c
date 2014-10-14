@@ -1,12 +1,5 @@
-#include <cuckoo/bb_cuckoo.h>
-#include <memcache/bb_request.h>
 #include <slimcache/bb_core.h>
-
-#include <cc_array.h>
-#include <cc_log.h>
-#include <cc_mbuf.h>
-#include <cc_nio.h>
-#include <cc_stream.h>
+#include <slimcache/bb_global.h>
 
 #include <netdb.h>
 #include <stdio.h>
@@ -15,34 +8,21 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
-/*          name            type                default     description */
-#define SERVER_OPTION(ACTION)                                                           \
-    ACTION( server_host,    OPTION_TYPE_STR,    NULL,       "interfaces listening on"  )\
-    ACTION( server_port,    OPTION_TYPE_STR,    "22222",    "port listening on"        )
-
-/* we compose our setting by including options needed by modules we use */
-#define SETTING(ACTION)             \
-    ARRAY_OPTION(ACTION)            \
-    CUCKOO_OPTION(ACTION)           \
-    ITEM_OPTION(ACTION)             \
-    LOG_OPTION(ACTION)              \
-    MBUF_OPTION(ACTION)             \
-    NIO_OPTION(ACTION)              \
-    REQUEST_OPTION(ACTION)          \
-    SERVER_OPTION(ACTION)           \
-    STREAM_OPTION(ACTION)
-
-static struct setting {
-    SETTING(OPTION_DECLARE)
-} setting = {
+struct setting  setting = {
     SETTING(OPTION_INIT)
 };
 
 #define PRINT_DEFAULT(_name, _type, _default, _description) \
     log_stdout("  %-31s ( default: %s )", #_name,  _default);
 
-
 const unsigned int nopt = OPTION_CARDINALITY(struct setting);
+
+struct glob_stats gs = {
+    STATS(STATS_INIT)
+};
+
+const unsigned int nstats = STATS_CARDINALITY(struct glob_stats);
+
 
 static void
 show_usage(void)
@@ -119,6 +99,7 @@ setup(void)
     int ret;
     rstatus_t status;
 
+    /* setup log first, so we log properly */
     ret = log_setup((int)setting.log_level.val.vuint,
             setting.log_name.val.vstr);
     if (ret < 0) {
@@ -126,6 +107,8 @@ setup(void)
 
         goto error;
     }
+    /* stats in case other initialization updates certain metrics */
+    stats_reset((struct stats *)&gs, nstats);
 
     mbuf_setup((uint32_t)setting.mbuf_size.val.vuint);
 
@@ -134,7 +117,6 @@ setup(void)
     status = cuckoo_setup((size_t)setting.cuckoo_item_size.val.vuint,
             (uint32_t)setting.cuckoo_nitem.val.vuint);
     if (status != CC_OK) {
-        /* FIXME: free resources allocated before quitting */
         log_error("cuckoo module setup failed");
 
         goto error;
@@ -154,7 +136,7 @@ setup(void)
         goto error;
     }
     status = core_setup(ai);
-    freeaddrinfo(ai); /* freeing it before return to avoid memory leak */
+    freeaddrinfo(ai); /* freeing it before return/error to avoid memory leak */
     if (status != CC_OK) {
         log_crit("cannot start core event loop");
 
