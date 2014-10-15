@@ -391,13 +391,8 @@ process_stats(struct request *req, struct mbuf *buf)
     gs.ru_msgsnd.vintmax = (intmax_t)usage.ru_msgsnd;
     gs.ru_msgrcv.vintmax = (intmax_t)usage.ru_msgrcv;
     gs.ru_nsignals.vintmax = (intmax_t)usage.ru_nsignals;
-/*
     gs.ru_nvcsw.vintmax = (intmax_t)usage.ru_nvscw;
     gs.ru_nivcsw.vintmax = (intmax_t)usage.ru_nivscw;
-*/
-    gs.rusage_user.vdouble = gs.ru_utime.vdouble;
-    gs.rusage_system.vdouble = gs.ru_stime.vdouble;
-    gs.rusage_maxrss.vintmax = gs.ru_maxrss.vintmax;
 
     return compose_rsp_stats(buf, (struct stats *)&gs, nstats);
 }

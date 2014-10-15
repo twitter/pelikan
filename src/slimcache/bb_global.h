@@ -44,9 +44,6 @@ struct setting {
     ACTION( time,           METRIC_DINTMAX, "unix time in seconds"     )\
     ACTION( uptime,         METRIC_DINTMAX, "process uptime in seconds")\
     ACTION( version,        METRIC_DINTMAX, "version as an int"        )\
-    ACTION( rusage_system,  METRIC_DDOUBLE, "system CPU time"          )\
-    ACTION( rusage_user,    METRIC_DDOUBLE, "user CPU time"            )\
-    ACTION( rusage_maxrss,  METRIC_DINTMAX, "max RSS size"             )\
     ACTION( ru_stime,       METRIC_DDOUBLE, "system CPU time"          )\
     ACTION( ru_utime,       METRIC_DDOUBLE, "user CPU time"            )\
     ACTION( ru_maxrss,      METRIC_DINTMAX, "max RSS size"             )\
@@ -72,5 +69,13 @@ struct setting {
 struct glob_stats {
     STATS(STATS_DECLARE)
 };
+
+extern struct glob_stats gs;
+extern const unsigned int nstats;
+
+#define STATS_INCR(_c) stats_incr(gs.#_c)
+#define STATS_INCR_N(_c, _d) stats_incr(gs.#_c, _d)
+#define STATS_DECR(_c) stats_decr(gs.#_c)
+#define STATS_DECR_N(_c, _d) stats_decr(gs.#_c, _d)
 
 #endif /* _BB_GLOBAL_H_ */

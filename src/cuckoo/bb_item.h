@@ -18,8 +18,11 @@
 #define ITEM_METRIC(ACTION)                                             \
     ACTION( data_curr,      METRIC_GAUGE,       "# of bytes stored"    )\
     ACTION( item_curr,      METRIC_GAUGE,       "current # of items"   )\
-    ACTION( item_displace,  METRIC_COUNTER,     "expired # of items"   )\
-    ACTION( item_expire,    METRIC_COUNTER,     "expired # of items"   )\
+    ACTION( item_displace,  METRIC_COUNTER,     "# displace of items"  )\
+    ACTION( item_evict,     METRIC_COUNTER,     "# evicted items"      )\
+    ACTION( item_expire,    METRIC_COUNTER,     "# expired items"      )\
+    ACTION( item_insert,    METRIC_COUNTER,     "# item inserts"       )\
+    ACTION( item_delete,    METRIC_COUNTER,     "# item deletes"       )\
 
 #define DEFAULT_KEY_LEN 255
 
