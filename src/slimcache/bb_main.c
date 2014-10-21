@@ -1,5 +1,8 @@
 #include <slimcache/bb_core.h>
-#include <slimcache/bb_global.h>
+#include <slimcache/bb_setting.h>
+#include <slimcache/bb_stats.h>
+
+#include <cc_metric.h>
 
 #include <netdb.h>
 #include <stdio.h>
@@ -8,20 +11,20 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
-struct setting  setting = {
+static struct setting setting = {
     SETTING(OPTION_INIT)
 };
 
 #define PRINT_DEFAULT(_name, _type, _default, _description) \
     log_stdout("  %-31s ( default: %s )", #_name,  _default);
 
-const unsigned int nopt = OPTION_CARDINALITY(struct setting);
+static const unsigned int nopt = OPTION_CARDINALITY(struct setting);
 
-struct glob_stats gs = {
-    STATS(STATS_INIT)
+struct stats Stats = {
+   STATS(METRIC_INIT)
 };
 
-const unsigned int nstats = STATS_CARDINALITY(struct glob_stats);
+const unsigned int Nmetric = METRIC_CARDINALITY(struct stats);
 
 
 static void
@@ -108,7 +111,7 @@ setup(void)
         goto error;
     }
     /* stats in case other initialization updates certain metrics */
-    stats_reset((struct stats *)&gs, nstats);
+    metric_reset((struct metric *)&Stats, Nmetric);
 
     mbuf_setup((uint32_t)setting.mbuf_size.val.vuint);
 

@@ -5,27 +5,30 @@
 
 #include <cc_bstring.h>
 #include <cc_debug.h>
+#include <cc_metric.h>
 #include <cc_util.h>
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 /*          name        type                default     description */
 #define ITEM_OPTION(ACTION)                                                     \
     ACTION( item_cas,   OPTION_TYPE_BOOL,   "yes",      "support cas in items" )
 
-/*          name            type                description */
-#define ITEM_METRIC(ACTION)                                             \
-    ACTION( data_curr,      METRIC_GAUGE,       "# of bytes stored"    )\
-    ACTION( item_curr,      METRIC_GAUGE,       "current # of items"   )\
-    ACTION( item_displace,  METRIC_COUNTER,     "# displace of items"  )\
-    ACTION( item_evict,     METRIC_COUNTER,     "# evicted items"      )\
-    ACTION( item_expire,    METRIC_COUNTER,     "# expired items"      )\
-    ACTION( item_insert,    METRIC_COUNTER,     "# item inserts"       )\
-    ACTION( item_delete,    METRIC_COUNTER,     "# item deletes"       )\
+/*          name            type            description */
+#define ITEM_METRIC(ACTION)                                         \
+    ACTION( item_val_curr,  METRIC_GAUGE,   "#B stored in vals"    )\
+    ACTION( item_key_curr,  METRIC_GAUGE,   "#B stored in keys"    )\
+    ACTION( item_data_curr, METRIC_GAUGE,   "#B stored"            )\
+    ACTION( item_curr,      METRIC_GAUGE,   "# items"              )\
+    ACTION( item_displace,  METRIC_COUNTER, "# displace of items"  )\
+    ACTION( item_evict,     METRIC_COUNTER, "# evicted items"      )\
+    ACTION( item_expire,    METRIC_COUNTER, "# expired items"      )\
+    ACTION( item_insert,    METRIC_COUNTER, "# item inserts"       )\
+    ACTION( item_delete,    METRIC_COUNTER, "# item deletes"       )\
 
 #define DEFAULT_KEY_LEN 255
-
 #define CAS_VAL_MIN 1
 
 static bool cas_enabled = true;
@@ -135,6 +138,18 @@ item_matched(struct item *it, struct bstring *key)
 }
 
 static inline bool
+item_valid(struct item *it)
+{
+    return (it->expire > time_now());
+}
+
+static inline bool
+item_expired(struct item *it)
+{
+    return (it->expire > time_now() && it->expire > 0);
+}
+
+static inline bool
 item_cas_valid(struct item *it, uint64_t cas)
 {
     if (!cas_enabled) {
@@ -224,46 +239,15 @@ item_update(struct item *it, struct val *val, rel_time_t expire)
 static inline void
 item_set(struct item *it, struct bstring *key, struct val *val, rel_time_t expire)
 {
-    /*
-     * here we don't have to run the full validity check, because we assume
-     * whoever calls this function has already fun the valid check, which would
-     * have deleted an expired key. So we are always replacing a valid key if
-     * expire is non-zero.
-     */
-    if (it->expire > 0) {
-        //stats_thread_decr(item_curr);
-        //stats_thread_decr_by(data_curr, item_datalen(it));
-    }
-
     it->klen = (uint8_t)key->len;
     cc_memcpy(ITEM_KEY_POS(it), key->data, key->len);
     item_update(it, val, expire);
-
-    //stats_thread_incr(item_curr);
-    //stats_thread_incr_by(data_curr, item_datalen(it));
 }
 
 static inline void
 item_delete(struct item *it)
 {
-    //stats_thread_decr(item_curr);
-    //stats_thread_decr_by(data_curr, item_datalen(it));
-
     it->expire = 0;
-}
-
-static inline bool
-item_valid(struct item *it)
-{
-    bool valid;
-    valid = (it->expire > time_now());
-
-    if (!valid && it->expire != 0) {
-      //stats_thread_incr(item_expire);
-      item_delete(it);
-    }
-
-    return valid;
 }
 
 static inline void
@@ -277,5 +261,4 @@ item_teardown(void)
 {
     return;
 }
-
-#endif
+#endif /* _BB_ITEM_H_ */

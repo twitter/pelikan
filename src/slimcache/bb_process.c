@@ -1,8 +1,7 @@
 #include <slimcache/bb_process.h>
 
-#include <slimcache/bb_global.h>
-
 #include <cuckoo/bb_cuckoo.h>
+#include <slimcache/bb_stats.h>
 
 #include <cc_array.h>
 #include <cc_log.h>
@@ -10,6 +9,8 @@
 
 #include <sys/resource.h>
 #include <unistd.h>
+
+#define USEC 0.000001
 
 static rstatus_t
 process_get_key(struct mbuf *buf, struct bstring *key)
@@ -127,17 +128,15 @@ static rstatus_t
 process_delete(struct request *req, struct mbuf *buf)
 {
     rstatus_t status = CC_OK;
-    struct item *it;
+    bool deleted;
 
     log_verb("processing delete req %p, rsp buf at %p", req, buf);
 
     //stats_thread_incr(delete);
 
-    it = cuckoo_lookup(array_get_idx(req->keys, 0));
-    if (NULL != it) {
+    deleted = cuckoo_delete(array_get_idx(req->keys, 0));
+    if (deleted) {
         //stats_thread_incr(delete_hit);
-
-        item_delete(it);
 
         status = compose_rsp_msg(buf, RSP_DELETED, req->noreply);
     } else {
@@ -184,7 +183,7 @@ process_set(struct request *req, struct mbuf *buf)
 
     it = cuckoo_lookup(key);
     if (it != NULL) {
-        item_update(it, &val, expire);
+        cuckoo_update(it, &val, expire);
     } else {
         cuckoo_insert(key, &val, expire);
     }
@@ -244,7 +243,7 @@ process_replace(struct request *req, struct mbuf *buf)
     if (it != NULL) {
         expire = time_reltime(req->expiry);
         process_value(&val, &req->vstr);
-        item_update(it, &val, expire);
+        cuckoo_update(it, &val, expire);
         //stats_thread_incr(replace_success);
         status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
     } else {
@@ -275,7 +274,7 @@ process_cas(struct request *req, struct mbuf *buf)
         if (item_cas_valid(it, req->cas)) {
             expire = time_reltime(req->expiry);
             process_value(&val, &req->vstr);
-            item_update(it, &val, expire);
+            cuckoo_update(it, &val, expire);
             //stats_thread_incr(cas_success);
             status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
         } else {
@@ -365,36 +364,35 @@ process_stats(struct request *req, struct mbuf *buf)
 {
     struct rusage usage;
 
-    gs.pid.vintmax = (intmax_t)getpid();
-    gs.time.vintmax = (intmax_t)time_started() + time_now();
-    gs.uptime.vintmax = (intmax_t)time_now();
+    Stats.pid.vintmax         = (intmax_t)getpid();
+    Stats.time.vintmax        = (intmax_t)time_started() + time_now();
+    Stats.uptime.vintmax      = (intmax_t)time_now();
     /* "%02d%02d%02d", MC_VERSION_MAJOR, MC_VERSION_MINOR, MC_VERSION_PATCH */
-    gs.version.vintmax = (intmax_t)BB_VERSION_MAJOR * 10000 +
-        BB_VERSION_MINOR * 100 + BB_VERSION_PATCH;
+    Stats.version.vintmax     = (intmax_t)BB_VERSION_MAJOR * 10000 +
+                                    BB_VERSION_MINOR * 100 + BB_VERSION_PATCH;
 
     /* TODO(yao): put system stats in a single section, potentially a library */
     getrusage(RUSAGE_SELF, &usage);
+    Stats.ru_utime.vdouble    = (double)usage.ru_utime.tv_sec +
+                                    usage.ru_utime.tv_usec * USEC;
+    Stats.ru_stime.vdouble    = (double)usage.ru_stime.tv_sec +
+                                    usage.ru_stime.tv_usec * USEC;
+    Stats.ru_maxrss.vintmax   = (intmax_t)usage.ru_maxrss;
+    Stats.ru_ixrss.vintmax    = (intmax_t)usage.ru_ixrss;
+    Stats.ru_idrss.vintmax    = (intmax_t)usage.ru_idrss;
+    Stats.ru_isrss.vintmax    = (intmax_t)usage.ru_isrss;
+    Stats.ru_minflt.vintmax   = (intmax_t)usage.ru_minflt;
+    Stats.ru_majflt.vintmax   = (intmax_t)usage.ru_majflt;
+    Stats.ru_nswap.vintmax    = (intmax_t)usage.ru_nswap;
+    Stats.ru_inblock.vintmax  = (intmax_t)usage.ru_inblock;
+    Stats.ru_oublock.vintmax  = (intmax_t)usage.ru_oublock;
+    Stats.ru_msgsnd.vintmax   = (intmax_t)usage.ru_msgsnd;
+    Stats.ru_msgrcv.vintmax   = (intmax_t)usage.ru_msgrcv;
+    Stats.ru_nsignals.vintmax = (intmax_t)usage.ru_nsignals;
+    Stats.ru_nvcsw.vintmax    = (intmax_t)usage.ru_nvcsw;
+    Stats.ru_nivcsw.vintmax   = (intmax_t)usage.ru_nivcsw;
 
-    gs.ru_utime.vdouble = (double)usage.ru_utime.tv_sec +
-        usage.ru_utime.tv_usec * 0.000001;
-    gs.ru_stime.vdouble = (double)usage.ru_stime.tv_sec +
-        usage.ru_stime.tv_usec * 0.000001;
-    gs.ru_maxrss.vintmax = (intmax_t)usage.ru_maxrss;
-    gs.ru_ixrss.vintmax = (intmax_t)usage.ru_ixrss;
-    gs.ru_idrss.vintmax = (intmax_t)usage.ru_idrss;
-    gs.ru_isrss.vintmax = (intmax_t)usage.ru_isrss;
-    gs.ru_minflt.vintmax = (intmax_t)usage.ru_minflt;
-    gs.ru_majflt.vintmax = (intmax_t)usage.ru_majflt;
-    gs.ru_nswap.vintmax = (intmax_t)usage.ru_nswap;
-    gs.ru_inblock.vintmax = (intmax_t)usage.ru_inblock;
-    gs.ru_oublock.vintmax = (intmax_t)usage.ru_oublock;
-    gs.ru_msgsnd.vintmax = (intmax_t)usage.ru_msgsnd;
-    gs.ru_msgrcv.vintmax = (intmax_t)usage.ru_msgrcv;
-    gs.ru_nsignals.vintmax = (intmax_t)usage.ru_nsignals;
-    gs.ru_nvcsw.vintmax = (intmax_t)usage.ru_nvscw;
-    gs.ru_nivcsw.vintmax = (intmax_t)usage.ru_nivscw;
-
-    return compose_rsp_stats(buf, (struct stats *)&gs, nstats);
+    return compose_rsp_stats(buf, (struct metric *)&Stats, Nmetric);
 }
 
 rstatus_t

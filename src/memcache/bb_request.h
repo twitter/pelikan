@@ -17,6 +17,15 @@
 #define REQUEST_OPTION(ACTION)                                                              \
     ACTION( request_poolsize,   OPTION_TYPE_UINT,   str(REQ_POOLSIZE),  "request pool size")
 
+/*          name                type            description */
+#define REQPOOL_METRIC(ACTION)                                          \
+    ACTION( reqpool_free,       METRIC_GAUGE,   "# free req in pool"   )\
+    ACTION( reqpool_used,       METRIC_GAUGE,   "# used req from pool" )\
+    ACTION( reqpool_borrow,     METRIC_COUNTER, "# reqs borrowed"      )\
+    ACTION( reqpool_return,     METRIC_COUNTER, "# reqs returned"      )\
+    ACTION( reqpool_create,     METRIC_COUNTER, "# reqs created"       )\
+    ACTION( reqpool_destroy,    METRIC_COUNTER, "# reqs destroyed"     )
+
 typedef enum request_state {
     PARSING,
     PARSED,

@@ -54,12 +54,15 @@ time_update(void)
     }
     now = (rel_time_t) (timer.tv_sec - time_start);
 
-    log_verb("time updated to %u\n", now);
+    log_verb("time updated to %u", now);
 }
 
 rel_time_t
 time_now(void)
 {
+    /* FIXME(yao): use an event */
+    time_update();
+
     return now;
 }
 

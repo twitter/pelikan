@@ -9,6 +9,13 @@
 
 #include <netdb.h>
 
+/*          name                type            description */
+#define CORE_METRIC(ACTION)                                         \
+    ACTION( core_event,     METRIC_COUNTER, "# events returned"    )\
+    ACTION( core_read,      METRIC_COUNTER, "# core_read invoked"  )\
+    ACTION( core_write,     METRIC_COUNTER, "# core_write invoked" )\
+    ACTION( core_close,     METRIC_COUNTER, "# core_close invoked" )
+
 rstatus_t core_setup(struct addrinfo *ai);
 void core_teardown(void);
 rstatus_t core_evwait(void);

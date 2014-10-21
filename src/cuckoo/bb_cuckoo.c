@@ -1,6 +1,6 @@
 #include <cuckoo/bb_cuckoo.h>
 
-#include <bb_item.h>
+#include <bb_stats.h>
 
 #include <cc_define.h>
 #include <cc_log.h>
@@ -57,9 +57,9 @@ cuckoo_displace(uint32_t displaced)
     uint32_t offset[D];
     uint32_t path[CUCKOO_DISPLACE + 1];
     bool ended = false;
-    bool noevict = false;
+    bool evict = true;
 
-    //stats_thread_incr(item_displace);
+    INCR(item_displace);
 
     step = 0;
     path[0] = displaced;
@@ -77,7 +77,7 @@ cuckoo_displace(uint32_t displaced)
                 log_verb("item at %p is unoccupied");
 
                 ended = true;
-                noevict = true;
+                evict = false;
                 path[step] = offset[i];
                 break;
             }
@@ -107,12 +107,12 @@ cuckoo_displace(uint32_t displaced)
         }
     }
 
-    if (!noevict) {
+    if (evict) {
         log_verb("one item evicted during replacement");
 
-        //stats_thread_decr(item_curr);
-        //stats_thread_decr_by(data_curr, item_datalen(OFFSET2ITEM(path[step])));
-        //stats_thread_incr(item_evict);
+        DECR(item_curr);
+        DECR_N(item_data_curr, item_datalen(OFFSET2ITEM(path[step])));
+        INCR(item_evict);
     }
 
     /* move items along the path we have found */
@@ -176,7 +176,7 @@ cuckoo_lookup(struct bstring *key)
         it = OFFSET2ITEM(offset[i]);
         log_verb("item location: %p", it);
         if (cuckoo_hit(it, key)) {
-            log_debug("item found: %p", it);
+            log_verb("item found: %p", it);
             return it;
         }
     }
@@ -184,6 +184,7 @@ cuckoo_lookup(struct bstring *key)
     return NULL;
 }
 
+/* insert applies to nonexisting key only */
 void
 cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
 {
@@ -195,19 +196,49 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
     cuckoo_hash(offset, key);
 
     for (i = 0; i < D; ++i) {
-      it = OFFSET2ITEM(offset[i]);
-      if (!item_valid(it)) {
-        break;
-      }
+        it = OFFSET2ITEM(offset[i]);
+        if (!item_valid(it)) {
+            if (item_expired(it)) {
+                DECR(item_curr);
+                DECR_N(item_data_curr, item_datalen(it));
+            }
+            break;
+        }
     }
     log_verb("inserting into location: %p", it);
 
     if (D == i) {
         displaced = offset[RANDOM(D)];
+        it = OFFSET2ITEM(displaced);
         cuckoo_displace(displaced);
     }
 
     item_set(it, key, val, expire);
+    INCR(item_curr);
+    INCR_N(item_data_curr, item_datalen(it));
 }
 
+bool
+cuckoo_delete(struct bstring *key)
+{
+    struct item *it;
 
+    it = cuckoo_lookup(key);
+
+    if (it != NULL) {
+        DECR(item_curr);
+        DECR_N(item_data_curr, item_datalen(it));
+        item_delete(it);
+        return true;
+    } else {
+        return false;
+    }
+}
+
+void
+cuckoo_update(struct item *it, struct val *val, rel_time_t expire)
+{
+    DECR_N(item_data_curr, item_vlen(it));
+    item_update(it, val, expire);
+    INCR_N(item_data_curr, item_vlen(it));
+}

@@ -8,7 +8,6 @@
 #include <cc_log.h>
 #include <cc_mbuf.h>
 #include <cc_print.h>
-#include <cc_stats.h>
 #include <cc_util.h>
 
 #include <ctype.h>
@@ -787,6 +786,7 @@ parse_swallow(struct mbuf *buf)
             break;
 
         case CC_OK:
+            log_verb("swallowed %zu bytes", p + CRLF_LEN - buf->rpos);
             buf->rpos = p + CRLF_LEN;
 
             return CC_OK;
@@ -905,6 +905,8 @@ parse_req_val(struct request *req, struct mbuf *buf)
     status = _try_crlf(buf, buf->rpos);
     if (status == CC_OK) {
         buf->rpos += CRLF_LEN;
+    } else {
+        _mark_cerror(req, buf, buf->rpos);
     }
 
     return status;
@@ -919,6 +921,11 @@ parse_req(struct request *req, struct mbuf *buf)
 
     log_verb("parsing buf %p into req %p (state: %d)", buf, req,
             req->pstate);
+
+    if (req->swallow) {
+        parse_swallow(buf);
+        request_reset(req);
+    }
 
     if (req->pstate == REQ_HDR) {
         status = parse_req_hdr(req, buf);
@@ -1043,18 +1050,6 @@ _compose_rsp_bstring(struct mbuf *buf, struct bstring *str)
 }
 
 rstatus_t
-compose_rsp_bstring(struct mbuf *buf, struct bstring *str, bool noreply)
-{
-    if (noreply) {
-        return CC_OK;
-    }
-
-    log_verb("rsp bstring %"PRIu32" byte", str->len);
-
-    return _compose_rsp_bstring(buf, str);
-}
-
-rstatus_t
 compose_rsp_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas)
 {
     rstatus_t status = CC_OK;
@@ -1109,7 +1104,7 @@ compose_rsp_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, u
 }
 
 static rstatus_t
-_compose_rsp_metric(struct mbuf *buf, struct stats *stats, const char *fmt, ...)
+_compose_rsp_metric(struct mbuf *buf, struct metric *metric, const char *fmt, ...)
 {
     size_t n;
     uint32_t wsize;
@@ -1123,48 +1118,48 @@ _compose_rsp_metric(struct mbuf *buf, struct stats *stats, const char *fmt, ...)
 
     if (n >= wsize) {
         log_debug("failed to write metric %s to mbuf %p: insufficient space",
-                stats->name, buf);
+                metric->name, buf);
 
         return CC_ENOMEM;
     } else if (n == 0) {
         log_error("failed to write metric %s to mbuf %p: returned error",
-                stats->name, buf);
+                metric->name, buf);
 
         return CC_ERROR;
     }
 
-    log_vverb("wrote metric %s to mbuf %p", stats->name, buf);
+    log_vverb("wrote metric %s to mbuf %p", metric->name, buf);
 
     buf->wpos += n;
     return CC_OK;
 }
 
 rstatus_t
-compose_rsp_stats(struct mbuf *buf, struct stats sarr[], unsigned int nstats)
+compose_rsp_stats(struct mbuf *buf, struct metric marr[], unsigned int nmetric)
 {
     unsigned int i;
     rstatus_t status = CC_OK;
 
-    for (i = 0; i < nstats; i++) {
-        switch (sarr[i].type) {
+    for (i = 0; i < nmetric; i++) {
+        switch (marr[i].type) {
         case METRIC_COUNTER:
-            status = _compose_rsp_metric(buf, &sarr[i], "STAT %s %"PRIu64 CRLF,
-                             sarr[i].name, sarr[i].counter);
+            status = _compose_rsp_metric(buf, &marr[i], "STAT %s %"PRIu64 CRLF,
+                             marr[i].name, marr[i].counter);
             break;
 
         case METRIC_GAUGE:
-            status = _compose_rsp_metric(buf, &sarr[i], "STAT %s %"PRIi64 CRLF,
-                             sarr[i].name, sarr[i].gauge);
+            status = _compose_rsp_metric(buf, &marr[i], "STAT %s %"PRIi64 CRLF,
+                             marr[i].name, marr[i].gauge);
             break;
 
         case METRIC_DINTMAX:
-            status = _compose_rsp_metric(buf, &sarr[i], "STAT %s %ju" CRLF,
-                             sarr[i].name, sarr[i].vintmax);
+            status = _compose_rsp_metric(buf, &marr[i], "STAT %s %ju" CRLF,
+                             marr[i].name, marr[i].vintmax);
             break;
 
         case METRIC_DDOUBLE:
-            status = _compose_rsp_metric(buf, &sarr[i], "STAT %s %.6f" CRLF,
-                             sarr[i].name, sarr[i].vdouble);
+            status = _compose_rsp_metric(buf, &marr[i], "STAT %s %.6f" CRLF,
+                             marr[i].name, marr[i].vdouble);
             break;
 
         default:
@@ -1176,7 +1171,7 @@ compose_rsp_stats(struct mbuf *buf, struct stats sarr[], unsigned int nstats)
         }
     }
 
-    log_verb("wrote %u metrics", nstats);
+    log_verb("wrote %u metrics", nmetric);
 
     status = _compose_rsp_msg(buf, RSP_END);
     return status;

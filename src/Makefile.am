@@ -4,6 +4,7 @@ AM_CPPFLAGS =
 AM_CPPFLAGS += -I $(top_srcdir)/src
 AM_CPPFLAGS += -I $(top_srcdir)/src/cuckoo
 AM_CPPFLAGS += -I $(top_srcdir)/src/memcache
+AM_CPPFLAGS += -I $(top_srcdir)/src/slimcache
 AM_CPPFLAGS += -I $(top_srcdir)/src/time
 
 AM_CFLAGS =
@@ -24,8 +25,9 @@ AM_LDFLAGS += @CCOMMON_LIBS@
 bin_PROGRAMS = broadbill_slimcache
 
 broadbill_slimcache_SOURCES = 						\
+		bb_stats.h						\
 		cuckoo/bb_cuckoo.c cuckoo/bb_cuckoo.h cuckoo/bb_item.h	\
-		memcache/bb_global.h					\
+		slimcache/bb_setting.h slimcache/bb_stats.h		\
 		memcache/bb_constant.h					\
 		memcache/bb_request.c memcache/bb_request.h		\
 		memcache/bb_codec.c memcache/bb_codec.h			\
