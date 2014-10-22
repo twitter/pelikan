@@ -1,5 +1,6 @@
 #include <memcache/bb_codec.h>
 
+#include <bb_stats.h>
 #include <time/bb_time.h>
 
 #include <cc_array.h>
@@ -30,6 +31,8 @@ _mark_cerror(struct request *req, struct mbuf *buf, uint8_t *npos)
     req->cerror = true;
 
     buf->rpos = npos;
+
+    INCR(request_perror);
 }
 
 static inline void
@@ -229,27 +232,27 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct bstring *t,
     }
 
     if (complete) {
-        ASSERT(req->verb == UNKNOWN);
+        ASSERT(req->verb == REQ_UNKNOWN);
 
         switch (p - t->data) {
         case 3:
             if (str3cmp(t->data, 'g', 'e', 't')) {
-                req->verb = GET;
+                req->verb = REQ_GET;
                 break;
             }
 
             if (str3cmp(t->data, 's', 'e', 't')) {
-                req->verb = SET;
+                req->verb = REQ_SET;
                 break;
             }
 
             if (str3cmp(t->data, 'a', 'd', 'd')) {
-                req->verb = ADD;
+                req->verb = REQ_ADD;
                 break;
             }
 
             if (str3cmp(t->data, 'c', 'a', 's')) {
-                req->verb = CAS;
+                req->verb = REQ_CAS;
                 break;
             }
 
@@ -257,22 +260,22 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct bstring *t,
 
         case 4:
             if (str4cmp(t->data, 'g', 'e', 't', 's')) {
-                req->verb = GETS;
+                req->verb = REQ_GETS;
                 break;
             }
 
             if (str4cmp(t->data, 'i', 'n', 'c', 'r')) {
-                req->verb = INCR;
+                req->verb = REQ_INCR;
                 break;
             }
 
             if (str4cmp(t->data, 'd', 'e', 'c', 'r')) {
-                req->verb = DECR;
+                req->verb = REQ_DECR;
                 break;
             }
 
             if (str4cmp(t->data, 'q', 'u', 'i', 't')) {
-                req->verb = QUIT;
+                req->verb = REQ_QUIT;
                 break;
             }
 
@@ -280,7 +283,7 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct bstring *t,
 
         case 5:
             if (str5cmp(t->data, 's', 't', 'a', 't', 's')) {
-                req->verb = STATS;
+                req->verb = REQ_STATS;
                 break;
             }
 
@@ -288,12 +291,12 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct bstring *t,
 
         case 6:
             if (str6cmp(t->data, 'd', 'e', 'l', 'e', 't', 'e')) {
-                req->verb = DELETE;
+                req->verb = REQ_DELETE;
                 break;
             }
 
             if (str6cmp(t->data, 'a', 'p', 'p', 'e', 'n', 'd')) {
-                req->verb = APPEND;
+                req->verb = REQ_APPEND;
                 break;
             }
 
@@ -301,19 +304,19 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct bstring *t,
 
         case 7:
             if (str7cmp(t->data, 'r', 'e', 'p', 'l', 'a', 'c', 'e')) {
-                req->verb = REPLACE;
+                req->verb = REQ_REPLACE;
                 break;
             }
 
             if (str7cmp(t->data, 'p', 'r', 'e', 'p', 'e', 'n', 'd')) {
-                req->verb = PREPEND;
+                req->verb = REQ_PREPEND;
                 break;
             }
 
             break;
         }
 
-        if (req->verb == UNKNOWN) { /* no match */
+        if (req->verb == REQ_UNKNOWN) { /* no match */
             _mark_cerror(req, buf, p);
 
             return CC_ERROR;
@@ -787,6 +790,7 @@ parse_swallow(struct mbuf *buf)
 
         case CC_OK:
             log_verb("swallowed %zu bytes", p + CRLF_LEN - buf->rpos);
+            INCR(request_swallow);
             buf->rpos = p + CRLF_LEN;
 
             return CC_OK;
@@ -797,7 +801,7 @@ parse_swallow(struct mbuf *buf)
         }
     }
 
-    /* there isn't enough data in buf to fully parse the request*/
+    /* the line isn't finished yet */
     return CC_UNFIN;
 }
 
@@ -827,41 +831,41 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
 
     /* rest of the request header */
     switch (req->verb) {
-    case GET:
-    case GETS:
+    case REQ_GET:
+    case REQ_GETS:
         status = _subrequest_retrieve(req, buf);
 
         break;
 
-    case DELETE:
+    case REQ_DELETE:
         status = _subrequest_delete(req, buf);
 
         break;
 
-    case ADD:
-    case SET:
-    case REPLACE:
-    case APPEND:
-    case PREPEND:
+    case REQ_ADD:
+    case REQ_SET:
+    case REQ_REPLACE:
+    case REQ_APPEND:
+    case REQ_PREPEND:
         req->pstate = REQ_VAL;
         status = _subrequest_store(req, buf, false);
 
         break;
 
-    case CAS:
+    case REQ_CAS:
         req->pstate = REQ_VAL;
         status = _subrequest_store(req, buf, true);
 
         break;
 
-    case INCR:
-    case DECR:
+    case REQ_INCR:
+    case REQ_DECR:
         status = _subrequest_arithmetic(req, buf);
 
         break;
 
-    case STATS:
-    case QUIT:
+    case REQ_STATS:
+    case REQ_QUIT:
         if (!end) {
             req->swallow = 1;
 
@@ -940,6 +944,51 @@ parse_req(struct request *req, struct mbuf *buf)
 
     if (status == CC_OK) {
         req->rstate = PARSED;
+        INCR(request_parse);
+        switch (req->verb) {
+        case REQ_GET:
+            INCR(request_get);
+            break;
+        case REQ_GETS:
+            INCR(request_get);
+            break;
+        case REQ_DELETE:
+            INCR(request_delete);
+            break;
+        case REQ_ADD:
+            INCR(request_add);
+            break;
+        case REQ_SET:
+            INCR(request_set);
+            break;
+        case REQ_REPLACE:
+            INCR(request_replace);
+            break;
+        case REQ_APPEND:
+            INCR(request_append);
+            break;
+        case REQ_PREPEND:
+            INCR(request_prepend);
+            break;
+        case REQ_CAS:
+            INCR(request_cas);
+            break;
+        case REQ_INCR:
+            INCR(request_incr);
+            break;
+        case REQ_DECR:
+            INCR(request_decr);
+            break;
+        case REQ_STATS:
+            INCR(request_stats);
+            break;
+        case REQ_QUIT:
+            INCR(request_quit);
+            break;
+        default:
+            NOT_REACHED();
+            break;
+        }
     }
 
     return status;
@@ -980,13 +1029,22 @@ _compose_rsp_msg(struct mbuf *buf, rsp_index_t idx)
 rstatus_t
 compose_rsp_msg(struct mbuf *buf, rsp_index_t idx, bool noreply)
 {
+    rstatus_t status;
+
     if (noreply) {
         return CC_OK;
     }
 
     log_verb("rsp msg id %d", idx);
+    INCR(response_compose);
+    INCR(response_msg);
 
-    return _compose_rsp_msg(buf, idx);
+    status = _compose_rsp_msg(buf, idx);
+    if (status != CC_OK) {
+        INCR(response_cerror);
+    }
+
+    return status;
 }
 
 static rstatus_t
@@ -1019,13 +1077,23 @@ _compose_rsp_uint64(struct mbuf *buf, uint64_t val, const char *fmt)
 rstatus_t
 compose_rsp_uint64(struct mbuf *buf, uint64_t val, bool noreply)
 {
+    rstatus_t status;
+
     if (noreply) {
         return CC_OK;
     }
 
     log_verb("rsp int %"PRIu64, val);
+    INCR(response_compose);
+    INCR(response_int);
 
-    return _compose_rsp_uint64(buf, val, "%"PRIu64""CRLF);
+    status = _compose_rsp_uint64(buf, val, "%"PRIu64""CRLF);
+
+    if (status != CC_OK) {
+        INCR(response_cerror);
+    }
+
+    return status;
 }
 
 static rstatus_t
@@ -1059,47 +1127,54 @@ compose_rsp_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, u
 
     status = _compose_rsp_msg(buf, RSP_VALUE);
     if (status != CC_OK) {
-        return status;
+        goto error;
     }
 
     status = _compose_rsp_bstring(buf, key);
     if (status != CC_OK) {
-        return status;
+        goto error;
     }
 
     status = _compose_rsp_uint64(buf, flag, " %"PRIu64);
     if (status != CC_OK) {
-        return status;
+        goto error;
     }
 
     status = _compose_rsp_uint64(buf, val->len, " %"PRIu64);
     if (status != CC_OK) {
-        return status;
+        goto error;
     }
 
     if (cas) {
         status = _compose_rsp_uint64(buf, cas, " %"PRIu64);
         if (status != CC_OK) {
-            return status;
+            goto error;
         }
 
     }
 
     status = _compose_rsp_msg(buf, RSP_CRLF);
     if (status != CC_OK) {
-        return status;
+        goto error;
     }
 
     status = _compose_rsp_bstring(buf, val);
     if (status != CC_OK) {
-        return status;
+        goto error;
     }
 
     status = _compose_rsp_msg(buf, RSP_CRLF);
     if (status != CC_OK) {
-        return status;
+        goto error;
     }
 
+    INCR(response_compose);
+    INCR(response_keyval);
+
+    return CC_OK;
+
+error:
+    INCR(response_cerror);
     return status;
 }
 
@@ -1168,10 +1243,12 @@ compose_rsp_stats(struct mbuf *buf, struct metric marr[], unsigned int nmetric)
         }
         if (status != CC_OK) {
             return status;
+            INCR(response_cerror);
         }
     }
 
     log_verb("wrote %u metrics", nmetric);
+    INCR(response_stats);
 
     status = _compose_rsp_msg(buf, RSP_END);
     return status;

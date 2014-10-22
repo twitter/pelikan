@@ -20,7 +20,6 @@
 /*          name                type            description */
 #define REQPOOL_METRIC(ACTION)                                          \
     ACTION( reqpool_free,       METRIC_GAUGE,   "# free req in pool"   )\
-    ACTION( reqpool_used,       METRIC_GAUGE,   "# used req from pool" )\
     ACTION( reqpool_borrow,     METRIC_COUNTER, "# reqs borrowed"      )\
     ACTION( reqpool_return,     METRIC_COUNTER, "# reqs returned"      )\
     ACTION( reqpool_create,     METRIC_COUNTER, "# reqs created"       )\
@@ -41,20 +40,20 @@ typedef enum parse_state {
 } parse_state_t;
 
 typedef enum request_verb {
-    UNKNOWN,
-    GET,
-    GETS,
-    DELETE,
-    SET,
-    ADD,
-    REPLACE,
-    CAS,
-    APPEND,
-    PREPEND,
-    INCR,
-    DECR,
-    STATS,
-    QUIT,
+    REQ_UNKNOWN,
+    REQ_GET,
+    REQ_GETS,
+    REQ_DELETE,
+    REQ_SET,
+    REQ_ADD,
+    REQ_REPLACE,
+    REQ_CAS,
+    REQ_APPEND,
+    REQ_PREPEND,
+    REQ_INCR,
+    REQ_DECR,
+    REQ_STATS,
+    REQ_QUIT,
     RV_SENTINEL
 } request_verb_t;
 

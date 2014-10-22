@@ -10,8 +10,9 @@
 
 /*          name                type            description */
 #define CODEC_METRIC(ACTION)                                            \
-    ACTION( request_swallow,    METRIC_COUNTER, "# requests swalled"   )\
-    ACTION( request_recv,       METRIC_COUNTER, "# requests parsed"    )\
+    ACTION( request_perror,     METRIC_COUNTER, "# parsing error"      )\
+    ACTION( request_swallow,    METRIC_COUNTER, "# lines swallowed"    )\
+    ACTION( request_parse,      METRIC_COUNTER, "# requests parsed"    )\
     ACTION( request_get,        METRIC_COUNTER, "# get requests"       )\
     ACTION( request_gets,       METRIC_COUNTER, "# gets requests"      )\
     ACTION( request_delete,     METRIC_COUNTER, "# delete requests"    )\
@@ -25,7 +26,8 @@
     ACTION( request_decr,       METRIC_COUNTER, "# decr requests"      )\
     ACTION( request_stats,      METRIC_COUNTER, "# stats requests"     )\
     ACTION( request_quit,       METRIC_COUNTER, "# quit requests"      )\
-    ACTION( response_send,      METRIC_COUNTER, "# responses composed" )\
+    ACTION( response_cerror,    METRIC_COUNTER, "# composing error"    )\
+    ACTION( response_compose,   METRIC_COUNTER, "# responses composed" )\
     ACTION( response_keyval,    METRIC_COUNTER, "# keyval responses"   )\
     ACTION( response_msg,       METRIC_COUNTER, "# static responses"   )\
     ACTION( response_int,       METRIC_COUNTER, "# int responses"      )\

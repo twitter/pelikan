@@ -1,5 +1,7 @@
 #include <memcache/bb_request.h>
 
+#include <bb_stats.h>
+
 #include <cc_bstring.h>
 #include <cc_debug.h>
 #include <cc_log.h>
@@ -18,7 +20,7 @@ request_reset(struct request *req)
     req->rstate = PARSING;
     req->pstate = REQ_HDR;
     req->tstate = 0;
-    req->verb = UNKNOWN;
+    req->verb = REQ_UNKNOWN;
 
     req->keys->nelem = 0;
     bstring_init(&req->vstr);
@@ -49,6 +51,7 @@ request_create(void)
         return NULL;
     }
 
+    INCR(reqpool_create);
     request_reset(req);
 
     return req;
@@ -59,6 +62,7 @@ request_destroy(struct request *req)
 {
     ASSERT(req != NULL);
 
+    INCR(reqpool_destroy);
     array_destroy(&req->keys);
     cc_free(req);
 }
@@ -67,6 +71,7 @@ request_destroy(struct request *req)
 void
 request_pool_create(uint32_t max)
 {
+    /* TODO(yao): add a pre-alloc interface */
     if (!reqp_init) {
         log_info("creating request pool: max %"PRIu32, max);
 
@@ -104,6 +109,7 @@ request_borrow(void)
         return NULL;
     }
 
+    INCR(reqpool_borrow);
     log_vverb("borrowing req %p", req);
 
     return req;
@@ -116,6 +122,8 @@ request_return(struct request *req)
         return;
     }
 
+    INCR(reqpool_free);
+    INCR(reqpool_return);
     log_vverb("return req %p: free %"PRIu32, req, reqp.nfree);
 
     FREEPOOL_RETURN(&reqp, req, next);

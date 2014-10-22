@@ -12,10 +12,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-/*          name        type                default     description */
-#define ITEM_OPTION(ACTION)                                                     \
-    ACTION( item_cas,   OPTION_TYPE_BOOL,   "yes",      "support cas in items" )
-
 /*          name            type            description */
 #define ITEM_METRIC(ACTION)                                         \
     ACTION( item_val_curr,  METRIC_GAUGE,   "#B stored in vals"    )\
@@ -28,8 +24,6 @@
     ACTION( item_insert,    METRIC_COUNTER, "# item inserts"       )\
     ACTION( item_delete,    METRIC_COUNTER, "# item deletes"       )\
 
-#define DEFAULT_KEY_LEN 255
-#define CAS_VAL_MIN 1
 
 static bool cas_enabled = true;
 static uint64_t cas_val; /* incr'ed before assignment, 0 is a special value */
@@ -89,14 +83,16 @@ struct item {
   uint8_t    data[1];
 };
 
-#define ITEM_CHUNK_SIZE CC_ALIGN(sizeof(struct item) + sizeof(uint64_t) + \
-        DEFAULT_KEY_LEN, CC_ALIGNMENT)
+#define KEY_MAXLEN 255
+#define CAS_VAL_MIN 1
 #define MIN_ITEM_CHUNK_SIZE CC_ALIGN(sizeof(struct item) + 2, CC_ALIGNMENT)
 #define ITEM_HDR_SIZE sizeof(struct item)
 
 #define ITEM_CAS_POS(it) ((it)->data)
-#define ITEM_KEY_POS(it) ((it)->data +cas_enabled * sizeof(uint64_t))
+#define ITEM_KEY_POS(it) ((it)->data + cas_enabled * sizeof(uint64_t))
 #define ITEM_VAL_POS(it) (ITEM_KEY_POS(it) + (it)->klen)
+
+#define ITEM_OVERHEAD offsetof(struct item, data) + cas_enabled * sizeof(uint64_t)
 
 static inline uint8_t
 item_klen(struct item *it)

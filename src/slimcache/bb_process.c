@@ -1,5 +1,6 @@
 #include <slimcache/bb_process.h>
 
+#include <bb_stats.h>
 #include <cuckoo/bb_cuckoo.h>
 #include <slimcache/bb_stats.h>
 
@@ -22,12 +23,12 @@ process_get_key(struct mbuf *buf, struct bstring *key)
     size_t size;
 
     log_verb("get key at %p, rsp buf at %p", key, buf);
+    INCR(get_key);
 
     it = cuckoo_lookup(key);
     if (NULL != it) {
-        //stats_thread_incr_get_key_hit);
-
         log_verb("found key at item %p");
+        INCR(get_key_hit);
 
         item_val(&val, it);
         if (val.type == VAL_TYPE_INT) { /* print and overwrite val */
@@ -38,7 +39,7 @@ process_get_key(struct mbuf *buf, struct bstring *key)
 
         status = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it), 0);
     } else {
-        //stats_thread_incr_get_key_miss);
+        INCR(get_key_miss);
     }
 
     return status;
@@ -53,10 +54,7 @@ process_get(struct request *req, struct mbuf *buf)
 
     log_verb("processing get req %p, rsp buf at %p", req, buf);
 
-    //stats_thread_incr(get);
-
     for (i = 0; i < req->keys->nelem; ++i) {
-
         key = array_get_idx(req->keys, i);
         status = process_get_key(buf, key);
         if (status != CC_OK) {
@@ -78,10 +76,11 @@ process_gets_key(struct mbuf *buf, struct bstring *key)
     size_t size;
 
     log_verb("gets key at %p, rsp buf at %p", key, buf);
+    INCR(get_key_hit);
 
     it = cuckoo_lookup(key);
     if (NULL != it) {
-        //stats_thread_incr(gets_key_hit);
+        INCR(gets_key_hit);
 
         item_val(&val, it);
         if (val.type == VAL_TYPE_INT) { /* print and overwrite val */
@@ -93,7 +92,7 @@ process_gets_key(struct mbuf *buf, struct bstring *key)
         status = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it),
                 item_cas(it));
     } else {
-        //stats_thread_incr(gets_key_miss);
+        INCR(gets_key_miss);
     }
 
     return status;
@@ -108,11 +107,7 @@ process_gets(struct request *req, struct mbuf *buf)
 
     log_verb("processing gets req %p, rsp buf at %p", req, buf);
 
-    //stats_thread_incr(gets);
-
     for (i = 0; i < req->keys->nelem; ++i) {
-        //stats_thread_incr(gets_key);
-
         key = array_get_idx(req->keys, i);
         status = process_gets_key(buf, key);
         if (status != CC_OK) {
@@ -132,16 +127,12 @@ process_delete(struct request *req, struct mbuf *buf)
 
     log_verb("processing delete req %p, rsp buf at %p", req, buf);
 
-    //stats_thread_incr(delete);
-
     deleted = cuckoo_delete(array_get_idx(req->keys, 0));
     if (deleted) {
-        //stats_thread_incr(delete_hit);
-
+        INCR(delete_deleted);
         status = compose_rsp_msg(buf, RSP_DELETED, req->noreply);
     } else {
-        //stats_thread_incr(delete_miss);
-
+        INCR(delete_notfound);
         status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
@@ -175,21 +166,24 @@ process_set(struct request *req, struct mbuf *buf)
 
     log_verb("processing set req %p, rsp buf at %p", req, buf);
 
-    //stats_thread_incr(set);
-
     key = array_get_idx(req->keys, 0);
     expire = time_reltime(req->expiry);
     process_value(&val, &req->vstr);
 
     it = cuckoo_lookup(key);
     if (it != NULL) {
-        cuckoo_update(it, &val, expire);
+        status = cuckoo_update(it, &val, expire);
     } else {
-        cuckoo_insert(key, &val, expire);
+        status = cuckoo_insert(key, &val, expire);
     }
 
-    //stats_thread_incr(set_success);
-    status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+    if (status == CC_OK) {
+        INCR(set_stored);
+        status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+    } else {
+        INCR(set_error);
+        status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+    }
 
     return status;
 }
@@ -205,20 +199,22 @@ process_add(struct request *req, struct mbuf *buf)
 
     log_verb("processing add req %p, rsp buf at %p", req, buf);
 
-    //stats_thread_incr(add);
-
     key = array_get_idx(req->keys, 0);
-
     it = cuckoo_lookup(key);
     if (it != NULL) {
-        //stats_thread_incr(add_exist);
+        INCR(add_notstored);
         status = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
     } else {
         expire = time_reltime(req->expiry);
         process_value(&val, &req->vstr);
-        cuckoo_insert(key, &val, expire);
-        //stats_thread_incr(add_success);
-        status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+        status = cuckoo_insert(key, &val, expire);
+        if (status == CC_OK) {
+            INCR(add_stored);
+            status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+        } else {
+            INCR(add_error);
+            status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+        }
     }
 
     return status;
@@ -235,19 +231,21 @@ process_replace(struct request *req, struct mbuf *buf)
 
     log_verb("processing replace req %p, rsp buf at %p", req, buf);
 
-    //stats_thread_incr(replace);
-
     key = array_get_idx(req->keys, 0);
-
     it = cuckoo_lookup(key);
     if (it != NULL) {
         expire = time_reltime(req->expiry);
         process_value(&val, &req->vstr);
-        cuckoo_update(it, &val, expire);
-        //stats_thread_incr(replace_success);
-        status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+        status = cuckoo_update(it, &val, expire);
+        if (status == CC_OK) {
+            INCR(replace_stored);
+            status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+        } else {
+            INCR(replace_error);
+            status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+        }
     } else {
-        //stats_thread_incr(replace_miss);
+        INCR(replace_notstored);
         status = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
     }
 
@@ -265,24 +263,26 @@ process_cas(struct request *req, struct mbuf *buf)
 
     log_verb("processing cas req %p, rsp buf at %p", req, buf);
 
-    //stats_thread_incr(cas);
-
     key = array_get_idx(req->keys, 0);
-
     it = cuckoo_lookup(key);
     if (it != NULL) {
         if (item_cas_valid(it, req->cas)) {
             expire = time_reltime(req->expiry);
             process_value(&val, &req->vstr);
-            cuckoo_update(it, &val, expire);
-            //stats_thread_incr(cas_success);
-            status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+            status = cuckoo_update(it, &val, expire);
+            if (status == CC_OK) {
+                INCR(cas_stored);
+                status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+            } else {
+                INCR(cas_error);
+                status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+            }
         } else {
-            //stats_thread_incr(cas_badval);
+            INCR(cas_exists);
             status = compose_rsp_msg(buf, RSP_EXISTS, req->noreply);
         }
     } else {
-        //stats_thread_incr(cas_miss);
+        INCR(cas_notfound);
         status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
@@ -300,11 +300,10 @@ process_incr(struct request *req, struct mbuf *buf)
     log_verb("processing incr req %p, rsp buf at %p", req, buf);
 
     key = array_get_idx(req->keys, 0);
-
     it = cuckoo_lookup(key);
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
-            //stats_thread_incr(cmd_error);
+            INCR(incr_error);
             /* TODO(yao): binary key */
             log_warn("value not int, cannot apply incr on key %.*s val %.*s",
                     key->len, key->data, it->vlen, ITEM_VAL_POS(it));
@@ -314,10 +313,10 @@ process_incr(struct request *req, struct mbuf *buf)
         new_val.type = VAL_TYPE_INT;
         new_val.vint = item_value_int(it) + req->delta;
         item_value_update(it, &new_val);
-        //stats_thread_incr(incr_success);
+        INCR(incr_stored);
         status = compose_rsp_uint64(buf, new_val.vint, req->noreply);
     } else {
-        //stats_thread_incr(incr_miss);
+        INCR(incr_notfound);
         status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
@@ -335,11 +334,10 @@ process_decr(struct request *req, struct mbuf *buf)
     log_verb("processing decr req %p, rsp buf at %p", req, buf);
 
     key = array_get_idx(req->keys, 0);
-
     it = cuckoo_lookup(key);
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
-            //stats_thread_incr(cmd_error);
+            INCR(decr_error);
             /* TODO(yao): binary key */
             log_warn("value not int, cannot apply decr on key %.*s val %.*s",
                     key->len, key->data, it->vlen, ITEM_VAL_POS(it));
@@ -349,10 +347,10 @@ process_decr(struct request *req, struct mbuf *buf)
         new_val.type = VAL_TYPE_INT;
         new_val.vint = item_value_int(it) - req->delta;
         item_value_update(it, &new_val);
-        //stats_thread_incr(decr_success);
+        INCR(decr_stored);
         status = compose_rsp_uint64(buf, new_val.vint, req->noreply);
     } else {
-        //stats_thread_incr(decr_miss);
+        INCR(decr_notfound);
         status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
@@ -403,56 +401,61 @@ process_request(struct request *req, struct mbuf *buf)
     log_verb("processing req %p, rsp buf at %p", req, buf);
 
     switch (req->verb) {
-    case GET:
+    case REQ_GET:
         status = process_get(req, buf);
 
         return status;
 
-    case GETS:
+    case REQ_GETS:
         status = process_gets(req, buf);
 
         return status;
 
-    case DELETE:
+    case REQ_DELETE:
         status = process_delete(req, buf);
 
         return status;
 
-    case SET:
+    case REQ_SET:
         status = process_set(req, buf);
 
         return status;
 
-    case ADD:
+    case REQ_ADD:
         status = process_add(req, buf);
 
         return status;
 
-    case REPLACE:
+    case REQ_REPLACE:
         status = process_replace(req, buf);
 
         return status;
 
-    case CAS:
+    case REQ_CAS:
         status = process_cas(req, buf);
 
         return status;
 
-    case INCR:
+    case REQ_INCR:
         status = process_incr(req, buf);
 
         return status;
 
-    case DECR:
+    case REQ_DECR:
         status = process_decr(req, buf);
 
         return status;
 
-    case STATS:
+    case REQ_STATS:
         status = process_stats(req, buf);
 
         return status;
+/*
+    case REQ_QUIT:
+        status = process_quit(req, buf);
 
+        return status;
+*/
     default:
         NOT_REACHED();
         break;

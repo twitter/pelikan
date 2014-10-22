@@ -27,6 +27,17 @@ static bool cuckoo_init; /* need to make sure memory has been pre-allocate */
 #define OFFSET2ITEM(o) ((struct item *)((ds) + (o) * chunk_size))
 #define RANDOM(k) (random() % k)
 
+static inline uint32_t vlen(struct val *val)
+{
+    if (val->type == VAL_TYPE_INT) {
+        return sizeof(uint64_t);
+    } else if (val->type == VAL_TYPE_STR) {
+        return val->vstr.len;
+    } else {
+        NOT_REACHED();
+        return UINT32_MAX;
+    }
+}
 
 static bool
 cuckoo_hit(struct item *it, struct bstring *key)
@@ -110,9 +121,11 @@ cuckoo_displace(uint32_t displaced)
     if (evict) {
         log_verb("one item evicted during replacement");
 
-        DECR(item_curr);
-        DECR_N(item_data_curr, item_datalen(OFFSET2ITEM(path[step])));
         INCR(item_evict);
+        DECR(item_curr);
+        DECR_N(item_key_curr, item_klen(it));
+        DECR_N(item_val_curr, item_vlen(it));
+        DECR_N(item_data_curr, item_datalen(OFFSET2ITEM(path[step])));
     }
 
     /* move items along the path we have found */
@@ -184,8 +197,8 @@ cuckoo_lookup(struct bstring *key)
     return NULL;
 }
 
-/* insert applies to nonexisting key only */
-void
+/* insert applies to a key that doesn't exist validly in our array */
+rstatus_t
 cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
 {
     struct item *it;
@@ -193,13 +206,22 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
     uint32_t displaced;
     int i;
 
+    if (key->len + vlen(val) + ITEM_OVERHEAD > chunk_size) {
+        log_warn("key value exceed chunk size");
+
+        return CC_ERROR;
+    }
+
     cuckoo_hash(offset, key);
 
     for (i = 0; i < D; ++i) {
         it = OFFSET2ITEM(offset[i]);
         if (!item_valid(it)) {
             if (item_expired(it)) {
+                INCR(item_expire);
                 DECR(item_curr);
+                DECR_N(item_key_curr, item_klen(it));
+                DECR_N(item_val_curr, item_vlen(it));
                 DECR_N(item_data_curr, item_datalen(it));
             }
             break;
@@ -214,8 +236,35 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
     }
 
     item_set(it, key, val, expire);
+    INCR(item_insert);
     INCR(item_curr);
+    INCR_N(item_key_curr, item_klen(it));
+    INCR_N(item_val_curr, item_vlen(it));
     INCR_N(item_data_curr, item_datalen(it));
+
+    return CC_OK;
+}
+
+rstatus_t
+cuckoo_update(struct item *it, struct val *val, rel_time_t expire)
+{
+    ASSERT(it != NULL);
+
+    if (item_klen(it) + vlen(val) + ITEM_OVERHEAD > chunk_size) {
+        log_warn("key value exceed chunk size");
+
+        return CC_ERROR;
+    }
+
+    DECR_N(item_key_curr, item_klen(it));
+    DECR_N(item_val_curr, item_vlen(it));
+    DECR_N(item_data_curr, item_vlen(it));
+    item_update(it, val, expire);
+    INCR_N(item_key_curr, item_klen(it));
+    INCR_N(item_val_curr, item_vlen(it));
+    INCR_N(item_data_curr, item_vlen(it));
+
+    return CC_OK;
 }
 
 bool
@@ -226,19 +275,18 @@ cuckoo_delete(struct bstring *key)
     it = cuckoo_lookup(key);
 
     if (it != NULL) {
+        INCR(item_delete);
         DECR(item_curr);
+        DECR_N(item_key_curr, item_klen(it));
+        DECR_N(item_val_curr, item_vlen(it));
         DECR_N(item_data_curr, item_datalen(it));
         item_delete(it);
+        log_verb("deleting item at location %p", it);
+
         return true;
     } else {
+        log_verb("item not found");
+
         return false;
     }
-}
-
-void
-cuckoo_update(struct item *it, struct val *val, rel_time_t expire)
-{
-    DECR_N(item_data_curr, item_vlen(it));
-    item_update(it, val, expire);
-    INCR_N(item_data_curr, item_vlen(it));
 }
