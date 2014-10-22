@@ -22,10 +22,15 @@ static stream_handler_t conn_hdl;
 static void
 core_close(struct stream *stream)
 {
+    if (stream->owner != ctx) { /* not owned by this event loop anymore */
+        return;
+    }
+
     log_info("close channel %p", stream->channel);
 
     event_deregister(ctx->evb, stream->handler->fd(stream->channel));
     stream->handler->close(stream->channel);
+    stream->owner = NULL;
     stream_return(stream);
 }
 
@@ -93,6 +98,12 @@ _post_read(struct stream *stream, size_t nbyte)
         log_verb("wbuf free: %"PRIu32" B", mbuf_wsize(stream->wbuf));
         status = process_request(req, stream->wbuf);
         log_verb("wbuf free: %"PRIu32" B", mbuf_wsize(stream->wbuf));
+
+        if (status == CC_ERDHUP) {
+            log_info("peer called quit");
+            core_close(stream);
+            return;
+        }
 
         if (status != CC_OK) {
             log_error("process request failed: %d", status);

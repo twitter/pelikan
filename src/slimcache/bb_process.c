@@ -450,12 +450,10 @@ process_request(struct request *req, struct mbuf *buf)
         status = process_stats(req, buf);
 
         return status;
-/*
-    case REQ_QUIT:
-        status = process_quit(req, buf);
 
-        return status;
-*/
+    case REQ_QUIT:
+        return CC_ERDHUP;
+
     default:
         NOT_REACHED();
         break;
