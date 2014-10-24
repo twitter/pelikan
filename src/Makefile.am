@@ -18,8 +18,8 @@ AM_CFLAGS += -Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wmissin
 AM_CFLAGS += -fno-strict-aliasing
 
 AM_LDFLAGS =
+AM_LDFLAGS += -all-static
 AM_LDFLAGS += @CCOMMON_LIBS@
-AM_LDFLAGS += -static
 #AM_LDFLAGS += -rdynamic
 
 
