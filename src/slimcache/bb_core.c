@@ -42,7 +42,7 @@ _post_read(struct stream *stream, size_t nbyte)
     rstatus_t status;
     struct request *req;
 
-    log_verb("post read on stream %p after writing %zu bytes", stream, nbyte);
+    log_verb("post read on stream %p after reading %zu bytes", stream, nbyte);
 
     ASSERT(stream != NULL);
 

@@ -113,6 +113,7 @@ AS_CASE([x$enable_assert],
   [AC_MSG_FAILURE([invalid value ${enable_assert} for --enable-assert])])
 AC_MSG_RESULT([$enable_assert])
 
+# Check whether to disable logging
 AC_MSG_CHECKING([whether to disable logging])
 AC_ARG_ENABLE([logging],
   [AS_HELP_STRING(
@@ -126,7 +127,7 @@ AS_IF([test "x$disable_logging" = xyes],
       [AC_DEFINE([HAVE_LOGGING], [1], [Define to 1 if logging is not disabled])])
 AC_MSG_RESULT([$disable_logging])
 
-
+# Check whether to disable stats
 AC_MSG_CHECKING([whether to disable stats])
 AC_ARG_ENABLE([stats],
   [AS_HELP_STRING(
