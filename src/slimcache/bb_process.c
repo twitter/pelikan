@@ -372,9 +372,9 @@ process_stats(struct request *req, struct mbuf *buf)
     /* TODO(yao): put system stats in a single section, potentially a library */
     getrusage(RUSAGE_SELF, &usage);
     Stats.ru_utime.vdouble    = (double)usage.ru_utime.tv_sec +
-                                    usage.ru_utime.tv_usec * USEC;
+                                    (double)usage.ru_utime.tv_usec * USEC;
     Stats.ru_stime.vdouble    = (double)usage.ru_stime.tv_sec +
-                                    usage.ru_stime.tv_usec * USEC;
+                                    (double)usage.ru_stime.tv_usec * USEC;
     Stats.ru_maxrss.vintmax   = (intmax_t)usage.ru_maxrss;
     Stats.ru_ixrss.vintmax    = (intmax_t)usage.ru_ixrss;
     Stats.ru_idrss.vintmax    = (intmax_t)usage.ru_idrss;
