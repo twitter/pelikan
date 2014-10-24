@@ -22,6 +22,8 @@ static stream_handler_t conn_hdl;
 static void
 core_close(struct stream *stream)
 {
+    log_verb("core close on stream %p", stream);
+
     if (stream->owner != ctx) { /* not owned by this event loop anymore */
         return;
     }
@@ -40,10 +42,10 @@ _post_read(struct stream *stream, size_t nbyte)
     rstatus_t status;
     struct request *req;
 
+    log_verb("post read on stream %p after writing %zu bytes", stream, nbyte);
+
     ASSERT(stream != NULL);
 
-    log_verb("post read processing of %zu bytes on stream %p",
-            nbyte, stream);
     //stats_thread_incr_by(data_read, nbyte);
 
     if (stream->data != NULL) {
@@ -101,7 +103,11 @@ _post_read(struct stream *stream, size_t nbyte)
 
         if (status == CC_ERDHUP) {
             log_info("peer called quit");
-            core_close(stream);
+            if (stream->type == CHANNEL_TCP) {
+                ((struct conn *)stream->channel)->state = CONN_EOF;
+            } else {
+                log_error("unsupported or unknown channel type");
+            }
             return;
         }
 
@@ -147,11 +153,20 @@ done:
 static rstatus_t
 core_read(struct stream *stream)
 {
+    log_verb("core read on stream %p", stream);
+
     ASSERT(stream != NULL);
     ASSERT(stream->wbuf != NULL && stream->rbuf != NULL);
 
     uint32_t limit = mbuf_wsize(stream->rbuf);
     rstatus_t status;
+
+    /* TODO(yao): refactor this after stream refactoring */
+    if (limit == 0) {
+        struct mbuf *buf = stream->rbuf;
+        log_info("read buffer full: start %p, rpos %p, wpos %p, end %p",
+                buf->start, buf->rpos, buf->wpos, buf->end);
+    }
 
     status = stream_read(stream, limit);
 
@@ -161,6 +176,8 @@ core_read(struct stream *stream)
 static void
 _post_write(struct stream *stream, size_t nbyte)
 {
+    log_verb("post write on stream %p after writing %zu bytes", stream, nbyte);
+
     ASSERT(stream != NULL);
 
     //stats_thread_incr_by(data_written, nbyte);
@@ -173,6 +190,8 @@ _post_write(struct stream *stream, size_t nbyte)
 static rstatus_t
 core_write(struct stream *stream)
 {
+    log_verb("core write on stream %p", stream);
+
     ASSERT(stream != NULL);
     ASSERT(stream->wbuf != NULL && stream->rbuf != NULL);
 
@@ -215,11 +234,21 @@ core_listen(struct stream *stream, size_t nbyte)
     event_register(ctx->evb, c->sd, s);
 }
 
+static bool
+_should_close(struct stream *s) {
+    if (s->type == CHANNEL_TCP) {
+        struct conn *c = s->channel;
+        return (c->state == CONN_EOF || c->state == CONN_CLOSE);
+    } else {
+        log_error("unsupported or unknown channel type");
+        return false;
+    }
+}
+
 static void
 core_event(void *arg, uint32_t events)
 {
     rstatus_t status;
-    bool final = false;
     struct stream *stream = arg;
 
     log_verb("event %06"PRIX32" on stream %p", events, stream);
@@ -241,8 +270,6 @@ core_event(void *arg, uint32_t events)
         if (status == CC_ERETRY) { /* retry read */
             event_add_read(ctx->evb, stream->handler->fd(stream->channel),
                     stream);
-        } else if (status == CC_ERDHUP) {
-            final = true;
         } else if (status == CC_ERROR) {
             core_close(stream);
 
@@ -265,7 +292,7 @@ core_event(void *arg, uint32_t events)
         }
     }
 
-    if (final) { /* closing stream/channel _after_ all writes are completed */
+    if (_should_close(stream)) { /* closing _after_ all writes are completed */
         core_close(stream);
 
         return;

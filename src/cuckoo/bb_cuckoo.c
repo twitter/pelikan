@@ -207,7 +207,9 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
     int i;
 
     if (key->len + vlen(val) + ITEM_OVERHEAD > chunk_size) {
-        log_warn("key value exceed chunk size");
+        log_warn("key value exceed chunk size %zu: key len %"PRIu32", vlen %"
+                PRIu32", item overhead %u", chunk_size, key->len, vlen(val),
+                ITEM_OVERHEAD);
 
         return CC_ERROR;
     }
