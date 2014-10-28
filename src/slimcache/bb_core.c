@@ -209,10 +209,19 @@ core_listen(struct stream *stream, size_t nbyte)
 {
     struct stream *s;
     struct conn *c;
+    bool accepted;
 
-    c = server_accept(stream->channel);
+    c = conn_borrow();
     if (c == NULL) {
-        log_error("connection establishment failed: cannot accept");
+        log_error("connection establishment failed: cannot allocate conn");
+        server_reject(stream->channel);
+
+        return;
+    }
+
+    accepted = server_accept(stream->channel, c);
+    if (!accepted) {
+        conn_return(c);
 
         return;
     }
