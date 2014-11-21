@@ -1,6 +1,7 @@
 # Compiled Object files
 *.lo
 *.o
+/bin
 
 # Compiled Dynamic libraries
 *.so
@@ -23,6 +24,7 @@
 *.log
 
 # Temporary
+/_build
 *.swp
 *.~
 *.project

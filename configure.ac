@@ -9,7 +9,7 @@ AC_INIT([broadbill], [BB_MAJOR.BB_MINOR.BB_PATCH], [BB_BUGS])
 AC_GNU_SOURCE
 AC_CONFIG_SRCDIR([src/])
 AC_CONFIG_AUX_DIR([config])
-AC_CONFIG_HEADERS([config.h:config.h.in])
+AC_CONFIG_HEADERS([config.h:config/config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
 
 # Checks for OS and set OS variables
