@@ -48,10 +48,11 @@ configure_file (
 # set compiler flags
 # string concat is easier in 3.0, but older versions don't have the concat subcommand
 # so we are using list as input until we move to new version
-# TODO once we add build types, we should also set flags such as "-ggdb3 -O2 "
+# TODO once we add build types, we should also set flags such as "-O2 "
 add_definitions (-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
 set (CFLAGS_LIST
     "-std=c11 "
+    "-ggdb3 "
     "-Wall "
     "-Wmissing-prototypes -Wmissing-declarations -Wredundant-decls "
     "-Wunused-function -Wunused-value -Wunused-variable "
@@ -77,3 +78,7 @@ include_directories (${include_directories}
 
 # build executables
 add_subdirectory (src)
+
+# print a summary
+message (STATUS "CPPFLAGS:" ${CMAKE_CPP_FLAGS})
+message (STATUS "CFLAGS:" ${CMAKE_C_FLAGS})
