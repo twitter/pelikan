@@ -1,0 +1,11 @@
+cuckoo-hashing-with-a-stash, research.microsoft.com/pubs/73856/stash-full.pdf, is a proposal to accommodate outliers in cuckoo hashing. However, in the particular case of caching, there seems to be other mechanisms that can eliminate the double hash lookups when a stash is introduced.
+
+Remember, the biggest advantage of cache is we can evict things pretty much arbitrarily. So we are not obligated/restricted to store everything. This means the only outliers we have in cache systems, are data points that are too big for the pre-allocated cells.
+
+There are a couple of candidates.
+
+In the case where keys are the only ones that can be oversized, while values are uniform (counters fall into this category), we can make a binary decision of going to cuckoo or the stash based on key size.
+
+If the value can be oversized, the above method doesn't apply anymore. But we can apply a common compact data store technique, we can simply store a pointer when the data size is too big for the cuckoo hashmap itself, and mark the type of the cell as a pointer in the metadata (e.g. data type is a pointer, instead of an integer/string, etc). The lookup will proceed normally, but jumps to the final address following that pointer if that cell is hit, and a final match is verified with the full key stored outside of the main cuckoo hashmap. The amount of additional memoroy used can be tracked, a much simpler index can be built for these keys as well, to facilitate eviction, a reverse pointer should be included in the extra-hash store so when we evict, we can delete the pointer in the cuckoo hashmap as well.
+
+A variation of the pointer scheme is to store the key and a pointer in the hash, indicating the key is stored on the stash. This can be used in conjunction with the key-size filter: if the key itself is to big to be in the hash, we can always redirect the lookup to the stash upon parsing the request; otherwise, we do a normal lookup in the hash, find out the key, and follow the pointer to retrieve the value.
