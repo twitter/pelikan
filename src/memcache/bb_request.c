@@ -17,6 +17,9 @@ request_reset(struct request *req)
 {
     ASSERT(req != NULL && req->keys != NULL);
 
+    STAILQ_NEXT(req, next) = NULL;
+    req->free = false;
+
     req->rstate = PARSING;
     req->pstate = REQ_HDR;
     req->tstate = 0;
@@ -50,21 +53,23 @@ request_create(void)
     if (status != CC_OK) {
         return NULL;
     }
-
-    INCR(reqpool_create);
     request_reset(req);
+
+    INCR(request_create);
 
     return req;
 }
 
 void
-request_destroy(struct request *req)
+request_destroy(struct request **request)
 {
+    struct request *req = *request;
     ASSERT(req != NULL);
 
-    INCR(reqpool_destroy);
+    INCR(request_destroy);
     array_destroy(&req->keys);
     cc_free(req);
+    *request = NULL;
 }
 
 
@@ -108,23 +113,29 @@ request_borrow(void)
 
         return NULL;
     }
+    request_reset(req);
 
-    INCR(reqpool_borrow);
+    INCR(request_borrow);
     log_vverb("borrowing req %p", req);
 
     return req;
 }
 
 void
-request_return(struct request *req)
+request_return(struct request **request)
 {
+    struct request *req = *request;
+
     if (req == NULL) {
         return;
     }
 
-    INCR(reqpool_free);
-    INCR(reqpool_return);
-    log_vverb("return req %p: free %"PRIu32, req, reqp.nfree);
+    INCR(request_free);
+    INCR(request_return);
+    log_vverb("return req %p", req);
 
+    req->free = true;
     FREEPOOL_RETURN(&reqp, req, next);
+
+    *request = NULL;
 }

@@ -44,7 +44,7 @@
     CUCKOO_METRIC(ACTION)           \
     ITEM_METRIC(ACTION)             \
     PROCESS_METRIC(ACTION)          \
-    REQPOOL_METRIC(ACTION)
+    REQUEST_METRIC(ACTION)
 
 struct stats {
     STATS(METRIC_DECLARE)

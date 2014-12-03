@@ -126,9 +126,9 @@ setup(void)
     }
 
     mbuf_pool_create((uint32_t)setting.mbuf_poolsize.val.vuint);
-    conn_pool_create((uint32_t)setting.conn_poolsize.val.vuint);
-    stream_pool_create((uint32_t)setting.stream_poolsize.val.vuint);
-    request_pool_create((uint32_t)setting.conn_poolsize.val.vuint);
+    conn_pool_create((uint32_t)setting.tcp_poolsize.val.vuint);
+    buf_sock_pool_create((uint32_t)setting.buf_sock_poolsize.val.vuint);
+    request_pool_create((uint32_t)setting.request_poolsize.val.vuint);
 
     /* set up core after static resources are ready */
     ret = getaddr(&ai, setting.server_host.val.vstr,
@@ -152,7 +152,7 @@ error:
     core_teardown();
 
     request_pool_destroy();
-    stream_pool_destroy();
+    buf_sock_pool_destroy();
     conn_pool_destroy();
     mbuf_pool_destroy();
 

@@ -18,12 +18,12 @@
     ACTION( request_poolsize,   OPTION_TYPE_UINT,   str(REQ_POOLSIZE),  "request pool size")
 
 /*          name                type            description */
-#define REQPOOL_METRIC(ACTION)                                          \
-    ACTION( reqpool_free,       METRIC_GAUGE,   "# free req in pool"   )\
-    ACTION( reqpool_borrow,     METRIC_COUNTER, "# reqs borrowed"      )\
-    ACTION( reqpool_return,     METRIC_COUNTER, "# reqs returned"      )\
-    ACTION( reqpool_create,     METRIC_COUNTER, "# reqs created"       )\
-    ACTION( reqpool_destroy,    METRIC_COUNTER, "# reqs destroyed"     )
+#define REQUEST_METRIC(ACTION)                                          \
+    ACTION( request_free,       METRIC_GAUGE,   "# free req in pool"   )\
+    ACTION( request_borrow,     METRIC_COUNTER, "# reqs borrowed"      )\
+    ACTION( request_return,     METRIC_COUNTER, "# reqs returned"      )\
+    ACTION( request_create,     METRIC_COUNTER, "# reqs created"       )\
+    ACTION( request_destroy,    METRIC_COUNTER, "# reqs destroyed"     )
 
 typedef enum request_state {
     PARSING,
@@ -64,6 +64,7 @@ typedef enum request_verb {
  */
 struct request {
     STAILQ_ENTRY(request)   next;       /* allow request pooling */
+    bool                    free;
 
     request_state_t         rstate;     /* request state */
     parse_state_t           pstate;     /* parsing state */
@@ -87,12 +88,12 @@ struct request {
 };
 
 struct request *request_create(void);
-void request_destroy(struct request *req);
+void request_destroy(struct request **req);
 void request_reset(struct request *req);
 
 void request_pool_create(uint32_t max);
 void request_pool_destroy(void);
 struct request *request_borrow(void);
-void request_return(struct request *req);
+void request_return(struct request **req);
 
 #endif /* _BB_REQUEST_H_ */

@@ -7,10 +7,10 @@
 #include <cc_array.h>
 #include <cc_log.h>
 #include <cc_mbuf.h>
-#include <cc_nio.h>
 #include <cc_option.h>
 #include <cc_metric.h>
-#include <cc_stream.h>
+#include <channel/cc_tcp.h>
+#include <stream/cc_sockio.h>
 
 
 /* option related */
@@ -22,13 +22,13 @@
 /* we compose our setting by including options needed by modules we use */
 #define SETTING(ACTION)             \
     ARRAY_OPTION(ACTION)            \
+    SOCKIO_OPTION(ACTION)           \
     CUCKOO_OPTION(ACTION)           \
     LOG_OPTION(ACTION)              \
     MBUF_OPTION(ACTION)             \
-    NIO_OPTION(ACTION)              \
+    TCP_OPTION(ACTION)              \
     REQUEST_OPTION(ACTION)          \
-    SERVER_OPTION(ACTION)           \
-    STREAM_OPTION(ACTION)
+    SERVER_OPTION(ACTION)
 
 struct setting {
     SETTING(OPTION_DECLARE)

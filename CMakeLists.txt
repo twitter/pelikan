@@ -56,7 +56,6 @@ set (CFLAGS_LIST
     "-Wall -Wshadow -Winline "
     "-Wstrict-prototypes -Wmissing-prototypes "
     "-Wmissing-declarations -Wredundant-decls "
-    "-Wconversion -Wsign-compare "
     "-Wunused-function -Wunused-value -Wunused-variable "
     "-fno-strict-aliasing "
     )

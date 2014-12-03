@@ -4,8 +4,13 @@
 
 #include <cc_debug.h>
 #include <cc_event.h>
-#include <cc_nio.h>
-#include <cc_stream.h>
+#include <channel/cc_tcp.h>
+#include <stream/cc_sockio.h>
+
+/**
+ * TODO: use function pointers to accommodate different channel types when we
+ * extend to beyond just TCP
+ */
 
 static struct context {
     struct event_base  *evb;
@@ -13,53 +18,63 @@ static struct context {
 } context;
 
 static struct context *ctx = &context;
-static struct stream *ss; /* server stream */
-static struct conn *sc; /* server connection */
-static stream_handler_t server_hdl;
-static stream_handler_t conn_hdl;
-
+static struct buf_sock *serversock; /* server buf_sock */
+static channel_handler_t handlers;
+static channel_handler_t *hdl = &handlers;
 
 static void
-core_close(struct stream *stream)
+_close(struct buf_sock *s)
 {
-    log_verb("core close on stream %p", stream);
+    log_info("core close on buf_sock %p", s);
 
-    if (stream->owner != ctx) { /* not owned by this event loop anymore */
-        return;
+    event_deregister(ctx->evb, s->ch->sd);
+    hdl->term(s->ch);
+    request_return((struct request **)&s->data);
+    buf_sock_return(&s);
+}
+
+static rstatus_t
+_read(struct buf_sock *s)
+{
+    log_verb("process read event on buf_sock %p", s);
+
+    ASSERT(s != NULL);
+    ASSERT(s->wbuf != NULL && s->rbuf != NULL);
+
+    rstatus_t status;
+
+    status = buf_tcp_read(s);
+    if (status == CC_ENOMEM) {
+        log_debug("not enough room in rbuf: start %p, rpos %p, wpos %p, end %p",
+                s->rbuf->start, s->rbuf->rpos, s->rbuf->wpos, s->rbuf->end);
+        status = CC_ERETRY; /* retry when we cannot read due to buffer full */
     }
 
-    log_info("close channel %p", stream->channel);
-
-    event_deregister(ctx->evb, stream->handler->fd(stream->channel));
-    stream->handler->close(stream->channel);
-    stream->owner = NULL;
-    stream_return(stream);
+    return status;
 }
 
 static void
-_post_read(struct stream *stream, size_t nbyte)
+_post_read(struct buf_sock *s)
 {
     rstatus_t status;
     struct request *req;
 
-    log_verb("post read on stream %p after reading %zu bytes", stream, nbyte);
-
-    ASSERT(stream != NULL);
+    log_verb("post read processing on buf_sock %p", s);
 
     //stats_thread_incr_by(data_read, nbyte);
 
-    if (stream->data != NULL) {
-        req = stream->data;
+    if (s->data != NULL) {
+        req = s->data;
     } else {
         req = request_borrow();
-        stream->data = req;
+        s->data = req;
     }
 
     if (req == NULL) {
         log_error("cannot acquire request: OOM");
-        status = compose_rsp_msg(stream->wbuf, RSP_SERVER_ERROR, false);
+        status = compose_rsp_msg(s->wbuf, RSP_SERVER_ERROR, false);
         if (status != CC_OK) {
-            //stream->err = status;
+            //s->err = status;
 
             log_error("failed to send server error, status: %d", status);
         }
@@ -68,19 +83,19 @@ _post_read(struct stream *stream, size_t nbyte)
     }
 
     if (req->swallow) {
-        status = parse_swallow(stream->rbuf);
+        status = parse_swallow(s->rbuf);
         if (status == CC_OK) {
             request_reset(req);
         } else { /* CC_UNFIN */
-            return;
+            goto done;
         }
     }
 
-    while (mbuf_rsize(stream->rbuf) > 0) {
+    while (mbuf_rsize(s->rbuf) > 0) {
         /* parsing */
-        log_verb("%"PRIu32" bytes left", mbuf_rsize(stream->rbuf));
+        log_verb("%"PRIu32" bytes left", mbuf_rsize(s->rbuf));
 
-        status = parse_req(req, stream->rbuf);
+        status = parse_req(req, s->rbuf);
         if (status == CC_UNFIN) {
             goto done;
         }
@@ -88,7 +103,7 @@ _post_read(struct stream *stream, size_t nbyte)
         if (status != CC_OK) { /* parsing errors are all client errors */
             log_warn("illegal request received, status: %d", status);
 
-            status = compose_rsp_msg(stream->wbuf, RSP_CLIENT_ERROR, false);
+            status = compose_rsp_msg(s->wbuf, RSP_CLIENT_ERROR, false);
             if (status != CC_OK) {
                 log_error("failed to send client error, status: %d", status);
             }
@@ -97,24 +112,20 @@ _post_read(struct stream *stream, size_t nbyte)
         }
 
         /* processing */
-        log_verb("wbuf free: %"PRIu32" B", mbuf_wsize(stream->wbuf));
-        status = process_request(req, stream->wbuf);
-        log_verb("wbuf free: %"PRIu32" B", mbuf_wsize(stream->wbuf));
+        log_verb("wbuf free: %"PRIu32" B", mbuf_wsize(s->wbuf));
+        status = process_request(req, s->wbuf);
+        log_verb("wbuf free: %"PRIu32" B", mbuf_wsize(s->wbuf));
 
         if (status == CC_ERDHUP) {
             log_info("peer called quit");
-            if (stream->type == CHANNEL_TCP) {
-                ((struct conn *)stream->channel)->state = CONN_EOF;
-            } else {
-                log_error("unsupported or unknown channel type");
-            }
-            return;
+            s->ch->state = TCP_CLOSE;
+            goto done;
         }
 
         if (status != CC_OK) {
             log_error("process request failed: %d", status);
 
-            status = compose_rsp_msg(stream->wbuf, RSP_SERVER_ERROR, false);
+            status = compose_rsp_msg(s->wbuf, RSP_SERVER_ERROR, false);
             if (status != CC_OK) {
                 /* NOTE(yao): this processing logic does NOT work for large
                  * values, which will easily overflow wbuf and therefore always
@@ -137,201 +148,116 @@ _post_read(struct stream *stream, size_t nbyte)
         request_reset(req);
     }
 
-    if (!req->swallow) {
-        request_return(req);
-        stream->data = NULL;
-    }
-
 done:
     /* TODO: call stream write directly, use events only for retries */
-    if (mbuf_rsize(stream->wbuf) > 0) {
-        event_add_write(ctx->evb, stream->handler->fd(stream->channel), stream);
+    if (mbuf_rsize(s->wbuf) > 0) {
+        event_add_write(ctx->evb, hdl->id(s->ch), s);
     }
-    return;
-}
-
-static rstatus_t
-core_read(struct stream *stream)
-{
-    log_verb("core read on stream %p", stream);
-
-    ASSERT(stream != NULL);
-    ASSERT(stream->wbuf != NULL && stream->rbuf != NULL);
-
-    uint32_t limit = mbuf_wsize(stream->rbuf);
-    rstatus_t status;
-
-    /* TODO(yao): refactor this after stream refactoring */
-    if (limit == 0) {
-        struct mbuf *buf = stream->rbuf;
-        log_info("read buffer full: start %p, rpos %p, wpos %p, end %p",
-                buf->start, buf->rpos, buf->wpos, buf->end);
-    }
-
-    status = stream_read(stream, limit);
-
-    return status;
 }
 
 static void
-_post_write(struct stream *stream, size_t nbyte)
+_post_write(struct buf_sock *s)
 {
-    log_verb("post write on stream %p after writing %zu bytes", stream, nbyte);
-
-    ASSERT(stream != NULL);
+    log_verb("post write processing on buf_sock %p", s);
 
     //stats_thread_incr_by(data_written, nbyte);
+    if (s->ch->state == TCP_EOF && mbuf_rsize(s->wbuf)) {
+        s->ch->state = TCP_CLOSE;
+    }
 
     /* left-shift rbuf and wbuf */
-    mbuf_lshift(stream->rbuf);
-    mbuf_lshift(stream->wbuf);
+    mbuf_lshift(s->rbuf);
+    mbuf_lshift(s->wbuf);
 }
 
 static rstatus_t
-core_write(struct stream *stream)
+_write(struct buf_sock *s)
 {
-    log_verb("core write on stream %p", stream);
+    log_verb("processing write event on buf_sock %p", s);
 
-    ASSERT(stream != NULL);
-    ASSERT(stream->wbuf != NULL && stream->rbuf != NULL);
+    ASSERT(s != NULL);
+    ASSERT(s->wbuf != NULL && s->rbuf != NULL);
 
-    uint32_t limit = mbuf_rsize(stream->wbuf);
     rstatus_t status;
-
-    status = stream_write(stream, limit);
+    status = buf_tcp_write(s);
 
     return status;
 }
 
-/* TCP only, nbyte is not used */
 static void
-core_listen(struct stream *stream, size_t nbyte)
+_tcpserver(struct buf_sock *ss)
 {
-    struct stream *s;
-    struct conn *c;
-    bool accepted;
+    struct buf_sock *s;
+    struct conn *sc = ss->ch;
 
-    c = conn_borrow();
-    if (c == NULL) {
-        log_error("connection establishment failed: cannot allocate conn");
-        server_reject(stream->channel);
-
-        return;
-    }
-
-    accepted = server_accept(stream->channel, c);
-    if (!accepted) {
-        conn_return(c);
-
-        return;
-    }
-
-    s = stream_borrow();
+    s = buf_sock_borrow();
     if (s == NULL) {
-        log_error("connection establishment failed: cannot alloc stream");
-        server_close(c);
+        log_error("establish connection failed: cannot allocate buf_sock, "
+                "reject connection request");
+        tcp_reject(sc); /* server rejects connection by closing it */
 
+        return;
+    }
+
+    if (!tcp_accept(sc, s->ch)) {
         return;
     }
 
     s->owner = ctx;
-    s->type = CHANNEL_TCP;
-    s->channel = c;
-    s->err = 0;
-    s->handler = &conn_hdl;
-    s->data = NULL;
-    event_register(ctx->evb, c->sd, s);
-}
-
-static bool
-_should_close(struct stream *s) {
-    if (s->type == CHANNEL_TCP) {
-        struct conn *c = s->channel;
-        return (c->state == CONN_EOF || c->state == CONN_CLOSE);
-    } else {
-        log_error("unsupported or unknown channel type");
-        return false;
-    }
+    s->hdl = hdl;
+    event_register(ctx->evb, hdl->id(s->ch), s);
 }
 
 static void
 core_event(void *arg, uint32_t events)
 {
     rstatus_t status;
-    struct stream *stream = arg;
+    struct buf_sock *s = arg;
+    struct conn *c = s->ch;
 
-    log_verb("event %06"PRIX32" on stream %p", events, stream);
+    log_verb("event %06"PRIX32" on buf_sock %p", events, s);
 
     if (events & EVENT_ERR) {
-        core_close(stream);
+        _close(s);
 
         return;
     }
 
     if (events & EVENT_READ) {
-        if (stream->type == CHANNEL_TCPLISTEN) {
-            core_listen(stream, 0);
-
-            return;
-        }
-
-        status = core_read(stream);
-        if (status == CC_ERETRY) { /* retry read */
-            event_add_read(ctx->evb, stream->handler->fd(stream->channel),
-                    stream);
-        } else if (status == CC_ERROR) {
-            core_close(stream);
-
-            return;
+        if (c->level == CHANNEL_META) {
+            _tcpserver(s);
+        } else if (c->level == CHANNEL_BASE) {
+            status = _read(s);
+            if (status == CC_ERETRY) { /* retry read */
+                event_add_read(ctx->evb, hdl->id(c), s);
+            } else if (status == CC_ERROR) {
+                c->state = TCP_CLOSE;
+            }
+            _post_read(s);
+        } else {
+            NOT_REACHED();
         }
     }
 
     if (events & EVENT_WRITE) {
-        status = core_write(stream);
+        status = _write(s);
         if (status == CC_ERETRY || status == CC_EAGAIN) { /* retry write */
-            event_add_write(ctx->evb, stream->handler->fd(stream->channel),
-                    stream);
-
-            return;
+            event_add_write(ctx->evb, c->sd, s);
+        } else if (status == CC_ERROR) {
+            c->state = TCP_CLOSE;
         }
-        if (status == CC_ERROR) {
-            core_close(stream);
-
-            return;
-        }
+        _post_write(s);
     }
 
-    if (_should_close(stream)) { /* closing _after_ all writes are completed */
-        core_close(stream);
-
-        return;
+    if (c->state == TCP_CLOSE) {
+        _close(s);
     }
-}
-
-static void
-handler_setup(void)
-{
-    server_hdl.open = NULL; /* created during setup */
-    server_hdl.close = (channel_close_t)server_close;
-    server_hdl.fd = (channel_fd_t)conn_fd;
-    server_hdl.pre_read = NULL;
-    server_hdl.post_read = core_listen;
-    server_hdl.pre_write = NULL; /* server connection doesn't write */
-    server_hdl.post_write = NULL;
-
-    conn_hdl.open = NULL; /* created by server_hdl.post_read */
-    conn_hdl.close = (channel_close_t)conn_close;
-    conn_hdl.fd = (channel_fd_t)conn_fd;
-    conn_hdl.pre_read = NULL;
-    conn_hdl.post_read = _post_read;
-    conn_hdl.pre_write = NULL;
-    conn_hdl.post_write = _post_write;
 }
 
 rstatus_t
 core_setup(struct addrinfo *ai)
 {
-    handler_setup();
+    struct conn *c;
 
     ctx->timeout = 100;
     ctx->evb = event_base_create(1024, core_event);
@@ -339,26 +265,39 @@ core_setup(struct addrinfo *ai)
         return CC_ERROR;
     }
 
-    sc = server_listen(ai);
-    if (sc == NULL) {
+    hdl->accept = tcp_accept;
+    hdl->reject = tcp_reject;
+    hdl->open = tcp_listen;
+    hdl->term = tcp_close;
+    hdl->recv = tcp_recv;
+    hdl->send = tcp_send;
+    hdl->id = conn_id;
+
+    /**
+     * Here we give server socket a buf_sock purely because it is difficult to
+     * write code in the core event loop that would accommodate different types
+     * of structs at the moment. However, this doesn't have to be the case in
+     * the future. We can choose to wrap different types in a common header-
+     * one that contains a type field and a pointer to the actual struct, or
+     * define common fields, like how posix sockaddr structs are used.
+     */
+    serversock = buf_sock_borrow();
+    if (serversock == NULL) {
+        log_error("cannot get server tcp buf_sock object");
+
+        return CC_ERROR;
+    }
+
+    serversock->hdl = hdl;
+    c = serversock->ch;
+    if (!hdl->open(ai, c)) {
         log_error("server connection setup failed");
 
         return CC_ERROR;
     }
+    c->level = CHANNEL_META;
 
-    ss = stream_borrow();
-    if (ss == NULL) {
-        log_error("cannot get server stream: OOM");
-
-        return CC_ERROR;
-    }
-    ss->owner = ctx;
-    ss->type = CHANNEL_TCPLISTEN;
-    ss->channel = sc;
-    ss->err = 0;
-    ss->handler = &server_hdl;
-    ss->data = NULL;
-    event_register(ctx->evb, sc->sd, ss);
+    event_register(ctx->evb, hdl->id(c), serversock);
 
     return CC_OK;
 }
@@ -366,8 +305,8 @@ core_setup(struct addrinfo *ai)
 void
 core_teardown(void)
 {
-    stream_return(ss);
-    event_base_destroy(ctx->evb);
+    buf_sock_return(&serversock);
+    event_base_destroy(&ctx->evb);
 }
 
 rstatus_t
