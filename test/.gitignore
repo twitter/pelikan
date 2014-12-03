@@ -1,5 +1,6 @@
 # check test results
 *.trs
+*.log
 
 # check test binary
 check_tests

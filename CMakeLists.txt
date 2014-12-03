@@ -53,9 +53,12 @@ add_definitions (-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
 set (CFLAGS_LIST
     "-std=c11 "
     "-ggdb3 "
-    "-Wall "
-    "-Wmissing-prototypes -Wmissing-declarations -Wredundant-decls "
+    "-Wall -Wshadow -Winline "
+    "-Wstrict-prototypes -Wmissing-prototypes "
+    "-Wmissing-declarations -Wredundant-decls "
+    "-Wconversion -Wsign-compare "
     "-Wunused-function -Wunused-value -Wunused-variable "
+    "-fno-strict-aliasing "
     )
 string (REPLACE "" "" CFLAGS ${CFLAGS_LIST})
 set (CMAKE_C_FLAGS

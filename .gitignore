@@ -31,24 +31,4 @@
 *.cproject
 
 # Core and executable
-
-# Autotools
-.deps
-.libs
-
-/aclocal.m4
-/autom4te.cache
-/stamp-h1
-/autoscan.log
-/libtool
-
-/config
-
-/config.h
-/config.log
-/config.status
-/configure.scan
-/configure
-
-Makefile
-Makefile.in
+/bin
