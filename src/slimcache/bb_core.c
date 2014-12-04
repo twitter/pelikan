@@ -36,12 +36,13 @@ _close(struct buf_sock *s)
 static rstatus_t
 _write(struct buf_sock *s)
 {
-    log_verb("processing write event on buf_sock %p", s);
+    rstatus_t status;
+
+    log_verb("writing on buf_sock %p", s);
 
     ASSERT(s != NULL);
     ASSERT(s->wbuf != NULL && s->rbuf != NULL);
 
-    rstatus_t status;
     status = buf_tcp_write(s);
 
     return status;
@@ -53,9 +54,6 @@ _post_write(struct buf_sock *s)
     log_verb("post write processing on buf_sock %p", s);
 
     //stats_thread_incr_by(data_written, nbyte);
-    if (s->ch->state == CONN_EOF && mbuf_rsize(s->wbuf) == 0) {
-        s->ch->state = CONN_CLOSING;
-    }
 
     /* left-shift rbuf and wbuf */
     mbuf_lshift(s->rbuf);
@@ -80,7 +78,7 @@ _event_write(struct buf_sock *s)
 static rstatus_t
 _read(struct buf_sock *s)
 {
-    log_verb("process read event on buf_sock %p", s);
+    log_verb("reading on buf_sock %p", s);
 
     ASSERT(s != NULL);
     ASSERT(s->wbuf != NULL && s->rbuf != NULL);
@@ -224,7 +222,7 @@ _tcpserver(struct buf_sock *ss)
 
     s->owner = ctx;
     s->hdl = hdl;
-    event_register(ctx->evb, hdl->id(s->ch), s);
+    event_add_read(ctx->evb, hdl->id(s->ch), s);
 }
 
 static void
@@ -237,11 +235,14 @@ _event_read(struct buf_sock *s)
         _tcpserver(s);
     } else if (c->level == CHANNEL_BASE) {
         status = _read(s);
-        if (status == CC_ERETRY) { /* retry read */
+ 	if (status == CC_ERROR) {
+	    c->state = CONN_CLOSING;
+	}
+	/* retry is unnecessary when we use level-triggered epoll 
+        if (status == CC_ERETRY) {
             event_add_read(ctx->evb, hdl->id(c), s);
-        } else if (status == CC_ERROR) {
-            c->state = CONN_CLOSING;
         }
+	*/
         _post_read(s);
     } else {
         NOT_REACHED();
@@ -262,14 +263,19 @@ core_event(void *arg, uint32_t events)
     }
 
     if (events & EVENT_READ) {
+    	log_verb("processing read event on buf_sock %p", s);
+
         _event_read(s);
     }
 
     if (events & EVENT_WRITE) {
+    	log_verb("processing write event on buf_sock %p", s);
+
         _event_write(s);
     }
 
-    if (s->ch->state == CONN_CLOSING) {
+    if (s->ch->state == CONN_CLOSING ||
+	    (s->ch->state == CONN_EOF && mbuf_rsize(s->wbuf) == 0)) {
         _close(s);
     }
 }
@@ -317,7 +323,7 @@ core_setup(struct addrinfo *ai)
     }
     c->level = CHANNEL_META;
 
-    event_register(ctx->evb, hdl->id(c), serversock);
+    event_add_read(ctx->evb, hdl->id(c), serversock);
 
     return CC_OK;
 }

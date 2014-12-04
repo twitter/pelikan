@@ -926,15 +926,10 @@ parse_req(struct request *req, struct mbuf *buf)
     log_verb("parsing buf %p into req %p (state: %d)", buf, req,
             req->pstate);
 
-    if (req->swallow) {
-        parse_swallow(buf);
-        request_reset(req);
-    }
-
     if (req->pstate == REQ_HDR) {
         status = parse_req_hdr(req, buf);
         if (status != CC_OK) {
-            return status;
+            goto done;
         }
     }
 
@@ -989,6 +984,12 @@ parse_req(struct request *req, struct mbuf *buf)
             NOT_REACHED();
             break;
         }
+    }
+
+done:
+    if (req->swallow) {
+        parse_swallow(buf);
+        request_reset(req);
     }
 
     return status;

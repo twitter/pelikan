@@ -59,9 +59,9 @@ set (CFLAGS_LIST
     "-Wunused-function -Wunused-value -Wunused-variable "
     "-fno-strict-aliasing "
     )
-string (REPLACE "" "" CFLAGS ${CFLAGS_LIST})
+string (REPLACE "" "" LOCAL_CFLAGS ${CFLAGS_LIST})
 set (CMAKE_C_FLAGS
-    "${CMAKE_C_FLAGS}  ${CFLAGS}"
+    "${CMAKE_C_FLAGS}  ${LOCAL_CFLAGS}"
     )
 
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin)
