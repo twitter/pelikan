@@ -34,6 +34,50 @@ _close(struct buf_sock *s)
 }
 
 static rstatus_t
+_write(struct buf_sock *s)
+{
+    log_verb("processing write event on buf_sock %p", s);
+
+    ASSERT(s != NULL);
+    ASSERT(s->wbuf != NULL && s->rbuf != NULL);
+
+    rstatus_t status;
+    status = buf_tcp_write(s);
+
+    return status;
+}
+
+static void
+_post_write(struct buf_sock *s)
+{
+    log_verb("post write processing on buf_sock %p", s);
+
+    //stats_thread_incr_by(data_written, nbyte);
+    if (s->ch->state == CONN_EOF && mbuf_rsize(s->wbuf) == 0) {
+        s->ch->state = CONN_CLOSING;
+    }
+
+    /* left-shift rbuf and wbuf */
+    mbuf_lshift(s->rbuf);
+    mbuf_lshift(s->wbuf);
+}
+
+static void
+_event_write(struct buf_sock *s)
+{
+    rstatus_t status;
+    struct conn *c = s->ch;
+
+    status = _write(s);
+    if (status == CC_ERETRY || status == CC_EAGAIN) { /* retry write */
+        event_add_write(ctx->evb, hdl->id(c), s);
+    } else if (status == CC_ERROR) {
+        c->state = CONN_CLOSING;
+    }
+    _post_write(s);
+}
+
+static rstatus_t
 _read(struct buf_sock *s)
 {
     log_verb("process read event on buf_sock %p", s);
@@ -116,6 +160,10 @@ _post_read(struct buf_sock *s)
         status = process_request(req, s->wbuf);
         log_verb("wbuf free: %"PRIu32" B", mbuf_wsize(s->wbuf));
 
+        if (status == CC_ENOMEM) {
+            log_debug("wbuf full, try again later");
+            goto done;
+        }
         if (status == CC_ERDHUP) {
             log_info("peer called quit");
             s->ch->state = CONN_CLOSING;
@@ -123,7 +171,7 @@ _post_read(struct buf_sock *s)
         }
 
         if (status != CC_OK) {
-            log_error("process request failed: %d", status);
+            log_error("process request failed for other reason: %d", status);
 
             status = compose_rsp_msg(s->wbuf, RSP_SERVER_ERROR, false);
             if (status != CC_OK) {
@@ -149,39 +197,10 @@ _post_read(struct buf_sock *s)
     }
 
 done:
-    /* TODO: call stream write directly, use events only for retries */
+    /* TODO: call stream write directly to save one event */
     if (mbuf_rsize(s->wbuf) > 0) {
-        event_add_write(ctx->evb, hdl->id(s->ch), s);
+        _event_write(s);
     }
-}
-
-static void
-_post_write(struct buf_sock *s)
-{
-    log_verb("post write processing on buf_sock %p", s);
-
-    //stats_thread_incr_by(data_written, nbyte);
-    if (s->ch->state == CONN_EOF && mbuf_rsize(s->wbuf) == 0) {
-        s->ch->state = CONN_CLOSING;
-    }
-
-    /* left-shift rbuf and wbuf */
-    mbuf_lshift(s->rbuf);
-    mbuf_lshift(s->wbuf);
-}
-
-static rstatus_t
-_write(struct buf_sock *s)
-{
-    log_verb("processing write event on buf_sock %p", s);
-
-    ASSERT(s != NULL);
-    ASSERT(s->wbuf != NULL && s->rbuf != NULL);
-
-    rstatus_t status;
-    status = buf_tcp_write(s);
-
-    return status;
 }
 
 static void
@@ -209,11 +228,30 @@ _tcpserver(struct buf_sock *ss)
 }
 
 static void
-core_event(void *arg, uint32_t events)
+_event_read(struct buf_sock *s)
 {
     rstatus_t status;
-    struct buf_sock *s = arg;
     struct conn *c = s->ch;
+
+    if (c->level == CHANNEL_META) {
+        _tcpserver(s);
+    } else if (c->level == CHANNEL_BASE) {
+        status = _read(s);
+        if (status == CC_ERETRY) { /* retry read */
+            event_add_read(ctx->evb, hdl->id(c), s);
+        } else if (status == CC_ERROR) {
+            c->state = CONN_CLOSING;
+        }
+        _post_read(s);
+    } else {
+        NOT_REACHED();
+    }
+}
+
+static void
+core_event(void *arg, uint32_t events)
+{
+    struct buf_sock *s = arg;
 
     log_verb("event %06"PRIX32" on buf_sock %p", events, s);
 
@@ -224,32 +262,14 @@ core_event(void *arg, uint32_t events)
     }
 
     if (events & EVENT_READ) {
-        if (c->level == CHANNEL_META) {
-            _tcpserver(s);
-        } else if (c->level == CHANNEL_BASE) {
-            status = _read(s);
-            if (status == CC_ERETRY) { /* retry read */
-                event_add_read(ctx->evb, hdl->id(c), s);
-            } else if (status == CC_ERROR) {
-                c->state = CONN_CLOSING;
-            }
-            _post_read(s);
-        } else {
-            NOT_REACHED();
-        }
+        _event_read(s);
     }
 
     if (events & EVENT_WRITE) {
-        status = _write(s);
-        if (status == CC_ERETRY || status == CC_EAGAIN) { /* retry write */
-            event_add_write(ctx->evb, c->sd, s);
-        } else if (status == CC_ERROR) {
-            c->state = CONN_CLOSING;
-        }
-        _post_write(s);
+        _event_write(s);
     }
 
-    if (c->state == CONN_CLOSING) {
+    if (s->ch->state == CONN_CLOSING) {
         _close(s);
     }
 }
