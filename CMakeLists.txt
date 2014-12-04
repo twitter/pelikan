@@ -52,7 +52,7 @@ configure_file (
 add_definitions (-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
 set (CFLAGS_LIST
     "-std=c11 "
-    "-ggdb3 "
+    "-ggdb3 -O2 "
     "-Wall -Wshadow -Winline "
     "-Wstrict-prototypes -Wmissing-prototypes "
     "-Wmissing-declarations -Wredundant-decls "
