@@ -118,7 +118,7 @@ _post_read(struct buf_sock *s)
 
         if (status == CC_ERDHUP) {
             log_info("peer called quit");
-            s->ch->state = TCP_CLOSE;
+            s->ch->state = CONN_CLOSING;
             goto done;
         }
 
@@ -161,8 +161,8 @@ _post_write(struct buf_sock *s)
     log_verb("post write processing on buf_sock %p", s);
 
     //stats_thread_incr_by(data_written, nbyte);
-    if (s->ch->state == TCP_EOF && mbuf_rsize(s->wbuf)) {
-        s->ch->state = TCP_CLOSE;
+    if (s->ch->state == CONN_EOF && mbuf_rsize(s->wbuf) == 0) {
+        s->ch->state = CONN_CLOSING;
     }
 
     /* left-shift rbuf and wbuf */
@@ -231,7 +231,7 @@ core_event(void *arg, uint32_t events)
             if (status == CC_ERETRY) { /* retry read */
                 event_add_read(ctx->evb, hdl->id(c), s);
             } else if (status == CC_ERROR) {
-                c->state = TCP_CLOSE;
+                c->state = CONN_CLOSING;
             }
             _post_read(s);
         } else {
@@ -244,12 +244,12 @@ core_event(void *arg, uint32_t events)
         if (status == CC_ERETRY || status == CC_EAGAIN) { /* retry write */
             event_add_write(ctx->evb, c->sd, s);
         } else if (status == CC_ERROR) {
-            c->state = TCP_CLOSE;
+            c->state = CONN_CLOSING;
         }
         _post_write(s);
     }
 
-    if (c->state == TCP_CLOSE) {
+    if (c->state == CONN_CLOSING) {
         _close(s);
     }
 }
