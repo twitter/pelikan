@@ -11,6 +11,8 @@
 
 #define D            4
 
+uint32_t cuckoo_policy = CUCKOO_POLICY;
+
 static uint32_t iv[D] = {
     /* these numbers can be picked arbitrarily as long as they are different */
     0x3ac5d673,
@@ -59,13 +61,56 @@ cuckoo_hash(uint32_t offset[], struct bstring *key)
     return;
 }
 
+/* returns a candidate offset based on policy */
+static void
+cuckoo_sort_candidate(uint32_t ordered[], const uint32_t offset[])
+{
+    uint32_t i;
+    /* offset always holds D elements */
+
+    if (cuckoo_policy == CUCKOO_POLICY_RANDOM) {
+        /* only pick the first item randomly, and "sort" the rest linearly */
+        uint32_t j = RANDOM(D);
+
+        for (i = 0; i < D; ++i, j = (j + 1) % D) {
+            ordered[i] = offset[j];
+        }
+    } else if (cuckoo_policy == CUCKOO_POLICY_EXPIRE) {
+        rel_time_t expire[D];
+
+        for (i = 0; i < D; ++i) {
+            uint32_t j = i;
+            rel_time_t te;
+            uint32_t to;
+
+            /* basically an insert sort */
+            expire[i] = item_expire(OFFSET2ITEM(offset[i]));
+            ordered[i] = offset[i];
+            while (j > 0 && expire[j] < expire[j - 1]) {
+                /* swap */
+                te = expire[j - 1];
+                expire[j - 1] = expire[j];
+                expire[j] = te;
+                to = ordered[j - 1];
+                ordered[j - 1] = ordered[j];
+                ordered[j] = to;
+                j--;
+            }
+        }
+    } else {
+        NOT_REACHED();
+    }
+}
+
 static void
 cuckoo_displace(uint32_t displaced)
 {
     long int i, j, k, step;
     struct bstring key;
     struct item *it;
+    /* both offset and ordered may have duplicates, treat with care */
     uint32_t offset[D];
+    uint32_t ordered[D];
     uint32_t path[CUCKOO_DISPLACE + 1];
     bool ended = false;
     bool evict = true;
@@ -96,25 +141,27 @@ cuckoo_displace(uint32_t displaced)
 
         /* no empty item, proceed to displacement */
         if (D == i) {
+            cuckoo_sort_candidate(ordered, offset);
             /* need to find another item that's at a different location. */
-            for (i = 0, j = RANDOM(D); i < D; ++i, j = (j + 1) % D) {
+            for (j = 0; j < D; ++j) {
                 for (k = 0; k < step; k++) { /* there can be no circle */
-                    if (path[k] == offset[j]) {
+                    if (path[k] == ordered[j]) {
                         continue;
                     }
                 }
                 break; /* otherwise we have a candidate */
             }
 
-            if (D == i) {
+            if (D == j) {
                 /* all offsets are the same. no candidate for eviction. */
-                log_verb("running out of displacement candidates");
+                log_debug("running out of displacement candidates");
 
                 ended = true;
                 --step; /* discard last step */
+            } else {
+                displaced = ordered[j]; /* next displaced item */
+                path[step] = displaced;
             }
-            displaced = offset[j]; /* next displaced item */
-            path[step] = displaced;
         }
     }
 
@@ -142,7 +189,7 @@ cuckoo_displace(uint32_t displaced)
 
 
 rstatus_t
-cuckoo_setup(size_t size, uint32_t item)
+cuckoo_setup(size_t size, uint32_t item, uint32_t policy)
 {
     if (cuckoo_init) {
         log_error("cuckoo has already been setup, aborting");
@@ -158,6 +205,7 @@ cuckoo_setup(size_t size, uint32_t item)
 
         return CC_ERROR;
     }
+    policy = policy;
     cuckoo_init = true;
 
     return CC_OK;

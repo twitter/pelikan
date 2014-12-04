@@ -133,6 +133,12 @@ item_matched(struct item *it, struct bstring *key)
     return !cc_bcmp(ITEM_KEY_POS(it), key->data, key->len);
 }
 
+static inline rel_time_t
+item_expire(struct item *it)
+{
+    return it->expire;
+}
+
 static inline bool
 item_valid(struct item *it)
 {

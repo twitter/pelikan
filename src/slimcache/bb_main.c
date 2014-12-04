@@ -118,7 +118,8 @@ setup(void)
     array_setup((uint32_t)setting.array_nelem_delta.val.vuint);
 
     status = cuckoo_setup((size_t)setting.cuckoo_item_size.val.vuint,
-            (uint32_t)setting.cuckoo_nitem.val.vuint);
+            (uint32_t)setting.cuckoo_nitem.val.vuint,
+            (uint32_t)setting.cuckoo_policy.val.vuint);
     if (status != CC_OK) {
         log_error("cuckoo module setup failed");
 
