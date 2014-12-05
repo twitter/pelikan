@@ -126,8 +126,13 @@ setup(void)
         goto error;
     }
 
-    mbuf_pool_create((uint32_t)setting.mbuf_poolsize.val.vuint);
-    conn_pool_create((uint32_t)setting.tcp_poolsize.val.vuint);
+    /**
+     * Here we don't create mbuf or conn pool because buf_sock will allocate
+     * those objects and hold onto them as part of its create/allocate process.
+     * So it will not use mbuf/conn pool resources and we have no use of them
+     * outside the context of buf_sock.
+     * Do not set those poolsizes in the config script, they will not be used.
+     */
     buf_sock_pool_create((uint32_t)setting.buf_sock_poolsize.val.vuint);
     request_pool_create((uint32_t)setting.request_poolsize.val.vuint);
 

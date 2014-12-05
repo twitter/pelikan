@@ -76,12 +76,29 @@ request_destroy(struct request **request)
 void
 request_pool_create(uint32_t max)
 {
-    /* TODO(yao): add a pre-alloc interface */
     if (!reqp_init) {
+        uint32_t i;
+        struct request *req;
+
         log_info("creating request pool: max %"PRIu32, max);
 
         FREEPOOL_CREATE(&reqp, max);
         reqp_init = true;
+
+        /* preallocating, see notes in cc_mbuf.c */
+        if (max == 0) {
+            return;
+        }
+
+        for (i = 0; i < max; ++i) {
+            req = request_create();
+            if (req == NULL) {
+                log_crit("cannot preallocate request pool due to OOM, abort");
+                exit(EXIT_FAILURE);
+            }
+            req->free = true;
+            FREEPOOL_RETURN(&reqp, req, next);
+        }
     } else {
         log_warn("request pool has already been created, ignore");
     }
