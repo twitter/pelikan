@@ -261,6 +261,5 @@ item_setup(bool cas)
 static inline void
 item_teardown(void)
 {
-    return;
 }
 #endif /* _BB_ITEM_H_ */
