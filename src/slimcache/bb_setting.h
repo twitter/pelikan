@@ -7,8 +7,9 @@
 #include <cc_array.h>
 #include <cc_log.h>
 #include <cc_mbuf.h>
-#include <cc_option.h>
 #include <cc_metric.h>
+#include <cc_option.h>
+#include <cc_signal.h>
 #include <channel/cc_tcp.h>
 #include <stream/cc_sockio.h>
 

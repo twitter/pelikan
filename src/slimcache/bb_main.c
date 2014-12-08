@@ -2,8 +2,6 @@
 #include <slimcache/bb_setting.h>
 #include <slimcache/bb_stats.h>
 
-#include <cc_metric.h>
-
 #include <netdb.h>
 #include <stdio.h>
 #include <string.h>
@@ -95,7 +93,7 @@ run(void)
     core_teardown();
 }
 
-static rstatus_t
+static void
 setup(void)
 {
     struct addrinfo *ai;
@@ -152,7 +150,18 @@ setup(void)
         goto error;
     }
 
-    return CC_OK;
+    /* override signals that we want to customize */
+    ret = signal_segv_stacktrace();
+    if (ret < 0) {
+        goto error;
+    }
+
+    ret = signal_ttin_logrotate();
+    if (ret < 0) {
+        goto error;
+    }
+
+    return;
 
 error:
     core_teardown();
@@ -167,7 +176,9 @@ error:
     mbuf_teardown();
     log_teardown();
 
-    return CC_ERROR;
+    log_crit("setup failed");
+
+    exit(EX_CONFIG);
 }
 
 int
@@ -222,12 +233,7 @@ main(int argc, char **argv)
     }
     option_printall((struct option *)&setting, nopt);
 
-    status = setup();
-    if (status != CC_OK) {
-        log_crit("setup failed");
-
-        exit(EX_CONFIG);
-    }
+    setup();
 
     run();
 
