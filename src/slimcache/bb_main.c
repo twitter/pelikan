@@ -171,7 +171,7 @@ daemonize(void)
 
 error:
     exit(EX_OSERR);
-    
+
 fderror:
     close(fd);
     exit(EX_CANTCREAT);
@@ -190,7 +190,7 @@ create_pidfile(const char *filename)
     fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         log_error("open pid file '%s' failed: %s", filename, strerror(errno));
-	
+
 	exit(EX_CANTCREAT);
     }
 
@@ -259,6 +259,8 @@ setup(void)
     }
     /* stats in case other initialization updates certain metrics */
     metric_reset((struct metric *)&Stats, Nmetric);
+
+    time_setup();
 
     mbuf_setup((uint32_t)setting.mbuf_size.val.vuint);
 
@@ -339,6 +341,8 @@ error:
     item_teardown();
     array_teardown();
     mbuf_teardown();
+    time_teardown();
+
     log_teardown();
 
     log_crit("setup failed");

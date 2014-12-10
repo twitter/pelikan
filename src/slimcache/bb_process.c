@@ -76,7 +76,7 @@ process_gets_key(struct mbuf *buf, struct bstring *key)
     size_t size;
 
     log_verb("gets key at %p, rsp buf at %p", key, buf);
-    INCR(get_key_hit);
+    INCR(gets_key);
 
     it = cuckoo_lookup(key);
     if (NULL != it) {
@@ -363,7 +363,7 @@ process_stats(struct request *req, struct mbuf *buf)
     struct rusage usage;
 
     Stats.pid.vintmax         = (intmax_t)getpid();
-    Stats.time.vintmax        = (intmax_t)time_started() + time_now();
+    Stats.time.vintmax        = (intmax_t)time_now_abs();
     Stats.uptime.vintmax      = (intmax_t)time_now();
     /* "%02d%02d%02d", MC_VERSION_MAJOR, MC_VERSION_MINOR, MC_VERSION_PATCH */
     Stats.version.vintmax     = (intmax_t)BB_VERSION_MAJOR * 10000 +

@@ -32,7 +32,7 @@ typedef uint32_t rel_time_t;
 /* Update the current time */
 void time_update(void);
 
-/* Get the current time */
+/* Get the current time (since process started) */
 rel_time_t time_now(void);
 
 /* Get the current absolute time (not time since process began) */

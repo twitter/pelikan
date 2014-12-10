@@ -948,7 +948,7 @@ parse_req(struct request *req, struct mbuf *buf)
             INCR(request_get);
             break;
         case REQ_GETS:
-            INCR(request_get);
+            INCR(request_gets);
             break;
         case REQ_DELETE:
             INCR(request_delete);
