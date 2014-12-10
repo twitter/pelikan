@@ -869,9 +869,10 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
     case REQ_STATS:
     case REQ_QUIT:
         if (!end) {
-            req->swallow = 1;
-
-            status = CC_ERROR;
+            status = _chase_crlf(req, buf);
+            if (status == CC_ERROR) {
+                req->swallow = 1;
+            }
         }
 
         break;
