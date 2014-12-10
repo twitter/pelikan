@@ -158,6 +158,7 @@ _check_key(struct request *req, struct mbuf *buf, bool *end,
                      * where this function is called when a key already exists
                      * is for multi-get.
                      */
+                    buf->rpos = p + CRLF_LEN;
                     return CC_OK;
                 }
             }
@@ -219,6 +220,7 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct bstring *t,
         complete = true;
         *end = false;
     } else {
+        log_verb("current character: %c", *p);
         status = _try_crlf(buf, p);
         if (status == CC_OK) {
             if (t->len == 0) {

@@ -30,6 +30,9 @@ option (HAVE_ASSERT_PANIC "assert_panic disabled by default" OFF)
 option (HAVE_LOGGING "logging enabled by default" ON)
 option (HAVE_STATS "stats enabled by default" ON)
 
+include (CheckSymbolExists)
+check_symbol_exists (sys_signame signal.h HAVE_SIGNAME)
+
 include (CheckFunctionExists)
 check_function_exists (backtrace HAVE_BACKTRACE)
 check_function_exists (epoll_wait HAVE_EPOLL)
@@ -84,3 +87,10 @@ add_subdirectory (src)
 # print a summary
 message (STATUS "CPPFLAGS:" ${CMAKE_CPP_FLAGS})
 message (STATUS "CFLAGS:" ${CMAKE_C_FLAGS})
+
+message (STATUS "HAVE_SIGNAME:" ${HAVE_SIGNAME})
+
+message (STATUS "HAVE_BACKTRACE:" ${HAVE_BACKTRACE})
+message (STATUS "HAVE_EPOLL:" ${HAVE_EPOLL})
+message (STATUS "HAVE_KQUEUE:" ${HAVE_KQUEUE})
+message (STATUS "HAVE_BIG_ENDIAN:" ${HAVE_BIG_ENDIAN})
