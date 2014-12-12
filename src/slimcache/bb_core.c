@@ -346,6 +346,7 @@ core_evwait(void)
 
     n = event_wait(ctx->evb, ctx->timeout);
     INCR_N(core_event, n);
+    time_update();
 
     if (n < 0) {
         return n;
