@@ -24,6 +24,7 @@ set (Broadbill_VERSION_PATCH 0)
 set (Broadbill_VERSION
     ${Broadbill_VERSION_MAJOR}.${Broadbill_VERSION_MINOR}.${Broadbill_VERSION_PATCH}
     )
+
 # flags => compile-time variables: use modules/macros
 option (HAVE_ASSERT_LOG "assert_log enabled by default" ON)
 option (HAVE_ASSERT_PANIC "assert_panic disabled by default" OFF)
@@ -35,8 +36,6 @@ check_symbol_exists (sys_signame signal.h HAVE_SIGNAME)
 
 include (CheckFunctionExists)
 check_function_exists (backtrace HAVE_BACKTRACE)
-check_function_exists (epoll_wait HAVE_EPOLL)
-check_function_exists (kevent HAVE_KQUEUE)
 
 include (TestBigEndian)
 test_big_endian (HAVE_BIG_ENDIAN)
@@ -53,6 +52,7 @@ configure_file (
 # so we are using list as input until we move to new version
 # TODO once we add build types, we should also set flags such as "-O2 "
 add_definitions (-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
+add_definitions ()
 set (CFLAGS_LIST
     "-std=c11 "
     "-ggdb3 -O2 "
@@ -91,6 +91,4 @@ message (STATUS "CFLAGS:" ${CMAKE_C_FLAGS})
 message (STATUS "HAVE_SIGNAME:" ${HAVE_SIGNAME})
 
 message (STATUS "HAVE_BACKTRACE:" ${HAVE_BACKTRACE})
-message (STATUS "HAVE_EPOLL:" ${HAVE_EPOLL})
-message (STATUS "HAVE_KQUEUE:" ${HAVE_KQUEUE})
 message (STATUS "HAVE_BIG_ENDIAN:" ${HAVE_BIG_ENDIAN})

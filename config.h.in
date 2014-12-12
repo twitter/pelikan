@@ -15,7 +15,3 @@
 #cmakedefine HAVE_LOGGING
 
 #cmakedefine HAVE_STATS
-
-#cmakedefine HAVE_EPOLL
-
-#cmakedefine HAVE_KQUEUE
