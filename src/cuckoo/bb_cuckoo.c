@@ -29,6 +29,20 @@ static bool cuckoo_init; /* need to make sure memory has been pre-allocate */
 #define OFFSET2ITEM(o) ((struct item *)((ds) + (o) * chunk_size))
 #define RANDOM(k) (random() % k)
 
+#define ITEM_METRICS_INCR(it)   do {                        \
+    INCR(item_curr);                                        \
+    INCR_N(item_key_curr, item_klen(it));                   \
+    INCR_N(item_val_curr, item_vlen(it));                   \
+    INCR_N(item_data_curr, item_datalen(it));               \
+} while(0)
+
+#define ITEM_METRICS_DECR(it)   do {                        \
+    DECR(item_curr);                                        \
+    DECR_N(item_key_curr, item_klen(it));                   \
+    DECR_N(item_val_curr, item_vlen(it));                   \
+    DECR_N(item_data_curr, item_datalen(it));               \
+} while(0)
+
 static inline uint32_t vlen(struct val *val)
 {
     if (val->type == VAL_TYPE_INT) {
@@ -61,9 +75,33 @@ cuckoo_hash(uint32_t offset[], struct bstring *key)
     return;
 }
 
-/* returns a candidate offset based on policy */
+static inline uint32_t
+_select_candidate(const uint32_t offset[])
+{
+    if (cuckoo_policy == CUCKOO_POLICY_RANDOM) {
+        return offset[RANDOM(D)];
+    } else if (cuckoo_policy == CUCKOO_POLICY_EXPIRE) {
+        rel_time_t expire, min = UINT32_MAX; /* legal ts should < UINT32_MAX */
+        uint32_t i, selected;
+
+        for (i = 0; i < D; ++i) {
+            expire = item_expire(OFFSET2ITEM(offset[i]));
+            if (expire < min) {
+                min = expire;
+                selected = offset[i];
+            }
+        }
+
+        return selected;
+    } else {
+        NOT_REACHED();
+        return 0;
+    }
+}
+
+/* sorts candidate offsets based on policy */
 static void
-cuckoo_sort_candidate(uint32_t ordered[], const uint32_t offset[])
+_sort_candidate(uint32_t ordered[], const uint32_t offset[])
 {
     uint32_t i;
     /* offset always holds D elements */
@@ -115,8 +153,6 @@ cuckoo_displace(uint32_t displaced)
     bool ended = false;
     bool evict = true;
 
-    INCR(item_displace);
-
     step = 0;
     path[0] = displaced;
     while (!ended && step < CUCKOO_DISPLACE) {
@@ -129,19 +165,27 @@ cuckoo_displace(uint32_t displaced)
         /* first try to find an empty item */
         for (i = 0; i < D; ++i) {
             it = OFFSET2ITEM(offset[i]);
-            if (!item_valid(it)) {
-                log_verb("item at %p is unoccupied");
-
-                ended = true;
-                evict = false;
-                path[step] = offset[i];
-                break;
+            if (item_valid(it)) {
+                continue;
             }
+            log_verb("item at %p is unoccupied", it);
+
+            ended = true;
+            evict = false;
+            path[step] = offset[i];
+            INCR(item_displace);
+
+            if (item_expired(it)) {
+                INCR(item_expire);
+                ITEM_METRICS_DECR(it);
+            }
+
+            break;
         }
 
         /* no empty item, proceed to displacement */
         if (D == i) {
-            cuckoo_sort_candidate(ordered, offset);
+            _sort_candidate(ordered, offset);
             /* need to find another item that's at a different location. */
             for (j = 0; j < D; ++j) {
                 for (k = 0; k < step; k++) { /* there can be no circle */
@@ -159,6 +203,7 @@ cuckoo_displace(uint32_t displaced)
                 ended = true;
                 --step; /* discard last step */
             } else {
+                INCR(item_displace);
                 displaced = ordered[j]; /* next displaced item */
                 path[step] = displaced;
             }
@@ -168,11 +213,9 @@ cuckoo_displace(uint32_t displaced)
     if (evict) {
         log_verb("one item evicted during replacement");
 
+        it = OFFSET2ITEM(path[step]);
         INCR(item_evict);
-        DECR(item_curr);
-        DECR_N(item_key_curr, item_klen(it));
-        DECR_N(item_val_curr, item_vlen(it));
-        DECR_N(item_data_curr, item_datalen(OFFSET2ITEM(path[step])));
+        ITEM_METRICS_DECR(it);
     }
 
     /* move items along the path we have found */
@@ -235,12 +278,13 @@ cuckoo_lookup(struct bstring *key)
 
     for (i = 0; i < D; ++i) {
         it = OFFSET2ITEM(offset[i]);
-        log_verb("item location: %p", it);
         if (cuckoo_hit(it, key)) {
-            log_verb("item found: %p", it);
+        log_verb("found item at location: %p", it);
             return it;
         }
     }
+
+    log_verb("item not found");
 
     return NULL;
 }
@@ -267,30 +311,22 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
     for (i = 0; i < D; ++i) {
         it = OFFSET2ITEM(offset[i]);
         if (!item_valid(it)) {
-            if (item_expired(it)) {
-                INCR(item_expire);
-                DECR(item_curr);
-                DECR_N(item_key_curr, item_klen(it));
-                DECR_N(item_val_curr, item_vlen(it));
-                DECR_N(item_data_curr, item_datalen(it));
-            }
+            item_expired(it);
+            log_verb("inserting into location: %p", it);
+
             break;
         }
     }
-    log_verb("inserting into location: %p", it);
 
     if (D == i) {
-        displaced = offset[RANDOM(D)];
-        it = OFFSET2ITEM(displaced);
+        displaced = _select_candidate(offset);
+        it = OFFSET2ITEM(displaced); /* we are writing into this item */
         cuckoo_displace(displaced);
     }
 
     item_set(it, key, val, expire);
     INCR(item_insert);
-    INCR(item_curr);
-    INCR_N(item_key_curr, item_klen(it));
-    INCR_N(item_val_curr, item_vlen(it));
-    INCR_N(item_data_curr, item_datalen(it));
+    ITEM_METRICS_INCR(it);
 
     return CC_OK;
 }
@@ -306,11 +342,9 @@ cuckoo_update(struct item *it, struct val *val, rel_time_t expire)
         return CC_ERROR;
     }
 
-    DECR_N(item_key_curr, item_klen(it));
     DECR_N(item_val_curr, item_vlen(it));
     DECR_N(item_data_curr, item_vlen(it));
     item_update(it, val, expire);
-    INCR_N(item_key_curr, item_klen(it));
     INCR_N(item_val_curr, item_vlen(it));
     INCR_N(item_data_curr, item_vlen(it));
 
@@ -326,10 +360,7 @@ cuckoo_delete(struct bstring *key)
 
     if (it != NULL) {
         INCR(item_delete);
-        DECR(item_curr);
-        DECR_N(item_key_curr, item_klen(it));
-        DECR_N(item_val_curr, item_vlen(it));
-        DECR_N(item_data_curr, item_datalen(it));
+        ITEM_METRICS_DECR(it);
         item_delete(it);
         log_verb("deleting item at location %p", it);
 

@@ -139,6 +139,7 @@ item_expire(struct item *it)
     return it->expire;
 }
 
+/* only use this on the read path */
 static inline bool
 item_valid(struct item *it)
 {
@@ -146,9 +147,19 @@ item_valid(struct item *it)
 }
 
 static inline bool
+item_empty(struct item *it)
+{
+    return (it->expire == 0);
+}
+
+static inline bool
 item_expired(struct item *it)
 {
-    return (it->expire > time_now() && it->expire > 0);
+    if (it->expire < time_now() && it->expire > 0) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 static inline bool

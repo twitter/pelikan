@@ -92,8 +92,8 @@ time_now(void)
 static inline rel_time_t
 time_reltime(uint32_t t)
 {
-    if (t == 0) { /* 0 means never expire so we set it to the largest reltime */
-        return UINT32_MAX;
+    if (t == 0) { /* 0 means never expire so we set it a very large number */
+        return UINT32_MAX - 1;
     }
 
     if (t > TIME_MAXDELTA) {

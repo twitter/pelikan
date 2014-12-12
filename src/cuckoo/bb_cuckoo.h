@@ -2,7 +2,6 @@
 #define _BB_CUCKOO_H_
 
 #include <cuckoo/bb_item.h>
-#include <time/bb_time.h>
 
 #include <cc_define.h>
 #include <cc_bstring.h>
@@ -12,7 +11,6 @@
 
 #define CUCKOO_POLICY_RANDOM 1
 #define CUCKOO_POLICY_EXPIRE 2
-
 
 #define CUCKOO_DISPLACE 2
 #define CUCKOO_ITEM_SIZE 64
