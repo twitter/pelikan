@@ -41,7 +41,6 @@
     SYSTEM_METRIC(ACTION)           \
     CODEC_METRIC(ACTION)            \
     CORE_METRIC(ACTION)             \
-    CUCKOO_METRIC(ACTION)           \
     ITEM_METRIC(ACTION)             \
     PROCESS_METRIC(ACTION)          \
     REQUEST_METRIC(ACTION)

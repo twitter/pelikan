@@ -1,5 +1,6 @@
 #include <slimcache/bb_core.h>
 
+#include <bb_stats.h>
 #include <slimcache/bb_process.h>
 
 #include <cc_debug.h>
@@ -238,7 +239,7 @@ _event_read(struct buf_sock *s)
  	if (status == CC_ERROR) {
 	    c->state = CONN_CLOSING;
 	}
-	/* retry is unnecessary when we use level-triggered epoll 
+	/* retry is unnecessary when we use level-triggered epoll
         if (status == CC_ERETRY) {
             event_add_read(ctx->evb, hdl->id(c), s);
         }
@@ -257,25 +258,28 @@ core_event(void *arg, uint32_t events)
     log_verb("event %06"PRIX32" on buf_sock %p", events, s);
 
     if (events & EVENT_ERR) {
+        INCR(event_error);
         _close(s);
 
         return;
     }
 
     if (events & EVENT_READ) {
-    	log_verb("processing read event on buf_sock %p", s);
+        log_verb("processing read event on buf_sock %p", s);
 
+        INCR(event_read);
         _event_read(s);
     }
 
     if (events & EVENT_WRITE) {
-    	log_verb("processing write event on buf_sock %p", s);
+        log_verb("processing write event on buf_sock %p", s);
 
+        INCR(event_write);
         _event_write(s);
     }
 
     if (s->ch->state == CONN_CLOSING ||
-	    (s->ch->state == CONN_EOF && mbuf_rsize(s->wbuf) == 0)) {
+            (s->ch->state == CONN_EOF && mbuf_rsize(s->wbuf) == 0)) {
         _close(s);
     }
 }
@@ -339,7 +343,9 @@ rstatus_t
 core_evwait(void)
 {
     int n;
+
     n = event_wait(ctx->evb, ctx->timeout);
+    INCR_N(core_event, n);
 
     if (n < 0) {
         return n;

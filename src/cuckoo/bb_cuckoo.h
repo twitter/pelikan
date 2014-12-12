@@ -27,13 +27,6 @@
     ACTION( cuckoo_nitem,       OPTION_TYPE_UINT,   str(CUCKOO_NITEM),      "# items allocated"     )\
     ACTION( cuckoo_policy,      OPTION_TYPE_UINT,   str(CUCKOO_POLICY),     "evict policy"          )
 
-/*          name                    type            description */
-#define CUCKOO_METRIC(ACTION)                                               \
-    ACTION( cuckoo_lookup,          METRIC_COUNTER, "# lookups"            )\
-    ACTION( cuckoo_lookup_found,    METRIC_COUNTER, "# positive lookups"   )\
-    ACTION( cuckoo_lookup_notfound, METRIC_COUNTER, "# negative lookups"   )\
-    ACTION( cuckoo_insert,          METRIC_COUNTER, "# inserts"            )
-
 rstatus_t cuckoo_setup(size_t size, uint32_t item, uint32_t policy);
 void cuckoo_teardown(void);
 
