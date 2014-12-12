@@ -78,11 +78,13 @@ cuckoo_hash(uint32_t offset[], struct bstring *key)
 static inline uint32_t
 _select_candidate(const uint32_t offset[])
 {
+    uint32_t selected = offset[0];
+
     if (cuckoo_policy == CUCKOO_POLICY_RANDOM) {
-        return offset[RANDOM(D)];
+        selected = offset[RANDOM(D)];
     } else if (cuckoo_policy == CUCKOO_POLICY_EXPIRE) {
         rel_time_t expire, min = UINT32_MAX; /* legal ts should < UINT32_MAX */
-        uint32_t i, selected;
+        uint32_t i;
 
         for (i = 0; i < D; ++i) {
             expire = item_expire(OFFSET2ITEM(offset[i]));
@@ -91,12 +93,13 @@ _select_candidate(const uint32_t offset[])
                 selected = offset[i];
             }
         }
-
-        return selected;
     } else {
         NOT_REACHED();
-        return 0;
     }
+
+    log_verb("selected offset: %"PRIu32, selected);
+
+    return selected;
 }
 
 /* sorts candidate offsets based on policy */
@@ -310,12 +313,17 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
 
     for (i = 0; i < D; ++i) {
         it = OFFSET2ITEM(offset[i]);
-        if (!item_valid(it)) {
-            item_expired(it);
-            log_verb("inserting into location: %p", it);
-
-            break;
+        if (item_valid(it)) {
+            continue;
         }
+        if (item_expired(it)) {
+            INCR(item_expire);
+            ITEM_METRICS_DECR(it);
+        }
+
+        log_verb("inserting into location: %p", it);
+
+        break;
     }
 
     if (D == i) {
