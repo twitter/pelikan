@@ -19,7 +19,7 @@ time_update(void)
     /* we assume service is online for less than 2^32 seconds */
     now = (rel_time_t) (t - time_start);
 
-    log_verb("internal timer updated to %u", now);
+    log_vverb("internal timer updated to %u", now);
 }
 
 void

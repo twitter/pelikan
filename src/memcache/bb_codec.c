@@ -220,7 +220,6 @@ _check_verb(struct request *req, struct mbuf *buf, bool *end, struct bstring *t,
         complete = true;
         *end = false;
     } else {
-        log_verb("current character: %c", *p);
         status = _try_crlf(buf, p);
         if (status == CC_OK) {
             if (t->len == 0) {

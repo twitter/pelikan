@@ -130,7 +130,7 @@ item_matched(struct item *it, struct bstring *key)
         return false;
     }
 
-    return !cc_bcmp(ITEM_KEY_POS(it), key->data, key->len);
+    return (cc_bcmp(ITEM_KEY_POS(it), key->data, key->len) == 0);
 }
 
 static inline rel_time_t
@@ -143,7 +143,7 @@ item_expire(struct item *it)
 static inline bool
 item_valid(struct item *it)
 {
-    return (it->expire > time_now());
+    return (it->expire >= time_now());
 }
 
 static inline bool
