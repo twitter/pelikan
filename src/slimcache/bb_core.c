@@ -345,12 +345,13 @@ core_evwait(void)
     int n;
 
     n = event_wait(ctx->evb, ctx->timeout);
-    INCR_N(core_event, n);
-    time_update();
-
     if (n < 0) {
         return n;
     }
+
+    INCR(event_loop);
+    INCR_N(event_total, n);
+    time_update();
 
     return CC_OK;
 }

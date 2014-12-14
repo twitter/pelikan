@@ -11,7 +11,8 @@
 
 /*          name                type            description */
 #define CORE_METRIC(ACTION)                                         \
-    ACTION( core_event,     METRIC_COUNTER, "# events returned"    )\
+    ACTION( event_total,     METRIC_COUNTER, "# events returned"   )\
+    ACTION( event_loop,      METRIC_COUNTER, "# events returned"    )\
     ACTION( event_read,      METRIC_COUNTER, "# core_read events"  )\
     ACTION( event_write,     METRIC_COUNTER, "# core_write events" )\
     ACTION( event_error,     METRIC_COUNTER, "# core_error events" )
