@@ -98,6 +98,7 @@ request_pool_create(uint32_t max)
             }
             req->free = true;
             FREEPOOL_RETURN(&reqp, req, next);
+            INCR(request_free);
         }
     } else {
         log_warn("request pool has already been created, ignore");
@@ -132,6 +133,7 @@ request_borrow(void)
     }
     request_reset(req);
 
+    DECR(request_free);
     INCR(request_borrow);
     log_vverb("borrowing req %p", req);
 
