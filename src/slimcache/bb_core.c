@@ -236,14 +236,14 @@ _event_read(struct buf_sock *s)
         _tcpserver(s);
     } else if (c->level == CHANNEL_BASE) {
         status = _read(s);
- 	if (status == CC_ERROR) {
-	    c->state = CONN_CLOSING;
-	}
-	/* retry is unnecessary when we use level-triggered epoll
+        if (status == CC_ERROR) {
+            c->state = CONN_CLOSING;
+        }
+        /* retry is unnecessary when we use level-triggered epoll
         if (status == CC_ERETRY) {
             event_add_read(ctx->evb, hdl->id(c), s);
         }
-	*/
+        */
         _post_read(s);
     } else {
         NOT_REACHED();
