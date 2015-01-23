@@ -212,12 +212,11 @@ _tcpserver(struct buf_sock *ss)
     if (s == NULL) {
         log_error("establish connection failed: cannot allocate buf_sock, "
                 "reject connection request");
-        tcp_reject(sc); /* server rejects connection by closing it */
-
+        ss->hdl->reject(sc); /* server rejects connection by closing it */
         return;
     }
 
-    if (!tcp_accept(sc, s->ch)) {
+    if (!ss->hdl->accept(sc, s->ch)) {
         return;
     }
 

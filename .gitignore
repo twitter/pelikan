@@ -32,3 +32,6 @@
 
 # Core and executable
 /bin
+
+# cscope
+cscope.out
