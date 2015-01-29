@@ -1,4 +1,4 @@
-#include <memcache/bb_codec.h>
+#include <protocol/memcache/bb_codec.h>
 
 #include <bb_stats.h>
 #include <time/bb_time.h>

@@ -1,7 +1,7 @@
 #include <slimcache/bb_process.h>
 
 #include <bb_stats.h>
-#include <cuckoo/bb_cuckoo.h>
+#include <storage/cuckoo/bb_cuckoo.h>
 #include <slimcache/bb_stats.h>
 
 #include <cc_array.h>

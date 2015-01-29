@@ -1,7 +1,7 @@
 #ifndef _BB_PROCESS_H_
 #define _BB_PROCESS_H_
 
-#include <memcache/bb_codec.h>
+#include <protocol/memcache/bb_codec.h>
 
 /*          name                type            description */
 #define PROCESS_METRIC(ACTION)                                          \

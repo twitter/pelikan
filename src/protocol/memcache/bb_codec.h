@@ -1,8 +1,8 @@
 #ifndef _BB_CODEC_H_
 #define _BB_CODEC_H_
 
-#include <memcache/bb_request.h>
-#include <memcache/bb_response.h>
+#include <protocol/memcache/bb_request.h>
+#include <protocol/memcache/bb_response.h>
 
 #include <cc_define.h>
 #include <cc_mbuf.h>

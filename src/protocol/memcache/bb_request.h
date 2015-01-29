@@ -1,7 +1,7 @@
 #ifndef _BB_REQUEST_H_
 #define _BB_REQUEST_H_
 
-#include <memcache/bb_constant.h>
+#include <protocol/memcache/bb_constant.h>
 
 #include <cc_array.h>
 #include <cc_bstring.h>

@@ -1,4 +1,4 @@
-#include <memcache/bb_request.h>
+#include <protocol/memcache/bb_request.h>
 
 #include <bb_stats.h>
 

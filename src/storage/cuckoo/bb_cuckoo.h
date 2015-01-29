@@ -1,7 +1,7 @@
 #ifndef _BB_CUCKOO_H_
 #define _BB_CUCKOO_H_
 
-#include <cuckoo/bb_item.h>
+#include <storage/cuckoo/bb_item.h>
 
 #include <cc_define.h>
 #include <cc_bstring.h>

@@ -1,8 +1,8 @@
 #ifndef _BB_SETTING_H_
 #define _BB_SETTING_H_
 
-#include <cuckoo/bb_cuckoo.h>
-#include <memcache/bb_request.h>
+#include <storage/cuckoo/bb_cuckoo.h>
+#include <protocol/memcache/bb_request.h>
 
 #include <cc_array.h>
 #include <cc_log.h>

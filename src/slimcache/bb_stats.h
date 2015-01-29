@@ -1,10 +1,10 @@
 #ifndef _BB_SSTATS_H_
 #define _BB_SSTATS_H_
 
-#include <cuckoo/bb_cuckoo.h>
-#include <cuckoo/bb_item.h>
-#include <memcache/bb_codec.h>
-#include <memcache/bb_request.h>
+#include <storage/cuckoo/bb_cuckoo.h>
+#include <storage/cuckoo/bb_item.h>
+#include <protocol/memcache/bb_codec.h>
+#include <protocol/memcache/bb_request.h>
 #include <slimcache/bb_core.h>
 #include <slimcache/bb_process.h>
 
