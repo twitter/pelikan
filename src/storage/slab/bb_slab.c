@@ -406,13 +406,13 @@ _slab_evict_one(struct slab *slab)
     for (i = 0; i < p->nitem; i++) {
         it = _slab_to_item(slab, i, p->size);
 
-        if (item_is_linked(it)) {
+        if (it->is_linked) {
             item_reuse(it);
-        } else if (item_is_slabbed(it)) {
+        } else if (it->in_freeq) {
             ASSERT(slab == item_to_slab(it));
             ASSERT(!SLIST_EMPTY(&p->free_itemq));
 
-            item_set_flag(it, ITEM_FREEQ, false);
+            it->in_freeq = 0;
 
             ASSERT(p->nfree_itemq > 0);
             p->nfree_itemq--;
@@ -572,17 +572,17 @@ _slab_get_item_from_freeq(uint8_t id)
     it = SLIST_FIRST(&p->free_itemq);
 
     ASSERT(it->magic == ITEM_MAGIC);
-    ASSERT(item_is_slabbed(it));
-    ASSERT(!item_is_linked(it));
+    ASSERT(it->in_freeq);
+    ASSERT(!(it->is_linked));
 
-    item_set_flag(it, ITEM_FREEQ, false);
+    it->in_freeq = 0;
 
     ASSERT(p->nfree_itemq > 0);
     p->nfree_itemq--;
     SLIST_REMOVE(&p->free_itemq, it, item, i_sle);
 
     log_verb("get free q it '%.*s' at offset %"PRIu32" with id "
-             "%"PRIu8"", it->nkey, item_key(it), it->offset, it->id);
+             "%"PRIu8"", it->klen, item_key(it), it->offset, it->id);
 
     return it;
 }
@@ -647,15 +647,15 @@ _slab_put_item_into_freeq(struct item *it, uint8_t id)
 
     ASSERT(id >= SLABCLASS_MIN_ID && id <= profile_last_id);
     ASSERT(item_to_slab(it)->id == id);
-    ASSERT(!item_is_linked(it));
-    ASSERT(!item_is_slabbed(it));
+    ASSERT(!(it->is_linked));
+    ASSERT(!(it->in_freeq));
     ASSERT(it->refcount == 0);
     ASSERT(it->offset != 0);
 
     log_verb("put free q it '%.*s' at offset %"PRIu32" with id "
-              "%"PRIu8"", it->nkey, item_key(it), it->offset, it->id);
+              "%"PRIu8"", it->klen, item_key(it), it->offset, it->id);
 
-    item_set_flag(it, ITEM_FREEQ, true);
+    it->in_freeq = 0;
 
     p->nfree_itemq++;
     SLIST_INSERT_HEAD(&p->free_itemq, it, i_sle);

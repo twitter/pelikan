@@ -49,68 +49,41 @@
  */
 struct item {
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
-    uint32_t          magic;      /* item magic (const) */
+    uint32_t          magic;         /* item magic (const) */
 #endif
-    SLIST_ENTRY(item) i_sle;      /* link in hash/freeq */
-    rel_time_t        exptime;    /* expiry time in secs */
-    uint32_t          nval;       /* data size */
-    uint32_t          offset;     /* offset of item in slab */
-    uint16_t          refcount;   /* # concurrent users of item */
-    uint8_t           flags;      /* item flags */
-    uint8_t           id;         /* slab class id */
-    uint8_t           nkey;       /* key length */
-    char              end[1];     /* item data */
+    SLIST_ENTRY(item) i_sle;         /* link in hash/freeq */
+    rel_time_t        exptime;       /* expiry time in secs */
+
+    uint32_t          is_linked:1;   /* item in hash */
+    uint32_t          has_cas:1;     /* item has cas */
+    uint32_t          in_freeq:1;    /* item in free queue */
+    uint32_t          is_raligned:1; /* item data (payload) is right-aligned */
+    uint32_t          vtype:1;       /* extra flag for type indication */
+    uint32_t          vlen:27;       /* data size (27 bits since uint32_t is 32 bits and we have 5 flags)
+                                        NOTE: need at least enough bits to support the largest value size allowed
+                                        by the implementation, i.e. SLAB_MAX_SIZE */
+
+    uint32_t          offset;        /* offset of item in slab */
+    uint16_t          refcount;      /* # concurrent users of item */
+    uint8_t           id;            /* slab class id */
+    uint8_t           klen;          /* key length */
+    char              end[1];        /* item data */
 };
 
 #define ITEM_MAGIC      0xfeedface
 #define ITEM_HDR_SIZE   offsetof(struct item, end)
 #define ITEM_CAS_SIZE   sizeof(uint64_t)
 
-typedef enum item_flags {
-    ITEM_LINKED  = 1,  /* item in hash */
-    ITEM_CAS     = 2,  /* item has cas */
-    ITEM_FREEQ   = 4,  /* item in free q */
-    ITEM_RALIGN  = 8,  /* item data (payload) is right-aligned */
-} item_flags_t;
-
 #if __GNUC__ >= 4 && __GNUC_MINOR__ >= 2
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
-
-/* Flag getters */
-static inline bool
-item_has_cas(struct item *it) {
-    return (it->flags & ITEM_CAS);
-}
-
-static inline bool
-item_is_linked(struct item *it) {
-    return (it->flags & ITEM_LINKED);
-}
-
-static inline bool
-item_is_slabbed(struct item *it) {
-    return (it->flags & ITEM_FREEQ);
-}
-
-static inline bool
-item_is_raligned(struct item *it) {
-    return (it->flags & ITEM_RALIGN);
-}
-
-/* Flag setter */
-static inline void
-item_set_flag(struct item *it, item_flags_t flag, bool val)
-{
-    it->flags = val ? it->flags | flag : it->flags & ~flag;
-}
 
 static inline uint64_t
 item_get_cas(struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
 
-    if (item_has_cas(it)) {
+    if (it->has_cas) {
         return *((uint64_t *)it->end);
     }
 
@@ -122,7 +95,7 @@ item_set_cas(struct item *it, uint64_t cas)
 {
     ASSERT(it->magic == ITEM_MAGIC);
 
-    if (item_has_cas(it)) {
+    if (it->has_cas) {
         *((uint64_t *)it->end) = cas;
     }
 }
@@ -139,7 +112,7 @@ item_key(struct item *it)
     ASSERT(it->magic == ITEM_MAGIC);
 
     key = it->end;
-    if (item_has_cas(it)) {
+    if (it->has_cas) {
         key += ITEM_CAS_SIZE;
     }
 
@@ -147,12 +120,12 @@ item_key(struct item *it)
 }
 
 static inline size_t
-item_ntotal(uint8_t nkey, uint32_t nval, bool cas)
+item_ntotal(uint8_t klen, uint32_t vlen, bool cas)
 {
     size_t ntotal;
 
     ntotal = cas ? ITEM_CAS_SIZE : 0;
-    ntotal += ITEM_HDR_SIZE + nkey + nval;
+    ntotal += ITEM_HDR_SIZE + klen + vlen;
 
     return ntotal;
 }
@@ -162,7 +135,7 @@ item_size(struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
 
-    return item_ntotal(it->nkey, it->nval, item_has_cas(it));
+    return item_ntotal(it->klen, it->vlen, it->has_cas);
 }
 
 /* Set up/tear down the item module */
@@ -179,10 +152,10 @@ struct slab *item_to_slab(struct item *it);
 void item_hdr_init(struct item *it, uint32_t offset, uint8_t id);
 
 /* Calculate slab id that will accommodate item with given key/val lengths */
-uint8_t item_slabid(uint8_t nkey, uint32_t nval);
+uint8_t item_slabid(uint8_t klen, uint32_t vlen);
 
 /* Allocate a new item */
-struct item *item_alloc(const struct bstring *key, rel_time_t exptime, uint32_t nval);
+struct item *item_alloc(const struct bstring *key, rel_time_t exptime, uint32_t vlen);
 
 /* Make an item with zero refcount available for reuse by unlinking it from hash */
 void item_reuse(struct item *it);

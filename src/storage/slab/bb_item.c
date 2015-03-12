@@ -52,10 +52,10 @@ item_data(struct item *it)
 
     ASSERT(it->magic == ITEM_MAGIC);
 
-    if (item_is_raligned(it)) {
-        data = (char *)it + slab_item_size(it->id) - it->nval;
+    if (it->is_raligned) {
+        data = (char *)it + slab_item_size(it->id) - it->vlen;
     } else {
-        data = it->end + it->nkey + (item_has_cas(it) ? sizeof(uint64_t) : 0);
+        data = it->end + it->klen + (it->has_cas ? sizeof(uint64_t) : 0);
     }
 
     return data;
@@ -90,21 +90,21 @@ item_hdr_init(struct item *it, uint32_t offset, uint8_t id)
     it->offset = offset;
     it->id = id;
     it->refcount = 0;
-    it->flags = 0;
+    it->is_linked = it->has_cas = it->in_freeq = it->is_raligned = 0;
 }
 
-uint8_t item_slabid(uint8_t nkey, uint32_t nval)
+uint8_t item_slabid(uint8_t klen, uint32_t vlen)
 {
     size_t ntotal;
     uint8_t id;
 
-    ntotal = item_ntotal(nkey, nval, use_cas);
+    ntotal = item_ntotal(klen, vlen, use_cas);
 
     id = slab_id(ntotal);
     if (id == SLABCLASS_INVALID_ID) {
         log_info("slab class id out of range with %"PRIu8" bytes "
-                  "key, %"PRIu32" bytes value and %zu item chunk size", nkey,
-                  nval, ntotal);
+                  "key, %"PRIu32" bytes value and %zu item chunk size", klen,
+                  vlen, ntotal);
     }
 
     return id;
@@ -130,18 +130,20 @@ static void
 _item_release_refcount(struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
-    ASSERT(!item_is_slabbed(it));
+    ASSERT(!(it->in_freeq));
 
     log_debug("remove it '%.*s' at offset %"PRIu32" with flags "
-              "%02x id %"PRId8" refcount %"PRIu16"", it->nkey, item_key(it),
-              it->offset, it->flags, it->id, it->refcount);
+              "%d %d %d %d id %"PRId8" refcount %"PRIu16"",
+              it->klen, item_key(it), it->offset, it->is_linked,
+              it->has_cas, it->in_freeq, it->is_raligned, it->id,
+              it->refcount);
 
     if (it->refcount != 0) {
         --it->refcount;
         slab_release_refcount(item_to_slab(it));
     }
 
-    if (it->refcount == 0 && !item_is_linked(it)) {
+    if (it->refcount == 0 && !(it->is_linked)) {
         _item_free(it);
     }
 }
@@ -156,10 +158,10 @@ _item_release_refcount(struct item *it)
  * into the hash or is freed.
  */
 struct item *
-item_alloc(const struct bstring *key, rel_time_t exptime, uint32_t nval)
+item_alloc(const struct bstring *key, rel_time_t exptime, uint32_t vlen)
 {
     struct item *it;  /* item */
-    uint8_t id = slab_id(item_ntotal(key->len, nval, use_cas));
+    uint8_t id = slab_id(item_ntotal(key->len, vlen, use_cas));
 
     ASSERT(id >= SLABCLASS_MIN_ID && id <= SLABCLASS_MAX_ID);
 
@@ -176,17 +178,20 @@ item_alloc(const struct bstring *key, rel_time_t exptime, uint32_t nval)
 alloc_done:
 
     ASSERT(it->id == id);
-    ASSERT(!item_is_linked(it));
-    ASSERT(!item_is_slabbed(it));
+    ASSERT(!(it->is_linked));
+    ASSERT(!(it->in_freeq));
     ASSERT(it->offset != 0);
     ASSERT(it->refcount == 0);
 
     _item_acquire_refcount(it);
 
-    it->flags = use_cas ? ITEM_CAS : 0;
-    it->nval = nval;
+    it->is_linked = 0;
+    it->has_cas = use_cas ? 1 : 0;
+    it->in_freeq = 0;
+    it->is_raligned = 0;
+    it->vlen = vlen;
     it->exptime = exptime;
-    it->nkey = key->len;
+    it->klen = key->len;
 
 /* #if defined MC_MEM_SCRUB && MC_MEM_SCRUB == 1 */
 /*     memset(it->end, 0xff, slab_item_size(it->id) - ITEM_HDR_SIZE); */
@@ -213,17 +218,17 @@ void
 item_reuse(struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
-    ASSERT(!item_is_slabbed(it));
-    ASSERT(item_is_linked(it));
+    ASSERT(!(it->in_freeq));
+    ASSERT(it->is_linked);
     ASSERT(it->refcount == 0);
 
-    item_set_flag(it, ITEM_LINKED, false);
+    it->is_linked = 0;
 
-    assoc_delete((uint8_t *)item_key(it), it->nkey);
+    assoc_delete((uint8_t *)item_key(it), it->klen);
 
     log_verb("reuse %s it '%.*s' at offset %"PRIu32" with id "
               "%"PRIu8"", _item_expired(it) ? "expired" : "evicted",
-              it->nkey, item_key(it), it->offset, it->id);
+              it->klen, item_key(it), it->offset, it->id);
 }
 
 /*
@@ -233,14 +238,14 @@ static void
 _item_link(struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
-    ASSERT(!item_is_linked(it));
-    ASSERT(!item_is_slabbed(it));
+    ASSERT(!(it->is_linked));
+    ASSERT(!(it->in_freeq));
 
     log_debug("link it '%.*s' at offset %"PRIu32" with flags "
-              "%02x id %"PRId8"", it->nkey, item_key(it), it->offset,
-              it->flags, it->id);
+              "%d %d %d %d id %"PRId8"", it->klen, item_key(it), it->offset,
+              it->is_linked, it->has_cas, it->in_freeq, it->is_raligned, it->id);
 
-    item_set_flag(it, ITEM_LINKED, true);
+    it->is_linked = 1;
     item_set_cas(it, _item_next_cas());
 
     assoc_insert(it);
@@ -256,13 +261,13 @@ _item_unlink(struct item *it)
     ASSERT(it->magic == ITEM_MAGIC);
 
     log_debug("unlink it '%.*s' at offset %"PRIu32" with flags "
-              "%02x id %"PRId8"", it->nkey, item_key(it), it->offset,
-              it->flags, it->id);
+              "%d %d %d %d id %"PRId8"", it->klen, item_key(it), it->offset,
+              it->is_linked, it->has_cas, it->in_freeq, it->is_raligned, it->id);
 
-    if (item_is_linked(it)) {
-        item_set_flag(it, ITEM_LINKED, false);
+    if (it->is_linked) {
+        it->is_linked = 0;
 
-        assoc_delete((uint8_t *)item_key(it), it->nkey);
+        assoc_delete((uint8_t *)item_key(it), it->klen);
 
         if (it->refcount == 0) {
             _item_free(it);
@@ -277,13 +282,13 @@ static void
 _item_relink(struct item *it, struct item *nit)
 {
     ASSERT(it->magic == ITEM_MAGIC);
-    ASSERT(!item_is_slabbed(it));
+    ASSERT(!(it->in_freeq));
 
     ASSERT(nit->magic == ITEM_MAGIC);
-    ASSERT(!item_is_slabbed(nit));
+    ASSERT(!(nit->in_freeq));
 
     log_verb("relink it '%.*s' at offset %"PRIu32" id %"PRIu8" "
-              "with one at offset %"PRIu32" id %"PRIu8"", it->nkey,
+              "with one at offset %"PRIu32" id %"PRIu8"", it->klen,
               item_key(it), it->offset, it->id, nit->offset, nit->id);
 
     _item_unlink(it);
@@ -317,8 +322,8 @@ item_get(const struct bstring *key)
     _item_acquire_refcount(it);
 
     log_verb("get it '%.*s' found at offset %"PRIu32" with flags "
-             "%02x id %"PRIu8" refcount %"PRIu32"", key->len, key->data,
-             it->offset, it->flags, it->id);
+             "%d %d %d %d id %"PRIu8" refcount %"PRIu32"", key->len, key->data,
+             it->offset, it->is_linked, it->has_cas, it->in_freeq, it->is_raligned, it->id);
 
     return it;
 }
@@ -340,9 +345,9 @@ item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptim
         _item_release_refcount(oit);
     }
 
-    log_verb("store it '%.*s'at offset %"PRIu32" with flags %02x"
-              " id %"PRId8"", key->len, key->data, it->offset, it->flags,
-              it->id);
+    log_verb("store it '%.*s'at offset %"PRIu32" with flags %d %d %d %d"
+             " id %"PRId8"", key->len, key->data, it->offset, it->is_linked,
+             it->has_cas, it->in_freeq, it->is_raligned, it->id);
 
     _item_release_refcount(it);
 }
@@ -377,9 +382,9 @@ item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptim
     _item_relink(oit, it);
     ret = CC_OK;
 
-    log_verb("cas it '%.*s'at offset %"PRIu32" with flags %02x"
-             " id %"PRId8"", key->len, key->data, it->offset, it->flags,
-             it->id);
+    log_verb("cas it '%.*s'at offset %"PRIu32" with flags %d %d %d %d"
+             " id %"PRId8"", key->len, key->data, it->offset, it->is_linked,
+             it->has_cas, it->in_freeq, it->is_raligned, it->id);
 
 cas_done:
     if (oit != NULL) {
@@ -411,7 +416,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
         goto annex_done;
     }
 
-    total_nbyte = oit->nval + val->len;
+    total_nbyte = oit->vlen + val->len;
     id = item_slabid(key->len, total_nbyte);
     if (id == SLABCLASS_INVALID_ID) {
         log_info("client error: annex operation results in oversized item"
@@ -423,9 +428,9 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
         goto annex_done;
     }
 
-    log_verb("annex to oit '%.*s'at offset %"PRIu32" with flags %02x"
-              " id %"PRId8"", oit->nkey, item_key(oit), oit->offset, oit->flags,
-              oit->id);
+    log_verb("annex to oit '%.*s'at offset %"PRIu32" with flags %d %d %d %d"
+             " id %"PRId8"", oit->klen, item_key(oit), oit->offset, oit->is_linked,
+             oit->has_cas, oit->in_freeq, oit->is_raligned, oit->id);
 
     if (append) {
         /* if oit is large enough to hold the extra data and left-aligned,
@@ -433,9 +438,9 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
          * the existing data. Otherwise, allocate a new item and store the
          * payload left-aligned.
          */
-        if (id == oit->id && !item_is_raligned(oit)) {
-            cc_memcpy(item_data(oit) + oit->nval, val->data, val->len);
-            oit->nval = total_nbyte;
+        if (id == oit->id && !(oit->is_raligned)) {
+            cc_memcpy(item_data(oit) + oit->vlen, val->data, val->len);
+            oit->vlen = total_nbyte;
             item_set_cas(oit, _item_next_cas());
         } else {
             nit = item_alloc(key, oit->exptime, total_nbyte);
@@ -445,8 +450,8 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
                 goto annex_done;
             }
 
-            cc_memcpy(item_data(nit), item_data(oit), oit->nval);
-            cc_memcpy(item_data(nit) + oit->nval, val->data, val->len);
+            cc_memcpy(item_data(nit), item_data(oit), oit->vlen);
+            cc_memcpy(item_data(nit) + oit->vlen, val->data, val->len);
             _item_relink(oit, nit);
         }
     } else {
@@ -455,9 +460,9 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
          * data. Otherwise, allocate a new item and store the payload
          * right-aligned, assuming more prepends will happen in the future.
          */
-        if (id == oit->id && item_is_raligned(oit)) {
+        if (id == oit->id && oit->is_raligned) {
             cc_memcpy(item_data(oit) - val->len, val->data, val->len);
-            oit->nval = total_nbyte;
+            oit->vlen = total_nbyte;
             item_set_cas(oit, _item_next_cas());
         } else {
             nit = item_alloc(key, oit->exptime, total_nbyte);
@@ -467,15 +472,15 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
                 goto annex_done;
             }
 
-            item_set_flag(nit, ITEM_RALIGN, true);
-            cc_memcpy(item_data(nit) + val->len, item_data(oit), oit->nval);
+            nit->is_raligned = 1;
+            cc_memcpy(item_data(nit) + val->len, item_data(oit), oit->vlen);
             cc_memcpy(item_data(nit), val->data, val->len);
             _item_relink(oit, nit);
         }
     }
 
     log_verb("annex successfully to it'%.*s', new id"PRId8,
-             oit->nkey, item_key(oit), id);
+             oit->klen, item_key(oit), id);
 
 
 annex_done:
