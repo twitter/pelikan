@@ -501,12 +501,12 @@ item_update(struct item *it, const struct bstring *val)
     ASSERT(it != NULL);
     ASSERT(it->id != SLABCLASS_INVALID_ID);
 
-    if(item_slabid(it->nkey, val->len) != it->id) {
+    if(item_slabid(it->klen, val->len) != it->id) {
         /* val is oversized */
         return CC_ERROR;
     }
 
-    it->nval = val->len;
+    it->vlen = val->len;
     cc_memcpy(item_data(it), val->data, val->len);
 
     return CC_OK;
