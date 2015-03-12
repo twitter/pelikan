@@ -71,7 +71,6 @@ typedef enum item_flags {
     ITEM_CAS     = 2,  /* item has cas */
     ITEM_FREEQ   = 4,  /* item in free q */
     ITEM_RALIGN  = 8,  /* item data (payload) is right-aligned */
-    ITEM_INT     = 16, /* item payload is an integer (int64_t) */
 } item_flags_t;
 
 #if __GNUC__ >= 4 && __GNUC_MINOR__ >= 2
@@ -97,11 +96,6 @@ item_is_slabbed(struct item *it) {
 static inline bool
 item_is_raligned(struct item *it) {
     return (it->flags & ITEM_RALIGN);
-}
-
-static inline bool
-item_is_integer(struct item *it) {
-    return (it->flags & ITEM_INT);
 }
 
 /* Flag setter */
@@ -205,8 +199,8 @@ rstatus_t item_cas(const struct bstring *key, const struct bstring *val, rel_tim
 /* Append/prepend */
 rstatus_t item_annex(const struct bstring *key, const struct bstring *val, bool append);
 
-/* Increment/decrement value (only if item value is integer) */
-rstatus_t item_delta(const struct bstring *key, int64_t delta, rel_time_t exptime);
+/* In place item update (replace item value) */
+rstatus_t item_update(struct item *it, const struct bstring *val);
 
 /* Remove item from cache */
 rstatus_t item_delete(const struct bstring *key);

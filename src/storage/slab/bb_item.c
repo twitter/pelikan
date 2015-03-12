@@ -490,41 +490,23 @@ annex_done:
     return ret;
 }
 
-/*
- * Apply a delta value (positive or negative) to an item.
- */
 rstatus_t
-item_delta(const struct bstring *key, int64_t delta, rel_time_t exptime)
+item_update(struct item *it, const struct bstring *val)
 {
-    rstatus_t ret = CC_OK;
-    struct item *it;
+    ASSERT(it != NULL);
+    ASSERT(it->id != SLABCLASS_INVALID_ID);
 
-    it = item_get(key);
-    if (it == NULL) {
+    if(item_slabid(it->nkey, val->len) != it->id) {
+        /* val is oversized */
         return CC_ERROR;
-
-        goto delta_done;
     }
 
-    if (!item_is_integer(it)) {
-        ret = CC_ERROR;
-        goto delta_done;
-    }
+    it->nval = val->len;
+    cc_memcpy(item_data(it), val->data, val->len);
 
-    *((int64_t*)item_data(it)) += delta;
-    item_set_cas(it, _item_next_cas());
-    it->exptime = exptime;
-
-delta_done:
-
-    _item_release_refcount(it);
-
-    return ret;
+    return CC_OK;
 }
 
-/*
- * Unlink an item and remove it (if its recount drops to zero).
- */
 rstatus_t
 item_delete(const struct bstring *key)
 {
