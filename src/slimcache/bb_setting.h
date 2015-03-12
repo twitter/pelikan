@@ -13,7 +13,6 @@
 #include <channel/cc_tcp.h>
 #include <stream/cc_sockio.h>
 
-
 /* option related */
 /*          name            type                default     description */
 #define SERVER_OPTION(ACTION)                                                           \

@@ -1,0 +1,214 @@
+#ifndef _BB_ITEM_H_
+#define _BB_ITEM_H_
+
+#include <storage/slab/bb_slab.h>
+
+#include <time/bb_time.h>
+
+#include <cc_bstring.h>
+#include <cc_debug.h>
+#include <cc_queue.h>
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+/*
+ * Every item chunk in the cache starts with a header (struct item)
+ * followed by item data. An item is essentially a chunk of memory
+ * carved out of a slab. Every item is owned by its parent slab.
+ *
+ * Items are either linked or unlinked. When item is first allocated and
+ * has no data, it is unlinked. When data is copied into an item, it is
+ * linked into the hash table (ITEM_LINKED). When item is deleted either
+ * explicitly or due to item expiration, it is moved in the free q
+ * (ITEM_FREEQ). The flags ITEM_LINKED and ITEM_FREEQ are mutually
+ * exclusive and when an item is unlinked it has neither of these flags.
+ *
+ *   <-----------------------item size------------------>
+ *   +---------------+----------------------------------+
+ *   |               |                                  |
+ *   |  item header  |          item payload            |
+ *   | (struct item) |         ...      ...             |
+ *   +---------------+-------+-------+------------------+
+ *   ^               ^       ^       ^
+ *   |               |       |       |
+ *   |               |       |       |
+ *   |               |       |       |
+ *   |               |       |       \
+ *   |               |       |       item_data()
+ *   |               |       \
+ *   \               |       item_key()
+ *   item            \
+ *                   item->end, (if enabled) item_get_cas()
+ *
+ * item->end is followed by:
+ * - 8-byte cas, if ITEM_CAS flag is set
+ * - key
+ * - data
+ */
+struct item {
+#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
+    uint32_t          magic;      /* item magic (const) */
+#endif
+    SLIST_ENTRY(item) i_sle;      /* link in hash/freeq */
+    rel_time_t        exptime;    /* expiry time in secs */
+    uint32_t          nval;       /* data size */
+    uint32_t          offset;     /* offset of item in slab */
+    uint16_t          refcount;   /* # concurrent users of item */
+    uint8_t           flags;      /* item flags */
+    uint8_t           id;         /* slab class id */
+    uint8_t           nkey;       /* key length */
+    char              end[1];     /* item data */
+};
+
+#define ITEM_MAGIC      0xfeedface
+#define ITEM_HDR_SIZE   offsetof(struct item, end)
+#define ITEM_CAS_SIZE   sizeof(uint64_t)
+
+typedef enum item_flags {
+    ITEM_LINKED  = 1,  /* item in hash */
+    ITEM_CAS     = 2,  /* item has cas */
+    ITEM_FREEQ   = 4,  /* item in free q */
+    ITEM_RALIGN  = 8,  /* item data (payload) is right-aligned */
+    ITEM_INT     = 16, /* item payload is an integer (int64_t) */
+} item_flags_t;
+
+#if __GNUC__ >= 4 && __GNUC_MINOR__ >= 2
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
+
+/* Flag getters */
+static inline bool
+item_has_cas(struct item *it) {
+    return (it->flags & ITEM_CAS);
+}
+
+static inline bool
+item_is_linked(struct item *it) {
+    return (it->flags & ITEM_LINKED);
+}
+
+static inline bool
+item_is_slabbed(struct item *it) {
+    return (it->flags & ITEM_FREEQ);
+}
+
+static inline bool
+item_is_raligned(struct item *it) {
+    return (it->flags & ITEM_RALIGN);
+}
+
+static inline bool
+item_is_integer(struct item *it) {
+    return (it->flags & ITEM_INT);
+}
+
+/* Flag setter */
+static inline void
+item_set_flag(struct item *it, item_flags_t flag, bool val)
+{
+    it->flags = val ? it->flags | flag : it->flags & ~flag;
+}
+
+static inline uint64_t
+item_get_cas(struct item *it)
+{
+    ASSERT(it->magic == ITEM_MAGIC);
+
+    if (item_has_cas(it)) {
+        return *((uint64_t *)it->end);
+    }
+
+    return 0;
+}
+
+static inline void
+item_set_cas(struct item *it, uint64_t cas)
+{
+    ASSERT(it->magic == ITEM_MAGIC);
+
+    if (item_has_cas(it)) {
+        *((uint64_t *)it->end) = cas;
+    }
+}
+
+#if __GNUC__ >= 4 && __GNUC_MINOR__ >= 6
+#pragma GCC diagnostic pop
+#endif
+
+static inline char *
+item_key(struct item *it)
+{
+    char *key;
+
+    ASSERT(it->magic == ITEM_MAGIC);
+
+    key = it->end;
+    if (item_has_cas(it)) {
+        key += ITEM_CAS_SIZE;
+    }
+
+    return key;
+}
+
+static inline size_t
+item_ntotal(uint8_t nkey, uint32_t nval, bool cas)
+{
+    size_t ntotal;
+
+    ntotal = cas ? ITEM_CAS_SIZE : 0;
+    ntotal += ITEM_HDR_SIZE + nkey + nval;
+
+    return ntotal;
+}
+
+static inline size_t
+item_size(struct item *it)
+{
+    ASSERT(it->magic == ITEM_MAGIC);
+
+    return item_ntotal(it->nkey, it->nval, item_has_cas(it));
+}
+
+/* Set up/tear down the item module */
+void item_setup(void);
+void item_teardown(void);
+
+/* Get item payload */
+char * item_data(struct item *it);
+
+/* Get the slab the item belongs to */
+struct slab *item_to_slab(struct item *it);
+
+/* Init header for given item */
+void item_hdr_init(struct item *it, uint32_t offset, uint8_t id);
+
+/* Calculate slab id that will accommodate item with given key/val lengths */
+uint8_t item_slabid(uint8_t nkey, uint32_t nval);
+
+/* Allocate a new item */
+struct item *item_alloc(const struct bstring *key, rel_time_t exptime, uint32_t nval);
+
+/* Make an item with zero refcount available for reuse by unlinking it from hash */
+void item_reuse(struct item *it);
+
+/* Item lookup */
+struct item *item_get(const struct bstring *key);
+
+/* Set item value. Adds new item if item with key doesn't exist */
+void item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptime);
+
+/* Perform check-and-set */
+rstatus_t item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptime, uint64_t cas);
+
+/* Append/prepend */
+rstatus_t item_annex(const struct bstring *key, const struct bstring *val, bool append);
+
+/* Increment/decrement value (only if item value is integer) */
+rstatus_t item_delta(const struct bstring *key, int64_t delta, rel_time_t exptime);
+
+/* Remove item from cache */
+rstatus_t item_delete(const struct bstring *key);
+
+#endif
