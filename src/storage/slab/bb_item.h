@@ -78,6 +78,14 @@ struct item {
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
+typedef enum item_rstatus {
+    ITEM_OK,
+    ITEM_ENOTFOUND,
+    ITEM_EOVERSIZED,
+    ITEM_ENOMEM,
+    ITEM_EOTHER,
+} item_rstatus_t;
+
 static inline uint64_t
 item_get_cas(struct item *it)
 {
@@ -167,15 +175,15 @@ struct item *item_get(const struct bstring *key);
 void item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptime);
 
 /* Perform check-and-set */
-rstatus_t item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptime, uint64_t cas);
+item_rstatus_t item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptime, uint64_t cas);
 
 /* Append/prepend */
-rstatus_t item_annex(const struct bstring *key, const struct bstring *val, bool append);
+item_rstatus_t item_annex(const struct bstring *key, const struct bstring *val, bool append);
 
 /* In place item update (replace item value) */
-rstatus_t item_update(struct item *it, const struct bstring *val);
+item_rstatus_t item_update(struct item *it, const struct bstring *val);
 
 /* Remove item from cache */
-rstatus_t item_delete(const struct bstring *key);
+item_rstatus_t item_delete(const struct bstring *key);
 
 #endif

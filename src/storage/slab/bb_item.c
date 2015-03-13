@@ -352,16 +352,16 @@ item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptim
     _item_release_refcount(it);
 }
 
-rstatus_t
+item_rstatus_t
 item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptime, uint64_t cas)
 {
-    rstatus_t ret;
+    item_rstatus_t ret;
     struct item *it = NULL, *oit;
 
     oit = item_get(key);
 
     if (oit == NULL) {
-        ret = CC_ERROR;
+        ret = ITEM_ENOTFOUND;
 
         goto cas_done;
     }
@@ -370,7 +370,7 @@ item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptim
         log_debug("cas mismatch %"PRIu64" != %"PRIu64 "on "
                   "it '%.*s'", item_get_cas(oit), cas, key->len, key->data);
 
-        ret = CC_ERROR;
+        ret = ITEM_EOTHER;
 
         goto cas_done;
     }
@@ -380,7 +380,7 @@ item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptim
     cc_memcpy(item_data(it), val->data, val->len);
 
     _item_relink(oit, it);
-    ret = CC_OK;
+    ret = ITEM_OK;
 
     log_verb("cas it '%.*s'at offset %"PRIu32" with flags %d %d %d %d"
              " id %"PRId8"", key->len, key->data, it->offset, it->is_linked,
@@ -398,20 +398,20 @@ cas_done:
     return ret;
 }
 
-rstatus_t
+item_rstatus_t
 item_annex(const struct bstring *key, const struct bstring *val, bool append)
 {
-    rstatus_t ret;
+    item_rstatus_t ret;
     struct item *oit, *nit;
     uint8_t id;
     uint32_t total_nbyte;
 
-    ret = CC_OK;
+    ret = ITEM_OK;
 
     oit = item_get(key);
     nit = NULL;
     if (oit == NULL) {
-        ret = CC_ERROR;
+        ret = ITEM_ENOTFOUND;
 
         goto annex_done;
     }
@@ -423,7 +423,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
                    "on key '%.*s' with key size %"PRIu8" and value size %"PRIu32,
                    key->len, key->data, key->len, total_nbyte);
 
-        ret = CC_ERROR;
+        ret = ITEM_EOVERSIZED;
 
         goto annex_done;
     }
@@ -445,7 +445,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
         } else {
             nit = item_alloc(key, oit->exptime, total_nbyte);
             if (nit == NULL) {
-                ret = CC_ENOMEM;
+                ret = ITEM_ENOMEM;
 
                 goto annex_done;
             }
@@ -467,7 +467,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
         } else {
             nit = item_alloc(key, oit->exptime, total_nbyte);
             if (nit == NULL) {
-                ret = CC_ENOMEM;
+                ret = ITEM_ENOMEM;
 
                 goto annex_done;
             }
@@ -495,7 +495,7 @@ annex_done:
     return ret;
 }
 
-rstatus_t
+item_rstatus_t
 item_update(struct item *it, const struct bstring *val)
 {
     ASSERT(it != NULL);
@@ -503,19 +503,19 @@ item_update(struct item *it, const struct bstring *val)
 
     if(item_slabid(it->klen, val->len) != it->id) {
         /* val is oversized */
-        return CC_ERROR;
+        return ITEM_EOVERSIZED;
     }
 
     it->vlen = val->len;
     cc_memcpy(item_data(it), val->data, val->len);
 
-    return CC_OK;
+    return ITEM_OK;
 }
 
-rstatus_t
+item_rstatus_t
 item_delete(const struct bstring *key)
 {
-    rstatus_t ret = CC_OK;
+    item_rstatus_t ret = ITEM_OK;
     struct item *it;
 
     it = item_get(key);
@@ -523,7 +523,7 @@ item_delete(const struct bstring *key)
         _item_unlink(it);
         _item_release_refcount(it);
     } else {
-        ret = CC_ERROR;
+        ret = ITEM_ENOTFOUND;
     }
 
     return ret;
