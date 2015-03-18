@@ -313,6 +313,11 @@ setup(void)
         goto error;
     }
 
+    ret = signal_pipe_ignore();
+    if (ret < 0) {
+        goto error;
+    }
+
     /* daemonize */
     if (setting.daemonize.val.vbool) {
         daemonize();
