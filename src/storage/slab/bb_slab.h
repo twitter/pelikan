@@ -6,20 +6,18 @@
 
 #include <cc_define.h>
 #include <cc_queue.h>
+#include <cc_util.h>
 
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#define KB              (1024)
-#define MB              (1024 * KB)
-#define GB              (1024 * MB)
 #define SLAB_MAGIC      0xdeadbeef
 #define SLAB_HDR_SIZE   offsetof(struct slab, data)
 #define SLAB_MIN_SIZE   ((size_t) 512)
-#define SLAB_MAX_SIZE   ((size_t) (128 * MB))
-#define SLAB_SIZE       MB
+#define SLAB_MAX_SIZE   ((size_t) (128 * MiB))
+#define SLAB_SIZE       MiB
 
 /* Eviction options */
 #define EVICT_NONE    0x00 /* throw OOM, no eviction */
@@ -33,9 +31,9 @@
     ACTION( prealloc,        OPTION_TYPE_BOOL,   "yes",           "Allocate slabs ahead of time")\
     ACTION( evict_opt,       OPTION_TYPE_UINT,   str(EVICT_NONE), "Eviction strategy"           )\
     ACTION( use_freeq,       OPTION_TYPE_BOOL,   "yes",           "Use items in free queue?"    )\
-    ACTION( slab_size,       OPTION_TYPE_UINT,   str(MB),         "Slab size"                   )\
-    ACTION( chunk_size,      OPTION_TYPE_UINT,   str(KB),         "Chunk size"                  )\
-    ACTION( maxbytes,        OPTION_TYPE_UINT,   str(GB),         "Maximum bytes allocated"     )\
+    ACTION( slab_size,       OPTION_TYPE_UINT,   str(MiB),        "Slab size"                   )\
+    ACTION( chunk_size,      OPTION_TYPE_UINT,   str(KiB),        "Chunk size"                  )\
+    ACTION( maxbytes,        OPTION_TYPE_UINT,   str(GiB),        "Maximum bytes allocated"     )\
     ACTION( profile,         OPTION_TYPE_STR,    NULL,            "Slab profile"                )\
     ACTION( profile_last_id, OPTION_TYPE_UINT,   "0",             "Last id in slab profile"     )\
     ACTION( use_cas,         OPTION_TYPE_BOOL,   "yes",           "CAS enabled for slabbed mm"  )
