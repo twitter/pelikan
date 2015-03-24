@@ -68,7 +68,7 @@ show_version(void)
     log_stdout("Version: %s", BB_VERSION_STRING);
 }
 
-static int
+static rstatus_t
 getaddr(struct addrinfo **ai, char *hostname, char *servname)
 {
     struct addrinfo hints = { .ai_flags = AI_PASSIVE, .ai_family = AF_UNSPEC,
@@ -76,11 +76,13 @@ getaddr(struct addrinfo **ai, char *hostname, char *servname)
     int ret;
 
     ret = getaddrinfo(hostname, servname, &hints, ai);
-    if (ret < 0) {
-        log_error("cannot resolve address");
+    if (ret != 0) {
+        log_error("cannot resolve address: %s", gai_strerror(ret));
+
+        return CC_ERROR;
     }
 
-    return ret;
+    return CC_OK;
 }
 
 static void
@@ -287,9 +289,9 @@ setup(void)
     request_pool_create((uint32_t)setting.request_poolsize.val.vuint);
 
     /* set up core after static resources are ready */
-    ret = getaddr(&ai, setting.server_host.val.vstr,
+    status = getaddr(&ai, setting.server_host.val.vstr,
             setting.server_port.val.vstr);
-    if (ret < 0) {
+    if (status != CC_OK) {
         log_error("address invalid");
 
         goto error;
