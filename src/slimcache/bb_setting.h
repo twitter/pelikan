@@ -4,9 +4,9 @@
 #include <storage/cuckoo/bb_cuckoo.h>
 #include <protocol/memcache/bb_request.h>
 
+#include <buffer/cc_mbuf.h>
 #include <cc_array.h>
 #include <cc_log.h>
-#include <cc_mbuf.h>
 #include <cc_metric.h>
 #include <cc_option.h>
 #include <cc_signal.h>

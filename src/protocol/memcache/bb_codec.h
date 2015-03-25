@@ -4,8 +4,8 @@
 #include <protocol/memcache/bb_request.h>
 #include <protocol/memcache/bb_response.h>
 
+#include <buffer/cc_mbuf.h>
 #include <cc_define.h>
-#include <cc_mbuf.h>
 #include <cc_metric.h>
 
 /*          name                type            description */
