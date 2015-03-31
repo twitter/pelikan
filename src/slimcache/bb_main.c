@@ -264,7 +264,7 @@ setup(void)
 
     time_setup();
 
-    mbuf_setup((uint32_t)setting.mbuf_size.val.vuint);
+    fbuf_setup((uint32_t)setting.fbuf_size.val.vuint);
 
     array_setup((uint32_t)setting.array_nelem_delta.val.vuint);
 
@@ -279,9 +279,9 @@ setup(void)
     }
 
     /**
-     * Here we don't create mbuf or conn pool because buf_sock will allocate
+     * Here we don't create fbuf or conn pool because buf_sock will allocate
      * those objects and hold onto them as part of its create/allocate process.
-     * So it will not use mbuf/conn pool resources and we have no use of them
+     * So it will not use fbuf/conn pool resources and we have no use of them
      * outside the context of buf_sock.
      * Do not set those poolsizes in the config script, they will not be used.
      */
@@ -342,12 +342,12 @@ error:
     request_pool_destroy();
     buf_sock_pool_destroy();
     conn_pool_destroy();
-    mbuf_pool_destroy();
+    fbuf_pool_destroy();
 
     cuckoo_teardown();
     item_teardown();
     array_teardown();
-    mbuf_teardown();
+    fbuf_teardown();
     time_teardown();
 
     log_teardown();

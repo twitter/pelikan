@@ -33,6 +33,6 @@
     ACTION( decr_error,         METRIC_COUNTER, "# decr errors"        )
 
 
-rstatus_t process_request(struct request *req, struct mbuf *buf);
+rstatus_t process_request(struct request *req, struct fbuf *buf);
 
 #endif /* _BB_PROCESS_H_ */

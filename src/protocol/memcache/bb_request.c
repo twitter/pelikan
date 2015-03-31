@@ -85,7 +85,7 @@ request_pool_create(uint32_t max)
         FREEPOOL_CREATE(&reqp, max);
         reqp_init = true;
 
-        /* preallocating, see notes in cc_mbuf.c */
+        /* preallocating, see notes in cc_fbuf.c */
         if (max == 0) {
             return;
         }

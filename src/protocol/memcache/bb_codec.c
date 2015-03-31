@@ -3,7 +3,7 @@
 #include <bb_stats.h>
 #include <time/bb_time.h>
 
-#include <buffer/cc_mbuf.h>
+#include <buffer/cc_fbuf.h>
 #include <cc_array.h>
 #include <cc_debug.h>
 #include <cc_define.h>
@@ -15,11 +15,11 @@
 
 /* functions related to parsing messages */
 
-typedef rstatus_t (*check_token_t)(struct request *req, struct mbuf *buf,
+typedef rstatus_t (*check_token_t)(struct request *req, struct fbuf *buf,
         bool *end, struct bstring *t, uint8_t *p);
 
 static inline void
-_mark_cerror(struct request *req, struct mbuf *buf, uint8_t *npos)
+_mark_cerror(struct request *req, struct fbuf *buf, uint8_t *npos)
 {
     /*
      * NOTE(yao): swallow always runs to the next CRLF, so if we set npos to be
@@ -44,12 +44,12 @@ _token_start(struct bstring *t, uint8_t *p)
 
 /*
  * NOTE(yao): In the following parser/subparser functions, we move the rpos
- * pointer in mbuf forward when we finish parsing a token fully. This simplifies
+ * pointer in fbuf forward when we finish parsing a token fully. This simplifies
  * the state machine.
  */
 
 static inline rstatus_t
-_token_check_size(struct request *req, struct mbuf *buf, uint8_t *p)
+_token_check_size(struct request *req, struct fbuf *buf, uint8_t *p)
 {
     /* TODO(yao): allow caller to provide token size limit for each field*/
     if (p - buf->rpos >= MAX_TOKEN_LEN) {
@@ -66,7 +66,7 @@ _token_check_size(struct request *req, struct mbuf *buf, uint8_t *p)
 
 /* CRLF is special and we need to "peek into the future" */
 static inline rstatus_t
-_try_crlf(struct mbuf *buf, uint8_t *p)
+_try_crlf(struct fbuf *buf, uint8_t *p)
 {
     if (*p != CR) {
         return CC_ERROR;
@@ -85,7 +85,7 @@ _try_crlf(struct mbuf *buf, uint8_t *p)
 
 
 static rstatus_t
-_chase_crlf(struct request *req, struct mbuf *buf)
+_chase_crlf(struct request *req, struct fbuf *buf)
 {
     uint8_t *p;
     rstatus_t status;
@@ -131,7 +131,7 @@ _chase_crlf(struct request *req, struct mbuf *buf)
 
 
 static inline rstatus_t
-_check_key(struct request *req, struct mbuf *buf, bool *end,
+_check_key(struct request *req, struct fbuf *buf, bool *end,
         struct bstring *t, uint8_t *p)
 {
     rstatus_t status;
@@ -207,7 +207,7 @@ error:
 
 
 static inline rstatus_t
-_check_verb(struct request *req, struct mbuf *buf, bool *end, struct bstring *t, uint8_t *p)
+_check_verb(struct request *req, struct fbuf *buf, bool *end, struct bstring *t, uint8_t *p)
 {
     rstatus_t status;
     bool complete = false;
@@ -345,7 +345,7 @@ error:
 
 
 static inline rstatus_t
-_check_noreply(struct request *req, struct mbuf *buf, bool *end,
+_check_noreply(struct request *req, struct fbuf *buf, bool *end,
         struct bstring *t, uint8_t *p)
 {
     rstatus_t status;
@@ -396,7 +396,7 @@ _check_noreply(struct request *req, struct mbuf *buf, bool *end,
 
 
 static rstatus_t
-_chase_string(struct request *req, struct mbuf *buf, bool *end,
+_chase_string(struct request *req, struct fbuf *buf, bool *end,
         check_token_t checker)
 {
     uint8_t *p;
@@ -430,7 +430,7 @@ _chase_string(struct request *req, struct mbuf *buf, bool *end,
 
 
 static inline rstatus_t
-_check_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
+_check_uint(uint64_t *num, struct request *req, struct fbuf *buf, bool *end,
         struct bstring *t, uint8_t *p, uint64_t max)
 {
     rstatus_t status;
@@ -499,7 +499,7 @@ error:
 
 
 static rstatus_t
-_chase_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
+_chase_uint(uint64_t *num, struct request *req, struct fbuf *buf, bool *end,
         uint64_t max)
 {
     uint8_t *p;
@@ -534,7 +534,7 @@ _chase_uint(uint64_t *num, struct request *req, struct mbuf *buf, bool *end,
 
 
 static rstatus_t
-_subrequest_delete(struct request *req, struct mbuf *buf)
+_subrequest_delete(struct request *req, struct fbuf *buf)
 {
     rstatus_t status;
     bool end;
@@ -582,7 +582,7 @@ _subrequest_delete(struct request *req, struct mbuf *buf)
 
 
 static rstatus_t
-_subrequest_arithmetic(struct request *req, struct mbuf *buf)
+_subrequest_arithmetic(struct request *req, struct fbuf *buf)
 {
     rstatus_t status;
     uint64_t delta;
@@ -645,7 +645,7 @@ _subrequest_arithmetic(struct request *req, struct mbuf *buf)
 
 
 static rstatus_t
-_subrequest_store(struct request *req, struct mbuf *buf, bool cas)
+_subrequest_store(struct request *req, struct fbuf *buf, bool cas)
 {
     rstatus_t status;
     uint64_t num;
@@ -754,7 +754,7 @@ _subrequest_store(struct request *req, struct mbuf *buf, bool cas)
 
 
 static rstatus_t
-_subrequest_retrieve(struct request *req, struct mbuf *buf)
+_subrequest_retrieve(struct request *req, struct fbuf *buf)
 {
     rstatus_t status;
     bool end;
@@ -773,7 +773,7 @@ _subrequest_retrieve(struct request *req, struct mbuf *buf)
 
 /* swallowing the current line, delimited by '\r\n' */
 rstatus_t
-parse_swallow(struct mbuf *buf)
+parse_swallow(struct fbuf *buf)
 {
     uint8_t *p;
     rstatus_t status;
@@ -808,7 +808,7 @@ parse_swallow(struct mbuf *buf)
 
 /* parse the first line("header") according to memcache ASCII protocol */
 rstatus_t
-parse_req_hdr(struct request *req, struct mbuf *buf)
+parse_req_hdr(struct request *req, struct fbuf *buf)
 {
     rstatus_t status;
     uint8_t *rpos;
@@ -889,15 +889,15 @@ parse_req_hdr(struct request *req, struct mbuf *buf)
 }
 
 rstatus_t
-parse_req_val(struct request *req, struct mbuf *buf)
+parse_req_val(struct request *req, struct fbuf *buf)
 {
     rstatus_t status;
 
     log_verb("parsing val at %p into req %p", buf->rpos, req);
 
-    if (mbuf_rsize(buf) < req->vlen + CRLF_LEN) {
+    if (fbuf_rsize(buf) < req->vlen + CRLF_LEN) {
         log_verb("rbuf has %"PRIu32" out of the %"PRIu32" bytes "
-                "expected", mbuf_rsize(buf), req->vlen + CRLF_LEN);
+                "expected", fbuf_rsize(buf), req->vlen + CRLF_LEN);
 
         return CC_UNFIN;
     }
@@ -919,7 +919,7 @@ parse_req_val(struct request *req, struct mbuf *buf)
 }
 
 rstatus_t
-parse_req(struct request *req, struct mbuf *buf)
+parse_req(struct request *req, struct fbuf *buf)
 {
     rstatus_t status;
 
@@ -1007,30 +1007,30 @@ static struct bstring rsp_strings[] = {
 #undef GET_STRING
 
 static rstatus_t
-_compose_rsp_msg(struct mbuf *buf, rsp_index_t idx)
+_compose_rsp_msg(struct fbuf *buf, rsp_index_t idx)
 {
     uint32_t wsize;
     struct bstring *str;
 
-    wsize = mbuf_wsize(buf);
+    wsize = fbuf_wsize(buf);
     str = &rsp_strings[idx];
 
     if (str->len >= wsize) {
-        log_info("failed to write rsp string %d to mbuf %p: insufficient buffer"
+        log_info("failed to write rsp string %d to fbuf %p: insufficient buffer"
                 " space", idx, buf);
 
         return CC_ENOMEM;
     }
 
-    mbuf_copy(buf, str->data, str->len);
+    fbuf_copy(buf, str->data, str->len);
 
-    log_vverb("wrote rsp string %d to mbuf %p", idx, buf);
+    log_vverb("wrote rsp string %d to fbuf %p", idx, buf);
 
     return CC_OK;
 }
 
 rstatus_t
-compose_rsp_msg(struct mbuf *buf, rsp_index_t idx, bool noreply)
+compose_rsp_msg(struct fbuf *buf, rsp_index_t idx, bool noreply)
 {
     rstatus_t status;
 
@@ -1051,34 +1051,34 @@ compose_rsp_msg(struct mbuf *buf, rsp_index_t idx, bool noreply)
 }
 
 static rstatus_t
-_compose_rsp_uint64(struct mbuf *buf, uint64_t val, const char *fmt)
+_compose_rsp_uint64(struct fbuf *buf, uint64_t val, const char *fmt)
 {
     size_t n;
     uint32_t wsize;
 
-    wsize = mbuf_wsize(buf);
+    wsize = fbuf_wsize(buf);
 
     n = cc_scnprintf(buf->wpos, wsize, fmt, val);
     if (n >= wsize) {
-        log_debug("failed to write val %"PRIu64" to mbuf %p: "
+        log_debug("failed to write val %"PRIu64" to fbuf %p: "
                 "insufficient buffer space", val, buf);
 
         return CC_ENOMEM;
     } else if (n == 0) {
-        log_error("failed to write val %"PRIu64" to mbuf %p: "
+        log_error("failed to write val %"PRIu64" to fbuf %p: "
                 "returned error", val, buf);
 
         return CC_ERROR;
     }
 
-    log_vverb("wrote rsp uint %"PRIu64" to mbuf %p", val, buf);
+    log_vverb("wrote rsp uint %"PRIu64" to fbuf %p", val, buf);
 
     buf->wpos += n;
     return CC_OK;
 }
 
 rstatus_t
-compose_rsp_uint64(struct mbuf *buf, uint64_t val, bool noreply)
+compose_rsp_uint64(struct fbuf *buf, uint64_t val, bool noreply)
 {
     rstatus_t status;
 
@@ -1100,28 +1100,28 @@ compose_rsp_uint64(struct mbuf *buf, uint64_t val, bool noreply)
 }
 
 static rstatus_t
-_compose_rsp_bstring(struct mbuf *buf, struct bstring *str)
+_compose_rsp_bstring(struct fbuf *buf, struct bstring *str)
 {
     uint32_t wsize;
 
-    wsize = mbuf_wsize(buf);
+    wsize = fbuf_wsize(buf);
 
     if (str->len >= wsize) {
-        log_info("failed to write bstring %p to mbuf %p: "
+        log_info("failed to write bstring %p to fbuf %p: "
                 "insufficient buffer space", str, buf);
 
         return CC_ENOMEM;
     }
 
-    mbuf_copy(buf, str->data, str->len);
+    fbuf_copy(buf, str->data, str->len);
 
-    log_verb("wrote bstring at %p to mbuf %p", str, buf);
+    log_verb("wrote bstring at %p to fbuf %p", str, buf);
 
     return CC_OK;
 }
 
 rstatus_t
-compose_rsp_keyval(struct mbuf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas)
+compose_rsp_keyval(struct fbuf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas)
 {
     rstatus_t status = CC_OK;
 
@@ -1182,38 +1182,38 @@ error:
 }
 
 static rstatus_t
-_compose_rsp_metric(struct mbuf *buf, struct metric *metric, const char *fmt, ...)
+_compose_rsp_metric(struct fbuf *buf, struct metric *metric, const char *fmt, ...)
 {
     size_t n;
     uint32_t wsize;
     va_list args;
 
-    wsize = mbuf_wsize(buf);
+    wsize = fbuf_wsize(buf);
 
     va_start(args, fmt);
     n = cc_vscnprintf(buf->wpos, wsize, fmt, args);
     va_end(args);
 
     if (n >= wsize) {
-        log_debug("failed to write metric %s to mbuf %p: insufficient space",
+        log_debug("failed to write metric %s to fbuf %p: insufficient space",
                 metric->name, buf);
 
         return CC_ENOMEM;
     } else if (n == 0) {
-        log_error("failed to write metric %s to mbuf %p: returned error",
+        log_error("failed to write metric %s to fbuf %p: returned error",
                 metric->name, buf);
 
         return CC_ERROR;
     }
 
-    log_vverb("wrote metric %s to mbuf %p", metric->name, buf);
+    log_vverb("wrote metric %s to fbuf %p", metric->name, buf);
 
     buf->wpos += n;
     return CC_OK;
 }
 
 rstatus_t
-compose_rsp_stats(struct mbuf *buf, struct metric marr[], unsigned int nmetric)
+compose_rsp_stats(struct fbuf *buf, struct metric marr[], unsigned int nmetric)
 {
     unsigned int i;
     rstatus_t status = CC_OK;

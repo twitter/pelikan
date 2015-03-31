@@ -57,8 +57,8 @@ _post_write(struct buf_sock *s)
     //stats_thread_incr_by(data_written, nbyte);
 
     /* left-shift rbuf and wbuf */
-    mbuf_lshift(s->rbuf);
-    mbuf_lshift(s->wbuf);
+    fbuf_lshift(s->rbuf);
+    fbuf_lshift(s->wbuf);
 }
 
 static void
@@ -134,9 +134,9 @@ _post_read(struct buf_sock *s)
         }
     }
 
-    while (mbuf_rsize(s->rbuf) > 0) {
+    while (fbuf_rsize(s->rbuf) > 0) {
         /* parsing */
-        log_verb("%"PRIu32" bytes left", mbuf_rsize(s->rbuf));
+        log_verb("%"PRIu32" bytes left", fbuf_rsize(s->rbuf));
 
         status = parse_req(req, s->rbuf);
         if (status == CC_UNFIN) {
@@ -155,9 +155,9 @@ _post_read(struct buf_sock *s)
         }
 
         /* processing */
-        log_verb("wbuf free: %"PRIu32" B", mbuf_wsize(s->wbuf));
+        log_verb("wbuf free: %"PRIu32" B", fbuf_wsize(s->wbuf));
         status = process_request(req, s->wbuf);
-        log_verb("wbuf free: %"PRIu32" B", mbuf_wsize(s->wbuf));
+        log_verb("wbuf free: %"PRIu32" B", fbuf_wsize(s->wbuf));
 
         if (status == CC_ENOMEM) {
             log_debug("wbuf full, try again later");
@@ -197,7 +197,7 @@ _post_read(struct buf_sock *s)
 
 done:
     /* TODO: call stream write directly to save one event */
-    if (mbuf_rsize(s->wbuf) > 0) {
+    if (fbuf_rsize(s->wbuf) > 0) {
         _event_write(s);
     }
 }
@@ -278,7 +278,7 @@ core_event(void *arg, uint32_t events)
     }
 
     if (s->ch->state == CONN_CLOSING ||
-            (s->ch->state == CONN_EOF && mbuf_rsize(s->wbuf) == 0)) {
+            (s->ch->state == CONN_EOF && fbuf_rsize(s->wbuf) == 0)) {
         _close(s);
     }
 }

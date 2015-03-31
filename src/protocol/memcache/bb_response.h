@@ -9,7 +9,7 @@
  * we write a proxy, we will end up implementing all the functionalities.
  */
 
-#include <buffer/cc_mbuf.h>
+#include <buffer/cc_fbuf.h>
 #include <cc_bstring.h>
 #include <cc_define.h>
 #include <cc_util.h>

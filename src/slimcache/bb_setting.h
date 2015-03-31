@@ -4,7 +4,7 @@
 #include <storage/cuckoo/bb_cuckoo.h>
 #include <protocol/memcache/bb_request.h>
 
-#include <buffer/cc_mbuf.h>
+#include <buffer/cc_fbuf.h>
 #include <cc_array.h>
 #include <cc_log.h>
 #include <cc_metric.h>
@@ -27,7 +27,7 @@
     SOCKIO_OPTION(ACTION)           \
     CUCKOO_OPTION(ACTION)           \
     LOG_OPTION(ACTION)              \
-    MBUF_OPTION(ACTION)             \
+    FBUF_OPTION(ACTION)             \
     TCP_OPTION(ACTION)              \
     REQUEST_OPTION(ACTION)          \
     SERVER_OPTION(ACTION)
