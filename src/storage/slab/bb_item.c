@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 static uint64_t cas_id;                         /* unique cas id */
+static struct hash_table *table;                /* hash table where items are linked */
 
 /*
  * Returns the next cas id for a new item. Minimum cas value
@@ -29,17 +30,25 @@ _item_expired(struct item *it)
     return (it->exptime > 0 && it->exptime < time_now()) ? true : false;
 }
 
-void
-item_setup(void)
+rstatus_t
+item_setup(uint32_t hash_power)
 {
     log_debug("item hdr size %d", ITEM_HDR_SIZE);
 
+    table = assoc_create(hash_power);
+
+    if(table == NULL) {
+        return CC_ENOMEM;
+    }
+
     cas_id = 0ULL;
+    return CC_OK;
 }
 
-void
+rstatus_t
 item_teardown(void)
 {
+    return assoc_destroy(table);
 }
 
 /*
@@ -224,7 +233,7 @@ item_reuse(struct item *it)
 
     it->is_linked = 0;
 
-    assoc_delete((uint8_t *)item_key(it), it->klen);
+    assoc_delete((uint8_t *)item_key(it), it->klen, table);
 
     log_verb("reuse %s it '%.*s' at offset %"PRIu32" with id "
               "%"PRIu8"", _item_expired(it) ? "expired" : "evicted",
@@ -248,7 +257,7 @@ _item_link(struct item *it)
     it->is_linked = 1;
     item_set_cas(it, _item_next_cas());
 
-    assoc_insert(it);
+    assoc_put(it, table);
 }
 
 /*
@@ -267,7 +276,7 @@ _item_unlink(struct item *it)
     if (it->is_linked) {
         it->is_linked = 0;
 
-        assoc_delete((uint8_t *)item_key(it), it->klen);
+        assoc_delete((uint8_t *)item_key(it), it->klen, table);
 
         if (it->refcount == 0) {
             _item_free(it);
@@ -307,7 +316,7 @@ item_get(const struct bstring *key)
 {
     struct item *it;
 
-    it = assoc_find(key->data, key->len);
+    it = assoc_get(key->data, key->len, table);
     if (it == NULL) {
         log_verb("get it '%.*s' not found", key->len, key->data);
         return NULL;

@@ -1,15 +1,19 @@
 #ifndef _BB_ASSOC_H_
 #define _BB_ASSOC_H_
 
-/* This is a dummy header file included to allow other modules to compile. Actual
-   hash facilities will be added at a later time. */
+#include <storage/slab/bb_item.h>
 
-#include <stdint.h>
+struct hash_table {
+    struct item_slh *table;
+    uint32_t nhash_item;
+    uint32_t hash_power;
+};
 
-struct item;
+struct hash_table *assoc_create(uint32_t hash_power);
+rstatus_t assoc_destroy(struct hash_table *table);
 
-static inline void assoc_insert(const struct item *it) {}
-static inline void assoc_delete(const uint8_t *key, uint32_t nkey) {}
-static inline struct item *assoc_find(const uint8_t *key, uint32_t nkey) { return NULL; }
+void assoc_put(struct item *it, struct hash_table *table);
+void assoc_delete(const uint8_t *key, uint32_t klen, struct hash_table *table);
+struct item *assoc_get(const uint8_t *key, uint32_t klen, struct hash_table *table);
 
 #endif /* _BB_ASSOC_H_ */

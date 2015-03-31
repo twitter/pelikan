@@ -147,8 +147,8 @@ item_size(struct item *it)
 }
 
 /* Set up/tear down the item module */
-void item_setup(void);
-void item_teardown(void);
+rstatus_t item_setup(uint32_t hash_power);
+rstatus_t item_teardown(void);
 
 /* Get item payload */
 char * item_data(struct item *it);
