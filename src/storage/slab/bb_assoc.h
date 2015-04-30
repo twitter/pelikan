@@ -10,7 +10,7 @@ struct hash_table {
 };
 
 struct hash_table *assoc_create(uint32_t hash_power);
-rstatus_t assoc_destroy(struct hash_table *table);
+void assoc_destroy(struct hash_table *table);
 
 void assoc_put(struct item *it, struct hash_table *table);
 void assoc_delete(const uint8_t *key, uint32_t klen, struct hash_table *table);

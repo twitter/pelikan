@@ -14,7 +14,7 @@
 #define USEC 0.000001
 
 static rstatus_t
-process_get_key(struct fbuf *buf, struct bstring *key)
+process_get_key(struct buf *buf, struct bstring *key)
 {
     rstatus_t status = CC_OK;
     struct item *it;
@@ -27,7 +27,7 @@ process_get_key(struct fbuf *buf, struct bstring *key)
 
     it = cuckoo_lookup(key);
     if (NULL != it) {
-        log_verb("found key at item %p");
+        log_verb("found key at item %p", it);
         INCR(get_key_hit);
 
         item_val(&val, it);
@@ -46,7 +46,7 @@ process_get_key(struct fbuf *buf, struct bstring *key)
 }
 
 static rstatus_t
-process_get(struct request *req, struct fbuf *buf)
+process_get(struct request *req, struct buf *buf)
 {
     rstatus_t status;
     struct bstring *key;
@@ -67,7 +67,7 @@ process_get(struct request *req, struct fbuf *buf)
 }
 
 static rstatus_t
-process_gets_key(struct fbuf *buf, struct bstring *key)
+process_gets_key(struct buf *buf, struct bstring *key)
 {
     rstatus_t status = CC_OK;
     struct item *it;
@@ -99,7 +99,7 @@ process_gets_key(struct fbuf *buf, struct bstring *key)
 }
 
 static rstatus_t
-process_gets(struct request *req, struct fbuf *buf)
+process_gets(struct request *req, struct buf *buf)
 {
     rstatus_t status;
     struct bstring *key;
@@ -120,7 +120,7 @@ process_gets(struct request *req, struct fbuf *buf)
 }
 
 static rstatus_t
-process_delete(struct request *req, struct fbuf *buf)
+process_delete(struct request *req, struct buf *buf)
 {
     rstatus_t status = CC_OK;
     bool deleted;
@@ -156,7 +156,7 @@ process_value(struct val *val, struct bstring *val_str)
 }
 
 static rstatus_t
-process_set(struct request *req, struct fbuf *buf)
+process_set(struct request *req, struct buf *buf)
 {
     rstatus_t status = CC_OK;
     rel_time_t expire;
@@ -189,7 +189,7 @@ process_set(struct request *req, struct fbuf *buf)
 }
 
 static rstatus_t
-process_add(struct request *req, struct fbuf *buf)
+process_add(struct request *req, struct buf *buf)
 {
     rstatus_t status = CC_OK;
     rel_time_t expire;
@@ -221,7 +221,7 @@ process_add(struct request *req, struct fbuf *buf)
 }
 
 static rstatus_t
-process_replace(struct request *req, struct fbuf *buf)
+process_replace(struct request *req, struct buf *buf)
 {
     rstatus_t status = CC_OK;
     rel_time_t expire;
@@ -253,7 +253,7 @@ process_replace(struct request *req, struct fbuf *buf)
 }
 
 static rstatus_t
-process_cas(struct request *req, struct fbuf *buf)
+process_cas(struct request *req, struct buf *buf)
 {
     rstatus_t status = CC_OK;
     rel_time_t expire;
@@ -290,7 +290,7 @@ process_cas(struct request *req, struct fbuf *buf)
 }
 
 static rstatus_t
-process_incr(struct request *req, struct fbuf *buf)
+process_incr(struct request *req, struct buf *buf)
 {
     rstatus_t status = CC_OK;
     struct bstring *key;
@@ -324,7 +324,7 @@ process_incr(struct request *req, struct fbuf *buf)
 }
 
 static rstatus_t
-process_decr(struct request *req, struct fbuf *buf)
+process_decr(struct request *req, struct buf *buf)
 {
     rstatus_t status = CC_OK;
     struct bstring *key;
@@ -358,7 +358,7 @@ process_decr(struct request *req, struct fbuf *buf)
 }
 
 static rstatus_t
-process_stats(struct request *req, struct fbuf *buf)
+process_stats(struct request *req, struct buf *buf)
 {
     struct rusage usage;
 
@@ -394,7 +394,7 @@ process_stats(struct request *req, struct fbuf *buf)
 }
 
 rstatus_t
-process_request(struct request *req, struct fbuf *buf)
+process_request(struct request *req, struct buf *buf)
 {
     rstatus_t status;
 

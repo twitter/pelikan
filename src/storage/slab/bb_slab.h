@@ -18,25 +18,27 @@
 #define SLAB_MIN_SIZE   ((size_t) 512)
 #define SLAB_MAX_SIZE   ((size_t) (128 * MiB))
 #define SLAB_SIZE       MiB
+#define SLAB_HASH       16
 
 /* Eviction options */
-#define EVICT_NONE    0x00 /* throw OOM, no eviction */
-#define EVICT_RS      0x01 /* random slab eviction */
-#define EVICT_CS      0x02 /* lrc (least recently created) slab eviction */
-#define EVICT_INVALID 0x04 /* go no further! */
+#define EVICT_NONE    0 /* throw OOM, no eviction */
+#define EVICT_RS      1 /* random slab eviction */
+#define EVICT_CS      2 /* lrc (least recently created) slab eviction */
+#define EVICT_INVALID 4 /* go no further! */
 
 /* The defaults here are placeholder values for now */
-/*          name             type                default          description */
-#define SLAB_OPTION(ACTION)                                                                     \
-    ACTION( prealloc,        OPTION_TYPE_BOOL,   "yes",           "Allocate slabs ahead of time")\
-    ACTION( evict_opt,       OPTION_TYPE_UINT,   str(EVICT_NONE), "Eviction strategy"           )\
-    ACTION( use_freeq,       OPTION_TYPE_BOOL,   "yes",           "Use items in free queue?"    )\
-    ACTION( slab_size,       OPTION_TYPE_UINT,   str(MiB),        "Slab size"                   )\
-    ACTION( chunk_size,      OPTION_TYPE_UINT,   str(KiB),        "Chunk size"                  )\
-    ACTION( maxbytes,        OPTION_TYPE_UINT,   str(GiB),        "Maximum bytes allocated"     )\
-    ACTION( profile,         OPTION_TYPE_STR,    NULL,            "Slab profile"                )\
-    ACTION( profile_last_id, OPTION_TYPE_UINT,   "0",             "Last id in slab profile"     )\
-    ACTION( use_cas,         OPTION_TYPE_BOOL,   "yes",           "CAS enabled for slabbed mm"  )
+/*          name                  type                default          description */
+#define SLAB_OPTION(ACTION)                                                                               \
+    ACTION( slab_prealloc,        OPTION_TYPE_BOOL,   "yes",           "Allocate slabs ahead of time"    )\
+    ACTION( slab_evict_opt,       OPTION_TYPE_UINT,   str(EVICT_NONE), "Eviction strategy"               )\
+    ACTION( slab_use_freeq,       OPTION_TYPE_BOOL,   "yes",           "Use items in free queue?"        )\
+    ACTION( slab_size,            OPTION_TYPE_UINT,   str(MiB),        "Slab size"                       )\
+    ACTION( slab_chunk_size,      OPTION_TYPE_UINT,   str(KiB),        "Chunk size"                      )\
+    ACTION( slab_maxbytes,        OPTION_TYPE_UINT,   str(GiB),        "Maximum bytes allocated"         )\
+    ACTION( slab_profile,         OPTION_TYPE_STR,    NULL,            "Slab profile"                    )\
+    ACTION( slab_profile_last_id, OPTION_TYPE_UINT,   "0",             "Last id in slab profile (# ids)" )\
+    ACTION( slab_use_cas,         OPTION_TYPE_BOOL,   "yes",           "CAS enabled for slabbed mm"      )\
+    ACTION( slab_hash_power,      OPTION_TYPE_UINT,   str(SLAB_HASH),  "Hash power for item table"       )
 
 /*
  * Every slab (struct slab) in the cache starts with a slab header

@@ -15,3 +15,7 @@
 #cmakedefine HAVE_LOGGING
 
 #cmakedefine HAVE_STATS
+
+#cmakedefine TARGET_SLIMCACHE
+
+#cmakedefine TARGET_TWEMCACHE

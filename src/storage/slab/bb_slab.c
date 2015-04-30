@@ -20,16 +20,16 @@ struct slab_heapinfo {
 struct slabclass slabclass[SLABCLASS_MAX_IDS];  /* collection of slabs bucketed by slabclass */
 static struct slab_heapinfo heapinfo;           /* info of all allocated slabs */
 
-size_t slab_size_setting;                 /* size of each slab */
-bool use_cas;                             /* cas enabled? */
+size_t slab_size_setting;                    /* size of each slab */
+bool use_cas;                                /* cas enabled? */
 
-static bool prealloc;                     /* allocate slabs ahead of time? */
-static int evict_opt;                     /* slab eviction policy */
-static bool use_freeq;                    /* use items in free queue? */
-static size_t chunk_size;                 /* chunk size */
-static size_t maxbytes;                   /* maximum bytes allocated for slabs */
-static size_t profile[SLABCLASS_MAX_IDS]; /* slab profile */
-static uint8_t profile_last_id;           /* last id in slab profile */
+static bool prealloc;                        /* allocate slabs ahead of time? */
+static int evict_opt;                        /* slab eviction policy */
+static bool use_freeq;                       /* use items in free queue? */
+static size_t chunk_size;                    /* chunk size */
+static size_t maxbytes;                      /* maximum bytes allocated for slabs */
+static size_t profile[SLABCLASS_MAX_IDS];    /* slab profile */
+static uint8_t profile_last_id;              /* last id in slab profile */
 
 #define SLAB_RAND_MAX_TRIES         50
 #define SLAB_LRU_MAX_TRIES          50
@@ -134,8 +134,11 @@ slab_id(size_t size)
 
     if (imin > imax) {
         /* size too big for any slab */
+        log_debug("slab_id: returning invalid");
         return SLABCLASS_INVALID_ID;
     }
+
+    log_vverb("slab_id: returning %u", id);
 
     return id;
 }
@@ -228,12 +231,12 @@ _slab_heapinfo_teardown(void)
 }
 
 static rstatus_t
-_slab_setup_profile(char *setup_profile, uint8_t setup_profile_last_id)
+_slab_profile_setup(char *setup_profile, uint8_t setup_profile_last_id)
 {
     int i;
     char *profile_entry;
 
-    for(i = 0; i < setup_profile_last_id; ++i) {
+    for(i = SLABCLASS_MIN_ID; i <= setup_profile_last_id; ++i) {
         profile_entry = strtok(setup_profile, " \n\r\t");
 
         if(profile_entry == NULL) {
@@ -244,6 +247,8 @@ _slab_setup_profile(char *setup_profile, uint8_t setup_profile_last_id)
 
         profile[i] = atol(profile_entry);
     }
+
+    log_verb("setup slab profile setup_profile_last_id: %u", setup_profile_last_id);
 
     profile_last_id = setup_profile_last_id;
 
@@ -266,7 +271,7 @@ slab_setup(size_t setup_slab_size, bool setup_use_cas, bool setup_prealloc, int 
     chunk_size = setup_chunk_size;
     maxbytes = setup_maxbytes;
 
-    if(_slab_setup_profile(setup_profile, setup_profile_last_id) != CC_OK) {
+    if(_slab_profile_setup(setup_profile, setup_profile_last_id) != CC_OK) {
         return CC_ERROR;
     }
 

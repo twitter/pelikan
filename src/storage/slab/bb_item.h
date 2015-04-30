@@ -86,6 +86,12 @@ typedef enum item_rstatus {
     ITEM_EOTHER,
 } item_rstatus_t;
 
+static inline uint32_t
+item_flag(struct item *it)
+{
+    return 0;
+}
+
 static inline uint64_t
 item_get_cas(struct item *it)
 {
@@ -148,7 +154,7 @@ item_size(struct item *it)
 
 /* Set up/tear down the item module */
 rstatus_t item_setup(uint32_t hash_power);
-rstatus_t item_teardown(void);
+void item_teardown(void);
 
 /* Get item payload */
 char * item_data(struct item *it);
@@ -163,7 +169,7 @@ void item_hdr_init(struct item *it, uint32_t offset, uint8_t id);
 uint8_t item_slabid(uint8_t klen, uint32_t vlen);
 
 /* Allocate a new item */
-struct item *item_alloc(const struct bstring *key, rel_time_t exptime, uint32_t vlen);
+item_rstatus_t item_alloc(struct item **it, const struct bstring *key, rel_time_t exptime, uint32_t vlen);
 
 /* Make an item with zero refcount available for reuse by unlinking it from hash */
 void item_reuse(struct item *it);
@@ -172,7 +178,7 @@ void item_reuse(struct item *it);
 struct item *item_get(const struct bstring *key);
 
 /* Set item value. Adds new item if item with key doesn't exist */
-void item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptime);
+item_rstatus_t item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptime);
 
 /* Perform check-and-set */
 item_rstatus_t item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptime, uint64_t cas);

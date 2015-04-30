@@ -37,7 +37,7 @@ item_setup(uint32_t hash_power)
 
     table = assoc_create(hash_power);
 
-    if(table == NULL) {
+    if (table == NULL) {
         return CC_ENOMEM;
     }
 
@@ -45,10 +45,10 @@ item_setup(uint32_t hash_power)
     return CC_OK;
 }
 
-rstatus_t
+void
 item_teardown(void)
 {
-    return assoc_destroy(table);
+    assoc_destroy(table);
 }
 
 /*
@@ -59,6 +59,7 @@ item_data(struct item *it)
 {
     char *data;
 
+    ASSERT(it != NULL);
     ASSERT(it->magic == ITEM_MAGIC);
 
     if (it->is_raligned) {
@@ -166,23 +167,28 @@ _item_release_refcount(struct item *it)
  * callers responsibilty to release this refcount when the item is inserted
  * into the hash or is freed.
  */
-struct item *
-item_alloc(const struct bstring *key, rel_time_t exptime, uint32_t vlen)
+item_rstatus_t
+item_alloc(struct item **it_p, const struct bstring *key, rel_time_t exptime, uint32_t vlen)
 {
-    struct item *it;  /* item */
     uint8_t id = slab_id(item_ntotal(key->len, vlen, use_cas));
+    struct item *it;
+
+    if (id == SLABCLASS_INVALID_ID) {
+        return ITEM_EOVERSIZED;
+    }
 
     ASSERT(id >= SLABCLASS_MIN_ID && id <= SLABCLASS_MAX_ID);
 
-    it = slab_get_item(id);
+    *it_p = slab_get_item(id);
+    it = *it_p;
+
     if (it != NULL) {
-        /* 2) or 3) either we allow random eviction a free item is found */
         goto alloc_done;
     }
 
     log_warn("server error on allocating item in slab %"PRIu8, id);
 
-    return NULL;
+    return ITEM_ENOMEM;
 
 alloc_done:
 
@@ -194,9 +200,7 @@ alloc_done:
 
     _item_acquire_refcount(it);
 
-    it->is_linked = 0;
     it->has_cas = use_cas ? 1 : 0;
-    it->in_freeq = 0;
     it->is_raligned = 0;
     it->vlen = vlen;
     it->exptime = exptime;
@@ -213,7 +217,7 @@ alloc_done:
              " expiry %u refcount %"PRIu16"", key->len, key->data,
              it->offset, it->id, exptime, it->refcount);
 
-    return it;
+    return ITEM_OK;
 }
 
 /*
@@ -337,12 +341,18 @@ item_get(const struct bstring *key)
     return it;
 }
 
-void
+item_rstatus_t
 item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptime)
 {
-    struct item *it, *oit;
+    item_rstatus_t status;
+    struct item *it = NULL, *oit;
 
-    it = item_alloc(key, exptime, val->len);
+    if ((status = item_alloc(&it, key, exptime, val->len)) != ITEM_OK) {
+        return status;
+    }
+
+    ASSERT(it != NULL);
+
     cc_memcpy(item_data(it), val->data, val->len);
 
     oit = item_get(key);
@@ -359,6 +369,8 @@ item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptim
              it->has_cas, it->in_freeq, it->is_raligned, it->id);
 
     _item_release_refcount(it);
+
+    return ITEM_OK;
 }
 
 item_rstatus_t
@@ -384,7 +396,12 @@ item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptim
         goto cas_done;
     }
 
-    it = item_alloc(key, exptime, val->len);
+    if ((ret = item_alloc(&it, key, exptime, val->len)) != ITEM_OK) {
+        return ret;
+    }
+
+    ASSERT(it != NULL);
+
     item_set_cas(it, cas);
     cc_memcpy(item_data(it), val->data, val->len);
 
@@ -452,10 +469,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
             oit->vlen = total_nbyte;
             item_set_cas(oit, _item_next_cas());
         } else {
-            nit = item_alloc(key, oit->exptime, total_nbyte);
-            if (nit == NULL) {
-                ret = ITEM_ENOMEM;
-
+            if ((ret = item_alloc(&nit, key, oit->exptime, total_nbyte)) != ITEM_OK) {
                 goto annex_done;
             }
 
@@ -474,10 +488,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
             oit->vlen = total_nbyte;
             item_set_cas(oit, _item_next_cas());
         } else {
-            nit = item_alloc(key, oit->exptime, total_nbyte);
-            if (nit == NULL) {
-                ret = ITEM_ENOMEM;
-
+            if ((ret = item_alloc(&nit, key, oit->exptime, total_nbyte)) != ITEM_OK) {
                 goto annex_done;
             }
 
@@ -510,7 +521,7 @@ item_update(struct item *it, const struct bstring *val)
     ASSERT(it != NULL);
     ASSERT(it->id != SLABCLASS_INVALID_ID);
 
-    if(item_slabid(it->klen, val->len) != it->id) {
+    if (item_slabid(it->klen, val->len) != it->id) {
         /* val is oversized */
         return ITEM_EOVERSIZED;
     }

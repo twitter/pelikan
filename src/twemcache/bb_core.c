@@ -1,21 +1,20 @@
-#include <slimcache/bb_core.h>
+#include <twemcache/bb_core.h>
+#include <twemcache/bb_process.h>
 
-#include <bb_stats.h>
-#include <slimcache/bb_process.h>
+#include <protocol/memcache/bb_codec.h>
+#include <protocol/memcache/bb_request.h>
+#include <time/bb_time.h>
 
+#include <cc_channel.h>
 #include <cc_debug.h>
 #include <cc_event.h>
+#include <cc_log.h>
 #include <channel/cc_tcp.h>
 #include <stream/cc_sockio.h>
 
-/**
- * TODO: use function pointers to accommodate different channel types when we
- * extend to beyond just TCP
- */
-
 static struct context {
-    struct event_base  *evb;
-    int                timeout;
+    struct event_base *evb;
+    int               timeout;
 } context;
 
 static struct context *ctx = &context;
@@ -24,14 +23,14 @@ static channel_handler_t handlers;
 static channel_handler_t *hdl = &handlers;
 
 static void
-_close(struct buf_sock *s)
+_close(struct buf_sock *buf_sock)
 {
-    log_info("core close on buf_sock %p", s);
+    log_info("core close on buf_sock %p", buf_sock);
 
-    event_deregister(ctx->evb, s->ch->sd);
-    hdl->term(s->ch);
-    request_return((struct request **)&s->data);
-    buf_sock_return(&s);
+    event_deregister(ctx->evb, buf_sock->ch->sd);
+    hdl->term(buf_sock->ch);
+    request_return((struct request **)&buf_sock->data);
+    buf_sock_return(&buf_sock);
 }
 
 static rstatus_t
@@ -54,9 +53,6 @@ _post_write(struct buf_sock *s)
 {
     log_verb("post write processing on buf_sock %p", s);
 
-    //stats_thread_incr_by(data_written, nbyte);
-
-    /* left-shift rbuf and wbuf */
     buf_lshift(s->rbuf);
     buf_lshift(s->wbuf);
 }
@@ -76,20 +72,43 @@ _event_write(struct buf_sock *s)
     _post_write(s);
 }
 
-static rstatus_t
-_read(struct buf_sock *s)
+static void
+_tcpserver(struct buf_sock *ss)
 {
-    log_verb("reading on buf_sock %p", s);
+    struct buf_sock *s;
+    struct conn *sc = ss->ch;
 
-    ASSERT(s != NULL);
-    ASSERT(s->wbuf != NULL && s->rbuf != NULL);
+    s = buf_sock_borrow();
+    if (s == NULL) {
+        log_error("establish connection failed: could not allocate buf_sock, "
+                  "rejecting connection request");
+        ss->hdl->reject(sc);
+        return;
+    }
 
+    if (!ss->hdl->accept(sc, s->ch)) {
+        return;
+    }
+
+    s->owner = ctx;
+    s->hdl = hdl;
+    event_add_read(ctx->evb, hdl->id(s->ch), s);
+}
+
+static rstatus_t
+_read(struct buf_sock *buf_sock)
+{
     rstatus_t status;
+    log_verb("reading on buf_sock %p", buf_sock);
 
-    status = buf_tcp_read(s);
-    if (status == CC_ENOMEM) {
-        log_debug("not enough room in rbuf: start %p, rpos %p, wpos %p, end %p",
-                s->rbuf->begin, s->rbuf->rpos, s->rbuf->wpos, s->rbuf->end);
+    ASSERT(buf_sock != NULL);
+    ASSERT(buf_sock->wbuf != NULL && buf_sock->rbuf != NULL);
+
+    if ((status = dbuf_tcp_read(buf_sock)) == CC_ENOMEM) {
+        log_debug("not enough room in rbuf: "
+                  "start %p, rpos %p, wpos %p end %p",
+                  buf_sock->rbuf->begin, buf_sock->rbuf->rpos,
+                  buf_sock->rbuf->wpos, buf_sock->rbuf->end);
         status = CC_ERETRY; /* retry when we cannot read due to buffer full */
     }
 
@@ -104,8 +123,6 @@ _post_read(struct buf_sock *s)
 
     log_verb("post read processing on buf_sock %p", s);
 
-    //stats_thread_incr_by(data_read, nbyte);
-
     if (s->data != NULL) {
         req = s->data;
     } else {
@@ -117,11 +134,8 @@ _post_read(struct buf_sock *s)
         log_error("cannot acquire request: OOM");
         status = compose_rsp_msg(s->wbuf, RSP_SERVER_ERROR, false);
         if (status != CC_OK) {
-            //s->err = status;
-
             log_error("failed to send server error, status: %d", status);
         }
-
         goto done;
     }
 
@@ -129,7 +143,7 @@ _post_read(struct buf_sock *s)
         status = parse_swallow(s->rbuf);
         if (status == CC_OK) {
             request_reset(req);
-        } else { /* CC_UNFIN */
+        } else {                /* CC_UNFIN */
             goto done;
         }
     }
@@ -143,12 +157,12 @@ _post_read(struct buf_sock *s)
             goto done;
         }
 
-        if (status != CC_OK) { /* parsing errors are all client errors */
+        if (status != CC_OK) {  /* parsing errors are all client errors */
             log_warn("illegal request received, status: %d", status);
 
             status = compose_rsp_msg(s->wbuf, RSP_CLIENT_ERROR, false);
             if (status != CC_OK) {
-                log_error("failed to send client error, status: %d", status);
+                log_error("failed to send client error, status %d", status);
             }
 
             goto done;
@@ -174,21 +188,8 @@ _post_read(struct buf_sock *s)
 
             status = compose_rsp_msg(s->wbuf, RSP_SERVER_ERROR, false);
             if (status != CC_OK) {
-                /* NOTE(yao): this processing logic does NOT work for large
-                 * values, which will easily overflow wbuf and therefore always
-                 * fail. Here we can do this because the values are very small
-                 * relative to the size wbuf.
-                 *
-                 * The right way of handling write of any size value is to copy
-                 * data directly from our data store on heap to the channel.
-                 *
-                 * If we want to be less aggressive in raising errors, we can
-                 * re-process the current request when wbuf is full. This will
-                 * require small modification to this function and struct request.
-                 */
                 log_error("failed to send server error, status: %d", status);
             }
-
             goto done;
         }
 
@@ -203,47 +204,24 @@ done:
 }
 
 static void
-_tcpserver(struct buf_sock *ss)
-{
-    struct buf_sock *s;
-    struct conn *sc = ss->ch;
-
-    s = buf_sock_borrow();
-    if (s == NULL) {
-        log_error("establish connection failed: cannot allocate buf_sock, "
-                "reject connection request");
-        ss->hdl->reject(sc); /* server rejects connection by closing it */
-        return;
-    }
-
-    if (!ss->hdl->accept(sc, s->ch)) {
-        return;
-    }
-
-    s->owner = ctx;
-    s->hdl = hdl;
-    event_add_read(ctx->evb, hdl->id(s->ch), s);
-}
-
-static void
-_event_read(struct buf_sock *s)
+_event_read(struct buf_sock *buf_sock)
 {
     rstatus_t status;
-    struct conn *c = s->ch;
+    struct conn *conn = buf_sock->ch;
 
-    if (c->level == CHANNEL_META) {
-        _tcpserver(s);
-    } else if (c->level == CHANNEL_BASE) {
-        status = _read(s);
+    if (conn->level == CHANNEL_META) {
+        _tcpserver(buf_sock);
+    } else if (conn->level == CHANNEL_BASE) {
+        status = _read(buf_sock);
         if (status == CC_ERROR) {
-            c->state = CONN_CLOSING;
+            conn->state = CONN_CLOSING;
         }
         /* retry is unnecessary when we use level-triggered epoll
         if (status == CC_ERETRY) {
             event_add_read(ctx->evb, hdl->id(c), s);
         }
         */
-        _post_read(s);
+        _post_read(buf_sock);
     } else {
         NOT_REACHED();
     }
@@ -252,34 +230,29 @@ _event_read(struct buf_sock *s)
 static void
 core_event(void *arg, uint32_t events)
 {
-    struct buf_sock *s = arg;
+    struct buf_sock *buf_sock = arg;
 
-    log_verb("event %06"PRIX32" on buf_sock %p", events, s);
+    log_verb("event %06"PRIx32" on buf sock %p", events, buf_sock);
 
     if (events & EVENT_ERR) {
-        INCR(event_error);
-        _close(s);
-
+        log_verb("event error on buf_sock %p", buf_sock);
+        _close(buf_sock);
         return;
     }
 
     if (events & EVENT_READ) {
-        log_verb("processing read event on buf_sock %p", s);
-
-        INCR(event_read);
-        _event_read(s);
+        log_verb("processing read event on buf_sock %p", buf_sock);
+        _event_read(buf_sock);
     }
 
     if (events & EVENT_WRITE) {
-        log_verb("processing write event on buf_sock %p", s);
-
-        INCR(event_write);
-        _event_write(s);
+        log_verb("processing write event on buf_sock %p", buf_sock);
+        _event_write(buf_sock);
     }
 
-    if (s->ch->state == CONN_CLOSING ||
-            (s->ch->state == CONN_EOF && buf_rsize(s->wbuf) == 0)) {
-        _close(s);
+    if (buf_sock->ch->state == CONN_CLOSING ||
+        (buf_sock->ch->state == CONN_EOF && buf_rsize(buf_sock->wbuf) == 0)) {
+        _close(buf_sock);
     }
 }
 
@@ -348,8 +321,6 @@ core_evwait(void)
         return n;
     }
 
-    INCR(event_loop);
-    INCR_N(event_total, n);
     time_update();
 
     return CC_OK;

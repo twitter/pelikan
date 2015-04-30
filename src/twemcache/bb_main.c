@@ -1,14 +1,19 @@
-#include <slimcache/bb_core.h>
-#include <slimcache/bb_setting.h>
-#include <slimcache/bb_stats.h>
+#include <twemcache/bb_core.h>
+#include <twemcache/bb_setting.h>
+#include <twemcache/bb_stats.h>
 
+#include <storage/slab/bb_item.h>
+#include <storage/slab/bb_slab.h>
+#include <time/bb_time.h>
+
+#include <cc_log.h>
+#include <cc_option.h>
 #include <cc_print.h>
+#include <cc_signal.h>
 
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -25,29 +30,24 @@ static struct setting setting = {
 static const unsigned int nopt = OPTION_CARDINALITY(struct setting);
 
 struct stats Stats = {
-   STATS(METRIC_INIT)
+    STATS(METRIC_INIT)
 };
 
 const unsigned int Nmetric = METRIC_CARDINALITY(struct stats);
-
 
 static void
 show_usage(void)
 {
     log_stdout(
             "Usage:" CRLF
-            "  broadbill_slimcache [option|config]" CRLF
+            "  broadbill_twemcache [option|config]" CRLF
             );
     log_stdout(
             "Description:" CRLF
-            "  broadbill_slimcache is one of the unified cache backends. " CRLF
-            "  It uses cuckoo hashing to efficiently store small key/val " CRLF
+            "  broadbill_twemcache is one of the unified cache backends. " CRLF
+            "  It uses a slab based key/val storage scheme to cache key/val" CRLF
             "  pairs. It speaks the memcached protocol and supports all " CRLF
-            "  ASCII memcached commands (except for prepend/append). " CRLF
-            CRLF
-            "  The storage in slimcache is preallocated as a hash table " CRLF
-            "  The maximum key/val size allowed has to be specified when " CRLF
-            "  starting the service, and cannot be updated after launch." CRLF
+            "  ASCII memcached commands." CRLF
             );
     log_stdout(
             "Options:" CRLF
@@ -62,6 +62,7 @@ show_usage(void)
     SETTING(PRINT_DEFAULT)
 }
 
+/* TODO(kyang): make this common w/ the one in slimcache/bb_main */
 static void
 show_version(void)
 {
@@ -71,22 +72,20 @@ show_version(void)
 static rstatus_t
 getaddr(struct addrinfo **ai, char *hostname, char *servname)
 {
-    struct addrinfo hints = { .ai_flags = AI_PASSIVE, .ai_family = AF_UNSPEC,
-        .ai_socktype = SOCK_STREAM };
     int ret;
+    struct addrinfo hints = { .ai_flags = AI_PASSIVE, .ai_family = AF_UNSPEC,
+                              .ai_socktype = SOCK_STREAM };
 
     ret = getaddrinfo(hostname, servname, &hints, ai);
+
     if (ret != 0) {
         log_error("cannot resolve address: %s", gai_strerror(ret));
-
         return CC_ERROR;
     }
 
     return CC_OK;
 }
 
-/* TODO(kyang): place daemonize and other common functions in a common place for
-   multiple binaries to use */
 static void
 daemonize(void)
 {
@@ -238,7 +237,7 @@ run(void)
     for (;;) {
         status = core_evwait();
         if (status != CC_OK) {
-            log_crit("core event loop exits due to failure");
+            log_crit("core event loop exited due to failure");
             break;
         }
     }
@@ -250,77 +249,77 @@ static void
 setup(void)
 {
     struct addrinfo *ai;
-    int ret;
+    /* int ret; */
     rstatus_t status;
 
-    /* setup log first, so we log properly */
-    ret = log_setup((int)setting.log_level.val.vuint,
-            setting.log_name.val.vstr);
-    if (ret < 0) {
+    /* Setup log */
+    if (log_setup((int)setting.log_level.val.vuint,
+                 setting.log_name.val.vstr) < 0) {
         log_error("log setup failed");
-
         goto error;
     }
-    /* stats in case other initialization updates certain metrics */
-    metric_reset((struct metric *)&Stats, Nmetric);
 
     time_setup();
 
     buf_setup((uint32_t)setting.buf_size.val.vuint);
+    dbuf_setup((uint32_t)setting.dbuf_max_size.val.vuint,
+               (uint32_t)setting.dbuf_shrink_factor.val.vuint);
 
-    array_setup((uint32_t)setting.array_nelem_delta.val.vuint);
-
-    item_setup(setting.cuckoo_item_cas.val.vbool);
-    status = cuckoo_setup((size_t)setting.cuckoo_item_size.val.vuint,
-            (uint32_t)setting.cuckoo_nitem.val.vuint,
-            (uint32_t)setting.cuckoo_policy.val.vuint);
-    if (status != CC_OK) {
-        log_error("cuckoo module setup failed");
-
+    if (slab_setup((uint32_t)setting.slab_size.val.vuint,
+                   setting.slab_use_cas.val.vbool,
+                   setting.slab_prealloc.val.vbool,
+                   (int)setting.slab_evict_opt.val.vuint,
+                   setting.slab_use_freeq.val.vbool,
+                   (size_t)setting.slab_chunk_size.val.vuint,
+                   (size_t)setting.slab_maxbytes.val.vuint,
+                   setting.slab_profile.val.vstr,
+                   (uint8_t)setting.slab_profile_last_id.val.vuint)
+        != CC_OK) {
+        log_error("slab module setup failed");
         goto error;
     }
 
-    /**
-     * Here we don't create buf or conn pool because buf_sock will allocate
-     * those objects and hold onto them as part of its create/allocate process.
-     * So it will not use buf/conn pool resources and we have no use of them
-     * outside the context of buf_sock.
-     * Do not set those poolsizes in the config script, they will not be used.
-     */
+    if (item_setup((uint32_t)setting.slab_hash_power.val.vuint) != CC_OK) {
+        log_error("item module setup failed");
+        goto error;
+    }
+
     buf_sock_pool_create((uint32_t)setting.buf_sock_poolsize.val.vuint);
     request_pool_create((uint32_t)setting.request_poolsize.val.vuint);
 
-    /* set up core after static resources are ready */
+    /* set up core */
     status = getaddr(&ai, setting.server_host.val.vstr,
-            setting.server_port.val.vstr);
-    if (status != CC_OK) {
-        log_error("address invalid");
+                     setting.server_port.val.vstr);
 
+    if(status != CC_OK) {
+        log_error("address invalid");
         goto error;
     }
     status = core_setup(ai);
-    freeaddrinfo(ai); /* freeing it before return/error to avoid memory leak */
-    if (status != CC_OK) {
-        log_crit("cannot start core event loop");
+    freeaddrinfo(ai);
 
+    if (status != CC_OK) {
+        log_crit("could not start core event loop");
         goto error;
     }
+
+    /* Not overriding signals for now, since we are still testing */
 
     /* override signals that we want to customize */
-    ret = signal_segv_stacktrace();
-    if (ret < 0) {
-        goto error;
-    }
+    /* ret = signal_segv_stacktrace(); */
+    /* if (ret < 0) { */
+    /*     goto error; */
+    /* } */
 
-    ret = signal_ttin_logrotate();
-    if (ret < 0) {
-        goto error;
-    }
+    /* ret = signal_ttin_logrotate(); */
+    /* if (ret < 0) { */
+    /*     goto error; */
+    /* } */
 
-    ret = signal_pipe_ignore();
-    if (ret < 0) {
-        goto error;
-    }
+    /* ret = signal_pipe_ignore(); */
+    /* if (ret < 0) { */
+    /*     goto error; */
+    /* } */
 
     /* daemonize */
     if (setting.daemonize.val.vbool) {
@@ -344,11 +343,10 @@ error:
     request_pool_destroy();
     buf_sock_pool_destroy();
     conn_pool_destroy();
-    buf_pool_destroy();
 
-    cuckoo_teardown();
     item_teardown();
-    array_teardown();
+    slab_teardown();
+    dbuf_teardown();
     buf_teardown();
     time_teardown();
 
@@ -362,7 +360,7 @@ error:
 int
 main(int argc, char **argv)
 {
-    rstatus_t status;
+    rstatus_t status = CC_OK;;
     FILE *fp = NULL;
 
     if (argc > 2) {
@@ -372,9 +370,8 @@ main(int argc, char **argv)
 
     if (argc == 1) {
         log_stderr("launching server with default values.");
-    }
-
-    if (argc == 2) {
+    } else {
+        /* argc == 2 */
         if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
             show_usage();
 
@@ -393,22 +390,22 @@ main(int argc, char **argv)
         }
     }
 
-    status = option_load_default((struct option *)&setting, nopt);
-    if (status != CC_OK) {
-        log_stderr("fail to load default option values");
-
+    if (option_load_default((struct option *)&setting, nopt) != CC_OK) {
+        log_stderr("failed to load default option values");
         exit(EX_CONFIG);
     }
+
     if (fp != NULL) {
         log_stderr("load config from %s", argv[1]);
         status = option_load_file(fp, (struct option *)&setting, nopt);
         fclose(fp);
     }
     if (status != CC_OK) {
-        log_stderr("fail to load config");
+        log_stderr("failed to load config");
 
         exit(EX_DATAERR);
     }
+
     option_printall((struct option *)&setting, nopt);
 
     setup();
