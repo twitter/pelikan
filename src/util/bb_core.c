@@ -1,12 +1,20 @@
-#include <slimcache/bb_core.h>
+#include <util/bb_core.h>
 
 #include <bb_stats.h>
+#include <time/bb_time.h>
+
+#if defined TARGET_SLIMCACHE
 #include <slimcache/bb_process.h>
+#elif defined TARGET_TWEMCACHE
+#include <twemcache/bb_process.h>
+#endif
 
 #include <cc_debug.h>
 #include <cc_event.h>
 #include <channel/cc_tcp.h>
 #include <stream/cc_sockio.h>
+
+#include <netdb.h>
 
 /**
  * TODO: use function pointers to accommodate different channel types when we

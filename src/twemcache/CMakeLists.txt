@@ -1,6 +1,5 @@
 set (SOURCE
     bb_main.c
-    bb_core.c
     bb_process.c
     )
 
@@ -8,6 +7,7 @@ set (LIBS
     slab
     memcache
     time
+    util
     ccommon-static
     )
 

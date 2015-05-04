@@ -1,7 +1,7 @@
 #ifndef _BB_PROCESS_H_
 #define _BB_PROCESS_H_
 
-#include <protocol/memcache/bb_codec.h>
+#include <cc_define.h>
 
 /*          name                type            description */
 #define PROCESS_METRIC(ACTION)                                          \
@@ -32,6 +32,8 @@
     ACTION( decr_notfound,      METRIC_COUNTER, "# decr not_founds"    )\
     ACTION( decr_error,         METRIC_COUNTER, "# decr errors"        )
 
+struct request;
+struct buf;
 
 rstatus_t process_request(struct request *req, struct buf *buf);
 

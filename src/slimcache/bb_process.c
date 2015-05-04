@@ -1,6 +1,7 @@
 #include <slimcache/bb_process.h>
 
 #include <bb_stats.h>
+#include <protocol/memcache/bb_codec.h>
 #include <storage/cuckoo/bb_cuckoo.h>
 #include <slimcache/bb_stats.h>
 

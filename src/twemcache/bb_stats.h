@@ -6,6 +6,7 @@
 
 #include <protocol/memcache/bb_codec.h>
 #include <protocol/memcache/bb_request.h>
+#include <util/bb_core.h>
 
 #include <cc_define.h>
 #include <cc_metric.h>
@@ -14,7 +15,8 @@
 
 #define STATS(ACTION)      \
     CODEC_METRIC(ACTION)   \
-    REQUEST_METRIC(ACTION)
+    REQUEST_METRIC(ACTION) \
+    CORE_METRIC(ACTION)
 
 struct stats {
     STATS(METRIC_DECLARE)

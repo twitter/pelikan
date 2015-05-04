@@ -5,8 +5,8 @@
 #include <storage/cuckoo/bb_item.h>
 #include <protocol/memcache/bb_codec.h>
 #include <protocol/memcache/bb_request.h>
-#include <slimcache/bb_core.h>
 #include <slimcache/bb_process.h>
+#include <util/bb_core.h>
 
 #include <cc_define.h>
 #include <cc_metric.h>
