@@ -70,6 +70,11 @@ struct item {
     char              end[1];        /* item data */
 };
 
+typedef enum {
+    V_STR = 0,
+    V_INT = 1,
+} vtype_e;
+
 #define ITEM_MAGIC      0xfeedface
 #define ITEM_HDR_SIZE   offsetof(struct item, end)
 #define ITEM_CAS_SIZE   sizeof(uint64_t)

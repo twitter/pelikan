@@ -9,12 +9,12 @@
 #include <cc_stream.h>
 
 /*          name                type            description */
-#define CORE_METRIC(ACTION)                                         \
-    ACTION( event_total,     METRIC_COUNTER, "# events returned"   )\
-    ACTION( event_returns,   METRIC_COUNTER, "# events returned"    )\
-    ACTION( event_read,      METRIC_COUNTER, "# core_read events"  )\
-    ACTION( event_write,     METRIC_COUNTER, "# core_write events" )\
-    ACTION( event_error,     METRIC_COUNTER, "# core_error events" )
+#define CORE_METRIC(ACTION)                                            \
+    ACTION( event_total,     METRIC_COUNTER, "# events returned"      )\
+    ACTION( event_loop,      METRIC_COUNTER, "# event loops returned" )\
+    ACTION( event_read,      METRIC_COUNTER, "# core_read events"     )\
+    ACTION( event_write,     METRIC_COUNTER, "# core_write events"    )\
+    ACTION( event_error,     METRIC_COUNTER, "# core_error events"    )
 
 struct addrinfo;
 

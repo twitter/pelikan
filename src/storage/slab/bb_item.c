@@ -341,6 +341,24 @@ item_get(const struct bstring *key)
     return it;
 }
 
+static void
+item_check_type(struct item *it)
+{
+    struct bstring val;
+    uint64_t vint;
+
+    ASSERT(it != NULL);
+
+    val.len = it->vlen;
+    val.data = (uint8_t *)item_data(it);
+
+    if (bstring_atou64(&vint, &val) == CC_OK) {
+        it->vtype = V_INT;
+    } else {
+        it->vtype = V_STR;
+    }
+}
+
 item_rstatus_t
 item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptime)
 {
@@ -354,6 +372,7 @@ item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptim
     ASSERT(it != NULL);
 
     cc_memcpy(item_data(it), val->data, val->len);
+    item_check_type(it);
 
     oit = item_get(key);
 
@@ -404,6 +423,7 @@ item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptim
 
     item_set_cas(it, cas);
     cc_memcpy(item_data(it), val->data, val->len);
+    item_check_type(it);
 
     _item_relink(oit, it);
     ret = ITEM_OK;
@@ -468,6 +488,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
             cc_memcpy(item_data(oit) + oit->vlen, val->data, val->len);
             oit->vlen = total_nbyte;
             item_set_cas(oit, _item_next_cas());
+            item_check_type(oit);
         } else {
             if ((ret = item_alloc(&nit, key, oit->exptime, total_nbyte)) != ITEM_OK) {
                 goto annex_done;
@@ -475,6 +496,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
 
             cc_memcpy(item_data(nit), item_data(oit), oit->vlen);
             cc_memcpy(item_data(nit) + oit->vlen, val->data, val->len);
+            item_check_type(nit);
             _item_relink(oit, nit);
         }
     } else {
@@ -486,6 +508,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
         if (id == oit->id && oit->is_raligned) {
             cc_memcpy(item_data(oit) - val->len, val->data, val->len);
             oit->vlen = total_nbyte;
+            item_check_type(oit);
             item_set_cas(oit, _item_next_cas());
         } else {
             if ((ret = item_alloc(&nit, key, oit->exptime, total_nbyte)) != ITEM_OK) {
@@ -495,6 +518,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
             nit->is_raligned = 1;
             cc_memcpy(item_data(nit) + val->len, item_data(oit), oit->vlen);
             cc_memcpy(item_data(nit), val->data, val->len);
+            item_check_type(nit);
             _item_relink(oit, nit);
         }
     }
@@ -528,6 +552,7 @@ item_update(struct item *it, const struct bstring *val)
 
     it->vlen = val->len;
     cc_memcpy(item_data(it), val->data, val->len);
+    item_check_type(it);
 
     return ITEM_OK;
 }
