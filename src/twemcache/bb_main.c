@@ -13,6 +13,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <sys/socket.h>
 #include <sysexits.h>
 
@@ -56,22 +57,6 @@ show_usage(void)
             );
     log_stdout("Setting & Default Values:");
     SETTING(PRINT_DEFAULT)
-}
-
-static void
-run(void)
-{
-    rstatus_t status;
-
-    for (;;) {
-        status = core_evwait();
-        if (status != CC_OK) {
-            log_crit("core event loop exited due to failure");
-            break;
-        }
-    }
-
-    core_teardown();
 }
 
 static void
@@ -124,7 +109,12 @@ setup(void)
         log_error("address invalid");
         goto error;
     }
-    status = core_setup(ai);
+
+    /* Set up core with connection ring array being either the tcp poolsize or
+       the ring array default capacity if poolsize is unlimited */
+    status = core_setup(ai, (setting.tcp_poolsize.val.vuint == 0 ?
+                             setting.ring_array_cap.val.vuint :
+                             setting.tcp_poolsize.val.vuint));
     freeaddrinfo(ai);
 
     if (status != CC_OK) {
@@ -239,7 +229,7 @@ main(int argc, char **argv)
 
     setup();
 
-    run();
+    core_run();
 
     exit(EX_OK);
 }

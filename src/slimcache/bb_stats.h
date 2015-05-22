@@ -40,7 +40,8 @@
 #define STATS(ACTION)               \
     SYSTEM_METRIC(ACTION)           \
     CODEC_METRIC(ACTION)            \
-    CORE_METRIC(ACTION)             \
+    CORE_SERVER_METRIC(ACTION)      \
+    CORE_WORKER_METRIC(ACTION)      \
     ITEM_METRIC(ACTION)             \
     PROCESS_METRIC(ACTION)          \
     REQUEST_METRIC(ACTION)

@@ -174,10 +174,10 @@ process_add(struct request *req, struct buf *buf)
     if (item_get(key)) {
         /* key already exists, do not set */
         ret = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
+    } else {
+        /* key does not exist, set */
+        ret = process_set_key(req, key, buf);
     }
-
-    /* key does not exist, set */
-    ret = process_set_key(req, key, buf);
 
     return ret;
 }
@@ -195,10 +195,10 @@ process_replace(struct request *req, struct buf *buf)
     if (item_get(key)) {
         /* key exists, perform replace */
         ret = process_set_key(req, key, buf);
+    } else {
+        /* key does not exist, do not set */
+        ret = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
     }
-
-    /* key does not exist, do not set */
-    ret = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
 
     return ret;
 }

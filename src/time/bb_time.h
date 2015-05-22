@@ -15,6 +15,8 @@
  *   mentations, we may need more than one time wrapper. And even more may be
  *   added in the future to strike different balance between precision and cost.
  */
+#include <cc_define.h>
+
 #include <inttypes.h>
 #include <time.h>
 
@@ -111,14 +113,14 @@ time_reltime(uint32_t t)
 
         return (rel_time_t)(t - time_start);
     } else {
-        return (rel_time_t)(t + now);
+        return (rel_time_t)t + now;
     }
 }
 
 void time_update(void);
 
 /* Set up: record process start time, start periodic timer update */
-void time_setup(void);
+rstatus_t time_setup(void);
 void time_teardown(void);
 
 #endif

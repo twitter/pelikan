@@ -13,10 +13,11 @@
 
 #include <stddef.h>
 
-#define STATS(ACTION)      \
-    CODEC_METRIC(ACTION)   \
-    REQUEST_METRIC(ACTION) \
-    CORE_METRIC(ACTION)
+#define STATS(ACTION)          \
+    CODEC_METRIC(ACTION)       \
+    REQUEST_METRIC(ACTION)     \
+    CORE_SERVER_METRIC(ACTION) \
+    CORE_WORKER_METRIC(ACTION)
 
 struct stats {
     STATS(METRIC_DECLARE)

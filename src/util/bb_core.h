@@ -5,21 +5,16 @@
  * event driven stuff is handled, it is not a replacement of main()
  */
 
-#include <cc_define.h>
-#include <cc_stream.h>
+#include <util/bb_core_server.h>
+#include <util/bb_core_worker.h>
 
-/*          name                type            description */
-#define CORE_METRIC(ACTION)                                            \
-    ACTION( event_total,     METRIC_COUNTER, "# events returned"      )\
-    ACTION( event_loop,      METRIC_COUNTER, "# event loops returned" )\
-    ACTION( event_read,      METRIC_COUNTER, "# core_read events"     )\
-    ACTION( event_write,     METRIC_COUNTER, "# core_write events"    )\
-    ACTION( event_error,     METRIC_COUNTER, "# core_error events"    )
+#include <cc_channel.h>
+#include <cc_define.h>
 
 struct addrinfo;
 
-rstatus_t core_setup(struct addrinfo *ai);
+rstatus_t core_setup(struct addrinfo *ai, uint32_t max_conns);
 void core_teardown(void);
-rstatus_t core_evwait(void);
+void core_run(void);
 
 #endif /* _BB_CORE_H_ */

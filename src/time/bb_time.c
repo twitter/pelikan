@@ -4,6 +4,7 @@
 #include <cc_log.h>
 
 #include <errno.h>
+#include <stdbool.h>
 #include <string.h>
 
 void
@@ -16,13 +17,14 @@ time_update(void)
 	log_warn("get current time failed: %s", strerror(errno));
         return;
     }
+
     /* we assume service is online for less than 2^32 seconds */
     now = (rel_time_t) (t - time_start);
 
     log_vverb("internal timer updated to %u", now);
 }
 
-void
+rstatus_t
 time_setup(void)
 {
     /*
@@ -35,6 +37,7 @@ time_setup(void)
 
     log_info("timer started at %"PRIu64"(2 sec setback)",
             (uint64_t)time_start);
+    return CC_OK;
 }
 
 void
