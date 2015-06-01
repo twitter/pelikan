@@ -73,7 +73,7 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin)
 # build dependencies
 
 # dependency: libccommon
-set (CCOMMON_SOURCE_DIR "${PROJECT_SOURCE_DIR}/../ccommon" CACHE PATH "Path to the ccommon")
+set (CCOMMON_SOURCE_DIR "${PROJECT_SOURCE_DIR}/ccommon" CACHE PATH "Path to the ccommon")
 add_subdirectory (${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
 
 #set (CMAKE_INCLUDE_CURRENT_DIR)
