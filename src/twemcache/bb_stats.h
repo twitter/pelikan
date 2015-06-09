@@ -7,34 +7,21 @@
 #include <protocol/memcache/bb_codec.h>
 #include <protocol/memcache/bb_request.h>
 #include <util/bb_core.h>
+#include <util/bb_procinfo.h>
 
-#include <cc_define.h>
-#include <cc_metric.h>
+#include <cc_event.h>
+#include <channel/cc_tcp.h>
 
-#include <stddef.h>
-
-#define STATS(ACTION)          \
-    CODEC_METRIC(ACTION)       \
-    REQUEST_METRIC(ACTION)     \
-    CORE_SERVER_METRIC(ACTION) \
-    CORE_WORKER_METRIC(ACTION)
-
-struct stats {
-    STATS(METRIC_DECLARE)
+struct glob_stats {
+    procinfo_metrics_st procinfo_metrics;
+    event_metrics_st    event_metrics;
+    server_metrics_st   server_metrics;
+    worker_metrics_st   worker_metrics;
+    tcp_metrics_st      tcp_metrics;
+    codec_metrics_st    codec_metrics;
+    request_metrics_st  request_metrics;
 };
 
-extern struct stats Stats;
-extern const unsigned int Nmetric;
-
-#define METRIC_BASE (void *)&Stats
-#define METRIC_PTR(_c) (struct metric *)(METRIC_BASE + offsetof(struct stats, _c))
-#define INCR_N(_c, _d) do {                     \
-    metric_incr_n(METRIC_PTR(_c), _d);          \
-} while(0)
-#define INCR(_c) INCR_N(_c, 1)
-#define DECR_N(_c, _d) do {                     \
-    metric_decr_n(METRIC_PTR(_c), _d);          \
-} while(0)
-#define DECR(_c) DECR_N(_c, 1)
+struct glob_stats glob_stats;
 
 #endif /* _BB_TSTATS_H_ */

@@ -1,18 +1,45 @@
 #include <slimcache/bb_process.h>
 
-#include <bb_stats.h>
 #include <protocol/memcache/bb_codec.h>
-#include <storage/cuckoo/bb_cuckoo.h>
 #include <slimcache/bb_stats.h>
+#include <storage/cuckoo/bb_cuckoo.h>
+#include <util/bb_procinfo.h>
 
 #include <cc_array.h>
 #include <cc_log.h>
 #include <cc_print.h>
 
-#include <sys/resource.h>
-#include <unistd.h>
+#define SLIMCACHE_PROCESS_MODULE_NAME "slimcache::process"
 
-#define USEC 0.000001
+static bool process_init;
+static process_metrics_st *process_metrics = NULL;
+
+void
+process_setup(process_metrics_st *metrics)
+{
+    log_info("set up the %s module", SLIMCACHE_PROCESS_MODULE_NAME);
+
+    process_metrics = metrics;
+    PROCESS_METRIC_INIT(process_metrics);
+
+    if (process_init) {
+        log_warn("%s has already been setup, overwrite",
+                SLIMCACHE_PROCESS_MODULE_NAME);
+    }
+    process_init = true;
+}
+
+void
+process_teardown(void)
+{
+    log_info("tear down the %s module", SLIMCACHE_PROCESS_MODULE_NAME);
+
+    if (!process_init) {
+        log_warn("%s has never been setup", SLIMCACHE_PROCESS_MODULE_NAME);
+    }
+    process_metrics = NULL;
+    process_init = false;
+}
 
 static rstatus_t
 process_get_key(struct buf *buf, struct bstring *key)
@@ -24,12 +51,12 @@ process_get_key(struct buf *buf, struct bstring *key)
     size_t size;
 
     log_verb("get key at %p, rsp buf at %p", key, buf);
-    INCR(get_key);
+    INCR(process_metrics, cmd_get_key);
 
     it = cuckoo_lookup(key);
     if (NULL != it) {
         log_verb("found key at item %p", it);
-        INCR(get_key_hit);
+        INCR(process_metrics, cmd_get_key_hit);
 
         item_val(&val, it);
         if (val.type == VAL_TYPE_INT) { /* print and overwrite val */
@@ -40,7 +67,7 @@ process_get_key(struct buf *buf, struct bstring *key)
 
         status = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it), 0);
     } else {
-        INCR(get_key_miss);
+        INCR(process_metrics, cmd_get_key_miss);
     }
 
     return status;
@@ -77,11 +104,11 @@ process_gets_key(struct buf *buf, struct bstring *key)
     size_t size;
 
     log_verb("gets key at %p, rsp buf at %p", key, buf);
-    INCR(gets_key);
+    INCR(process_metrics, cmd_gets_key);
 
     it = cuckoo_lookup(key);
     if (NULL != it) {
-        INCR(gets_key_hit);
+        INCR(process_metrics, cmd_gets_key_hit);
 
         item_val(&val, it);
         if (val.type == VAL_TYPE_INT) { /* print and overwrite val */
@@ -93,7 +120,7 @@ process_gets_key(struct buf *buf, struct bstring *key)
         status = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it),
                 item_cas(it));
     } else {
-        INCR(gets_key_miss);
+        INCR(process_metrics, cmd_gets_key_miss);
     }
 
     return status;
@@ -130,10 +157,10 @@ process_delete(struct request *req, struct buf *buf)
 
     deleted = cuckoo_delete(array_get_idx(req->keys, 0));
     if (deleted) {
-        INCR(delete_deleted);
+        INCR(process_metrics, cmd_delete_deleted);
         status = compose_rsp_msg(buf, RSP_DELETED, req->noreply);
     } else {
-        INCR(delete_notfound);
+        INCR(process_metrics, cmd_delete_notfound);
         status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
@@ -179,10 +206,10 @@ process_set(struct request *req, struct buf *buf)
     }
 
     if (status == CC_OK) {
-        INCR(set_stored);
+        INCR(process_metrics, cmd_set_stored);
         status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
     } else {
-        INCR(set_error);
+        INCR(process_metrics, cmd_set_ex);
         status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
     }
 
@@ -203,17 +230,17 @@ process_add(struct request *req, struct buf *buf)
     key = array_get_idx(req->keys, 0);
     it = cuckoo_lookup(key);
     if (it != NULL) {
-        INCR(add_notstored);
+        INCR(process_metrics, cmd_add_notstored);
         status = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
     } else {
         expire = time_reltime(req->expiry);
         process_value(&val, &req->vstr);
         status = cuckoo_insert(key, &val, expire);
         if (status == CC_OK) {
-            INCR(add_stored);
+            INCR(process_metrics, cmd_add_stored);
             status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
         } else {
-            INCR(add_error);
+            INCR(process_metrics, cmd_add_ex);
             status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
         }
     }
@@ -239,14 +266,14 @@ process_replace(struct request *req, struct buf *buf)
         process_value(&val, &req->vstr);
         status = cuckoo_update(it, &val, expire);
         if (status == CC_OK) {
-            INCR(replace_stored);
+            INCR(process_metrics, cmd_replace_stored);
             status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
         } else {
-            INCR(replace_error);
+            INCR(process_metrics, cmd_replace_ex);
             status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
         }
     } else {
-        INCR(replace_notstored);
+        INCR(process_metrics, cmd_replace_notstored);
         status = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
     }
 
@@ -272,18 +299,18 @@ process_cas(struct request *req, struct buf *buf)
             process_value(&val, &req->vstr);
             status = cuckoo_update(it, &val, expire);
             if (status == CC_OK) {
-                INCR(cas_stored);
+                INCR(process_metrics, cmd_cas_stored);
                 status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
             } else {
-                INCR(cas_error);
+                INCR(process_metrics, cmd_cas_ex);
                 status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
             }
         } else {
-            INCR(cas_exists);
+            INCR(process_metrics, cmd_cas_exists);
             status = compose_rsp_msg(buf, RSP_EXISTS, req->noreply);
         }
     } else {
-        INCR(cas_notfound);
+        INCR(process_metrics, cmd_cas_notfound);
         status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
@@ -304,7 +331,7 @@ process_incr(struct request *req, struct buf *buf)
     it = cuckoo_lookup(key);
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
-            INCR(incr_error);
+            INCR(process_metrics, cmd_incr_ex);
             /* TODO(yao): binary key */
             log_warn("value not int, cannot apply incr on key %.*s val %.*s",
                     key->len, key->data, it->vlen, ITEM_VAL_POS(it));
@@ -314,10 +341,10 @@ process_incr(struct request *req, struct buf *buf)
         new_val.type = VAL_TYPE_INT;
         new_val.vint = item_value_int(it) + req->delta;
         item_value_update(it, &new_val);
-        INCR(incr_stored);
+        INCR(process_metrics, cmd_incr_stored);
         status = compose_rsp_uint64(buf, new_val.vint, req->noreply);
     } else {
-        INCR(incr_notfound);
+        INCR(process_metrics, cmd_incr_notfound);
         status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
@@ -338,7 +365,7 @@ process_decr(struct request *req, struct buf *buf)
     it = cuckoo_lookup(key);
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
-            INCR(decr_error);
+            INCR(process_metrics, cmd_decr_ex);
             /* TODO(yao): binary key */
             log_warn("value not int, cannot apply decr on key %.*s val %.*s",
                     key->len, key->data, it->vlen, ITEM_VAL_POS(it));
@@ -348,10 +375,10 @@ process_decr(struct request *req, struct buf *buf)
         new_val.type = VAL_TYPE_INT;
         new_val.vint = item_value_int(it) - req->delta;
         item_value_update(it, &new_val);
-        INCR(decr_stored);
+        INCR(process_metrics, cmd_decr_stored);
         status = compose_rsp_uint64(buf, new_val.vint, req->noreply);
     } else {
-        INCR(decr_notfound);
+        INCR(process_metrics, cmd_decr_notfound);
         status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
@@ -361,37 +388,9 @@ process_decr(struct request *req, struct buf *buf)
 static rstatus_t
 process_stats(struct request *req, struct buf *buf)
 {
-    struct rusage usage;
-
-    Stats.pid.vintmax         = (intmax_t)getpid();
-    Stats.time.vintmax        = (intmax_t)time_now_abs();
-    Stats.uptime.vintmax      = (intmax_t)time_now();
-    /* "%02d%02d%02d", MC_VERSION_MAJOR, MC_VERSION_MINOR, MC_VERSION_PATCH */
-    Stats.version.vintmax     = (intmax_t)BB_VERSION_MAJOR * 10000 +
-                                    BB_VERSION_MINOR * 100 + BB_VERSION_PATCH;
-
-    /* TODO(yao): put system stats in a single section, potentially a library */
-    getrusage(RUSAGE_SELF, &usage);
-    Stats.ru_utime.vdouble    = (double)usage.ru_utime.tv_sec +
-                                    (double)usage.ru_utime.tv_usec * USEC;
-    Stats.ru_stime.vdouble    = (double)usage.ru_stime.tv_sec +
-                                    (double)usage.ru_stime.tv_usec * USEC;
-    Stats.ru_maxrss.vintmax   = (intmax_t)usage.ru_maxrss;
-    Stats.ru_ixrss.vintmax    = (intmax_t)usage.ru_ixrss;
-    Stats.ru_idrss.vintmax    = (intmax_t)usage.ru_idrss;
-    Stats.ru_isrss.vintmax    = (intmax_t)usage.ru_isrss;
-    Stats.ru_minflt.vintmax   = (intmax_t)usage.ru_minflt;
-    Stats.ru_majflt.vintmax   = (intmax_t)usage.ru_majflt;
-    Stats.ru_nswap.vintmax    = (intmax_t)usage.ru_nswap;
-    Stats.ru_inblock.vintmax  = (intmax_t)usage.ru_inblock;
-    Stats.ru_oublock.vintmax  = (intmax_t)usage.ru_oublock;
-    Stats.ru_msgsnd.vintmax   = (intmax_t)usage.ru_msgsnd;
-    Stats.ru_msgrcv.vintmax   = (intmax_t)usage.ru_msgrcv;
-    Stats.ru_nsignals.vintmax = (intmax_t)usage.ru_nsignals;
-    Stats.ru_nvcsw.vintmax    = (intmax_t)usage.ru_nvcsw;
-    Stats.ru_nivcsw.vintmax   = (intmax_t)usage.ru_nivcsw;
-
-    return compose_rsp_stats(buf, (struct metric *)&Stats, Nmetric);
+    procinfo_update();
+    return compose_rsp_stats(buf, (struct metric *)&glob_stats,
+            METRIC_CARDINALITY(glob_stats));
 }
 
 rstatus_t
@@ -400,6 +399,7 @@ process_request(struct request *req, struct buf *buf)
     rstatus_t status;
 
     log_verb("processing req %p, rsp buf at %p", req, buf);
+    INCR(process_metrics, cmd_process);
 
     switch (req->verb) {
     case REQ_GET:

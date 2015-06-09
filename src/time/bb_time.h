@@ -120,7 +120,7 @@ time_reltime(uint32_t t)
 void time_update(void);
 
 /* Set up: record process start time, start periodic timer update */
-rstatus_t time_setup(void);
+void time_setup(void);
 void time_teardown(void);
 
 #endif

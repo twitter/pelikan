@@ -26,12 +26,6 @@ static struct setting setting = {
 
 static const unsigned int nopt = OPTION_CARDINALITY(struct setting);
 
-struct stats Stats = {
-    STATS(METRIC_INIT)
-};
-
-const unsigned int Nmetric = METRIC_CARDINALITY(struct stats);
-
 static void
 show_usage(void)
 {
@@ -64,6 +58,7 @@ setup(void)
 {
     struct addrinfo *ai;
     /* int ret; */
+    uint32_t max_conns;
     rstatus_t status;
 
     /* Setup log */
@@ -74,6 +69,9 @@ setup(void)
     }
 
     time_setup();
+    procinfo_setup(&glob_stats.procinfo_metrics);
+    request_setup(&glob_stats.request_metrics);
+    codec_setup(&glob_stats.codec_metrics);
 
     buf_setup((uint32_t)setting.buf_size.val.vuint);
     dbuf_setup((uint32_t)setting.dbuf_max_size.val.vuint,
@@ -112,9 +110,10 @@ setup(void)
 
     /* Set up core with connection ring array being either the tcp poolsize or
        the ring array default capacity if poolsize is unlimited */
-    status = core_setup(ai, (setting.tcp_poolsize.val.vuint == 0 ?
-                             setting.ring_array_cap.val.vuint :
-                             setting.tcp_poolsize.val.vuint));
+    max_conns = setting.tcp_poolsize.val.vuint == 0 ?
+        setting.ring_array_cap.val.vuint : setting.tcp_poolsize.val.vuint;
+    status = core_setup(ai, max_conns, &glob_stats.server_metrics,
+            &glob_stats.worker_metrics);
     freeaddrinfo(ai);
 
     if (status != CC_OK) {
@@ -167,6 +166,9 @@ error:
     slab_teardown();
     dbuf_teardown();
     buf_teardown();
+    codec_teardown();
+    request_teardown();
+    procinfo_teardown();
     time_teardown();
 
     log_teardown();

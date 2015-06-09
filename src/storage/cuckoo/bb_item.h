@@ -12,23 +12,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-/*          name            type            description */
-#define ITEM_METRIC(ACTION)                                         \
-    ACTION( item_val_curr,  METRIC_GAUGE,   "#B stored in vals"    )\
-    ACTION( item_key_curr,  METRIC_GAUGE,   "#B stored in keys"    )\
-    ACTION( item_data_curr, METRIC_GAUGE,   "#B stored"            )\
-    ACTION( item_curr,      METRIC_GAUGE,   "# items"              )\
-    ACTION( item_displace,  METRIC_COUNTER, "# displace of items"  )\
-    ACTION( item_evict,     METRIC_COUNTER, "# evicted items"      )\
-    ACTION( item_expire,    METRIC_COUNTER, "# expired items"      )\
-    ACTION( item_insert,    METRIC_COUNTER, "# item inserts"       )\
-    ACTION( item_delete,    METRIC_COUNTER, "# item deletes"       )\
-
 
 static bool cas_enabled = true;
 static uint64_t cas_val; /* incr'ed before assignment, 0 is a special value */
 
-/*
+/**
  * val_type_t and struct val makes it easier to use one object to communicate
  * values between in-memory storage and other modules
  *
@@ -263,14 +251,4 @@ item_delete(struct item *it)
     it->expire = 0;
 }
 
-static inline void
-item_setup(bool cas)
-{
-    cas_enabled = cas;
-}
-
-static inline void
-item_teardown(void)
-{
-}
 #endif /* _BB_ITEM_H_ */

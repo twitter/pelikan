@@ -9,29 +9,48 @@
 #include <cc_metric.h>
 
 /*          name                type            description */
-#define CODEC_METRIC(ACTION)                                            \
-    ACTION( request_perror,     METRIC_COUNTER, "# parsing error"      )\
-    ACTION( request_swallow,    METRIC_COUNTER, "# lines swallowed"    )\
+#define CMD_PARSE_METRIC(ACTION)                                        \
+    ACTION( cmd_total,          METRIC_COUNTER, "total # commands"     )\
+    ACTION( cmd_get,            METRIC_COUNTER, "# get commands"       )\
+    ACTION( cmd_gets,           METRIC_COUNTER, "# gets commands"      )\
+    ACTION( cmd_delete,         METRIC_COUNTER, "# delete commands"    )\
+    ACTION( cmd_set,            METRIC_COUNTER, "# set commands"       )\
+    ACTION( cmd_add,            METRIC_COUNTER, "# add commands"       )\
+    ACTION( cmd_replace,        METRIC_COUNTER, "# replace commands"   )\
+    ACTION( cmd_cas,            METRIC_COUNTER, "# cas commands"       )\
+    ACTION( cmd_append,         METRIC_COUNTER, "# append commands"    )\
+    ACTION( cmd_prepend,        METRIC_COUNTER, "# prepend commands"   )\
+    ACTION( cmd_incr,           METRIC_COUNTER, "# incr commands"      )\
+    ACTION( cmd_decr,           METRIC_COUNTER, "# decr commands"      )\
+    ACTION( cmd_stats,          METRIC_COUNTER, "# stats commands"     )\
+    ACTION( cmd_quit,           METRIC_COUNTER, "# quit commands"      )
+
+/*          name                type            description */
+#define REQUEST_PROC_METRIC(ACTION)                                     \
     ACTION( request_parse,      METRIC_COUNTER, "# requests parsed"    )\
-    ACTION( request_get,        METRIC_COUNTER, "# get requests"       )\
-    ACTION( request_gets,       METRIC_COUNTER, "# gets requests"      )\
-    ACTION( request_delete,     METRIC_COUNTER, "# delete requests"    )\
-    ACTION( request_set,        METRIC_COUNTER, "# set requests"       )\
-    ACTION( request_add,        METRIC_COUNTER, "# add requests"       )\
-    ACTION( request_replace,    METRIC_COUNTER, "# replace requests"   )\
-    ACTION( request_cas,        METRIC_COUNTER, "# cas requests"       )\
-    ACTION( request_append,     METRIC_COUNTER, "# append requests"    )\
-    ACTION( request_prepend,    METRIC_COUNTER, "# prepend requests"   )\
-    ACTION( request_incr,       METRIC_COUNTER, "# incr requests"      )\
-    ACTION( request_decr,       METRIC_COUNTER, "# decr requests"      )\
-    ACTION( request_stats,      METRIC_COUNTER, "# stats requests"     )\
-    ACTION( request_quit,       METRIC_COUNTER, "# quit requests"      )\
-    ACTION( response_cerror,    METRIC_COUNTER, "# composing error"    )\
-    ACTION( response_compose,   METRIC_COUNTER, "# responses composed" )\
-    ACTION( response_keyval,    METRIC_COUNTER, "# keyval responses"   )\
-    ACTION( response_msg,       METRIC_COUNTER, "# static responses"   )\
-    ACTION( response_int,       METRIC_COUNTER, "# int responses"      )\
-    ACTION( response_stats,     METRIC_COUNTER, "# statsresponses"     )
+    ACTION( request_parse_ex,   METRIC_COUNTER, "# parsing error"      )\
+    ACTION( request_swallow,    METRIC_COUNTER, "# lines swallowed"    )
+
+/*          name                        type            description */
+#define RESPONSE_PROC_METRIC(ACTION)                                            \
+    ACTION( response_compose,           METRIC_COUNTER, "# responses composed" )\
+    ACTION( response_compose_ex,        METRIC_COUNTER, "# composing error"    )
+
+typedef struct {
+    REQUEST_PROC_METRIC(METRIC_DECLARE)
+    RESPONSE_PROC_METRIC(METRIC_DECLARE)
+    CMD_PARSE_METRIC(METRIC_DECLARE)
+} codec_metrics_st;
+
+#define CODEC_METRIC_INIT(_metrics) do {        \
+    *(_metrics) = (codec_metrics_st) {          \
+        REQUEST_PROC_METRIC(METRIC_INIT)        \
+        RESPONSE_PROC_METRIC(METRIC_INIT)       \
+        CMD_PARSE_METRIC(METRIC_INIT) };        \
+} while(0)
+
+void codec_setup(codec_metrics_st *metrics);
+void codec_teardown(void);
 
 rstatus_t parse_swallow(struct buf *buf);
 rstatus_t parse_req_hdr(struct request *req, struct buf *buf);

@@ -24,7 +24,7 @@ time_update(void)
     log_vverb("internal timer updated to %u", now);
 }
 
-rstatus_t
+void
 time_setup(void)
 {
     /*
@@ -37,7 +37,6 @@ time_setup(void)
 
     log_info("timer started at %"PRIu64"(2 sec setback)",
             (uint64_t)time_start);
-    return CC_OK;
 }
 
 void

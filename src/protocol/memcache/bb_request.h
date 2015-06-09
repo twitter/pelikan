@@ -6,6 +6,7 @@
 #include <cc_array.h>
 #include <cc_bstring.h>
 #include <cc_define.h>
+#include <cc_metric.h>
 #include <cc_mm.h>
 #include <cc_queue.h>
 
@@ -24,6 +25,14 @@
     ACTION( request_return,     METRIC_COUNTER, "# reqs returned"      )\
     ACTION( request_create,     METRIC_COUNTER, "# reqs created"       )\
     ACTION( request_destroy,    METRIC_COUNTER, "# reqs destroyed"     )
+
+typedef struct {
+    REQUEST_METRIC(METRIC_DECLARE)
+} request_metrics_st;
+
+#define REQUEST_METRIC_INIT(_metrics) do {                              \
+    *(_metrics) = (request_metrics_st) { REQUEST_METRIC(METRIC_INIT) }; \
+} while(0)
 
 typedef enum request_state {
     PARSING,
@@ -86,6 +95,9 @@ struct request {
     unsigned                cerror:1;   /* client error */
     unsigned                swallow:1;  /* caused by errors */
 };
+
+void request_setup(request_metrics_st *metrics);
+void request_teardown(void);
 
 struct request *request_create(void);
 void request_destroy(struct request **req);

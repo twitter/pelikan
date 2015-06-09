@@ -21,13 +21,6 @@ static struct setting setting = {
 
 static const unsigned int nopt = OPTION_CARDINALITY(struct setting);
 
-struct stats Stats = {
-   STATS(METRIC_INIT)
-};
-
-const unsigned int Nmetric = METRIC_CARDINALITY(struct stats);
-
-
 static void
 show_usage(void)
 {
@@ -64,6 +57,7 @@ setup(void)
 {
     struct addrinfo *ai;
     int ret;
+    uint32_t max_conns;
     rstatus_t status;
 
     /* setup log first, so we log properly */
@@ -74,24 +68,29 @@ setup(void)
 
         goto error;
     }
-    /* stats in case other initialization updates certain metrics */
-    metric_reset((struct metric *)&Stats, Nmetric);
 
-    time_setup();
-
-    buf_setup((uint32_t)setting.buf_size.val.vuint);
+    metric_setup();
 
     array_setup((uint32_t)setting.array_nelem_delta.val.vuint);
+    buf_setup((uint32_t)setting.buf_size.val.vuint);
+    event_setup(&glob_stats.event_metrics);
+    tcp_setup((int)setting.tcp_backlog.val.vuint, &glob_stats.tcp_metrics);
 
-    item_setup(setting.cuckoo_item_cas.val.vbool);
+    time_setup();
     status = cuckoo_setup((size_t)setting.cuckoo_item_size.val.vuint,
             (uint32_t)setting.cuckoo_nitem.val.vuint,
-            (uint32_t)setting.cuckoo_policy.val.vuint);
+            (uint32_t)setting.cuckoo_policy.val.vuint,
+            setting.cuckoo_item_cas.val.vbool,
+            &glob_stats.cuckoo_metrics);
     if (status != CC_OK) {
         log_error("cuckoo module setup failed");
 
         goto error;
     }
+    procinfo_setup(&glob_stats.procinfo_metrics);
+    request_setup(&glob_stats.request_metrics);
+    codec_setup(&glob_stats.codec_metrics);
+    process_setup(&glob_stats.process_metrics);
 
     /**
      * Here we don't create buf or conn pool because buf_sock will allocate
@@ -111,12 +110,14 @@ setup(void)
 
         goto error;
     }
-
-    /* Set up core with connection ring array being either the tcp poolsize or
-       the ring array default capacity if poolsize is unlimited */
-    status = core_setup(ai, (setting.tcp_poolsize.val.vuint == 0 ?
-                             setting.ring_array_cap.val.vuint :
-                             setting.tcp_poolsize.val.vuint));
+    /**
+     * Set up core with connection ring array being either the tcp poolsize or
+     * the ring array default capacity if poolsize is unlimited
+     */
+    max_conns = setting.tcp_poolsize.val.vuint == 0 ?
+        setting.ring_array_cap.val.vuint : setting.tcp_poolsize.val.vuint;
+    status = core_setup(ai, max_conns, &glob_stats.server_metrics,
+            &glob_stats.worker_metrics);
     freeaddrinfo(ai); /* freeing it before return/error to avoid memory leak */
     if (status != CC_OK) {
         log_crit("cannot start core event loop");
@@ -153,6 +154,8 @@ setup(void)
     return;
 
 error:
+    log_crit("setup failed");
+
     if (!option_empty(&setting.pid_filename)) {
         remove_pidfile(setting.pid_filename.val.vstr);
     }
@@ -165,14 +168,17 @@ error:
     buf_pool_destroy();
 
     cuckoo_teardown();
-    item_teardown();
-    array_teardown();
-    buf_teardown();
+    process_teardown();
+    codec_teardown();
+    request_teardown();
+    procinfo_teardown();
     time_teardown();
-
+    tcp_teardown();
+    event_teardown();
+    buf_teardown();
+    array_teardown();
+    metric_teardown();
     log_teardown();
-
-    log_crit("setup failed");
 
     exit(EX_CONFIG);
 }

@@ -1,16 +1,44 @@
 #include <protocol/memcache/bb_request.h>
 
-#include <bb_stats.h>
-
 #include <cc_bstring.h>
 #include <cc_debug.h>
 #include <cc_log.h>
 #include <cc_pool.h>
 
+#define REQUEST_MODULE_NAME "protocol::memcache::request"
+
+static bool request_init = false;
+static request_metrics_st *request_metrics = NULL;
+
 FREEPOOL(req_pool, reqq, request);
 static struct req_pool reqp;
-
 static bool reqp_init = false;
+
+void
+request_setup(request_metrics_st *metrics)
+{
+    log_info("set up the %s module", REQUEST_MODULE_NAME);
+
+    request_metrics = metrics;
+    REQUEST_METRIC_INIT(request_metrics);
+
+    if (request_init) {
+        log_warn("%s has already been setup, overwrite", REQUEST_MODULE_NAME);
+    }
+    request_init = true;
+}
+
+void
+request_teardown(void)
+{
+    log_info("tear down the %s module", REQUEST_MODULE_NAME);
+
+    if (!request_init) {
+        log_warn("%s has never been setup", REQUEST_MODULE_NAME);
+    }
+    request_metrics = NULL;
+    request_init = false;
+}
 
 void
 request_reset(struct request *req)
@@ -55,7 +83,7 @@ request_create(void)
     }
     request_reset(req);
 
-    INCR(request_create);
+    INCR(request_metrics, request_create);
 
     return req;
 }
@@ -66,7 +94,7 @@ request_destroy(struct request **request)
     struct request *req = *request;
     ASSERT(req != NULL);
 
-    INCR(request_destroy);
+    INCR(request_metrics, request_destroy);
     array_destroy(&req->keys);
     cc_free(req);
     *request = NULL;
@@ -76,32 +104,34 @@ request_destroy(struct request **request)
 void
 request_pool_create(uint32_t max)
 {
-    if (!reqp_init) {
-        uint32_t i;
-        struct request *req;
+    uint32_t i;
+    struct request *req;
 
-        log_info("creating request pool: max %"PRIu32, max);
-
-        FREEPOOL_CREATE(&reqp, max);
-        reqp_init = true;
-
-        /* preallocating, see notes in cc_fbuf.c */
-        if (max == 0) {
-            return;
-        }
-
-        for (i = 0; i < max; ++i) {
-            req = request_create();
-            if (req == NULL) {
-                log_crit("cannot preallocate request pool due to OOM, abort");
-                exit(EXIT_FAILURE);
-            }
-            req->free = true;
-            FREEPOOL_RETURN(&reqp, req, next);
-            INCR(request_free);
-        }
-    } else {
+    if (reqp_init) {
         log_warn("request pool has already been created, ignore");
+
+        return;
+    }
+
+    log_info("creating request pool: max %"PRIu32, max);
+
+    FREEPOOL_CREATE(&reqp, max);
+    reqp_init = true;
+
+    /* preallocating, see notes in cc_fbuf.c */
+    if (max == 0) {
+        return;
+    }
+
+    for (i = 0; i < max; ++i) {
+        req = request_create();
+        if (req == NULL) {
+            log_crit("cannot preallocate request pool due to OOM, abort");
+            exit(EXIT_FAILURE);
+        }
+        req->free = true;
+        FREEPOOL_RETURN(&reqp, req, next);
+        INCR(request_metrics, request_free);
     }
 }
 
@@ -133,8 +163,8 @@ request_borrow(void)
     }
     request_reset(req);
 
-    DECR(request_free);
-    INCR(request_borrow);
+    DECR(request_metrics, request_free);
+    INCR(request_metrics, request_borrow);
     log_vverb("borrowing req %p", req);
 
     return req;
@@ -149,8 +179,8 @@ request_return(struct request **request)
         return;
     }
 
-    INCR(request_free);
-    INCR(request_return);
+    INCR(request_metrics, request_free);
+    INCR(request_metrics, request_return);
     log_vverb("return req %p", req);
 
     req->free = true;

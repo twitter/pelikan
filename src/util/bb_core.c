@@ -2,6 +2,8 @@
 
 #include <util/bb_core_shared.h>
 
+#include <cc_ring_array.h>
+
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -13,8 +15,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <cc_ring_array.h>
-
 struct buf_sock;
 bool core_init = false;
 
@@ -24,7 +24,8 @@ bool core_init = false;
  */
 
 rstatus_t
-core_setup(struct addrinfo *ai, uint32_t max_conns)
+core_setup(struct addrinfo *ai, uint32_t max_conns, server_metrics_st *smetrics,
+        worker_metrics_st *wmetrics)
 {
     rstatus_t ret;
     int status;
@@ -47,12 +48,12 @@ core_setup(struct addrinfo *ai, uint32_t max_conns)
         return CC_ERROR;
     }
 
-    ret = core_server_setup(ai);
+    ret = core_server_setup(ai, smetrics);
     if (ret != CC_OK) {
         return ret;
     }
 
-    ret = core_worker_setup();
+    ret = core_worker_setup(wmetrics);
     if (ret != CC_OK) {
         return ret;
     }

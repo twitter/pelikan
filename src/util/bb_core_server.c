@@ -1,8 +1,8 @@
 #include <util/bb_core_server.h>
 
-#include <bb_stats.h>
 #include <time/bb_time.h>
 #include <util/bb_core_shared.h>
+#include <protocol/memcache/bb_request.h>
 
 #include <cc_channel.h>
 #include <cc_debug.h>
@@ -13,6 +13,11 @@
 
 #include <errno.h>
 #include <string.h>
+
+#define SERVER_MODULE_NAME "util::server"
+
+static bool server_init = false;
+static server_metrics_st *server_metrics = NULL;
 
 static struct context context;
 static struct context *ctx = &context;
@@ -95,7 +100,7 @@ core_server_event(void *arg, uint32_t events)
     log_verb("server event %06"PRIX32" on buf_sock %p", events, s);
 
     if (events & EVENT_ERR) {
-        INCR(server_event_error);
+        INCR(server_metrics, server_event_error);
         _server_close(s);
 
         return;
@@ -104,7 +109,7 @@ core_server_event(void *arg, uint32_t events)
     if (events & EVENT_READ) {
         log_verb("processing server read event on buf_sock %p", s);
 
-        INCR(server_event_read);
+        INCR(server_metrics, server_event_read);
         _server_event_read(s);
     }
 
@@ -112,14 +117,22 @@ core_server_event(void *arg, uint32_t events)
         log_verb("processing server write event");
         _server_pipe_write();
 
-        INCR(server_event_write);
+        INCR(server_metrics, server_event_write);
     }
 }
 
 rstatus_t
-core_server_setup(struct addrinfo *ai)
+core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
 {
     struct conn *c;
+
+    if (server_init) {
+        log_error("server has already been setup, aborting");
+
+        return CC_ERROR;
+    }
+
+    log_info("set up the %s module", SERVER_MODULE_NAME);
 
     ctx->timeout = 100;
     ctx->evb = event_base_create(1024, core_server_event);
@@ -160,6 +173,10 @@ core_server_setup(struct addrinfo *ai)
     c->level = CHANNEL_META;
 
     event_add_read(ctx->evb, hdl->id(c), serversock);
+    server_metrics = metrics;
+    SERVER_METRIC_INIT(server_metrics);
+
+    server_init = true;
 
     return CC_OK;
 }
@@ -167,8 +184,16 @@ core_server_setup(struct addrinfo *ai)
 void
 core_server_teardown(void)
 {
-    buf_sock_return(&serversock);
-    event_base_destroy(&(ctx->evb));
+    log_info("tear down the %s module", SERVER_MODULE_NAME);
+
+    if (!server_init) {
+        log_warn("%s has never been setup", SERVER_MODULE_NAME);
+    } else {
+        buf_sock_return(&serversock);
+        event_base_destroy(&(ctx->evb));
+    }
+    server_metrics = NULL;
+    server_init = false;
 }
 
 static rstatus_t
@@ -181,8 +206,8 @@ core_server_evwait(void)
         return n;
     }
 
-    INCR(server_event_loop);
-    INCR_N(server_event_total, n);
+    INCR(server_metrics, server_event_loop);
+    INCR_N(server_metrics, server_event_total, n);
     time_update();
 
     return CC_OK;

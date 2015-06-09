@@ -1,6 +1,5 @@
 #include <protocol/memcache/bb_codec.h>
 
-#include <bb_stats.h>
 #include <time/bb_time.h>
 
 #include <buffer/cc_buf.h>
@@ -12,6 +11,37 @@
 #include <cc_util.h>
 
 #include <ctype.h>
+
+#define CODEC_MODULE_NAME "protocol::memcache::codec"
+
+static bool codec_init = false;
+static codec_metrics_st *codec_metrics = NULL;
+
+void
+codec_setup(codec_metrics_st *metrics)
+{
+    log_info("set up the %s module", CODEC_MODULE_NAME);
+
+    codec_metrics = metrics;
+    CODEC_METRIC_INIT(codec_metrics);
+
+    if (codec_init) {
+        log_warn("%s has already been setup, overwrite", CODEC_MODULE_NAME);
+    }
+    codec_init = true;
+}
+
+void
+codec_teardown(void)
+{
+    log_info("tear down the %s module", CODEC_MODULE_NAME);
+
+    if (!codec_init) {
+        log_warn("%s has never been setup", CODEC_MODULE_NAME);
+    }
+    codec_metrics = NULL;
+    codec_init = false;
+}
 
 /* functions related to parsing messages */
 
@@ -32,7 +62,7 @@ _mark_cerror(struct request *req, struct buf *buf, uint8_t *npos)
 
     buf->rpos = npos;
 
-    INCR(request_perror);
+    INCR(codec_metrics, request_parse_ex);
 }
 
 static inline void
@@ -791,7 +821,7 @@ parse_swallow(struct buf *buf)
 
         case CC_OK:
             log_verb("swallowed %zu bytes", p + CRLF_LEN - buf->rpos);
-            INCR(request_swallow);
+            INCR(codec_metrics, request_swallow);
             buf->rpos = p + CRLF_LEN;
 
             return CC_OK;
@@ -941,46 +971,46 @@ parse_req(struct request *req, struct buf *buf)
 
     if (status == CC_OK) {
         req->rstate = PARSED;
-        INCR(request_parse);
+        INCR(codec_metrics, cmd_total);
         switch (req->verb) {
         case REQ_GET:
-            INCR(request_get);
+            INCR(codec_metrics, cmd_get);
             break;
         case REQ_GETS:
-            INCR(request_gets);
+            INCR(codec_metrics, cmd_gets);
             break;
         case REQ_DELETE:
-            INCR(request_delete);
+            INCR(codec_metrics, cmd_delete);
             break;
         case REQ_ADD:
-            INCR(request_add);
+            INCR(codec_metrics, cmd_add);
             break;
         case REQ_SET:
-            INCR(request_set);
+            INCR(codec_metrics, cmd_set);
             break;
         case REQ_REPLACE:
-            INCR(request_replace);
+            INCR(codec_metrics, cmd_replace);
             break;
         case REQ_APPEND:
-            INCR(request_append);
+            INCR(codec_metrics, cmd_append);
             break;
         case REQ_PREPEND:
-            INCR(request_prepend);
+            INCR(codec_metrics, cmd_prepend);
             break;
         case REQ_CAS:
-            INCR(request_cas);
+            INCR(codec_metrics, cmd_cas);
             break;
         case REQ_INCR:
-            INCR(request_incr);
+            INCR(codec_metrics, cmd_incr);
             break;
         case REQ_DECR:
-            INCR(request_decr);
+            INCR(codec_metrics, cmd_decr);
             break;
         case REQ_STATS:
-            INCR(request_stats);
+            INCR(codec_metrics, cmd_stats);
             break;
         case REQ_QUIT:
-            INCR(request_quit);
+            INCR(codec_metrics, cmd_quit);
             break;
         default:
             NOT_REACHED();
@@ -1039,12 +1069,11 @@ compose_rsp_msg(struct buf *buf, rsp_index_t idx, bool noreply)
     }
 
     log_verb("rsp msg id %d", idx);
-    INCR(response_compose);
-    INCR(response_msg);
+    INCR(codec_metrics, response_compose);
 
     status = _compose_rsp_msg(buf, idx);
     if (status != CC_OK) {
-        INCR(response_cerror);
+        INCR(codec_metrics, response_compose_ex);
     }
 
     return status;
@@ -1087,13 +1116,12 @@ compose_rsp_uint64(struct buf *buf, uint64_t val, bool noreply)
     }
 
     log_verb("rsp int %"PRIu64, val);
-    INCR(response_compose);
-    INCR(response_int);
+    INCR(codec_metrics, response_compose);
 
     status = _compose_rsp_uint64(buf, val, "%"PRIu64""CRLF);
 
     if (status != CC_OK) {
-        INCR(response_cerror);
+        INCR(codec_metrics, response_compose_ex);
     }
 
     return status;
@@ -1171,13 +1199,12 @@ compose_rsp_keyval(struct buf *buf, struct bstring *key, struct bstring *val, ui
         goto error;
     }
 
-    INCR(response_compose);
-    INCR(response_keyval);
+    INCR(codec_metrics, response_compose);
 
     return CC_OK;
 
 error:
-    INCR(response_cerror);
+    INCR(codec_metrics, response_compose_ex);
     return status;
 }
 
@@ -1246,12 +1273,11 @@ compose_rsp_stats(struct buf *buf, struct metric marr[], unsigned int nmetric)
         }
         if (status != CC_OK) {
             return status;
-            INCR(response_cerror);
+            INCR(codec_metrics, response_compose_ex);
         }
     }
 
     log_verb("wrote %u metrics", nmetric);
-    INCR(response_stats);
 
     status = _compose_rsp_msg(buf, RSP_END);
     return status;

@@ -1,9 +1,13 @@
 #include <util/bb_core_worker.h>
 
-#include <bb_stats.h>
 #include <time/bb_time.h>
+#include <protocol/memcache/bb_codec.h>
 #include <util/bb_core_shared.h>
 
+/*
+ * TODO(yao): this doesn't look clean, protocol, process shouldn't be assumed
+ * in the event handling part, but rather should be passed in
+ */
 #if defined TARGET_SLIMCACHE
 #include <slimcache/bb_process.h>
 #elif defined TARGET_TWEMCACHE
@@ -17,6 +21,11 @@
 #include <channel/cc_tcp.h>
 
 #include <stream/cc_sockio.h>
+
+#define WORKER_MODULE_NAME "util::worker"
+
+static bool worker_init = false;
+static worker_metrics_st *worker_metrics = NULL;
 
 static struct context context;
 static struct context *ctx = &context;
@@ -55,8 +64,6 @@ static void
 _worker_post_write(struct buf_sock *s)
 {
     log_verb("post write processing on buf_sock %p", s);
-
-    //stats_thread_incr_by(data_written, nbyte);
 
     /* left-shift rbuf and wbuf */
     buf_lshift(s->rbuf);
@@ -105,8 +112,6 @@ _worker_post_read(struct buf_sock *s)
     struct request *req;
 
     log_verb("post read processing on buf_sock %p", s);
-
-    //stats_thread_incr_by(data_read, nbyte);
 
     if (s->data != NULL) {
         req = s->data;
@@ -262,14 +267,14 @@ core_worker_event(void *arg, uint32_t events)
 
         if (events & EVENT_READ) {
             log_verb("processing worker read event on buf_sock %p", s);
-            INCR(worker_event_read);
+            INCR(worker_metrics, worker_event_read);
             _worker_event_read(s);
         } else if (events & EVENT_WRITE) {
             log_verb("processing worker write event on buf_sock %p", s);
-            INCR(worker_event_write);
+            INCR(worker_metrics, worker_event_write);
             _worker_event_write(s);
         } else if (events & EVENT_ERR) {
-            INCR(worker_event_error);
+            INCR(worker_metrics, worker_event_error);
             _worker_close(s);
         } else {
             NOT_REACHED();
@@ -283,8 +288,16 @@ core_worker_event(void *arg, uint32_t events)
 }
 
 rstatus_t
-core_worker_setup(void)
+core_worker_setup(worker_metrics_st *metrics)
 {
+    if (worker_init) {
+        log_error("worker has already been setup, aborting");
+
+        return CC_ERROR;
+    }
+
+    log_info("set up the %s module", WORKER_MODULE_NAME);
+
     ctx->timeout = 100;
     ctx->evb = event_base_create(1024, core_worker_event);
     if (ctx->evb == NULL) {
@@ -301,6 +314,10 @@ core_worker_setup(void)
     hdl->id = conn_id;
 
     event_add_read(ctx->evb, conn_fds[0], NULL);
+    worker_metrics = metrics;
+    WORKER_METRIC_INIT(worker_metrics);
+
+    worker_init = true;
 
     return CC_OK;
 }
@@ -308,7 +325,15 @@ core_worker_setup(void)
 void
 core_worker_teardown(void)
 {
-    event_base_destroy(&(ctx->evb));
+    log_info("tear down the %s module", WORKER_MODULE_NAME);
+
+    if (!worker_init) {
+        log_warn("%s has never been setup", WORKER_MODULE_NAME);
+    } else {
+        event_base_destroy(&(ctx->evb));
+    }
+    worker_metrics = NULL;
+    worker_init = false;
 }
 
 static rstatus_t
@@ -321,8 +346,8 @@ core_worker_evwait(void)
         return n;
     }
 
-    INCR(worker_event_loop);
-    INCR_N(worker_event_total, n);
+    INCR(worker_metrics, worker_event_loop);
+    INCR_N(worker_metrics, worker_event_total, n);
     time_update();
 
     return CC_OK;
