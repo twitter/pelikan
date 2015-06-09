@@ -59,6 +59,7 @@ typedef struct {
 
 rstatus_t cuckoo_setup(size_t size, uint32_t item, uint32_t policy, bool cas, cuckoo_metrics_st *metrics);
 void cuckoo_teardown(void);
+void cuckoo_reset(void);
 
 struct item * cuckoo_lookup(struct bstring *key);
 rstatus_t cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire);

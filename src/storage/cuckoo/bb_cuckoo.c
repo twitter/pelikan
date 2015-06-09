@@ -36,6 +36,7 @@ static uint32_t iv[D] = {
 static void* ds; /* data store is also the hash table */
 static size_t chunk_size;
 static uint32_t max_item;
+static size_t hash_size; /* max_item * chunk_size */
 
 #define OFFSET2ITEM(o) ((struct item *)((ds) + (o) * chunk_size))
 #define RANDOM(k) (random() % k)
@@ -260,7 +261,8 @@ cuckoo_setup(size_t size, uint32_t item, uint32_t policy, bool cas, cuckoo_metri
 
     chunk_size = size;
     max_item = item;
-    ds = cc_zalloc(max_item * chunk_size);
+    hash_size = size * item;
+    ds = cc_zalloc(hash_size);
     if (ds == NULL) {
         log_crit("cuckoo data store allocation failed");
 
@@ -289,6 +291,18 @@ cuckoo_teardown(void)
 
     cuckoo_metrics = NULL;
     cuckoo_init = false;
+}
+
+void
+cuckoo_reset(void) /* reset hash table */
+{
+    log_info("reset the main hash table in cuckoo");
+
+    if (!cuckoo_init || ds == NULL) {
+        log_warn("hash table has never been initialized");
+    } else {
+        cc_memset(ds, 0, hash_size);
+    }
 }
 
 struct item *

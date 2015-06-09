@@ -61,6 +61,7 @@ typedef enum request_verb {
     REQ_INCR,
     REQ_DECR,
     REQ_STATS,
+    REQ_FLUSH,
     REQ_QUIT,
     RV_SENTINEL
 } request_verb_t;

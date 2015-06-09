@@ -22,6 +22,7 @@
     ACTION( cmd_incr,           METRIC_COUNTER, "# incr commands"      )\
     ACTION( cmd_decr,           METRIC_COUNTER, "# decr commands"      )\
     ACTION( cmd_stats,          METRIC_COUNTER, "# stats commands"     )\
+    ACTION( cmd_flush,          METRIC_COUNTER, "# flush_all commands" )\
     ACTION( cmd_quit,           METRIC_COUNTER, "# quit commands"      )
 
 /*          name                type            description */

@@ -393,64 +393,52 @@ process_stats(struct request *req, struct buf *buf)
             METRIC_CARDINALITY(glob_stats));
 }
 
+static rstatus_t
+process_flush(struct request *req, struct buf *buf)
+{
+    cuckoo_reset();
+    return compose_rsp_msg(buf, RSP_OK, req->noreply);
+}
+
 rstatus_t
 process_request(struct request *req, struct buf *buf)
 {
-    rstatus_t status;
-
     log_verb("processing req %p, rsp buf at %p", req, buf);
     INCR(process_metrics, cmd_process);
 
     switch (req->verb) {
     case REQ_GET:
-        status = process_get(req, buf);
-
-        return status;
+        return process_get(req, buf);
 
     case REQ_GETS:
-        status = process_gets(req, buf);
-
-        return status;
+        return process_gets(req, buf);
 
     case REQ_DELETE:
-        status = process_delete(req, buf);
-
-        return status;
+        return process_delete(req, buf);
 
     case REQ_SET:
-        status = process_set(req, buf);
-
-        return status;
+        return process_set(req, buf);
 
     case REQ_ADD:
-        status = process_add(req, buf);
-
-        return status;
+        return process_add(req, buf);
 
     case REQ_REPLACE:
-        status = process_replace(req, buf);
-
-        return status;
+        return process_replace(req, buf);
 
     case REQ_CAS:
-        status = process_cas(req, buf);
-
-        return status;
+        return process_cas(req, buf);
 
     case REQ_INCR:
-        status = process_incr(req, buf);
-
-        return status;
+        return process_incr(req, buf);
 
     case REQ_DECR:
-        status = process_decr(req, buf);
-
-        return status;
+        return process_decr(req, buf);
 
     case REQ_STATS:
-        status = process_stats(req, buf);
+        return process_stats(req, buf);
 
-        return status;
+    case REQ_FLUSH:
+        return process_flush(req, buf);
 
     case REQ_QUIT:
         return CC_ERDHUP;

@@ -15,17 +15,18 @@
 #include <cc_util.h>
 
 #define RSP_MSG(ACTION)                             \
-    ACTION( RSP_CRLF,           CRLF              ) \
-    ACTION( RSP_VALUE,          "VALUE "          ) \
-    ACTION( RSP_STAT,           "STAT "           ) \
-    ACTION( RSP_END,            "END\r\n"         ) \
-    ACTION( RSP_STORED,         "STORED\r\n"      ) \
-    ACTION( RSP_NOT_STORED,     "NOT_STORED\r\n"  ) \
-    ACTION( RSP_EXISTS,         "EXISTS\r\n"      ) \
-    ACTION( RSP_NOT_FOUND,      "NOT_FOUND\r\n"   ) \
-    ACTION( RSP_DELETED,        "DELETED\r\n"     ) \
-    ACTION( RSP_CLIENT_ERROR,   "CLIENT_ERROR\r\n") \
-    ACTION( RSP_SERVER_ERROR,   "SERVER_ERROR\r\n") \
+    ACTION( RSP_OK,             "OK\r\n"           )\
+    ACTION( RSP_CRLF,           CRLF               )\
+    ACTION( RSP_VALUE,          "VALUE "           )\
+    ACTION( RSP_STAT,           "STAT "            )\
+    ACTION( RSP_END,            "END\r\n"          )\
+    ACTION( RSP_STORED,         "STORED\r\n"       )\
+    ACTION( RSP_NOT_STORED,     "NOT_STORED\r\n"   )\
+    ACTION( RSP_EXISTS,         "EXISTS\r\n"       )\
+    ACTION( RSP_NOT_FOUND,      "NOT_FOUND\r\n"    )\
+    ACTION( RSP_DELETED,        "DELETED\r\n"      )\
+    ACTION( RSP_CLIENT_ERROR,   "CLIENT_ERROR\r\n" )\
+    ACTION( RSP_SERVER_ERROR,   "SERVER_ERROR\r\n" )\
 
 #define GET_INDEX(_name, _str) _name,
 typedef enum rsp_index {

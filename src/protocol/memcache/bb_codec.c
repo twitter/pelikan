@@ -345,6 +345,14 @@ _check_verb(struct request *req, struct buf *buf, bool *end, struct bstring *t, 
             }
 
             break;
+
+        case 9:
+            if (str9cmp(t->data, 'f', 'l', 'u', 's', 'h', '_', 'a', 'l', 'l')) {
+                req->verb = REQ_FLUSH;
+                break;
+            }
+
+            break;
         }
 
         if (req->verb == REQ_UNKNOWN) { /* no match */
@@ -895,7 +903,10 @@ parse_req_hdr(struct request *req, struct buf *buf)
 
         break;
 
+    /* stats can take an option e.g.'stats slab\r\n', not implemented */
     case REQ_STATS:
+    /* flush_all can take a delay e.g.'flush_all 10\r\n', not implemented */
+    case REQ_FLUSH:
     case REQ_QUIT:
         if (!end) {
             status = _chase_crlf(req, buf);
@@ -1008,6 +1019,9 @@ parse_req(struct request *req, struct buf *buf)
             break;
         case REQ_STATS:
             INCR(codec_metrics, cmd_stats);
+            break;
+        case REQ_FLUSH:
+            INCR(codec_metrics, cmd_flush);
             break;
         case REQ_QUIT:
             INCR(codec_metrics, cmd_quit);
