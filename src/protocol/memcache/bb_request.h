@@ -1,5 +1,4 @@
-#ifndef _BB_REQUEST_H_
-#define _BB_REQUEST_H_
+#pragma once
 
 #include <protocol/memcache/bb_constant.h>
 
@@ -107,5 +106,3 @@ void request_pool_create(uint32_t max);
 void request_pool_destroy(void);
 struct request *request_borrow(void);
 void request_return(struct request **req);
-
-#endif /* _BB_REQUEST_H_ */

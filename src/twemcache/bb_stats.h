@@ -1,5 +1,4 @@
-#ifndef _BB_TSTATS_H_
-#define _BB_TSTATS_H_
+#pragma once
 
 /* (kyang) Very minimal stats for now, only included so the codec/request modules
    link properly. Full stats will be implemented later. */
@@ -23,5 +22,3 @@ struct glob_stats {
 };
 
 struct glob_stats glob_stats;
-
-#endif /* _BB_TSTATS_H_ */

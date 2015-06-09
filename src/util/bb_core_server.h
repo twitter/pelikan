@@ -1,5 +1,4 @@
-#ifndef _BB_CORE_SERVER_H_
-#define _BB_CORE_SERVER_H_
+#pragma once
 
 #include <cc_define.h>
 #include <cc_metric.h>
@@ -25,5 +24,3 @@ struct addrinfo;
 rstatus_t core_server_setup(struct addrinfo *ai, server_metrics_st *metrics);
 void core_server_teardown(void);
 void core_server_evloop(void);
-
-#endif /* _BB_CORE_SERVER_H_ */

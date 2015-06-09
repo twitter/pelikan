@@ -1,5 +1,4 @@
-#ifndef _BB_SETTING_H_
-#define _BB_SETTING_H_
+#pragma once
 
 #include <storage/slab/bb_slab.h>
 #include <protocol/memcache/bb_request.h>
@@ -34,5 +33,3 @@
 struct setting {
     SETTING(OPTION_DECLARE)
 };
-
-#endif /* _BB_SETTING_H_ */

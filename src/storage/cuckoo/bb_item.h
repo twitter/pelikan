@@ -1,5 +1,4 @@
-#ifndef _BB_ITEM_H_
-#define _BB_ITEM_H_
+#pragma once
 
 #include <time/bb_time.h>
 
@@ -250,5 +249,3 @@ item_delete(struct item *it)
 {
     it->expire = 0;
 }
-
-#endif /* _BB_ITEM_H_ */

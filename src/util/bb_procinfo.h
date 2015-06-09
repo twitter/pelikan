@@ -1,5 +1,4 @@
-#ifndef _BB_PROCINFO_H_
-#define _BB_PROCINFO_H_
+#pragma once
 
 #include <cc_metric.h>
 
@@ -39,5 +38,3 @@ void procinfo_setup(procinfo_metrics_st *procinfo_metrics);
 void procinfo_teardown(void);
 
 void procinfo_update(void);
-
-#endif /* _BB_PROCINFO_H_ */

@@ -1,5 +1,4 @@
-#ifndef _BB_UTIL_H_
-#define _BB_UTIL_H_
+#pragma once
 
 #include <cc_define.h>
 
@@ -19,5 +18,3 @@ void create_pidfile(const char *filename);
 
 /* Remove pid file */
 void remove_pidfile(const char *filename);
-
-#endif /* _BB_UTIL_H_ */

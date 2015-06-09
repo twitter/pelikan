@@ -1,5 +1,4 @@
-#ifndef _BB_CORE_H_
-#define _BB_CORE_H_
+#pragma once
 
 /* NOTE(yao): the core file should be where everything related to the
  * event driven stuff is handled, it is not a replacement of main()
@@ -16,5 +15,3 @@ struct addrinfo;
 rstatus_t core_setup(struct addrinfo *ai, uint32_t max_conns, server_metrics_st *smetrics, worker_metrics_st *wmetrics);
 void core_teardown(void);
 void core_run(void);
-
-#endif /* _BB_CORE_H_ */

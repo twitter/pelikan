@@ -1,5 +1,4 @@
-#ifndef _BB_CUCKOO_H_
-#define _BB_CUCKOO_H_
+#pragma once
 
 #include <storage/cuckoo/bb_item.h>
 
@@ -65,5 +64,3 @@ struct item * cuckoo_lookup(struct bstring *key);
 rstatus_t cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire);
 rstatus_t cuckoo_update(struct item *it, struct val *val, rel_time_t expire);
 bool cuckoo_delete(struct bstring *key);
-
-#endif

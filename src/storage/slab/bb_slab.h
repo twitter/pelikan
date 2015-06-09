@@ -1,5 +1,4 @@
-#ifndef _BB_SLAB_H_
-#define _BB_SLAB_H_
+#pragma once
 
 #include <storage/slab/bb_item.h>
 #include <time/bb_time.h>
@@ -174,5 +173,3 @@ void slab_teardown(void);
 
 struct item *slab_get_item(uint8_t id);
 void slab_put_item(struct item *it, uint8_t id);
-
-#endif

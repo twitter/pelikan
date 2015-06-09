@@ -1,5 +1,4 @@
-#ifndef _BB_TIME_H_
-#define _BB_TIME_H_
+#pragma once
 
 /* TODO(yao): move this into ccommon:
  *   It is common to have a TTL/age for keys in key-value store. A wrapper
@@ -122,5 +121,3 @@ void time_update(void);
 /* Set up: record process start time, start periodic timer update */
 void time_setup(void);
 void time_teardown(void);
-
-#endif

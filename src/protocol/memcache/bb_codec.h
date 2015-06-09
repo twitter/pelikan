@@ -1,5 +1,4 @@
-#ifndef _BB_CODEC_H_
-#define _BB_CODEC_H_
+#pragma once
 
 #include <protocol/memcache/bb_request.h>
 #include <protocol/memcache/bb_response.h>
@@ -61,4 +60,3 @@ rstatus_t compose_rsp_msg(struct buf *buf, rsp_index_t idx, bool noreply);
 rstatus_t compose_rsp_uint64(struct buf *buf, uint64_t val, bool noreply);
 rstatus_t compose_rsp_keyval(struct buf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas);
 rstatus_t compose_rsp_stats(struct buf *buf, struct metric marr[], unsigned int nmetric);
-#endif /* _BB_CODEC_H_ */

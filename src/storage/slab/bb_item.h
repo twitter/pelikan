@@ -1,5 +1,4 @@
-#ifndef _BB_ITEM_H_
-#define _BB_ITEM_H_
+#pragma once
 
 #include <storage/slab/bb_slab.h>
 
@@ -196,5 +195,3 @@ item_rstatus_t item_update(struct item *it, const struct bstring *val);
 
 /* Remove item from cache */
 item_rstatus_t item_delete(const struct bstring *key);
-
-#endif

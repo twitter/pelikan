@@ -1,5 +1,4 @@
-#ifndef _BB_ASSOC_H_
-#define _BB_ASSOC_H_
+#pragma once
 
 #include <storage/slab/bb_item.h>
 
@@ -15,5 +14,3 @@ void assoc_destroy(struct hash_table *table);
 void assoc_put(struct item *it, struct hash_table *table);
 void assoc_delete(const uint8_t *key, uint32_t klen, struct hash_table *table);
 struct item *assoc_get(const uint8_t *key, uint32_t klen, struct hash_table *table);
-
-#endif /* _BB_ASSOC_H_ */

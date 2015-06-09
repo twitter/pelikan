@@ -1,5 +1,4 @@
-#ifndef _BB_CORE_WORKER_H_
-#define _BB_CORE_WORKER_H_
+#pragma once
 
 #include <cc_define.h>
 #include <cc_metric.h>
@@ -23,5 +22,3 @@ typedef struct {
 rstatus_t core_worker_setup(worker_metrics_st *metrics);
 void core_worker_teardown(void);
 void *core_worker_evloop(void *arg);
-
-#endif /* _BB_CORE_WORKER_H_ */

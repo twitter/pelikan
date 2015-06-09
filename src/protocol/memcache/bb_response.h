@@ -1,5 +1,4 @@
-#ifndef __BB_RESPONSE_H__
-#define __BB_RESPONSE_H__
+#pragma once
 
 /*
  * NOTE(yao): the asymmetry between request and response source files (and the
@@ -34,5 +33,3 @@ typedef enum rsp_index {
     RSP_SENTINAL
 } rsp_index_t;
 #undef GET_INDEX
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef _BB_PROCESS_H_
-#define _BB_PROCESS_H_
+#pragma once
 
 #include <cc_define.h>
 #include <cc_metric.h>
@@ -49,5 +48,3 @@ void process_setup(process_metrics_st *process_metrics);
 void process_teardown(void);
 
 rstatus_t process_request(struct request *req, struct buf *buf);
-
-#endif /* _BB_PROCESS_H_ */

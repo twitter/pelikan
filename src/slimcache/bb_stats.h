@@ -1,5 +1,4 @@
-#ifndef _BB_STATS_H_
-#define _BB_STATS_H_
+#pragma once
 
 #include <protocol/memcache/bb_codec.h>
 #include <slimcache/bb_process.h>
@@ -23,5 +22,3 @@ struct glob_stats {
 };
 
 struct glob_stats glob_stats;
-
-#endif /* _BB_STATS_H_ */
