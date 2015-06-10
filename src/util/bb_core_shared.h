@@ -1,6 +1,7 @@
 #pragma once
 
 struct event_base;
+struct pipe_conn;
 struct ring_array;
 
 struct context {
@@ -8,8 +9,8 @@ struct context {
     int timeout;
 };
 
-/* pipe for signaling connections */
-extern int conn_fds[2];
+/* pipe for server/worker thread communication */
+extern struct pipe_conn *pipe_c;
 
 /* array holding accepted connections */
 extern struct ring_array *conn_arr;

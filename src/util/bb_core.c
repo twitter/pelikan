@@ -3,6 +3,7 @@
 #include <util/bb_core_shared.h>
 
 #include <cc_ring_array.h>
+#include <channel/cc_pipe.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -28,19 +29,21 @@ core_setup(struct addrinfo *ai, uint32_t max_conns, server_metrics_st *smetrics,
         worker_metrics_st *wmetrics)
 {
     rstatus_t ret;
-    int status;
 
-    /* TODO(kyang): create pipe implementation of channel interface in ccommon,
-       and replace conn_fds with that */
-    status = pipe(conn_fds);
-    if (status) {
-        log_error("pipe failed: %s", strerror(errno));
+    pipe_c = pipe_conn_create();
+
+    if (pipe_c == NULL) {
+        log_error("Could not create connection for pipe, abort");
         return CC_ERROR;
     }
 
-    /* set non-blocking flag for conn_fds */
-    fcntl(conn_fds[0], F_SETFL, O_NONBLOCK);
-    fcntl(conn_fds[1], F_SETFL, O_NONBLOCK);
+    if (!pipe_open(NULL, pipe_c)) {
+        log_error("Could not open pipe connection: %s", strerror(pipe_c->err));
+        return CC_ERROR;
+    }
+
+    pipe_rset_nonblocking(pipe_c);
+    pipe_wset_nonblocking(pipe_c);
 
     conn_arr = ring_array_create(sizeof(struct buf_sock *), max_conns);
     if (conn_arr == NULL) {
@@ -67,6 +70,10 @@ core_teardown(void)
 {
     core_server_teardown();
     core_worker_teardown();
+
+    ring_array_destroy(conn_arr);
+    pipe_conn_destroy(&pipe_c);
+
     core_init = false;
 }
 

@@ -1,6 +1,8 @@
 #include <util/bb_core_shared.h>
 
-/* Needs to be initialized, or we run into linker errors */
-int conn_fds[2] = {0, 0};
+#include <stdlib.h>             /* for NULL */
 
-struct ring_array *conn_arr;
+/* needs to be initialized to avoid linker issues due to being optimized out */
+struct pipe_conn *pipe_c = NULL;
+
+struct ring_array *conn_arr = NULL;

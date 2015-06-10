@@ -164,7 +164,7 @@ error:
 
     request_pool_destroy();
     buf_sock_pool_destroy();
-    conn_pool_destroy();
+    tcp_conn_pool_destroy();
     buf_pool_destroy();
 
     cuckoo_teardown();

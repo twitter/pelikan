@@ -8,6 +8,7 @@
 #include <util/bb_util.h>
 
 #include <cc_log.h>
+#include <cc_metric.h>
 #include <cc_option.h>
 #include <cc_signal.h>
 
@@ -160,7 +161,7 @@ error:
 
     request_pool_destroy();
     buf_sock_pool_destroy();
-    conn_pool_destroy();
+    tcp_conn_pool_destroy();
 
     item_teardown();
     slab_teardown();

@@ -14,10 +14,11 @@
 #include <twemcache/bb_process.h>
 #endif
 
-#include <cc_channel.h>
 #include <cc_debug.h>
 #include <cc_event.h>
 #include <cc_ring_array.h>
+#include <channel/cc_channel.h>
+#include <channel/cc_pipe.h>
 #include <channel/cc_tcp.h>
 
 #include <stream/cc_sockio.h>
@@ -74,13 +75,13 @@ static void
 _worker_event_write(struct buf_sock *s)
 {
     rstatus_t status;
-    struct conn *c = s->ch;
+    struct tcp_conn *c = s->ch;
 
     status = _worker_write(s);
     if (status == CC_ERETRY || status == CC_EAGAIN) { /* retry write */
-        event_add_write(ctx->evb, hdl->id(c), s);
+        event_add_write(ctx->evb, *(int *)hdl->id(c), s);
     } else if (status == CC_ERROR) {
-        c->state = CONN_CLOSING;
+        c->state = TCP_CLOSING;
     }
     _worker_post_write(s);
 }
@@ -172,7 +173,7 @@ _worker_post_read(struct buf_sock *s)
         }
         if (status == CC_ERDHUP) {
             log_info("peer called quit");
-            s->ch->state = CONN_CLOSING;
+            s->ch->state = TCP_CLOSING;
             goto done;
         }
 
@@ -214,14 +215,14 @@ static void
 _worker_event_read(struct buf_sock *s)
 {
     rstatus_t status;
-    struct conn *c;
+    struct tcp_conn *c;
 
     ASSERT(s != NULL);
 
     c = s->ch;
     status = _worker_read(s);
     if (status == CC_ERROR) {
-        c->state = CONN_CLOSING;
+        c->state = TCP_CLOSING;
     }
 
     _worker_post_read(s);
@@ -238,10 +239,10 @@ _worker_add_conn(void)
         log_verb("Adding new buf_sock %p to worker thread", s);
         s->owner = ctx;
         s->hdl = hdl;
-        event_add_read(ctx->evb, hdl->id(s->ch), s);
+        event_add_read(ctx->evb, *(int *)hdl->id(s->ch), s);
     }
 
-    read(conn_fds[0], buf, RING_ARRAY_DEFAULT_CAP);
+    pipe_recv(pipe_c, buf, RING_ARRAY_DEFAULT_CAP);
 }
 
 static void
@@ -252,7 +253,7 @@ core_worker_event(void *arg, uint32_t events)
     log_verb("worker event %06"PRIX32" on buf_sock %p", events, s);
 
     if (s == NULL) {
-        /* event on conn_fds pipe, new connection */
+        /* event on pipe_c, new connection */
 
         if (events & EVENT_READ) {
             _worker_add_conn();
@@ -280,8 +281,8 @@ core_worker_event(void *arg, uint32_t events)
             NOT_REACHED();
         }
 
-        if (s->ch->state == CONN_CLOSING ||
-            (s->ch->state == CONN_EOF && buf_rsize(s->wbuf) == 0)) {
+        if (s->ch->state == TCP_CLOSING ||
+            (s->ch->state == TCP_EOF && buf_rsize(s->wbuf) == 0)) {
             _worker_close(s);
         }
     }
@@ -311,9 +312,9 @@ core_worker_setup(worker_metrics_st *metrics)
     hdl->term = tcp_close;
     hdl->recv = tcp_recv;
     hdl->send = tcp_send;
-    hdl->id = conn_id;
+    hdl->id = tcp_conn_id;
 
-    event_add_read(ctx->evb, conn_fds[0], NULL);
+    event_add_read(ctx->evb, pipe_read_fd(pipe_c), NULL);
     worker_metrics = metrics;
     WORKER_METRIC_INIT(worker_metrics);
 

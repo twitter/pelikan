@@ -4,10 +4,11 @@
 #include <util/bb_core_shared.h>
 #include <protocol/memcache/bb_request.h>
 
-#include <cc_channel.h>
 #include <cc_debug.h>
 #include <cc_event.h>
 #include <cc_ring_array.h>
+#include <channel/cc_channel.h>
+#include <channel/cc_pipe.h>
 #include <channel/cc_tcp.h>
 #include <stream/cc_sockio.h>
 
@@ -42,25 +43,27 @@ _server_close(struct buf_sock *s)
 static void
 _server_pipe_write(void)
 {
-    /* TODO(kyang): when pipe channel is ready, replace this with the new facilities */
-    /* write to conn_fds[1] to send event to worker thread */
-    if (write(conn_fds[1], "", 1) != 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            /* Not sure if this is how this should be done, please check */
-            log_verb("server core: write on pipe would block, retry");
-            event_add_write(ctx->evb, conn_fds[1], NULL);
-        } else {
-            /* Other error while writing */
-            log_error("could not write to conn_fds pipe, %s", strerror(errno));
-        }
+    ASSERT(pipe_c != NULL);
+
+    ssize_t status = pipe_send(pipe_c, "", 1);
+
+    if (status == 0 || status == CC_EAGAIN) {
+        /* retry write */
+        log_verb("server core: retry send on pipe");
+        event_add_write(ctx->evb, pipe_write_fd(pipe_c), NULL);
+    } else if (status == CC_ERROR) {
+        /* other reasn write can't be done */
+        log_error("could not write to pipe - %s", strerror(pipe_c->err));
     }
+
+    /* else, pipe write succeeded and no action needs to be taken */
 }
 
 static void
 _tcp_accept(struct buf_sock *ss)
 {
     struct buf_sock *s;
-    struct conn *sc = ss->ch;
+    struct tcp_conn *sc = ss->ch;
 
     s = buf_sock_borrow();
     if (s == NULL) {
@@ -83,7 +86,7 @@ _tcp_accept(struct buf_sock *ss)
 static void
 _server_event_read(struct buf_sock *s)
 {
-    struct conn *c = s->ch;
+    struct tcp_conn *c = s->ch;
 
     if (c->level == CHANNEL_META) {
         _tcp_accept(s);
@@ -114,6 +117,8 @@ core_server_event(void *arg, uint32_t events)
     }
 
     if (events & EVENT_WRITE) {
+        /* the only server write event is write on pipe */
+
         log_verb("processing server write event");
         _server_pipe_write();
 
@@ -124,7 +129,7 @@ core_server_event(void *arg, uint32_t events)
 rstatus_t
 core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
 {
-    struct conn *c;
+    struct tcp_conn *c;
 
     if (server_init) {
         log_error("server has already been setup, aborting");
@@ -147,7 +152,7 @@ core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
     hdl->term = tcp_close;
     hdl->recv = tcp_recv;
     hdl->send = tcp_send;
-    hdl->id = conn_id;
+    hdl->id = tcp_conn_id;
 
     /**
      * Here we give server socket a buf_sock purely because it is difficult to
@@ -172,7 +177,7 @@ core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
     }
     c->level = CHANNEL_META;
 
-    event_add_read(ctx->evb, hdl->id(c), serversock);
+    event_add_read(ctx->evb, *(int *)(hdl->id(c)), serversock);
     server_metrics = metrics;
     SERVER_METRIC_INIT(server_metrics);
 

@@ -1,3 +1,4 @@
 [submodule "ccommon"]
 	path = ccommon
 	url = https://git.twitter.biz/ccommon
+        igmore = all

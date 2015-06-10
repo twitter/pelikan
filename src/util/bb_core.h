@@ -7,8 +7,8 @@
 #include <util/bb_core_server.h>
 #include <util/bb_core_worker.h>
 
-#include <cc_channel.h>
 #include <cc_define.h>
+#include <channel/cc_channel.h>
 
 struct addrinfo;
 
