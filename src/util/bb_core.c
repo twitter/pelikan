@@ -42,8 +42,7 @@ core_setup(struct addrinfo *ai, uint32_t max_conns, server_metrics_st *smetrics,
         return CC_ERROR;
     }
 
-    pipe_rset_nonblocking(pipe_c);
-    pipe_wset_nonblocking(pipe_c);
+    pipe_set_nonblocking(pipe_c);
 
     conn_arr = ring_array_create(sizeof(struct buf_sock *), max_conns);
     if (conn_arr == NULL) {

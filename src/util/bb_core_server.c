@@ -50,7 +50,7 @@ _server_pipe_write(void)
     if (status == 0 || status == CC_EAGAIN) {
         /* retry write */
         log_verb("server core: retry send on pipe");
-        event_add_write(ctx->evb, pipe_write_fd(pipe_c), NULL);
+        event_add_write(ctx->evb, pipe_write_id(pipe_c), NULL);
     } else if (status == CC_ERROR) {
         /* other reasn write can't be done */
         log_error("could not write to pipe - %s", strerror(pipe_c->err));
@@ -152,7 +152,8 @@ core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
     hdl->term = tcp_close;
     hdl->recv = tcp_recv;
     hdl->send = tcp_send;
-    hdl->id = tcp_conn_id;
+    hdl->rid = tcp_read_id;
+    hdl->wid = tcp_write_id;
 
     /**
      * Here we give server socket a buf_sock purely because it is difficult to
@@ -177,7 +178,7 @@ core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
     }
     c->level = CHANNEL_META;
 
-    event_add_read(ctx->evb, *(int *)(hdl->id(c)), serversock);
+    event_add_read(ctx->evb, hdl->rid(c), serversock);
     server_metrics = metrics;
     SERVER_METRIC_INIT(server_metrics);
 

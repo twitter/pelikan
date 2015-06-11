@@ -79,7 +79,7 @@ _worker_event_write(struct buf_sock *s)
 
     status = _worker_write(s);
     if (status == CC_ERETRY || status == CC_EAGAIN) { /* retry write */
-        event_add_write(ctx->evb, *(int *)hdl->id(c), s);
+        event_add_write(ctx->evb, hdl->wid(c), s);
     } else if (status == CC_ERROR) {
         c->state = TCP_CLOSING;
     }
@@ -228,21 +228,21 @@ _worker_event_read(struct buf_sock *s)
     _worker_post_read(s);
 }
 
-/* read event over conn_fds pipe, signaling new connection */
 static void
 _worker_add_conn(void)
 {
     struct buf_sock *s;
     char buf[RING_ARRAY_DEFAULT_CAP]; /* buffer for discarding pipe data */
+    uint32_t i;
 
-    while (ring_array_pop(&s, conn_arr) == CC_OK) {
+    for (i = 0; i < RING_ARRAY_DEFAULT_CAP && ring_array_pop(&s, conn_arr) == CC_OK; ++i) {
         log_verb("Adding new buf_sock %p to worker thread", s);
         s->owner = ctx;
         s->hdl = hdl;
-        event_add_read(ctx->evb, *(int *)hdl->id(s->ch), s);
+        event_add_read(ctx->evb, hdl->rid(s->ch), s);
     }
 
-    pipe_recv(pipe_c, buf, RING_ARRAY_DEFAULT_CAP);
+    pipe_recv(pipe_c, buf, i);
 }
 
 static void
@@ -312,9 +312,10 @@ core_worker_setup(worker_metrics_st *metrics)
     hdl->term = tcp_close;
     hdl->recv = tcp_recv;
     hdl->send = tcp_send;
-    hdl->id = tcp_conn_id;
+    hdl->rid = tcp_read_id;
+    hdl->wid = tcp_write_id;
 
-    event_add_read(ctx->evb, pipe_read_fd(pipe_c), NULL);
+    event_add_read(ctx->evb, pipe_read_id(pipe_c), NULL);
     worker_metrics = metrics;
     WORKER_METRIC_INIT(worker_metrics);
 
