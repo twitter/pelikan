@@ -2,6 +2,8 @@
 
 #include <protocol/memcache/bb_codec.h>
 #include <storage/slab/bb_item.h>
+#include <twemcache/bb_stats.h>
+#include <util/bb_procinfo.h>
 
 #include <cc_array.h>
 #include <cc_log.h>
@@ -363,8 +365,9 @@ static rstatus_t process_prepend(struct request *req, struct buf *buf)
 static rstatus_t
 process_stats(struct request *req, struct buf *buf)
 {
-    /* not implemented yet */
-    return CC_OK;
+    procinfo_update();
+    return compose_rsp_stats(buf, (struct metric *)&glob_stats,
+                             METRIC_CARDINALITY(glob_stats));
 }
 
 rstatus_t

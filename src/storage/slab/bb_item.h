@@ -6,11 +6,31 @@
 
 #include <cc_bstring.h>
 #include <cc_debug.h>
+#include <cc_metric.h>
 #include <cc_queue.h>
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+/*          name                type            description */
+#define ITEM_METRIC(ACTION)                                                             \
+    ACTION( item_keyval_byte,   METRIC_GAUGE,        "# current item key + data bytes" )\
+    ACTION( item_val_byte,      METRIC_GAUGE,        "# current data bytes"            )\
+    ACTION( item_curr,          METRIC_GAUGE,        "# current items"                 )\
+    ACTION( item_req,           METRIC_COUNTER,      "# items allocated"               )\
+    ACTION( item_req_ex,        METRIC_COUNTER,      "# item alloc errors"             )\
+    ACTION( item_remove,        METRIC_COUNTER,      "# items removed"                 )\
+    ACTION( item_link,          METRIC_COUNTER,      "# items linked"                  )\
+    ACTION( item_unlink,        METRIC_COUNTER,      "# items unlinked"                )
+
+typedef struct item_metric {
+    ITEM_METRIC(METRIC_DECLARE)
+} item_metrics_st;
+
+#define ITEM_METRIC_INIT(_metrics) do {                              \
+    *(_metrics) = (item_metrics_st) { ITEM_METRIC(METRIC_INIT) }; \
+} while(0)
 
 /*
  * Every item chunk in the cache starts with a header (struct item)
@@ -157,7 +177,7 @@ item_size(struct item *it)
 }
 
 /* Set up/tear down the item module */
-rstatus_t item_setup(uint32_t hash_power);
+rstatus_t item_setup(uint32_t hash_power, item_metrics_st *metrics);
 void item_teardown(void);
 
 /* Get item payload */

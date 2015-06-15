@@ -69,6 +69,8 @@ setup(void)
         goto error;
     }
 
+    metric_setup();
+
     time_setup();
     procinfo_setup(&glob_stats.procinfo_metrics);
     request_setup(&glob_stats.request_metrics);
@@ -77,6 +79,8 @@ setup(void)
     buf_setup((uint32_t)setting.buf_size.val.vuint);
     dbuf_setup((uint32_t)setting.dbuf_max_size.val.vuint,
                (uint32_t)setting.dbuf_shrink_factor.val.vuint);
+    event_setup(&glob_stats.event_metrics);
+    tcp_setup((int)setting.tcp_backlog.val.vuint, &glob_stats.tcp_metrics);
 
     if (slab_setup((uint32_t)setting.slab_size.val.vuint,
                    setting.slab_use_cas.val.vbool,
@@ -86,14 +90,12 @@ setup(void)
                    (size_t)setting.slab_chunk_size.val.vuint,
                    (size_t)setting.slab_maxbytes.val.vuint,
                    setting.slab_profile.val.vstr,
-                   (uint8_t)setting.slab_profile_last_id.val.vuint)
+                   (uint8_t)setting.slab_profile_last_id.val.vuint,
+                   &glob_stats.slab_metrics,
+                   (uint32_t)setting.slab_hash_power.val.vuint,
+                   &glob_stats.item_metrics)
         != CC_OK) {
         log_error("slab module setup failed");
-        goto error;
-    }
-
-    if (item_setup((uint32_t)setting.slab_hash_power.val.vuint) != CC_OK) {
-        log_error("item module setup failed");
         goto error;
     }
 
@@ -171,6 +173,7 @@ error:
     request_teardown();
     procinfo_teardown();
     time_teardown();
+    metric_teardown();
 
     log_teardown();
 

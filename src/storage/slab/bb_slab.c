@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define SLAB_MODULE_NAME "storage::slab::slab"
+
 struct slab_heapinfo {
     uint8_t         *base;       /* prealloc base */
     uint8_t         *curr;       /* prealloc start */
@@ -30,6 +32,9 @@ static size_t chunk_size;                    /* chunk size */
 static size_t maxbytes;                      /* maximum bytes allocated for slabs */
 static size_t profile[SLABCLASS_MAX_IDS];    /* slab profile */
 static uint8_t profile_last_id;              /* last id in slab profile */
+
+static bool slab_init = false;
+static slab_metrics_st *slab_metrics = NULL;
 
 #define SLAB_RAND_MAX_TRIES         50
 #define SLAB_LRU_MAX_TRIES          50
@@ -222,6 +227,8 @@ _slab_heapinfo_setup(void)
     log_vverb("created slab table with %"PRIu32" entries",
               heapinfo.max_nslab);
 
+    INCR_N(slab_metrics, slab_heap_size, heapinfo.max_nslab);
+
     return CC_OK;
 }
 
@@ -261,8 +268,17 @@ _slab_profile_setup(char *setup_profile, uint8_t setup_profile_last_id)
 rstatus_t
 slab_setup(size_t setup_slab_size, bool setup_use_cas, bool setup_prealloc, int setup_evict_opt,
            bool setup_use_freeq, size_t setup_chunk_size, size_t setup_maxbytes, char *setup_profile,
-           uint8_t setup_profile_last_id)
+           uint8_t setup_profile_last_id, slab_metrics_st *metrics, uint32_t it_hash_power,
+           item_metrics_st *it_metrics)
 {
+    rstatus_t ret;
+
+    log_info("set up the %s module", SLAB_MODULE_NAME);
+
+    if (slab_init) {
+        log_warn("%s has already been set up, overwrite", SLAB_MODULE_NAME);
+    }
+
     slab_size_setting = setup_slab_size;
     use_cas = setup_use_cas;
     prealloc = setup_prealloc;
@@ -271,20 +287,41 @@ slab_setup(size_t setup_slab_size, bool setup_use_cas, bool setup_prealloc, int 
     chunk_size = setup_chunk_size;
     maxbytes = setup_maxbytes;
 
-    if(_slab_profile_setup(setup_profile, setup_profile_last_id) != CC_OK) {
-        return CC_ERROR;
+    slab_metrics = metrics;
+    SLAB_METRIC_INIT(slab_metrics);
+
+    slab_init = true;
+
+    ret = _slab_profile_setup(setup_profile, setup_profile_last_id);
+
+    if (ret != CC_OK) {
+        return ret;
     }
 
     _slab_slabclass_setup();
 
-    return _slab_heapinfo_setup();
+    ret = _slab_heapinfo_setup();
+
+    if (ret != CC_OK) {
+        return ret;
+    }
+
+    return item_setup(it_hash_power, it_metrics);
 }
 
 void
 slab_teardown(void)
 {
+    log_info("tear down the %s module", SLAB_MODULE_NAME);
+
+    if (!slab_init) {
+        log_warn("%s has never been set up", SLAB_MODULE_NAME);
+    }
+
+    slab_metrics = NULL;
     _slab_heapinfo_teardown();
     _slab_slabclass_teardown();
+    slab_init = false;
 }
 
 static void
@@ -316,6 +353,9 @@ _slab_heap_create(void)
         heapinfo.curr += slab_size_setting;
     } else {
         slab = cc_alloc(slab_size_setting);
+        if (slab != NULL) {
+            INCR(slab_metrics, slab_heap_size);
+        }
     }
 
     return slab;
@@ -427,6 +467,9 @@ _slab_evict_one(struct slab *slab)
 
     /* unlink the slab from its class */
     _slab_lruq_remove(slab);
+
+    INCR(slab_metrics, slab_evict);
+    DECR(slab_metrics, slab_curr);
 }
 
 /*
@@ -516,6 +559,8 @@ _slab_init(struct slab *slab, uint8_t id)
     /* make this slab as the current slab */
     p->nfree_item = p->nitem;
     p->next_item_in_slab = (struct item *)&slab->data[0];
+
+    INCR(slab_metrics, slab_curr);
 }
 
 /*
@@ -550,7 +595,10 @@ _slab_get(uint8_t id)
         status = CC_OK;
     } else {
         status = CC_ENOMEM;
+        INCR(slab_metrics, slab_req_ex);
     }
+
+    INCR(slab_metrics, slab_req);
 
     return status;
 }

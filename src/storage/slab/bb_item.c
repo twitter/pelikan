@@ -5,8 +5,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define ITEM_MODULE_NAME "storage::slab::item"
+
 static uint64_t cas_id;                         /* unique cas id */
 static struct hash_table *table;                /* hash table where items are linked */
+
+static bool item_init = false;
+static item_metrics_st *item_metrics = NULL;
 
 /*
  * Returns the next cas id for a new item. Minimum cas value
@@ -31,8 +36,14 @@ _item_expired(struct item *it)
 }
 
 rstatus_t
-item_setup(uint32_t hash_power)
+item_setup(uint32_t hash_power, item_metrics_st *metrics)
 {
+    log_info("set up the %s module", ITEM_MODULE_NAME);
+
+    if (item_init) {
+        log_warn("%s has already been set up, overwrite", ITEM_MODULE_NAME);
+    }
+
     log_debug("item hdr size %d", ITEM_HDR_SIZE);
 
     table = assoc_create(hash_power);
@@ -42,13 +53,27 @@ item_setup(uint32_t hash_power)
     }
 
     cas_id = 0ULL;
+
+    item_metrics = metrics;
+    ITEM_METRIC_INIT(item_metrics);
+
+    item_init = true;
+
     return CC_OK;
 }
 
 void
 item_teardown(void)
 {
+    log_info("tear down the %s module", ITEM_MODULE_NAME);
+
+    if (!item_init) {
+        log_warn("%s has never been set up", ITEM_MODULE_NAME);
+    }
+
     assoc_destroy(table);
+    item_metrics = NULL;
+    item_init = false;
 }
 
 /*
@@ -124,7 +149,10 @@ static void
 _item_free(struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
+
     slab_put_item(it, it->id);
+
+    INCR(item_metrics, item_remove);
 }
 
 static void
@@ -187,6 +215,7 @@ item_alloc(struct item **it_p, const struct bstring *key, rel_time_t exptime, ui
     }
 
     log_warn("server error on allocating item in slab %"PRIu8, id);
+    INCR(item_metrics, item_req_ex);
 
     return ITEM_ENOMEM;
 
@@ -206,16 +235,14 @@ alloc_done:
     it->exptime = exptime;
     it->klen = key->len;
 
-/* #if defined MC_MEM_SCRUB && MC_MEM_SCRUB == 1 */
-/*     memset(it->end, 0xff, slab_item_size(it->id) - ITEM_HDR_SIZE); */
-/* #endif */
-
     cc_memcpy(item_key(it), key->data, key->len);
     item_set_cas(it, 0);
 
     log_verb("alloc it '%.*s' at offset %"PRIu32" with id %"PRIu8
              " expiry %u refcount %"PRIu16"", key->len, key->data,
              it->offset, it->id, exptime, it->refcount);
+
+    INCR(item_metrics, item_req);
 
     return ITEM_OK;
 }
@@ -262,6 +289,11 @@ _item_link(struct item *it)
     item_set_cas(it, _item_next_cas());
 
     assoc_put(it, table);
+
+    INCR(item_metrics, item_link);
+    INCR(item_metrics, item_curr);
+    INCR_N(item_metrics, item_keyval_byte, it->klen + it->vlen);
+    INCR_N(item_metrics, item_val_byte, it->vlen);
 }
 
 /*
@@ -276,6 +308,11 @@ _item_unlink(struct item *it)
     log_debug("unlink it '%.*s' at offset %"PRIu32" with flags "
               "%d %d %d %d id %"PRId8"", it->klen, item_key(it), it->offset,
               it->is_linked, it->has_cas, it->in_freeq, it->is_raligned, it->id);
+
+    INCR(item_metrics, item_unlink);
+    DECR(item_metrics, item_curr);
+    DECR_N(item_metrics, item_keyval_byte, it->klen + it->vlen);
+    DECR_N(item_metrics, item_val_byte, it->vlen);
 
     if (it->is_linked) {
         it->is_linked = 0;

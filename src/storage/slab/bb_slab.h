@@ -4,6 +4,7 @@
 #include <time/bb_time.h>
 
 #include <cc_define.h>
+#include <cc_metric.h>
 #include <cc_queue.h>
 #include <cc_util.h>
 
@@ -38,6 +39,25 @@
     ACTION( slab_profile_last_id, OPTION_TYPE_UINT,   "0",             "Last id in slab profile (# ids)" )\
     ACTION( slab_use_cas,         OPTION_TYPE_BOOL,   "yes",           "CAS enabled for slabbed mm"      )\
     ACTION( slab_hash_power,      OPTION_TYPE_UINT,   str(SLAB_HASH),  "Hash power for item table"       )
+
+/*          name                type            description */
+#define SLAB_METRIC(ACTION)                                                \
+    ACTION( slab_req,           METRIC_COUNTER, "# req for new slab"      )\
+    ACTION( slab_req_ex,        METRIC_COUNTER, "# slab get exceptions"   )\
+    ACTION( slab_heap_size,     METRIC_GAUGE,   "# slabs in slab heap"    )\
+    ACTION( slab_evict,         METRIC_COUNTER, "# slabs evicted"         )\
+    ACTION( slab_curr,          METRIC_GAUGE,   "# currently active slabs")
+
+typedef struct {
+    SLAB_METRIC(METRIC_DECLARE)
+} slab_metrics_st;
+
+#define SLAB_METRIC_INIT(_metrics) do {                           \
+    *(_metrics) = (slab_metrics_st) { SLAB_METRIC(METRIC_INIT) }; \
+} while(0)
+
+struct item_metric;
+typedef struct item_metric item_metrics_st;
 
 /*
  * Every slab (struct slab) in the cache starts with a slab header
@@ -168,7 +188,8 @@ uint8_t slab_id(size_t size);
 
 rstatus_t slab_setup(size_t setup_slab_size, bool setup_use_cas, bool setup_prealloc,
                      int setup_evict_opt, bool setup_use_freeq, size_t setup_chunk_size,
-                     size_t setup_maxbytes, char *setup_profile, uint8_t setup_profile_last_id);
+                     size_t setup_maxbytes, char *setup_profile, uint8_t setup_profile_last_id,
+                     slab_metrics_st *metrics, uint32_t it_hash_power, item_metrics_st *it_metrics);
 void slab_teardown(void);
 
 struct item *slab_get_item(uint8_t id);
