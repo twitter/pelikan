@@ -4,6 +4,7 @@
 #include <protocol/memcache/request.h>
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
+#include <twemcache/process.h>
 #include <util/core.h>
 #include <util/procinfo.h>
 
