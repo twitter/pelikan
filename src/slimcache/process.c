@@ -1,9 +1,9 @@
-#include <slimcache/bb_process.h>
+#include <slimcache/process.h>
 
-#include <protocol/memcache/bb_codec.h>
-#include <slimcache/bb_stats.h>
-#include <storage/cuckoo/bb_cuckoo.h>
-#include <util/bb_procinfo.h>
+#include <protocol/memcache/codec.h>
+#include <slimcache/stats.h>
+#include <storage/cuckoo/cuckoo.h>
+#include <util/procinfo.h>
 
 #include <cc_array.h>
 #include <cc_log.h>

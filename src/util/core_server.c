@@ -1,8 +1,8 @@
-#include <util/bb_core_server.h>
+#include <util/core_server.h>
 
-#include <time/bb_time.h>
-#include <util/bb_core_shared.h>
-#include <protocol/memcache/bb_request.h>
+#include <time/time.h>
+#include <util/core_shared.h>
+#include <protocol/memcache/request.h>
 
 #include <cc_debug.h>
 #include <cc_event.h>

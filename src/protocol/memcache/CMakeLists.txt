@@ -1,6 +1,6 @@
 set (SOURCE
-    bb_codec.c
-    bb_request.c
+    codec.c
+    request.c
     )
 
 add_library(memcache ${SOURCE})

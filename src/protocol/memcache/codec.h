@@ -1,7 +1,7 @@
 #pragma once
 
-#include <protocol/memcache/bb_request.h>
-#include <protocol/memcache/bb_response.h>
+#include <protocol/memcache/request.h>
+#include <protocol/memcache/response.h>
 
 #include <buffer/cc_buf.h>
 #include <cc_define.h>

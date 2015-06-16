@@ -1,8 +1,8 @@
-#include <slimcache/bb_setting.h>
-#include <slimcache/bb_stats.h>
+#include <slimcache/setting.h>
+#include <slimcache/stats.h>
 
-#include <util/bb_core.h>
-#include <util/bb_util.h>
+#include <util/core.h>
+#include <util/util.h>
 
 #include <errno.h>
 #include <fcntl.h>

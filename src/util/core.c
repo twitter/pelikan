@@ -1,6 +1,6 @@
-#include <util/bb_core.h>
+#include <util/core.h>
 
-#include <util/bb_core_shared.h>
+#include <util/core_shared.h>
 
 #include <cc_ring_array.h>
 #include <channel/cc_pipe.h>

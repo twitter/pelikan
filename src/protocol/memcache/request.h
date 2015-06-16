@@ -1,6 +1,6 @@
 #pragma once
 
-#include <protocol/memcache/bb_constant.h>
+#include <protocol/memcache/constant.h>
 
 #include <cc_array.h>
 #include <cc_bstring.h>

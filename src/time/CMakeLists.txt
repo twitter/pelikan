@@ -1,1 +1,1 @@
-add_library(time bb_time.c)
+add_library(time time.c)

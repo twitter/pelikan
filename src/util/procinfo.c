@@ -1,6 +1,6 @@
-#include <util/bb_procinfo.h>
+#include <util/procinfo.h>
 
-#include <time/bb_time.h>
+#include <time/time.h>
 
 #include <cc_debug.h>
 #include <cc_log.h>

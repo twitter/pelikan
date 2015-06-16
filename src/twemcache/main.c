@@ -1,11 +1,11 @@
-#include <twemcache/bb_setting.h>
-#include <twemcache/bb_stats.h>
+#include <twemcache/setting.h>
+#include <twemcache/stats.h>
 
-#include <storage/slab/bb_item.h>
-#include <storage/slab/bb_slab.h>
-#include <time/bb_time.h>
-#include <util/bb_core.h>
-#include <util/bb_util.h>
+#include <storage/slab/item.h>
+#include <storage/slab/slab.h>
+#include <time/time.h>
+#include <util/core.h>
+#include <util/util.h>
 
 #include <cc_log.h>
 #include <cc_metric.h>

@@ -1,6 +1,6 @@
 set (SOURCE
-    bb_main.c
-    bb_process.c
+    main.c
+    process.c
     )
 
 set (LIBS

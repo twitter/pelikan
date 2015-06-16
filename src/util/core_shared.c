@@ -1,4 +1,4 @@
-#include <util/bb_core_shared.h>
+#include <util/core_shared.h>
 
 #include <stdlib.h>             /* for NULL */
 

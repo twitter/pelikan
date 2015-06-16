@@ -1,6 +1,6 @@
 #pragma once
 
-#include <storage/slab/bb_item.h>
+#include <storage/slab/item.h>
 
 struct hash_table {
     struct item_slh *table;

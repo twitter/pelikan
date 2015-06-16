@@ -1,15 +1,11 @@
 #pragma once
 
-/* (kyang) Very minimal stats for now, only included so the codec/request modules
-   link properly. Full stats will be implemented later. */
-
-#include <protocol/memcache/bb_codec.h>
-#include <protocol/memcache/bb_request.h>
-#include <twemcache/bb_process.h>
-#include <storage/slab/bb_item.h>
-#include <storage/slab/bb_slab.h>
-#include <util/bb_core.h>
-#include <util/bb_procinfo.h>
+#include <protocol/memcache/codec.h>
+#include <protocol/memcache/request.h>
+#include <storage/slab/item.h>
+#include <storage/slab/slab.h>
+#include <util/core.h>
+#include <util/procinfo.h>
 
 #include <cc_event.h>
 #include <channel/cc_tcp.h>

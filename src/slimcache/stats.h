@@ -1,10 +1,10 @@
 #pragma once
 
-#include <protocol/memcache/bb_codec.h>
-#include <slimcache/bb_process.h>
-#include <storage/cuckoo/bb_cuckoo.h>
-#include <util/bb_core.h>
-#include <util/bb_procinfo.h>
+#include <protocol/memcache/codec.h>
+#include <slimcache/process.h>
+#include <storage/cuckoo/cuckoo.h>
+#include <util/core.h>
+#include <util/procinfo.h>
 
 #include <cc_event.h>
 #include <channel/cc_tcp.h>

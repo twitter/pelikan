@@ -1,4 +1,4 @@
-#include <storage/slab/bb_assoc.h>
+#include <storage/slab/assoc.h>
 
 #include <cc_hash.h>
 #include <cc_mm.h>

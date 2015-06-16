@@ -1,17 +1,17 @@
-#include <util/bb_core_worker.h>
+#include <util/core_worker.h>
 
-#include <time/bb_time.h>
-#include <protocol/memcache/bb_codec.h>
-#include <util/bb_core_shared.h>
+#include <time/time.h>
+#include <protocol/memcache/codec.h>
+#include <util/core_shared.h>
 
 /*
  * TODO(yao): this doesn't look clean, protocol, process shouldn't be assumed
  * in the event handling part, but rather should be passed in
  */
 #if defined TARGET_SLIMCACHE
-#include <slimcache/bb_process.h>
+#include <slimcache/process.h>
 #elif defined TARGET_TWEMCACHE
-#include <twemcache/bb_process.h>
+#include <twemcache/process.h>
 #endif
 
 #include <cc_debug.h>

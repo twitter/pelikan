@@ -1,6 +1,6 @@
-#include <storage/slab/bb_item.h>
+#include <storage/slab/item.h>
 
-#include <storage/slab/bb_assoc.h>
+#include <storage/slab/assoc.h>
 
 #include <stdlib.h>
 #include <stdio.h>

@@ -1,4 +1,4 @@
-#include <protocol/memcache/bb_request.h>
+#include <protocol/memcache/request.h>
 
 #include <cc_bstring.h>
 #include <cc_debug.h>

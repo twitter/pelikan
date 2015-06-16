@@ -1,8 +1,8 @@
 #pragma once
 
-#include <storage/slab/bb_slab.h>
+#include <storage/slab/slab.h>
 
-#include <time/bb_time.h>
+#include <time/time.h>
 
 #include <cc_bstring.h>
 #include <cc_debug.h>

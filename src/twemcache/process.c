@@ -1,9 +1,9 @@
-#include <twemcache/bb_process.h>
+#include <twemcache/process.h>
 
-#include <protocol/memcache/bb_codec.h>
-#include <storage/slab/bb_item.h>
-#include <twemcache/bb_stats.h>
-#include <util/bb_procinfo.h>
+#include <protocol/memcache/codec.h>
+#include <storage/slab/item.h>
+#include <twemcache/stats.h>
+#include <util/procinfo.h>
 
 #include <cc_array.h>
 #include <cc_log.h>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <storage/slab/bb_slab.h>
-#include <protocol/memcache/bb_request.h>
+#include <storage/slab/slab.h>
+#include <protocol/memcache/request.h>
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>

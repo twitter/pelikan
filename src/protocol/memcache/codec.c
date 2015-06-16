@@ -1,6 +1,6 @@
-#include <protocol/memcache/bb_codec.h>
+#include <protocol/memcache/codec.h>
 
-#include <time/bb_time.h>
+#include <time/time.h>
 
 #include <buffer/cc_buf.h>
 #include <cc_array.h>

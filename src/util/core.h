@@ -4,8 +4,8 @@
  * event driven stuff is handled, it is not a replacement of main()
  */
 
-#include <util/bb_core_server.h>
-#include <util/bb_core_worker.h>
+#include <util/core_server.h>
+#include <util/core_worker.h>
 
 #include <cc_define.h>
 #include <channel/cc_channel.h>

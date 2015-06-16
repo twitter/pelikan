@@ -1,1 +1,1 @@
-add_library(cuckoo bb_cuckoo.c)
+add_library(cuckoo cuckoo.c)

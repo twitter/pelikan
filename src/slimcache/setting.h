@@ -1,7 +1,7 @@
 #pragma once
 
-#include <storage/cuckoo/bb_cuckoo.h>
-#include <protocol/memcache/bb_request.h>
+#include <storage/cuckoo/cuckoo.h>
+#include <protocol/memcache/request.h>
 
 #include <buffer/cc_buf.h>
 #include <cc_array.h>
