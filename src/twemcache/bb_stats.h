@@ -5,6 +5,7 @@
 
 #include <protocol/memcache/bb_codec.h>
 #include <protocol/memcache/bb_request.h>
+#include <twemcache/bb_process.h>
 #include <storage/slab/bb_item.h>
 #include <storage/slab/bb_slab.h>
 #include <util/bb_core.h>
@@ -21,6 +22,7 @@ struct glob_stats {
     tcp_metrics_st      tcp_metrics;
     codec_metrics_st    codec_metrics;
     request_metrics_st  request_metrics;
+    process_metrics_st  process_metrics;
     slab_metrics_st     slab_metrics;
     item_metrics_st     item_metrics;
 };

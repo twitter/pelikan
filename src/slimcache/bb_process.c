@@ -11,7 +11,7 @@
 
 #define SLIMCACHE_PROCESS_MODULE_NAME "slimcache::process"
 
-static bool process_init;
+static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
 
 void

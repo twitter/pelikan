@@ -75,6 +75,7 @@ setup(void)
     procinfo_setup(&glob_stats.procinfo_metrics);
     request_setup(&glob_stats.request_metrics);
     codec_setup(&glob_stats.codec_metrics);
+    process_setup(&glob_stats.process_metrics);
 
     buf_setup((uint32_t)setting.buf_size.val.vuint);
     dbuf_setup((uint32_t)setting.dbuf_max_size.val.vuint,
@@ -170,6 +171,7 @@ error:
     dbuf_teardown();
     buf_teardown();
     codec_teardown();
+    process_teardown();
     request_teardown();
     procinfo_teardown();
     time_teardown();
