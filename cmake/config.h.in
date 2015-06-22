@@ -1,0 +1,23 @@
+#define VERSION_MAJOR @broadbill_VERSION_MAJOR@
+#define VERSION_MINOR @broadbill_VERSION_MINOR@
+#define VERSION_PATCH @broadbill_VERSION_PATCH@
+
+#define VERSION_STRING "@broadbill_VERSION_MAJOR@.@broadbill_VERSION_MAJOR@.@broadbill_VERSION_PATCH@"
+
+#define OS_PLATFORM @OS_PLATFORM@
+
+#cmakedefine HAVE_ASSERT_LOG
+
+#cmakedefine HAVE_ASSERT_PANIC
+
+#cmakedefine HAVE_BACKTRACE
+
+#cmakedefine HAVE_BIG_ENDIAN
+
+#cmakedefine HAVE_LOGGING
+
+#cmakedefine HAVE_STATS
+
+#cmakedefine TARGET_SLIMCACHE
+
+#cmakedefine TARGET_TWEMCACHE

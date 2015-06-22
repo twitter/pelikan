@@ -1,16 +1,21 @@
-cmake_minimum_required (VERSION 2.6)
-project (Broadbill)
+cmake_minimum_required(VERSION 2.8)
+project(broadbill)
+
+enable_testing()
 
 # detect platform
-set (OperatingSystem "OS_UNKNOWN")
+macro(set_platform system_name)
+    if(${system_name} MATCHES "Darwin")
+        set(OS_PLATFORM "OS_DARWIN")
+    elseif(${system_name} MATCHES "Linux")
+        set(OS_PLATFORM "OS_LINUX")
+    else()
+        set(OS_PLATFORM "OS_UNSUPPORTED")
+    endif()
+endmacro(set_platform)
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set (OperatingSystem "OS_DARWIN")
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set (OperatingSystem "OS_LINUX")
-endif ()
-
-if (OperatingSystem STREQUAL "OS_UNKNOWN")
+set_platform(${CMAKE_SYSTEM_NAME})
+if(OS_PLATFORM STREQUAL "OS_UNSUPPORTED")
     message(FATAL_ERROR "unsupported operating system")
 endif()
 
@@ -18,79 +23,80 @@ endif()
 # config.h.in has to include entries set/tested here for them to have effect
 
 # version info
-set (Broadbill_VERSION_MAJOR 0)
-set (Broadbill_VERSION_MINOR 1)
-set (Broadbill_VERSION_PATCH 0)
-set (Broadbill_VERSION
-    ${Broadbill_VERSION_MAJOR}.${Broadbill_VERSION_MINOR}.${Broadbill_VERSION_PATCH}
-    )
+set(${PROJECT_NAME}_VERSION_MAJOR 0)
+set(${PROJECT_NAME}_VERSION_MINOR 1)
+set(${PROJECT_NAME}_VERSION_PATCH 0)
+set(${PROJECT_NAME}_VERSION ${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}.${${PROJECT_NAME}_VERSION_PATCH})
 
 # flags => compile-time variables: use modules/macros
-option (HAVE_ASSERT_LOG "assert_log enabled by default" ON)
-option (HAVE_ASSERT_PANIC "assert_panic disabled by default" OFF)
-option (HAVE_LOGGING "logging enabled by default" ON)
-option (HAVE_STATS "stats enabled by default" ON)
-option (TARGET_SLIMCACHE "build slimcache binary" OFF)
-option (TARGET_TWEMCACHE "build twemcache binary" ON)
+option(HAVE_ASSERT_LOG "assert_log enabled by default" ON)
+option(HAVE_ASSERT_PANIC "assert_panic disabled by default" OFF)
+option(HAVE_LOGGING "logging enabled by default" ON)
+option(HAVE_STATS "stats enabled by default" ON)
+option(TARGET_SLIMCACHE "build slimcache binary" ON)
+option(TARGET_TWEMCACHE "build twemcache binary" ON)
 
-include (CheckSymbolExists)
-check_symbol_exists (sys_signame signal.h HAVE_SIGNAME)
+include(CheckSymbolExists)
+check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
 
-include (CheckFunctionExists)
-check_function_exists (backtrace HAVE_BACKTRACE)
+include(CheckFunctionExists)
+check_function_exists(backtrace HAVE_BACKTRACE)
 
-include (TestBigEndian)
-test_big_endian (HAVE_BIG_ENDIAN)
+include(TestBigEndian)
+test_big_endian(HAVE_BIG_ENDIAN)
 
 # how to use config.h.in to generate config.h
 # this has to be set _after_ the above checks
-configure_file (
-  "${PROJECT_SOURCE_DIR}/config.h.in"
-  "${PROJECT_BINARY_DIR}/config.h"
-  )
+configure_file(
+  "${PROJECT_SOURCE_DIR}/cmake/config.h.in"
+  "${PROJECT_BINARY_DIR}/config.h")
 
 # set compiler flags
 # string concat is easier in 3.0, but older versions don't have the concat subcommand
 # so we are using list as input until we move to new version
 # TODO once we add build types, we should also set flags such as "-O2 "
-add_definitions (-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
-add_definitions ()
-set (CFLAGS_LIST
+add_definitions(-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
+add_definitions()
+set(CFLAGS_LIST
     "-std=c11 "
     "-ggdb3 -O2 "
     "-Wall -Wshadow -Winline "
     "-Wstrict-prototypes -Wmissing-prototypes "
     "-Wmissing-declarations -Wredundant-decls "
     "-Wunused-function -Wunused-value -Wunused-variable "
-    "-fno-strict-aliasing "
-    )
-string (REPLACE "" "" LOCAL_CFLAGS ${CFLAGS_LIST})
-set (CMAKE_C_FLAGS
-    "${CMAKE_C_FLAGS}  ${LOCAL_CFLAGS}"
-    )
+    "-fno-strict-aliasing ")
+string(REPLACE "" "" LOCAL_CFLAGS ${CFLAGS_LIST})
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  ${LOCAL_CFLAGS}")
 
-set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin)
 # build dependencies
 
 # dependency: libccommon
-set (CCOMMON_SOURCE_DIR "${PROJECT_SOURCE_DIR}/ccommon" CACHE PATH "Path to the ccommon")
-add_subdirectory (${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
+set(CCOMMON_SOURCE_DIR "${PROJECT_SOURCE_DIR}/ccommon" CACHE PATH "Path to the ccommon")
+add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
 
-#set (CMAKE_INCLUDE_CURRENT_DIR)
-include_directories (${include_directories}
+#set(CMAKE_INCLUDE_CURRENT_DIR)
+include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"
     "${CCOMMON_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src"
-    )
+    "${PROJECT_SOURCE_DIR}/src")
 
-# build executables
-add_subdirectory (src)
+# main executables
+add_subdirectory(src)
+
+# tests
+include(FindPackageHandleStandardArgs)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
+find_package(Check)
+add_subdirectory(test)
 
 # print a summary
-message (STATUS "CPPFLAGS:" ${CMAKE_CPP_FLAGS})
-message (STATUS "CFLAGS:" ${CMAKE_C_FLAGS})
+message(STATUS "PLATFORM: " ${OS_PLATFORM})
 
-message (STATUS "HAVE_SIGNAME:" ${HAVE_SIGNAME})
+message(STATUS "CPPFLAGS: " ${CMAKE_CPP_FLAGS})
+message(STATUS "CFLAGS: " ${CMAKE_C_FLAGS})
 
-message (STATUS "HAVE_BACKTRACE:" ${HAVE_BACKTRACE})
-message (STATUS "HAVE_BIG_ENDIAN:" ${HAVE_BIG_ENDIAN})
+message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
+
+message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
+message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})

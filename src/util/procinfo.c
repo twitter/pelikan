@@ -51,17 +51,17 @@ procinfo_update(void)
     procinfo_metrics->pid.vintmax         = (intmax_t)getpid();
     procinfo_metrics->time.vintmax        = (intmax_t)time_now_abs();
     procinfo_metrics->uptime.vintmax      = (intmax_t)time_now();
-    /* "%02d%02d%02d", MC_VERSION_MAJOR, MC_VERSION_MINOR, MC_VERSION_PATCH */
-    procinfo_metrics->version.vintmax     = (intmax_t)BB_VERSION_MAJOR * 10000 +
-                                    BB_VERSION_MINOR * 100 + BB_VERSION_PATCH;
+    /* "%02d%02d%02d" % (major, minor, patch) */
+    procinfo_metrics->version.vintmax     = (intmax_t)VERSION_MAJOR * 10000 +
+            VERSION_MINOR * 100 + VERSION_PATCH;
 
     /* not checking return as both parameters should be valid */
     getrusage(RUSAGE_SELF, &usage);
 
     procinfo_metrics->ru_utime.vdouble    = (double)usage.ru_utime.tv_sec +
-                                    (double)usage.ru_utime.tv_usec * USEC;
+            (double)usage.ru_utime.tv_usec * USEC;
     procinfo_metrics->ru_stime.vdouble    = (double)usage.ru_stime.tv_sec +
-                                    (double)usage.ru_stime.tv_usec * USEC;
+            (double)usage.ru_stime.tv_usec * USEC;
     procinfo_metrics->ru_maxrss.vintmax   = (intmax_t)usage.ru_maxrss;
     procinfo_metrics->ru_ixrss.vintmax    = (intmax_t)usage.ru_ixrss;
     procinfo_metrics->ru_idrss.vintmax    = (intmax_t)usage.ru_idrss;

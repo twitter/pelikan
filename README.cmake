@@ -10,6 +10,12 @@ git submodule update --remote
 # Example:
 #     cmake -DHAVE_LOGGING=OFF
 
+# To provide an alternative location of Check (C unit test framework used by
+# this project), which is probably necessary if it is not installed under
+# /usr/local, provide CHECK_ROOT_DIR to cmake
+# Example:
+#     cmake -DCHECK_ROOT_DIR=/opt/twitter ..
+
 mkdir _build
 cd _build
 cmake ..

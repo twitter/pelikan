@@ -4,9 +4,9 @@ add_subdirectory(time ${PROJECT_BINARY_DIR}/time)
 add_subdirectory(util ${PROJECT_BINARY_DIR}/util)
 
 if(TARGET_SLIMCACHE)
-add_subdirectory(slimcache)
+    add_subdirectory(slimcache)
 endif()
 
 if(TARGET_TWEMCACHE)
-add_subdirectory(twemcache)
+    add_subdirectory(twemcache)
 endif()

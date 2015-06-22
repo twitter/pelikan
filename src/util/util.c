@@ -113,7 +113,7 @@ fderror:
 void
 show_version(void)
 {
-    log_stdout("Version: %s", BB_VERSION_STRING);
+    log_stdout("Version: %s", VERSION_STRING);
 }
 
 rstatus_t

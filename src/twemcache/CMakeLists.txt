@@ -1,15 +1,13 @@
-set (SOURCE
+set(SOURCE
     main.c
-    process.c
-    )
+    process.c)
 
-set (LIBS
+set(LIBS
     slab
     memcache
     time
     util
-    ccommon-static
-    )
+    ccommon-static)
 
-add_executable(broadbill_twemcache ${SOURCE})
-target_link_libraries (broadbill_twemcache ${LIBS})
+add_executable(${PROJECT_NAME}_twemcache ${SOURCE})
+target_link_libraries(${PROJECT_NAME}_twemcache ${LIBS})

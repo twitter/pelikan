@@ -1,15 +1,13 @@
-set (SOURCE
+set(SOURCE
     main.c
-    process.c
-    )
+    process.c)
 
-set (LIBS
+set(LIBS
     cuckoo
     memcache
     time
     util
-    ccommon-static
-    )
+    ccommon-static)
 
-add_executable(broadbill_slimcache ${SOURCE})
-target_link_libraries (broadbill_slimcache ${LIBS})
+add_executable(${PROJECT_NAME}_slimcache ${SOURCE})
+target_link_libraries(${PROJECT_NAME}_slimcache ${LIBS})
