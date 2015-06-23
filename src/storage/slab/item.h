@@ -71,7 +71,8 @@ struct item {
     uint32_t          magic;         /* item magic (const) */
 #endif
     SLIST_ENTRY(item) i_sle;         /* link in hash/freeq */
-    rel_time_t        exptime;       /* expiry time in secs */
+    rel_time_t        expire_at;     /* expiry time in secs */
+    rel_time_t        create_at;     /* time when this item was last linked */
 
     uint32_t          is_linked:1;   /* item in hash */
     uint32_t          has_cas:1;     /* item has cas */
@@ -193,7 +194,7 @@ void item_hdr_init(struct item *it, uint32_t offset, uint8_t id);
 uint8_t item_slabid(uint8_t klen, uint32_t vlen);
 
 /* Allocate a new item */
-item_rstatus_t item_alloc(struct item **it, const struct bstring *key, rel_time_t exptime, uint32_t vlen);
+item_rstatus_t item_alloc(struct item **it, const struct bstring *key, rel_time_t expire_at, uint32_t vlen);
 
 /* Make an item with zero refcount available for reuse by unlinking it from hash */
 void item_reuse(struct item *it);
@@ -202,10 +203,10 @@ void item_reuse(struct item *it);
 struct item *item_get(const struct bstring *key);
 
 /* Set item value. Adds new item if item with key doesn't exist */
-item_rstatus_t item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptime);
+item_rstatus_t item_set(const struct bstring *key, const struct bstring *val, rel_time_t expire_at);
 
 /* Perform check-and-set */
-item_rstatus_t item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptime, uint64_t cas);
+item_rstatus_t item_cas(const struct bstring *key, const struct bstring *val, rel_time_t expire_at, uint64_t cas);
 
 /* Append/prepend */
 item_rstatus_t item_annex(const struct bstring *key, const struct bstring *val, bool append);
@@ -215,3 +216,6 @@ item_rstatus_t item_update(struct item *it, const struct bstring *val);
 
 /* Remove item from cache */
 item_rstatus_t item_delete(const struct bstring *key);
+
+/* flush the cache */
+void item_flush(void);

@@ -8,6 +8,9 @@ struct hash_table {
     uint32_t hash_power;
 };
 
+#define HASHSIZE(_n) (1UL << (_n))
+#define HASHMASK(_n) (HASHSIZE(_n) - 1)
+
 struct hash_table *assoc_create(uint32_t hash_power);
 void assoc_destroy(struct hash_table *table);
 

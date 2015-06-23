@@ -13,6 +13,8 @@ static struct hash_table *table;                /* hash table where items are li
 static bool item_init = false;
 static item_metrics_st *item_metrics = NULL;
 
+static rel_time_t flush_at;
+
 /*
  * Returns the next cas id for a new item. Minimum cas value
  * is 1 and the maximum cas value is UINT64_MAX
@@ -27,12 +29,11 @@ _item_next_cas(void)
     return 0ULL;
 }
 
-static bool
+static inline bool
 _item_expired(struct item *it)
 {
-    ASSERT(it->magic == ITEM_MAGIC);
-
-    return (it->exptime > 0 && it->exptime < time_now()) ? true : false;
+    return ((it->expire_at > 0 && it->expire_at < time_now())
+            || (it->create_at <= flush_at));
 }
 
 rstatus_t
@@ -53,6 +54,8 @@ item_setup(uint32_t hash_power, item_metrics_st *metrics)
     }
 
     cas_id = 0ULL;
+
+    flush_at = 0;
 
     item_metrics = metrics;
     ITEM_METRIC_INIT(item_metrics);
@@ -196,7 +199,7 @@ _item_release_refcount(struct item *it)
  * into the hash or is freed.
  */
 item_rstatus_t
-item_alloc(struct item **it_p, const struct bstring *key, rel_time_t exptime, uint32_t vlen)
+item_alloc(struct item **it_p, const struct bstring *key, rel_time_t expire_at, uint32_t vlen)
 {
     uint8_t id = slab_id(item_ntotal(key->len, vlen, use_cas));
     struct item *it;
@@ -232,7 +235,7 @@ alloc_done:
     it->has_cas = use_cas ? 1 : 0;
     it->is_raligned = 0;
     it->vlen = vlen;
-    it->exptime = exptime;
+    it->expire_at = expire_at;
     it->klen = key->len;
 
     cc_memcpy(item_key(it), key->data, key->len);
@@ -240,7 +243,7 @@ alloc_done:
 
     log_verb("alloc it '%.*s' at offset %"PRIu32" with id %"PRIu8
              " expiry %u refcount %"PRIu16"", key->len, key->data,
-             it->offset, it->id, exptime, it->refcount);
+             it->offset, it->id, expire_at, it->refcount);
 
     INCR(item_metrics, item_req);
 
@@ -289,6 +292,8 @@ _item_link(struct item *it)
     item_set_cas(it, _item_next_cas());
 
     assoc_put(it, table);
+
+    it->create_at = time_now();
 
     INCR(item_metrics, item_link);
     INCR(item_metrics, item_curr);
@@ -363,7 +368,7 @@ item_get(const struct bstring *key)
         return NULL;
     }
 
-    if (it->exptime != 0 && it->exptime <= time_now()) {
+    if (_item_expired(it) || it->create_at <= flush_at) {
         _item_unlink(it);
         log_verb("get it '%.*s' expired and nuked", key->len, key->data);
         return NULL;
@@ -397,12 +402,12 @@ item_check_type(struct item *it)
 }
 
 item_rstatus_t
-item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptime)
+item_set(const struct bstring *key, const struct bstring *val, rel_time_t expire_at)
 {
     item_rstatus_t status;
     struct item *it = NULL, *oit;
 
-    if ((status = item_alloc(&it, key, exptime, val->len)) != ITEM_OK) {
+    if ((status = item_alloc(&it, key, expire_at, val->len)) != ITEM_OK) {
         return status;
     }
 
@@ -430,7 +435,7 @@ item_set(const struct bstring *key, const struct bstring *val, rel_time_t exptim
 }
 
 item_rstatus_t
-item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptime, uint64_t cas)
+item_cas(const struct bstring *key, const struct bstring *val, rel_time_t expire_at, uint64_t cas)
 {
     item_rstatus_t ret;
     struct item *it = NULL, *oit;
@@ -452,7 +457,7 @@ item_cas(const struct bstring *key, const struct bstring *val, rel_time_t exptim
         goto cas_done;
     }
 
-    if ((ret = item_alloc(&it, key, exptime, val->len)) != ITEM_OK) {
+    if ((ret = item_alloc(&it, key, expire_at, val->len)) != ITEM_OK) {
         return ret;
     }
 
@@ -527,7 +532,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
             item_set_cas(oit, _item_next_cas());
             item_check_type(oit);
         } else {
-            if ((ret = item_alloc(&nit, key, oit->exptime, total_nbyte)) != ITEM_OK) {
+            if ((ret = item_alloc(&nit, key, oit->expire_at, total_nbyte)) != ITEM_OK) {
                 goto annex_done;
             }
 
@@ -548,7 +553,7 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
             item_check_type(oit);
             item_set_cas(oit, _item_next_cas());
         } else {
-            if ((ret = item_alloc(&nit, key, oit->exptime, total_nbyte)) != ITEM_OK) {
+            if ((ret = item_alloc(&nit, key, oit->expire_at, total_nbyte)) != ITEM_OK) {
                 goto annex_done;
             }
 
@@ -609,4 +614,11 @@ item_delete(const struct bstring *key)
     }
 
     return ret;
+}
+
+void
+item_flush(void)
+{
+    time_update();
+    flush_at = time_now();
 }

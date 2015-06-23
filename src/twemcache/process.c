@@ -482,6 +482,13 @@ process_stats(struct request *req, struct buf *buf)
                              METRIC_CARDINALITY(glob_stats));
 }
 
+static rstatus_t
+process_flush(struct request *req, struct buf *buf)
+{
+    item_flush();
+    return compose_rsp_msg(buf, RSP_OK, req->noreply);
+}
+
 rstatus_t
 process_request(struct request *req, struct buf *buf)
 {
@@ -523,6 +530,9 @@ process_request(struct request *req, struct buf *buf)
 
     case REQ_STATS:
         return process_stats(req, buf);
+
+    case REQ_FLUSH:
+        return process_flush(req, buf);
 
     case REQ_QUIT:
         return CC_ERDHUP;
