@@ -77,9 +77,8 @@ setup(void)
     codec_setup(&glob_stats.codec_metrics);
     process_setup(&glob_stats.process_metrics);
 
-    buf_setup((uint32_t)setting.buf_size.val.vuint);
-    dbuf_setup((uint32_t)setting.dbuf_max_size.val.vuint,
-               (uint32_t)setting.dbuf_shrink_factor.val.vuint);
+    buf_setup((uint32_t)setting.buf_init_size.val.vuint, &glob_stats.buf_metrics);
+    dbuf_setup((uint32_t)setting.dbuf_max_power.val.vuint);
     event_setup(&glob_stats.event_metrics);
     tcp_setup((int)setting.tcp_backlog.val.vuint, &glob_stats.tcp_metrics);
 

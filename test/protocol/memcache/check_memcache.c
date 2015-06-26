@@ -21,7 +21,7 @@ START_TEST(test_quit)
     cmd = (uint8_t *)"quit\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -45,7 +45,7 @@ START_TEST(test_delete)
     cmd = (uint8_t *)"delete foo\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -74,7 +74,7 @@ START_TEST(test_get)
     cmd = (uint8_t *)"get foo\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -103,7 +103,7 @@ START_TEST(test_get_multi)
     cmd = (uint8_t *)"get foo bar\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -135,7 +135,7 @@ START_TEST(test_gets)
     cmd = (uint8_t *)"gets foo\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -164,7 +164,7 @@ START_TEST(test_gets_multi)
     cmd = (uint8_t *)"gets foo bar\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -196,7 +196,7 @@ START_TEST(test_set)
     cmd = (uint8_t *)"set foo 111 86400 3\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -228,7 +228,7 @@ START_TEST(test_add)
     cmd = (uint8_t *)"add foO 112 86401 4\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -260,7 +260,7 @@ START_TEST(test_replace)
     cmd = (uint8_t *)"replace fOO 113 86402 5\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -292,7 +292,7 @@ START_TEST(test_cas)
     cmd = (uint8_t *)"cas foo 111 86400 3 22\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -325,7 +325,7 @@ START_TEST(test_append)
     cmd = (uint8_t *)"append foo 0 0 3\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -357,7 +357,7 @@ START_TEST(test_prepend)
     cmd = (uint8_t *)"prepend foo 0 0 5\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -389,7 +389,7 @@ START_TEST(test_incr)
     cmd = (uint8_t *)"incr num 31\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -419,7 +419,7 @@ START_TEST(test_decr)
     cmd = (uint8_t *)"decr num 28\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -449,7 +449,7 @@ START_TEST(test_delete_noreply)
     cmd = (uint8_t *)"delete foo noreply\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd, cc_strlen(cmd), buf);
+    buf_write(buf, cmd, cc_strlen(cmd));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -480,7 +480,7 @@ START_TEST(test_set_resume)
     cmd_pt2 = (uint8_t *)"1 86400 3\r\n";
     req = request_create();
     buf = buf_create();
-    buf_write(cmd_pt1, (uint32_t)cc_strlen(cmd_pt1), buf);
+    buf_write(buf, cmd_pt1, (uint32_t)cc_strlen(cmd_pt1));
     status = parse_req_hdr(req, buf);
 
     ck_assert(status == CC_UNFIN);
@@ -489,7 +489,7 @@ START_TEST(test_set_resume)
     ck_assert(req->verb = REQ_SET);
     ck_assert(buf->rpos - buf->begin == sizeof("set foo ") - 1);
 
-    buf_write(cmd_pt2, (uint32_t)cc_strlen(cmd_pt2), buf);
+    buf_write(buf, cmd_pt2, (uint32_t)cc_strlen(cmd_pt2));
     status = parse_req_hdr(req, buf);
 
     ck_assert_msg(status == CC_OK, "status: %d", (int)status);
@@ -543,7 +543,7 @@ int main(void)
     int nfail;
 
     /* setup */
-    buf_setup(BUF_SIZE);
+    buf_setup(BUF_INIT_SIZE, NULL);
 
     Suite *suite = memcache_suite();
     SRunner *srunner = srunner_create(suite);

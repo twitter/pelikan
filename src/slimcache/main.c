@@ -72,7 +72,7 @@ setup(void)
     metric_setup();
 
     array_setup((uint32_t)setting.array_nelem_delta.val.vuint);
-    buf_setup((uint32_t)setting.buf_size.val.vuint);
+    buf_setup((uint32_t)setting.buf_init_size.val.vuint, &glob_stats.buf_metrics);
     event_setup(&glob_stats.event_metrics);
     tcp_setup((int)setting.tcp_backlog.val.vuint, &glob_stats.tcp_metrics);
 

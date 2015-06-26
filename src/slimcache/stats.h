@@ -14,6 +14,7 @@ struct glob_stats {
     event_metrics_st    event_metrics;
     server_metrics_st   server_metrics;
     worker_metrics_st   worker_metrics;
+    buf_metrics_st      buf_metrics;
     tcp_metrics_st      tcp_metrics;
     cuckoo_metrics_st   cuckoo_metrics;
     codec_metrics_st    codec_metrics;

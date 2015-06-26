@@ -1066,7 +1066,7 @@ _compose_rsp_msg(struct buf *buf, rsp_index_t idx)
         return CC_ENOMEM;
     }
 
-    buf_write_bstring(buf, str);
+    buf_write(buf, str->data, str->len);
 
     log_vverb("wrote rsp string %d to buf %p", idx, buf);
 
@@ -1155,7 +1155,7 @@ _compose_rsp_bstring(struct buf *buf, struct bstring *str)
         return CC_ENOMEM;
     }
 
-    buf_write_bstring(buf, str);
+    buf_write(buf, str->data, str->len);
 
     log_verb("wrote bstring at %p to buf %p", str, buf);
 
