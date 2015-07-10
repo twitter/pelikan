@@ -35,3 +35,6 @@
 
 # cscope
 cscope.out
+
+# CLion
+/.idea
