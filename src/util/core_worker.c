@@ -81,7 +81,7 @@ _worker_event_write(struct buf_sock *s)
     if (status == CC_ERETRY || status == CC_EAGAIN) { /* retry write */
         event_add_write(ctx->evb, hdl->wid(c), s);
     } else if (status == CC_ERROR) {
-        c->state = TCP_CLOSING;
+        c->state = CHANNEL_TERM;
     }
     _worker_post_write(s);
 }
@@ -173,7 +173,7 @@ _worker_post_read(struct buf_sock *s)
         }
         if (status == CC_ERDHUP) {
             log_info("peer called quit");
-            s->ch->state = TCP_CLOSING;
+            s->ch->state = CHANNEL_TERM;
             goto done;
         }
 
@@ -222,7 +222,7 @@ _worker_event_read(struct buf_sock *s)
     c = s->ch;
     status = _worker_read(s);
     if (status == CC_ERROR) {
-        c->state = TCP_CLOSING;
+        c->state = CHANNEL_TERM;
     }
 
     _worker_post_read(s);
@@ -281,8 +281,7 @@ core_worker_event(void *arg, uint32_t events)
             NOT_REACHED();
         }
 
-        if (s->ch->state == TCP_CLOSING ||
-            (s->ch->state == TCP_EOF && buf_rsize(s->wbuf) == 0)) {
+        if (s->ch->state == CHANNEL_TERM && buf_rsize(s->wbuf) == 0) {
             _worker_close(s);
         }
     }
