@@ -5,7 +5,7 @@
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
 #include <twemcache/process.h>
-#include <util/core.h>
+#include <core/core.h>
 #include <util/procinfo.h>
 
 #include <cc_event.h>

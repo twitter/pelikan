@@ -1,8 +1,8 @@
-#include <util/core_worker.h>
+#include <core/worker.h>
 
 #include <time/time.h>
 #include <protocol/memcache/codec.h>
-#include <util/core_shared.h>
+#include <core/shared.h>
 
 /*
  * TODO(yao): this doesn't look clean, protocol, process shouldn't be assumed

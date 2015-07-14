@@ -3,7 +3,7 @@
 #include <protocol/memcache/codec.h>
 #include <slimcache/process.h>
 #include <storage/cuckoo/cuckoo.h>
-#include <util/core.h>
+#include <core/core.h>
 #include <util/procinfo.h>
 
 #include <cc_event.h>

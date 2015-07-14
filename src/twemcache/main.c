@@ -1,10 +1,10 @@
 #include <twemcache/setting.h>
 #include <twemcache/stats.h>
 
+#include <core/core.h>
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
 #include <time/time.h>
-#include <util/core.h>
 #include <util/util.h>
 
 #include <cc_log.h>

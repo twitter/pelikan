@@ -1,7 +1,7 @@
-#include <util/core_server.h>
+#include <core/server.h>
 
 #include <time/time.h>
-#include <util/core_shared.h>
+#include <core/shared.h>
 #include <protocol/memcache/request.h>
 
 #include <cc_debug.h>

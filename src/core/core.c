@@ -1,6 +1,6 @@
-#include <util/core.h>
+#include <core/core.h>
 
-#include <util/core_shared.h>
+#include <core/shared.h>
 
 #include <cc_ring_array.h>
 #include <channel/cc_pipe.h>

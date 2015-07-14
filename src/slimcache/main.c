@@ -1,7 +1,7 @@
 #include <slimcache/setting.h>
 #include <slimcache/stats.h>
 
-#include <util/core.h>
+#include <core/core.h>
 #include <util/util.h>
 
 #include <errno.h>

@@ -3,6 +3,7 @@ set(SOURCE
     process.c)
 
 set(LIBS
+    core
     slab
     memcache
     time
