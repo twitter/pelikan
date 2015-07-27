@@ -5,7 +5,7 @@
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
-#include <cc_log.h>
+#include <cc_debug.h>
 #include <cc_option.h>
 #include <cc_ring_array.h>
 #include <channel/cc_tcp.h>
@@ -24,7 +24,7 @@
     REQUEST_OPTION(ACTION)    \
     BUF_OPTION(ACTION)        \
     DBUF_OPTION(ACTION)       \
-    LOG_OPTION(ACTION)        \
+    LOG_DEBUG_OPTION(ACTION)  \
     TCP_OPTION(ACTION)        \
     SOCKIO_OPTION(ACTION)     \
     RING_ARRAY_OPTION(ACTION) \

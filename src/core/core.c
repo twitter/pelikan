@@ -2,6 +2,7 @@
 
 #include <core/shared.h>
 
+#include <cc_debug.h>
 #include <cc_ring_array.h>
 #include <channel/cc_pipe.h>
 

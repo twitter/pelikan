@@ -3,14 +3,20 @@
 #include <time/time.h>
 
 #include <buffer/cc_buf.h>
+#include <buffer/cc_dbuf.h>
 #include <cc_array.h>
 #include <cc_debug.h>
 #include <cc_define.h>
-#include <cc_log.h>
 #include <cc_print.h>
 #include <cc_util.h>
 
 #include <ctype.h>
+
+#if defined TARGET_SLIMCACHE
+static bool use_dbuf = false;
+#elif defined TARGET_TWEMCACHE
+static bool use_dbuf = true;
+#endif
 
 #define CODEC_MODULE_NAME "protocol::memcache::codec"
 
@@ -1051,18 +1057,42 @@ static struct bstring rsp_strings[] = {
 #undef GET_STRING
 
 static rstatus_t
+_check_buf_size(struct buf *buf, uint32_t n)
+{
+    uint32_t wsize = buf_wsize(buf);
+
+    if (use_dbuf) {
+        while (n >= wsize) {
+            if (dbuf_double(&buf) != CC_OK) {
+                log_info("failed to write  %u bytes to buf %p: insufficient buffer"
+                         " space", n, buf);
+
+                return CC_ENOMEM;
+            }
+            wsize = buf_wsize(buf);
+        }
+    } else {
+        if (n >= wsize) {
+            log_info("failed to write %u bytes to buf %p: insufficient buffer"
+                     " space", n, buf);
+
+            return CC_ENOMEM;
+        }
+    }
+
+    return CC_OK;
+}
+
+static rstatus_t
 _compose_rsp_msg(struct buf *buf, rsp_index_t idx)
 {
-    uint32_t wsize;
     struct bstring *str;
 
-    wsize = buf_wsize(buf);
     str = &rsp_strings[idx];
 
-    if (str->len >= wsize) {
-        log_info("failed to write rsp string %d to buf %p: insufficient buffer"
-                " space", idx, buf);
-
+    if (_check_buf_size(buf, str->len) != CC_OK) {
+        log_info("failed to write str %d to buf %p: "
+                 "insufficient buffer space", idx, buf);
         return CC_ENOMEM;
     }
 
@@ -1097,12 +1127,10 @@ static rstatus_t
 _compose_rsp_uint64(struct buf *buf, uint64_t val, const char *fmt)
 {
     size_t n;
-    uint32_t wsize;
 
-    wsize = buf_wsize(buf);
+    n = cc_scnprintf(buf->wpos, buf_wsize(buf), fmt, val);
 
-    n = cc_scnprintf(buf->wpos, wsize, fmt, val);
-    if (n >= wsize) {
+    if (_check_buf_size(buf, n) != CC_OK) {
         log_debug("failed to write val %"PRIu64" to buf %p: "
                 "insufficient buffer space", val, buf);
 
@@ -1112,6 +1140,8 @@ _compose_rsp_uint64(struct buf *buf, uint64_t val, const char *fmt)
                 "returned error", val, buf);
 
         return CC_ERROR;
+    } else {
+        cc_scnprintf(buf->wpos, buf_wsize(buf), fmt, val);
     }
 
     log_vverb("wrote rsp uint %"PRIu64" to buf %p", val, buf);
@@ -1144,11 +1174,7 @@ compose_rsp_uint64(struct buf *buf, uint64_t val, bool noreply)
 static rstatus_t
 _compose_rsp_bstring(struct buf *buf, struct bstring *str)
 {
-    uint32_t wsize;
-
-    wsize = buf_wsize(buf);
-
-    if (str->len >= wsize) {
+    if (_check_buf_size(buf, str->len) != CC_OK) {
         log_info("failed to write bstring %p to buf %p: "
                 "insufficient buffer space", str, buf);
 
@@ -1226,25 +1252,26 @@ static rstatus_t
 _compose_rsp_metric(struct buf *buf, struct metric *metric, const char *fmt, ...)
 {
     size_t n;
-    uint32_t wsize;
     va_list args;
 
-    wsize = buf_wsize(buf);
-
     va_start(args, fmt);
-    n = cc_vscnprintf(buf->wpos, wsize, fmt, args);
-    va_end(args);
+    n = cc_vscnprintf(buf->wpos, buf_wsize(buf), fmt, args);
 
-    if (n >= wsize) {
+    if (_check_buf_size(buf, n) != CC_OK) {
         log_debug("failed to write metric %s to buf %p: insufficient space",
                 metric->name, buf);
 
+        va_end(args);
         return CC_ENOMEM;
     } else if (n == 0) {
         log_error("failed to write metric %s to buf %p: returned error",
                 metric->name, buf);
 
+        va_end(args);
         return CC_ERROR;
+    } else {
+        cc_vscnprintf(buf->wpos, buf_wsize(buf), fmt, args);
+        va_end(args);
     }
 
     log_vverb("wrote metric %s to buf %p", metric->name, buf);

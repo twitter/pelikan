@@ -6,7 +6,7 @@
 #include <util/procinfo.h>
 
 #include <cc_array.h>
-#include <cc_log.h>
+#include <cc_debug.h>
 
 #include <stdbool.h>
 #include <stdio.h>

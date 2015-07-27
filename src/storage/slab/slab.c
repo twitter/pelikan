@@ -1,7 +1,7 @@
 #include <storage/slab/slab.h>
 #include <storage/slab/item.h>
 
-#include <cc_log.h>
+#include <cc_debug.h>
 #include <cc_mm.h>
 
 #include <errno.h>

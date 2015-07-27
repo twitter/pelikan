@@ -1,7 +1,7 @@
 #include <time/time.h>
 
+#include <cc_debug.h>
 #include <cc_event.h>
-#include <cc_log.h>
 
 #include <errno.h>
 #include <stdbool.h>

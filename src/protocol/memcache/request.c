@@ -2,7 +2,6 @@
 
 #include <cc_bstring.h>
 #include <cc_debug.h>
-#include <cc_log.h>
 #include <cc_pool.h>
 
 #define REQUEST_MODULE_NAME "protocol::memcache::request"

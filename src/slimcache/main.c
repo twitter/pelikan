@@ -4,6 +4,8 @@
 #include <core/core.h>
 #include <util/util.h>
 
+#include <cc_debug.h>
+
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -61,8 +63,10 @@ setup(void)
     rstatus_t status;
 
     /* setup log first, so we log properly */
-    ret = log_setup((int)setting.log_level.val.vuint,
-            setting.log_name.val.vstr);
+    log_setup(&glob_stats.log_metrics);
+    ret = debug_setup((int)setting.log_debug_level.val.vuint,
+                      setting.log_debug_file.val.vstr,
+                      setting.log_debug_nbuf.val.vuint);
     if (ret < 0) {
         log_error("log setup failed");
 
@@ -147,7 +151,7 @@ setup(void)
     }
 
     /* create pid file, call it after daemonize to have the correct pid */
-    if (!option_empty(&setting.pid_filename)) {
+    if (setting.pid_filename.val.vstr != NULL) {
         create_pidfile(setting.pid_filename.val.vstr);
     }
 
@@ -156,7 +160,7 @@ setup(void)
 error:
     log_crit("setup failed");
 
-    if (!option_empty(&setting.pid_filename)) {
+    if (setting.pid_filename.val.vstr != NULL) {
         remove_pidfile(setting.pid_filename.val.vstr);
     }
 
@@ -178,6 +182,8 @@ error:
     buf_teardown();
     array_teardown();
     metric_teardown();
+    option_free((struct option *)&setting, nopt);
+
     log_teardown();
 
     exit(EX_CONFIG);

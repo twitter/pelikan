@@ -7,6 +7,7 @@
 #include <util/procinfo.h>
 
 #include <cc_event.h>
+#include <cc_log.h>
 #include <channel/cc_tcp.h>
 
 struct glob_stats {
@@ -20,6 +21,7 @@ struct glob_stats {
     codec_metrics_st    codec_metrics;
     process_metrics_st  process_metrics;
     request_metrics_st  request_metrics;
+    log_metrics_st      log_metrics;
 };
 
 struct glob_stats glob_stats;

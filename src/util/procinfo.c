@@ -3,7 +3,6 @@
 #include <time/time.h>
 
 #include <cc_debug.h>
-#include <cc_log.h>
 
 #include <stdbool.h>
 #include <sys/resource.h>

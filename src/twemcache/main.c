@@ -7,7 +7,7 @@
 #include <time/time.h>
 #include <util/util.h>
 
-#include <cc_log.h>
+#include <cc_debug.h>
 #include <cc_metric.h>
 #include <cc_option.h>
 #include <cc_signal.h>
@@ -63,8 +63,11 @@ setup(void)
     rstatus_t status;
 
     /* Setup log */
-    if (log_setup((int)setting.log_level.val.vuint,
-                 setting.log_name.val.vstr) < 0) {
+    log_setup(&glob_stats.log_metrics);
+    status = debug_setup((int)setting.log_debug_level.val.vuint,
+                      setting.log_debug_file.val.vstr,
+                      setting.log_debug_nbuf.val.vuint);
+    if (status < 0) {
         log_error("log setup failed");
         goto error;
     }
@@ -148,14 +151,14 @@ setup(void)
     }
 
     /* create pid file, call it after daemonize to have the correct pid */
-    if (!option_empty(&setting.pid_filename)) {
+    if (setting.pid_filename.val.vstr != NULL) {
         create_pidfile(setting.pid_filename.val.vstr);
     }
 
     return;
 
 error:
-    if (!option_empty(&setting.pid_filename)) {
+    if (setting.pid_filename.val.vstr != NULL) {
         remove_pidfile(setting.pid_filename.val.vstr);
     }
 
@@ -175,6 +178,7 @@ error:
     procinfo_teardown();
     time_teardown();
     metric_teardown();
+    option_free((struct option *)&setting, nopt);
 
     log_teardown();
 

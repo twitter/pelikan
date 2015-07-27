@@ -1,6 +1,7 @@
 set(SOURCE
     main.c
-    process.c)
+    process.c
+    core_worker.c)
 
 set(LIBS
     core

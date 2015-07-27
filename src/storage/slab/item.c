@@ -2,6 +2,8 @@
 
 #include <storage/slab/assoc.h>
 
+#include <cc_debug.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 

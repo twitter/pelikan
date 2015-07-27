@@ -5,7 +5,7 @@
 
 #include <buffer/cc_buf.h>
 #include <cc_array.h>
-#include <cc_log.h>
+#include <cc_debug.h>
 #include <cc_metric.h>
 #include <cc_option.h>
 #include <cc_ring_array.h>
@@ -28,7 +28,7 @@
     ARRAY_OPTION(ACTION)            \
     SOCKIO_OPTION(ACTION)           \
     CUCKOO_OPTION(ACTION)           \
-    LOG_OPTION(ACTION)              \
+    LOG_DEBUG_OPTION(ACTION)        \
     BUF_OPTION(ACTION)              \
     TCP_OPTION(ACTION)              \
     RING_ARRAY_OPTION(ACTION)       \

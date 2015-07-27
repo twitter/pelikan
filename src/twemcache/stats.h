@@ -23,6 +23,7 @@ struct glob_stats {
     process_metrics_st  process_metrics;
     slab_metrics_st     slab_metrics;
     item_metrics_st     item_metrics;
+    log_metrics_st      log_metrics;
 };
 
 struct glob_stats glob_stats;
