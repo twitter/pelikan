@@ -5,6 +5,7 @@
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
 #include <time/time.h>
+#include <util/log_core.h>
 #include <util/util.h>
 
 #include <cc_debug.h>
@@ -69,6 +70,12 @@ setup(void)
                       setting.log_debug_nbuf.val.vuint);
     if (status < 0) {
         log_error("log setup failed");
+        goto error;
+    }
+
+    status = log_core_create(debug_logger, (int)setting.log_debug_int.val.vuint);
+    if (status != CC_OK) {
+        log_error("Could not create debug log core");
         goto error;
     }
 

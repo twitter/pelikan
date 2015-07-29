@@ -2,6 +2,7 @@
 #include <slimcache/stats.h>
 
 #include <core/core.h>
+#include <util/log_core.h>
 #include <util/util.h>
 
 #include <cc_debug.h>
@@ -70,6 +71,12 @@ setup(void)
     if (ret < 0) {
         log_error("log setup failed");
 
+        goto error;
+    }
+
+    status = log_core_create(debug_logger, (int)setting.log_debug_int.val.vuint);
+    if (status != CC_OK) {
+        log_error("Could not create debug log core");
         goto error;
     }
 
