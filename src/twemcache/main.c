@@ -73,10 +73,14 @@ setup(void)
         goto error;
     }
 
-    status = log_core_create(debug_logger, (int)setting.log_debug_int.val.vuint);
-    if (status != CC_OK) {
-        log_error("Could not create debug log core");
-        goto error;
+    /* daemonize */
+    if (setting.daemonize.val.vbool) {
+        daemonize();
+    }
+
+    /* create pid file, call it after daemonize to have the correct pid */
+    if (setting.pid_filename.val.vstr != NULL) {
+        create_pidfile(setting.pid_filename.val.vstr);
     }
 
     metric_setup();
@@ -134,32 +138,20 @@ setup(void)
         goto error;
     }
 
-    /* Not overriding signals for now, since we are still testing */
-
     /* override signals that we want to customize */
-    /* ret = signal_segv_stacktrace(); */
-    /* if (ret < 0) { */
-    /*     goto error; */
-    /* } */
-
-    /* ret = signal_ttin_logrotate(); */
-    /* if (ret < 0) { */
-    /*     goto error; */
-    /* } */
-
-    /* ret = signal_pipe_ignore(); */
-    /* if (ret < 0) { */
-    /*     goto error; */
-    /* } */
-
-    /* daemonize */
-    if (setting.daemonize.val.vbool) {
-        daemonize();
+    status = signal_segv_stacktrace();
+    if (status < 0) {
+        goto error;
     }
 
-    /* create pid file, call it after daemonize to have the correct pid */
-    if (setting.pid_filename.val.vstr != NULL) {
-        create_pidfile(setting.pid_filename.val.vstr);
+    status = signal_ttin_logrotate();
+    if (status < 0) {
+        goto error;
+    }
+
+    status = signal_pipe_ignore();
+    if (status < 0) {
+        goto error;
     }
 
     return;

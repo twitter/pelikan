@@ -73,11 +73,14 @@ setup(void)
 
         goto error;
     }
+    /* daemonize */
+    if (setting.daemonize.val.vbool) {
+        daemonize();
+    }
 
-    status = log_core_create(debug_logger, (int)setting.log_debug_int.val.vuint);
-    if (status != CC_OK) {
-        log_error("Could not create debug log core");
-        goto error;
+    /* create pid file, call it after daemonize to have the correct pid */
+    if (setting.pid_filename.val.vstr != NULL) {
+        create_pidfile(setting.pid_filename.val.vstr);
     }
 
     metric_setup();
@@ -150,16 +153,6 @@ setup(void)
     ret = signal_pipe_ignore();
     if (ret < 0) {
         goto error;
-    }
-
-    /* daemonize */
-    if (setting.daemonize.val.vbool) {
-        daemonize();
-    }
-
-    /* create pid file, call it after daemonize to have the correct pid */
-    if (setting.pid_filename.val.vstr != NULL) {
-        create_pidfile(setting.pid_filename.val.vstr);
     }
 
     return;
