@@ -23,7 +23,7 @@ log_core_loop(void *args)
     cc_free(args);
 
     for (;;) {
-        sleep(interval);
+        usleep(interval);
         log_flush(logger);
     }
 

@@ -69,10 +69,17 @@ setup(void)
                       setting.log_debug_file.val.vstr,
                       setting.log_debug_nbuf.val.vuint);
     if (ret < 0) {
-        log_error("log setup failed");
+        log_stderr("log setup failed");
 
         goto error;
     }
+
+    status = log_core_create(debug_logger, (int)setting.log_debug_int.val.vuint);
+    if (status != CC_OK) {
+        log_stderr("Could not set up log core!");
+        goto error;
+    }
+
     /* daemonize */
     if (setting.daemonize.val.vbool) {
         daemonize();

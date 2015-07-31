@@ -73,6 +73,12 @@ setup(void)
         goto error;
     }
 
+    status = log_core_create(debug_logger, (int)setting.log_debug_int.val.vuint);
+    if (status != CC_OK) {
+        log_stderr("Could not set up log core!");
+        goto error;
+    }
+
     /* daemonize */
     if (setting.daemonize.val.vbool) {
         daemonize();
