@@ -1,6 +1,7 @@
 #pragma once
 
 #include <storage/slab/slab.h>
+#include <protocol/memcache/klog.h>
 #include <protocol/memcache/request.h>
 
 #include <buffer/cc_buf.h>
@@ -24,6 +25,7 @@
     REQUEST_OPTION(ACTION)    \
     BUF_OPTION(ACTION)        \
     DBUF_OPTION(ACTION)       \
+    KLOG_OPTION(ACTION)       \
     LOG_DEBUG_OPTION(ACTION)  \
     TCP_OPTION(ACTION)        \
     SOCKIO_OPTION(ACTION)     \

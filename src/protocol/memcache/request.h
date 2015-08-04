@@ -48,7 +48,7 @@ typedef enum parse_state {
 } parse_state_t;
 
 typedef enum request_verb {
-    REQ_UNKNOWN,
+    REQ_UNKNOWN = 0,
     REQ_GET,
     REQ_GETS,
     REQ_DELETE,
@@ -65,6 +65,8 @@ typedef enum request_verb {
     REQ_QUIT,
     RV_SENTINEL
 } request_verb_t;
+
+extern const char *request_verb_str[];
 
 /*
  * NOTE(yao): we store key and value as location in rbuf, this assumes the data

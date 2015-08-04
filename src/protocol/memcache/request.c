@@ -13,6 +13,25 @@ FREEPOOL(req_pool, reqq, request);
 static struct req_pool reqp;
 static bool reqp_init = false;
 
+const char *request_verb_str[] = {
+    "unknown_cmd",
+    "get",
+    "gets",
+    "delete",
+    "set",
+    "add",
+    "replace",
+    "cas",
+    "append",
+    "prepend",
+    "incr",
+    "decr",
+    "stats",
+    "flush",
+    "quit",
+    "RV_SENTINEL",
+};
+
 void
 request_setup(request_metrics_st *metrics)
 {

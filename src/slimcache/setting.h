@@ -1,6 +1,7 @@
 #pragma once
 
 #include <storage/cuckoo/cuckoo.h>
+#include <protocol/memcache/klog.h>
 #include <protocol/memcache/request.h>
 
 #include <buffer/cc_buf.h>
@@ -29,6 +30,7 @@
     SOCKIO_OPTION(ACTION)           \
     CUCKOO_OPTION(ACTION)           \
     LOG_DEBUG_OPTION(ACTION)        \
+    KLOG_OPTION(ACTION)             \
     BUF_OPTION(ACTION)              \
     TCP_OPTION(ACTION)              \
     RING_ARRAY_OPTION(ACTION)       \

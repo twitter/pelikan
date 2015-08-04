@@ -2,6 +2,7 @@
 #include <slimcache/stats.h>
 
 #include <core/core.h>
+#include <protocol/memcache/klog.h>
 #include <util/log_core.h>
 #include <util/util.h>
 
@@ -62,6 +63,7 @@ setup(void)
     int ret;
     uint32_t max_conns;
     rstatus_t status;
+    struct log_core *lc = NULL;
 
     /* setup log first, so we log properly */
     log_setup(&glob_stats.log_metrics);
@@ -74,8 +76,8 @@ setup(void)
         goto error;
     }
 
-    status = log_core_create(debug_logger, (int)setting.log_debug_int.val.vuint);
-    if (status != CC_OK) {
+    lc = log_core_create(debug_logger, (int)setting.log_debug_intvl.val.vuint);
+    if (lc == NULL) {
         log_stderr("Could not set up log core!");
         goto error;
     }
@@ -96,6 +98,8 @@ setup(void)
     buf_setup((uint32_t)setting.buf_init_size.val.vuint, &glob_stats.buf_metrics);
     event_setup(&glob_stats.event_metrics);
     tcp_setup((int)setting.tcp_backlog.val.vuint, &glob_stats.tcp_metrics);
+    klog_setup(setting.klog_file.val.vstr, (uint32_t)setting.klog_nbuf.val.vuint,
+               (uint32_t)setting.klog_intvl.val.vuint);
 
     time_setup();
     status = cuckoo_setup((size_t)setting.cuckoo_item_size.val.vuint,
@@ -177,6 +181,7 @@ error:
     buf_sock_pool_destroy();
     tcp_conn_pool_destroy();
     buf_pool_destroy();
+    log_core_destroy(&lc);
 
     cuckoo_teardown();
     process_teardown();

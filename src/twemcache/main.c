@@ -2,6 +2,7 @@
 #include <twemcache/stats.h>
 
 #include <core/core.h>
+#include <protocol/memcache/klog.h>
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
 #include <time/time.h>
@@ -62,6 +63,7 @@ setup(void)
     /* int ret; */
     uint32_t max_conns;
     rstatus_t status;
+    struct log_core *lc = NULL;
 
     /* Setup log */
     log_setup(&glob_stats.log_metrics);
@@ -73,8 +75,8 @@ setup(void)
         goto error;
     }
 
-    status = log_core_create(debug_logger, (int)setting.log_debug_int.val.vuint);
-    if (status != CC_OK) {
+    lc = log_core_create(debug_logger, (int)setting.log_debug_intvl.val.vuint);
+    if (lc == NULL) {
         log_stderr("Could not set up log core!");
         goto error;
     }
@@ -101,6 +103,8 @@ setup(void)
     dbuf_setup((uint32_t)setting.dbuf_max_power.val.vuint);
     event_setup(&glob_stats.event_metrics);
     tcp_setup((int)setting.tcp_backlog.val.vuint, &glob_stats.tcp_metrics);
+    klog_setup(setting.klog_file.val.vstr, (uint32_t)setting.klog_nbuf.val.vuint,
+               (uint32_t)setting.klog_intvl.val.vuint);
 
     if (slab_setup((uint32_t)setting.slab_size.val.vuint,
                    setting.slab_use_cas.val.vbool,
@@ -175,6 +179,7 @@ error:
 
     item_teardown();
     slab_teardown();
+    klog_teardown();
     dbuf_teardown();
     buf_teardown();
     codec_teardown();
@@ -185,6 +190,7 @@ error:
     metric_teardown();
     option_free((struct option *)&setting, nopt);
 
+    log_core_destroy(&lc);
     log_teardown();
 
     log_crit("setup failed");

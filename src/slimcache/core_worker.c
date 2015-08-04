@@ -2,6 +2,7 @@
 
 #include <core/worker.h>
 #include <protocol/memcache/codec.h>
+#include <protocol/memcache/klog.h>
 #include <protocol/memcache/request.h>
 
 #include <buffer/cc_buf.h>
@@ -78,6 +79,7 @@ _worker_post_read(struct buf_sock *s)
 {
     rstatus_t status;
     struct request *req;
+    uint32_t rsp_len = 0;
 
     log_verb("post read processing on buf_sock %p", s);
 
@@ -130,9 +132,9 @@ _worker_post_read(struct buf_sock *s)
         }
 
         /* processing */
-        log_verb("wbuf free: %"PRIu32" B", buf_wsize(s->wbuf));
         status = process_request(req, s->wbuf);
-        log_verb("wbuf free: %"PRIu32" B", buf_wsize(s->wbuf));
+
+        klog_write(req, status, rsp_len);
 
         if (status == CC_ENOMEM) {
             log_debug("wbuf full, try again later");

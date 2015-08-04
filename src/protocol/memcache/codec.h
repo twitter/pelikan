@@ -7,6 +7,8 @@
 #include <cc_define.h>
 #include <cc_metric.h>
 
+#include <stdint.h>
+
 /*          name                type            description */
 #define CMD_PARSE_METRIC(ACTION)                                        \
     ACTION( cmd_total,          METRIC_COUNTER, "total # commands"     )\
