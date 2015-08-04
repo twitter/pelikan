@@ -74,20 +74,23 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin)
 # dependency: libccommon
 set(CCOMMON_SOURCE_DIR "${PROJECT_SOURCE_DIR}/ccommon" CACHE PATH "Path to the ccommon")
 add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
+# other dependencies
+include(FindPackageHandleStandardArgs)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
+find_package(Check)
+find_package(Threads)
 
 #set(CMAKE_INCLUDE_CURRENT_DIR)
 include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"
     "${CCOMMON_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src")
+    "${PROJECT_SOURCE_DIR}/src"
+    "${CHECK_INCLUDES}")
 
 # main executables
 add_subdirectory(src)
 
 # tests
-include(FindPackageHandleStandardArgs)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
-find_package(Check)
 add_subdirectory(test)
 
 # print a summary
