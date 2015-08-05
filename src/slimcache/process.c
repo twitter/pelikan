@@ -41,10 +41,10 @@ process_teardown(void)
     process_init = false;
 }
 
-static rstatus_t
+static int
 process_get_key(struct buf *buf, struct bstring *key)
 {
-    rstatus_t status = CC_OK;
+    int ret = 0;
     struct item *it;
     struct val val;
     uint8_t val_str[CC_UINT64_MAXLEN];
@@ -65,18 +65,18 @@ process_get_key(struct buf *buf, struct bstring *key)
             val.vstr.len = (uint32_t)size;
         }
 
-        status = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it), 0);
+        ret = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it), 0);
     } else {
         INCR(process_metrics, cmd_get_key_miss);
     }
 
-    return status;
+    return ret;
 }
 
-static rstatus_t
+static int
 process_get(struct request *req, struct buf *buf)
 {
-    rstatus_t status;
+    int status, ret = 0;
     struct bstring *key;
     uint32_t i;
 
@@ -85,19 +85,24 @@ process_get(struct request *req, struct buf *buf)
     for (i = 0; i < req->keys->nelem; ++i) {
         key = array_get_idx(req->keys, i);
         status = process_get_key(buf, key);
-        if (status != CC_OK) {
+        if (status < 0) {
             return status;
         }
+        ret += status;
     }
-    status = compose_rsp_msg(buf, RSP_END, false);
 
-    return status;
+    status = compose_rsp_msg(buf, RSP_END, false);
+    if (status < 0) {
+        return status;
+    }
+
+    return ret + status;
 }
 
-static rstatus_t
+static int
 process_gets_key(struct buf *buf, struct bstring *key)
 {
-    rstatus_t status = CC_OK;
+    int ret = 0;
     struct item *it;
     struct val val;
     uint8_t val_str[CC_UINT64_MAXLEN];
@@ -117,19 +122,19 @@ process_gets_key(struct buf *buf, struct bstring *key)
             val.vstr.len = (uint32_t)size;
         }
 
-        status = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it),
-                item_cas(it));
+        ret = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it),
+                                 item_cas(it));
     } else {
         INCR(process_metrics, cmd_gets_key_miss);
     }
 
-    return status;
+    return ret;
 }
 
-static rstatus_t
+static int
 process_gets(struct request *req, struct buf *buf)
 {
-    rstatus_t status;
+    int status, ret = 0;
     struct bstring *key;
     uint32_t i;
 
@@ -138,19 +143,24 @@ process_gets(struct request *req, struct buf *buf)
     for (i = 0; i < req->keys->nelem; ++i) {
         key = array_get_idx(req->keys, i);
         status = process_gets_key(buf, key);
-        if (status != CC_OK) {
+        if (status < 0) {
             return status;
         }
+        ret += status;
     }
-    status = compose_rsp_msg(buf, RSP_END, false);
 
-    return status;
+    status = compose_rsp_msg(buf, RSP_END, false);
+    if (status < 0) {
+        return status;
+    }
+
+    return ret + status;
 }
 
-static rstatus_t
+static int
 process_delete(struct request *req, struct buf *buf)
 {
-    rstatus_t status = CC_OK;
+    int ret;
     bool deleted;
 
     log_verb("processing delete req %p, rsp buf at %p", req, buf);
@@ -158,13 +168,13 @@ process_delete(struct request *req, struct buf *buf)
     deleted = cuckoo_delete(array_get_idx(req->keys, 0));
     if (deleted) {
         INCR(process_metrics, cmd_delete_deleted);
-        status = compose_rsp_msg(buf, RSP_DELETED, req->noreply);
+        ret = compose_rsp_msg(buf, RSP_DELETED, req->noreply);
     } else {
         INCR(process_metrics, cmd_delete_notfound);
-        status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
+        ret = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
-    return status;
+    return ret;
 }
 
 static void
@@ -183,10 +193,11 @@ process_value(struct val *val, struct bstring *val_str)
     }
 }
 
-static rstatus_t
+static int
 process_set(struct request *req, struct buf *buf)
 {
     rstatus_t status = CC_OK;
+    int ret;
     rel_time_t expire;
     struct bstring *key;
     struct item *it;
@@ -207,19 +218,20 @@ process_set(struct request *req, struct buf *buf)
 
     if (status == CC_OK) {
         INCR(process_metrics, cmd_set_stored);
-        status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+        ret = compose_rsp_msg(buf, RSP_STORED, req->noreply);
     } else {
         INCR(process_metrics, cmd_set_ex);
-        status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+        ret = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
     }
 
-    return status;
+    return ret;
 }
 
-static rstatus_t
+static int
 process_add(struct request *req, struct buf *buf)
 {
     rstatus_t status = CC_OK;
+    int ret;
     rel_time_t expire;
     struct bstring *key;
     struct item *it;
@@ -231,27 +243,28 @@ process_add(struct request *req, struct buf *buf)
     it = cuckoo_lookup(key);
     if (it != NULL) {
         INCR(process_metrics, cmd_add_notstored);
-        status = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
+        ret = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
     } else {
         expire = time_reltime(req->expiry);
         process_value(&val, &req->vstr);
         status = cuckoo_insert(key, &val, expire);
         if (status == CC_OK) {
             INCR(process_metrics, cmd_add_stored);
-            status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+            ret = compose_rsp_msg(buf, RSP_STORED, req->noreply);
         } else {
             INCR(process_metrics, cmd_add_ex);
-            status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+            ret = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
         }
     }
 
-    return status;
+    return ret;
 }
 
-static rstatus_t
+static int
 process_replace(struct request *req, struct buf *buf)
 {
     rstatus_t status = CC_OK;
+    int ret;
     rel_time_t expire;
     struct bstring *key;
     struct item *it;
@@ -267,23 +280,24 @@ process_replace(struct request *req, struct buf *buf)
         status = cuckoo_update(it, &val, expire);
         if (status == CC_OK) {
             INCR(process_metrics, cmd_replace_stored);
-            status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+            ret = compose_rsp_msg(buf, RSP_STORED, req->noreply);
         } else {
             INCR(process_metrics, cmd_replace_ex);
-            status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+            ret = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
         }
     } else {
         INCR(process_metrics, cmd_replace_notstored);
-        status = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
+        ret = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
     }
 
-    return status;
+    return ret;
 }
 
-static rstatus_t
+static int
 process_cas(struct request *req, struct buf *buf)
 {
     rstatus_t status = CC_OK;
+    int ret;
     rel_time_t expire;
     struct bstring *key;
     struct item *it;
@@ -300,27 +314,27 @@ process_cas(struct request *req, struct buf *buf)
             status = cuckoo_update(it, &val, expire);
             if (status == CC_OK) {
                 INCR(process_metrics, cmd_cas_stored);
-                status = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+                ret = compose_rsp_msg(buf, RSP_STORED, req->noreply);
             } else {
                 INCR(process_metrics, cmd_cas_ex);
-                status = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+                ret = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
             }
         } else {
             INCR(process_metrics, cmd_cas_exists);
-            status = compose_rsp_msg(buf, RSP_EXISTS, req->noreply);
+            ret = compose_rsp_msg(buf, RSP_EXISTS, req->noreply);
         }
     } else {
         INCR(process_metrics, cmd_cas_notfound);
-        status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
+        ret = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
     }
 
-    return status;
+    return ret;
 }
 
-static rstatus_t
+static int
 process_incr(struct request *req, struct buf *buf)
 {
-    rstatus_t status = CC_OK;
+    int status;
     struct bstring *key;
     struct item *it;
     struct val new_val;
@@ -351,10 +365,10 @@ process_incr(struct request *req, struct buf *buf)
     return status;
 }
 
-static rstatus_t
+static int
 process_decr(struct request *req, struct buf *buf)
 {
-    rstatus_t status = CC_OK;
+    int status;
     struct bstring *key;
     struct item *it;
     struct val new_val;
@@ -385,7 +399,7 @@ process_decr(struct request *req, struct buf *buf)
     return status;
 }
 
-static rstatus_t
+static int
 process_stats(struct request *req, struct buf *buf)
 {
     procinfo_update();
@@ -393,14 +407,14 @@ process_stats(struct request *req, struct buf *buf)
             METRIC_CARDINALITY(glob_stats));
 }
 
-static rstatus_t
+static int
 process_flush(struct request *req, struct buf *buf)
 {
     cuckoo_reset();
     return compose_rsp_msg(buf, RSP_OK, req->noreply);
 }
 
-rstatus_t
+int
 process_request(struct request *req, struct buf *buf)
 {
     log_verb("processing req %p, rsp buf at %p", req, buf);

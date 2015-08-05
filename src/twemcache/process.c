@@ -54,10 +54,10 @@ process_bstring_data(struct bstring *val, struct item *it)
     val->data = (uint8_t *)item_data(it);
 }
 
-static rstatus_t
+static int
 process_get_key(struct buf *buf, struct bstring *key)
 {
-    rstatus_t status = CC_OK;
+    int ret = 0;
     struct item *it;
     struct bstring val;
 
@@ -71,20 +71,20 @@ process_get_key(struct buf *buf, struct bstring *key)
 
         process_bstring_data(&val, it);
 
-        status = compose_rsp_keyval(buf, key, &val, item_flag(it), 0);
+        ret = compose_rsp_keyval(buf, key, &val, item_flag(it), 0);
     } else {
         /* item not found */
         log_verb("item with key at %p not found", key);
         INCR(process_metrics, cmd_get_key_miss);
     }
 
-    return status;
+    return ret;
 }
 
-static rstatus_t
+static int
 process_get(struct request *req, struct buf *buf)
 {
-    rstatus_t status;
+    int ret = 0, status;
     struct bstring *key;
     uint32_t i;
 
@@ -93,19 +93,24 @@ process_get(struct request *req, struct buf *buf)
     for (i = 0; i < req->keys->nelem; ++i) {
         key = array_get_idx(req->keys, i);
         status = process_get_key(buf, key);
-        if (status != CC_OK) {
+        if (status < 0) {
             return status;
         }
+        ret += status;
     }
-    status = compose_rsp_msg(buf, RSP_END, false);
 
-    return status;
+    status = compose_rsp_msg(buf, RSP_END, false);
+    if (status < 0) {
+        return status;
+    }
+
+    return ret + status;
 }
 
-static rstatus_t
+static int
 process_gets_key(struct buf *buf, struct bstring *key)
 {
-    rstatus_t status = CC_OK;
+    int ret = 0;
     struct item *it;
     struct bstring val;
 
@@ -118,20 +123,20 @@ process_gets_key(struct buf *buf, struct bstring *key)
         INCR(process_metrics, cmd_gets_key_hit);
         process_bstring_data(&val, it);
 
-        status = compose_rsp_keyval(buf, key, &val, item_flag(it), item_get_cas(it));
+        ret = compose_rsp_keyval(buf, key, &val, item_flag(it), item_get_cas(it));
     } else {
         /* item not found */
         log_verb("item with key at %p not found", key);
         INCR(process_metrics, cmd_gets_key_miss);
     }
 
-    return status;
+    return ret;
 }
 
-static rstatus_t
+static int
 process_gets(struct request *req, struct buf *buf)
 {
-    rstatus_t status = CC_OK;
+    int ret = 0, status;
     struct bstring *key;
     uint32_t i;
 
@@ -140,17 +145,21 @@ process_gets(struct request *req, struct buf *buf)
     for (i = 0; i < req->keys->nelem; ++i) {
         key = array_get_idx(req->keys, i);
         status = process_gets_key(buf, key);
-        if (status != CC_OK) {
+        if (status < 0) {
             return status;
         }
+        ret += status;
     }
-    status = compose_rsp_msg(buf, RSP_END, false);
 
-    /* not implemented yet */
-    return CC_OK;
+    status = compose_rsp_msg(buf, RSP_END, false);
+    if (status < 0) {
+        return status;
+    }
+
+    return ret + status;
 }
 
-static rstatus_t
+static int
 process_delete(struct request *req, struct buf *buf)
 {
     struct bstring *key;
@@ -178,7 +187,7 @@ process_set_key(struct request *req, struct bstring *key, struct buf *buf)
     return item_set(key, &(req->vstr), exptime);
 }
 
-static rstatus_t
+static int
 process_set_rsp(struct request *req, struct buf *buf, item_rstatus_t i_status)
 {
     switch (i_status) {
@@ -195,7 +204,7 @@ process_set_rsp(struct request *req, struct buf *buf, item_rstatus_t i_status)
     return CC_ERROR;
 }
 
-static rstatus_t
+static int
 process_set(struct request *req, struct buf *buf)
 {
     struct bstring *key;
@@ -215,7 +224,7 @@ process_set(struct request *req, struct buf *buf)
     return process_set_rsp(req, buf, i_status);
 }
 
-static rstatus_t
+static int
 process_add(struct request *req, struct buf *buf)
 {
     struct bstring *key;
@@ -246,11 +255,11 @@ process_add(struct request *req, struct buf *buf)
     return ret;
 }
 
-static rstatus_t
+static int
 process_replace(struct request *req, struct buf *buf)
 {
     struct bstring *key;
-    rstatus_t ret;
+    int ret;
     item_rstatus_t i_status;
 
     log_verb("processing replace req %p, rsp buf at %p", req, buf);
@@ -277,7 +286,7 @@ process_replace(struct request *req, struct buf *buf)
     return ret;
 }
 
-static rstatus_t
+static int
 process_cas(struct request *req, struct buf *buf)
 {
     struct bstring *key;
@@ -346,7 +355,7 @@ _store_item_val_u64(struct item *it, uint64_t val)
     ASSERT(i_status == ITEM_OK);
 }
 
-static rstatus_t
+static int
 process_incr(struct request *req, struct buf *buf)
 {
     struct bstring *key;
@@ -378,7 +387,7 @@ process_incr(struct request *req, struct buf *buf)
     return compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
 }
 
-static rstatus_t
+static int
 process_decr(struct request *req, struct buf *buf)
 {
     struct bstring *key;
@@ -410,7 +419,7 @@ process_decr(struct request *req, struct buf *buf)
     return compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
 }
 
-static rstatus_t
+static int
 process_append(struct request *req, struct buf *buf)
 {
     struct bstring *key;
@@ -442,7 +451,7 @@ process_append(struct request *req, struct buf *buf)
     return CC_ERROR;
 }
 
-static rstatus_t
+static int
 process_prepend(struct request *req, struct buf *buf)
 {
     struct bstring *key;
@@ -474,7 +483,7 @@ process_prepend(struct request *req, struct buf *buf)
     return CC_ERROR;
 }
 
-static rstatus_t
+static int
 process_stats(struct request *req, struct buf *buf)
 {
     procinfo_update();
@@ -482,14 +491,14 @@ process_stats(struct request *req, struct buf *buf)
                              METRIC_CARDINALITY(glob_stats));
 }
 
-static rstatus_t
+static int
 process_flush(struct request *req, struct buf *buf)
 {
     item_flush();
     return compose_rsp_msg(buf, RSP_OK, req->noreply);
 }
 
-rstatus_t
+int
 process_request(struct request *req, struct buf *buf)
 {
     log_verb("processing req %p, rsp buf at %p", req, buf);

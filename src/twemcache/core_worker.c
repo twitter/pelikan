@@ -133,9 +133,14 @@ _worker_post_read(struct buf_sock *s)
 
         /* get rsp_len by taking write capacity before and subtracting write
            capacity after composing response */
-        rsp_len = buf_wsize(s->wbuf);
-        status = process_request(req, s->wbuf);
-        rsp_len -= buf_wsize(s->wbuf);
+        rsp_len = process_request(req, s->wbuf);
+
+        if (rsp_len < 0) {
+            status = rsp_len;
+            rsp_len = 0;
+        } else {
+            status = 0;
+        }
 
         klog_write(req, status, rsp_len);
 

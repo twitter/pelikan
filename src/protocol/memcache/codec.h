@@ -59,7 +59,8 @@ rstatus_t parse_req_hdr(struct request *req, struct buf *buf);
 rstatus_t parse_req_val(struct request *req, struct buf *buf);
 rstatus_t parse_req(struct request *req, struct buf *buf);
 
-rstatus_t compose_rsp_msg(struct buf *buf, rsp_index_t idx, bool noreply);
-rstatus_t compose_rsp_uint64(struct buf *buf, uint64_t val, bool noreply);
-rstatus_t compose_rsp_keyval(struct buf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas);
-rstatus_t compose_rsp_stats(struct buf *buf, struct metric marr[], unsigned int nmetric);
+/* Returns the response length, or negative error code */
+int compose_rsp_msg(struct buf *buf, rsp_index_t idx, bool noreply);
+int compose_rsp_uint64(struct buf *buf, uint64_t val, bool noreply);
+int compose_rsp_keyval(struct buf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas);
+int compose_rsp_stats(struct buf *buf, struct metric marr[], unsigned int nmetric);

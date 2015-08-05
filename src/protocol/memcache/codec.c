@@ -1083,7 +1083,7 @@ _check_buf_size(struct buf *buf, uint32_t n)
     return CC_OK;
 }
 
-static rstatus_t
+static int
 _compose_rsp_msg(struct buf *buf, rsp_index_t idx)
 {
     struct bstring *str;
@@ -1100,13 +1100,13 @@ _compose_rsp_msg(struct buf *buf, rsp_index_t idx)
 
     log_vverb("wrote rsp string %d to buf %p", idx, buf);
 
-    return CC_OK;
+    return str->len;
 }
 
-rstatus_t
+int
 compose_rsp_msg(struct buf *buf, rsp_index_t idx, bool noreply)
 {
-    rstatus_t status;
+    int ret;
 
     if (noreply) {
         return CC_OK;
@@ -1115,15 +1115,15 @@ compose_rsp_msg(struct buf *buf, rsp_index_t idx, bool noreply)
     log_verb("rsp msg id %d", idx);
     INCR(codec_metrics, response_compose);
 
-    status = _compose_rsp_msg(buf, idx);
-    if (status != CC_OK) {
+    ret = _compose_rsp_msg(buf, idx);
+    if (ret < 0) {
         INCR(codec_metrics, response_compose_ex);
     }
 
-    return status;
+    return ret;
 }
 
-static rstatus_t
+static int
 _compose_rsp_uint64(struct buf *buf, uint64_t val, const char *fmt)
 {
     size_t n;
@@ -1141,19 +1141,19 @@ _compose_rsp_uint64(struct buf *buf, uint64_t val, const char *fmt)
 
         return CC_ERROR;
     } else {
-        cc_scnprintf(buf->wpos, buf_wsize(buf), fmt, val);
+        n = cc_scnprintf(buf->wpos, buf_wsize(buf), fmt, val);
     }
 
     log_vverb("wrote rsp uint %"PRIu64" to buf %p", val, buf);
 
     buf->wpos += n;
-    return CC_OK;
+    return n;
 }
 
-rstatus_t
+int
 compose_rsp_uint64(struct buf *buf, uint64_t val, bool noreply)
 {
-    rstatus_t status;
+    int ret;
 
     if (noreply) {
         return CC_OK;
@@ -1162,16 +1162,16 @@ compose_rsp_uint64(struct buf *buf, uint64_t val, bool noreply)
     log_verb("rsp int %"PRIu64, val);
     INCR(codec_metrics, response_compose);
 
-    status = _compose_rsp_uint64(buf, val, "%"PRIu64""CRLF);
+    ret = _compose_rsp_uint64(buf, val, "%"PRIu64""CRLF);
 
-    if (status != CC_OK) {
+    if (ret < 0) {
         INCR(codec_metrics, response_compose_ex);
     }
 
-    return status;
+    return ret;
 }
 
-static rstatus_t
+static int
 _compose_rsp_bstring(struct buf *buf, struct bstring *str)
 {
     if (_check_buf_size(buf, str->len) != CC_OK) {
@@ -1185,63 +1185,79 @@ _compose_rsp_bstring(struct buf *buf, struct bstring *str)
 
     log_verb("wrote bstring at %p to buf %p", str, buf);
 
-    return CC_OK;
+    return str->len;
 }
 
-rstatus_t
+int
 compose_rsp_keyval(struct buf *buf, struct bstring *key, struct bstring *val, uint32_t flag, uint64_t cas)
 {
-    rstatus_t status = CC_OK;
+    int ret = 0, status;
 
     log_verb("rsp keyval: %"PRIu32" byte key, %"PRIu32" byte value,"
             " flag: %"PRIu32", cas: %"PRIu64, key->len, val->len, flag, cas);
 
     status = _compose_rsp_msg(buf, RSP_VALUE);
-    if (status != CC_OK) {
+    if (status < 0) {
         goto error;
     }
+
+    ret += status;
 
     status = _compose_rsp_bstring(buf, key);
-    if (status != CC_OK) {
+    if (status < 0) {
         goto error;
     }
+
+    ret += status;
 
     status = _compose_rsp_uint64(buf, flag, " %"PRIu64);
-    if (status != CC_OK) {
+    if (status < 0) {
         goto error;
     }
 
+    ret += status;
+
     status = _compose_rsp_uint64(buf, val->len, " %"PRIu64);
-    if (status != CC_OK) {
+    if (status < 0) {
         goto error;
     }
+
+    ret += status;
 
     if (cas) {
         status = _compose_rsp_uint64(buf, cas, " %"PRIu64);
-        if (status != CC_OK) {
+        if (status < 0) {
             goto error;
         }
 
+        ret += status;
+
     }
 
     status = _compose_rsp_msg(buf, RSP_CRLF);
-    if (status != CC_OK) {
+    if (status < 0) {
         goto error;
     }
+
+    ret += status;
 
     status = _compose_rsp_bstring(buf, val);
-    if (status != CC_OK) {
+    if (status < 0) {
         goto error;
     }
 
+    ret += status;
+
     status = _compose_rsp_msg(buf, RSP_CRLF);
-    if (status != CC_OK) {
+    if (status < 0) {
         goto error;
     }
+
+    ret += status;
 
     INCR(codec_metrics, response_compose);
 
-    return CC_OK;
+    return ret;
 
 error:
     INCR(codec_metrics, response_compose_ex);
@@ -1280,11 +1296,11 @@ _compose_rsp_metric(struct buf *buf, struct metric *metric, const char *fmt, ...
     return CC_OK;
 }
 
-rstatus_t
+int
 compose_rsp_stats(struct buf *buf, struct metric marr[], unsigned int nmetric)
 {
     unsigned int i;
-    rstatus_t status = CC_OK;
+    int ret = 0, status = 0;
 
     for (i = 0; i < nmetric; i++) {
         switch (marr[i].type) {
@@ -1312,14 +1328,23 @@ compose_rsp_stats(struct buf *buf, struct metric marr[], unsigned int nmetric)
             NOT_REACHED();
             break;
         }
-        if (status != CC_OK) {
-            return status;
+
+        if (status < 0) {
             INCR(codec_metrics, response_compose_ex);
+            return status;
         }
+
+        ret += status;
     }
 
     log_verb("wrote %u metrics", nmetric);
 
     status = _compose_rsp_msg(buf, RSP_END);
-    return status;
+
+    if (status < 0) {
+        INCR(codec_metrics, response_compose_ex);
+        return status;
+    }
+
+    return ret + status;
 }

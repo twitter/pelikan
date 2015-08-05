@@ -47,4 +47,6 @@ struct buf;
 void process_setup(process_metrics_st *process_metrics);
 void process_teardown(void);
 
-rstatus_t process_request(struct request *req, struct buf *buf);
+
+/* Returns the response lengh in bytes, or an error code if negative */
+int process_request(struct request *req, struct buf *buf);
