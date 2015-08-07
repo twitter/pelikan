@@ -1,0 +1,19 @@
+C standard:
+Follow C99 (and keep an eye on C11 support as compiler support matures, GCC 4.9 is reporting a similar level of support of C11 as for C99, but Twitter's official GCC version is 4.8, so full C++11 support but not much love for C11, especially the multi-threading/atomic support)
+
+include order:
+Rule of thumb- local to global: header of the same name first, headers in the same project, headers from other projects/system.
+Organize system inclusions in a separate block. And, if applicable, organize inclusions from each project in a separate block.
+
+macros:
+Since we are sticking to C99, prefer "static inline" over a macro for simple functions, especially those with potential side effects. For example, even the very common one:
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+can introduce unintended side effects when someone calls MAX(x++, y++).
+Therefore, static inline functions are not only easier to debug but safer as well, when one has to use macros, mark it with "_UNSAFE" suffix to warn the users.
+
+int types:
+https://www.securecoding.cert.org/confluence/display/seccode/INT15-C.+Use+intmax_t+or+uintmax_t+for+formatted+IO+on+programmer-defined+integer+types
+
+pointers & resource pooling:
+- all pointers in a struct need to be set to NULL or initialized immediately (so if there are multiple pointers, set all of the to NULL before starting to actually initialize them, so upon a failure the clean-up logic will do the right thing instead of trying to free/return the incorrect pointer);
+- all pointers need to be checked before the corresponding struct/resource is returned to the pool, so we dont' try to insert an NULL pointer to the pool.
