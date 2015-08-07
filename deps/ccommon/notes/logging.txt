@@ -1,7 +1,0 @@
-module level changes (reload, setup, teardown) should be logged at LOG_INFO level;
-module level errors (cannot setup connection pool) should be logged at lOG_CRIT level;
-individual object life cycle changes (create, destroy, reset, init) should be logged at LOG_VERB level;
-individual object singgle attribute changes should be logged at LOG_VVERB level;
-client errors that doesn't affect the health of the server should be logged at LOG_NOTICE level;
-server errors that only affect a single request or otherwise very limited impact should be logged at LOG_WARN level;
-

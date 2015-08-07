@@ -1,9 +1,0 @@
-initialization and deinitialization:
-
-- use 'init', 'deinit' for setting up or cleaning up of an already allocated *object*.
-- use 'get', 'put' for acquiring or returning an object from a managed *object pool*.
-- use 'setup', 'teardown' for setting up or tearing down a *module*.
-- use 'create', 'destroy' for creating or destroying an *object*, including the necessary memory operations and setting/cleaning up.
-
-
-don't use 'new' or 'free' as they are too commonly used, especially by lower level interfaces.
