@@ -92,7 +92,7 @@ _worker_post_read(struct buf_sock *s)
 
     if (req == NULL) {
         log_error("cannot acquire request: OOM");
-        status = compose_rsp_msg(s->wbuf, RSP_SERVER_ERROR, false);
+        status = compose_rsp_msg(&s->wbuf, RSP_SERVER_ERROR, false);
         if (status != CC_OK) {
             //s->err = status;
 
@@ -123,7 +123,7 @@ _worker_post_read(struct buf_sock *s)
         if (status != CC_OK) { /* parsing errors are all client errors */
             log_warn("illegal request received, status: %d", status);
 
-            status = compose_rsp_msg(s->wbuf, RSP_CLIENT_ERROR, false);
+            status = compose_rsp_msg(&s->wbuf, RSP_CLIENT_ERROR, false);
             if (status != CC_OK) {
                 log_error("failed to send client error, status: %d", status);
             }
@@ -132,7 +132,7 @@ _worker_post_read(struct buf_sock *s)
         }
 
         /* processing */
-        rsp_len = process_request(req, s->wbuf);
+        rsp_len = process_request(req, &s->wbuf);
 
         if (rsp_len < 0) {
             status = rsp_len;
@@ -156,7 +156,7 @@ _worker_post_read(struct buf_sock *s)
         if (status != CC_OK) {
             log_error("process request failed for other reason: %d", status);
 
-            status = compose_rsp_msg(s->wbuf, RSP_SERVER_ERROR, false);
+            status = compose_rsp_msg(&s->wbuf, RSP_SERVER_ERROR, false);
             if (status != CC_OK) {
                 /* NOTE(yao): this processing logic does NOT work for large
                  * values, which will easily overflow wbuf and therefore always

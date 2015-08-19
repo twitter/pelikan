@@ -78,6 +78,7 @@ _worker_post_read(struct buf_sock *s)
     rstatus_t status;
     struct request *req;
     uint32_t rsp_len;
+    int ret;
 
     log_verb("post read processing on buf_sock %p", s);
 
@@ -90,11 +91,10 @@ _worker_post_read(struct buf_sock *s)
 
     if (req == NULL) {
         log_error("cannot acquire request: OOM");
-        status = compose_rsp_msg(s->wbuf, RSP_SERVER_ERROR, false);
-        if (status != CC_OK) {
+        ret = compose_rsp_msg(&s->wbuf, RSP_SERVER_ERROR, false);
+        if (ret < 0) {
             //s->err = status;
-
-            log_error("failed to send server error, status: %d", status);
+            log_error("failed to send server error, status: %d", ret);
         }
 
         goto done;
@@ -121,7 +121,7 @@ _worker_post_read(struct buf_sock *s)
         if (status != CC_OK) { /* parsing errors are all client errors */
             log_warn("illegal request received, status: %d", status);
 
-            status = compose_rsp_msg(s->wbuf, RSP_CLIENT_ERROR, false);
+            status = compose_rsp_msg(&s->wbuf, RSP_CLIENT_ERROR, false);
             if (status != CC_OK) {
                 log_error("failed to send client error, status: %d", status);
             }
@@ -130,10 +130,7 @@ _worker_post_read(struct buf_sock *s)
         }
 
         /* processing */
-
-        /* get rsp_len by taking write capacity before and subtracting write
-           capacity after composing response */
-        rsp_len = process_request(req, s->wbuf);
+        rsp_len = process_request(req, &s->wbuf);
 
         if (rsp_len < 0) {
             status = rsp_len;
@@ -157,7 +154,7 @@ _worker_post_read(struct buf_sock *s)
         if (status != CC_OK) {
             log_error("process request failed for other reason: %d", status);
 
-            status = compose_rsp_msg(s->wbuf, RSP_SERVER_ERROR, false);
+            status = compose_rsp_msg(&s->wbuf, RSP_SERVER_ERROR, false);
             if (status != CC_OK) {
                 /* NOTE(yao): this processing logic does NOT work for large
                  * values, which will easily overflow wbuf and therefore always
@@ -199,7 +196,11 @@ _worker_event_read(struct buf_sock *s)
     c = s->ch;
     status = _worker_read(s);
     if (status == CC_ERROR) {
+        log_verb("Failed to read buf sock %p", s);
         c->state = CHANNEL_TERM;
+
+        /* check if this is correct behavior */
+        return;
     }
 
     _worker_post_read(s);
@@ -214,9 +215,8 @@ core_worker_event(void *arg, uint32_t events)
 
     if (s == NULL) {
         /* event on pipe_c, new connection */
-
-    if (events & EVENT_READ) {
-        worker_add_conn();
+        if (events & EVENT_READ) {
+            worker_add_conn();
         } else if (events & EVENT_ERR) {
             log_error("error event received on conn_fds pipe");
         } else {

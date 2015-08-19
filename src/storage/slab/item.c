@@ -203,8 +203,12 @@ _item_release_refcount(struct item *it)
 item_rstatus_t
 item_alloc(struct item **it_p, const struct bstring *key, rel_time_t expire_at, uint32_t vlen)
 {
-    uint8_t id = slab_id(item_ntotal(key->len, vlen, use_cas));
+    uint8_t id;
     struct item *it;
+
+    log_verb("allocate item with klen %u vlen %u", key->len, vlen);
+
+    id = slab_id(item_ntotal(key->len, vlen, use_cas));
 
     if (id == SLABCLASS_INVALID_ID) {
         return ITEM_EOVERSIZED;

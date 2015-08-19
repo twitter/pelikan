@@ -55,13 +55,13 @@ process_bstring_data(struct bstring *val, struct item *it)
 }
 
 static int
-process_get_key(struct buf *buf, struct bstring *key)
+process_get_key(struct buf **buf, struct bstring *key)
 {
     int ret = 0;
     struct item *it;
     struct bstring val;
 
-    log_verb("get key at %p, rsp buf at %p", key, buf);
+    log_verb("get key at %p, rsp buf at %p", key, *buf);
     INCR(process_metrics, cmd_get_key);
 
     if ((it = item_get(key))) {
@@ -82,13 +82,13 @@ process_get_key(struct buf *buf, struct bstring *key)
 }
 
 static int
-process_get(struct request *req, struct buf *buf)
+process_get(struct request *req, struct buf **buf)
 {
     int ret = 0, status;
     struct bstring *key;
     uint32_t i;
 
-    log_verb("processing get req %p with rsp buf at %p", req, buf);
+    log_verb("processing get req %p with rsp buf at %p", req, *buf);
 
     for (i = 0; i < req->keys->nelem; ++i) {
         key = array_get_idx(req->keys, i);
@@ -108,13 +108,13 @@ process_get(struct request *req, struct buf *buf)
 }
 
 static int
-process_gets_key(struct buf *buf, struct bstring *key)
+process_gets_key(struct buf **buf, struct bstring *key)
 {
     int ret = 0;
     struct item *it;
     struct bstring val;
 
-    log_verb("gets key at %p, rsp buf at %p", key, buf);
+    log_verb("gets key at %p, rsp buf at %p", key, *buf);
     INCR(process_metrics, cmd_gets_key);
 
     if ((it = item_get(key))) {
@@ -134,13 +134,13 @@ process_gets_key(struct buf *buf, struct bstring *key)
 }
 
 static int
-process_gets(struct request *req, struct buf *buf)
+process_gets(struct request *req, struct buf **buf)
 {
     int ret = 0, status;
     struct bstring *key;
     uint32_t i;
 
-    log_verb("processing gets req %p, rsp buf at %p", req, buf);
+    log_verb("processing gets req %p, rsp buf at %p", req, *buf);
 
     for (i = 0; i < req->keys->nelem; ++i) {
         key = array_get_idx(req->keys, i);
@@ -160,7 +160,7 @@ process_gets(struct request *req, struct buf *buf)
 }
 
 static int
-process_delete(struct request *req, struct buf *buf)
+process_delete(struct request *req, struct buf **buf)
 {
     struct bstring *key;
 
@@ -178,7 +178,7 @@ process_delete(struct request *req, struct buf *buf)
 }
 
 static item_rstatus_t
-process_set_key(struct request *req, struct bstring *key, struct buf *buf)
+process_set_key(struct request *req, struct bstring *key)
 {
     rel_time_t exptime;
 
@@ -188,7 +188,7 @@ process_set_key(struct request *req, struct bstring *key, struct buf *buf)
 }
 
 static int
-process_set_rsp(struct request *req, struct buf *buf, item_rstatus_t i_status)
+process_set_rsp(struct request *req, struct buf **buf, item_rstatus_t i_status)
 {
     switch (i_status) {
     case ITEM_OK:
@@ -205,15 +205,15 @@ process_set_rsp(struct request *req, struct buf *buf, item_rstatus_t i_status)
 }
 
 static int
-process_set(struct request *req, struct buf *buf)
+process_set(struct request *req, struct buf **buf)
 {
     struct bstring *key;
     item_rstatus_t i_status;
 
-    log_verb("processing set req %p, rsp buf at %p", req, buf);
+    log_verb("processing set req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
-    i_status = process_set_key(req, key, buf);
+    i_status = process_set_key(req, key);
 
     if (i_status == ITEM_OK) {
         INCR(process_metrics, cmd_set_stored);
@@ -225,13 +225,13 @@ process_set(struct request *req, struct buf *buf)
 }
 
 static int
-process_add(struct request *req, struct buf *buf)
+process_add(struct request *req, struct buf **buf)
 {
     struct bstring *key;
     rstatus_t ret;
     item_rstatus_t i_status;
 
-    log_verb("processing add req %p, rsp buf at %p", req, buf);
+    log_verb("processing add req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
 
@@ -241,7 +241,7 @@ process_add(struct request *req, struct buf *buf)
         INCR(process_metrics, cmd_add_notstored);
     } else {
         /* key does not exist, set */
-        i_status = process_set_key(req, key, buf);
+        i_status = process_set_key(req, key);
 
         if (i_status == ITEM_OK) {
             INCR(process_metrics, cmd_add_stored);
@@ -256,19 +256,19 @@ process_add(struct request *req, struct buf *buf)
 }
 
 static int
-process_replace(struct request *req, struct buf *buf)
+process_replace(struct request *req, struct buf **buf)
 {
     struct bstring *key;
     int ret;
     item_rstatus_t i_status;
 
-    log_verb("processing replace req %p, rsp buf at %p", req, buf);
+    log_verb("processing replace req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
 
     if (item_get(key)) {
         /* key exists, perform replace */
-        i_status = process_set_key(req, key, buf);
+        i_status = process_set_key(req, key);
 
         if (i_status == ITEM_OK) {
             INCR(process_metrics, cmd_replace_stored);
@@ -287,12 +287,12 @@ process_replace(struct request *req, struct buf *buf)
 }
 
 static int
-process_cas(struct request *req, struct buf *buf)
+process_cas(struct request *req, struct buf **buf)
 {
     struct bstring *key;
     rel_time_t exptime;
 
-    log_verb("processing cas req %p, rsp buf at %p", req, buf);
+    log_verb("processing cas req %p, rsp buf at %p", req, *buf);
 
     exptime = time_reltime(req->expiry);
     key = array_get_idx(req->keys, 0);
@@ -356,13 +356,13 @@ _store_item_val_u64(struct item *it, uint64_t val)
 }
 
 static int
-process_incr(struct request *req, struct buf *buf)
+process_incr(struct request *req, struct buf **buf)
 {
     struct bstring *key;
     struct item *it;
     uint64_t val;
 
-    log_verb("processing incr req %p, rsp buf at %p", req, buf);
+    log_verb("processing incr req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
 
@@ -388,13 +388,13 @@ process_incr(struct request *req, struct buf *buf)
 }
 
 static int
-process_decr(struct request *req, struct buf *buf)
+process_decr(struct request *req, struct buf **buf)
 {
     struct bstring *key;
     struct item *it;
     uint64_t val;
 
-    log_verb("processing decr req %p, rsp buf at %p", req, buf);
+    log_verb("processing decr req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
 
@@ -420,12 +420,12 @@ process_decr(struct request *req, struct buf *buf)
 }
 
 static int
-process_append(struct request *req, struct buf *buf)
+process_append(struct request *req, struct buf **buf)
 {
     struct bstring *key;
     item_rstatus_t i_status;
 
-    log_verb("processing append req %p, rsp buf at %p", req, buf);
+    log_verb("processing append req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
     i_status = item_annex(key, &(req->vstr), true);
@@ -452,12 +452,12 @@ process_append(struct request *req, struct buf *buf)
 }
 
 static int
-process_prepend(struct request *req, struct buf *buf)
+process_prepend(struct request *req, struct buf **buf)
 {
     struct bstring *key;
     item_rstatus_t i_status;
 
-    log_verb("processing prepend req %p, rsp buf at %p", req, buf);
+    log_verb("processing prepend req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
     i_status = item_annex(key, &(req->vstr), false);
@@ -484,7 +484,7 @@ process_prepend(struct request *req, struct buf *buf)
 }
 
 static int
-process_stats(struct request *req, struct buf *buf)
+process_stats(struct request *req, struct buf **buf)
 {
     procinfo_update();
     return compose_rsp_stats(buf, (struct metric *)&glob_stats,
@@ -492,16 +492,16 @@ process_stats(struct request *req, struct buf *buf)
 }
 
 static int
-process_flush(struct request *req, struct buf *buf)
+process_flush(struct request *req, struct buf **buf)
 {
     item_flush();
     return compose_rsp_msg(buf, RSP_OK, req->noreply);
 }
 
 int
-process_request(struct request *req, struct buf *buf)
+process_request(struct request *req, struct buf **buf)
 {
-    log_verb("processing req %p, rsp buf at %p", req, buf);
+    log_verb("processing req %p, rsp buf at %p capacity %u size %u", req, *buf, buf_capacity(*buf), buf_size(*buf));
 
     switch (req->verb) {
     case REQ_GET:

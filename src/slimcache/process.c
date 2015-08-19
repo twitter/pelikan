@@ -42,7 +42,7 @@ process_teardown(void)
 }
 
 static int
-process_get_key(struct buf *buf, struct bstring *key)
+process_get_key(struct buf **buf, struct bstring *key)
 {
     int ret = 0;
     struct item *it;
@@ -50,7 +50,7 @@ process_get_key(struct buf *buf, struct bstring *key)
     uint8_t val_str[CC_UINT64_MAXLEN];
     size_t size;
 
-    log_verb("get key at %p, rsp buf at %p", key, buf);
+    log_verb("get key at %p, rsp buf at %p", key, *buf);
     INCR(process_metrics, cmd_get_key);
 
     it = cuckoo_lookup(key);
@@ -74,13 +74,13 @@ process_get_key(struct buf *buf, struct bstring *key)
 }
 
 static int
-process_get(struct request *req, struct buf *buf)
+process_get(struct request *req, struct buf **buf)
 {
     int status, ret = 0;
     struct bstring *key;
     uint32_t i;
 
-    log_verb("processing get req %p, rsp buf at %p", req, buf);
+    log_verb("processing get req %p, rsp buf at %p", req, *buf);
 
     for (i = 0; i < req->keys->nelem; ++i) {
         key = array_get_idx(req->keys, i);
@@ -100,7 +100,7 @@ process_get(struct request *req, struct buf *buf)
 }
 
 static int
-process_gets_key(struct buf *buf, struct bstring *key)
+process_gets_key(struct buf **buf, struct bstring *key)
 {
     int ret = 0;
     struct item *it;
@@ -108,7 +108,7 @@ process_gets_key(struct buf *buf, struct bstring *key)
     uint8_t val_str[CC_UINT64_MAXLEN];
     size_t size;
 
-    log_verb("gets key at %p, rsp buf at %p", key, buf);
+    log_verb("gets key at %p, rsp buf at %p", key, *buf);
     INCR(process_metrics, cmd_gets_key);
 
     it = cuckoo_lookup(key);
@@ -132,13 +132,13 @@ process_gets_key(struct buf *buf, struct bstring *key)
 }
 
 static int
-process_gets(struct request *req, struct buf *buf)
+process_gets(struct request *req, struct buf **buf)
 {
     int status, ret = 0;
     struct bstring *key;
     uint32_t i;
 
-    log_verb("processing gets req %p, rsp buf at %p", req, buf);
+    log_verb("processing gets req %p, rsp buf at %p", req, *buf);
 
     for (i = 0; i < req->keys->nelem; ++i) {
         key = array_get_idx(req->keys, i);
@@ -158,12 +158,12 @@ process_gets(struct request *req, struct buf *buf)
 }
 
 static int
-process_delete(struct request *req, struct buf *buf)
+process_delete(struct request *req, struct buf **buf)
 {
     int ret;
     bool deleted;
 
-    log_verb("processing delete req %p, rsp buf at %p", req, buf);
+    log_verb("processing delete req %p, rsp buf at %p", req, *buf);
 
     deleted = cuckoo_delete(array_get_idx(req->keys, 0));
     if (deleted) {
@@ -194,7 +194,7 @@ process_value(struct val *val, struct bstring *val_str)
 }
 
 static int
-process_set(struct request *req, struct buf *buf)
+process_set(struct request *req, struct buf **buf)
 {
     rstatus_t status = CC_OK;
     int ret;
@@ -203,7 +203,7 @@ process_set(struct request *req, struct buf *buf)
     struct item *it;
     struct val val;
 
-    log_verb("processing set req %p, rsp buf at %p", req, buf);
+    log_verb("processing set req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
     expire = time_reltime(req->expiry);
@@ -228,7 +228,7 @@ process_set(struct request *req, struct buf *buf)
 }
 
 static int
-process_add(struct request *req, struct buf *buf)
+process_add(struct request *req, struct buf **buf)
 {
     rstatus_t status = CC_OK;
     int ret;
@@ -237,7 +237,7 @@ process_add(struct request *req, struct buf *buf)
     struct item *it;
     struct val val;
 
-    log_verb("processing add req %p, rsp buf at %p", req, buf);
+    log_verb("processing add req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
     it = cuckoo_lookup(key);
@@ -261,7 +261,7 @@ process_add(struct request *req, struct buf *buf)
 }
 
 static int
-process_replace(struct request *req, struct buf *buf)
+process_replace(struct request *req, struct buf **buf)
 {
     rstatus_t status = CC_OK;
     int ret;
@@ -270,7 +270,7 @@ process_replace(struct request *req, struct buf *buf)
     struct item *it;
     struct val val;
 
-    log_verb("processing replace req %p, rsp buf at %p", req, buf);
+    log_verb("processing replace req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
     it = cuckoo_lookup(key);
@@ -294,7 +294,7 @@ process_replace(struct request *req, struct buf *buf)
 }
 
 static int
-process_cas(struct request *req, struct buf *buf)
+process_cas(struct request *req, struct buf **buf)
 {
     rstatus_t status = CC_OK;
     int ret;
@@ -303,7 +303,7 @@ process_cas(struct request *req, struct buf *buf)
     struct item *it;
     struct val val;
 
-    log_verb("processing cas req %p, rsp buf at %p", req, buf);
+    log_verb("processing cas req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
     it = cuckoo_lookup(key);
@@ -332,14 +332,14 @@ process_cas(struct request *req, struct buf *buf)
 }
 
 static int
-process_incr(struct request *req, struct buf *buf)
+process_incr(struct request *req, struct buf **buf)
 {
     int status;
     struct bstring *key;
     struct item *it;
     struct val new_val;
 
-    log_verb("processing incr req %p, rsp buf at %p", req, buf);
+    log_verb("processing incr req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
     it = cuckoo_lookup(key);
@@ -366,14 +366,14 @@ process_incr(struct request *req, struct buf *buf)
 }
 
 static int
-process_decr(struct request *req, struct buf *buf)
+process_decr(struct request *req, struct buf **buf)
 {
     int status;
     struct bstring *key;
     struct item *it;
     struct val new_val;
 
-    log_verb("processing decr req %p, rsp buf at %p", req, buf);
+    log_verb("processing decr req %p, rsp buf at %p", req, *buf);
 
     key = array_get_idx(req->keys, 0);
     it = cuckoo_lookup(key);
@@ -400,7 +400,7 @@ process_decr(struct request *req, struct buf *buf)
 }
 
 static int
-process_stats(struct request *req, struct buf *buf)
+process_stats(struct request *req, struct buf **buf)
 {
     procinfo_update();
     return compose_rsp_stats(buf, (struct metric *)&glob_stats,
@@ -408,16 +408,16 @@ process_stats(struct request *req, struct buf *buf)
 }
 
 static int
-process_flush(struct request *req, struct buf *buf)
+process_flush(struct request *req, struct buf **buf)
 {
     cuckoo_reset();
     return compose_rsp_msg(buf, RSP_OK, req->noreply);
 }
 
 int
-process_request(struct request *req, struct buf *buf)
+process_request(struct request *req, struct buf **buf)
 {
-    log_verb("processing req %p, rsp buf at %p", req, buf);
+    log_verb("processing req %p, rsp buf at %p", req, *buf);
     INCR(process_metrics, cmd_process);
 
     switch (req->verb) {

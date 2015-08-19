@@ -49,4 +49,4 @@ void process_teardown(void);
 
 
 /* Returns the response lengh in bytes, or an error code if negative */
-int process_request(struct request *req, struct buf *buf);
+int process_request(struct request *req, struct buf **buf);

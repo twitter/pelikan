@@ -243,9 +243,9 @@ _slab_profile_setup(char *setup_profile, uint8_t setup_profile_last_id)
     int i;
     char *profile_entry;
 
-    for(i = SLABCLASS_MIN_ID; i <= setup_profile_last_id; ++i) {
-        profile_entry = strtok(setup_profile, " \n\r\t");
+    profile_entry = strsep(&setup_profile, " \n\r\t");
 
+    for(i = SLABCLASS_MIN_ID; i <= setup_profile_last_id; ++i) {
         if(profile_entry == NULL) {
             log_error("slab profile/profile_last_id mismatch - there are either "
                       "not enough profile entries or profile_last_id is too big");
@@ -253,9 +253,16 @@ _slab_profile_setup(char *setup_profile, uint8_t setup_profile_last_id)
         }
 
         profile[i] = atol(profile_entry);
+
+        profile_entry = strsep(&setup_profile, " \n\r\t");
     }
 
     log_verb("setup slab profile setup_profile_last_id: %u", setup_profile_last_id);
+    log_verb("slab profile:");
+
+    for (i = SLABCLASS_MIN_ID; i <= setup_profile_last_id; ++i) {
+        log_verb("%u", profile[i]);
+    }
 
     profile_last_id = setup_profile_last_id;
 
