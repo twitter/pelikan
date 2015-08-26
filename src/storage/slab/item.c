@@ -1,6 +1,6 @@
 #include <storage/slab/item.h>
 
-#include <storage/slab/assoc.h>
+#include <storage/slab/hashtable.h>
 
 #include <cc_debug.h>
 
@@ -49,7 +49,7 @@ item_setup(uint32_t hash_power, item_metrics_st *metrics)
 
     log_debug("item hdr size %d", ITEM_HDR_SIZE);
 
-    table = assoc_create(hash_power);
+    table = hashtable_create(hash_power);
 
     if (table == NULL) {
         return CC_ENOMEM;
@@ -76,7 +76,7 @@ item_teardown(void)
         log_warn("%s has never been set up", ITEM_MODULE_NAME);
     }
 
-    assoc_destroy(table);
+    hashtable_destroy(table);
     item_metrics = NULL;
     item_init = false;
 }
@@ -273,7 +273,7 @@ item_reuse(struct item *it)
 
     it->is_linked = 0;
 
-    assoc_delete((uint8_t *)item_key(it), it->klen, table);
+    hashtable_delete((uint8_t *)item_key(it), it->klen, table);
 
     log_verb("reuse %s it '%.*s' at offset %"PRIu32" with id "
               "%"PRIu8"", _item_expired(it) ? "expired" : "evicted",
@@ -297,7 +297,7 @@ _item_link(struct item *it)
     it->is_linked = 1;
     item_set_cas(it, _item_next_cas());
 
-    assoc_put(it, table);
+    hashtable_put(it, table);
 
     it->create_at = time_now();
 
@@ -328,7 +328,7 @@ _item_unlink(struct item *it)
     if (it->is_linked) {
         it->is_linked = 0;
 
-        assoc_delete((uint8_t *)item_key(it), it->klen, table);
+        hashtable_delete((uint8_t *)item_key(it), it->klen, table);
 
         if (it->refcount == 0) {
             _item_free(it);
@@ -368,7 +368,7 @@ item_get(const struct bstring *key)
 {
     struct item *it;
 
-    it = assoc_get(key->data, key->len, table);
+    it = hashtable_get(key->data, key->len, table);
     if (it == NULL) {
         log_verb("get it '%.*s' not found", key->len, key->data);
         return NULL;

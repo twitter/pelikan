@@ -1,5 +1,5 @@
 set(SOURCE
-    assoc.c
+    hashtable.c
     item.c
     slab.c)
 
