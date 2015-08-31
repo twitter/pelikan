@@ -85,6 +85,7 @@ include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"
     "${CCOMMON_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/client/src"
     "${CHECK_INCLUDES}")
 
 # main executables
@@ -92,6 +93,9 @@ add_subdirectory(src)
 
 # tests
 add_subdirectory(test)
+
+# client
+add_subdirectory(client)
 
 # print a summary
 message(STATUS "PLATFORM: " ${OS_PLATFORM})

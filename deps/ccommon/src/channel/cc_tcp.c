@@ -51,7 +51,10 @@ tcp_setup(int backlog, tcp_metrics_st *metrics)
 
     max_backlog = backlog;
     tcp_metrics = metrics;
-    TCP_METRIC_INIT(tcp_metrics);
+
+    if (metrics != NULL) {
+        TCP_METRIC_INIT(tcp_metrics);
+    }
 
     if (tcp_init) {
         log_warn("%s has already been setup, overwrite", TCP_MODULE_NAME);

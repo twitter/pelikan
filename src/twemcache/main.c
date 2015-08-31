@@ -50,7 +50,7 @@ show_usage(void)
             );
     log_stdout(
             "Example:" CRLF
-            "  ./broadbill_slimcache ../template/slimcache.config" CRLF
+            "  ./broadbill_twemcache ../template/twemcache.conf" CRLF
             );
     log_stdout("Setting & Default Values:");
     SETTING(PRINT_DEFAULT)
@@ -60,7 +60,6 @@ static void
 setup(void)
 {
     struct addrinfo *ai;
-    /* int ret; */
     uint32_t max_conns;
     rstatus_t status;
     struct log_core *lc = NULL;
@@ -185,12 +184,14 @@ error:
     codec_teardown();
     process_teardown();
     request_teardown();
+    tcp_teardown();
     procinfo_teardown();
     time_teardown();
     metric_teardown();
     option_free((struct option *)&setting, nopt);
 
     log_core_destroy(&lc);
+    debug_teardown();
     log_teardown();
 
     log_crit("setup failed");
