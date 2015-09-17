@@ -1,6 +1,8 @@
 set(SOURCE
-    codec.c
-    klog.c
-    request.c)
+    request.c
+    response.c
+    parse.c
+    compose.c
+    klog.c)
 
 add_library(memcache ${SOURCE})

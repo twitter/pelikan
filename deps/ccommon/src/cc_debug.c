@@ -57,6 +57,7 @@ debug_stacktrace(int skip_count)
     size = backtrace(stack, BACKTRACE_DEPTH);
     symbols = backtrace_symbols(stack, size);
     if (symbols == NULL) {
+        log_stderr("Could not print backtrace; no symbols");
         return;
     }
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <storage/slab/item.h>
 #include <time/time.h>
 
 #include <cc_define.h>
@@ -18,7 +17,6 @@
 #define SLAB_MIN_SIZE   ((size_t) 512)
 #define SLAB_MAX_SIZE   ((size_t) (128 * MiB))
 #define SLAB_SIZE       MiB
-#define SLAB_HASH       16
 
 /* Eviction options */
 #define EVICT_NONE    0 /* throw OOM, no eviction */
@@ -36,9 +34,7 @@
     ACTION( slab_chunk_size,      OPTION_TYPE_UINT,   str(KiB),        "Chunk size"                      )\
     ACTION( slab_maxbytes,        OPTION_TYPE_UINT,   str(GiB),        "Maximum bytes allocated"         )\
     ACTION( slab_profile,         OPTION_TYPE_STR,    NULL,            "Slab profile"                    )\
-    ACTION( slab_profile_last_id, OPTION_TYPE_UINT,   "0",             "Last id in slab profile (# ids)" )\
-    ACTION( slab_use_cas,         OPTION_TYPE_BOOL,   "yes",           "CAS enabled for slabbed mm"      )\
-    ACTION( slab_hash_power,      OPTION_TYPE_UINT,   str(SLAB_HASH),  "Hash power for item table"       )
+    ACTION( slab_profile_last_id, OPTION_TYPE_UINT,   "0",             "Last id in slab profile (# ids)" )
 
 /*          name                type            description */
 #define SLAB_METRIC(ACTION)                                                \
@@ -56,8 +52,6 @@ typedef struct {
     *(_metrics) = (slab_metrics_st) { SLAB_METRIC(METRIC_INIT) }; \
 } while(0)
 
-struct item_metric;
-typedef struct item_metric item_metrics_st;
 
 /*
  * Every slab (struct slab) in the cache starts with a slab header
@@ -82,20 +76,20 @@ typedef struct item_metric item_metrics_st;
  */
 struct slab {
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
-    uint32_t          magic;    /* slab magic (const) */
+    uint32_t          magic;        /* slab magic (const) */
 #endif
-    uint8_t           id;       /* slabclass id */
-    uint8_t           unused;   /* unused */
-    uint16_t          refcount; /* # concurrent users */
-    TAILQ_ENTRY(slab) s_tqe;    /* link in slab lruq */
-    rel_time_t        utime;    /* last update time in secs */
-    uint32_t          padding;  /* unused */
-    uint8_t           data[1];  /* opaque data */
+    TAILQ_ENTRY(slab) s_tqe;        /* link in slab lruq */
+
+    rel_time_t        utime;        /* last update time in secs */
+    uint8_t           id;           /* slabclass id */
+    uint32_t          padding:24;   /* unused */
+    uint8_t           data[1];      /* opaque data */
 };
 
 TAILQ_HEAD(slab_tqh, slab);
 
 /* Queues for handling items */
+struct item;
 SLIST_HEAD(item_slh, item);
 
 /*
@@ -174,22 +168,35 @@ struct slabclass {
 #define SLABCLASS_MIN_ID        1
 #define SLABCLASS_MAX_ID        (UCHAR_MAX - 1)
 #define SLABCLASS_INVALID_ID    UCHAR_MAX
-#define SLABCLASS_MAX_IDS       UCHAR_MAX
 
-extern size_t slab_size_setting;
-extern bool use_cas;
+size_t slab_size;
+struct slabclass slabclass[SLABCLASS_MAX_ID];  /* collection of slabs bucketed by slabclass */
 
-size_t slab_size(void);
+/*
+ * Return the usable space for item sized chunks that would be carved out
+ * of a given slab.
+ */
+static inline size_t
+slab_capacity(void)
+{
+    return slab_size - SLAB_HDR_SIZE;
+}
+
+/*
+ * Return the item size given a slab id
+ */
+static inline size_t
+slab_item_size(uint8_t id) {
+    return slabclass[id].size;
+}
+
 void slab_print(void);
-void slab_acquire_refcount(struct slab *slab);
-void slab_release_refcount(struct slab *slab);
-size_t slab_item_size(uint8_t id);
 uint8_t slab_id(size_t size);
 
-rstatus_t slab_setup(size_t setup_slab_size, bool setup_use_cas, bool setup_prealloc,
-                     int setup_evict_opt, bool setup_use_freeq, size_t setup_chunk_size,
-                     size_t setup_maxbytes, char *setup_profile, uint8_t setup_profile_last_id,
-                     slab_metrics_st *metrics, uint32_t it_hash_power, item_metrics_st *it_metrics);
+rstatus_t slab_setup(size_t setup_slab_size, bool setup_prealloc,
+        int setup_evict_opt, bool setup_use_freeq, size_t setup_chunk_size,
+        size_t setup_maxbytes, char *setup_profile,
+        uint8_t setup_profile_last_id, slab_metrics_st *metrics);
 void slab_teardown(void);
 
 struct item *slab_get_item(uint8_t id);

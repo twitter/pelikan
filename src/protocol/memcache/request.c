@@ -9,28 +9,16 @@
 static bool request_init = false;
 static request_metrics_st *request_metrics = NULL;
 
+#define GET_STRING(_name, _str) {sizeof(_str) - 1, (_str)},
+struct bstring req_strings[] = {
+    REQ_TYPE_MSG(GET_STRING)
+};
+#undef GET_STRING
+
 FREEPOOL(req_pool, reqq, request);
 static struct req_pool reqp;
 static bool reqp_init = false;
 
-const char *request_verb_str[] = {
-    "unknown_cmd",
-    "get",
-    "gets",
-    "delete",
-    "set",
-    "add",
-    "replace",
-    "cas",
-    "append",
-    "prepend",
-    "incr",
-    "decr",
-    "stats",
-    "flush",
-    "quit",
-    "RV_SENTINEL",
-};
 
 void
 request_setup(request_metrics_st *metrics)
@@ -38,7 +26,9 @@ request_setup(request_metrics_st *metrics)
     log_info("set up the %s module", REQUEST_MODULE_NAME);
 
     request_metrics = metrics;
-    REQUEST_METRIC_INIT(request_metrics);
+    if (metrics != NULL) {
+        REQUEST_METRIC_INIT(request_metrics);
+    }
 
     if (request_init) {
         log_warn("%s has already been setup, overwrite", REQUEST_MODULE_NAME);
@@ -66,23 +56,24 @@ request_reset(struct request *req)
     STAILQ_NEXT(req, next) = NULL;
     req->free = false;
 
-    req->rstate = PARSING;
+    req->rstate = REQ_PARSING;
     req->pstate = REQ_HDR;
-    req->tstate = 0;
-    req->verb = REQ_UNKNOWN;
+    req->type = REQ_UNKNOWN;
 
     req->keys->nelem = 0;
     bstring_init(&req->vstr);
+    req->nfound = 0;
+
     req->flag = 0;
     req->expiry = 0;
     req->vlen = 0;
     req->delta = 0;
-    req->cas = 0;
+    req->vcas = 0;
 
     req->noreply = 0;
+    req->val = 0;
     req->serror = 0;
     req->cerror = 0;
-    req->swallow = 0;
 }
 
 struct request *

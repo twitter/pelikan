@@ -135,7 +135,9 @@ ring_array_pop(void *elem, struct ring_array *arr)
         return CC_ERROR;
     }
 
-    cc_memcpy(elem, arr->data + (arr->elem_size * arr->rpos), arr->elem_size);
+    if (elem != NULL) {
+        cc_memcpy(elem, arr->data + (arr->elem_size * arr->rpos), arr->elem_size);
+    }
 
     /* update rpos atomically */
     new_rpos = (arr->rpos + 1) % arr->cap;

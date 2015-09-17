@@ -105,58 +105,6 @@ array_destroy(struct array **arr)
     *arr = NULL;
 }
 
-/* index of the given element address in the array */
-uint32_t
-array_locate(struct array *arr, void *elem)
-{
-    uint32_t offset, idx;
-
-    ASSERT(elem >= arr->data);
-
-    offset = (uint32_t)((char *)elem - (char *)arr->data);
-
-    ASSERT(offset % (uint32_t)arr->size == 0);
-
-    idx = offset / (uint32_t)arr->size;
-
-    ASSERT(idx < arr->nalloc);
-
-    return idx;
-}
-
-/* return the idx-th element by address */
-void *
-array_get_idx(struct array *arr, uint32_t idx)
-{
-    void *elem;
-
-    ASSERT(arr->nelem != 0);
-    ASSERT(idx < arr->nelem);
-
-    elem = (uint8_t *)arr->data + (arr->size * idx);
-
-    return elem;
-}
-
-/* return the last element */
-void *
-array_last(struct array *arr)
-{
-    return array_get_idx(arr, arr->nelem - 1);
-}
-
-/* pop the last element */
-void *
-array_pop(struct array *arr)
-{
-    void *elem;
-
-    elem = array_get_idx(arr, arr->nelem - 1);
-    arr->nelem--;
-
-    return elem;
-}
-
 /*
  * expands the array by:
  * 1) doubling, if nelem is less than max_nelem_delta;
@@ -209,6 +157,18 @@ array_push(struct array *arr)
     return array_last(arr);
 }
 
+/* pop the last element */
+void *
+array_pop(struct array *arr)
+{
+    void *elem;
+
+    elem = array_get(arr, arr->nelem - 1);
+    arr->nelem--;
+
+    return elem;
+}
+
 /* sort array data in ascending order based on the compare comparator */
 void
 array_sort(struct array *arr, array_compare_t compare)
@@ -232,7 +192,7 @@ array_each(struct array *arr, array_each_t func, void *arg, err_t *err)
     ASSERT(func != NULL);
 
     for (i = 0, nelem = arr->nelem; i < nelem; i++) {
-        void *elem = array_get_idx(arr, i);
+        void *elem = array_get(arr, i);
         rstatus_t status;
 
         status = func(elem, arg);

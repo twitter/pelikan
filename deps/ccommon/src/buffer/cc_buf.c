@@ -171,7 +171,7 @@ buf_create(void)
         return NULL;
     }
 
-    buf->end = (uint8_t *)buf + buf_init_size;
+    buf->end = (char *)buf + buf_init_size;
     buf_reset(buf);
     INCR(buf_metrics, buf_create);
     INCR(buf_metrics, buf_curr);

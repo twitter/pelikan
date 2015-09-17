@@ -13,23 +13,27 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/*          name                type                default          description */
+#define ITEM_OPTION(ACTION)                                                                             \
+    ACTION( item_use_cas,       OPTION_TYPE_BOOL,   "yes",           "CAS enabled for slabbed mm"      )\
+    ACTION( item_hash_power,    OPTION_TYPE_UINT,   str(HASH_POWER), "Hash power for item table"       )
+
 /*          name                type            description */
 #define ITEM_METRIC(ACTION)                                                             \
-    ACTION( item_keyval_byte,   METRIC_GAUGE,        "# current item key + data bytes" )\
-    ACTION( item_val_byte,      METRIC_GAUGE,        "# current data bytes"            )\
-    ACTION( item_curr,          METRIC_GAUGE,        "# current items"                 )\
-    ACTION( item_req,           METRIC_COUNTER,      "# items allocated"               )\
-    ACTION( item_req_ex,        METRIC_COUNTER,      "# item alloc errors"             )\
-    ACTION( item_remove,        METRIC_COUNTER,      "# items removed"                 )\
-    ACTION( item_link,          METRIC_COUNTER,      "# items linked"                  )\
-    ACTION( item_unlink,        METRIC_COUNTER,      "# items unlinked"                )
+    ACTION( item_keyval_byte,   METRIC_GAUGE,   "# current item key + data bytes" )\
+    ACTION( item_val_byte,      METRIC_GAUGE,   "# current data bytes"            )\
+    ACTION( item_curr,          METRIC_GAUGE,   "# current items"                 )\
+    ACTION( item_req,           METRIC_COUNTER, "# items allocated"               )\
+    ACTION( item_req_ex,        METRIC_COUNTER, "# item alloc errors"             )\
+    ACTION( item_insert,        METRIC_COUNTER, "# items inserted"                )\
+    ACTION( item_remove,        METRIC_COUNTER, "# items removed"                 )
 
 typedef struct item_metric {
     ITEM_METRIC(METRIC_DECLARE)
 } item_metrics_st;
 
-#define ITEM_METRIC_INIT(_metrics) do {                              \
-    *(_metrics) = (item_metrics_st) { ITEM_METRIC(METRIC_INIT) }; \
+#define ITEM_METRIC_INIT(_metrics) do {                             \
+    *(_metrics) = (item_metrics_st) { ITEM_METRIC(METRIC_INIT) };   \
 } while(0)
 
 /*
@@ -75,26 +79,20 @@ struct item {
     rel_time_t        create_at;     /* time when this item was last linked */
 
     uint32_t          is_linked:1;   /* item in hash */
-    uint32_t          has_cas:1;     /* item has cas */
     uint32_t          in_freeq:1;    /* item in free queue */
     uint32_t          is_raligned:1; /* item data (payload) is right-aligned */
-    uint32_t          vtype:1;       /* extra flag for type indication */
-    uint32_t          vlen:27;       /* data size (27 bits since uint32_t is 32 bits and we have 5 flags)
+    uint32_t          vlen:29;       /* data size (29 bits since uint32_t is 32 bits and we have 5 flags)
                                         NOTE: need at least enough bits to support the largest value size allowed
                                         by the implementation, i.e. SLAB_MAX_SIZE */
 
     uint32_t          offset;        /* offset of item in slab */
-    uint16_t          refcount;      /* # concurrent users of item */
     uint8_t           id;            /* slab class id */
     uint8_t           klen;          /* key length */
+    uint16_t          padding;       /* keep end 64-bit aligned, it may be a cas */
     char              end[1];        /* item data */
 };
 
-typedef enum {
-    V_STR = 0,
-    V_INT = 1,
-} vtype_e;
-
+#define HASH_POWER      16
 #define ITEM_MAGIC      0xfeedface
 #define ITEM_HDR_SIZE   offsetof(struct item, end)
 #define ITEM_CAS_SIZE   sizeof(uint64_t)
@@ -105,11 +103,14 @@ typedef enum {
 
 typedef enum item_rstatus {
     ITEM_OK,
-    ITEM_ENOTFOUND,
     ITEM_EOVERSIZED,
     ITEM_ENOMEM,
+    ITEM_ENAN, /* not a number */
     ITEM_EOTHER,
 } item_rstatus_t;
+
+extern bool use_cas;
+extern uint64_t cas_id;
 
 static inline uint32_t
 item_flag(struct item *it)
@@ -120,9 +121,7 @@ item_flag(struct item *it)
 static inline uint64_t
 item_get_cas(struct item *it)
 {
-    ASSERT(it->magic == ITEM_MAGIC);
-
-    if (it->has_cas) {
+    if (use_cas) {
         return *((uint64_t *)it->end);
     }
 
@@ -130,12 +129,12 @@ item_get_cas(struct item *it)
 }
 
 static inline void
-item_set_cas(struct item *it, uint64_t cas)
+item_set_cas(struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
 
-    if (it->has_cas) {
-        *((uint64_t *)it->end) = cas;
+    if (use_cas) {
+        *((uint64_t *)it->end) = ++cas_id;
     }
 }
 
@@ -148,10 +147,8 @@ item_key(struct item *it)
 {
     char *key;
 
-    ASSERT(it->magic == ITEM_MAGIC);
-
     key = it->end;
-    if (it->has_cas) {
+    if (use_cas) {
         key += ITEM_CAS_SIZE;
     }
 
@@ -159,14 +156,9 @@ item_key(struct item *it)
 }
 
 static inline size_t
-item_ntotal(uint8_t klen, uint32_t vlen, bool cas)
+item_ntotal(uint8_t klen, uint32_t vlen)
 {
-    size_t ntotal;
-
-    ntotal = cas ? ITEM_CAS_SIZE : 0;
-    ntotal += ITEM_HDR_SIZE + klen + vlen;
-
-    return ntotal;
+    return use_cas * ITEM_CAS_SIZE + ITEM_HDR_SIZE + klen + vlen;
 }
 
 static inline size_t
@@ -174,48 +166,87 @@ item_size(struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
 
-    return item_ntotal(it->klen, it->vlen, it->has_cas);
+    return item_ntotal(it->klen, it->vlen);
+}
+
+/*
+ * Get start location of item payload
+ */
+static inline char *
+item_data(struct item *it)
+{
+    char *data;
+
+    if (it->is_raligned) {
+        data = (char *)it + slab_item_size(it->id) - it->vlen;
+    } else {
+        data = it->end + it->klen + use_cas * sizeof(uint64_t);
+    }
+
+    return data;
+}
+
+/* Calculate slab id that will accommodate item with given key/val lengths */
+static inline uint8_t
+item_slabid(uint8_t klen, uint32_t vlen)
+{
+    return slab_id(item_ntotal(klen, vlen));
+}
+
+/*
+ * Get the slab that contains this item.
+ */
+static inline struct slab *
+item_to_slab(struct item *it)
+{
+    struct slab *slab;
+
+    ASSERT(it->offset < slab_size);
+
+    slab = (struct slab *)((char *)it - it->offset);
+
+    ASSERT(slab->magic == SLAB_MAGIC);
+
+    return slab;
+}
+
+static inline item_rstatus_t
+item_atou64(uint64_t *vint, struct item *it)
+{
+    rstatus_t status;
+    struct bstring vstr;
+
+    vstr.len = it->vlen;
+    vstr.data = (char *)item_data(it);
+    status = bstring_atou64(vint, &vstr);
+    if (status == CC_OK) {
+        return ITEM_OK;
+    } else {
+        return ITEM_ENAN;
+    }
 }
 
 /* Set up/tear down the item module */
-rstatus_t item_setup(uint32_t hash_power, item_metrics_st *metrics);
+rstatus_t item_setup(bool enable_cas, uint32_t hash_power, item_metrics_st *metrics);
 void item_teardown(void);
-
-/* Get item payload */
-char * item_data(struct item *it);
-
-/* Get the slab the item belongs to */
-struct slab *item_to_slab(struct item *it);
 
 /* Init header for given item */
 void item_hdr_init(struct item *it, uint32_t offset, uint8_t id);
 
-/* Calculate slab id that will accommodate item with given key/val lengths */
-uint8_t item_slabid(uint8_t klen, uint32_t vlen);
-
-/* Allocate a new item */
-item_rstatus_t item_alloc(struct item **it, const struct bstring *key, rel_time_t expire_at, uint32_t vlen);
-
-/* Make an item with zero refcount available for reuse by unlinking it from hash */
-void item_reuse(struct item *it);
-
 /* Item lookup */
 struct item *item_get(const struct bstring *key);
 
-/* Set item value. Adds new item if item with key doesn't exist */
-item_rstatus_t item_set(const struct bstring *key, const struct bstring *val, rel_time_t expire_at);
-
-/* Perform check-and-set */
-item_rstatus_t item_cas(const struct bstring *key, const struct bstring *val, rel_time_t expire_at, uint64_t cas);
+/* Insert item, this assumes the key does not exist */
+item_rstatus_t item_insert(const struct bstring *key, const struct bstring *val, rel_time_t expire_at);
 
 /* Append/prepend */
-item_rstatus_t item_annex(const struct bstring *key, const struct bstring *val, bool append);
+item_rstatus_t item_annex(struct item *it, const struct bstring *key, const struct bstring *val, bool append);
 
 /* In place item update (replace item value) */
 item_rstatus_t item_update(struct item *it, const struct bstring *val);
 
 /* Remove item from cache */
-item_rstatus_t item_delete(const struct bstring *key);
+bool item_delete(const struct bstring *key);
 
 /* flush the cache */
 void item_flush(void);

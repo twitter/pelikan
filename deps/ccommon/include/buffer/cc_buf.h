@@ -61,11 +61,11 @@ typedef struct {
 
 struct buf {
     STAILQ_ENTRY(buf) next;     /* next buf in pool */
-    uint8_t           *rpos;    /* read marker */
-    uint8_t           *wpos;    /* write marker */
-    uint8_t           *end;     /* end of buffer */
+    char              *rpos;    /* read marker */
+    char              *wpos;    /* write marker */
+    char              *end;     /* end of buffer */
     bool              free;     /* is this buf free? */
-    uint8_t           begin[1]; /* beginning of buffer */
+    char              begin[1]; /* beginning of buffer */
 };
 
 #define BUF_HDR_SIZE       offsetof(struct buf, begin)
@@ -126,7 +126,7 @@ buf_size(struct buf *buf)
 {
     ASSERT(buf->begin < buf->end);
 
-    return (uint32_t)(buf->end - (uint8_t *)buf);
+    return (uint32_t)(buf->end - (char*)buf);
 }
 
 static inline uint32_t
@@ -155,7 +155,7 @@ buf_reset(struct buf *buf)
 }
 
 static inline uint32_t
-buf_read(uint8_t *dst, struct buf *src, uint32_t count)
+buf_read(char *dst, struct buf *src, uint32_t count)
 {
     ASSERT(dst != NULL && src != NULL);
 
@@ -168,7 +168,7 @@ buf_read(uint8_t *dst, struct buf *src, uint32_t count)
 }
 
 static inline uint32_t
-buf_write(struct buf *dst, uint8_t *src, uint32_t count)
+buf_write(struct buf *dst, char *src, uint32_t count)
 {
     ASSERT(dst != NULL && src != NULL);
 

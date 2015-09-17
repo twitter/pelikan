@@ -1,8 +1,8 @@
 #pragma once
 
 #include <storage/slab/slab.h>
-#include <protocol/memcache/klog.h>
-#include <protocol/memcache/request.h>
+#include <storage/slab/item.h>
+#include <protocol/memcache_include.h>
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
@@ -20,16 +20,19 @@
     ACTION( server_host,    OPTION_TYPE_STR,    NULL,           "interfaces listening on"  )\
     ACTION( server_port,    OPTION_TYPE_STR,    "12321",        "port listening on"        )
 
-#define SETTING(ACTION)       \
-    SLAB_OPTION(ACTION)       \
-    REQUEST_OPTION(ACTION)    \
-    BUF_OPTION(ACTION)        \
-    DBUF_OPTION(ACTION)       \
-    KLOG_OPTION(ACTION)       \
-    LOG_DEBUG_OPTION(ACTION)  \
-    TCP_OPTION(ACTION)        \
-    SOCKIO_OPTION(ACTION)     \
-    RING_ARRAY_OPTION(ACTION) \
+#define SETTING(ACTION)         \
+    ARRAY_OPTION(ACTION)        \
+    SLAB_OPTION(ACTION)         \
+    ITEM_OPTION(ACTION)         \
+    BUF_OPTION(ACTION)          \
+    DBUF_OPTION(ACTION)         \
+    REQUEST_OPTION(ACTION)      \
+    RESPONSE_OPTION(ACTION)     \
+    KLOG_OPTION(ACTION)         \
+    LOG_DEBUG_OPTION(ACTION)    \
+    TCP_OPTION(ACTION)          \
+    SOCKIO_OPTION(ACTION)       \
+    RING_ARRAY_OPTION(ACTION)   \
     SERVER_OPTION(ACTION)
 
 struct setting {

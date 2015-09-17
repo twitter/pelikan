@@ -68,7 +68,6 @@ set(CFLAGS_LIST
 string(REPLACE "" "" LOCAL_CFLAGS ${CFLAGS_LIST})
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  ${LOCAL_CFLAGS}")
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin)
 # build dependencies
 
 # dependency: libccommon
@@ -88,14 +87,13 @@ include_directories(${include_directories}
     "${PROJECT_SOURCE_DIR}/client/src"
     "${CHECK_INCLUDES}")
 
-# main executables
+# server
 add_subdirectory(src)
-
-# tests
-add_subdirectory(test)
-
 # client
 add_subdirectory(client)
+
+# tests: always build last
+add_subdirectory(test)
 
 # print a summary
 message(STATUS "PLATFORM: " ${OS_PLATFORM})

@@ -1,5 +1,6 @@
 #include <storage/slab/slab.h>
 #include <storage/slab/item.h>
+#include <storage/slab/hashtable.h>
 
 #include <cc_debug.h>
 #include <cc_mm.h>
@@ -19,18 +20,16 @@ struct slab_heapinfo {
     struct slab_tqh slab_lruq;   /* lru slab q */
 };
 
-struct slabclass slabclass[SLABCLASS_MAX_IDS];  /* collection of slabs bucketed by slabclass */
-static struct slab_heapinfo heapinfo;           /* info of all allocated slabs */
+extern struct hash_table *hash_table;
 
-size_t slab_size_setting;                    /* size of each slab */
-bool use_cas;                                /* cas enabled? */
+static struct slab_heapinfo heapinfo;           /* info of all allocated slabs */
 
 static bool prealloc;                        /* allocate slabs ahead of time? */
 static int evict_opt;                        /* slab eviction policy */
 static bool use_freeq;                       /* use items in free queue? */
 static size_t chunk_size;                    /* chunk size */
 static size_t maxbytes;                      /* maximum bytes allocated for slabs */
-static size_t profile[SLABCLASS_MAX_IDS];    /* slab profile */
+static size_t profile[SLABCLASS_MAX_ID];    /* slab profile */
 static uint8_t profile_last_id;              /* last id in slab profile */
 
 static bool slab_init = false;
@@ -39,15 +38,6 @@ static slab_metrics_st *slab_metrics = NULL;
 #define SLAB_RAND_MAX_TRIES         50
 #define SLAB_LRU_MAX_TRIES          50
 
-/*
- * Return the usable space for item sized chunks that would be carved out
- * of a given slab.
- */
-size_t
-slab_size(void)
-{
-    return slab_size_setting - SLAB_HDR_SIZE;
-}
 
 void
 slab_print(void)
@@ -55,32 +45,17 @@ slab_print(void)
     uint8_t id;
     struct slabclass *p;
 
-    loga("slab size %zu, slab hdr size %zu, item hdr size %zu, "
-         "item chunk size %zu, total memory %zu", slab_size_setting,
-         SLAB_HDR_SIZE, ITEM_HDR_SIZE, chunk_size, maxbytes);
+    loga("slab size %zu, slab hdr size %zu, item hdr size %zu, item chunk size"
+            "%zu, total memory %zu", slab_size, SLAB_HDR_SIZE, ITEM_HDR_SIZE,
+            chunk_size, maxbytes);
 
     for (id = SLABCLASS_MIN_ID; id <= profile_last_id; id++) {
         p = &slabclass[id];
 
         loga("class %3"PRId8": items %7"PRIu32"  size %7zu  data %7zu  "
              "slack %7zu", id, p->nitem, p->size, p->size - ITEM_HDR_SIZE,
-             slab_size() - p->nitem * p->size);
+             slab_capacity() - p->nitem * p->size);
     }
-}
-
-void
-slab_acquire_refcount(struct slab *slab)
-{
-    ASSERT(slab->magic == SLAB_MAGIC);
-    slab->refcount++;
-}
-
-void
-slab_release_refcount(struct slab *slab)
-{
-    ASSERT(slab->magic == SLAB_MAGIC);
-    ASSERT(slab->refcount > 0);
-    slab->refcount--;
 }
 
 /*
@@ -93,21 +68,11 @@ _slab_to_item(struct slab *slab, uint32_t idx, size_t size)
     uint32_t offset = idx * size;
 
     ASSERT(slab->magic == SLAB_MAGIC);
-    ASSERT(offset < slab_size_setting);
+    ASSERT(offset < slab_size);
 
-    it = (struct item *)((uint8_t *)slab->data + offset);
+    it = (struct item *)((char *)slab->data + offset);
 
     return it;
-}
-
-/*
- * Return the item size given a slab id
- */
-size_t
-slab_item_size(uint8_t id) {
-    ASSERT(id >= SLABCLASS_MIN_ID && id <= profile_last_id);
-
-    return slabclass[id].size;
 }
 
 /*
@@ -167,7 +132,7 @@ _slab_slabclass_setup(void)
         uint32_t nitem;      /* # item per slabclass */
         size_t item_sz;      /* item size */
 
-        nitem = slab_size() / profile[id];
+        nitem = slab_capacity() / profile[id];
         item_sz = profile[id];
         p = &slabclass[id];
 
@@ -199,15 +164,15 @@ static rstatus_t
 _slab_heapinfo_setup(void)
 {
     heapinfo.nslab = 0;
-    heapinfo.max_nslab = maxbytes / slab_size_setting;
+    heapinfo.max_nslab = maxbytes / slab_size;
 
     heapinfo.base = NULL;
     if (prealloc) {
-        heapinfo.base = cc_alloc(heapinfo.max_nslab * slab_size_setting);
+        heapinfo.base = cc_alloc(heapinfo.max_nslab * slab_size);
         if (heapinfo.base == NULL) {
             log_error("pre-alloc %zu bytes for %"PRIu32" slabs failed: %s",
-                      heapinfo.max_nslab * slab_size_setting,
-                      heapinfo.max_nslab, strerror(errno));
+                      heapinfo.max_nslab * slab_size, heapinfo.max_nslab,
+                      strerror(errno));
             return CC_ENOMEM;
         }
 
@@ -243,19 +208,21 @@ _slab_profile_setup(char *setup_profile, uint8_t setup_profile_last_id)
     int i;
     char *profile_entry;
 
-    profile_entry = strsep(&setup_profile, " \n\r\t");
+    /* TODO(yao): check alignment (with machine word length) in the user config,
+     * reject ones that don't align
+     */
 
-    for(i = SLABCLASS_MIN_ID; i <= setup_profile_last_id; ++i) {
+    i = SLABCLASS_MIN_ID;
+    do {
+        profile_entry = strsep(&setup_profile, " \n\r\t");
         if(profile_entry == NULL) {
             log_error("slab profile/profile_last_id mismatch - there are either "
                       "not enough profile entries or profile_last_id is too big");
             return CC_ERROR;
         }
-
         profile[i] = atol(profile_entry);
-
-        profile_entry = strsep(&setup_profile, " \n\r\t");
-    }
+        ++i;
+    } while (i <= setup_profile_last_id);
 
     log_verb("setup slab profile setup_profile_last_id: %u", setup_profile_last_id);
     log_verb("slab profile:");
@@ -273,12 +240,17 @@ _slab_profile_setup(char *setup_profile, uint8_t setup_profile_last_id)
  * Initialize the slab module
  */
 rstatus_t
-slab_setup(size_t setup_slab_size, bool setup_use_cas, bool setup_prealloc, int setup_evict_opt,
-           bool setup_use_freeq, size_t setup_chunk_size, size_t setup_maxbytes, char *setup_profile,
-           uint8_t setup_profile_last_id, slab_metrics_st *metrics, uint32_t it_hash_power,
-           item_metrics_st *it_metrics)
+slab_setup(size_t setup_slab_size,
+           bool setup_prealloc,
+           int setup_evict_opt,
+           bool setup_use_freeq,
+           size_t setup_chunk_size,
+           size_t setup_maxbytes,
+           char *setup_profile,
+           uint8_t setup_profile_last_id,
+           slab_metrics_st *metrics)
 {
-    rstatus_t ret;
+    rstatus_t status;
 
     log_info("set up the %s module", SLAB_MODULE_NAME);
 
@@ -286,8 +258,7 @@ slab_setup(size_t setup_slab_size, bool setup_use_cas, bool setup_prealloc, int 
         log_warn("%s has already been set up, overwrite", SLAB_MODULE_NAME);
     }
 
-    slab_size_setting = setup_slab_size;
-    use_cas = setup_use_cas;
+    slab_size = setup_slab_size;
     prealloc = setup_prealloc;
     evict_opt = setup_evict_opt;
     use_freeq = setup_use_freeq;
@@ -295,25 +266,25 @@ slab_setup(size_t setup_slab_size, bool setup_use_cas, bool setup_prealloc, int 
     maxbytes = setup_maxbytes;
 
     slab_metrics = metrics;
-    SLAB_METRIC_INIT(slab_metrics);
+    if (metrics != NULL) {
+        SLAB_METRIC_INIT(slab_metrics);
+    }
 
     slab_init = true;
 
-    ret = _slab_profile_setup(setup_profile, setup_profile_last_id);
-
-    if (ret != CC_OK) {
-        return ret;
+    status = _slab_profile_setup(setup_profile, setup_profile_last_id);
+    if (status != CC_OK) {
+        return status;
     }
 
     _slab_slabclass_setup();
 
-    ret = _slab_heapinfo_setup();
-
-    if (ret != CC_OK) {
-        return ret;
+    status = _slab_heapinfo_setup();
+    if (status != CC_OK) {
+        return status;
     }
 
-    return item_setup(it_hash_power, it_metrics);
+    return status;
 }
 
 void
@@ -340,8 +311,7 @@ _slab_hdr_init(struct slab *slab, uint8_t id)
     slab->magic = SLAB_MAGIC;
 #endif
     slab->id = id;
-    slab->unused = 0;
-    slab->refcount = 0;
+    slab->padding = 0;
 }
 
 static bool
@@ -357,9 +327,9 @@ _slab_heap_create(void)
 
     if (prealloc) {
         slab = (struct slab *)heapinfo.curr;
-        heapinfo.curr += slab_size_setting;
+        heapinfo.curr += slab_size;
     } else {
-        slab = cc_alloc(slab_size_setting);
+        slab = cc_alloc(slab_size);
         if (slab != NULL) {
             INCR(slab_metrics, slab_heap_size);
         }
@@ -459,14 +429,14 @@ _slab_evict_one(struct slab *slab)
         it = _slab_to_item(slab, i, p->size);
 
         if (it->is_linked) {
-            item_reuse(it);
+            it->is_linked = 0;
+            hashtable_delete(item_key(it), it->klen, hash_table);
         } else if (it->in_freeq) {
             ASSERT(slab == item_to_slab(it));
             ASSERT(!SLIST_EMPTY(&p->free_itemq));
+            ASSERT(p->nfree_itemq > 0);
 
             it->in_freeq = 0;
-
-            ASSERT(p->nfree_itemq > 0);
             p->nfree_itemq--;
             SLIST_REMOVE(&p->free_itemq, it, item, i_sle);
         }
@@ -497,7 +467,7 @@ _slab_evict_rand(void)
     do {
         slab = _slab_table_rand();
         tries--;
-    } while (tries > 0 && slab->refcount != 0);
+    } while (tries > 0);
 
     if (tries == 0) {
         /* all randomly chosen slabs are in use */
@@ -523,9 +493,6 @@ _slab_evict_lru(int id)
     for (tries = SLAB_LRU_MAX_TRIES, slab = _slab_lruq_head();
          tries > 0 && slab != NULL;
          tries--, slab = TAILQ_NEXT(slab, s_tqe)) {
-        if (slab->refcount == 0) {
-            break;
-        }
     }
 
     if (tries == 0 || slab == NULL) {
@@ -559,7 +526,7 @@ _slab_init(struct slab *slab, uint8_t id)
     /* initialize all slab items */
     for (i = 0; i < p->nitem; i++) {
         it = _slab_to_item(slab, i, p->size);
-        offset = (uint32_t)((uint8_t *)it - (uint8_t *)slab);
+        offset = (uint32_t)((char *)it - (char *)slab);
         item_hdr_init(it, offset, id);
     }
 
@@ -641,8 +608,8 @@ _slab_get_item_from_freeq(uint8_t id)
     p->nfree_itemq--;
     SLIST_REMOVE(&p->free_itemq, it, item, i_sle);
 
-    log_verb("get free q it '%.*s' at offset %"PRIu32" with id "
-             "%"PRIu8"", it->klen, item_key(it), it->offset, it->id);
+    log_verb("get free q it %p at offset %"PRIu32" with id %"PRIu8, it,
+            it->offset, it->id);
 
     return it;
 }
@@ -664,7 +631,7 @@ _slab_get_item(uint8_t id)
 
     it = _slab_get_item_from_freeq(id);
     if (it != NULL) {
-        return NULL;
+        return it;
     }
 
     if (p->next_item_in_slab == NULL && (_slab_get(id) != CC_OK)) {
@@ -674,7 +641,7 @@ _slab_get_item(uint8_t id)
     /* return item from current slab */
     it = p->next_item_in_slab;
     if (--p->nfree_item != 0) {
-        p->next_item_in_slab = (struct item *)(((uint8_t *)p->next_item_in_slab) + p->size);
+        p->next_item_in_slab = (struct item *)((char *)p->next_item_in_slab + p->size);
     } else {
         p->next_item_in_slab = NULL;
     }
@@ -709,13 +676,12 @@ _slab_put_item_into_freeq(struct item *it, uint8_t id)
     ASSERT(item_to_slab(it)->id == id);
     ASSERT(!(it->is_linked));
     ASSERT(!(it->in_freeq));
-    ASSERT(it->refcount == 0);
     ASSERT(it->offset != 0);
 
-    log_verb("put free q it '%.*s' at offset %"PRIu32" with id "
-              "%"PRIu8"", it->klen, item_key(it), it->offset, it->id);
+    log_verb("put free q it %p at offset %"PRIu32" with id %"PRIu8, it,
+            it->offset, it->id);
 
-    it->in_freeq = 0;
+    it->in_freeq = 1;
 
     p->nfree_itemq++;
     SLIST_INSERT_HEAD(&p->free_itemq, it, i_sle);

@@ -7,7 +7,7 @@
  * Allocate table given size
  */
 static struct item_slh *
-hashtable_alloc(uint32_t size)
+_hashtable_alloc(uint32_t size)
 {
     struct item_slh *table;
     uint32_t i;
@@ -26,71 +26,70 @@ hashtable_alloc(uint32_t size)
 struct hash_table *
 hashtable_create(uint32_t hash_power)
 {
-    struct hash_table *table;
+    struct hash_table *ht;
     uint32_t size;
 
     ASSERT(hash_power > 0);
 
     /* alloc struct */
-    table = cc_alloc(sizeof(struct hash_table));
+    ht = cc_alloc(sizeof(struct hash_table));
 
-    if (table == NULL) {
+    if (ht == NULL) {
         return NULL;
     }
 
     /* init members */
-    table->table = NULL;
-    table->hash_power = hash_power;
-    table->nhash_item = 0;
-    size = HASHSIZE(table->hash_power);
+    ht->table = NULL;
+    ht->hash_power = hash_power;
+    ht->nhash_item = 0;
+    size = HASHSIZE(ht->hash_power);
 
     /* alloc table */
-    table->table = hashtable_alloc(size);
-
-    if (table->table == NULL) {
-        cc_free(table);
+    ht->table = _hashtable_alloc(size);
+    if (ht->table == NULL) {
+        cc_free(ht);
         return NULL;
     }
 
-    return table;
+    return ht;
 }
 
 void
-hashtable_destroy(struct hash_table *table)
+hashtable_destroy(struct hash_table *ht)
 {
-    if (table != NULL && table->table != NULL) {
-        cc_free(table->table);
+    if (ht != NULL && ht->table != NULL) {
+        cc_free(ht->table);
     }
 }
 
 static struct item_slh *
-hashtable_get_bucket(const uint8_t *key, size_t klen, struct hash_table *table)
+_get_bucket(const char *key, size_t klen, struct hash_table *ht)
 {
-    return &(table->table[hash(key, klen, 0) & HASHMASK(table->hash_power)]);
+    return &(ht->table[hash(key, klen, 0) & HASHMASK(ht->hash_power)]);
 }
 
 void
-hashtable_put(struct item *it, struct hash_table *table)
+hashtable_put(struct item *it, struct hash_table *ht)
 {
     struct item_slh *bucket;
 
-    ASSERT(hashtable_get((uint8_t *)item_key(it), it->klen, table) == NULL);
+    ASSERT(hashtable_get(item_key(it), it->klen, ht) == NULL);
 
-    bucket = hashtable_get_bucket((uint8_t *)item_key(it), it->klen, table);
+    bucket = _get_bucket(item_key(it), it->klen, ht);
     SLIST_INSERT_HEAD(bucket, it, i_sle);
 
-    ++(table->nhash_item);
+    ++(ht->nhash_item);
 }
 
 void
-hashtable_delete(const uint8_t *key, uint32_t klen, struct hash_table *table)
+hashtable_delete(const char *key, uint32_t klen, struct hash_table *ht)
 {
     struct item_slh *bucket;
     struct item *it, *prev;
 
-    ASSERT(hashtable_get(key, klen, table) != NULL);
+    ASSERT(hashtable_get(key, klen, ht) != NULL);
 
-    bucket = hashtable_get_bucket(key, klen, table);
+    bucket = _get_bucket(key, klen, ht);
     for (prev = NULL, it = SLIST_FIRST(bucket); it != NULL;
         prev = it, it = SLIST_NEXT(it, i_sle)) {
         /* iterate through bucket to find item to be removed */
@@ -106,11 +105,11 @@ hashtable_delete(const uint8_t *key, uint32_t klen, struct hash_table *table)
         SLIST_REMOVE_AFTER(prev, i_sle);
     }
 
-    --(table->nhash_item);
+    --(ht->nhash_item);
 }
 
 struct item *
-hashtable_get(const uint8_t *key, uint32_t klen, struct hash_table *table)
+hashtable_get(const char *key, uint32_t klen, struct hash_table *ht)
 {
     struct item_slh *bucket;
     struct item *it;
@@ -118,7 +117,7 @@ hashtable_get(const uint8_t *key, uint32_t klen, struct hash_table *table)
     ASSERT(key != NULL);
     ASSERT(klen != 0);
 
-    bucket = hashtable_get_bucket(key, klen, table);
+    bucket = _get_bucket(key, klen, ht);
 
     /* iterate through bucket looking for item */
     for (it = SLIST_FIRST(bucket); it != NULL; it = SLIST_NEXT(it, i_sle)) {

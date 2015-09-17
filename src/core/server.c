@@ -2,7 +2,7 @@
 
 #include <time/time.h>
 #include <core/shared.h>
-#include <protocol/memcache/request.h>
+#include <protocol/memcache/parse.h>
 
 #include <cc_debug.h>
 #include <cc_event.h>
@@ -180,7 +180,9 @@ core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
 
     event_add_read(ctx->evb, hdl->rid(c), serversock);
     server_metrics = metrics;
-    SERVER_METRIC_INIT(server_metrics);
+    if (metrics != NULL) {
+        SERVER_METRIC_INIT(server_metrics);
+    }
 
     server_init = true;
 

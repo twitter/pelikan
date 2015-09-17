@@ -51,7 +51,6 @@ tcp_setup(int backlog, tcp_metrics_st *metrics)
 
     max_backlog = backlog;
     tcp_metrics = metrics;
-
     if (metrics != NULL) {
         TCP_METRIC_INIT(tcp_metrics);
     }

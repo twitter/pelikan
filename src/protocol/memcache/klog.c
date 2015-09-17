@@ -16,12 +16,13 @@
 #define KLOG_MODULE_NAME   "protocol::memcache:klog"
 #define KLOG_MAX_LEN       KiB
 
+/* TODO(yao): Use a cheaper way to format the command logs, e.g. print_uint64 */
+/* TODO(yao): timestamp can be optimized by not reformatting within a second */
 #define KLOG_TIME_FMT      "[%d/%b/%Y:%T %z] "
-#define KLOG_STORE_FMT     "\"%s %.*s %u %u %u\" %d %u\n"
-#define KLOG_CAS_FMT       "\"%s %.*s %u %u %u %llu\" %d %u\n"
-#define KLOG_GET_FMT       "\"%s %.*s\" %d %u\n"
-#define KLOG_DELTA_FMT     "\"%s %.*s %llu\" %d %u\n"
-#define KLOG_OTHER_FMT     "\"%s\" %d %u\n"
+#define KLOG_STORE_FMT     "\"%s%.*s %u %u %u\" %d %u\n"
+#define KLOG_CAS_FMT       "\"%s%.*s %u %u %u %llu\" %d %u\n"
+#define KLOG_GET_FMT       "\"%s%.*s\" %d %u\n"
+#define KLOG_DELTA_FMT     "\"%s%.*s %llu\" %d %u\n"
 
 static bool klog_init = false;
 static struct logger *klogger = NULL;
@@ -83,7 +84,7 @@ klog_fmt_get(char *buf, int size, struct request *req, int status, uint32_t rsp_
 {
     struct bstring *key = req->keys->data;
 
-    return cc_scnprintf(buf, size, KLOG_GET_FMT, request_verb_str[req->verb],
+    return cc_scnprintf(buf, size, KLOG_GET_FMT, req_strings[req->type],
                         key->len, key->data, status, rsp_len);
 }
 
@@ -92,7 +93,7 @@ klog_fmt_store(char *buf, int size, struct request *req, int status, uint32_t rs
 {
     struct bstring *key = req->keys->data;
 
-    return cc_scnprintf(buf, size, KLOG_STORE_FMT, request_verb_str[req->verb],
+    return cc_scnprintf(buf, size, KLOG_STORE_FMT, req_strings[req->type],
                         key->len, key->data, req->flag, req->expiry, req->vstr.len,
                         status, rsp_len);
 }
@@ -102,9 +103,9 @@ klog_fmt_cas(char *buf, int size, struct request *req, int status, uint32_t rsp_
 {
     struct bstring *key = req->keys->data;
 
-    return cc_scnprintf(buf, size, KLOG_CAS_FMT, request_verb_str[req->verb],
+    return cc_scnprintf(buf, size, KLOG_CAS_FMT, req_strings[req->type],
                         key->len, key->data, req->flag, req->expiry, req->vstr.len,
-                        req->cas, status, rsp_len);
+                        req->vcas, status, rsp_len);
 }
 
 static inline int
@@ -112,21 +113,14 @@ klog_fmt_delta(char *buf, int size, struct request *req, int status, uint32_t rs
 {
     struct bstring *key = req->keys->data;
 
-    return cc_scnprintf(buf, size, KLOG_DELTA_FMT, request_verb_str[req->verb],
+    return cc_scnprintf(buf, size, KLOG_DELTA_FMT, req_strings[req->type],
                         key->len, key->data, req->delta, status, rsp_len);
-}
-
-static inline int
-klog_fmt_other(char *buf, int size, struct request *req, int status, uint32_t rsp_len)
-{
-    return cc_scnprintf(buf, size, KLOG_OTHER_FMT, request_verb_str[req->verb],
-                        status, rsp_len);
 }
 
 static int
 klog_fmt(char *buf, int size, struct request *req, int status, uint32_t rsp_len)
 {
-    switch (req->verb) {
+    switch (req->type) {
     case REQ_GET:
     case REQ_GETS:
     case REQ_DELETE:
@@ -143,7 +137,7 @@ klog_fmt(char *buf, int size, struct request *req, int status, uint32_t rsp_len)
     case REQ_DECR:
         return klog_fmt_delta(buf, size, req, status, rsp_len);
     default:
-        return klog_fmt_other(buf, size, req, status, rsp_len);
+        return 0;
     }
 }
 

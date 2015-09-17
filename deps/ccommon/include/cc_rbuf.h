@@ -16,7 +16,7 @@
  */
 
 /*
- * rbuf: a ring buffer array designed for logging use (NOT THREADSAFE!)
+ * rbuf: a ring buffer designed for logging use (NOT THREADSAFE!)
  */
 
 #pragma once

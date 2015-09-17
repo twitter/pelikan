@@ -1,7 +1,7 @@
 # Compiled Object files
 *.lo
 *.o
-/bin
+/_bin
 
 # Compiled Dynamic libraries
 *.so

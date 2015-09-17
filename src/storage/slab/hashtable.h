@@ -12,8 +12,8 @@ struct hash_table {
 #define HASHMASK(_n) (HASHSIZE(_n) - 1)
 
 struct hash_table *hashtable_create(uint32_t hash_power);
-void hashtable_destroy(struct hash_table *table);
+void hashtable_destroy(struct hash_table *ht);
 
-void hashtable_put(struct item *it, struct hash_table *table);
-void hashtable_delete(const uint8_t *key, uint32_t klen, struct hash_table *table);
-struct item *hashtable_get(const uint8_t *key, uint32_t klen, struct hash_table *table);
+void hashtable_put(struct item *it, struct hash_table *ht);
+void hashtable_delete(const char *key, uint32_t klen, struct hash_table *ht);
+struct item *hashtable_get(const char *key, uint32_t klen, struct hash_table *ht);

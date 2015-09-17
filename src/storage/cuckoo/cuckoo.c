@@ -70,7 +70,7 @@ static inline uint32_t vlen(struct val *val)
 static bool
 cuckoo_hit(struct item *it, struct bstring *key)
 {
-    log_verb("valid? %d; match? %d", item_valid(it), item_matched(it, key));
+    log_vverb("valid? %d; match? %d", item_valid(it), item_matched(it, key));
 
     return item_valid(it) && item_matched(it, key);
 }
@@ -271,7 +271,9 @@ cuckoo_setup(size_t size, uint32_t item, uint32_t policy, bool cas, cuckoo_metri
     policy = policy;
     cas_enabled = cas;
     cuckoo_metrics = metrics;
-    CUCKOO_METRIC_INIT(cuckoo_metrics);
+    if (metrics != NULL) {
+        CUCKOO_METRIC_INIT(cuckoo_metrics);
+    }
 
     cuckoo_init = true;
 
@@ -312,7 +314,7 @@ cuckoo_lookup(struct bstring *key)
     int i;
     struct item *it;
 
-    ASSERT(cuckoo_init == true);
+    ASSERT(cuckoo_init == true && key != NULL);
 
     INCR(cuckoo_metrics, cuckoo_lookup);
 
@@ -339,6 +341,8 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
     uint32_t offset[D];
     uint32_t displaced;
     int i;
+
+    ASSERT(key != NULL && val != NULL);
 
     INCR(cuckoo_metrics, cuckoo_insert);
 
@@ -384,7 +388,7 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
 rstatus_t
 cuckoo_update(struct item *it, struct val *val, rel_time_t expire)
 {
-    ASSERT(it != NULL);
+    ASSERT(it != NULL && val != NULL);
 
     INCR(cuckoo_metrics, cuckoo_update);
 
@@ -408,6 +412,8 @@ bool
 cuckoo_delete(struct bstring *key)
 {
     struct item *it;
+
+    ASSERT(key != NULL);
 
     INCR(cuckoo_metrics, cuckoo_delete);
 

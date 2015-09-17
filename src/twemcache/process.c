@@ -1,17 +1,19 @@
 #include <twemcache/process.h>
 
-#include <protocol/memcache/codec.h>
 #include <storage/slab/item.h>
 #include <twemcache/stats.h>
 #include <util/procinfo.h>
 
 #include <cc_array.h>
 #include <cc_debug.h>
-
-#include <stdbool.h>
-#include <stdio.h>
+#include <cc_print.h>
 
 #define TWEMCACHE_PROCESS_MODULE_NAME "twemcache::process"
+
+#define OVERSIZE_ERR_MSG    "oversized value, cannot be stored"
+#define DELTA_ERR_MSG       "value is not a number"
+#define OOM_ERR_MSG         "server is out of memory"
+#define OTHER_ERR_MSG       "unknown server error"
 
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
@@ -20,15 +22,13 @@ void
 process_setup(process_metrics_st *metrics)
 {
     log_info("set up the %s module", TWEMCACHE_PROCESS_MODULE_NAME);
-
-    process_metrics = metrics;
-    PROCESS_METRIC_INIT(process_metrics);
-
     if (process_init) {
         log_warn("%s has already been setup, overwrite",
                  TWEMCACHE_PROCESS_MODULE_NAME);
     }
 
+    process_metrics = metrics;
+    PROCESS_METRIC_INIT(process_metrics);
     process_init = true;
 }
 
@@ -36,7 +36,6 @@ void
 process_teardown(void)
 {
     log_info("tear down the %s module", TWEMCACHE_PROCESS_MODULE_NAME);
-
     if (!process_init) {
         log_warn("%s has never been setup", TWEMCACHE_PROCESS_MODULE_NAME);
     }
@@ -45,511 +44,444 @@ process_teardown(void)
     process_init = false;
 }
 
+
+static bool
+_get_key(struct response *rsp, struct bstring *key)
+{
+    struct item *it;
+
+    it = item_get(key);
+    if (it != NULL) {
+        rsp->type = RSP_VALUE;
+        rsp->key = *key;
+        rsp->flag = item_flag(it);
+        rsp->vcas = item_get_cas(it);
+        rsp->vstr.len = it->vlen;
+        rsp->vstr.data = item_data(it);
+
+        log_verb("found key at %p, location %p", key, it);
+        return true;
+    } else {
+        log_verb("key at %p not found", key);
+        return false;
+    }
+}
+
 static void
-process_bstring_data(struct bstring *val, struct item *it)
-{
-    ASSERT(val != NULL && it != NULL);
-
-    val->len = it->vlen;
-    val->data = (uint8_t *)item_data(it);
-}
-
-static int
-process_get_key(struct buf **buf, struct bstring *key)
-{
-    int ret = 0;
-    struct item *it;
-    struct bstring val;
-
-    log_verb("get key at %p, rsp buf at %p", key, *buf);
-    INCR(process_metrics, cmd_get_key);
-
-    if ((it = item_get(key))) {
-        /* item found */
-        log_verb("found key at item %p", it);
-        INCR(process_metrics, cmd_get_key_hit);
-
-        process_bstring_data(&val, it);
-
-        ret = compose_rsp_keyval(buf, key, &val, item_flag(it), 0);
-    } else {
-        /* item not found */
-        log_verb("item with key at %p not found", key);
-        INCR(process_metrics, cmd_get_key_miss);
-    }
-
-    return ret;
-}
-
-static int
-process_get(struct request *req, struct buf **buf)
-{
-    int ret = 0, status;
-    struct bstring *key;
-    uint32_t i;
-
-    log_verb("processing get req %p with rsp buf at %p", req, *buf);
-
-    for (i = 0; i < req->keys->nelem; ++i) {
-        key = array_get_idx(req->keys, i);
-        status = process_get_key(buf, key);
-        if (status < 0) {
-            return status;
-        }
-        ret += status;
-    }
-
-    status = compose_rsp_msg(buf, RSP_END, false);
-    if (status < 0) {
-        return status;
-    }
-
-    return ret + status;
-}
-
-static int
-process_gets_key(struct buf **buf, struct bstring *key)
-{
-    int ret = 0;
-    struct item *it;
-    struct bstring val;
-
-    log_verb("gets key at %p, rsp buf at %p", key, *buf);
-    INCR(process_metrics, cmd_gets_key);
-
-    if ((it = item_get(key))) {
-        /* item found */
-        log_verb("found key at item %p", it);
-        INCR(process_metrics, cmd_gets_key_hit);
-        process_bstring_data(&val, it);
-
-        ret = compose_rsp_keyval(buf, key, &val, item_flag(it), item_get_cas(it));
-    } else {
-        /* item not found */
-        log_verb("item with key at %p not found", key);
-        INCR(process_metrics, cmd_gets_key_miss);
-    }
-
-    return ret;
-}
-
-static int
-process_gets(struct request *req, struct buf **buf)
-{
-    int ret = 0, status;
-    struct bstring *key;
-    uint32_t i;
-
-    log_verb("processing gets req %p, rsp buf at %p", req, *buf);
-
-    for (i = 0; i < req->keys->nelem; ++i) {
-        key = array_get_idx(req->keys, i);
-        status = process_gets_key(buf, key);
-        if (status < 0) {
-            return status;
-        }
-        ret += status;
-    }
-
-    status = compose_rsp_msg(buf, RSP_END, false);
-    if (status < 0) {
-        return status;
-    }
-
-    return ret + status;
-}
-
-static int
-process_delete(struct request *req, struct buf **buf)
+_process_get(struct response *rsp, struct request *req)
 {
     struct bstring *key;
+    struct response *r = rsp;
+    int i;
 
-    key = array_get_idx(req->keys, 0);
-
-    if (item_delete(key) == ITEM_OK) {
-        /* item successfully deleted */
-        INCR(process_metrics, cmd_delete_deleted);
-        return compose_rsp_msg(buf, RSP_DELETED, req->noreply);
-    }
-
-    /* no item with that key */
-    INCR(process_metrics, cmd_delete_notfound);
-    return compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
-}
-
-static item_rstatus_t
-process_set_key(struct request *req, struct bstring *key)
-{
-    rel_time_t exptime;
-
-    exptime = time_reltime(req->expiry);
-
-    return item_set(key, &(req->vstr), exptime);
-}
-
-static int
-process_set_rsp(struct request *req, struct buf **buf, item_rstatus_t i_status)
-{
-    switch (i_status) {
-    case ITEM_OK:
-        return compose_rsp_msg(buf, RSP_STORED, req->noreply);
-    case ITEM_EOVERSIZED:
-        return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
-    case ITEM_ENOMEM:
-        return compose_rsp_msg(buf, RSP_SERVER_ERROR, req->noreply);
-    default:
-        NOT_REACHED();
-    }
-
-    return CC_ERROR;
-}
-
-static int
-process_set(struct request *req, struct buf **buf)
-{
-    struct bstring *key;
-    item_rstatus_t i_status;
-
-    log_verb("processing set req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
-    i_status = process_set_key(req, key);
-
-    if (i_status == ITEM_OK) {
-        INCR(process_metrics, cmd_set_stored);
-    } else {
-        INCR(process_metrics, cmd_set_ex);
-    }
-
-    return process_set_rsp(req, buf, i_status);
-}
-
-static int
-process_add(struct request *req, struct buf **buf)
-{
-    struct bstring *key;
-    rstatus_t ret;
-    item_rstatus_t i_status;
-
-    log_verb("processing add req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
-
-    if (item_get(key)) {
-        /* key already exists, do not set */
-        ret = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
-        INCR(process_metrics, cmd_add_notstored);
-    } else {
-        /* key does not exist, set */
-        i_status = process_set_key(req, key);
-
-        if (i_status == ITEM_OK) {
-            INCR(process_metrics, cmd_add_stored);
+    INCR(process_metrics, get);
+    /* use chained responses, move to the next response if key is found. */
+    for (i = 0; i < array_nelem(req->keys); ++i) {
+        INCR(process_metrics, get_key);
+        key = array_get(req->keys, i);
+        if (_get_key(r, key)) {
+            req->nfound++;
+            r->cas = false;
+            r = STAILQ_NEXT(r, next);
+            if (r == NULL) {
+                INCR(process_metrics, get_ex);
+                log_warn("get response incomplete due to lack of rsp objects");
+                return;
+            }
+            INCR(process_metrics, get_key_hit);
         } else {
-            INCR(process_metrics, cmd_add_ex);
+            INCR(process_metrics, get_key_miss);
         }
-
-        ret = process_set_rsp(req, buf, i_status);
     }
+    r->type = RSP_END;
 
-    return ret;
+    log_verb("get req %p processed, %d out of %d keys found", req, req->nfound, i);
 }
 
-static int
-process_replace(struct request *req, struct buf **buf)
+static void
+_process_gets(struct response *rsp, struct request *req)
 {
     struct bstring *key;
-    int ret;
-    item_rstatus_t i_status;
+    struct response *r = rsp;
+    int i;
 
-    log_verb("processing replace req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
-
-    if (item_get(key)) {
-        /* key exists, perform replace */
-        i_status = process_set_key(req, key);
-
-        if (i_status == ITEM_OK) {
-            INCR(process_metrics, cmd_replace_stored);
+    INCR(process_metrics, gets);
+    /* use chained responses, move to the next response if key is found. */
+    for (i = 0; i < array_nelem(req->keys); ++i) {
+        INCR(process_metrics, gets_key);
+        key = array_get(req->keys, i);
+        if (_get_key(r, key)) {
+            r->cas = true;
+            r = STAILQ_NEXT(r, next);
+            if (r == NULL) {
+                INCR(process_metrics, gets_ex);
+                log_warn("gets response incomplete due to lack of rsp objects");
+            }
+            req->nfound++;
+            INCR(process_metrics, gets_key_hit);
         } else {
-            INCR(process_metrics, cmd_replace_ex);
+            INCR(process_metrics, gets_key_miss);
         }
-
-        ret = process_set_rsp(req, buf, i_status);
-    } else {
-        /* key does not exist, do not set */
-        ret = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
-        INCR(process_metrics, cmd_replace_notstored);
     }
+    r->type = RSP_END;
 
-    return ret;
+    log_verb("gets req %p processed, %d out of %d keys found", req, req->nfound, i);
 }
 
-static int
-process_cas(struct request *req, struct buf **buf)
+static void
+_process_delete(struct response *rsp, struct request *req)
 {
-    struct bstring *key;
-    rel_time_t exptime;
-
-    log_verb("processing cas req %p, rsp buf at %p", req, *buf);
-
-    exptime = time_reltime(req->expiry);
-    key = array_get_idx(req->keys, 0);
-
-    switch (item_cas(key, &(req->vstr), exptime, req->cas)) {
-    case ITEM_OK:
-        INCR(process_metrics, cmd_cas_stored);
-        return compose_rsp_msg(buf, RSP_STORED, req->noreply);
-    case ITEM_ENOTFOUND:
-        INCR(process_metrics, cmd_cas_notfound);
-        return compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
-    case ITEM_EOTHER:
-        INCR(process_metrics, cmd_cas_exists);
-        return compose_rsp_msg(buf, RSP_EXISTS, req->noreply);
-    case ITEM_EOVERSIZED:
-        INCR(process_metrics, cmd_cas_ex);
-        return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
-    case ITEM_ENOMEM:
-        INCR(process_metrics, cmd_cas_ex);
-        return compose_rsp_msg(buf, RSP_SERVER_ERROR, req->noreply);
-    default:
-        NOT_REACHED();
-        break;
+    INCR(process_metrics, delete);
+    if (item_delete(array_first(req->keys))) {
+        rsp->type = RSP_DELETED;
+        INCR(process_metrics, delete_deleted);
+    } else {
+        rsp->type = RSP_NOT_FOUND;
+        INCR(process_metrics, delete_notfound);
     }
 
-    return CC_ERROR;
+    log_verb("delete req %p processed, rsp type %d", req, rsp->type);
+}
+
+
+static void
+_error_rsp(struct response *rsp, item_rstatus_t status)
+{
+    if (status == ITEM_EOVERSIZED) {
+        rsp->type = RSP_CLIENT_ERROR;
+        rsp->vstr = str2bstr(OVERSIZE_ERR_MSG);
+    } else if (status == ITEM_ENAN) {
+        rsp->type = RSP_CLIENT_ERROR;
+        rsp->vstr = str2bstr(DELTA_ERR_MSG);
+    } else if (status == ITEM_ENOMEM) {
+        rsp->type = RSP_SERVER_ERROR;
+        rsp->vstr = str2bstr(OOM_ERR_MSG);
+    } else {
+        NOT_REACHED();
+        rsp->type = RSP_SERVER_ERROR;
+        rsp->vstr = str2bstr(OTHER_ERR_MSG);
+    }
+}
+
+static void
+_process_set(struct response *rsp, struct request *req)
+{
+    item_rstatus_t status;
+    struct bstring *key;
+
+    INCR(process_metrics, set);
+    key = array_first(req->keys);
+    item_delete(key);
+    status = item_insert(key, &(req->vstr), time_reltime(req->expiry));
+    if (status == ITEM_OK) {
+        rsp->type = RSP_STORED;
+        INCR(process_metrics, set_stored);
+    } else {
+        _error_rsp(rsp, status);
+        INCR(process_metrics, set_ex);
+    }
+
+    log_verb("set req %p processed, rsp type %d", req, rsp->type);
+}
+
+static void
+_process_add(struct response *rsp, struct request *req)
+{
+    item_rstatus_t status;
+    struct bstring *key;
+
+    INCR(process_metrics, add);
+    key = array_first(req->keys);
+    if (item_get(key) != NULL) {
+        rsp->type = RSP_NOT_STORED;
+        INCR(process_metrics, add_notstored);
+    } else {
+        status = item_insert(key, &(req->vstr), time_reltime(req->expiry));
+        if (status == ITEM_OK) {
+            rsp->type = RSP_STORED;
+            INCR(process_metrics, add_stored);
+        } else {
+            _error_rsp(rsp, status);
+            INCR(process_metrics, add_ex);
+        }
+    }
+
+    log_verb("add req %p processed, rsp type %d", req, rsp->type);
+}
+
+static void
+_process_replace(struct response *rsp, struct request *req)
+{
+    item_rstatus_t status;
+    struct bstring *key;
+
+    INCR(process_metrics, replace);
+    key = array_first(req->keys);
+    if (item_get(key) != NULL) {
+        item_delete(key);
+        status = item_insert(key, &(req->vstr), time_reltime(req->expiry));
+        if (status == ITEM_OK) {
+            rsp->type = RSP_STORED;
+            INCR(process_metrics, replace_stored);
+        } else {
+            _error_rsp(rsp, status);
+            INCR(process_metrics, replace_ex);
+        }
+    } else {
+        rsp->type = RSP_NOT_STORED;
+        INCR(process_metrics, replace_notstored);
+    }
+
+    log_verb("replace req %p processed, rsp type %d", req, rsp->type);
+}
+
+static void
+_process_cas(struct response *rsp, struct request *req)
+{
+    item_rstatus_t status;
+    struct bstring *key;
+    struct item *it;
+
+    key = array_first(req->keys);
+    it = item_get(key);
+    if (it == NULL) {
+        rsp->type = RSP_NOT_FOUND;
+        INCR(process_metrics, cas_notfound);
+    } else if (item_get_cas(it) != req->vcas) {
+        rsp->type = RSP_EXISTS;
+        INCR(process_metrics, cas_exists);
+    } else {
+        item_delete(key);
+        status = item_insert(key, &(req->vstr), time_reltime(req->expiry));
+        if (status == ITEM_OK) {
+            rsp->type = RSP_STORED;
+            INCR(process_metrics, cas_stored);
+        } else {
+            _error_rsp(rsp, status);
+            INCR(process_metrics, cas_ex);
+        }
+    }
+
+    log_verb("cas req %p processed, rsp type %d", req, rsp->type);
 }
 
 /* get integer value of it */
-static inline uint64_t
-_retrieve_item_val_u64(struct item *it)
-{
-    struct bstring val_str;
-    uint64_t val;
-
-    ASSERT(it->vtype == V_INT);
-
-    val_str.len = it->vlen;
-    val_str.data = (uint8_t *)item_data(it);
-
-    bstring_atou64(&val, &val_str);
-
-    return val;
-}
 
 /* update item with integer value */
-static inline void
-_store_item_val_u64(struct item *it, uint64_t val)
+static item_rstatus_t
+_process_delta(struct response *rsp, struct item *it, const struct request *req,
+        struct bstring *key, bool incr)
 {
-    struct bstring val_str;
-    char val_data[CC_UINT64_MAXLEN + 1];
-    item_rstatus_t i_status;
+    item_rstatus_t status;
+    uint64_t vint;
+    struct bstring nval;
+    char buf[CC_UINT64_MAXLEN];
 
-    val_str.data = (uint8_t *)val_data;
-    val_str.len = sprintf((char *)val_str.data, "%llu", val);
+    status = item_atou64(&vint, it);
+    if (status == ITEM_OK) {
+        if (incr) {
+            vint += req->delta;
+        } else {
+            if (vint < req->delta) {
+                vint = 0;
+            } else {
+                vint -= req->delta;
+            }
+        }
+        rsp->vint = vint;
+        nval.len = cc_print_uint64_unsafe(buf, vint);
+        nval.data = buf;
+        if (item_slabid(it->klen, nval.len) == it->id) {
+            status = item_update(it, &nval);
+        } else {
+            item_delete(key);
+            status = item_insert(key, &nval, it->expire_at);
+        }
+    }
 
-    i_status = item_update(it, &val_str);
-
-    /* If this assertion fails, item/slab is incorrectly configured */
-    ASSERT(i_status == ITEM_OK);
+    return status;
 }
 
-static int
-process_incr(struct request *req, struct buf **buf)
+static void
+_process_incr(struct response *rsp, struct request *req)
 {
+    item_rstatus_t status;
     struct bstring *key;
     struct item *it;
-    uint64_t val;
 
-    log_verb("processing incr req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
-
-    if ((it = item_get(key))) {
-        if (it->vtype == V_INT) {
-            val = _retrieve_item_val_u64(it);
-
-            val += req->delta;
-
-            _store_item_val_u64(it, val);
-            INCR(process_metrics, cmd_incr_stored);
-            return compose_rsp_uint64(buf, val, req->noreply);
+    INCR(process_metrics, incr);
+    key = array_first(req->keys);
+    it = item_get(key);
+    if (it != NULL) {
+        status = _process_delta(rsp, it, req, key, true);
+        if (status == ITEM_OK) {
+            rsp->type = RSP_NUMERIC;
+            INCR(process_metrics, incr_stored);
+        } else { /* not a number */
+            _error_rsp(rsp, status);
+            INCR(process_metrics, incr_ex);
         }
-        /* non integer value */
-        log_verb("incr on key %.*s with non integer value", key->len, key->data);
-        INCR(process_metrics, cmd_incr_ex);
-        return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+    } else {
+        rsp->type = RSP_NOT_FOUND;
+        INCR(process_metrics, incr_notfound);
     }
 
-    /* item not found */
-    INCR(process_metrics, cmd_incr_notfound);
-    return compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
+    log_verb("incr req %p processed, rsp type %d", req, rsp->type);
 }
 
-static int
-process_decr(struct request *req, struct buf **buf)
+static void
+_process_decr(struct response *rsp, struct request *req)
 {
+    item_rstatus_t status;
     struct bstring *key;
     struct item *it;
-    uint64_t val;
 
-    log_verb("processing decr req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
-
-    if ((it = item_get(key))) {
-        if (it->vtype == V_INT) {
-            val = _retrieve_item_val_u64(it);
-
-            val -= req->delta;
-
-            _store_item_val_u64(it, val);
-            INCR(process_metrics, cmd_decr_stored);
-            return compose_rsp_uint64(buf, val, req->noreply);
+    INCR(process_metrics, decr);
+    key = array_first(req->keys);
+    it = item_get(key);
+    if (it != NULL) {
+        status = _process_delta(rsp, it, req, key, false);
+        if (status == ITEM_OK) {
+            rsp->type = RSP_NUMERIC;
+            INCR(process_metrics, decr_stored);
+        } else {
+            _error_rsp(rsp, status);
+            INCR(process_metrics, decr_ex);
         }
-        /* non integer value */
-        log_verb("decr on key %.*s with non integer value", key->len, key->data);
-        INCR(process_metrics, cmd_decr_ex);
-        return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+    } else {
+        rsp->type = RSP_NOT_FOUND;
+        INCR(process_metrics, decr_notfound);
     }
 
-    /* item not found */
-    INCR(process_metrics, cmd_decr_notfound);
-    return compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
+    log_verb("decr req %p processed, rsp type %d", req, rsp->type);
 }
 
-static int
-process_append(struct request *req, struct buf **buf)
+static void
+_process_append(struct response *rsp, struct request *req)
 {
+    item_rstatus_t status;
     struct bstring *key;
-    item_rstatus_t i_status;
+    struct item *it;
 
-    log_verb("processing append req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
-    i_status = item_annex(key, &(req->vstr), true);
-
-    switch (i_status) {
-    case ITEM_OK:
-        INCR(process_metrics, cmd_append_stored);
-        return compose_rsp_msg(buf, RSP_STORED, req->noreply);
-    case ITEM_ENOTFOUND:
-        INCR(process_metrics, cmd_append_notfound);
-        return compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
-    case ITEM_EOVERSIZED:
-        INCR(process_metrics, cmd_append_ex);
-        return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
-    case ITEM_ENOMEM:
-        INCR(process_metrics, cmd_append_ex);
-        return compose_rsp_msg(buf, RSP_SERVER_ERROR, req->noreply);
-    default:
-        NOT_REACHED();
-        break;
+    key = array_first(req->keys);
+    it = item_get(key);
+    if (it == NULL) {
+        rsp->type = RSP_NOT_STORED;
+        INCR(process_metrics, append_notstored);
+    } else {
+        status = item_annex(it, key, &(req->vstr), true);
+        if (status == ITEM_OK) {
+            rsp->type = RSP_STORED;
+            INCR(process_metrics, append_stored);
+        } else {
+            _error_rsp(rsp, status);
+            INCR(process_metrics, append_ex);
+        }
     }
 
-    return CC_ERROR;
+    log_verb("append req %p processed, rsp type %d", req, rsp->type);
 }
 
-static int
-process_prepend(struct request *req, struct buf **buf)
+static void
+_process_prepend(struct response *rsp, struct request *req)
 {
+    item_rstatus_t status;
     struct bstring *key;
-    item_rstatus_t i_status;
+    struct item *it;
 
-    log_verb("processing prepend req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
-    i_status = item_annex(key, &(req->vstr), false);
-
-    switch (i_status) {
-    case ITEM_OK:
-        INCR(process_metrics, cmd_prepend_stored);
-        return compose_rsp_msg(buf, RSP_STORED, req->noreply);
-    case ITEM_ENOTFOUND:
-        INCR(process_metrics, cmd_prepend_notfound);
-        return compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
-    case ITEM_EOVERSIZED:
-        INCR(process_metrics, cmd_prepend_ex);
-        return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
-    case ITEM_ENOMEM:
-        INCR(process_metrics, cmd_prepend_ex);
-        return compose_rsp_msg(buf, RSP_SERVER_ERROR, req->noreply);
-    default:
-        NOT_REACHED();
-        break;
+    key = array_first(req->keys);
+    it = item_get(key);
+    if (it == NULL) {
+        rsp->type = RSP_NOT_STORED;
+        INCR(process_metrics, prepend_notstored);
+    } else {
+        status = item_annex(it, key, &(req->vstr), false);
+        if (status == ITEM_OK) {
+            rsp->type = RSP_STORED;
+            INCR(process_metrics, prepend_stored);
+        } else {
+            _error_rsp(rsp, status);
+            INCR(process_metrics, prepend_ex);
+        }
     }
 
-    return CC_ERROR;
+    log_verb("prepend req %p processed, rsp type %d", req, rsp->type);
 }
 
-static int
-process_stats(struct request *req, struct buf **buf)
+static void
+_process_flush(struct response *rsp, struct request *req)
 {
-    procinfo_update();
-    return compose_rsp_stats(buf, (struct metric *)&glob_stats,
-                             METRIC_CARDINALITY(glob_stats));
-}
-
-static int
-process_flush(struct request *req, struct buf **buf)
-{
+    INCR(process_metrics, flush);
     item_flush();
-    return compose_rsp_msg(buf, RSP_OK, req->noreply);
+    rsp->type = RSP_OK;
+
+    log_verb("flush req %p processed, rsp type %d", req, rsp->type);
 }
 
-int
-process_request(struct request *req, struct buf **buf)
+void
+process_request(struct response *rsp, struct request *req)
 {
-    log_verb("processing req %p, rsp buf at %p capacity %u size %u", req, *buf, buf_capacity(*buf), buf_size(*buf));
+    log_verb("processing req %p, write rsp to %p", req, rsp);
+    INCR(process_metrics, process_req);
 
-    switch (req->verb) {
+    switch (req->type) {
     case REQ_GET:
-        return process_get(req, buf);
+        _process_get(rsp, req);
+        break;
 
     case REQ_GETS:
-        return process_gets(req, buf);
+        _process_gets(rsp, req);
+        break;
 
     case REQ_DELETE:
-        return process_delete(req, buf);
+        _process_delete(rsp, req);
+        break;
 
     case REQ_SET:
-        return process_set(req, buf);
+        _process_set(rsp, req);
+        break;
 
     case REQ_ADD:
-        return process_add(req, buf);
+        _process_add(rsp, req);
+        break;
 
     case REQ_REPLACE:
-        return process_replace(req, buf);
+        _process_replace(rsp, req);
+        break;
 
     case REQ_CAS:
-        return process_cas(req, buf);
+        _process_cas(rsp, req);
+        break;
 
     case REQ_INCR:
-        return process_incr(req, buf);
+        _process_incr(rsp, req);
+        break;
 
     case REQ_DECR:
-        return process_decr(req, buf);
+        _process_decr(rsp, req);
+        break;
 
     case REQ_APPEND:
-        return process_append(req, buf);
+        _process_append(rsp, req);
+        break;
 
     case REQ_PREPEND:
-        return process_prepend(req, buf);
+        _process_prepend(rsp, req);
+        break;
 
     case REQ_STATS:
-        return process_stats(req, buf);
+        /* not implemented right now- we are moving this to the background
+         * thread, which will probably go through a different path
+         */
+        log_warn("not implemented at the moment, coming very soon.");
+        break;
 
     case REQ_FLUSH:
-        return process_flush(req, buf);
-
-    case REQ_QUIT:
-        return CC_ERDHUP;
+        _process_flush(rsp, req);
+        break;
 
     default:
         NOT_REACHED();
         break;
     }
-
-    return CC_OK;
 }

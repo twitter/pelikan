@@ -32,28 +32,28 @@ extern "C" {
 /* TODO(yao): separate byte string related functionalities into cc_bstring */
 struct bstring {
     uint32_t len;   /* string length */
-    uint8_t  *data; /* string data */
+    char     *data; /* string data */
 };
 
-#define str2bstr(_str)   { sizeof(_str) - 1, (uint8_t *)(_str) }
-#define null_bstring    { 0, NULL }
+#define str2bstr(_str)  (struct bstring){ sizeof(_str) - 1, (_str) }
+#define null_bstring    (struct bstring){ 0, NULL }
 
 #define bstring_set_text(_str, _text) do {       \
-    (_str)->len = (uint32_t)(sizeof(_text) - 1);\
-    (_str)->data = (uint8_t *)(_text);          \
+    (_str)->len = (uint32_t)(sizeof(_text) - 1); \
+    (_str)->data = (_text);                      \
 } while (0);
 
 /* TODO(yao): rename this */
 #define bstring_set_raw(_str, _raw) do {         \
-    (_str)->len = (uint32_t)(cc_strlen(_raw));  \
-    (_str)->data = (uint8_t *)(_raw);           \
+    (_str)->len = (uint32_t)(cc_strlen(_raw));   \
+    (_str)->data = (char *)(_raw);               \
 } while (0);
 
 void bstring_init(struct bstring *str);
 void bstring_deinit(struct bstring *str);
 bool bstring_empty(const struct bstring *str);
 rstatus_t bstring_duplicate(struct bstring *dst, const struct bstring *src);
-rstatus_t bstring_copy(struct bstring *dst, const uint8_t *src, uint32_t srclen);
+rstatus_t bstring_copy(struct bstring *dst, const char *src, uint32_t srclen);
 int bstring_compare(const struct bstring *s1, const struct bstring *s2);
 
 /* TODO(yao): is this endian thing really useful? */

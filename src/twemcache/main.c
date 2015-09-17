@@ -95,18 +95,19 @@ setup(void)
     time_setup();
     procinfo_setup(&glob_stats.procinfo_metrics);
     request_setup(&glob_stats.request_metrics);
-    codec_setup(&glob_stats.codec_metrics);
+    response_setup(&glob_stats.response_metrics);
+    parse_setup(&glob_stats.parse_req_metrics, NULL);
+    compose_setup(NULL, &glob_stats.compose_rsp_metrics);
+    klog_setup(setting.klog_file.val.vstr, (uint32_t)setting.klog_nbuf.val.vuint,
+               (uint32_t)setting.klog_intvl.val.vuint);
     process_setup(&glob_stats.process_metrics);
 
     buf_setup((uint32_t)setting.buf_init_size.val.vuint, &glob_stats.buf_metrics);
     dbuf_setup((uint32_t)setting.dbuf_max_power.val.vuint);
     event_setup(&glob_stats.event_metrics);
     tcp_setup((int)setting.tcp_backlog.val.vuint, &glob_stats.tcp_metrics);
-    klog_setup(setting.klog_file.val.vstr, (uint32_t)setting.klog_nbuf.val.vuint,
-               (uint32_t)setting.klog_intvl.val.vuint);
 
     if (slab_setup((uint32_t)setting.slab_size.val.vuint,
-                   setting.slab_use_cas.val.vbool,
                    setting.slab_prealloc.val.vbool,
                    (int)setting.slab_evict_opt.val.vuint,
                    setting.slab_use_freeq.val.vbool,
@@ -114,16 +115,22 @@ setup(void)
                    (size_t)setting.slab_maxbytes.val.vuint,
                    setting.slab_profile.val.vstr,
                    (uint8_t)setting.slab_profile_last_id.val.vuint,
-                   &glob_stats.slab_metrics,
-                   (uint32_t)setting.slab_hash_power.val.vuint,
-                   &glob_stats.item_metrics)
+                   &glob_stats.slab_metrics)
         != CC_OK) {
         log_error("slab module setup failed");
+        goto error;
+    }
+    if (item_setup(setting.item_use_cas.val.vbool,
+                   (uint32_t)setting.item_hash_power.val.vuint,
+                   &glob_stats.item_metrics)
+        != CC_OK) {
+        log_error("item setup failed");
         goto error;
     }
 
     buf_sock_pool_create((uint32_t)setting.buf_sock_poolsize.val.vuint);
     request_pool_create((uint32_t)setting.request_poolsize.val.vuint);
+    response_pool_create((uint32_t)setting.response_poolsize.val.vuint);
 
     /* set up core */
     status = getaddr(&ai, setting.server_host.val.vstr,
@@ -166,6 +173,8 @@ setup(void)
     return;
 
 error:
+    log_crit("setup failed");
+
     if (setting.pid_filename.val.vstr != NULL) {
         remove_pidfile(setting.pid_filename.val.vstr);
     }
@@ -178,11 +187,13 @@ error:
 
     item_teardown();
     slab_teardown();
-    klog_teardown();
     dbuf_teardown();
     buf_teardown();
-    codec_teardown();
     process_teardown();
+    klog_teardown();
+    compose_teardown();
+    parse_teardown();
+    response_teardown();
     request_teardown();
     tcp_teardown();
     procinfo_teardown();
@@ -193,8 +204,6 @@ error:
     log_core_destroy(&lc);
     debug_teardown();
     log_teardown();
-
-    log_crit("setup failed");
 
     exit(EX_CONFIG);
 }

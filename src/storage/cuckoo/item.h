@@ -67,7 +67,7 @@ struct item {
   rel_time_t expire;
   uint8_t    klen;
   uint8_t    vlen;
-  uint8_t    data[1];
+  char       data[1];
 };
 
 #define KEY_MAXLEN 255

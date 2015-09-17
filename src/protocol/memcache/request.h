@@ -33,40 +33,43 @@ typedef struct {
     *(_metrics) = (request_metrics_st) { REQUEST_METRIC(METRIC_INIT) }; \
 } while(0)
 
+#define REQ_TYPE_MSG(ACTION)                        \
+    ACTION( REQ_UNKNOWN,        ""                 )\
+    ACTION( REQ_GET,            "get"              )\
+    ACTION( REQ_GETS,           "gets"             )\
+    ACTION( REQ_DELETE,         "delete "          )\
+    ACTION( REQ_SET,            "set "             )\
+    ACTION( REQ_ADD,            "add "             )\
+    ACTION( REQ_REPLACE,        "replace "         )\
+    ACTION( REQ_CAS,            "cas "             )\
+    ACTION( REQ_APPEND,         "append "          )\
+    ACTION( REQ_PREPEND,        "prepend "         )\
+    ACTION( REQ_INCR,           "incr "            )\
+    ACTION( REQ_DECR,           "decr "            )\
+    ACTION( REQ_STATS,          "stats\r\n"        )\
+    ACTION( REQ_FLUSH,          "flush_all\r\n"    )\
+    ACTION( REQ_QUIT,           "quit\r\n"         )\
+
+#define GET_TYPE(_name, _str) _name,
+typedef enum request_type {
+    REQ_TYPE_MSG(GET_TYPE)
+    REQ_SENTINAL
+} request_type_t;
+#undef GET_TYPE
+
+struct bstring req_strings[REQ_SENTINAL];
+
 typedef enum request_state {
-    PARSING,
-    PARSED,
-    PROCESSING,
-    DONE,
-    RS_SENTINEL
+    REQ_PARSING,
+    REQ_PARSED,
+    REQ_PROCESSING,
+    REQ_DONE
 } request_state_t;
 
-typedef enum parse_state {
+typedef enum request_parse_state {
     REQ_HDR,
-    REQ_VAL,
-    PS_SENTINEL
-} parse_state_t;
-
-typedef enum request_verb {
-    REQ_UNKNOWN = 0,
-    REQ_GET,
-    REQ_GETS,
-    REQ_DELETE,
-    REQ_SET,
-    REQ_ADD,
-    REQ_REPLACE,
-    REQ_CAS,
-    REQ_APPEND,
-    REQ_PREPEND,
-    REQ_INCR,
-    REQ_DECR,
-    REQ_STATS,
-    REQ_FLUSH,
-    REQ_QUIT,
-    RV_SENTINEL
-} request_verb_t;
-
-extern const char *request_verb_str[];
+    REQ_VAL
+} request_parse_state_t;
 
 /*
  * NOTE(yao): we store key and value as location in rbuf, this assumes the data
@@ -78,24 +81,24 @@ struct request {
     bool                    free;
 
     request_state_t         rstate;     /* request state */
-    parse_state_t           pstate;     /* parsing state */
-    int                     tstate;     /* token state post verb */
+    request_parse_state_t   pstate;     /* parsing state */
 
-    request_verb_t          verb;
+    request_type_t          type;
 
     struct array            *keys;      /* elements are bstrings */
     struct bstring          vstr;       /* the value string */
+    uint32_t                nfound;     /* number of keys found */
 
     uint32_t                flag;
     uint32_t                expiry;
     uint32_t                vlen;
     uint64_t                delta;
-    uint64_t                cas;
+    uint64_t                vcas;
 
     unsigned                noreply:1;
+    unsigned                val:1;      /* value needed? */
     unsigned                serror:1;   /* server error */
     unsigned                cerror:1;   /* client error */
-    unsigned                swallow:1;  /* caused by errors */
 };
 
 void request_setup(request_metrics_st *metrics);

@@ -1,7 +1,6 @@
 #include <core/worker.h>
 
 #include <time/time.h>
-#include <protocol/memcache/codec.h>
 #include <core/shared.h>
 
 /*
@@ -35,9 +34,7 @@ worker_close(struct buf_sock *s)
     log_info("worker core close on buf_sock %p", s);
 
     event_deregister(ctx->evb, s->ch->sd);
-
     hdl->term(s->ch);
-    request_return((struct request **)&s->data);
     buf_sock_return(&s);
 }
 
@@ -93,7 +90,9 @@ core_worker_setup(worker_metrics_st *metrics)
 
     event_add_read(ctx->evb, pipe_read_id(pipe_c), NULL);
     worker_metrics = metrics;
-    WORKER_METRIC_INIT(worker_metrics);
+    if (metrics != NULL) {
+        WORKER_METRIC_INIT(worker_metrics);
+    }
 
     worker_init = true;
 

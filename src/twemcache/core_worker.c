@@ -1,12 +1,8 @@
 #include <twemcache/process.h>
 
 #include <core/worker.h>
-#include <protocol/memcache/codec.h>
-#include <protocol/memcache/klog.h>
-#include <protocol/memcache/request.h>
-
-#include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
+
 #include <cc_debug.h>
 #include <cc_event.h>
 #include <cc_ring_array.h>
@@ -75,10 +71,8 @@ _worker_read(struct buf_sock *s)
 static void
 _worker_post_read(struct buf_sock *s)
 {
-    rstatus_t status;
+    parse_rstatus_t status;
     struct request *req;
-    uint32_t rsp_len;
-    int ret;
 
     log_verb("post read processing on buf_sock %p", s);
 
@@ -90,98 +84,115 @@ _worker_post_read(struct buf_sock *s)
     }
 
     if (req == NULL) {
+        /* TODO(yao): close the connection for now, we should write a OOM
+         * message and send it to the client later.
+         */
         log_error("cannot acquire request: OOM");
-        ret = compose_rsp_msg(&s->wbuf, RSP_SERVER_ERROR, false);
-        if (ret < 0) {
-            //s->err = status;
-            log_error("failed to send server error, status: %d", ret);
-        }
 
-        goto done;
+        goto error;
     }
 
-    if (req->swallow) {
-        status = parse_swallow(s->rbuf);
-        if (status == CC_OK) {
-            request_reset(req);
-        } else { /* CC_UNFIN */
-            goto done;
-        }
-    }
-
+    /* keep parse-process-compose until running out of data in rbuf */
     while (buf_rsize(s->rbuf) > 0) {
+        struct response *rsp, *nr;
+        int i, n, card;
+
         /* parsing */
         log_verb("%"PRIu32" bytes left", buf_rsize(s->rbuf));
 
         status = parse_req(req, s->rbuf);
-        if (status == CC_UNFIN) {
+        if (status == PARSE_EUNFIN) {
             goto done;
         }
 
-        if (status != CC_OK) { /* parsing errors are all client errors */
+        if (status != CC_OK) {
+            /* parsing errors are all client errors, since we don't know
+             * how to recover from client errors in this condition (we do not
+             * have a valid request so we don't know where the invalid request
+             * ends), we should close the connection
+             */
             log_warn("illegal request received, status: %d", status);
 
-            status = compose_rsp_msg(&s->wbuf, RSP_CLIENT_ERROR, false);
-            if (status != CC_OK) {
-                log_error("failed to send client error, status: %d", status);
-            }
-
-            goto done;
+            goto error;
         }
 
         /* processing */
-        rsp_len = process_request(req, &s->wbuf);
-
-        if (rsp_len < 0) {
-            status = rsp_len;
-            rsp_len = 0;
-        } else {
-            status = 0;
-        }
-
-        klog_write(req, status, rsp_len);
-
-        if (status == CC_ENOMEM) {
-            log_debug("wbuf full, try again later");
-            goto done;
-        }
-        if (status == CC_ERDHUP) {
+        if (req->type == REQ_QUIT) {
             log_info("peer called quit");
             s->ch->state = CHANNEL_TERM;
             goto done;
         }
 
-        if (status != CC_OK) {
-            log_error("process request failed for other reason: %d", status);
+        /* find cardinality of the request and get enough response objects */
+        card = array_nelem(req->keys);
+        if (req->type == REQ_GET || req->type == REQ_GETS) {
+            /* extra response object for the "END" line after values */
+            card++;
+        }
+        rsp = response_borrow();
+        for (i = 1, nr = rsp; i < card; i++) {
+            STAILQ_NEXT(nr, next) = response_borrow();
+            nr = STAILQ_NEXT(nr, next);
+            if (nr == NULL) {
+                log_debug("cannot borrow enough rsp objects, close channel");
 
-            status = compose_rsp_msg(&s->wbuf, RSP_SERVER_ERROR, false);
-            if (status != CC_OK) {
-                /* NOTE(yao): this processing logic does NOT work for large
-                 * values, which will easily overflow wbuf and therefore always
-                 * fail. Here we can do this because the values are very small
-                 * relative to the size wbuf.
-                 *
-                 * The right way of handling write of any size value is to copy
-                 * data directly from our data store on heap to the channel.
-                 *
-                 * If we want to be less aggressive in raising errors, we can
-                 * re-process the current request when wbuf is full. This will
-                 * require small modification to this function and struct request.
-                 */
-                log_error("failed to send server error, status: %d", status);
+                goto error;
             }
+        }
+        /* actual handling */
+        process_request(rsp, req);
 
-            goto done;
+        /* writing results */
+        if (req->noreply) { /* noreply means no writing to buffers */
+                goto done;
         }
 
+        nr = rsp;
+        if (req->type == REQ_GET || req->type == REQ_GETS) {
+            i = req->nfound;
+            /* process returns an extra rsp which accounts for RSP_END */
+            while (i > 0) {
+                n = compose_rsp(&s->wbuf, nr);
+                if (n < 0) {
+                    log_warn("composing rsp erred, terminate channel");
+
+                    goto error;
+                }
+                nr = STAILQ_NEXT(nr, next);
+                i--;
+            }
+        }
+        n = compose_rsp(&s->wbuf, nr);
+        if (n < 0) {
+            log_debug("composing rsp erred, terminate channel");
+
+            goto error;
+        }
+
+        /* disabling klog as it's broken for multiget */
+        /* klog_write(req, ntotal); */
+
+        /* clean up resources */
         request_reset(req);
+        for (i = 0; i < card; i++) {
+            nr = STAILQ_NEXT(rsp, next);
+            response_return(&rsp);
+            rsp = nr;
+        }
+        ASSERT(rsp == NULL);
     }
 
 done:
     /* TODO: call stream write directly to save one event */
     if (buf_rsize(s->wbuf) > 0) {
+        log_verb("adding write event");
         _worker_event_write(s);
     }
+
+    return;
+
+error:
+    s->ch->state = CHANNEL_TERM;
 }
 
 /* read event over an existing connection */
@@ -235,13 +246,23 @@ core_worker_event(void *arg, uint32_t events)
             INCR(worker_metrics, worker_event_write);
             _worker_event_write(s);
         } else if (events & EVENT_ERR) {
+            s->ch->state = CHANNEL_TERM;
             INCR(worker_metrics, worker_event_error);
-            worker_close(s);
         } else {
             NOT_REACHED();
         }
 
-        if (s->ch->state == CHANNEL_TERM && buf_rsize(s->wbuf) == 0) {
+        /* TODO(yao): come up with a robust policy about channel connection
+         * and pending data. Since an error can either be server (usually
+         * memory) issues or client issues (bad syntax etc), or requested (quit)
+         * it is hard to determine whether the channel should be immediately
+         * closed or not. A simplistic approach might be to always close asap,
+         * and clients should not initiate closing unless they have received all
+         * their responses. This is not as nice as the TCP half-close behavior,
+         * but simpler to implement and probably fine initially.
+         */
+        if (s->ch->state == CHANNEL_TERM) {
+            request_return((struct request **)&s->data);
             worker_close(s);
         }
     }

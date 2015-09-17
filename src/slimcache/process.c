@@ -1,8 +1,7 @@
 #include <slimcache/process.h>
 
-#include <protocol/memcache/codec.h>
-#include <slimcache/stats.h>
 #include <storage/cuckoo/cuckoo.h>
+#include <slimcache/stats.h>
 #include <util/procinfo.h>
 
 #include <cc_array.h>
@@ -11,6 +10,10 @@
 
 #define SLIMCACHE_PROCESS_MODULE_NAME "slimcache::process"
 
+#define STORE_ERR_MSG "invalid/oversized value, cannot be stored"
+#define DELTA_ERR_MSG "value is not a number"
+#define OTHER_ERR_MSG "command not supported"
+
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
 
@@ -18,14 +21,13 @@ void
 process_setup(process_metrics_st *metrics)
 {
     log_info("set up the %s module", SLIMCACHE_PROCESS_MODULE_NAME);
-
-    process_metrics = metrics;
-    PROCESS_METRIC_INIT(process_metrics);
-
     if (process_init) {
         log_warn("%s has already been setup, overwrite",
                 SLIMCACHE_PROCESS_MODULE_NAME);
     }
+
+    process_metrics = metrics;
+    PROCESS_METRIC_INIT(process_metrics);
     process_init = true;
 }
 
@@ -33,181 +35,148 @@ void
 process_teardown(void)
 {
     log_info("tear down the %s module", SLIMCACHE_PROCESS_MODULE_NAME);
-
     if (!process_init) {
         log_warn("%s has never been setup", SLIMCACHE_PROCESS_MODULE_NAME);
     }
+
     process_metrics = NULL;
     process_init = false;
 }
 
-static int
-process_get_key(struct buf **buf, struct bstring *key)
+
+static bool
+_get_key(struct response *rsp, struct bstring *key)
 {
-    int ret = 0;
     struct item *it;
     struct val val;
-    uint8_t val_str[CC_UINT64_MAXLEN];
-    size_t size;
-
-    log_verb("get key at %p, rsp buf at %p", key, *buf);
-    INCR(process_metrics, cmd_get_key);
 
     it = cuckoo_lookup(key);
-    if (NULL != it) {
-        log_verb("found key at item %p", it);
-        INCR(process_metrics, cmd_get_key_hit);
-
+    if (it != NULL) {
+        rsp->type = RSP_VALUE;
+        rsp->key = *key;
+        rsp->flag = item_flag(it);
+        rsp->vcas = item_cas(it);
         item_val(&val, it);
-        if (val.type == VAL_TYPE_INT) { /* print and overwrite val */
-            size = cc_scnprintf(val_str, CC_UINT64_MAXLEN, "%"PRIu64, val.vint);
-            val.vstr.data = val_str;
-            val.vstr.len = (uint32_t)size;
+        if (val.type == VAL_TYPE_INT) {
+            rsp->num = 1;
+            rsp->vint = val.vint;
+        } else {
+            rsp->vstr = val.vstr;
         }
 
-        ret = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it), 0);
+        log_verb("found key at %p, location %p", key, it);
+        return true;
     } else {
-        INCR(process_metrics, cmd_get_key_miss);
+        log_verb("key at %p not found", key);
+        return false;
     }
-
-    return ret;
-}
-
-static int
-process_get(struct request *req, struct buf **buf)
-{
-    int status, ret = 0;
-    struct bstring *key;
-    uint32_t i;
-
-    log_verb("processing get req %p, rsp buf at %p", req, *buf);
-
-    for (i = 0; i < req->keys->nelem; ++i) {
-        key = array_get_idx(req->keys, i);
-        status = process_get_key(buf, key);
-        if (status < 0) {
-            return status;
-        }
-        ret += status;
-    }
-
-    status = compose_rsp_msg(buf, RSP_END, false);
-    if (status < 0) {
-        return status;
-    }
-
-    return ret + status;
-}
-
-static int
-process_gets_key(struct buf **buf, struct bstring *key)
-{
-    int ret = 0;
-    struct item *it;
-    struct val val;
-    uint8_t val_str[CC_UINT64_MAXLEN];
-    size_t size;
-
-    log_verb("gets key at %p, rsp buf at %p", key, *buf);
-    INCR(process_metrics, cmd_gets_key);
-
-    it = cuckoo_lookup(key);
-    if (NULL != it) {
-        INCR(process_metrics, cmd_gets_key_hit);
-
-        item_val(&val, it);
-        if (val.type == VAL_TYPE_INT) { /* print and overwrite val */
-            size = cc_scnprintf(val_str, CC_UINT64_MAXLEN, "%"PRIu64, val.vint);
-            val.vstr.data = val_str;
-            val.vstr.len = (uint32_t)size;
-        }
-
-        ret = compose_rsp_keyval(buf, key, &val.vstr, item_flag(it),
-                                 item_cas(it));
-    } else {
-        INCR(process_metrics, cmd_gets_key_miss);
-    }
-
-    return ret;
-}
-
-static int
-process_gets(struct request *req, struct buf **buf)
-{
-    int status, ret = 0;
-    struct bstring *key;
-    uint32_t i;
-
-    log_verb("processing gets req %p, rsp buf at %p", req, *buf);
-
-    for (i = 0; i < req->keys->nelem; ++i) {
-        key = array_get_idx(req->keys, i);
-        status = process_gets_key(buf, key);
-        if (status < 0) {
-            return status;
-        }
-        ret += status;
-    }
-
-    status = compose_rsp_msg(buf, RSP_END, false);
-    if (status < 0) {
-        return status;
-    }
-
-    return ret + status;
-}
-
-static int
-process_delete(struct request *req, struct buf **buf)
-{
-    int ret;
-    bool deleted;
-
-    log_verb("processing delete req %p, rsp buf at %p", req, *buf);
-
-    deleted = cuckoo_delete(array_get_idx(req->keys, 0));
-    if (deleted) {
-        INCR(process_metrics, cmd_delete_deleted);
-        ret = compose_rsp_msg(buf, RSP_DELETED, req->noreply);
-    } else {
-        INCR(process_metrics, cmd_delete_notfound);
-        ret = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
-    }
-
-    return ret;
 }
 
 static void
-process_value(struct val *val, struct bstring *val_str)
+_process_get(struct response *rsp, struct request *req)
+{
+    struct bstring *key;
+    struct response *r = rsp;
+    int i;
+
+    INCR(process_metrics, get);
+    /* use chained responses, move to the next response if key is found. */
+    for (i = 0; i < array_nelem(req->keys); ++i) {
+        INCR(process_metrics, get_key);
+        key = array_get(req->keys, i);
+        if (_get_key(r, key)) {
+            r->cas = false;
+            r = STAILQ_NEXT(r, next);
+            if (r == NULL) {
+                INCR(process_metrics, get_ex);
+                log_warn("get response incomplete due to lack of rsp objects");
+                return;
+            }
+            req->nfound++;
+            INCR(process_metrics, get_key_hit);
+        } else {
+            INCR(process_metrics, get_key_miss);
+        }
+    }
+    r->type = RSP_END;
+
+    log_verb("get req %p processed, %d out of %d keys found", req, req->nfound, i);
+}
+
+static void
+_process_gets(struct response *rsp, struct request *req)
+{
+    struct bstring *key;
+    struct response *r = rsp;
+    int i;
+
+    INCR(process_metrics, gets);
+    /* use chained responses, move to the next response if key is found. */
+    for (i = 0; i < array_nelem(req->keys); ++i) {
+        INCR(process_metrics, gets_key);
+        key = array_get(req->keys, i);
+        if (_get_key(r, key)) {
+            r->cas = true;
+            r = STAILQ_NEXT(r, next);
+            if (r == NULL) {
+                INCR(process_metrics, gets_ex);
+                log_warn("gets response incomplete due to lack of rsp objects");
+            }
+            req->nfound++;
+            INCR(process_metrics, gets_key_hit);
+        } else {
+            INCR(process_metrics, gets_key_miss);
+        }
+    }
+    r->type = RSP_END;
+
+    log_verb("gets req %p processed, %d out of %d keys found", req, req->nfound, i);
+}
+
+static void
+_process_delete(struct response *rsp, struct request *req)
+{
+    INCR(process_metrics, delete);
+    if (cuckoo_delete(array_first(req->keys))) {
+        rsp->type = RSP_DELETED;
+        INCR(process_metrics, delete_deleted);
+    } else {
+        rsp->type = RSP_NOT_FOUND;
+        INCR(process_metrics, delete_notfound);
+    }
+
+    log_verb("delete req %p processed, rsp type %d", req, rsp->type);
+}
+
+static void
+_get_value(struct val *val, struct bstring *vstr)
 {
     rstatus_t status;
 
-    log_verb("processing value at %p, store at %p", val_str, val);
+    log_verb("processing value at %p, store at %p", vstr, val);
 
-    status = bstring_atou64(&val->vint, val_str);
+    status = bstring_atou64(&val->vint, vstr);
     if (status == CC_OK) {
         val->type = VAL_TYPE_INT;
     } else {
         val->type = VAL_TYPE_STR;
-        val->vstr = *val_str;
+        val->vstr = *vstr;
     }
 }
 
-static int
-process_set(struct request *req, struct buf **buf)
+static void
+_process_set(struct response *rsp, struct request *req)
 {
     rstatus_t status = CC_OK;
-    int ret;
     rel_time_t expire;
     struct bstring *key;
     struct item *it;
     struct val val;
 
-    log_verb("processing set req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
+    INCR(process_metrics, set);
+    key = array_first(req->keys);
     expire = time_reltime(req->expiry);
-    process_value(&val, &req->vstr);
+    _get_value(&val, &req->vstr);
 
     it = cuckoo_lookup(key);
     if (it != NULL) {
@@ -217,250 +186,246 @@ process_set(struct request *req, struct buf **buf)
     }
 
     if (status == CC_OK) {
-        INCR(process_metrics, cmd_set_stored);
-        ret = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+        rsp->type = RSP_STORED;
+        INCR(process_metrics, set_stored);
     } else {
-        INCR(process_metrics, cmd_set_ex);
-        ret = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+        rsp->type = RSP_CLIENT_ERROR;
+        rsp->vstr = str2bstr(STORE_ERR_MSG);
+        INCR(process_metrics, set_ex);
     }
 
-    return ret;
+    log_verb("set req %p processed, rsp type %d", req, rsp->type);
 }
 
-static int
-process_add(struct request *req, struct buf **buf)
+static void
+_process_add(struct response *rsp, struct request *req)
 {
-    rstatus_t status = CC_OK;
-    int ret;
-    rel_time_t expire;
     struct bstring *key;
     struct item *it;
     struct val val;
 
-    log_verb("processing add req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
+    INCR(process_metrics, add);
+    key = array_first(req->keys);
     it = cuckoo_lookup(key);
     if (it != NULL) {
-        INCR(process_metrics, cmd_add_notstored);
-        ret = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
+        rsp->type = RSP_NOT_STORED;
+        INCR(process_metrics, add_notstored);
     } else {
-        expire = time_reltime(req->expiry);
-        process_value(&val, &req->vstr);
-        status = cuckoo_insert(key, &val, expire);
-        if (status == CC_OK) {
-            INCR(process_metrics, cmd_add_stored);
-            ret = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+        _get_value(&val, &req->vstr);
+        if (cuckoo_insert(key, &val, time_reltime(req->expiry)) == CC_OK) {
+            rsp->type = RSP_STORED;
+            INCR(process_metrics, add_stored);
         } else {
-            INCR(process_metrics, cmd_add_ex);
-            ret = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+            rsp->type = RSP_CLIENT_ERROR;
+            rsp->vstr = str2bstr(STORE_ERR_MSG);
+            INCR(process_metrics, add_ex);
         }
     }
 
-    return ret;
+    log_verb("add req %p processed, rsp type %d", req, rsp->type);
 }
 
-static int
-process_replace(struct request *req, struct buf **buf)
+static void
+_process_replace(struct response *rsp, struct request *req)
 {
-    rstatus_t status = CC_OK;
-    int ret;
-    rel_time_t expire;
     struct bstring *key;
     struct item *it;
     struct val val;
 
-    log_verb("processing replace req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
+    INCR(process_metrics, replace);
+    key = array_first(req->keys);
     it = cuckoo_lookup(key);
     if (it != NULL) {
-        expire = time_reltime(req->expiry);
-        process_value(&val, &req->vstr);
-        status = cuckoo_update(it, &val, expire);
-        if (status == CC_OK) {
-            INCR(process_metrics, cmd_replace_stored);
-            ret = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+        _get_value(&val, &req->vstr);
+        if (cuckoo_update(it, &val, time_reltime(req->expiry)) == CC_OK) {
+            rsp->type = RSP_STORED;
+            INCR(process_metrics, replace_stored);
         } else {
-            INCR(process_metrics, cmd_replace_ex);
-            ret = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+            rsp->type = RSP_CLIENT_ERROR;
+            rsp->vstr = str2bstr(STORE_ERR_MSG);
+            INCR(process_metrics, replace_ex);
         }
     } else {
-        INCR(process_metrics, cmd_replace_notstored);
-        ret = compose_rsp_msg(buf, RSP_NOT_STORED, req->noreply);
+        rsp->type = RSP_NOT_STORED;
+        INCR(process_metrics, replace_notstored);
     }
 
-    return ret;
+    log_verb("replace req %p processed, rsp type %d", req, rsp->type);
 }
 
-static int
-process_cas(struct request *req, struct buf **buf)
+static void
+_process_cas(struct response *rsp, struct request *req)
 {
-    rstatus_t status = CC_OK;
-    int ret;
-    rel_time_t expire;
     struct bstring *key;
     struct item *it;
     struct val val;
 
-    log_verb("processing cas req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
+    INCR(process_metrics, cas);
+    key = array_first(req->keys);
     it = cuckoo_lookup(key);
     if (it != NULL) {
-        if (item_cas_valid(it, req->cas)) {
-            expire = time_reltime(req->expiry);
-            process_value(&val, &req->vstr);
-            status = cuckoo_update(it, &val, expire);
-            if (status == CC_OK) {
-                INCR(process_metrics, cmd_cas_stored);
-                ret = compose_rsp_msg(buf, RSP_STORED, req->noreply);
+
+        if (item_cas_valid(it, req->vcas)) {
+            _get_value(&val, &req->vstr);
+            if (cuckoo_update(it, &val, time_reltime(req->expiry)) == CC_OK) {
+                rsp->type = RSP_STORED;
+                INCR(process_metrics, cas_stored);
             } else {
-                INCR(process_metrics, cmd_cas_ex);
-                ret = compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
+                rsp->type = RSP_CLIENT_ERROR;
+                rsp->vstr = str2bstr(STORE_ERR_MSG);
+                INCR(process_metrics, cas_ex);
             }
         } else {
-            INCR(process_metrics, cmd_cas_exists);
-            ret = compose_rsp_msg(buf, RSP_EXISTS, req->noreply);
+            rsp->type = RSP_EXISTS;
+            INCR(process_metrics, cas_exists);
         }
     } else {
-        INCR(process_metrics, cmd_cas_notfound);
-        ret = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
+        rsp->type = RSP_NOT_FOUND;
+        INCR(process_metrics, cas_notfound);
     }
 
-    return ret;
+    log_verb("cas req %p processed, rsp type %d", req, rsp->type);
 }
 
-static int
-process_incr(struct request *req, struct buf **buf)
+static void
+_process_incr(struct response *rsp, struct request *req)
 {
-    int status;
     struct bstring *key;
     struct item *it;
-    struct val new_val;
+    struct val nval;
 
-    log_verb("processing incr req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
+    INCR(process_metrics, incr);
+    key = array_first(req->keys);
     it = cuckoo_lookup(key);
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
-            INCR(process_metrics, cmd_incr_ex);
+            rsp->type = RSP_CLIENT_ERROR;
+            rsp->vstr = str2bstr(DELTA_ERR_MSG);
+            INCR(process_metrics, incr_ex);
             /* TODO(yao): binary key */
             log_warn("value not int, cannot apply incr on key %.*s val %.*s",
                     key->len, key->data, it->vlen, ITEM_VAL_POS(it));
-            return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
         }
 
-        new_val.type = VAL_TYPE_INT;
-        new_val.vint = item_value_int(it) + req->delta;
-        item_value_update(it, &new_val);
-        INCR(process_metrics, cmd_incr_stored);
-        status = compose_rsp_uint64(buf, new_val.vint, req->noreply);
+        nval.type = VAL_TYPE_INT;
+        nval.vint = item_value_int(it) + req->delta;
+        item_value_update(it, &nval);
+        rsp->type = RSP_NUMERIC;
+        rsp->vint = nval.vint;
+        INCR(process_metrics, incr_stored);
     } else {
-        INCR(process_metrics, cmd_incr_notfound);
-        status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
+        rsp->type = RSP_NOT_FOUND;
+        INCR(process_metrics, incr_notfound);
     }
 
-    return status;
+    log_verb("incr req %p processed, rsp type %d", req, rsp->type);
 }
 
-static int
-process_decr(struct request *req, struct buf **buf)
+static void
+_process_decr(struct response *rsp, struct request *req)
 {
-    int status;
     struct bstring *key;
     struct item *it;
-    struct val new_val;
+    uint64_t v;
+    struct val nval;
 
-    log_verb("processing decr req %p, rsp buf at %p", req, *buf);
-
-    key = array_get_idx(req->keys, 0);
+    INCR(process_metrics, decr);
+    key = array_first(req->keys);
     it = cuckoo_lookup(key);
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
-            INCR(process_metrics, cmd_decr_ex);
+            rsp->type = RSP_CLIENT_ERROR;
+            rsp->vstr = str2bstr(DELTA_ERR_MSG);
+            INCR(process_metrics, decr_ex);
             /* TODO(yao): binary key */
             log_warn("value not int, cannot apply decr on key %.*s val %.*s",
                     key->len, key->data, it->vlen, ITEM_VAL_POS(it));
-            return compose_rsp_msg(buf, RSP_CLIENT_ERROR, req->noreply);
         }
 
-        new_val.type = VAL_TYPE_INT;
-        new_val.vint = item_value_int(it) - req->delta;
-        item_value_update(it, &new_val);
-        INCR(process_metrics, cmd_decr_stored);
-        status = compose_rsp_uint64(buf, new_val.vint, req->noreply);
+        v = item_value_int(it);
+        nval.type = VAL_TYPE_INT;
+        if (v < req->delta) {
+            nval.vint = 0;
+        } else {
+            nval.vint = v - req->delta;
+        }
+        item_value_update(it, &nval);
+        rsp->type = RSP_NUMERIC;
+        rsp->vint = nval.vint;
+        INCR(process_metrics, decr_stored);
     } else {
-        INCR(process_metrics, cmd_decr_notfound);
-        status = compose_rsp_msg(buf, RSP_NOT_FOUND, req->noreply);
+        rsp->type = RSP_NOT_FOUND;
+        INCR(process_metrics, decr_notfound);
     }
 
-    return status;
+    log_verb("incr req %p processed, rsp type %d", req, rsp->type);
 }
 
-static int
-process_stats(struct request *req, struct buf **buf)
+static void
+_process_flush(struct response *rsp, struct request *req)
 {
-    procinfo_update();
-    return compose_rsp_stats(buf, (struct metric *)&glob_stats,
-            METRIC_CARDINALITY(glob_stats));
-}
-
-static int
-process_flush(struct request *req, struct buf **buf)
-{
+    INCR(process_metrics, flush);
     cuckoo_reset();
-    return compose_rsp_msg(buf, RSP_OK, req->noreply);
+    rsp->type = RSP_OK;
+
+    log_verb("flush req %p processed, rsp type %d", req, rsp->type);
 }
 
-int
-process_request(struct request *req, struct buf **buf)
+void
+process_request(struct response *rsp, struct request *req)
 {
-    log_verb("processing req %p, rsp buf at %p", req, *buf);
-    INCR(process_metrics, cmd_process);
+    log_verb("processing req %p, write rsp to %p", req, rsp);
+    INCR(process_metrics, process_req);
 
-    switch (req->verb) {
+    switch (req->type) {
     case REQ_GET:
-        return process_get(req, buf);
+        _process_get(rsp, req);
+        break;
 
     case REQ_GETS:
-        return process_gets(req, buf);
+        _process_gets(rsp, req);
+        break;
 
     case REQ_DELETE:
-        return process_delete(req, buf);
+        _process_delete(rsp, req);
+        break;
 
     case REQ_SET:
-        return process_set(req, buf);
+        _process_set(rsp, req);
+        break;
 
     case REQ_ADD:
-        return process_add(req, buf);
+        _process_add(rsp, req);
+        break;
 
     case REQ_REPLACE:
-        return process_replace(req, buf);
+        _process_replace(rsp, req);
+        break;
 
     case REQ_CAS:
-        return process_cas(req, buf);
+        _process_cas(rsp, req);
+        break;
 
     case REQ_INCR:
-        return process_incr(req, buf);
+        _process_incr(rsp, req);
+        break;
 
     case REQ_DECR:
-        return process_decr(req, buf);
-
-    case REQ_STATS:
-        return process_stats(req, buf);
+        _process_decr(rsp, req);
+        break;
 
     case REQ_FLUSH:
-        return process_flush(req, buf);
+        _process_flush(rsp, req);
+        break;
 
-    case REQ_QUIT:
-        return CC_ERDHUP;
-
+    case REQ_STATS:
+        /* not implemented right now- we are moving this to the background
+         * thread, which will probably go through a different path
+         */
+        log_info("not implemented at the moment, coming very soon.");
     default:
-        NOT_REACHED();
+        rsp->type = RSP_SERVER_ERROR;
+        rsp->vstr = str2bstr(OTHER_ERR_MSG);
         break;
     }
-
-    return CC_OK;
 }

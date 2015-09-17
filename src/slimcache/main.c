@@ -98,8 +98,6 @@ setup(void)
     buf_setup((uint32_t)setting.buf_init_size.val.vuint, &glob_stats.buf_metrics);
     event_setup(&glob_stats.event_metrics);
     tcp_setup((int)setting.tcp_backlog.val.vuint, &glob_stats.tcp_metrics);
-    klog_setup(setting.klog_file.val.vstr, (uint32_t)setting.klog_nbuf.val.vuint,
-               (uint32_t)setting.klog_intvl.val.vuint);
 
     time_setup();
     status = cuckoo_setup((size_t)setting.cuckoo_item_size.val.vuint,
@@ -114,7 +112,11 @@ setup(void)
     }
     procinfo_setup(&glob_stats.procinfo_metrics);
     request_setup(&glob_stats.request_metrics);
-    codec_setup(&glob_stats.codec_metrics);
+    response_setup(&glob_stats.response_metrics);
+    parse_setup(&glob_stats.parse_req_metrics, NULL);
+    compose_setup(NULL, &glob_stats.compose_rsp_metrics);
+    klog_setup(setting.klog_file.val.vstr, (uint32_t)setting.klog_nbuf.val.vuint,
+               (uint32_t)setting.klog_intvl.val.vuint);
     process_setup(&glob_stats.process_metrics);
 
     /**
@@ -126,6 +128,7 @@ setup(void)
      */
     buf_sock_pool_create((uint32_t)setting.buf_sock_poolsize.val.vuint);
     request_pool_create((uint32_t)setting.request_poolsize.val.vuint);
+    response_pool_create((uint32_t)setting.response_poolsize.val.vuint);
 
     /* set up core after static resources are ready */
     status = getaddr(&ai, setting.server_host.val.vstr,
@@ -181,11 +184,13 @@ error:
     buf_sock_pool_destroy();
     tcp_conn_pool_destroy();
     buf_pool_destroy();
-    log_core_destroy(&lc);
 
     cuckoo_teardown();
     process_teardown();
-    codec_teardown();
+    klog_teardown();
+    compose_teardown();
+    parse_teardown();
+    response_teardown();
     request_teardown();
     procinfo_teardown();
     time_teardown();
@@ -196,6 +201,7 @@ error:
     metric_teardown();
     option_free((struct option *)&setting, nopt);
 
+    log_core_destroy(&lc);
     log_teardown();
 
     exit(EX_CONFIG);

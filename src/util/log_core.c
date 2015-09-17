@@ -63,6 +63,7 @@ log_core_destroy(struct log_core **lc)
         return;
     }
 
+    /* this will allow _log_core_loop to return and the thread recycled */
     __atomic_store_n(&((*lc)->enable), false, __ATOMIC_RELAXED);
 
     cc_free(*lc);

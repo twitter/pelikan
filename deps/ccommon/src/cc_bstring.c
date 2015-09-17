@@ -71,7 +71,7 @@ bstring_duplicate(struct bstring *dst, const struct bstring *src)
     ASSERT(dst->len == 0 && dst->data == NULL);
     ASSERT(src->len != 0 && src->data != NULL);
 
-    dst->data = (uint8_t *)cc_alloc(src->len);
+    dst->data = (char *)cc_alloc(src->len);
     if (dst->data == NULL) {
         return CC_ENOMEM;
     }
@@ -83,12 +83,12 @@ bstring_duplicate(struct bstring *dst, const struct bstring *src)
 }
 
 rstatus_t
-bstring_copy(struct bstring *dst, const uint8_t *src, uint32_t srclen)
+bstring_copy(struct bstring *dst, const char *src, uint32_t srclen)
 {
     ASSERT(dst->len == 0 && dst->data == NULL);
     ASSERT(src != NULL && srclen != 0);
 
-    dst->data = (uint8_t *)cc_alloc(srclen);
+    dst->data = (char *)cc_alloc(srclen);
     if (dst->data == NULL) {
         return CC_ENOMEM;
     }
@@ -117,7 +117,7 @@ rstatus_t
 bstring_atou64(uint64_t *u64, struct bstring *str)
 {
     uint32_t offset;
-    uint8_t c;
+    char c;
 
     *u64 = 0ULL;
 

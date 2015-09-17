@@ -41,7 +41,9 @@ rbuf_setup(rbuf_metrics_st *metrics)
     log_info("set up the %s module", RBUF_MODULE_NAME);
 
     rbuf_metrics = metrics;
-    RBUF_METRIC_INIT(rbuf_metrics);
+    if (metrics != NULL) {
+        RBUF_METRIC_INIT(rbuf_metrics);
+    }
 
     if (rbuf_init) {
         log_warn("%s has already been setup, overwrite", RBUF_MODULE_NAME);

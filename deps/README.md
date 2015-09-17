@@ -26,7 +26,7 @@ git fetch ccommon_remote master
 git subtree pull --prefix=deps/ccommon/ --squash ccommon_remote master
 ```
 
-To update upstream/remote with local changes involves somewhat complicated commands. At a high level, this is done in two steps: first, the local history needs to be sifted to i solate changes that are relevant to the subtree (deps/ccommon in our case), and an alternative "timeline" or history suitable for committing to the remote is created; second, thi s alternative history is pushed back to the remote. See Notes and subtree's github repo for more information.
+To update upstream/remote with local changes involves somewhat complicated commands. At a high level, this is done in two steps: first, the local history needs to be sifted to isolate changes that are relevant to the subtree (deps/ccommon in our case), and an alternative "timeline" or history suitable for committing to the remote is created; second, this alternative history is pushed back to the remote. See Notes and subtree's github repo for more information.
 ```bash
 # first find out the last SHA of a merge from upstream, in this example it is a06437
 git subtree split --prefix=deps/ccommon --annotate='ccommon: ' a064371781e7fa4be044b80353dde9014353d6a5^.. -b ccommon_update

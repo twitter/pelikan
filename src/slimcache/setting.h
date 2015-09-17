@@ -1,8 +1,7 @@
 #pragma once
 
 #include <storage/cuckoo/cuckoo.h>
-#include <protocol/memcache/klog.h>
-#include <protocol/memcache/request.h>
+#include <protocol/memcache_include.h>
 
 #include <buffer/cc_buf.h>
 #include <cc_array.h>
@@ -25,16 +24,18 @@
     ACTION( server_port,    OPTION_TYPE_STR,    "22222",        "port listening on"        )
 
 /* we compose our setting by including options needed by modules we use */
-#define SETTING(ACTION)             \
-    ARRAY_OPTION(ACTION)            \
-    SOCKIO_OPTION(ACTION)           \
-    CUCKOO_OPTION(ACTION)           \
-    LOG_DEBUG_OPTION(ACTION)        \
-    KLOG_OPTION(ACTION)             \
-    BUF_OPTION(ACTION)              \
-    TCP_OPTION(ACTION)              \
-    RING_ARRAY_OPTION(ACTION)       \
-    REQUEST_OPTION(ACTION)          \
+#define SETTING(ACTION)         \
+    ARRAY_OPTION(ACTION)        \
+    BUF_OPTION(ACTION)          \
+    DBUF_OPTION(ACTION)         \
+    SOCKIO_OPTION(ACTION)       \
+    CUCKOO_OPTION(ACTION)       \
+    REQUEST_OPTION(ACTION)      \
+    RESPONSE_OPTION(ACTION)     \
+    KLOG_OPTION(ACTION)         \
+    LOG_DEBUG_OPTION(ACTION)    \
+    TCP_OPTION(ACTION)          \
+    RING_ARRAY_OPTION(ACTION)   \
     SERVER_OPTION(ACTION)
 
 struct setting {

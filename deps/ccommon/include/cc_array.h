@@ -22,6 +22,7 @@ extern "C" {
 #endif
 
 #include <cc_define.h>
+#include <cc_debug.h>
 #include <cc_option.h>
 
 #include <stdint.h>
@@ -41,7 +42,7 @@ struct array {
     uint32_t nalloc;    /* # allocated element */
     size_t   size;      /* element size */
     uint32_t nelem;     /* # element */
-    void     *data;     /* element */
+    void     *data;     /* elements */
 };
 
 
@@ -83,16 +84,48 @@ array_data_assign(struct array *arr, uint32_t nalloc, size_t size, void *data)
     arr->data = data;
 }
 
+/**
+ * return the offset of element in terms of index in the whole array, if the
+ * element is out of bounds, return -1.
+ */
+static inline int
+array_locate(struct array *arr, void *elem) {
+    int idx;
+
+    idx = (elem - arr->data) / arr->size;
+    if (idx < 0 || arr->data + idx * arr->size != elem) {
+        return -1;
+    } else {
+        return idx;
+    }
+}
+
+/* return the idx-th element by address */
+static inline void *
+array_get(struct array *arr, uint32_t idx) {
+    ASSERT(arr->nelem != 0 && idx < arr->nelem);
+
+    return arr->data + arr->size * idx;
+}
+
+static inline void *
+array_first(struct array *arr) {
+    return array_get(arr, 0);
+}
+
+static inline void *
+array_last(struct array *arr) {
+    return array_get(arr, arr->nelem - 1);
+}
+
+
 rstatus_t array_data_create(struct array *arr, uint32_t nalloc, size_t size);
 void array_data_destroy(struct array *arr);
 
 rstatus_t array_create(struct array **arr, uint32_t nalloc, size_t size);
 void array_destroy(struct array **arr);
 
-uint32_t array_locate(struct array *arr, void *elem);
 void *array_push(struct array *arr);
-void *array_get_idx(struct array *arr, uint32_t idx);
-void *array_last(struct array *arr);
 void *array_pop(struct array *arr);
 void array_sort(struct array *arr, array_compare_t compare);
 uint32_t array_each(struct array *arr, array_each_t func, void *arg, err_t *err);

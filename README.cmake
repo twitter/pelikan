@@ -1,24 +1,21 @@
-# ccommon is a submodule of broadbill. To learn about using submodules, follow
-# this link: http://www.git-scm.com/book/en/v2/Git-Tools-Submodules
-
-# to checkout ccommon source when checking out broadbill, use the following
-git clone --recursive https://git.twitter.biz/broadbill
-# to get an updated version of the submodule:
-git submodule update --remote
+# all source code dependencies are under deps/, please read the README there for more information.
+# current dependencies include Check for testing, and some of the usuals on UNIX-like systems:
+# glibc, pthread and systems libraries.
 
 # to turn on/off various compile-time switches, use -D option with cmake
 # Example:
 #     cmake -DHAVE_LOGGING=OFF
 
-# To provide an alternative location of Check (C unit test framework used by
-# this project), which is probably necessary if it is not installed under
-# /usr/local, provide CHECK_ROOT_DIR to cmake
+# To provide an alternative location of Check (C unit test framework used by this project), which is
+# probably necessary if it is not installed under /usr/local, provide CHECK_ROOT_DIR to cmake
 # Example:
 #     cmake -DCHECK_ROOT_DIR=/opt/twitter ..
 
+# cmake recommends out-of-source build, so we do it in a new directory:
 mkdir _build
 cd _build
 cmake ..
-make
+make -j
+make test
 
-# binaries can be found at $(topdir)/bin/broadbill_*
+# executables can be found at $(topdir)/_bin/*

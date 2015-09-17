@@ -9,27 +9,16 @@
 
 #define ITEM_MODULE_NAME "storage::slab::item"
 
-static uint64_t cas_id;                         /* unique cas id */
-static struct hash_table *table;                /* hash table where items are linked */
+struct hash_table *hash_table;                /* hash table where items are linked */
+
+bool use_cas = true;
+uint64_t cas_id = 0;
 
 static bool item_init = false;
 static item_metrics_st *item_metrics = NULL;
 
-static rel_time_t flush_at;
+static rel_time_t flush_at = 0;
 
-/*
- * Returns the next cas id for a new item. Minimum cas value
- * is 1 and the maximum cas value is UINT64_MAX
- */
-static uint64_t
-_item_next_cas(void)
-{
-    if (use_cas) {
-        return ++cas_id;
-    }
-
-    return 0ULL;
-}
 
 static inline bool
 _item_expired(struct item *it)
@@ -38,8 +27,22 @@ _item_expired(struct item *it)
             || (it->create_at <= flush_at));
 }
 
+static inline void
+_copy_key(struct item *it, const struct bstring *key)
+{
+    cc_memcpy(item_key(it), key->data, key->len);
+    it->klen = key->len;
+}
+
+static inline void
+_copy_val(struct item *it, const struct bstring *val)
+{
+    cc_memcpy(item_data(it), val->data, val->len);
+    it->vlen = val->len;
+}
+
 rstatus_t
-item_setup(uint32_t hash_power, item_metrics_st *metrics)
+item_setup(bool enable_cas, uint32_t hash_power, item_metrics_st *metrics)
 {
     log_info("set up the %s module", ITEM_MODULE_NAME);
 
@@ -49,18 +52,17 @@ item_setup(uint32_t hash_power, item_metrics_st *metrics)
 
     log_debug("item hdr size %d", ITEM_HDR_SIZE);
 
-    table = hashtable_create(hash_power);
+    use_cas = enable_cas;
+    hash_table = hashtable_create(hash_power);
 
-    if (table == NULL) {
+    if (hash_table == NULL) {
         return CC_ENOMEM;
     }
 
-    cas_id = 0ULL;
-
-    flush_at = 0;
-
     item_metrics = metrics;
-    ITEM_METRIC_INIT(item_metrics);
+    if (metrics != NULL) {
+        ITEM_METRIC_INIT(item_metrics);
+    }
 
     item_init = true;
 
@@ -76,208 +78,57 @@ item_teardown(void)
         log_warn("%s has never been set up", ITEM_MODULE_NAME);
     }
 
-    hashtable_destroy(table);
+    hashtable_destroy(hash_table);
     item_metrics = NULL;
     item_init = false;
-}
-
-/*
- * Get start location of item payload
- */
-char *
-item_data(struct item *it)
-{
-    char *data;
-
-    ASSERT(it != NULL);
-    ASSERT(it->magic == ITEM_MAGIC);
-
-    if (it->is_raligned) {
-        data = (char *)it + slab_item_size(it->id) - it->vlen;
-    } else {
-        data = it->end + it->klen + (it->has_cas ? sizeof(uint64_t) : 0);
-    }
-
-    return data;
-}
-
-/*
- * Get the slab that contains this item.
- */
-struct slab *
-item_to_slab(struct item *it)
-{
-    struct slab *slab;
-
-    ASSERT(it->magic == ITEM_MAGIC);
-    ASSERT(it->offset < slab_size_setting);
-
-    slab = (struct slab *)((uint8_t *)it - it->offset);
-
-    ASSERT(slab->magic == SLAB_MAGIC);
-
-    return slab;
 }
 
 void
 item_hdr_init(struct item *it, uint32_t offset, uint8_t id)
 {
-    ASSERT(offset >= SLAB_HDR_SIZE && offset < slab_size_setting);
+    ASSERT(offset >= SLAB_HDR_SIZE && offset < slab_size);
 
 #if CC_ASSERT_PANIC == 1 || CC_ASSERT_LOG == 1
     it->magic = ITEM_MAGIC;
 #endif
     it->offset = offset;
     it->id = id;
-    it->refcount = 0;
-    it->is_linked = it->has_cas = it->in_freeq = it->is_raligned = 0;
-}
-
-uint8_t item_slabid(uint8_t klen, uint32_t vlen)
-{
-    size_t ntotal;
-    uint8_t id;
-
-    ntotal = item_ntotal(klen, vlen, use_cas);
-
-    id = slab_id(ntotal);
-    if (id == SLABCLASS_INVALID_ID) {
-        log_info("slab class id out of range with %"PRIu8" bytes "
-                  "key, %"PRIu32" bytes value and %zu item chunk size", klen,
-                  vlen, ntotal);
-    }
-
-    return id;
-}
-
-static void
-_item_free(struct item *it)
-{
-    ASSERT(it->magic == ITEM_MAGIC);
-
-    slab_put_item(it, it->id);
-
-    INCR(item_metrics, item_remove);
-}
-
-static void
-_item_acquire_refcount(struct item *it)
-{
-    ASSERT(it->magic == ITEM_MAGIC);
-
-    it->refcount++;
-    slab_acquire_refcount(item_to_slab(it));
-}
-
-static void
-_item_release_refcount(struct item *it)
-{
-    ASSERT(it->magic == ITEM_MAGIC);
-    ASSERT(!(it->in_freeq));
-
-    log_debug("remove it '%.*s' at offset %"PRIu32" with flags "
-              "%d %d %d %d id %"PRId8" refcount %"PRIu16"",
-              it->klen, item_key(it), it->offset, it->is_linked,
-              it->has_cas, it->in_freeq, it->is_raligned, it->id,
-              it->refcount);
-
-    if (it->refcount != 0) {
-        --it->refcount;
-        slab_release_refcount(item_to_slab(it));
-    }
-
-    if (it->refcount == 0 && !(it->is_linked)) {
-        _item_free(it);
-    }
+    it->is_linked = it->in_freeq = it->is_raligned = 0;
 }
 
 /*
  * Allocate an item. We allocate an item by consuming the next free item
  * from slab of the item's slab class.
  *
- * On success we return the pointer to the allocated item. The returned item
- * is refcounted so that it is not deleted under callers nose. It is the
- * callers responsibilty to release this refcount when the item is inserted
- * into the hash or is freed.
+ * On success we return the pointer to the allocated item.
  */
-item_rstatus_t
-item_alloc(struct item **it_p, const struct bstring *key, rel_time_t expire_at, uint32_t vlen)
+static item_rstatus_t
+_item_alloc(struct item **it_p, uint8_t klen, uint32_t vlen)
 {
-    uint8_t id;
+    uint8_t id = slab_id(item_ntotal(klen, vlen));
     struct item *it;
 
-    log_verb("allocate item with klen %u vlen %u", key->len, vlen);
-
-    id = slab_id(item_ntotal(key->len, vlen, use_cas));
+    log_verb("allocate item with klen %u vlen %u", klen, vlen);
 
     if (id == SLABCLASS_INVALID_ID) {
         return ITEM_EOVERSIZED;
     }
 
-    ASSERT(id >= SLABCLASS_MIN_ID && id <= SLABCLASS_MAX_ID);
-
-    *it_p = slab_get_item(id);
-    it = *it_p;
-
+    it = slab_get_item(id);
+    *it_p = it;
     if (it != NULL) {
-        goto alloc_done;
+        INCR(item_metrics, item_req);
+
+        log_verb("alloc it %p of id %"PRIu8" at offset %"PRIu32, it, it->id,
+                it->offset);
+
+        return ITEM_OK;
+    } else {
+        INCR(item_metrics, item_req_ex);
+        log_warn("server error on allocating item in slab %"PRIu8, id);
+
+        return ITEM_ENOMEM;
     }
-
-    log_warn("server error on allocating item in slab %"PRIu8, id);
-    INCR(item_metrics, item_req_ex);
-
-    return ITEM_ENOMEM;
-
-alloc_done:
-
-    ASSERT(it->id == id);
-    ASSERT(!(it->is_linked));
-    ASSERT(!(it->in_freeq));
-    ASSERT(it->offset != 0);
-    ASSERT(it->refcount == 0);
-
-    _item_acquire_refcount(it);
-
-    it->has_cas = use_cas ? 1 : 0;
-    it->is_raligned = 0;
-    it->vlen = vlen;
-    it->expire_at = expire_at;
-    it->klen = key->len;
-
-    cc_memcpy(item_key(it), key->data, key->len);
-    item_set_cas(it, 0);
-
-    log_verb("alloc it '%.*s' at offset %"PRIu32" with id %"PRIu8
-             " expiry %u refcount %"PRIu16"", key->len, key->data,
-             it->offset, it->id, expire_at, it->refcount);
-
-    INCR(item_metrics, item_req);
-
-    return ITEM_OK;
-}
-
-/*
- * Make an item with zero refcount available for reuse by unlinking
- * it from the hash.
- *
- * Don't free the item yet because that would make it unavailable
- * for reuse.
- */
-void
-item_reuse(struct item *it)
-{
-    ASSERT(it->magic == ITEM_MAGIC);
-    ASSERT(!(it->in_freeq));
-    ASSERT(it->is_linked);
-    ASSERT(it->refcount == 0);
-
-    it->is_linked = 0;
-
-    hashtable_delete((uint8_t *)item_key(it), it->klen, table);
-
-    log_verb("reuse %s it '%.*s' at offset %"PRIu32" with id "
-              "%"PRIu8"", _item_expired(it) ? "expired" : "evicted",
-              it->klen, item_key(it), it->offset, it->id);
 }
 
 /*
@@ -290,262 +141,135 @@ _item_link(struct item *it)
     ASSERT(!(it->is_linked));
     ASSERT(!(it->in_freeq));
 
-    log_debug("link it '%.*s' at offset %"PRIu32" with flags "
-              "%d %d %d %d id %"PRId8"", it->klen, item_key(it), it->offset,
-              it->is_linked, it->has_cas, it->in_freeq, it->is_raligned, it->id);
+    log_verb("link it %p of id %"PRIu8" at offset %"PRIu32, it, it->id,
+            it->offset);
 
     it->is_linked = 1;
-    item_set_cas(it, _item_next_cas());
 
-    hashtable_put(it, table);
+    hashtable_put(it, hash_table);
 
-    it->create_at = time_now();
-
-    INCR(item_metrics, item_link);
     INCR(item_metrics, item_curr);
+    INCR(item_metrics, item_insert);
     INCR_N(item_metrics, item_keyval_byte, it->klen + it->vlen);
     INCR_N(item_metrics, item_val_byte, it->vlen);
 }
 
 /*
- * Unlinks an item from the hash table. Free an unlinked
- * item if it's refcount is zero.
+ * Unlinks an item from the hash table.
  */
 static void
 _item_unlink(struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
 
-    log_debug("unlink it '%.*s' at offset %"PRIu32" with flags "
-              "%d %d %d %d id %"PRId8"", it->klen, item_key(it), it->offset,
-              it->is_linked, it->has_cas, it->in_freeq, it->is_raligned, it->id);
-
-    INCR(item_metrics, item_unlink);
-    DECR(item_metrics, item_curr);
-    DECR_N(item_metrics, item_keyval_byte, it->klen + it->vlen);
-    DECR_N(item_metrics, item_val_byte, it->vlen);
+    log_verb("unlink it %p of id %"PRIu8" at offset %"PRIu32, it, it->id,
+            it->offset);
 
     if (it->is_linked) {
         it->is_linked = 0;
-
-        hashtable_delete((uint8_t *)item_key(it), it->klen, table);
-
-        if (it->refcount == 0) {
-            _item_free(it);
-        }
+        hashtable_delete(item_key(it), it->klen, hash_table);
     }
+    slab_put_item(it, it->id);
+
+    DECR(item_metrics, item_curr);
+    INCR(item_metrics, item_remove);
+    DECR_N(item_metrics, item_keyval_byte, it->klen + it->vlen);
+    DECR_N(item_metrics, item_val_byte, it->vlen);
 }
 
-/*
- * Replace one item with another in the hash table.
- */
-static void
-_item_relink(struct item *it, struct item *nit)
-{
-    ASSERT(it->magic == ITEM_MAGIC);
-    ASSERT(!(it->in_freeq));
-
-    ASSERT(nit->magic == ITEM_MAGIC);
-    ASSERT(!(nit->in_freeq));
-
-    log_verb("relink it '%.*s' at offset %"PRIu32" id %"PRIu8" "
-              "with one at offset %"PRIu32" id %"PRIu8"", it->klen,
-              item_key(it), it->offset, it->id, nit->offset, nit->id);
-
-    _item_unlink(it);
-    _item_link(nit);
-}
-
-/*
+/**
  * Return an item if it hasn't been marked as expired, lazily expiring
  * item as-and-when needed
- *
- * When a non-null item is returned, it's the callers responsibily to
- * release refcount on the item
  */
 struct item *
 item_get(const struct bstring *key)
 {
     struct item *it;
 
-    it = hashtable_get(key->data, key->len, table);
+    it = hashtable_get(key->data, key->len, hash_table);
     if (it == NULL) {
         log_verb("get it '%.*s' not found", key->len, key->data);
         return NULL;
     }
 
-    if (_item_expired(it) || it->create_at <= flush_at) {
+    if (_item_expired(it)) {
         _item_unlink(it);
         log_verb("get it '%.*s' expired and nuked", key->len, key->data);
         return NULL;
     }
 
-    _item_acquire_refcount(it);
-
-    log_verb("get it '%.*s' found at offset %"PRIu32" with flags "
-             "%d %d %d %d id %"PRIu8" refcount %"PRIu32"", key->len, key->data,
-             it->offset, it->is_linked, it->has_cas, it->in_freeq, it->is_raligned, it->id);
+    log_verb("get it %p of id %"PRIu8, it, it->id);
 
     return it;
 }
 
-static void
-item_check_type(struct item *it)
-{
-    struct bstring val;
-    uint64_t vint;
-
-    ASSERT(it != NULL);
-
-    val.len = it->vlen;
-    val.data = (uint8_t *)item_data(it);
-
-    if (bstring_atou64(&vint, &val) == CC_OK) {
-        it->vtype = V_INT;
-    } else {
-        it->vtype = V_STR;
-    }
-}
-
 item_rstatus_t
-item_set(const struct bstring *key, const struct bstring *val, rel_time_t expire_at)
+item_insert(const struct bstring *key, const struct bstring *val, rel_time_t expire_at)
 {
     item_rstatus_t status;
-    struct item *it = NULL, *oit;
+    struct item *it = NULL;
 
-    if ((status = item_alloc(&it, key, expire_at, val->len)) != ITEM_OK) {
+    if ((status = _item_alloc(&it, key->len, val->len)) != ITEM_OK) {
         return status;
     }
 
-    ASSERT(it != NULL);
+    it->expire_at = expire_at;
+    it->create_at = time_now();
+    _copy_key(it, key);
+    _copy_val(it, val);
+    item_set_cas(it);
+    _item_link(it);
 
-    cc_memcpy(item_data(it), val->data, val->len);
-    item_check_type(it);
-
-    oit = item_get(key);
-
-    if (oit == NULL) {
-        _item_link(it);
-    } else {
-        _item_relink(oit, it);
-        _item_release_refcount(oit);
-    }
-
-    log_verb("store it '%.*s'at offset %"PRIu32" with flags %d %d %d %d"
-             " id %"PRId8"", key->len, key->data, it->offset, it->is_linked,
-             it->has_cas, it->in_freeq, it->is_raligned, it->id);
-
-    _item_release_refcount(it);
+    log_verb("insert it %p of id %"PRIu8" it->klen: %d", it, it->id, it->klen);
 
     return ITEM_OK;
 }
 
 item_rstatus_t
-item_cas(const struct bstring *key, const struct bstring *val, rel_time_t expire_at, uint64_t cas)
+item_annex(struct item *oit, const struct bstring *key, const struct bstring *val, bool append)
 {
-    item_rstatus_t ret;
-    struct item *it = NULL, *oit;
-
-    oit = item_get(key);
-
-    if (oit == NULL) {
-        ret = ITEM_ENOTFOUND;
-
-        goto cas_done;
-    }
-
-    if (cas != item_get_cas(oit)) {
-        log_debug("cas mismatch %"PRIu64" != %"PRIu64 "on "
-                  "it '%.*s'", item_get_cas(oit), cas, key->len, key->data);
-
-        ret = ITEM_EOTHER;
-
-        goto cas_done;
-    }
-
-    if ((ret = item_alloc(&it, key, expire_at, val->len)) != ITEM_OK) {
-        return ret;
-    }
-
-    ASSERT(it != NULL);
-
-    item_set_cas(it, cas);
-    cc_memcpy(item_data(it), val->data, val->len);
-    item_check_type(it);
-
-    _item_relink(oit, it);
-    ret = ITEM_OK;
-
-    log_verb("cas it '%.*s'at offset %"PRIu32" with flags %d %d %d %d"
-             " id %"PRId8"", key->len, key->data, it->offset, it->is_linked,
-             it->has_cas, it->in_freeq, it->is_raligned, it->id);
-
-cas_done:
-    if (oit != NULL) {
-        _item_release_refcount(oit);
-    }
-
-    if (it != NULL) {
-        _item_release_refcount(it);
-    }
-
-    return ret;
-}
-
-item_rstatus_t
-item_annex(const struct bstring *key, const struct bstring *val, bool append)
-{
-    item_rstatus_t ret;
-    struct item *oit, *nit;
+    item_rstatus_t status = ITEM_OK;
+    struct item *nit = NULL;
     uint8_t id;
-    uint32_t total_nbyte;
+    uint32_t ntotal = oit->vlen + val->len;
 
-    ret = ITEM_OK;
-
-    oit = item_get(key);
-    nit = NULL;
-    if (oit == NULL) {
-        ret = ITEM_ENOTFOUND;
-
-        goto annex_done;
-    }
-
-    total_nbyte = oit->vlen + val->len;
-    id = item_slabid(key->len, total_nbyte);
+    id = item_slabid(oit->klen, ntotal);
     if (id == SLABCLASS_INVALID_ID) {
-        log_info("client error: annex operation results in oversized item"
-                   "on key '%.*s' with key size %"PRIu8" and value size %"PRIu32,
-                   key->len, key->data, key->len, total_nbyte);
+        log_info("client error: annex operation results in oversized item with"
+                   "key size %"PRIu8" old value size %"PRIu32" and new value "
+                   "size %"PRIu32, oit->klen, oit->vlen, ntotal);
 
-        ret = ITEM_EOVERSIZED;
-
-        goto annex_done;
+        return ITEM_EOVERSIZED;
     }
-
-    log_verb("annex to oit '%.*s'at offset %"PRIu32" with flags %d %d %d %d"
-             " id %"PRId8"", oit->klen, item_key(oit), oit->offset, oit->is_linked,
-             oit->has_cas, oit->in_freeq, oit->is_raligned, oit->id);
 
     if (append) {
-        /* if oit is large enough to hold the extra data and left-aligned,
+        /* if it is large enough to hold the extra data and left-aligned,
          * which is the default behavior, we copy the delta to the end of
          * the existing data. Otherwise, allocate a new item and store the
          * payload left-aligned.
          */
         if (id == oit->id && !(oit->is_raligned)) {
             cc_memcpy(item_data(oit) + oit->vlen, val->data, val->len);
-            oit->vlen = total_nbyte;
-            item_set_cas(oit, _item_next_cas());
-            item_check_type(oit);
+            oit->vlen = ntotal;
+            INCR_N(item_metrics, item_keyval_byte, val->len);
+            INCR_N(item_metrics, item_val_byte, val->len);
+            item_set_cas(oit);
         } else {
-            if ((ret = item_alloc(&nit, key, oit->expire_at, total_nbyte)) != ITEM_OK) {
-                goto annex_done;
+            status = _item_alloc(&nit, key->len, ntotal);
+            if (status != ITEM_OK) {
+                log_debug("annex failed due to failure to allocate new item");
+                return status;
             }
-
+            _copy_key(nit, key);
+            nit->expire_at = oit->expire_at;
+            nit->create_at = time_now();
+            item_set_cas(nit);
+            /* value is left-aligned */
             cc_memcpy(item_data(nit), item_data(oit), oit->vlen);
             cc_memcpy(item_data(nit) + oit->vlen, val->data, val->len);
-            item_check_type(nit);
-            _item_relink(oit, nit);
+            nit->vlen = ntotal;
+            _item_unlink(oit);
+            _item_link(nit);
         }
     } else {
         /* if oit is large enough to hold the extra data and is already
@@ -555,71 +279,60 @@ item_annex(const struct bstring *key, const struct bstring *val, bool append)
          */
         if (id == oit->id && oit->is_raligned) {
             cc_memcpy(item_data(oit) - val->len, val->data, val->len);
-            oit->vlen = total_nbyte;
-            item_check_type(oit);
-            item_set_cas(oit, _item_next_cas());
+            oit->vlen = ntotal;
+            INCR_N(item_metrics, item_keyval_byte, val->len);
+            INCR_N(item_metrics, item_val_byte, val->len);
+            item_set_cas(oit);
         } else {
-            if ((ret = item_alloc(&nit, key, oit->expire_at, total_nbyte)) != ITEM_OK) {
-                goto annex_done;
+            status = _item_alloc(&nit, key->len, ntotal);
+            if (status != ITEM_OK) {
+                log_debug("annex failed due to failure to allocate new item");
+                return status;
             }
-
+            _copy_key(nit, key);
+            nit->expire_at = oit->expire_at;
+            nit->create_at = time_now();
+            item_set_cas(nit);
+            /* value is right-aligned */
             nit->is_raligned = 1;
-            cc_memcpy(item_data(nit) + val->len, item_data(oit), oit->vlen);
-            cc_memcpy(item_data(nit), val->data, val->len);
-            item_check_type(nit);
-            _item_relink(oit, nit);
+            cc_memcpy(item_data(nit) - ntotal, val->data, val->len);
+            cc_memcpy(item_data(nit) - oit->vlen, item_data(oit), oit->vlen);
+            nit->vlen = ntotal;
+            _item_unlink(oit);
+            _item_link(nit);
         }
     }
 
-    log_verb("annex successfully to it'%.*s', new id"PRId8,
-             oit->klen, item_key(oit), id);
+    log_verb("annex to it %p of id %"PRIu8", new it at %p", oit, oit->id,
+            nit ? oit : nit);
 
-
-annex_done:
-    if (oit != NULL) {
-        _item_release_refcount(oit);
-    }
-
-    if (nit != NULL) {
-        _item_release_refcount(nit);
-    }
-
-    return ret;
+    return status;
 }
 
 item_rstatus_t
 item_update(struct item *it, const struct bstring *val)
 {
-    ASSERT(it != NULL);
-    ASSERT(it->id != SLABCLASS_INVALID_ID);
-
-    if (item_slabid(it->klen, val->len) != it->id) {
-        /* val is oversized */
-        return ITEM_EOVERSIZED;
-    }
-
     it->vlen = val->len;
     cc_memcpy(item_data(it), val->data, val->len);
-    item_check_type(it);
+    item_set_cas(it);
+
+    log_verb("update it %p of id %"PRIu8, it, it->id);
 
     return ITEM_OK;
 }
 
-item_rstatus_t
+bool
 item_delete(const struct bstring *key)
 {
-    item_rstatus_t ret = ITEM_OK;
     struct item *it;
 
     it = item_get(key);
     if (it != NULL) {
         _item_unlink(it);
-        _item_release_refcount(it);
+        return true;
     } else {
-        ret = ITEM_ENOTFOUND;
+        return false;
     }
-
-    return ret;
 }
 
 void
@@ -627,4 +340,5 @@ item_flush(void)
 {
     time_update();
     flush_at = time_now();
+    log_info("all keys flushed at %"PRIu32, flush_at);
 }

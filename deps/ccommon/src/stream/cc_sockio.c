@@ -151,7 +151,6 @@ dbuf_tcp_read(struct buf_sock *s)
     ASSERT(c != NULL && h != NULL && s->rbuf != NULL);
     ASSERT(h->recv != NULL);
 
-
     do {
         /*
          * Try to recv:
