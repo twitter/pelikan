@@ -204,7 +204,7 @@ item_get(const struct bstring *key)
 }
 
 item_rstatus_t
-item_insert(const struct bstring *key, const struct bstring *val, rel_time_t expire_at)
+item_insert(const struct bstring *key, const struct bstring *val, uint32_t dataflag, rel_time_t expire_at)
 {
     item_rstatus_t status;
     struct item *it = NULL;
@@ -215,12 +215,13 @@ item_insert(const struct bstring *key, const struct bstring *val, rel_time_t exp
 
     it->expire_at = expire_at;
     it->create_at = time_now();
+    it->dataflag = dataflag;
     _copy_key(it, key);
     _copy_val(it, val);
     item_set_cas(it);
     _item_link(it);
 
-    log_verb("insert it %p of id %"PRIu8" it->klen: %d", it, it->id, it->klen);
+    log_verb("insert it %p of id %"PRIu8" it->klen: %d dataflag %u", it, it->id, it->klen, it->dataflag);
 
     return ITEM_OK;
 }
@@ -263,6 +264,7 @@ item_annex(struct item *oit, const struct bstring *key, const struct bstring *va
             _copy_key(nit, key);
             nit->expire_at = oit->expire_at;
             nit->create_at = time_now();
+            nit->dataflag = oit->dataflag;
             item_set_cas(nit);
             /* value is left-aligned */
             cc_memcpy(item_data(nit), item_data(oit), oit->vlen);
@@ -292,6 +294,7 @@ item_annex(struct item *oit, const struct bstring *key, const struct bstring *va
             _copy_key(nit, key);
             nit->expire_at = oit->expire_at;
             nit->create_at = time_now();
+            nit->dataflag = oit->dataflag;
             item_set_cas(nit);
             /* value is right-aligned */
             nit->is_raligned = 1;

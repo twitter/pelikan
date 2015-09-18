@@ -86,6 +86,7 @@ struct item {
                                         by the implementation, i.e. SLAB_MAX_SIZE */
 
     uint32_t          offset;        /* offset of item in slab */
+    uint32_t          dataflag;      /* data flags opaque to the server */
     uint8_t           id;            /* slab class id */
     uint8_t           klen;          /* key length */
     uint16_t          padding;       /* keep end 64-bit aligned, it may be a cas */
@@ -115,7 +116,7 @@ extern uint64_t cas_id;
 static inline uint32_t
 item_flag(struct item *it)
 {
-    return 0;
+    return it->dataflag;
 }
 
 static inline uint64_t
@@ -237,7 +238,7 @@ void item_hdr_init(struct item *it, uint32_t offset, uint8_t id);
 struct item *item_get(const struct bstring *key);
 
 /* Insert item, this assumes the key does not exist */
-item_rstatus_t item_insert(const struct bstring *key, const struct bstring *val, rel_time_t expire_at);
+item_rstatus_t item_insert(const struct bstring *key, const struct bstring *val, uint32_t dataflag, rel_time_t expire_at);
 
 /* Append/prepend */
 item_rstatus_t item_annex(struct item *it, const struct bstring *key, const struct bstring *val, bool append);

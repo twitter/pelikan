@@ -172,7 +172,7 @@ _process_set(struct response *rsp, struct request *req)
     INCR(process_metrics, set);
     key = array_first(req->keys);
     item_delete(key);
-    status = item_insert(key, &(req->vstr), time_reltime(req->expiry));
+    status = item_insert(key, &(req->vstr), req->flag, time_reltime(req->expiry));
     if (status == ITEM_OK) {
         rsp->type = RSP_STORED;
         INCR(process_metrics, set_stored);
@@ -196,7 +196,7 @@ _process_add(struct response *rsp, struct request *req)
         rsp->type = RSP_NOT_STORED;
         INCR(process_metrics, add_notstored);
     } else {
-        status = item_insert(key, &(req->vstr), time_reltime(req->expiry));
+        status = item_insert(key, &(req->vstr), req->flag, time_reltime(req->expiry));
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, add_stored);
@@ -219,7 +219,7 @@ _process_replace(struct response *rsp, struct request *req)
     key = array_first(req->keys);
     if (item_get(key) != NULL) {
         item_delete(key);
-        status = item_insert(key, &(req->vstr), time_reltime(req->expiry));
+        status = item_insert(key, &(req->vstr), req->flag, time_reltime(req->expiry));
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, replace_stored);
@@ -252,7 +252,7 @@ _process_cas(struct response *rsp, struct request *req)
         INCR(process_metrics, cas_exists);
     } else {
         item_delete(key);
-        status = item_insert(key, &(req->vstr), time_reltime(req->expiry));
+        status = item_insert(key, &(req->vstr), req->flag, time_reltime(req->expiry));
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, cas_stored);
@@ -294,8 +294,9 @@ _process_delta(struct response *rsp, struct item *it, const struct request *req,
         if (item_slabid(it->klen, nval.len) == it->id) {
             status = item_update(it, &nval);
         } else {
+            uint32_t dataflag = it->dataflag;
             item_delete(key);
-            status = item_insert(key, &nval, it->expire_at);
+            status = item_insert(key, &nval, dataflag, it->expire_at);
         }
     }
 
