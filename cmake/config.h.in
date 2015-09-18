@@ -21,3 +21,5 @@
 #cmakedefine TARGET_SLIMCACHE
 
 #cmakedefine TARGET_TWEMCACHE
+
+#cmakedefine TARGET_REDIS
