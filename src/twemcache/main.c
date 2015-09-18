@@ -33,11 +33,11 @@ show_usage(void)
 {
     log_stdout(
             "Usage:" CRLF
-            "  broadbill_twemcache [option|config]" CRLF
+            "  pelikan_twemcache [option|config]" CRLF
             );
     log_stdout(
             "Description:" CRLF
-            "  broadbill_twemcache is one of the unified cache backends. " CRLF
+            "  pelikan_twemcache is one of the unified cache backends. " CRLF
             "  It uses a slab based key/val storage scheme to cache key/val" CRLF
             "  pairs. It speaks the memcached protocol and supports all " CRLF
             "  ASCII memcached commands." CRLF
@@ -49,7 +49,7 @@ show_usage(void)
             );
     log_stdout(
             "Example:" CRLF
-            "  ./broadbill_twemcache ../template/twemcache.conf" CRLF
+            "  ./pelikan_twemcache ../template/twemcache.conf" CRLF
             );
     log_stdout("Setting & Default Values:");
     SETTING(PRINT_DEFAULT)

@@ -30,11 +30,11 @@ show_usage(void)
 {
     log_stdout(
             "Usage:" CRLF
-            "  broadbill_slimcache [option|config]" CRLF
+            "  pelikan_slimcache [option|config]" CRLF
             );
     log_stdout(
             "Description:" CRLF
-            "  broadbill_slimcache is one of the unified cache backends. " CRLF
+            "  pelikan_slimcache is one of the unified cache backends. " CRLF
             "  It uses cuckoo hashing to efficiently store small key/val " CRLF
             "  pairs. It speaks the memcached protocol and supports all " CRLF
             "  ASCII memcached commands (except for prepend/append). " CRLF
@@ -50,7 +50,7 @@ show_usage(void)
             );
     log_stdout(
             "Example:" CRLF
-            "  ./broadbill_slimcache ../template/slimcache.config" CRLF
+            "  ./pelikan_slimcache ../template/slimcache.config" CRLF
             );
     log_stdout("Setting & Default Values:");
     SETTING(PRINT_DEFAULT)

@@ -1,8 +1,8 @@
-#define VERSION_MAJOR @broadbill_VERSION_MAJOR@
-#define VERSION_MINOR @broadbill_VERSION_MINOR@
-#define VERSION_PATCH @broadbill_VERSION_PATCH@
+#define VERSION_MAJOR @pelikan_VERSION_MAJOR@
+#define VERSION_MINOR @pelikan_VERSION_MINOR@
+#define VERSION_PATCH @pelikan_VERSION_PATCH@
 
-#define VERSION_STRING "@broadbill_VERSION_MAJOR@.@broadbill_VERSION_MINOR@.@broadbill_VERSION_PATCH@"
+#define VERSION_STRING "@pelikan_VERSION_MAJOR@.@pelikan_VERSION_MINOR@.@pelikan_VERSION_PATCH@"
 
 #define OS_PLATFORM @OS_PLATFORM@
 

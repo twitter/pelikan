@@ -7,7 +7,7 @@ struct addrinfo;
 /* Daemonize the process (have it run in the background) */
 void daemonize(void);
 
-/* Print the current version of broadbill */
+/* Print the current version executable */
 void show_version(void);
 
 /* Init ai */
