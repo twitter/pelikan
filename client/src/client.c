@@ -68,9 +68,9 @@ setup(void)
     rstatus_t status;
 
     log_setup(NULL);
-    status = debug_setup((int)setting.log_debug_level.val.vuint,
-                         setting.log_debug_file.val.vstr,
-                         setting.log_debug_nbuf.val.vuint);
+    status = debug_setup((int)setting.debug_log_level.val.vuint,
+                         setting.debug_log_file.val.vstr,
+                         setting.debug_log_nbuf.val.vuint);
 
     if (status < 0) {
         log_stderr("Log setup failed");

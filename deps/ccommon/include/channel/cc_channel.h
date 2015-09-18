@@ -39,6 +39,7 @@ extern "C" {
 #endif
 
 #include <cc_queue.h>
+#include <cc_signal.h>
 
 #include <stdbool.h>
 #include <sys/types.h>
@@ -114,6 +115,12 @@ enum {
     CHANNEL_SENTINEL
 };
 
+static inline int
+channel_sigpipe_ignore(void)
+{
+    /* if sigpipe is not ignored, the application will crash/exit upon signal */
+    return signal_override(SIGPIPE, "ignoring sigpipe", 0, 0, SIG_IGN);
+}
 #ifdef __cplusplus
 }
 #endif

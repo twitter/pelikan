@@ -12,7 +12,6 @@
 #include <cc_debug.h>
 #include <cc_metric.h>
 #include <cc_option.h>
-#include <cc_signal.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -66,15 +65,15 @@ setup(void)
 
     /* Setup log */
     log_setup(&glob_stats.log_metrics);
-    status = debug_setup((int)setting.log_debug_level.val.vuint,
-                      setting.log_debug_file.val.vstr,
-                      setting.log_debug_nbuf.val.vuint);
+    status = debug_setup((int)setting.debug_log_level.val.vuint,
+                      setting.debug_log_file.val.vstr,
+                      setting.debug_log_nbuf.val.vuint);
     if (status < 0) {
         log_error("log setup failed");
         goto error;
     }
 
-    lc = log_core_create(debug_logger, (int)setting.log_debug_intvl.val.vuint);
+    lc = log_core_create(dlog->logger, (int)setting.debug_log_intvl.val.vuint);
     if (lc == NULL) {
         log_stderr("Could not set up log core!");
         goto error;
@@ -151,22 +150,6 @@ setup(void)
 
     if (status != CC_OK) {
         log_crit("could not start core event loop");
-        goto error;
-    }
-
-    /* override signals that we want to customize */
-    status = signal_segv_stacktrace();
-    if (status < 0) {
-        goto error;
-    }
-
-    status = signal_ttin_logrotate();
-    if (status < 0) {
-        goto error;
-    }
-
-    status = signal_pipe_ignore();
-    if (status < 0) {
         goto error;
     }
 

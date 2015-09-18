@@ -42,16 +42,16 @@ void
 pipe_setup(pipe_metrics_st *metrics)
 {
     log_info("set up the %s module", PIPE_MODULE_NAME);
-    log_debug("pipe_conn size %zu", sizeof(struct pipe_conn));
+    if (pipe_init) {
+        log_warn("%s has already been setup, overwrite", PIPE_MODULE_NAME);
+    }
 
     pipe_metrics = metrics;
     if (metrics != NULL) {
         PIPE_METRIC_INIT(pipe_metrics);
     }
 
-    if (pipe_init) {
-        log_warn("%s has already been setup, overwrite", PIPE_MODULE_NAME);
-    }
+    channel_sigpipe_ignore(); /* does it ever fail */
     pipe_init = true;
 }
 

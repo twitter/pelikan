@@ -6,13 +6,6 @@
 
 #include <string.h>
 
-struct log_core {
-    pthread_t thread;
-    struct logger *logger;
-    int interval;
-    bool enable;
-};
-
 static void *
 log_core_loop(struct log_core *lc)
 {
@@ -40,7 +33,6 @@ log_core_create(struct logger *logger, int flush_interval)
     lc->enable = true;
 
     status = pthread_create(&(lc->thread), NULL, (void*(*)(void *))log_core_loop, lc);
-
     if (status != 0) {
         log_error("Could not create log core: %s", strerror(status));
         cc_free(lc);
@@ -48,7 +40,6 @@ log_core_create(struct logger *logger, int flush_interval)
     }
 
     status = pthread_detach(lc->thread);
-
     if (status != 0) {
         log_error("Could not detach log core thread: %s", strerror(status));
     }

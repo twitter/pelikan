@@ -47,7 +47,10 @@ void
 tcp_setup(int backlog, tcp_metrics_st *metrics)
 {
     log_info("set up the %s module", TCP_MODULE_NAME);
-    log_debug("tcp_conn size %zu", sizeof(struct tcp_conn));
+
+    if (tcp_init) {
+        log_warn("%s has already been setup, overwrite", TCP_MODULE_NAME);
+    }
 
     max_backlog = backlog;
     tcp_metrics = metrics;
@@ -55,9 +58,7 @@ tcp_setup(int backlog, tcp_metrics_st *metrics)
         TCP_METRIC_INIT(tcp_metrics);
     }
 
-    if (tcp_init) {
-        log_warn("%s has already been setup, overwrite", TCP_MODULE_NAME);
-    }
+    channel_sigpipe_ignore(); /* does it ever fail? */
     tcp_init = true;
 }
 

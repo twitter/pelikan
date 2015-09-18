@@ -23,8 +23,27 @@ extern "C" {
 
 #include <cc_define.h>
 #include <cc_log.h>
+#include <cc_signal.h>
 
 #include <stdint.h>
+
+#define DEBUG_LOG_LEVEL 4         /* default log level */
+#define DEBUG_LOG_NBUF  4 * MiB   /* default log buf size */
+#define DEBUG_LOG_INTVL 100000    /* flush every 100 milliseconds */
+
+/*          name             type              default               description */
+#define DEBUG_OPTION(ACTION)                                                                    \
+    ACTION( debug_log_level, OPTION_TYPE_UINT, str(DEBUG_LOG_LEVEL), "debug log level"         )\
+    ACTION( debug_log_file,  OPTION_TYPE_STR,  NULL,                 "debug log file"          )\
+    ACTION( debug_log_nbuf,  OPTION_TYPE_UINT, str(DEBUG_LOG_NBUF),  "debug log buf size"      )\
+    ACTION( debug_log_intvl, OPTION_TYPE_UINT, str(DEBUG_LOG_INTVL), "debug log flush interval")
+
+/**
+ * the debug module override the following signal handlers:
+ *
+ * - SIGTTIN: reload debug log file
+ * - SIGSEGV: print stacktrace before reraise segfault again
+ */
 
 /*
  * Wrappers for defining custom assert based on whether macro
@@ -60,7 +79,6 @@ extern "C" {
 #endif
 
 void debug_assert(const char *cond, const char *file, int line, int panic);
-void debug_stacktrace(int skip_count);
 
 rstatus_t debug_setup(int level, char *filename, uint32_t buf_cap);
 void debug_teardown(void);
@@ -70,23 +88,12 @@ void debug_teardown(void);
  * Debug logging
  **********************************************
  */
-
-#define LOG_DEBUG_LEVEL 4         /* default log level */
-#define LOG_DEBUG_NBUF  16 * KiB  /* default log buf size */
-#define LOG_DEBUG_INTVL 100000    /* flush every 100 milliseconds */
-
-/*          name             type              default               description */
-#define LOG_DEBUG_OPTION(ACTION) \
-    ACTION( log_debug_level, OPTION_TYPE_UINT, str(LOG_DEBUG_LEVEL), "debug log level"          )\
-    ACTION( log_debug_file,  OPTION_TYPE_STR,  NULL,                 "debug log file"           )\
-    ACTION( log_debug_nbuf,  OPTION_TYPE_UINT, str(LOG_DEBUG_NBUF),  "debug log buf size"       )\
-    ACTION( log_debug_intvl, OPTION_TYPE_UINT, str(LOG_DEBUG_INTVL), "debug log flush interval" )
-
-extern struct logger *debug_logger;
+#define LOG_MAX_LEN 2560 /* max length of log message */
 
 /*
  * TODO(yao): a reasonable guideline for using these different levels.
  */
+/* NOTE(yao): it may be useful to have a sampled log func for bursty events */
 #define LOG_ALWAYS  0   /* always log, special value  */
 #define LOG_CRIT    1   /* critical: usually warrants exiting */
 #define LOG_ERROR   2   /* error: may need action */
@@ -96,7 +103,15 @@ extern struct logger *debug_logger;
 #define LOG_VERB    6   /* verbose: showing normal logic flow */
 #define LOG_VVERB   7   /* verbose on crack, for annoying msg e.g. timer */
 
-/* NOTE(yao): it may be useful to have a sampled log func for bursty events */
+struct debug_logger {
+    struct logger *logger;
+    int           level;
+};
+
+/* the default debug logger.
+ * This will be NULL as it points to a static variable delcared in cc_debug.c
+ */
+extern struct debug_logger *dlog;
 
 /*
  * log_stderr   - log to stderr
@@ -113,57 +128,72 @@ extern struct logger *debug_logger;
  * log_hexdump  - hexadump -C of a log buffer (subject to config)
  */
 
-#define loga(...) do {                                                      \
-    _log(debug_logger, __FILE__, __LINE__, LOG_ALWAYS, __VA_ARGS__);        \
+#define loga(...) do {                                              \
+    _log(dlog, __FILE__, __LINE__, LOG_ALWAYS, __VA_ARGS__);        \
 } while (0)
 
-#define loga_hexdump(_data, _datalen, ...) do {                             \
-    _log(debug_logger, __FILE__,__LINE__, LOG_ALWAYS, __VA_ARGS__);         \
-    _log_hexdump(debug_logger, -1, (char *)(_data), (int)(_datalen));       \
+#define loga_hexdump(_data, _datalen, ...) do {                     \
+    _log(dlog, __FILE__,__LINE__, LOG_ALWAYS, __VA_ARGS__);         \
+    _log_hexdump(dlog, -1, (char *)(_data), (int)(_datalen));       \
 } while (0)
 
-#define log_panic(...) do {                                                 \
-    _log(debug_logger, __FILE__, __LINE__, LOG_CRIT, __VA_ARGS__);          \
-    abort();                                                                \
+#define log_panic(...) do {                                         \
+    _log(dlog, __FILE__, __LINE__, LOG_CRIT, __VA_ARGS__);          \
+    abort();                                                        \
 } while (0)
 
+/* the following can be compiled off */
 #if defined CC_LOGGING && CC_LOGGING == 1
 
-#define log_crit(...) do {                                                  \
-    _log(debug_logger, __FILE__, __LINE__, LOG_CRIT, __VA_ARGS__);          \
+#define log_crit(...) do {                                          \
+    if (dlog->level >= LOG_CRIT) {                                  \
+        _log(dlog, __FILE__, __LINE__, LOG_CRIT, __VA_ARGS__);      \
+    }                                                               \
 } while (0)
 
-#define log_error(...) do {                                                 \
-    _log(debug_logger, __FILE__, __LINE__, LOG_ERROR, __VA_ARGS__);         \
+#define log_error(...) do {                                         \
+    if (dlog->level >= LOG_ERROR) {                                 \
+        _log(dlog, __FILE__, __LINE__, LOG_ERROR, __VA_ARGS__);     \
+    }                                                               \
 } while (0)
 
-#define log_warn(...) do {                                                  \
-    _log(debug_logger, __FILE__, __LINE__, LOG_WARN, __VA_ARGS__);          \
+#define log_warn(...) do {                                          \
+    if (dlog->level >= LOG_WARN) {                                  \
+        _log(dlog, __FILE__, __LINE__, LOG_WARN, __VA_ARGS__);      \
+    }                                                               \
 } while (0)
 
-#define log_info(...) do {                                                  \
-    _log(debug_logger, __FILE__, __LINE__, LOG_INFO, __VA_ARGS__);          \
+#define log_info(...) do {                                          \
+    if (dlog->level >= LOG_INFO) {                                  \
+        _log(dlog, __FILE__, __LINE__, LOG_INFO, __VA_ARGS__);      \
+    }                                                               \
 } while (0)
 
-#define log_debug(...) do {                                                 \
-    _log(debug_logger, __FILE__, __LINE__, LOG_DEBUG, __VA_ARGS__);         \
+#define log_debug(...) do {                                         \
+    if (dlog->level >= LOG_DEBUG) {                                 \
+        _log(dlog, __FILE__, __LINE__, LOG_DEBUG, __VA_ARGS__);     \
+    }                                                               \
 } while (0)
 
-#define log_verb(...) do {                                                  \
-    _log(debug_logger, __FILE__, __LINE__, LOG_VERB, __VA_ARGS__);          \
+#define log_verb(...) do {                                          \
+    if (dlog->level >= LOG_VERB) {                                  \
+        _log(dlog, __FILE__, __LINE__, LOG_VERB, __VA_ARGS__);      \
+    }                                                               \
 } while (0)
 
-#define log_vverb(...) do {                                                 \
-    _log(debug_logger, __FILE__, __LINE__, LOG_VVERB, __VA_ARGS__);         \
+#define log_vverb(...) do {                                         \
+    if (dlog->level >= LOG_VVERB) {                                 \
+        _log(dlog, __FILE__, __LINE__, LOG_VVERB, __VA_ARGS__);     \
+    }                                                               \
 } while (0)
 
-#define log(_level, ...) do {                                               \
-    _log(debug_logger, __FILE__, __LINE__, _level, __VA_ARGS__);            \
+#define log(_level, ...) do {                                       \
+    _log(dlog, __FILE__, __LINE__, _level, __VA_ARGS__);            \
 } while (0)
 
-#define log_hexdump(_level, _data, _datalen, ...) do {                      \
-    _log(debug_logger, __FILE__,__LINE__, _level, __VA_ARGS__);             \
-    _log_hexdump(debug_logger, _level, (char *)(_data), (int)(_datalen));   \
+#define log_hexdump(_level, _data, _datalen, ...) do {              \
+    _log(dlog, __FILE__,__LINE__, _level, __VA_ARGS__);             \
+    _log_hexdump(dlog, _level, (char *)(_data), (int)(_datalen));   \
 } while (0)
 
 #else
@@ -181,8 +211,12 @@ extern struct logger *debug_logger;
 
 #endif
 
-void _log(struct logger *logger, const char *file, int line, int level, const char *fmt, ...);
+void _log(struct debug_logger *dl, const char *file, int line, int level, const char *fmt, ...);
+void _log_hexdump(struct debug_logger *dl, int level, char *data, int datalen);
+
+int signal_ttin_logrotate(void);
 
 #ifdef __cplusplus
 }
 #endif
+

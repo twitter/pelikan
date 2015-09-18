@@ -9,9 +9,9 @@
     ACTION( server_host, OPTION_TYPE_STR, NULL,    "interfaces querying on" )\
     ACTION( server_port, OPTION_TYPE_STR, "12321", "port querying on"       )
 
-#define SETTING(ACTION)      \
-    SERVER_OPTION(ACTION)    \
-    LOG_DEBUG_OPTION(ACTION) \
+#define SETTING(ACTION)     \
+    SERVER_OPTION(ACTION)   \
+    DEBUG_OPTION(ACTION)    \
     TCP_OPTION(ACTION)
 
 struct setting {

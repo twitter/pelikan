@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-#define KLOG_NBUF  16 * KiB /* default log buf size */
+#define KLOG_NBUF  2 * MiB /* default log buf size */
 #define KLOG_INTVL 100000   /* flush every 100 milliseconds */
 
 struct request;

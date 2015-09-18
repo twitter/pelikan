@@ -67,16 +67,16 @@ setup(void)
 
     /* setup log first, so we log properly */
     log_setup(&glob_stats.log_metrics);
-    ret = debug_setup((int)setting.log_debug_level.val.vuint,
-                      setting.log_debug_file.val.vstr,
-                      setting.log_debug_nbuf.val.vuint);
+    ret = debug_setup((int)setting.debug_log_level.val.vuint,
+                      setting.debug_log_file.val.vstr,
+                      setting.debug_log_nbuf.val.vuint);
     if (ret < 0) {
         log_stderr("log setup failed");
 
         goto error;
     }
 
-    lc = log_core_create(debug_logger, (int)setting.log_debug_intvl.val.vuint);
+    lc = log_core_create(dlog->logger, (int)setting.debug_log_intvl.val.vuint);
     if (lc == NULL) {
         log_stderr("Could not set up log core!");
         goto error;
@@ -150,22 +150,6 @@ setup(void)
     if (status != CC_OK) {
         log_crit("cannot start core event loop");
 
-        goto error;
-    }
-
-    /* override signals that we want to customize */
-    ret = signal_segv_stacktrace();
-    if (ret < 0) {
-        goto error;
-    }
-
-    ret = signal_ttin_logrotate();
-    if (ret < 0) {
-        goto error;
-    }
-
-    ret = signal_pipe_ignore();
-    if (ret < 0) {
         goto error;
     }
 

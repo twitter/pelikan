@@ -41,7 +41,7 @@ klog_setup(char *file, uint32_t nbuf, uint32_t interval)
         log_destroy(&klogger);
     }
 
-    klogger = log_create(1, file, nbuf);
+    klogger = log_create(file, nbuf);
 
     if (klogger == NULL) {
         log_error("Could not create klogger!");

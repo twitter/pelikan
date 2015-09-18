@@ -77,36 +77,3 @@ signal_override(int signo, char *info, int flags, uint32_t mask, sig_t handler)
 
     return status;
 }
-
-int
-signal_pipe_ignore(void)
-{
-    return signal_override(SIGPIPE, "ignoring sigpipe (do not exit)", 0, 0,
-            SIG_IGN);
-}
-
-static void
-_handler_stacktrace(int signo)
-{
-    debug_stacktrace(2); /* skipping functions inside signal module */
-    raise(signo);
-}
-
-int
-signal_segv_stacktrace(void)
-{
-    return signal_override(SIGSEGV, "printing stacktrace when segfault", 0, 0,
-            _handler_stacktrace);
-}
-
-static void
-_handler_logrotate(int signo)
-{
-    log_reopen(debug_logger);
-}
-
-int
-signal_ttin_logrotate(void)
-{
-    return signal_override(SIGTTIN, "reopen log file", 0, 0, _handler_logrotate);
-}
