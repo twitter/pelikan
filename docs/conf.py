@@ -17,7 +17,7 @@ html_static_path = ['_static']
 source_suffix = '.rst'
 master_doc = 'index'
 
-language = C
+language = u'C'
 
 today_fmt = '%Y/%m/%d'
 pygments_style = 'sphinx'
