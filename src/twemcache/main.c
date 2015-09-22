@@ -110,10 +110,11 @@ setup(void)
                    setting.slab_prealloc.val.vbool,
                    (int)setting.slab_evict_opt.val.vuint,
                    setting.slab_use_freeq.val.vbool,
-                   (size_t)setting.slab_chunk_size.val.vuint,
+                   (size_t)setting.slab_min_chunk_size.val.vuint,
+                   (size_t)setting.slab_max_chunk_size.val.vuint,
                    (size_t)setting.slab_maxbytes.val.vuint,
                    setting.slab_profile.val.vstr,
-                   (uint8_t)setting.slab_profile_last_id.val.vuint,
+                   setting.slab_profile_factor.val.vstr,
                    &glob_stats.slab_metrics)
         != CC_OK) {
         log_error("slab module setup failed");

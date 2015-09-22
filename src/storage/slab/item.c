@@ -96,6 +96,19 @@ item_hdr_init(struct item *it, uint32_t offset, uint8_t id)
     it->is_linked = it->in_freeq = it->is_raligned = 0;
 }
 
+static inline void
+_item_reset(struct item *it)
+{
+    it->is_linked = 0;
+    it->in_freeq = 0;
+    it->is_raligned = 0;
+    it->vlen = 0;
+    it->dataflag = 0;
+    it->klen = 0;
+    it->expire_at = 0;
+    it->create_at = 0;
+}
+
 /*
  * Allocate an item. We allocate an item by consuming the next free item
  * from slab of the item's slab class.
@@ -115,6 +128,7 @@ _item_alloc(struct item **it_p, uint8_t klen, uint32_t vlen)
     }
 
     it = slab_get_item(id);
+    _item_reset(it);
     *it_p = it;
     if (it != NULL) {
         INCR(item_metrics, item_req);
@@ -191,6 +205,8 @@ item_get(const struct bstring *key)
         log_verb("get it '%.*s' not found", key->len, key->data);
         return NULL;
     }
+
+    log_verb("get it key %.*s val %.*s", key->len, key->data, it->vlen, item_data(it));
 
     if (_item_expired(it)) {
         _item_unlink(it);

@@ -5,7 +5,6 @@
 #include <time/time.h>
 
 #include <cc_bstring.h>
-#include <cc_debug.h>
 #include <cc_metric.h>
 #include <cc_queue.h>
 
