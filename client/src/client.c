@@ -25,12 +25,12 @@ show_usage(void)
 {
     log_stdout(
         "Usage:" CRLF
-        "  broadbill_client [option|config]" CRLF
+        "  pelikan_client [option|config]" CRLF
         );
     log_stdout(
         "Description:" CRLF
-        "  broadbill_client is an integration test/testing client for the " CRLF
-        "  broadbill backends." CRLF
+        "  pelikan_client is an integration test/testing client for the " CRLF
+        "  pelikan backends." CRLF
         );
     log_stdout(
         "Options:" CRLF
@@ -38,7 +38,7 @@ show_usage(void)
         );
     log_stdout(
         "Example:" CRLF
-        "./broadbill_client ../template/client.conf" CRLF
+        "./pelikan_client ../template/client.conf" CRLF
         );
     log_stdout("Setting & Default Values:");
     SETTING(PRINT_DEFAULT)
