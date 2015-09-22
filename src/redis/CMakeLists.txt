@@ -2,6 +2,7 @@ set(SOURCE
     main.c)
 
 set(LIBS
+    time
     util
     ccommon-static)
 
