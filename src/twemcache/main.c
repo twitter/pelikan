@@ -180,6 +180,7 @@ error:
     response_teardown();
     request_teardown();
     tcp_teardown();
+    event_teardown();
     procinfo_teardown();
     time_teardown();
     metric_teardown();
