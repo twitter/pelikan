@@ -58,7 +58,3 @@ rstatus_t ring_array_pop(void *elem, struct ring_array *arr);
 /* creation/destruction */
 struct ring_array *ring_array_create(size_t elem_size, uint32_t cap);
 void ring_array_destroy(struct ring_array *arr);
-
-/* setup/teardown */
-void ring_array_setup(void);
-void ring_array_teardown(void);
