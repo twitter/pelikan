@@ -23,10 +23,6 @@
 
 #include <stdbool.h>
 
-#define RING_ARRAY_MODULE_NAME "ccommon::ring_array"
-
-static bool ring_array_init = false;
-
 #define RING_ARRAY_HDR_SIZE   offsetof(struct ring_array, data)
 
 /**
@@ -135,7 +131,9 @@ ring_array_pop(void *elem, struct ring_array *arr)
         return CC_ERROR;
     }
 
-    cc_memcpy(elem, arr->data + (arr->elem_size * arr->rpos), arr->elem_size);
+    if (elem != NULL) {
+        cc_memcpy(elem, arr->data + (arr->elem_size * arr->rpos), arr->elem_size);
+    }
 
     /* update rpos atomically */
     new_rpos = (arr->rpos + 1) % arr->cap;
@@ -168,24 +166,4 @@ ring_array_destroy(struct ring_array *arr)
 {
     log_verb("destroying ring array %p and freeing memory");
     cc_free(arr);
-}
-
-void
-ring_array_setup(void)
-{
-    log_info("set up the %s module", RING_ARRAY_MODULE_NAME);
-    if (ring_array_init) {
-        log_warn("%s has already been setup, overwrite", RING_ARRAY_MODULE_NAME);
-    }
-    ring_array_init = true;
-}
-
-void
-ring_array_teardown(void)
-{
-    log_info("tear down the %s module", RING_ARRAY_MODULE_NAME);
-    if (!ring_array_init) {
-        log_warn("%s has never been setup", RING_ARRAY_MODULE_NAME);
-    }
-    ring_array_init = false;
 }

@@ -31,7 +31,6 @@ extern "C" {
 
 struct logger {
     char *name;                 /* log file name */
-    int  level;                 /* log level */
     int  fd;                    /* log file descriptor */
     int  nerror;                /* # log error */
     struct rbuf *buf;           /* buffer for pausless logging */
@@ -72,25 +71,16 @@ void log_teardown(void);
  * buf_cap is the size of the buffer used for pauseless logging. specify
  * buf_cap = 0 to disable pauseless logging.
  */
-struct logger *log_create(int level, char *filename, uint32_t buf_cap);
+struct logger *log_create(char *filename, uint32_t buf_cap);
 
 void log_destroy(struct logger **logger);
-
-void log_level_set(struct logger *logger, int level);
 
 rstatus_t log_reopen(struct logger *logger);
 
 void _log_write(struct logger *logger, char *buf, int len);
 void _log_fd(int fd, const char *fmt, ...);
-void _log_hexdump(struct logger *logger, int level, char *data, int datalen);
 
 void log_flush(struct logger *logger);
-
-static inline bool
-log_loggable(struct logger *logger, int level)
-{
-    return logger != NULL && logger->level >= level;
-}
 
 #ifdef __cplusplus
 }

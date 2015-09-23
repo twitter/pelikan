@@ -43,7 +43,9 @@ log_setup(log_metrics_st *metrics)
     log_stderr("set up the %s module", LOG_MODULE_NAME);
 
     log_metrics = metrics;
-    LOG_METRIC_INIT(log_metrics);
+    if (metrics != NULL) {
+        LOG_METRIC_INIT(log_metrics);
+    }
 
     if (log_init) {
         log_stderr("%s has already been setup, overwrite", LOG_MODULE_NAME);
@@ -65,11 +67,11 @@ log_teardown(void)
 }
 
 struct logger *
-log_create(int level, char *filename, uint32_t buf_cap)
+log_create(char *filename, uint32_t buf_cap)
 {
     struct logger *logger;
 
-    log_stderr("create logger with level %d filename %p cap %u", level, filename, buf_cap);
+    log_stderr("create logger with filename %s cap %u", filename, buf_cap);
 
     logger = cc_alloc(sizeof(struct logger));
 
@@ -80,7 +82,6 @@ log_create(int level, char *filename, uint32_t buf_cap)
     }
 
     logger->name = filename;
-    logger->level = level;
 
     if (buf_cap > 0) {
         logger->buf = rbuf_create(buf_cap);
@@ -123,13 +124,16 @@ log_destroy(struct logger **l)
         return;
     }
 
-    if (logger->buf != NULL) {
-        rbuf_destroy(logger->buf);
-    }
+    /* flush first in case there's data left in the buffer */
+    log_flush(logger);
 
     if (logger->fd >= 0 && logger->fd != STDERR_FILENO
         && logger->fd != STDOUT_FILENO) {
         close(logger->fd);
+    }
+
+    if (logger->buf != NULL) {
+        rbuf_destroy(logger->buf);
     }
 
     cc_free(logger);
@@ -156,12 +160,6 @@ log_reopen(struct logger *logger)
     INCR(log_metrics, log_open);
 
     return CC_OK;
-}
-
-void
-log_level_set(struct logger *logger, int level)
-{
-    logger->level = level;
 }
 
 void
@@ -227,65 +225,6 @@ _log_fd(int fd, const char *fmt, ...)
         INCR(log_metrics, log_write);
         INCR_N(log_metrics, log_write_byte, len);
     }
-
-    errno = errno_save;
-}
-
-/*
- * Hexadecimal dump in the canonical hex + ascii display
- * See -C option in man hexdump
- */
-void
-_log_hexdump(struct logger *logger, int level, char *data, int datalen)
-{
-    char buf[8 * LOG_MAX_LEN];
-    int i, off, len, size, errno_save;
-
-    if (!log_loggable(logger, level)) {
-        return;
-    }
-
-    /* log hexdump */
-    errno_save = errno;
-    off = 0;                  /* data offset */
-    len = 0;                  /* length of output buffer */
-    size = 8 * LOG_MAX_LEN;   /* size of output buffer */
-
-    while (datalen != 0 && (len < size - 1)) {
-        char *save;
-        unsigned char c;
-        int savelen;
-
-        len += cc_scnprintf(buf + len, size - len, "%08x  ", off);
-
-        save = data;
-        savelen = datalen;
-
-        for (i = 0; datalen != 0 && i < 16; data++, datalen--, i++) {
-            c = (unsigned char)(*data);
-            len += cc_scnprintf(buf + len, size - len, "%02x%s", c,
-                    (i == 7) ? "  " : " ");
-        }
-        for ( ; i < 16; i++) {
-            len += cc_scnprintf(buf + len, size - len, "  %s",
-                    (i == 7) ? "  " : " ");
-        }
-
-        data = save;
-        datalen = savelen;
-
-        len += cc_scnprintf(buf + len, size - len, "  |");
-
-        for (i = 0; datalen != 0 && i < 16; data++, datalen--, i++) {
-            c = (unsigned char)(isprint(*data) ? *data : '.');
-            len += cc_scnprintf(buf + len, size - len, "%c", c);
-        }
-        len += cc_scnprintf(buf + len, size - len, "|\n");
-
-        off += 16;
-    }
-
-    _log_write(logger, buf, len);
 
     errno = errno_save;
 }

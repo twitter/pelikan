@@ -1,39 +1,24 @@
-.. documentation master file, created by
-   docbird
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Cache Common Docs
 =====================
 
-Contents:
+
+**ccommon** (Cache Common) is the common C library for building extremely fast cache servers, clients and proxies. `go/ccommon <http://go/ccommon>`_ points here.
+
+Subscribe to `cache-user <cache-user@twitter.com>`_ for announcement, send feedback and questions to `cache-team <cache-team@twitter>`_.
 
 .. toctree::
+   :glob:
    :maxdepth: 2
-              
-   
-   about
-   
-   
 
-You have docs! You can delete this text in the `index.rst` file after
-you:
+   history
+   overview
+   anatomy
+   dataplane
+   development
+   modules/*
 
-1. Add your project documentation here. Add .md or .rst files to
-   this directory and add their names (sans extension) to the toctree
-   directive above. Feel free to reorder the file names above.
 
-2. Edit the `about.rst` and describe your project.
-
-3. (Optionally) Edit `conf.py` in this directory to fill in
-   configuration details about your project like the author names, project name, version
-   number, and so on.
-
-At any time you can run ::
-
-  $ doc.pex build -o /path/to/docs
-
-to build your documentation site and open it in a browser.
+The status of this documentation project is `under initial construction`.
 
 Indices and tables
 ==================

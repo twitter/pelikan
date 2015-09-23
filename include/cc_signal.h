@@ -43,21 +43,14 @@ struct signal {
  * to customize signal handling, users are suppose to overwrite entries in
  * signals after it is initialized.
  *
- * Note: the library has already provided handler for the following signals:
- * - SIGHUP: reload config file
- * - SIGTTIN: reload log file
- * - SIGSEGV: print stacktrace before reraise segfault again
- * - SIGPIPE: ignored, this prevents service from exiting when pipe closes
+ * Note: the library has already overridden handlers for the following signals:
+ * - SIGTTIN(debug): reload log file
+ * - SIGSEGV(debug): print stacktrace before reraise segfault again
+ * - SIGPIPE(channel): ignored, this prevents service from exiting when pipe closes
  */
 struct signal signals[SIGNAL_MAX]; /* there are only 31 signals from 1 to 31 */
 
 int signal_override(int signo, char *info, int flags, uint32_t mask, sig_t handler);
-
-int signal_pipe_ignore(void);
-
-int signal_segv_stacktrace(void);
-
-int signal_ttin_logrotate(void);
 
 #ifdef __cplusplus
 }

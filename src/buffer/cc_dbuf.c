@@ -49,6 +49,21 @@ _dbuf_resize(struct buf **buf, uint32_t nsize)
 {
     struct buf *nbuf;
     uint32_t size = buf_size(*buf);
+    uint32_t roffset = (*buf)->rpos - (*buf)->begin;
+    uint32_t woffset = (*buf)->wpos - (*buf)->begin;
+
+    if (nsize - BUF_HDR_SIZE < woffset) {
+        /* shift data to fit in new buffer size */
+        buf_lshift(*buf);
+
+        roffset = (*buf)->rpos - (*buf)->begin;
+        woffset = (*buf)->wpos - (*buf)->begin;
+
+        if (nsize - BUF_HDR_SIZE < woffset) {
+            /* Unread data too large to be contained in new size */
+            return CC_ERROR;
+        }
+    }
 
     /* cc_realloc can return an address different than *buf, hence we should
      * update *buf if allocation is successful, but leave it if failed.
@@ -59,11 +74,15 @@ _dbuf_resize(struct buf **buf, uint32_t nsize)
         return CC_ENOMEM;
     }
 
-    /* only end needs adjustment, other fields are copied by realloc */
-    nbuf->end = (uint8_t *)nbuf + nsize;
+    /* end, rpos, wpos need to be adjusted for the new address of buf */
+    nbuf->end = (char *)nbuf + nsize;
+    nbuf->rpos = nbuf->begin + roffset;
+    nbuf->wpos = nbuf->begin + woffset;
     *buf = nbuf;
     DECR_N(buf_metrics, buf_memory, size);
     INCR_N(buf_metrics, buf_memory, nsize);
+
+    log_verb("buf %p resized to %u", *buf, buf_size(*buf));
 
     return CC_OK;
 }
