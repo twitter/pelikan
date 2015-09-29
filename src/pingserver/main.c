@@ -81,12 +81,20 @@ setup(void)
 
     time_setup();
     procinfo_setup(&glob_stats.procinfo_metrics);
+    request_setup(&glob_stats.request_metrics);
+    response_setup(&glob_stats.response_metrics);
+    parse_setup(&glob_stats.parse_req_metrics, NULL);
+    compose_setup(NULL, &glob_stats.compose_rsp_metrics);
 
     return;
 
 error:
     log_crit("setup failed");
 
+    compose_teardown();
+    parse_teardown();
+    response_teardown();
+    request_teardown();
     procinfo_teardown();
     time_teardown();
     metric_teardown();

@@ -2,6 +2,7 @@ set(SOURCE
     main.c)
 
 set(LIBS
+    ping
     time
     util
     ccommon-static)
