@@ -15,3 +15,7 @@ endif()
 if(TARGET_REDIS)
     add_subdirectory(redis)
 endif()
+
+if(TARGET_PINGSERVER)
+    add_subdirectory(pingserver)
+endif()
