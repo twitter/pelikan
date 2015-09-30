@@ -85,12 +85,18 @@ setup(void)
     response_setup(&glob_stats.response_metrics);
     parse_setup(&glob_stats.parse_req_metrics, NULL);
     compose_setup(NULL, &glob_stats.compose_rsp_metrics);
+    process_setup(&glob_stats.process_metrics);
 
     return;
 
 error:
     log_crit("setup failed");
 
+    if (setting.pid_filename.val.vstr != NULL) {
+        remove_pidfile(setting.pid_filename.val.vstr);
+    }
+
+    process_teardown();
     compose_teardown();
     parse_teardown();
     response_teardown();

@@ -1,5 +1,6 @@
 set(SOURCE
-    main.c)
+    main.c
+    process.c)
 
 set(LIBS
     ping

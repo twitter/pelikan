@@ -22,7 +22,7 @@ typedef struct {
 
 #define REQ_TYPE_MSG(ACTION)                        \
     ACTION( REQ_UNKNOWN,        ""                 )\
-    ACTION( REQ_GET,            "ping"             )
+    ACTION( REQ_PING,           "ping"             )
 
 #define GET_TYPE(_name, _str) _name,
 typedef enum request_type {
