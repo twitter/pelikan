@@ -43,16 +43,39 @@ worker_add_conn(void)
 {
     struct buf_sock *s;
     char buf[RING_ARRAY_DEFAULT_CAP]; /* buffer for discarding pipe data */
-    uint32_t i;
+    int i;
+    rstatus_t status;
 
-    for (i = 0; i < RING_ARRAY_DEFAULT_CAP && ring_array_pop(&s, conn_arr) == CC_OK; ++i) {
+    /* server pushes connection on to the ring array before writing to the pipe,
+     * therefore, we should read from the pipe first and take the connections
+     * off the ring array to match the number of bytes received.
+     *
+     * Once we move server to its own thread, it is possible that there are more
+     * connections added to the queue when we are processing, it is OK to wait
+     * for the next read event in that case.
+     */
+
+    i = pipe_recv(pipe_c, buf, RING_ARRAY_DEFAULT_CAP);
+    if (i < 0) { /* errors, do not read from ring array */
+        log_warn("not adding new connections due to pipe error");
+        return;
+    }
+
+    /* each byte in the pipe corresponds to a new connection, which we will
+     * now get from the ring array
+     */
+    for (; i > 0; --i) {
+        status = ring_array_pop(&s, conn_arr);
+        if (status != CC_OK) {
+            log_warn("event number does not match conn queue: missing %d conns",
+                    i);
+            return;
+        }
         log_verb("Adding new buf_sock %p to worker thread", s);
         s->owner = ctx;
         s->hdl = hdl;
         event_add_read(ctx->evb, hdl->rid(s->ch), s);
     }
-
-    pipe_recv(pipe_c, buf, i);
 }
 
 void
