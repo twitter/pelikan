@@ -53,11 +53,11 @@ typedef struct {
 #define GET_TYPE(_name, _str) _name,
 typedef enum request_type {
     REQ_TYPE_MSG(GET_TYPE)
-    REQ_SENTINAL
+    REQ_SENTINEL
 } request_type_t;
 #undef GET_TYPE
 
-struct bstring req_strings[REQ_SENTINAL];
+extern struct bstring req_strings[REQ_SENTINEL];
 
 typedef enum request_state {
     REQ_PARSING,

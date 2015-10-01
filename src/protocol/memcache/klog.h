@@ -8,6 +8,10 @@
 #define KLOG_INTVL 100000   /* flush every 100 milliseconds */
 
 struct request;
+struct response;
+struct logger;
+
+extern struct logger *klogger;
 
 /*          name             type              default               description */
 #define KLOG_OPTION(ACTION) \
@@ -18,4 +22,9 @@ struct request;
 rstatus_t klog_setup(char *file, uint32_t nbuf, uint32_t interval);
 void klog_teardown(void);
 
-void klog_write(struct request *req, int status, uint32_t rsp_len);
+#define klog_write(req, rsp)    \
+    if (klogger != NULL) {      \
+        _klog_write(req, rsp);  \
+    }
+
+void _klog_write(struct request *req, struct response *rsp);

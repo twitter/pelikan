@@ -147,9 +147,12 @@ _worker_post_read(struct buf_sock *s)
         /* actual handling */
         process_request(rsp, req);
 
+        klog_write(req, rsp);
+
         /* writing results */
         if (req->noreply) { /* noreply means no writing to buffers */
-                goto done;
+            request_reset(req);
+            goto done;
         }
 
         nr = rsp;
@@ -173,9 +176,6 @@ _worker_post_read(struct buf_sock *s)
 
             goto error;
         }
-
-        /* disabling klog as it's broken for multiget */
-        /* klog_write(req, ntotal); */
 
         /* clean up resources */
         request_reset(req);

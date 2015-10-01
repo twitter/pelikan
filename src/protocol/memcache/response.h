@@ -51,11 +51,11 @@ typedef struct {
 #define GET_TYPE(_name, _str) _name,
 typedef enum response_type {
     RSP_TYPE_MSG(GET_TYPE)
-    RSP_SENTINAL
+    RSP_SENTINEL
 } response_type_t;
 #undef GET_TYPE
 
-struct bstring rsp_strings[RSP_SENTINAL];
+extern struct bstring rsp_strings[RSP_SENTINEL];
 
 typedef enum response_state {
     RSP_PARSING,
