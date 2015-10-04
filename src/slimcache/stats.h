@@ -24,6 +24,7 @@ struct glob_stats {
     compose_rsp_metrics_st  compose_rsp_metrics;
     process_metrics_st      process_metrics;
     log_metrics_st          log_metrics;
+    klog_metrics_st         klog_metrics;
 };
 
 struct glob_stats glob_stats;

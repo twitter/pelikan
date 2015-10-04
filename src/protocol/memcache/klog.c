@@ -26,16 +26,24 @@
 #define KLOG_DELTA_FMT     "\"%.*s%.*s %llu\" %d %u\n"
 
 static bool klog_init = false;
-struct logger *klogger = NULL;
+static struct logger *klogger = NULL;
 struct log_core *klog_core = NULL;
+static uint64_t klog_cmds = 0;
+static uint32_t klog_sample = KLOG_SAMPLE;
+static klog_metrics_st *klog_metrics = NULL;
 
 rstatus_t
-klog_setup(char *file, uint32_t nbuf, uint32_t interval)
+klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample, klog_metrics_st *metrics)
 {
     log_info("Set up the %s module", KLOG_MODULE_NAME);
 
     if (klog_init) {
         log_warn("%s has already been setup, overwrite", KLOG_MODULE_NAME);
+    }
+
+    klog_metrics = metrics;
+    if (metrics != NULL) {
+        KLOG_METRIC_INIT(klog_metrics);
     }
 
     if (klogger != NULL) {
@@ -57,6 +65,13 @@ klog_setup(char *file, uint32_t nbuf, uint32_t interval)
         return CC_ERROR;
     }
 
+    if (klog_sample == 0) {
+        log_error("klog sample rate cannot be 0 - divide by zero");
+        log_destroy(&klogger);
+        return CC_ERROR;
+    }
+    klog_sample = sample;
+
     klog_init = true;
 
     return CC_OK;
@@ -71,11 +86,14 @@ klog_teardown(void)
         log_warn("%s was not setup", KLOG_MODULE_NAME);
     }
 
+    klog_metrics = NULL;
     log_core_destroy(&klog_core);
 
     if (klogger != NULL) {
         log_destroy(&klogger);
     }
+
+    klog_sample = 1;
 
     klog_init = false;
 }
@@ -91,7 +109,7 @@ _get_val_rsp_len(struct response *rsp, struct bstring *key)
 }
 
 static inline void
-_klog_write_get(struct request *req, struct response *rsp, char *buf, int len, int size)
+_klog_write_get(struct request *req, struct response *rsp, char *buf, int len)
 {
     struct response *nr = rsp;
     int i, suffix_len;
@@ -102,63 +120,69 @@ _klog_write_get(struct request *req, struct response *rsp, char *buf, int len, i
 
         if (nr->type != RSP_END && bstring_compare(key, &nr->key) == 0) {
             /* key was found, rsp at nr */
-            suffix_len = cc_scnprintf(buf + len, size - len, KLOG_GET_FMT,
+            suffix_len = cc_scnprintf(buf + len, KLOG_MAX_LEN - len, KLOG_GET_FMT,
                                       req_strings[req->type].len, req_strings[req->type].data,
                                       key->len, key->data, rsp->type, _get_val_rsp_len(nr, key));
             nr = STAILQ_NEXT(nr, next);
         } else {
             /* key not found */
-            suffix_len = cc_scnprintf(buf + len, size - len, KLOG_GET_FMT,
+            suffix_len = cc_scnprintf(buf + len, KLOG_MAX_LEN - len, KLOG_GET_FMT,
                                       req_strings[req->type].len, req_strings[req->type].data,
                                       key->len, key->data, RSP_UNKNOWN, 0);
         }
 
-        _log_write(klogger, buf, len + suffix_len);
+        ASSERT(len + suffix_len <= KLOG_MAX_LEN);
+
+        if (_log_write(klogger, buf, len + suffix_len)) {
+            INCR(klog_metrics, klog_logged);
+        } else {
+            INCR(klog_metrics, klog_discard);
+        }
     }
 
     ASSERT(nr ->type == RSP_END);
 }
 
-static inline void
-_klog_write_delete(struct request *req, struct response *rsp, char *buf, int len, int size)
+static inline int
+_klog_fmt_delete(struct request *req, struct response *rsp, char *buf, int len)
 {
     struct bstring *key = array_get(req->keys, 0);
 
-    len += cc_scnprintf(buf + len, size - len, KLOG_GET_FMT, req_strings[req->type].len,
+    len += cc_scnprintf(buf + len, KLOG_MAX_LEN - len, KLOG_GET_FMT, req_strings[req->type].len,
                         req_strings[req->type].data, key->len, key->data, rsp->type,
                         req->noreply ? 0 : rsp_strings[rsp->type].len);
 
-    _log_write(klogger, buf, len);
+    return len;
 }
 
-static inline void
-_klog_write_store(struct request *req, struct response *rsp, char *buf, int len, int size)
+static inline int
+_klog_fmt_store(struct request *req, struct response *rsp, char *buf, int len)
 {
     struct bstring *key = array_get(req->keys, 0);
 
-    len += cc_scnprintf(buf + len, size - len, KLOG_STORE_FMT, req_strings[req->type].len,
+    len += cc_scnprintf(buf + len, KLOG_MAX_LEN - len, KLOG_STORE_FMT, req_strings[req->type].len,
                         req_strings[req->type].data, key->len, key->data, req->flag,
                         req->expiry, req->vstr.len, rsp->type,
                         req->noreply ? 0 : rsp_strings[rsp->type].len);
 
-    _log_write(klogger, buf, len);
+    return len;
 }
 
-static inline void
-_klog_write_cas(struct request *req, struct response *rsp, char *buf, int len, int size)
+static inline int
+_klog_fmt_cas(struct request *req, struct response *rsp, char *buf, int len)
 {
     struct bstring *key = array_get(req->keys, 0);
 
-    len += cc_scnprintf(buf + len, size - len, KLOG_CAS_FMT, req_strings[req->type].len,
+    len += cc_scnprintf(buf + len, KLOG_MAX_LEN - len, KLOG_CAS_FMT, req_strings[req->type].len,
                         req_strings[req->type].data, key->len, key->data, req->flag,
                         req->expiry, req->vstr.len, req->vcas, rsp->type,
                         req->noreply ? 0 : rsp_strings[rsp->type].len);
 
-    _log_write(klogger, buf, len);
+    return len;
 }
 
-static inline void
-_klog_write_delta(struct request *req, struct response *rsp, char *buf, int len, int size)
+static inline int
+_klog_fmt_delta(struct request *req, struct response *rsp, char *buf, int len)
 {
     uint32_t rsp_len;
     struct bstring *key = array_get(req->keys, 0);
@@ -171,28 +195,37 @@ _klog_write_delta(struct request *req, struct response *rsp, char *buf, int len,
         rsp_len = rsp_strings[rsp->type].len;
     }
 
-    len += cc_scnprintf(buf + len, size - len, KLOG_DELTA_FMT, req_strings[req->type].len,
+    len += cc_scnprintf(buf + len, KLOG_MAX_LEN - len, KLOG_DELTA_FMT, req_strings[req->type].len,
                         req_strings[req->type].data, key->len, key->data, req->delta,
                         rsp_len);
 
-    _log_write(klogger, buf, len);
+    return len;
 }
 
+/* TODO(kyang): update peer to log the peer instead of placeholder (CACHE-3492) */
 void
-_klog_write(struct request *req, struct response *rsp)
+klog_write(struct request *req, struct response *rsp)
 {
-    int len, time_len, errno_save, size;
+    int len, time_len, errno_save;
     char buf[KLOG_MAX_LEN], *peer = "-";
     time_t t;
 
-    ASSERT(klogger != NULL);
+    if (klogger == NULL) {
+        return;
+    }
+
+    ++klog_cmds;
+
+    if (klog_cmds % klog_sample != 0) {
+        INCR(klog_metrics, klog_skip);
+        return;
+    }
 
     errno_save = errno;
 
-    size = KLOG_MAX_LEN;
     t = time_now_abs();
-    len = cc_scnprintf(buf, size, "%s - ", peer);
-    time_len = strftime(buf + len, size - len, KLOG_TIME_FMT, localtime(&t));
+    len = cc_scnprintf(buf, KLOG_MAX_LEN, "%s - ", peer);
+    time_len = strftime(buf + len, KLOG_MAX_LEN - len, KLOG_TIME_FMT, localtime(&t));
     if (time_len == 0) {
         log_error("strftime failed: %s", strerror(errno));
         goto done;
@@ -202,27 +235,36 @@ _klog_write(struct request *req, struct response *rsp)
     switch (req->type) {
     case REQ_GET:
     case REQ_GETS:
-        _klog_write_get(req, rsp, buf, len, size);
+        _klog_write_get(req, rsp, buf, len);
+        goto done;
         break;
     case REQ_DELETE:
-        _klog_write_delete(req, rsp, buf, len, size);
+        len = _klog_fmt_delete(req, rsp, buf, len);
         break;
     case REQ_SET:
     case REQ_ADD:
     case REQ_REPLACE:
     case REQ_APPEND:
     case REQ_PREPEND:
-        _klog_write_store(req, rsp, buf, len, size);
+        len = _klog_fmt_store(req, rsp, buf, len);
         break;
     case REQ_CAS:
-        _klog_write_cas(req, rsp, buf, len, size);
+        len = _klog_fmt_cas(req, rsp, buf, len);
         break;
     case REQ_INCR:
     case REQ_DECR:
-        _klog_write_delta(req, rsp, buf, len, size);
+        len = _klog_fmt_delta(req, rsp, buf, len);
         break;
     default:
         goto done;
+    }
+
+    ASSERT(len <= KLOG_MAX_LEN);
+
+    if (_log_write(klogger, buf, len)) {
+        INCR(klog_metrics, klog_logged);
+    } else {
+        INCR(klog_metrics, klog_discard);
     }
 
 done:

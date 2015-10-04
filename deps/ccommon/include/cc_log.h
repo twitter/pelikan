@@ -77,7 +77,9 @@ void log_destroy(struct logger **logger);
 
 rstatus_t log_reopen(struct logger *logger);
 
-void _log_write(struct logger *logger, char *buf, int len);
+/* _log_write returns true if msg written, false if skipped or failed */
+bool _log_write(struct logger *logger, char *buf, int len);
+
 void _log_fd(int fd, const char *fmt, ...);
 
 void log_flush(struct logger *logger);
