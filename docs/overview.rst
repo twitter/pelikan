@@ -19,11 +19,10 @@ Understanding cache use cases is important for the entire caching solution, howe
 Design Goals
 ============
 
-The basic functionalities of a cache backend is utterly uninteresting to anybody who has a little knowledge about what caching is supposed to provide. And that's not why we created Pelikan. Instead, we differentiate from existing implementations on *how* we implement these functionalities and *how well* we achieve the following goals:
+The basic functionalities of a cache backend are utterly uninteresting to anybody who has a little knowledge about what caching is supposed to provide. And that's not why we created Pelikan. Instead, we differentiate from existing implementations on *how* we implement these functionalities and *how well* we achieve the following goals:
 
-* clean, well-defined abstraction to minimize duplicate logic, through composable and configurable modules
-* built-in obsersavability support *everywhere*, this includes logging, stats, and tracing
+* clean, well-defined abstraction to minimize duplicated logic, through composable and configurable modules
+* built-in observability support *everywhere*, this includes logging, stats, and tracing
 * efficient, deterministic runtime behavior and controllable resource management
 
-To understand why we elected these goals, please read Priority and Problems with cache in Production.
-
+To understand why we elected these goals, please read Problems and Priorities.
