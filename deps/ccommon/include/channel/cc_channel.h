@@ -41,6 +41,7 @@ extern "C" {
 #include <cc_queue.h>
 #include <cc_signal.h>
 
+#include <signal.h>
 #include <stdbool.h>
 #include <sys/types.h>
 
