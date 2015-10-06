@@ -76,7 +76,10 @@ add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
 # other dependencies
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
-find_package(Check)
+find_package(Check REQUIRED)
+if(NOT CHECK_FOUND)
+  MESSAGE(FATAL_ERROR "Check is required")
+endif(NOT CHECK_FOUND)
 find_package(Threads)
 
 #set(CMAKE_INCLUDE_CURRENT_DIR)
