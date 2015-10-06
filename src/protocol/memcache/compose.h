@@ -1,8 +1,5 @@
 #pragma once
 
-#include <protocol/memcache/request.h>
-#include <protocol/memcache/response.h>
-
 #include <buffer/cc_dbuf.h>
 #include <cc_define.h>
 #include <cc_metric.h>
@@ -44,6 +41,9 @@ typedef enum compose_rstatus {
     COMPOSE_EINVALID    = -3,
     COMPOSE_EOTHER      = -4,
 } compose_rstatus_t;
+
+struct request;
+struct response;
 
 void compose_setup(compose_req_metrics_st *req, compose_rsp_metrics_st *rsp);
 void compose_teardown(void);

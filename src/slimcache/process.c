@@ -1,5 +1,6 @@
 #include <slimcache/process.h>
 
+#include <protocol/memcache_include.h>
 #include <storage/cuckoo/cuckoo.h>
 #include <slimcache/stats.h>
 #include <util/procinfo.h>

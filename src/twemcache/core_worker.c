@@ -1,8 +1,9 @@
 #include <twemcache/process.h>
 
 #include <core/worker.h>
-#include <buffer/cc_dbuf.h>
+#include <protocol/memcache_include.h>
 
+#include <buffer/cc_dbuf.h>
 #include <cc_debug.h>
 #include <cc_event.h>
 #include <cc_ring_array.h>

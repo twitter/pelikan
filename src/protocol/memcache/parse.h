@@ -51,6 +51,9 @@ typedef enum parse_rstatus {
     PARSE_EOTHER    = -5,
 } parse_rstatus_t;
 
+struct request;
+struct response;
+
 void parse_setup(parse_req_metrics_st *req, parse_rsp_metrics_st *rsp);
 void parse_teardown(void);
 

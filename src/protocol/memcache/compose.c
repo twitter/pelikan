@@ -1,5 +1,7 @@
 #include <protocol/memcache/compose.h>
 
+#include <protocol/memcache/request.h>
+#include <protocol/memcache/response.h>
 #include <time/time.h>
 
 #include <cc_debug.h>

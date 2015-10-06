@@ -9,9 +9,6 @@
 #define KLOG_INTVL  100000  /* flush every 100 milliseconds */
 #define KLOG_SAMPLE 100     /* log one in every 100 commands */
 
-struct request;
-struct response;
-
 /*          name         type              default           description */
 #define KLOG_OPTION(ACTION)                                                               \
     ACTION( klog_file,   OPTION_TYPE_STR,  NULL,             "command log file"           )\
@@ -33,6 +30,9 @@ typedef struct {
     *(_metrics) =                                           \
         (klog_metrics_st) { KLOG_METRIC(METRIC_INIT) };     \
 } while (0)
+
+struct request;
+struct response;
 
 rstatus_t klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample,
                      klog_metrics_st *metrics);

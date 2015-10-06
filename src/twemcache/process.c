@@ -1,5 +1,6 @@
 #include <twemcache/process.h>
 
+#include <protocol/memcache_include.h>
 #include <storage/slab/item.h>
 #include <twemcache/stats.h>
 #include <util/procinfo.h>

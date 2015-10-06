@@ -1,7 +1,5 @@
 #pragma once
 
-#include <protocol/memcache_include.h>
-
 #include <buffer/cc_buf.h>
 #include <cc_define.h>
 #include <cc_metric.h>
@@ -65,6 +63,9 @@ typedef struct {
 #define PROCESS_METRIC_INIT(_metrics) do {                              \
     *(_metrics) = (process_metrics_st) { PROCESS_METRIC(METRIC_INIT) }; \
 } while(0)
+
+struct request;
+struct response;
 
 void process_setup(process_metrics_st *process_metrics);
 void process_teardown(void);
