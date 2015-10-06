@@ -107,6 +107,8 @@ log_create(char *filename, uint32_t buf_cap)
         } else {
             INCR(log_metrics, log_open);
         }
+    } else {
+        logger->fd = STDERR_FILENO;
     }
 
     INCR(log_metrics, log_create);
