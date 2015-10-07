@@ -26,8 +26,8 @@ bool core_init = false;
  */
 
 rstatus_t
-core_setup(struct addrinfo *ai, uint32_t max_conns, server_metrics_st *smetrics,
-        worker_metrics_st *wmetrics)
+core_setup(struct addrinfo *ai, uint32_t max_conns,
+           server_metrics_st *smetrics, worker_metrics_st *wmetrics)
 {
     rstatus_t ret;
 

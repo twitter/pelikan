@@ -1,3 +1,4 @@
+#include <slimcache/process.h>
 #include <slimcache/setting.h>
 #include <slimcache/stats.h>
 
@@ -146,7 +147,7 @@ setup(void)
     max_conns = setting.tcp_poolsize.val.vuint == 0 ?
         setting.ring_array_cap.val.vuint : setting.tcp_poolsize.val.vuint;
     status = core_setup(ai, max_conns, &glob_stats.server_metrics,
-            &glob_stats.worker_metrics);
+                        &glob_stats.worker_metrics);
     freeaddrinfo(ai); /* freeing it before return/error to avoid memory leak */
     if (status != CC_OK) {
         log_crit("cannot start core event loop");

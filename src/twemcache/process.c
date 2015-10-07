@@ -270,7 +270,7 @@ _process_cas(struct response *rsp, struct request *req)
 
 /* update item with integer value */
 static item_rstatus_t
-_process_delta(struct response *rsp, struct item *it, const struct request *req,
+_process_delta(struct response *rsp, struct item *it, struct request *req,
         struct bstring *key, bool incr)
 {
     item_rstatus_t status;

@@ -11,7 +11,10 @@
 #include <channel/cc_channel.h>
 
 struct addrinfo;
+struct request;
+struct response;
 
-rstatus_t core_setup(struct addrinfo *ai, uint32_t max_conns, server_metrics_st *smetrics, worker_metrics_st *wmetrics);
+rstatus_t core_setup(struct addrinfo *ai, uint32_t max_conns,
+                     server_metrics_st *smetrics, worker_metrics_st *wmetrics);
 void core_teardown(void);
 void core_run(void);
