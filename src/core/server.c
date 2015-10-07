@@ -15,7 +15,7 @@
 #include <errno.h>
 #include <string.h>
 
-#define SERVER_MODULE_NAME "util::server"
+#define SERVER_MODULE_NAME "core::server"
 
 static bool server_init = false;
 static server_metrics_st *server_metrics = NULL;

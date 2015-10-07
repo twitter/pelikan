@@ -17,7 +17,7 @@
 
 #include <stream/cc_sockio.h>
 
-#define WORKER_MODULE_NAME "util::worker"
+#define WORKER_MODULE_NAME "core::worker"
 
 static bool worker_init = false;
 worker_metrics_st *worker_metrics = NULL;
