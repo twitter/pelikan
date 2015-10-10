@@ -205,12 +205,12 @@ _chase_key(struct buf *buf, bool *end, struct bstring *t)
 }
 
 static inline parse_rstatus_t
-_check_uint(uint64_t *num, struct buf *buf, bool *end, struct bstring *t,
+_check_uint(uint64_t *num, struct buf *buf, bool *end, size_t *len,
         char *p, uint64_t max)
 {
     bool complete;
 
-    if (*p == ' ' && t->len == 0) { /* pre-key spaces */
+    if (*p == ' ' && *len == 0) { /* pre-key spaces */
         return PARSE_EUNFIN;
     }
 
@@ -218,7 +218,7 @@ _check_uint(uint64_t *num, struct buf *buf, bool *end, struct bstring *t,
     if (complete) {
         _forward_rpos(buf, *end, p);
 
-        if (t->len == 0) {
+        if (*len == 0) {
             log_warn("ill formatted request: no integer provided");
 
             return PARSE_EEMPTY;
@@ -239,7 +239,7 @@ _check_uint(uint64_t *num, struct buf *buf, bool *end, struct bstring *t,
             return PARSE_EINVALID;
         }
 
-        t->len++;
+        (*len)++;
         *num = *num * 10ULL;
         *num += (uint64_t)(*p - '0');
 
@@ -258,16 +258,15 @@ _chase_uint(uint64_t *num, struct buf *buf, bool *end, uint64_t max)
 {
     char *p;
     parse_rstatus_t status;
-    struct bstring t;
+    size_t len = 0;
 
     *num = 0;
-    bstring_init(&t);
     for (p = buf->rpos; p < buf->wpos; p++) {
         if (_token_oversize(buf, p)) {
             return PARSE_EOVERSIZE;
         }
 
-        status = _check_uint(num, buf, end, &t, p, max);
+        status = _check_uint(num, buf, end, &len, p, max);
         if (status != PARSE_EUNFIN) {
             return status;
         }
