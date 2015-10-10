@@ -240,7 +240,7 @@ struct item *item_get(const struct bstring *key);
 item_rstatus_t item_insert(const struct bstring *key, const struct bstring *val, uint32_t dataflag, rel_time_t expire_at);
 
 /* Append/prepend */
-item_rstatus_t item_annex(struct item *it, const struct bstring *key, const struct bstring *val, bool append);
+item_rstatus_t item_annex(struct item *it, const struct bstring *val, bool append);
 
 /* In place item update (replace item value) */
 item_rstatus_t item_update(struct item *it, const struct bstring *val);

@@ -35,6 +35,13 @@ _copy_key(struct item *it, const struct bstring *key)
 }
 
 static inline void
+_copy_key_item(struct item *nit, struct item *oit)
+{
+    cc_memcpy(item_key(nit), item_key(oit), oit->klen);
+    nit->klen = oit->klen;
+}
+
+static inline void
 _copy_val(struct item *it, const struct bstring *val)
 {
     cc_memcpy(item_data(it), val->data, val->len);
@@ -243,7 +250,7 @@ item_insert(const struct bstring *key, const struct bstring *val, uint32_t dataf
 }
 
 item_rstatus_t
-item_annex(struct item *oit, const struct bstring *key, const struct bstring *val, bool append)
+item_annex(struct item *oit, const struct bstring *val, bool append)
 {
     item_rstatus_t status = ITEM_OK;
     struct item *nit = NULL;
@@ -272,12 +279,12 @@ item_annex(struct item *oit, const struct bstring *key, const struct bstring *va
             INCR_N(item_metrics, item_val_byte, val->len);
             item_set_cas(oit);
         } else {
-            status = _item_alloc(&nit, key->len, ntotal);
+            status = _item_alloc(&nit, oit->klen, ntotal);
             if (status != ITEM_OK) {
                 log_debug("annex failed due to failure to allocate new item");
                 return status;
             }
-            _copy_key(nit, key);
+            _copy_key_item(nit, oit);
             nit->expire_at = oit->expire_at;
             nit->create_at = time_now();
             nit->dataflag = oit->dataflag;
@@ -302,12 +309,12 @@ item_annex(struct item *oit, const struct bstring *key, const struct bstring *va
             INCR_N(item_metrics, item_val_byte, val->len);
             item_set_cas(oit);
         } else {
-            status = _item_alloc(&nit, key->len, ntotal);
+            status = _item_alloc(&nit, oit->klen, ntotal);
             if (status != ITEM_OK) {
                 log_debug("annex failed due to failure to allocate new item");
                 return status;
             }
-            _copy_key(nit, key);
+            _copy_key_item(nit, oit);
             nit->expire_at = oit->expire_at;
             nit->create_at = time_now();
             nit->dataflag = oit->dataflag;

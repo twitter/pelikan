@@ -371,7 +371,7 @@ _process_append(struct response *rsp, struct request *req)
         rsp->type = RSP_NOT_STORED;
         INCR(process_metrics, append_notstored);
     } else {
-        status = item_annex(it, key, &(req->vstr), true);
+        status = item_annex(it, &(req->vstr), true);
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, append_stored);
@@ -397,7 +397,7 @@ _process_prepend(struct response *rsp, struct request *req)
         rsp->type = RSP_NOT_STORED;
         INCR(process_metrics, prepend_notstored);
     } else {
-        status = item_annex(it, key, &(req->vstr), false);
+        status = item_annex(it, &(req->vstr), false);
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, prepend_stored);
