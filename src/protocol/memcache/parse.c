@@ -677,7 +677,7 @@ _subrequest_store(struct request *req, struct buf *buf, bool *end, bool cas)
         n = 0;
         status = _chase_uint(&n, buf, end, UINT64_MAX);
         req->vcas = n;
-        if (status != PARSE_OK || end) {
+        if (status != PARSE_OK || *end) {
             return status;
         }
     }
