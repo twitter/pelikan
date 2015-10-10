@@ -1059,10 +1059,10 @@ memcache_suite(void)
 }
 
 /* TODO(yao): move main to a different file, keep most test files main-less */
-int main(void)
+int
+main(void)
 {
     int nfail;
-
 
     /* setup */
     test_setup();
