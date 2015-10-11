@@ -16,13 +16,13 @@
 #define CUCKOO_NITEM 1024
 #define CUCKOO_POLICY CUCKOO_POLICY_RANDOM
 
-/*          name                type                default                 description */
-#define CUCKOO_OPTION(ACTION)                                                                        \
-    ACTION( cuckoo_displace,    OPTION_TYPE_UINT,   str(CUCKOO_DISPLACE),   "# displaces allowed"   )\
-    ACTION( cuckoo_item_cas,    OPTION_TYPE_BOOL,   "yes",                  "support cas in items"  )\
-    ACTION( cuckoo_item_size,   OPTION_TYPE_UINT,   str(CUCKOO_ITEM_SIZE),  "item size (inclusive)" )\
-    ACTION( cuckoo_nitem,       OPTION_TYPE_UINT,   str(CUCKOO_NITEM),      "# items allocated"     )\
-    ACTION( cuckoo_policy,      OPTION_TYPE_UINT,   str(CUCKOO_POLICY),     "evict policy"          )
+/*          name                type                default             description */
+#define CUCKOO_OPTION(ACTION)                                                                    \
+    ACTION( cuckoo_displace,    OPTION_TYPE_UINT,   CUCKOO_DISPLACE,    "# displaces allowed"   )\
+    ACTION( cuckoo_item_cas,    OPTION_TYPE_BOOL,   true,               "support cas in items"  )\
+    ACTION( cuckoo_item_size,   OPTION_TYPE_UINT,   CUCKOO_ITEM_SIZE,   "item size (inclusive)" )\
+    ACTION( cuckoo_nitem,       OPTION_TYPE_UINT,   CUCKOO_NITEM,       "# items allocated"     )\
+    ACTION( cuckoo_policy,      OPTION_TYPE_UINT,   CUCKOO_POLICY,      "evict policy"          )
 
 /*          name            type            description */
 #define ITEM_METRIC(ACTION)                                         \

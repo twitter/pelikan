@@ -3,9 +3,9 @@
 #include <cc_bstring.h>
 #include <cc_metric.h>
 
-/*          name                type                default             description */
-#define REQUEST_OPTION(ACTION)                                                              \
-    ACTION( request_poolsize,   OPTION_TYPE_UINT,   str(REQ_POOLSIZE),  "request pool size")
+/*          name                type                default         description */
+#define REQUEST_OPTION(ACTION)                                                          \
+    ACTION( request_poolsize,   OPTION_TYPE_UINT,   REQ_POOLSIZE,   "request pool size")
 
 /*          name                type            description */
 #define REQUEST_METRIC(ACTION)                                          \

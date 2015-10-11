@@ -9,12 +9,12 @@
 #define KLOG_INTVL  100000  /* flush every 100 milliseconds */
 #define KLOG_SAMPLE 100     /* log one in every 100 commands */
 
-/*          name         type              default           description */
-#define KLOG_OPTION(ACTION)                                                               \
-    ACTION( klog_file,   OPTION_TYPE_STR,  NULL,             "command log file"           )\
-    ACTION( klog_nbuf,   OPTION_TYPE_UINT, str(KLOG_NBUF),   "command log buf size"       )\
-    ACTION( klog_intvl,  OPTION_TYPE_UINT, str(KLOG_INTVL),  "command log flush interval" )\
-    ACTION( klog_sample, OPTION_TYPE_UINT, str(KLOG_SAMPLE), "command log sample ratio"   )
+/*          name         type              default       description */
+#define KLOG_OPTION(ACTION)                                                            \
+    ACTION( klog_file,   OPTION_TYPE_STR,  NULL,         "command log file"           )\
+    ACTION( klog_nbuf,   OPTION_TYPE_UINT, KLOG_NBUF,    "command log buf size"       )\
+    ACTION( klog_intvl,  OPTION_TYPE_UINT, KLOG_INTVL,   "command log flush interval" )\
+    ACTION( klog_sample, OPTION_TYPE_UINT, KLOG_SAMPLE,  "command log sample ratio"   )
 
 /*          name            type            description */
 #define KLOG_METRIC(ACTION)                                                  \
