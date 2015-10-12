@@ -306,6 +306,7 @@ _process_incr(struct response *rsp, struct request *req)
             /* TODO(yao): binary key */
             log_warn("value not int, cannot apply incr on key %.*s val %.*s",
                     key->len, key->data, it->vlen, ITEM_VAL_POS(it));
+            return;
         }
 
         nval.type = VAL_TYPE_INT;
@@ -341,6 +342,7 @@ _process_decr(struct response *rsp, struct request *req)
             /* TODO(yao): binary key */
             log_warn("value not int, cannot apply decr on key %.*s val %.*s",
                     key->len, key->data, it->vlen, ITEM_VAL_POS(it));
+            return;
         }
 
         v = item_value_int(it);
