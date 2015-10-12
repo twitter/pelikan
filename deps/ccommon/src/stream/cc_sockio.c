@@ -99,7 +99,8 @@ buf_tcp_write(struct buf_sock *s)
     channel_handler_t *h = s->hdl;
     struct buf *buf = s->wbuf;
     rstatus_t status = CC_OK;
-    size_t cap, n;
+    size_t cap;
+    ssize_t n;
 
     ASSERT(c != NULL && h != NULL && buf != NULL);
     ASSERT(h->send != NULL);

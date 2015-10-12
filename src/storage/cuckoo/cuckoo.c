@@ -268,7 +268,7 @@ cuckoo_setup(size_t size, uint32_t item, uint32_t policy, bool cas, cuckoo_metri
 
         return CC_ERROR;
     }
-    policy = policy;
+    cuckoo_policy = policy;
     cas_enabled = cas;
     cuckoo_metrics = metrics;
     if (metrics != NULL) {

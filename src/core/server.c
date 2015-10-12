@@ -146,14 +146,14 @@ core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
         return CC_ERROR;
     }
 
-    hdl->accept = tcp_accept;
-    hdl->reject = tcp_reject;
-    hdl->open = tcp_listen;
-    hdl->term = tcp_close;
-    hdl->recv = tcp_recv;
-    hdl->send = tcp_send;
-    hdl->rid = tcp_read_id;
-    hdl->wid = tcp_write_id;
+    hdl->accept = (bool (*)(channel_t, channel_t))tcp_accept;
+    hdl->reject = (void (*)(channel_t))tcp_reject;
+    hdl->open = (bool (*)(address_t, channel_t))tcp_listen;
+    hdl->term = (void (*)(channel_t))tcp_close;
+    hdl->recv = (ssize_t (*)(channel_t, void *, size_t))tcp_recv;
+    hdl->send = (ssize_t (*)(channel_t, void *, size_t))tcp_send;
+    hdl->rid = (ch_id_t (*)(channel_t))tcp_read_id;
+    hdl->wid = (ch_id_t (*)(channel_t))tcp_write_id;
 
     /**
      * Here we give server socket a buf_sock purely because it is difficult to
