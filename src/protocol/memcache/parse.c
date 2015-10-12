@@ -535,7 +535,7 @@ _chase_noreply(struct request *req, struct buf *buf, bool *end)
             break;
 
         default:
-            NOT_REACHED();
+            return PARSE_EINVALID;
             break;
         }
     }
