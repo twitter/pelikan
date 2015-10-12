@@ -197,7 +197,7 @@ _klog_fmt_delta(struct request *req, struct response *rsp, char *buf, int len)
 
     len += cc_scnprintf(buf + len, KLOG_MAX_LEN - len, KLOG_DELTA_FMT, req_strings[req->type].len,
                         req_strings[req->type].data, key->len, key->data, req->delta,
-                        rsp_len);
+                        rsp->type, rsp_len);
 
     return len;
 }
