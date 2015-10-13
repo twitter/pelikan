@@ -304,6 +304,55 @@ START_TEST(test_annex_sequence)
 END_TEST
 
 /**
+ * Tests basic functionality for item_update
+ */
+START_TEST(test_update_basic)
+{
+#define KEY "key"
+#define OLD_VAL "old_val"
+#define NEW_VAL "new_val"
+    struct bstring key, old_val, new_val;
+    item_rstatus_t status;
+    struct item *it;
+    uint32_t dataflag = 12345;
+
+    ck_assert_msg(test_reset() == CC_OK, "could not reset slab module");
+
+    key.data = KEY;
+    key.len = sizeof(KEY) - 1;
+
+    old_val.data = OLD_VAL;
+    old_val.len = sizeof(OLD_VAL) - 1;
+
+    new_val.data = NEW_VAL;
+    new_val.len = sizeof(NEW_VAL) - 1;
+
+    time_update();
+    status = item_insert(&key, &old_val, dataflag, 0);
+    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+
+    it = item_get(&key);
+    ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
+
+    status = item_update(it, &new_val);
+    ck_assert_msg(status == CC_OK, "item_update not OK - return status %d", status);
+
+    it = item_get(&key);
+    ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
+    ck_assert_msg(it->is_linked, "item with key %.*s not linked", key.len, key.data);
+    ck_assert_msg(!it->in_freeq, "linked item with key %.*s in freeq", key.len, key.data);
+    ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
+    ck_assert_int_eq(it->vlen, new_val.len);
+    ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
+    ck_assert_int_eq(it->dataflag, dataflag);
+    ck_assert_int_eq(cc_memcmp(item_data(it), NEW_VAL, new_val.len), 0);
+#undef KEY
+#undef OLD_VAL
+#undef NEW_VAL
+}
+END_TEST
+
+/**
  * Tests basic functionality for item_delete
  */
 START_TEST(test_delete_basic)
@@ -338,6 +387,53 @@ START_TEST(test_delete_basic)
 }
 END_TEST
 
+/**
+ * Tests basic functionality for item_flush
+ */
+START_TEST(test_flush_basic)
+{
+#define KEY1 "key1"
+#define VAL1 "val1"
+#define KEY2 "key2"
+#define VAL2 "val2"
+    struct bstring key1, val1, key2, val2;
+    item_rstatus_t status;
+    struct item *it;
+
+    ck_assert_msg(test_reset() == CC_OK, "could not reset slab module");
+
+    key1.data = KEY1;
+    key1.len = sizeof(KEY1) - 1;
+
+    val1.data = VAL1;
+    val1.len = sizeof(VAL1) - 1;
+
+    key2.data = KEY2;
+    key2.len = sizeof(KEY2) - 1;
+
+    val2.data = VAL2;
+    val2.len = sizeof(VAL2) - 1;
+
+    time_update();
+    status = item_insert(&key1, &val1, 0, 0);
+    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+
+    time_update();
+    status = item_insert(&key2, &val2, 0, 0);
+    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+
+    item_flush();
+    it = item_get(&key1);
+    ck_assert_msg(it == NULL, "item with key %.*s still exists after flush", key1.len, key1.data);
+    it = item_get(&key2);
+    ck_assert_msg(it == NULL, "item with key %.*s still exists after flush", key2.len, key2.data);
+#undef KEY1
+#undef VAL1
+#undef KEY2
+#undef VAL2
+}
+END_TEST
+
 /*
  * test suite
  */
@@ -356,6 +452,8 @@ slab_suite(void)
     tcase_add_test(tc_basic_req, test_prepend_basic);
     tcase_add_test(tc_basic_req, test_annex_sequence);
     tcase_add_test(tc_basic_req, test_delete_basic);
+    tcase_add_test(tc_basic_req, test_update_basic);
+    tcase_add_test(tc_basic_req, test_flush_basic);
 
     return s;
 }

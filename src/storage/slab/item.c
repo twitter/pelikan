@@ -338,6 +338,8 @@ item_annex(struct item *oit, const struct bstring *val, bool append)
 item_rstatus_t
 item_update(struct item *it, const struct bstring *val)
 {
+    ASSERT(item_slabid(it->klen, val->len) == it->id);
+
     it->vlen = val->len;
     cc_memcpy(item_data(it), val->data, val->len);
     item_set_cas(it);
