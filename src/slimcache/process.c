@@ -51,7 +51,7 @@ _get_key(struct response *rsp, struct bstring *key)
     struct item *it;
     struct val val;
 
-    it = cuckoo_lookup(key);
+    it = cuckoo_get(key);
     if (it != NULL) {
         rsp->type = RSP_VALUE;
         rsp->key = *key;
@@ -179,7 +179,7 @@ _process_set(struct response *rsp, struct request *req)
     expire = time_reltime(req->expiry);
     _get_value(&val, &req->vstr);
 
-    it = cuckoo_lookup(key);
+    it = cuckoo_get(key);
     if (it != NULL) {
         status = cuckoo_update(it, &val, expire);
     } else {
@@ -207,7 +207,7 @@ _process_add(struct response *rsp, struct request *req)
 
     INCR(process_metrics, add);
     key = array_first(req->keys);
-    it = cuckoo_lookup(key);
+    it = cuckoo_get(key);
     if (it != NULL) {
         rsp->type = RSP_NOT_STORED;
         INCR(process_metrics, add_notstored);
@@ -235,7 +235,7 @@ _process_replace(struct response *rsp, struct request *req)
 
     INCR(process_metrics, replace);
     key = array_first(req->keys);
-    it = cuckoo_lookup(key);
+    it = cuckoo_get(key);
     if (it != NULL) {
         _get_value(&val, &req->vstr);
         if (cuckoo_update(it, &val, time_reltime(req->expiry)) == CC_OK) {
@@ -263,7 +263,7 @@ _process_cas(struct response *rsp, struct request *req)
 
     INCR(process_metrics, cas);
     key = array_first(req->keys);
-    it = cuckoo_lookup(key);
+    it = cuckoo_get(key);
     if (it != NULL) {
 
         if (item_cas_valid(it, req->vcas)) {
@@ -297,7 +297,7 @@ _process_incr(struct response *rsp, struct request *req)
 
     INCR(process_metrics, incr);
     key = array_first(req->keys);
-    it = cuckoo_lookup(key);
+    it = cuckoo_get(key);
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
             rsp->type = RSP_CLIENT_ERROR;
@@ -333,7 +333,7 @@ _process_decr(struct response *rsp, struct request *req)
 
     INCR(process_metrics, decr);
     key = array_first(req->keys);
-    it = cuckoo_lookup(key);
+    it = cuckoo_get(key);
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
             rsp->type = RSP_CLIENT_ERROR;

@@ -308,7 +308,7 @@ cuckoo_reset(void) /* reset hash table */
 }
 
 struct item *
-cuckoo_lookup(struct bstring *key)
+cuckoo_get(struct bstring *key)
 {
     uint32_t offset[D];
     int i;
@@ -316,7 +316,7 @@ cuckoo_lookup(struct bstring *key)
 
     ASSERT(cuckoo_init == true && key != NULL);
 
-    INCR(cuckoo_metrics, cuckoo_lookup);
+    INCR(cuckoo_metrics, cuckoo_get);
 
     cuckoo_hash(offset, key);
 
@@ -417,7 +417,7 @@ cuckoo_delete(struct bstring *key)
 
     INCR(cuckoo_metrics, cuckoo_delete);
 
-    it = cuckoo_lookup(key);
+    it = cuckoo_get(key);
 
     if (it != NULL) {
         INCR(cuckoo_metrics, item_delete);

@@ -37,7 +37,7 @@
     ACTION( item_delete,    METRIC_COUNTER, "# item deletes"       )
 
 #define CUCKOO_METRIC(ACTION)                                       \
-    ACTION( cuckoo_lookup,      METRIC_COUNTER, "# cuckoo lookups" )\
+    ACTION( cuckoo_get,         METRIC_COUNTER, "# cuckoo lookups" )\
     ACTION( cuckoo_insert,      METRIC_COUNTER, "# cuckoo inserts" )\
     ACTION( cuckoo_insert_ex,   METRIC_COUNTER, "# insert errors"  )\
     ACTION( cuckoo_displace,    METRIC_COUNTER, "# displacements"  )\
@@ -61,7 +61,7 @@ rstatus_t cuckoo_setup(size_t size, uint32_t item, uint32_t policy, bool cas, cu
 void cuckoo_teardown(void);
 void cuckoo_reset(void);
 
-struct item * cuckoo_lookup(struct bstring *key);
+struct item * cuckoo_get(struct bstring *key);
 rstatus_t cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire);
 rstatus_t cuckoo_update(struct item *it, struct val *val, rel_time_t expire);
 bool cuckoo_delete(struct bstring *key);
