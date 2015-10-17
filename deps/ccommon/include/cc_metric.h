@@ -80,6 +80,10 @@ extern "C" {
 #define METRIC_DECLARE(_name, _type, _description)
 #define METRIC_INIT(_name, _type, _description)
 #define METRIC_NAME(_name, _type, _description)
+#define INCR(_base, _metric)
+#define DECR(_base, _metric)
+#define INCR_N(_base, _metric, _delta)
+#define DECR_N(_base, _metric, _delta)
 
 #endif
 
