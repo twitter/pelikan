@@ -416,6 +416,73 @@ START_TEST(test_insert_insert_expire_swap)
 #undef NOW
 }
 END_TEST
+
+START_TEST(test_expire_displace)
+{
+    // The goal of this test is to exercise the expiration of keys when
+    // displacing a key to insert a new one.
+    //
+    // To do so, it fills the dictionary with keys, then expire some of them
+    // and then adds new keys. All of the new keys' hash will collide with
+    // the existing ones (because the dictionary is full) and it will check
+    // for expired items in order to displace, all will exist but some will
+    // be expired and the key can now be displaced.
+#define KEY "key"
+#define VAL "value"
+#define NOW 12345678
+    struct bstring key;
+    struct val val;
+    rstatus_t status;
+    uint64_t i, j;
+    char keystring[30];
+    int hits = 0;
+
+    cuckoo_metrics_st metrics;
+
+    cuckoo_teardown();
+    status = cuckoo_setup(CUCKOO_ITEM_SIZE, CUCKOO_NITEM, CUCKOO_POLICY_RANDOM, true, &metrics);
+    ck_assert_msg(status == CC_OK,
+            "could not setup cuckoo module");
+
+    now = NOW;
+    for (i = 0; metrics.item_curr.counter < CUCKOO_NITEM; i++) {
+        key.len = sprintf(keystring, "%llu", i);
+        key.data = keystring;
+
+        val.type = VAL_TYPE_INT;
+        val.vint = i;
+
+        status = cuckoo_insert(&key, &val, now + i);
+        ck_assert_msg(status == CC_OK, "cuckoo_insert not OK - return status %d",
+                status);
+    }
+
+    now += i / 2;
+    for (j = 0; j < i; j++) {
+        key.len = sprintf(keystring, "%llu", j + i);
+        key.data = keystring;
+
+        val.type = VAL_TYPE_INT;
+        val.vint = j + i;
+
+        status = cuckoo_insert(&key, &val, now + i);
+        ck_assert_msg(status == CC_OK, "cuckoo_insert not OK - return status %d",
+                status);
+    }
+
+    for (i *= 2 ;i > 0 && hits < CUCKOO_NITEM;i--) {
+        if (cuckoo_get(&key) != NULL) {
+            hits++;
+        }
+    }
+
+    ck_assert_msg(hits == CUCKOO_NITEM, "expected %d hits, got %d",
+            CUCKOO_NITEM, hits);
+#undef NOW
+#undef KEY
+#undef VAL
+}
+END_TEST
 /*
  * test suite
  */
@@ -444,6 +511,7 @@ cuckoo_suite(void)
     tcase_add_test(tc_basic_req, test_expire_basic_random_false);
     tcase_add_test(tc_basic_req, test_insert_replace_expired);
     tcase_add_test(tc_basic_req, test_insert_insert_expire_swap);
+    tcase_add_test(tc_basic_req, test_expire_displace);
 
     return s;
 }
