@@ -10,6 +10,8 @@
 
 #define CUCKOO_MODULE_NAME "storage::cuckoo"
 
+bool cas_enabled = true;
+uint64_t cas_val;
 static bool cuckoo_init; /* need to make sure memory has been pre-allocate */
 
 /* D is the degree/cardinality of the hash values computed for each key */

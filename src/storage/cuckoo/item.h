@@ -12,8 +12,8 @@
 #include <stddef.h>
 
 
-static bool cas_enabled = true;
-static uint64_t cas_val; /* incr'ed before assignment, 0 is a special value */
+extern bool cas_enabled;
+extern uint64_t cas_val; /* incr'ed before assignment, 0 is a special value */
 
 /**
  * val_type_t and struct val makes it easier to use one object to communicate

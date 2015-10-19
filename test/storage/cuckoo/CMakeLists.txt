@@ -1,4 +1,4 @@
-set(suite slab)
+set(suite cuckoo)
 set(test_name check_${suite})
 
 set(source check_${suite}.c)
