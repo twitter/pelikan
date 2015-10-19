@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
 
@@ -434,6 +436,51 @@ START_TEST(test_flush_basic)
 }
 END_TEST
 
+START_TEST(test_evict_lru_basic)
+{
+    dlog->level = LOG_ERROR;
+    printf("test_evict_lru_basic\n");
+    struct bstring key, val;
+    item_rstatus_t status;
+    char datastring[30];
+    uint64_t i;
+    size_t max_elements = 100;
+    size_t max_slab_elements = 10;
+    size_t my_slab_size = max_slab_elements * 60; // MAGIC NUMBER, I DON'T KNOW WHAT TO USE
+    size_t setup_maxbytes = max_elements * (my_slab_size / max_slab_elements);
+
+    test_teardown();
+    status = slab_setup(my_slab_size, true,
+                        EVICT_CS, true, SLAB_MIN_CHUNK,
+                        my_slab_size - SLAB_HDR_SIZE, setup_maxbytes, NULL, str(SLAB_FACTOR), NULL);
+    ck_assert_msg(status == CC_OK, "could not reset slab module");
+    status = item_setup(false, HASH_POWER, NULL);
+    ck_assert_msg(status == CC_OK, "could not reset slab module");
+
+    for (i = 0; i <= max_elements; i++) {
+        val.len = key.len = sprintf(datastring, "%llu", i);
+        key.data = val.data = datastring;
+
+        time_update();
+        status = item_insert(&key, &val, 0, 0);
+        ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+    }
+
+    for (i = 0; i <= max_slab_elements; i++) {
+        key.len = sprintf(datastring, "%llu", i);
+        key.data = datastring;
+
+        ck_assert_msg(item_get(&key) == NULL,
+            "item 0 found, expected to be evicted");
+    }
+    for (; i <= max_elements; i++) {
+        key.len = sprintf(datastring, "%llu", i);
+        key.data = datastring;
+        ck_assert_msg(item_get(&key) != NULL, "item %llu not found", i);
+    }
+}
+END_TEST
+
 /*
  * test suite
  */
@@ -454,6 +501,7 @@ slab_suite(void)
     tcase_add_test(tc_basic_req, test_delete_basic);
     tcase_add_test(tc_basic_req, test_update_basic);
     tcase_add_test(tc_basic_req, test_flush_basic);
+    tcase_add_test(tc_basic_req, test_evict_lru_basic);
 
     return s;
 }

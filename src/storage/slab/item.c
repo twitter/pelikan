@@ -135,9 +135,9 @@ _item_alloc(struct item **it_p, uint8_t klen, uint32_t vlen)
     }
 
     it = slab_get_item(id);
-    _item_reset(it);
     *it_p = it;
     if (it != NULL) {
+        _item_reset(it);
         INCR(item_metrics, item_req);
 
         log_verb("alloc it %p of id %"PRIu8" at offset %"PRIu32, it, it->id,

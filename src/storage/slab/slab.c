@@ -385,7 +385,8 @@ _slab_hdr_init(struct slab *slab, uint8_t id)
 static bool
 _slab_heap_full(void)
 {
-    return (heapinfo.nslab >= heapinfo.max_nslab);
+    // nslab is the last index, +1 to get the count
+    return (heapinfo.nslab + 1 >= heapinfo.max_nslab);
 }
 
 static struct slab *
@@ -559,7 +560,7 @@ _slab_evict_lru(int id)
     uint32_t tries;
 
     for (tries = SLAB_LRU_MAX_TRIES, slab = _slab_lruq_head();
-         tries > 0 && slab != NULL;
+         tries > 0 && slab == NULL;
          tries--, slab = TAILQ_NEXT(slab, s_tqe)) {
     }
 
