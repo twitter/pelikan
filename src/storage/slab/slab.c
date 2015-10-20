@@ -536,9 +536,9 @@ _slab_evict_rand(void)
     do {
         slab = _slab_table_rand();
         tries--;
-    } while (tries > 0);
+    } while (tries > 0 && slab == NULL);
 
-    if (tries == 0) {
+    if (slab == NULL) {
         /* all randomly chosen slabs are in use */
         return NULL;
     }
@@ -564,7 +564,7 @@ _slab_evict_lru(int id)
          tries--, slab = TAILQ_NEXT(slab, s_tqe)) {
     }
 
-    if (tries == 0 || slab == NULL) {
+    if (slab == NULL) {
         return NULL;
     }
 
