@@ -16,6 +16,7 @@ void test_insert_basic(uint32_t policy, bool cas);
 void test_insert_collision(uint32_t policy, bool cas);
 void test_cas(uint32_t policy);
 void test_delete_basic(uint32_t policy, bool cas);
+void test_expire_basic(uint32_t policy, bool cas);
 
 /*
  * utilities
@@ -212,6 +213,43 @@ test_delete_basic(uint32_t policy, bool cas)
 #undef VAL
 }
 
+void
+test_expire_basic(uint32_t policy, bool cas)
+{
+#define KEY "key"
+#define VAL "value"
+#define NOW 12345678
+    struct bstring key;
+    struct val val;
+    rstatus_t status;
+    struct item *it;
+
+    ck_assert_msg(test_reset(policy, cas) == CC_OK,
+            "could not reset cuckoo module");
+
+    key.data = KEY;
+    key.len = sizeof(KEY) - 1;
+
+    val.type = VAL_TYPE_STR;
+    val.vstr.data = VAL;
+    val.vstr.len = sizeof(VAL) - 1;
+
+    now = NOW;
+    status = cuckoo_insert(&key, &val, NOW + 1);
+    ck_assert_msg(status == CC_OK, "cuckoo_insert not OK - return status %d",
+            status);
+
+    it = cuckoo_get(&key);
+    ck_assert_msg(it != NULL, "cuckoo_get returned NULL");
+
+    now += 2;
+
+    it = cuckoo_get(&key);
+    ck_assert_msg(it == NULL, "cuckoo_get returned not NULL after expiration");
+#undef KEY
+#undef VAL
+}
+
 START_TEST(test_insert_basic_random_true)
 {
     test_insert_basic(CUCKOO_POLICY_RANDOM, true);
@@ -272,6 +310,18 @@ START_TEST(test_delete_basic_random_false)
 }
 END_TEST
 
+START_TEST(test_expire_basic_random_true)
+{
+    test_expire_basic(CUCKOO_POLICY_RANDOM, true);
+}
+END_TEST
+
+START_TEST(test_expire_basic_random_false)
+{
+    test_expire_basic(CUCKOO_POLICY_RANDOM, false);
+}
+END_TEST
+
 /*
  * test suite
  */
@@ -296,6 +346,8 @@ cuckoo_suite(void)
     tcase_add_test(tc_basic_req, test_cas_expire);
     tcase_add_test(tc_basic_req, test_delete_basic_random_true);
     tcase_add_test(tc_basic_req, test_delete_basic_random_false);
+    tcase_add_test(tc_basic_req, test_expire_basic_random_true);
+    tcase_add_test(tc_basic_req, test_expire_basic_random_false);
 
     return s;
 }
