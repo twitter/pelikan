@@ -6,6 +6,7 @@
 
 #include <check.h>
 #include <string.h>
+#include <stdio.h>
 
 /* define for each suite, local scope due to macro visibility rule */
 #define SUITE_NAME "cuckoo"
@@ -13,6 +14,7 @@
 
 void test_insert_basic(uint32_t policy, bool cas);
 void test_insert_collision(uint32_t policy, bool cas);
+void test_cas(uint32_t policy);
 
 /*
  * utilities
@@ -121,6 +123,53 @@ test_insert_collision(uint32_t policy, bool cas)
     ck_assert_msg(hits <= CUCKOO_NITEM, "hit rate is too high, expected more evicted values");
 }
 
+void
+test_cas(uint32_t policy)
+{
+#define KEY "key"
+#define VAL "value"
+#define VAL2 "value2"
+    struct bstring key;
+    struct val val;
+    rstatus_t status;
+    struct item *it;
+    uint64_t cas1, cas2;
+
+    ck_assert_msg(test_reset(policy, true) == CC_OK,
+            "could not reset cuckoo module");
+
+    key.data = KEY;
+    key.len = sizeof(KEY) - 1;
+
+    val.type = VAL_TYPE_STR;
+    val.vstr.data = VAL;
+    val.vstr.len = sizeof(VAL) - 1;
+
+    time_update();
+    status = cuckoo_insert(&key, &val, UINT32_MAX - 1);
+    ck_assert_msg(status == CC_OK, "cuckoo_insert not OK - return status %d",
+            status);
+
+    it = cuckoo_get(&key);
+    cas1 = item_cas(it);
+    ck_assert_uint_ne(cas1, 0);
+
+    val.vstr.data = VAL2;
+    val.vstr.len = sizeof(VAL2) - 1;
+
+    status = cuckoo_update(it, &val, UINT32_MAX - 1);
+    ck_assert_msg(status == CC_OK, "cuckoo_update not OK - return status %d",
+            status);
+
+    it = cuckoo_get(&key);
+    cas2 = item_cas(it);
+    ck_assert_uint_ne(cas2, 0);
+    ck_assert_uint_ne(cas1, cas2);
+#undef KEY
+#undef VAL
+#undef VAL2
+}
+
 START_TEST(test_insert_basic_random_true)
 {
     test_insert_basic(CUCKOO_POLICY_RANDOM, true);
@@ -157,6 +206,18 @@ START_TEST(test_insert_collision_expire_false)
 }
 END_TEST
 
+START_TEST(test_cas_random)
+{
+    test_cas(CUCKOO_POLICY_RANDOM);
+}
+END_TEST
+
+START_TEST(test_cas_expire)
+{
+    test_cas(CUCKOO_POLICY_EXPIRE);
+}
+END_TEST
+
 /*
  * test suite
  */
@@ -177,6 +238,8 @@ cuckoo_suite(void)
     tcase_add_test(tc_basic_req, test_insert_collision_random_false);
     tcase_add_test(tc_basic_req, test_insert_collision_expire_true);
     tcase_add_test(tc_basic_req, test_insert_collision_expire_false);
+    tcase_add_test(tc_basic_req, test_cas_random);
+    tcase_add_test(tc_basic_req, test_cas_expire);
     tcase_add_test(tc_basic_req, test_insert_basic_random_true);
     tcase_add_test(tc_basic_req, test_insert_basic_random_false);
 
