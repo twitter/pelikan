@@ -12,6 +12,7 @@
 #define DEBUG_LOG  SUITE_NAME ".log"
 
 void test_insert_basic(uint32_t policy, bool cas);
+void test_insert_collision(uint32_t policy, bool cas);
 
 /*
  * utilities
@@ -75,6 +76,51 @@ test_insert_basic(uint32_t policy, bool cas)
 #undef VAL
 }
 
+void
+test_insert_collision(uint32_t policy, bool cas)
+{
+    struct bstring key;
+    struct val val;
+    rstatus_t status;
+    struct item *it;
+    int hits = 0;
+    char keystring[CC_UINTMAX_MAXLEN];
+    uint64_t i, testval;
+
+    ck_assert_msg(test_reset(policy, cas) == CC_OK,
+            "could not reset cuckoo module");
+
+    time_update();
+    for (i = 0; i < CUCKOO_NITEM + 1; i++) {
+        key.len = sprintf(keystring, "%llu", i);
+        key.data = keystring;
+
+        val.type = VAL_TYPE_INT;
+        val.vint = i;
+
+        status = cuckoo_insert(&key, &val, UINT32_MAX - 1);
+        ck_assert_msg(status == CC_OK, "cuckoo_insert not OK - return status %d",
+                status);
+    }
+
+    for (i = 0; i < CUCKOO_NITEM + 1; i++) {
+        key.len = sprintf(keystring, "%llu", i);
+        key.data = keystring;
+
+        it = cuckoo_get(&key);
+        if (it == NULL) {
+            continue;
+        }
+        hits++;
+        ck_assert_int_eq(it->klen, key.len);
+        testval = item_value_int(it);
+        ck_assert_int_eq(testval, i);
+    }
+
+    ck_assert_msg(hits > (double)CUCKOO_NITEM * 9 / 10, "hit rate is lower than expected when hash collision occurs");
+    ck_assert_msg(hits <= CUCKOO_NITEM, "hit rate is too high, expected more evicted values");
+}
+
 START_TEST(test_insert_basic_random_true)
 {
     test_insert_basic(CUCKOO_POLICY_RANDOM, true);
@@ -84,6 +130,30 @@ END_TEST
 START_TEST(test_insert_basic_random_false)
 {
     test_insert_basic(CUCKOO_POLICY_RANDOM, false);
+}
+END_TEST
+
+START_TEST(test_insert_collision_random_true)
+{
+    test_insert_collision(CUCKOO_POLICY_RANDOM, true);
+}
+END_TEST
+
+START_TEST(test_insert_collision_random_false)
+{
+    test_insert_collision(CUCKOO_POLICY_RANDOM, false);
+}
+END_TEST
+
+START_TEST(test_insert_collision_expire_true)
+{
+    test_insert_collision(CUCKOO_POLICY_EXPIRE, true);
+}
+END_TEST
+
+START_TEST(test_insert_collision_expire_false)
+{
+    test_insert_collision(CUCKOO_POLICY_EXPIRE, false);
 }
 END_TEST
 
@@ -101,6 +171,12 @@ cuckoo_suite(void)
 
     test_setup(CUCKOO_POLICY_RANDOM, true);
 
+    tcase_add_test(tc_basic_req, test_insert_basic_random_true);
+    tcase_add_test(tc_basic_req, test_insert_basic_random_false);
+    tcase_add_test(tc_basic_req, test_insert_collision_random_true);
+    tcase_add_test(tc_basic_req, test_insert_collision_random_false);
+    tcase_add_test(tc_basic_req, test_insert_collision_expire_true);
+    tcase_add_test(tc_basic_req, test_insert_collision_expire_false);
     tcase_add_test(tc_basic_req, test_insert_basic_random_true);
     tcase_add_test(tc_basic_req, test_insert_basic_random_false);
 
