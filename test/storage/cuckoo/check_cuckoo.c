@@ -15,6 +15,7 @@
 void test_insert_basic(uint32_t policy, bool cas);
 void test_insert_collision(uint32_t policy, bool cas);
 void test_cas(uint32_t policy);
+void test_delete_basic(uint32_t policy, bool cas);
 
 /*
  * utilities
@@ -170,6 +171,47 @@ test_cas(uint32_t policy)
 #undef VAL2
 }
 
+void
+test_delete_basic(uint32_t policy, bool cas)
+{
+#define KEY "key"
+#define VAL "value"
+    struct bstring key;
+    struct val val;
+    rstatus_t status;
+    struct item *it;
+    bool deleted;
+
+    ck_assert_msg(test_reset(policy, cas) == CC_OK,
+            "could not reset cuckoo module");
+
+    key.data = KEY;
+    key.len = sizeof(KEY) - 1;
+
+    val.type = VAL_TYPE_STR;
+    val.vstr.data = VAL;
+    val.vstr.len = sizeof(VAL) - 1;
+
+    time_update();
+    status = cuckoo_insert(&key, &val, UINT32_MAX - 1);
+    ck_assert_msg(status == CC_OK, "cuckoo_insert not OK - return status %d",
+            status);
+
+    it = cuckoo_get(&key);
+    ck_assert_msg(it != NULL, "cuckoo_get returned NULL");
+
+    deleted = cuckoo_delete(&key);
+    ck_assert_msg(deleted, "cuckoo_delete return false");
+
+    it = cuckoo_get(&key);
+    ck_assert_msg(it == NULL, "cuckoo_get returned not NULL");
+
+    deleted = cuckoo_delete(&key);
+    ck_assert_msg(!deleted, "cuckoo_delete return true");
+#undef KEY
+#undef VAL
+}
+
 START_TEST(test_insert_basic_random_true)
 {
     test_insert_basic(CUCKOO_POLICY_RANDOM, true);
@@ -218,6 +260,18 @@ START_TEST(test_cas_expire)
 }
 END_TEST
 
+START_TEST(test_delete_basic_random_true)
+{
+    test_delete_basic(CUCKOO_POLICY_RANDOM, true);
+}
+END_TEST
+
+START_TEST(test_delete_basic_random_false)
+{
+    test_delete_basic(CUCKOO_POLICY_RANDOM, false);
+}
+END_TEST
+
 /*
  * test suite
  */
@@ -240,8 +294,8 @@ cuckoo_suite(void)
     tcase_add_test(tc_basic_req, test_insert_collision_expire_false);
     tcase_add_test(tc_basic_req, test_cas_random);
     tcase_add_test(tc_basic_req, test_cas_expire);
-    tcase_add_test(tc_basic_req, test_insert_basic_random_true);
-    tcase_add_test(tc_basic_req, test_insert_basic_random_false);
+    tcase_add_test(tc_basic_req, test_delete_basic_random_true);
+    tcase_add_test(tc_basic_req, test_delete_basic_random_false);
 
     return s;
 }
