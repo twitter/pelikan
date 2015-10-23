@@ -34,9 +34,6 @@ char * option_type_str[] = {
     "string"
 };
 
-void _option_print_default(struct option *opt);
-void option_print_val(char *s, size_t len, option_type_t type, option_val_u val);
-
 static rstatus_t
 _option_parse_bool(struct option *opt, const char *val_str)
 {
@@ -449,7 +446,7 @@ option_parse(char *line, char name[OPTNAME_MAXLEN+1], char val[OPTVAL_MAXLEN+1])
     return CC_OK;
 }
 
-void
+static void
 option_print_val(char *s, size_t len, option_type_t type, option_val_u val)
 {
     switch (type) {
