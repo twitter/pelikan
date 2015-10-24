@@ -1110,6 +1110,62 @@ START_TEST(test_req_pool_basic)
 }
 END_TEST
 
+START_TEST(test_req_pool_metrics)
+{
+#define POOL_SIZE 2
+    struct request *reqs[POOL_SIZE];
+    request_metrics_st metrics;
+    request_setup(&metrics);
+    request_pool_create(POOL_SIZE);
+
+    ck_assert_int_eq(metrics.request_borrow.counter, 0);
+    ck_assert_int_eq(metrics.request_create.counter, 2);
+    ck_assert_int_eq(metrics.request_free.counter, 2);
+
+    reqs[0] = request_borrow();
+    ck_assert_msg(reqs[0] != NULL, "expected to borrow a request");
+    ck_assert_int_eq(metrics.request_borrow.counter, 1);
+    ck_assert_int_eq(metrics.request_create.counter, 2);
+    ck_assert_int_eq(metrics.request_free.counter, 1);
+
+    reqs[1] = request_borrow();
+    ck_assert_msg(reqs[1] != NULL, "expected to borrow a request");
+    ck_assert_int_eq(metrics.request_borrow.counter, 2);
+    ck_assert_int_eq(metrics.request_create.counter, 2);
+    ck_assert_int_eq(metrics.request_free.counter, 0);
+
+    ck_assert_msg(request_borrow() == NULL, "expected request pool to be depleted");
+    ck_assert_int_eq(metrics.request_borrow.counter, 2);
+    ck_assert_int_eq(metrics.request_create.counter, 2);
+    ck_assert_int_eq(metrics.request_free.counter, 0);
+
+    request_return(&reqs[1]);
+    ck_assert_int_eq(metrics.request_borrow.counter, 2);
+    ck_assert_int_eq(metrics.request_create.counter, 2);
+    ck_assert_int_eq(metrics.request_free.counter, 1);
+
+    request_return(&reqs[0]);
+    ck_assert_int_eq(metrics.request_borrow.counter, 2);
+    ck_assert_int_eq(metrics.request_create.counter, 2);
+    ck_assert_int_eq(metrics.request_free.counter, 2);
+
+    reqs[0] = request_borrow();
+    ck_assert_msg(reqs[0] != NULL, "expected to borrow a request");
+    ck_assert_int_eq(metrics.request_borrow.counter, 3);
+    ck_assert_int_eq(metrics.request_create.counter, 2);
+    ck_assert_int_eq(metrics.request_free.counter, 1);
+
+    request_return(&reqs[0]);
+    ck_assert_int_eq(metrics.request_borrow.counter, 3);
+    ck_assert_int_eq(metrics.request_create.counter, 2);
+    ck_assert_int_eq(metrics.request_free.counter, 2);
+
+    request_pool_destroy();
+    request_teardown();
+#undef POOL_SIZE
+}
+END_TEST
+
 /*
  * test suite
  */
@@ -1165,6 +1221,7 @@ memcache_suite(void)
     suite_add_tcase(s, tc_req_pool);
 
     tcase_add_test(tc_req_pool, test_req_pool_basic);
+    tcase_add_test(tc_req_pool, test_req_pool_metrics);
 
     return s;
 }
