@@ -132,6 +132,7 @@ request_pool_create(uint32_t max)
         return;
     }
 
+    reqp.nused = max; // will be decremented by FREEPOOL_RETURN
     for (i = 0; i < max; ++i) {
         req = request_create();
         if (req == NULL) {

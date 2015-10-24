@@ -1088,6 +1088,28 @@ START_TEST(test_rsp_pool_metrics)
 }
 END_TEST
 
+START_TEST(test_req_pool_basic)
+{
+#define POOL_SIZE 10
+    int i;
+    struct request *reqs[POOL_SIZE];
+    request_setup(NULL);
+    request_pool_create(POOL_SIZE);
+    for (i = 0; i < POOL_SIZE; i++) {
+        reqs[i] = request_borrow();
+        ck_assert_msg(reqs[i] != NULL, "expected to borrow a request");
+    }
+    ck_assert_msg(request_borrow() == NULL, "expected request pool to be depleted");
+    for (i = 0; i < POOL_SIZE; i++) {
+        request_return(&reqs[i]);
+        ck_assert_msg(reqs[i] == NULL, "expected request to be nulled after return");
+    }
+    request_pool_destroy();
+    request_teardown();
+#undef POOL_SIZE
+}
+END_TEST
+
 /*
  * test suite
  */
@@ -1133,12 +1155,16 @@ memcache_suite(void)
     tcase_add_test(tc_basic_rsp, test_servererror);
     tcase_add_test(tc_basic_rsp, test_clienterror);
 
-    /* basic requests */
     TCase *tc_rsp_pool = tcase_create("response pool");
     suite_add_tcase(s, tc_rsp_pool);
 
     tcase_add_test(tc_rsp_pool, test_rsp_pool_basic);
     tcase_add_test(tc_rsp_pool, test_rsp_pool_metrics);
+
+    TCase *tc_req_pool = tcase_create("request pool");
+    suite_add_tcase(s, tc_req_pool);
+
+    tcase_add_test(tc_req_pool, test_req_pool_basic);
 
     return s;
 }
