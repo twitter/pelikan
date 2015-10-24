@@ -123,6 +123,7 @@ response_pool_create(uint32_t max)
         return;
     }
 
+    rspp.nused = max; // will be decremented by FREEPOOL_RETURN
     for (i = 0; i < max; ++i) {
         rsp = response_create();
         if (rsp == NULL) {
