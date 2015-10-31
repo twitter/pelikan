@@ -419,14 +419,16 @@ END_TEST
 
 START_TEST(test_expire_displace)
 {
-    // The goal of this test is to exercise the expiration of keys when
-    // displacing a key to insert a new one.
-    //
-    // To do so, it fills the dictionary with keys, then expire some of them
-    // and then adds new keys. All of the new keys' hash will collide with
-    // the existing ones (because the dictionary is full) and it will check
-    // for expired items in order to displace, all will exist but some will
-    // be expired and the key can now be displaced.
+    /*
+    * The goal of this test is to exercise the expiration of keys when
+    * displacing a key to insert a new one.
+    *
+    * To do so, it fills the dictionary with keys, then expire some of them
+    * and then adds new keys. All of the new keys' hash will collide with
+    * the existing ones (because the dictionary is full) and it will check
+    * for expired items in order to displace, all will exist but some will
+    * be expired and the key can now be displaced.
+    */
 #define KEY "key"
 #define VAL "value"
 #define NOW 12345678
