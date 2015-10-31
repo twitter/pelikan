@@ -325,6 +325,8 @@ END_TEST
 
 START_TEST(test_insert_replace_expired)
 {
+#define NOW 12345678
+
     struct bstring key;
     struct val val;
     rstatus_t status;
@@ -337,7 +339,6 @@ START_TEST(test_insert_replace_expired)
     ck_assert_msg(status == CC_OK,
             "could not setup cuckoo module");
 
-#define NOW 12345678
     now = NOW;
     for (i = 0; metrics.item_curr.counter < CUCKOO_NITEM; i++) {
         key.len = sprintf(keystring, "%llu", i);
