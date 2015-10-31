@@ -58,7 +58,7 @@ extern "C" {
          metric_decr_n((_base)->_metric, _delta);                           \
     }                                                                       \
 } while(0)
-#define DECR(_base, _metric) INCR_N(_base, _metric, 1)
+#define DECR(_base, _metric) DECR_N(_base, _metric, 1)
 
 
 #define METRIC_DECLARE(_name, _type, _description)   \

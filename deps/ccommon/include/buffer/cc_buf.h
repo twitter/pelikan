@@ -35,9 +35,10 @@ extern "C" {
 #include <stdbool.h>
 #include <sys/param.h>
 
-#define BUF_OPTION(ACTION)                                                                                \
-    ACTION( buf_init_size,  OPTION_TYPE_UINT,  str(BUF_DEFAULT_SIZE), "default size when buf is created" )\
-    ACTION( buf_poolsize,   OPTION_TYPE_UINT,  str(BUF_POOLSIZE),     "buf pool size"                    )
+/*          name            type                default             description */
+#define BUF_OPTION(ACTION)                                                                              \
+    ACTION( buf_init_size,  OPTION_TYPE_UINT,   BUF_DEFAULT_SIZE,   "default size when buf is created" )\
+    ACTION( buf_poolsize,   OPTION_TYPE_UINT,   BUF_POOLSIZE,       "buf pool size"                    )
 
 /*          name              type            description */
 #define BUF_METRIC(ACTION)                                              \

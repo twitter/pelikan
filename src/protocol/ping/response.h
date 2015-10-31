@@ -3,9 +3,9 @@
 #include <cc_bstring.h>
 #include <cc_metric.h>
 
-/*          name                type                default             description */
-#define RESPONSE_OPTION(ACTION)                                                                 \
-    ACTION( response_poolsize,  OPTION_TYPE_UINT,   str(RSP_POOLSIZE),  "response pool size"   )
+/*          name                type                default         description */
+#define RESPONSE_OPTION(ACTION)                                                             \
+    ACTION( response_poolsize,  OPTION_TYPE_UINT,   RSP_POOLSIZE,   "response pool size"   )
 
 /*          name                type            description */
 #define RESPONSE_METRIC(ACTION)                                         \

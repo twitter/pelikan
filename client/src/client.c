@@ -15,9 +15,6 @@ static struct setting setting = {
     SETTING(OPTION_INIT)
 };
 
-#define PRINT_DEFAULT(_name, _type, _default, _description) \
-    log_stdout("  %-31s ( default: %s )", #_name,  _default);
-
 static const unsigned int nopt = OPTION_CARDINALITY(struct setting);
 
 static void
@@ -41,7 +38,7 @@ show_usage(void)
         "./pelikan_client ../template/client.conf" CRLF
         );
     log_stdout("Setting & Default Values:");
-    SETTING(PRINT_DEFAULT)
+    option_printall_default((struct option *)&setting, nopt);
 }
 
 static rstatus_t
@@ -138,9 +135,9 @@ main(int argc, char *argv[])
         exit(EX_DATAERR);
     }
 
-    option_printall((struct option *)&setting, nopt);
-
     setup();
+
+    option_printall((struct option *)&setting, nopt);
 
     client_core_run();
 

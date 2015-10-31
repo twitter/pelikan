@@ -31,12 +31,12 @@ extern "C" {
 #define DEBUG_LOG_NBUF  4 * MiB   /* default log buf size */
 #define DEBUG_LOG_INTVL 100000    /* flush every 100 milliseconds */
 
-/*          name             type              default               description */
-#define DEBUG_OPTION(ACTION)                                                                    \
-    ACTION( debug_log_level, OPTION_TYPE_UINT, str(DEBUG_LOG_LEVEL), "debug log level"         )\
-    ACTION( debug_log_file,  OPTION_TYPE_STR,  NULL,                 "debug log file"          )\
-    ACTION( debug_log_nbuf,  OPTION_TYPE_UINT, str(DEBUG_LOG_NBUF),  "debug log buf size"      )\
-    ACTION( debug_log_intvl, OPTION_TYPE_UINT, str(DEBUG_LOG_INTVL), "debug log flush interval")
+/*          name             type              default           description */
+#define DEBUG_OPTION(ACTION)                                                                \
+    ACTION( debug_log_level, OPTION_TYPE_UINT, DEBUG_LOG_LEVEL,  "debug log level"         )\
+    ACTION( debug_log_file,  OPTION_TYPE_STR,  NULL,             "debug log file"          )\
+    ACTION( debug_log_nbuf,  OPTION_TYPE_UINT, DEBUG_LOG_NBUF,   "debug log buf size"      )\
+    ACTION( debug_log_intvl, OPTION_TYPE_UINT, DEBUG_LOG_INTVL,  "debug log flush interval")
 
 /**
  * the debug module override the following signal handlers:

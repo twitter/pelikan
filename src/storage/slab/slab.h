@@ -31,17 +31,17 @@
 /* The defaults here are placeholder values for now */
 /*          name                  type                default              description */
 #define SLAB_OPTION(ACTION)                                                                                   \
-    ACTION( slab_prealloc,        OPTION_TYPE_BOOL,   "yes",               "Allocate slabs ahead of time"    )\
-    ACTION( slab_evict_opt,       OPTION_TYPE_UINT,   str(EVICT_NONE),     "Eviction strategy"               )\
-    ACTION( slab_use_freeq,       OPTION_TYPE_BOOL,   "yes",               "Use items in free queue?"        )\
-    ACTION( slab_size,            OPTION_TYPE_UINT,   str(MiB),            "Slab size"                       )\
-    ACTION( slab_min_chunk_size,  OPTION_TYPE_UINT,   str(SLAB_MIN_CHUNK), "Minimum chunk size"              )\
-    ACTION( slab_max_chunk_size,  OPTION_TYPE_UINT,   str(SLAB_MAX_CHUNK), "Maximum chunk size"              )\
-    ACTION( slab_maxbytes,        OPTION_TYPE_UINT,   str(GiB),            "Maximum bytes allocated"         )\
+    ACTION( slab_prealloc,        OPTION_TYPE_BOOL,   true,                "Allocate slabs ahead of time"    )\
+    ACTION( slab_evict_opt,       OPTION_TYPE_UINT,   EVICT_NONE,          "Eviction strategy"               )\
+    ACTION( slab_use_freeq,       OPTION_TYPE_BOOL,   true,                "Use items in free queue?"        )\
+    ACTION( slab_size,            OPTION_TYPE_UINT,   MiB,                 "Slab size"                       )\
+    ACTION( slab_min_chunk_size,  OPTION_TYPE_UINT,   SLAB_MIN_CHUNK,      "Minimum chunk size"              )\
+    ACTION( slab_max_chunk_size,  OPTION_TYPE_UINT,   SLAB_MAX_CHUNK,      "Maximum chunk size"              )\
+    ACTION( slab_maxbytes,        OPTION_TYPE_UINT,   GiB,                 "Maximum bytes allocated"         )\
     ACTION( slab_profile,         OPTION_TYPE_STR,    NULL,                "Slab profile"                    )\
     ACTION( slab_profile_factor,  OPTION_TYPE_STR,    str(SLAB_FACTOR),    "Slab class growth factor"        )\
-    ACTION( slab_use_cas,         OPTION_TYPE_BOOL,   "yes",               "CAS enabled for slabbed mm"      )\
-    ACTION( slab_hash_power,      OPTION_TYPE_UINT,   str(SLAB_HASH),      "Hash power for item table"       )
+    ACTION( slab_use_cas,         OPTION_TYPE_BOOL,   true,                "CAS enabled for slabbed mm"      )\
+    ACTION( slab_hash_power,      OPTION_TYPE_UINT,   SLAB_HASH,           "Hash power for item table"       )
 
 /*          name                type            description */
 #define SLAB_METRIC(ACTION)                                                \

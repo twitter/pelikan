@@ -63,8 +63,9 @@ typedef struct {
     *(_metrics) = (pipe_metrics_st) { PIPE_METRIC(METRIC_INIT) }; \
 } while (0)
 
+/*          name                type                default         description */
 #define PIPE_OPTION(ACTION) \
-    ACTION( pipe_poolsize, OPTION_TYPE_UINT, str(PIPE_POOLSIZE), "pipe conn pool size" )
+    ACTION( pipe_poolsize,      OPTION_TYPE_UINT,   PIPE_POOLSIZE,  "pipe conn pool size" )
 
 struct pipe_conn {
     STAILQ_ENTRY(pipe_conn) next;       /* for pool */

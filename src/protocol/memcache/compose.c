@@ -129,7 +129,8 @@ compose_req(struct buf **buf, struct request *req)
     struct bstring *key = req->keys->data;
     int noreply_len = req->noreply * NOREPLY_LEN;
     int cas_len = (req->type == REQ_CAS) ? CC_UINT64_MAXLEN : 0;
-    int i, sz, n = 0;
+    uint32_t i;
+    int sz, n = 0;
 
     switch (type) {
     case REQ_STATS:

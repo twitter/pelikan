@@ -1009,6 +1009,75 @@ START_TEST(test_clienterror)
 }
 END_TEST
 
+static void
+test_rsp_incomplete(char *serialized)
+{
+    int ret;
+    char *rpos;
+
+    test_reset();
+
+    while (buf_wsize(buf) < strlen(serialized)) {
+        ck_assert_int_eq(dbuf_double(&buf), CC_OK);
+    }
+
+    buf_write(buf, serialized, strlen(serialized));
+
+    /* parse */
+    response_reset(rsp);
+    ret = parse_rsp(rsp, buf);
+    rpos = buf->rpos;
+    ck_assert_int_eq(ret, PARSE_EUNFIN);
+    ck_assert_ptr_eq(rpos, buf->rpos); // buffer did not advance
+}
+
+START_TEST(test_rsp_incomplete_leading_whitespace)
+{
+    test_rsp_incomplete(" ");
+}
+END_TEST
+
+START_TEST(test_rsp_incomplete_type)
+{
+    test_rsp_incomplete("VALUE");
+}
+END_TEST
+
+START_TEST(test_rsp_incomplete_data)
+{
+    test_rsp_incomplete("VALUE foo 123 3\r\nXY");
+}
+END_TEST
+
+START_TEST(test_rsp_incomplete_number)
+{
+    test_rsp_incomplete("VALUE foo 123 3");
+}
+END_TEST
+
+START_TEST(test_rsp_incomplete_data_crlf)
+{
+    test_rsp_incomplete("VALUE foo 123 3\r\nXYZ\r");
+}
+END_TEST
+
+START_TEST(test_rsp_incomplete_key)
+{
+    test_rsp_incomplete("VALUE foo");
+}
+END_TEST
+
+START_TEST(test_rsp_incomplete_flag)
+{
+    test_rsp_incomplete("VALUE foo 1");
+}
+END_TEST
+
+START_TEST(test_rsp_incomplete_cas)
+{
+    test_rsp_incomplete("VALUE foo 1 2 1");
+}
+END_TEST
 
 /*
  * test suite
@@ -1054,6 +1123,14 @@ memcache_suite(void)
     tcase_add_test(tc_basic_rsp, test_numeric);
     tcase_add_test(tc_basic_rsp, test_servererror);
     tcase_add_test(tc_basic_rsp, test_clienterror);
+    tcase_add_test(tc_basic_rsp, test_rsp_incomplete_leading_whitespace);
+    tcase_add_test(tc_basic_rsp, test_rsp_incomplete_type);
+    tcase_add_test(tc_basic_rsp, test_rsp_incomplete_data);
+    tcase_add_test(tc_basic_rsp, test_rsp_incomplete_number);
+    tcase_add_test(tc_basic_rsp, test_rsp_incomplete_data_crlf);
+    tcase_add_test(tc_basic_rsp, test_rsp_incomplete_key);
+    tcase_add_test(tc_basic_rsp, test_rsp_incomplete_flag);
+    tcase_add_test(tc_basic_rsp, test_rsp_incomplete_cas);
 
     return s;
 }

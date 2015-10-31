@@ -12,10 +12,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/*          name                type                default          description */
-#define ITEM_OPTION(ACTION)                                                                             \
-    ACTION( item_use_cas,       OPTION_TYPE_BOOL,   "yes",           "CAS enabled for slabbed mm"      )\
-    ACTION( item_hash_power,    OPTION_TYPE_UINT,   str(HASH_POWER), "Hash power for item table"       )
+/*          name                type                default      description */
+#define ITEM_OPTION(ACTION)                                                                         \
+    ACTION( item_use_cas,       OPTION_TYPE_BOOL,   true,        "CAS enabled for slabbed mm"      )\
+    ACTION( item_hash_power,    OPTION_TYPE_UINT,   HASH_POWER,  "Hash power for item table"       )
 
 /*          name                type            description */
 #define ITEM_METRIC(ACTION)                                                             \
