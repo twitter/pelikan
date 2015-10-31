@@ -246,6 +246,7 @@ test_expire_basic(uint32_t policy, bool cas)
 
     it = cuckoo_get(&key);
     ck_assert_msg(it == NULL, "cuckoo_get returned not NULL after expiration");
+#undef NOW
 #undef KEY
 #undef VAL
 }
@@ -322,6 +323,100 @@ START_TEST(test_expire_basic_random_false)
 }
 END_TEST
 
+START_TEST(test_insert_replace_expired)
+{
+#define NOW 12345678
+
+    struct bstring key;
+    struct val val;
+    rstatus_t status;
+    char keystring[30];
+    uint64_t i;
+    cuckoo_metrics_st metrics;
+
+    cuckoo_teardown();
+    status = cuckoo_setup(CUCKOO_ITEM_SIZE, CUCKOO_NITEM, CUCKOO_POLICY_RANDOM, true, &metrics);
+    ck_assert_msg(status == CC_OK,
+            "could not setup cuckoo module");
+
+    now = NOW;
+    for (i = 0; metrics.item_curr.counter < CUCKOO_NITEM; i++) {
+        key.len = sprintf(keystring, "%llu", i);
+        key.data = keystring;
+
+        val.type = VAL_TYPE_INT;
+        val.vint = i;
+
+        status = cuckoo_insert(&key, &val, now + 1);
+        ck_assert_msg(status == CC_OK, "cuckoo_insert not OK - return status %d",
+                status);
+    }
+
+    // dict is full, all items will expire in now + 1
+    now += 2;
+    key.len = sprintf(keystring, "%llu", i);
+    key.data = keystring;
+
+    val.type = VAL_TYPE_INT;
+    val.vint = i;
+
+    status = cuckoo_insert(&key, &val, now + 1);
+    ck_assert_msg(status == CC_OK, "cuckoo_insert not OK - return status %d",
+            status);
+    ck_assert_int_eq(metrics.item_expire.counter, 1);
+#undef NOW
+}
+END_TEST
+
+START_TEST(test_insert_insert_expire_swap)
+{
+#define NOW 12345678
+    struct bstring key;
+    struct val val;
+    rstatus_t status;
+    char keystring[30];
+    uint64_t i;
+    cuckoo_metrics_st metrics;
+    int hits = 0;
+
+    cuckoo_teardown();
+    status = cuckoo_setup(CUCKOO_ITEM_SIZE, CUCKOO_NITEM, CUCKOO_POLICY_EXPIRE, false, &metrics);
+    ck_assert_msg(status == CC_OK,
+            "could not setup cuckoo module");
+
+    now = NOW;
+    for (i = 0; metrics.item_curr.counter < CUCKOO_NITEM; i++) {
+        key.len = sprintf(keystring, "%llu", i);
+        key.data = keystring;
+
+        val.type = VAL_TYPE_INT;
+        val.vint = i;
+
+        status = cuckoo_insert(&key, &val, now + i);
+        ck_assert_msg(status == CC_OK, "cuckoo_insert not OK - return status %d",
+                status);
+    }
+
+    key.len = sprintf(keystring, "%llu", i);
+    key.data = keystring;
+
+    val.type = VAL_TYPE_INT;
+    val.vint = i;
+
+    status = cuckoo_insert(&key, &val, now + i);
+    ck_assert_msg(status == CC_OK, "cuckoo_insert not OK - return status %d",
+            status);
+
+    for (;i > 0 && hits < CUCKOO_NITEM;i--) {
+        if (cuckoo_get(&key) != NULL) {
+            hits++;
+        }
+    }
+    ck_assert_msg(hits == CUCKOO_NITEM, "expected %d hits, got %d",
+            CUCKOO_NITEM, hits);
+#undef NOW
+}
+END_TEST
 /*
  * test suite
  */
@@ -348,6 +443,8 @@ cuckoo_suite(void)
     tcase_add_test(tc_basic_req, test_delete_basic_random_false);
     tcase_add_test(tc_basic_req, test_expire_basic_random_true);
     tcase_add_test(tc_basic_req, test_expire_basic_random_false);
+    tcase_add_test(tc_basic_req, test_insert_replace_expired);
+    tcase_add_test(tc_basic_req, test_insert_insert_expire_swap);
 
     return s;
 }
