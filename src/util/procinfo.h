@@ -37,4 +37,9 @@ typedef struct {
 void procinfo_setup(procinfo_metrics_st *procinfo_metrics);
 void procinfo_teardown(void);
 
-void procinfo_update(void);
+#if defined CC_STATS && CC_STATS == 1
+void _procinfo_update(void);
+#define procinfo_update() _procinfo_update()
+#else
+#define procinfo_update()
+#endif
