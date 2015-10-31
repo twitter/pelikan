@@ -35,6 +35,7 @@ option(HAVE_LOGGING "logging enabled by default" ON)
 option(HAVE_STATS "stats enabled by default" ON)
 option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
+option(COVERAGE "code coverage" OFF)
 
 include(CheckSymbolExists)
 check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
@@ -67,6 +68,10 @@ set(CFLAGS_LIST
     "-fno-strict-aliasing ")
 string(REPLACE "" "" LOCAL_CFLAGS ${CFLAGS_LIST})
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  ${LOCAL_CFLAGS}")
+
+if (COVERAGE)
+  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -Wall -W -fprofile-arcs -ftest-coverage")
+endif(COVERAGE)
 
 # build dependencies
 
