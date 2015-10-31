@@ -74,10 +74,10 @@ typedef struct {
     *(_metrics) = (tcp_metrics_st) { TCP_METRIC(METRIC_INIT) }; \
 } while(0)
 
-/*          name            type                default             description */
-#define TCP_OPTION(ACTION)                                                                  \
-    ACTION( tcp_backlog,   OPTION_TYPE_UINT,   str(TCP_BACKLOG),  "tcp conn backlog limit" )\
-    ACTION( tcp_poolsize,  OPTION_TYPE_UINT,   str(TCP_POOLSIZE), "tcp conn pool size"     )
+/*          name            type                default         description */
+#define TCP_OPTION(ACTION)                                                                \
+    ACTION( tcp_backlog,    OPTION_TYPE_UINT,   TCP_BACKLOG,    "tcp conn backlog limit" )\
+    ACTION( tcp_poolsize,   OPTION_TYPE_UINT,   TCP_POOLSIZE,   "tcp conn pool size"     )
 
 struct tcp_conn {
     STAILQ_ENTRY(tcp_conn)  next;           /* for conn pool */
