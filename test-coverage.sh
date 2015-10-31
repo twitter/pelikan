@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 set -e
 rm -rf lcov _build _bin && mkdir _build && pushd _build && cmake -DCOVERAGE=on .. && make -j && make test && popd
