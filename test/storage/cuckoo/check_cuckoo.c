@@ -323,7 +323,6 @@ START_TEST(test_expire_basic_random_false)
 }
 END_TEST
 
-#if defined CC_STATS && CC_STATS == 1
 START_TEST(test_insert_replace_expired)
 {
 #define NOW 12345678
@@ -418,7 +417,6 @@ START_TEST(test_insert_insert_expire_swap)
 #undef NOW
 }
 END_TEST
-#endif
 
 /*
  * test suite
@@ -446,10 +444,8 @@ cuckoo_suite(void)
     tcase_add_test(tc_basic_req, test_delete_basic_random_false);
     tcase_add_test(tc_basic_req, test_expire_basic_random_true);
     tcase_add_test(tc_basic_req, test_expire_basic_random_false);
-#if defined CC_STATS && CC_STATS == 1
     tcase_add_test(tc_basic_req, test_insert_replace_expired);
     tcase_add_test(tc_basic_req, test_insert_insert_expire_swap);
-#endif
 
     return s;
 }
