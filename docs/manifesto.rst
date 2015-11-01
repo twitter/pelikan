@@ -16,7 +16,7 @@ We welcome and encourage anyone to explore and experiment with the code base- to
 
 We intend to follow the `OSS Manifesto <http://ossmanifesto.org/>`_ as much as possible.
 
-Other than Github and all its tools, we also have an IRC (#pelikancache on freenode) and a `mailing list <https://groups.google.com/forum/#!forum/pelikan-cache>` on Google groups.
+Other than Github and all its tools, we also have an IRC (#pelikancache on freenode) and a `mailing list <https://groups.google.com/forum/#!forum/pelikan-cache>`_ on Google groups.
 
 Flow
 ----
