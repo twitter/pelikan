@@ -44,6 +44,9 @@ extern "C" {
 
 /* TODO(yao): add an (optional) callback that can sanity-check input values */
 
+#define OPTION_TYPE_BOOL_VAR vbool
+#define OPTION_TYPE_UINT_VAR vuint
+#define OPTION_TYPE_STR_VAR vstr
 
 #define OPTION_DECLARE(_name, _type, _default, _description)                \
     struct option _name;
@@ -51,7 +54,7 @@ extern "C" {
 /* Initialize option */
 #define OPTION_INIT(_name, _type, _default, _description)                   \
     ._name = {.name = #_name, .set = false, .type = _type,                  \
-        .default_val_str = _default, .description = _description},
+        .default_val._type ## _VAR = _default, .description = _description},
 
 #define OPTION_CARDINALITY(_o) sizeof(_o)/sizeof(struct option)
 
@@ -76,7 +79,7 @@ struct option {
     char *name;
     bool set;
     option_type_t type;
-    char *default_val_str;
+    option_val_u default_val;
     option_val_u val;
     char *description;
 };
@@ -85,6 +88,7 @@ rstatus_t option_set(struct option *opt, char *val_str);
 rstatus_t option_parse(char *line, char *name, char *val);
 void option_print(struct option *opt);
 void option_printall(struct option options[], unsigned int nopt);
+void option_printall_default(struct option options[], unsigned int nopt);
 rstatus_t option_load_default(struct option options[], unsigned int nopt);
 rstatus_t option_load_file(FILE *fp, struct option options[], unsigned int nopt);
 void option_free(struct option options[], unsigned int nopt);

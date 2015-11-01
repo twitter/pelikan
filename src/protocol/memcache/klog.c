@@ -112,7 +112,8 @@ static inline void
 _klog_write_get(struct request *req, struct response *rsp, char *buf, int len)
 {
     struct response *nr = rsp;
-    int i, suffix_len;
+    int suffix_len;
+    uint32_t i;
     struct bstring *key;
 
     for (i = 0; i < array_nelem(req->keys); ++i) {

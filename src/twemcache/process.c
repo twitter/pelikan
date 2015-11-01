@@ -73,7 +73,7 @@ _process_get(struct response *rsp, struct request *req)
 {
     struct bstring *key;
     struct response *r = rsp;
-    int i;
+    uint32_t i;
 
     INCR(process_metrics, get);
     /* use chained responses, move to the next response if key is found. */
@@ -104,7 +104,7 @@ _process_gets(struct response *rsp, struct request *req)
 {
     struct bstring *key;
     struct response *r = rsp;
-    int i;
+    uint32_t i;
 
     INCR(process_metrics, gets);
     /* use chained responses, move to the next response if key is found. */

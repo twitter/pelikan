@@ -446,25 +446,22 @@ option_parse(char *line, char name[OPTNAME_MAXLEN+1], char val[OPTVAL_MAXLEN+1])
     return CC_OK;
 }
 
-void option_print(struct option *opt)
+static void
+option_print_val(char *s, size_t len, option_type_t type, option_val_u val)
 {
-    loga("name: %s, type: %s, set? %s, default: %s, description: %s",
-         opt->name, option_type_str[opt->type], opt->set ? "yes" : "no",
-         opt->default_val_str, opt->description);
-
-    switch (opt->type) {
+    switch (type) {
     case OPTION_TYPE_BOOL:
-        loga("current value: %d", opt->val.vbool);
+        snprintf(s, len, "%s", val.vbool ? "yes" : "no");
 
         break;
 
     case OPTION_TYPE_UINT:
-        loga("current value: %ju", opt->val.vuint);
+        snprintf(s, len, "%ju", val.vuint);
 
         break;
 
     case OPTION_TYPE_STR:
-        loga("current value: %s", opt->val.vstr == NULL ? "NULL" : opt->val.vstr);
+        snprintf(s, len, "%s", val.vstr == NULL ? "NULL" : val.vstr);
 
         break;
 
@@ -473,7 +470,22 @@ void option_print(struct option *opt)
     }
 }
 
-void option_printall(struct option options[], unsigned int nopt)
+void
+option_print(struct option *opt)
+{
+#define MAX_LEN 40
+    char default_s[MAX_LEN];
+    char current_s[MAX_LEN];
+    option_print_val(default_s, MAX_LEN, opt->type, opt->default_val);
+    option_print_val(current_s, MAX_LEN, opt->type, opt->val);
+    loga("name: %s, type: %s, set? %s, default: %s, description: %s, current: %s",
+         opt->name, option_type_str[opt->type], opt->set ? "yes" : "no",
+         default_s, opt->description, current_s);
+#undef MAX_LEN
+}
+
+void
+option_printall(struct option options[], unsigned int nopt)
 {
     unsigned int i;
     struct option *opt = options;
@@ -484,21 +496,35 @@ void option_printall(struct option options[], unsigned int nopt)
 
 }
 
+static void
+_option_print_default(struct option *opt)
+{
+#define MAX_LEN (10 + PATH_MAX)
+    char default_s[MAX_LEN];
+    option_print_val(default_s, MAX_LEN, opt->type, opt->default_val);
+    log_stdout("  %-31s ( default: %s )", opt->name, default_s);
+#undef MAX_LEN
+}
+
+void
+option_printall_default(struct option options[], unsigned int nopt)
+{
+    unsigned int i;
+    struct option *opt = options;
+
+    for (i = 0; i < nopt; i++, opt++) {
+        _option_print_default(opt);
+    }
+}
+
 rstatus_t
 option_load_default(struct option options[], unsigned int nopt)
 {
     unsigned int i;
-    rstatus_t status;
     struct option *opt = options;
 
     for (i = 0; i < nopt; i++, opt++) {
-        status = option_set(opt, opt->default_val_str);
-        if (status != CC_OK) {
-            loga("error loading default value %s into option type %d",
-                 opt->default_val_str, opt->type);
-
-            return CC_ERROR;
-        }
+        opt->val = opt->default_val;
     }
 
     return CC_OK;
