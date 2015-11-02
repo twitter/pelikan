@@ -26,7 +26,8 @@ C Standard
 ==========
 
 - Use ``-std=c11`` when compiling
-- Avoid ``_Atomic``, ``_Generic`` and ``_Thread_local``, for now, we will embrace ``C11`` fully when Twitter's official ``GCC`` version is bumped to 4.9.
+- Avoid ``_Atomic``, ``_Generic`` and ``_Thread_local``, for now, we will
+  embrace ``C11`` fully when Twitter's official ``GCC`` version is bumped to 4.9.
 
 Indentation
 ===========
