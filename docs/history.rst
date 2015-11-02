@@ -23,6 +23,3 @@ an RPC server, which robust production support, which isn't particularly cache-
 specific; the latter is a direct replacement of all the cache backends that we
 are using today, built on top of ccommon, and will serve as the only cache
 backend as we move forward.
-
-You can read more about ccommon at `go/ccommon <http://go/ccommon>`_, or
-continue to get an overview of Pelikan.
