@@ -16,7 +16,7 @@ We welcome and encourage anyone to explore and experiment with the code base- to
 
 We intend to follow the `OSS Manifesto <http://ossmanifesto.org/>`_ as much as possible.
 
-Other than Github and all its tools, we also have an IRC (#pelikancache on freenode) and a `mailing list <https://groups.google.com/forum/#!forum/pelikan-cache>`_ on Google groups.
+Other than Github and all its tools, we also have an IRC (#pelikancache on freenode) and a `mailing list <https://groups.google.com/forum/#!forum/pelikan-cache>`_ on Google groups (pelikan-cache).
 
 Flow
 ----
@@ -36,7 +36,7 @@ The core contributors are currently all Twitter employees, and thus this project
 #. Patches that clearly harm and degrade performance and dependability of the project in Twitter's use cases will not be admitted, even such patches may improve other scenarios.
 
 
-We surely hope our core Team Members will *not* remain constant forever. If the composition of contributors change over time, we will re-evaluate the best strategy moving forward upon community request.
+We surely hope our core team members do *not* remain constant forever. If the composition of contributors change over time, we will re-evaluate the best strategy moving forward upon community request.
 
 Acknowledgement
 ===============
