@@ -19,8 +19,14 @@ Contents
 .. toctree::
    :maxdepth: 1
 
-   index
+   coding_style
 
+
+C Standard
+==========
+
+- Use ``-std=c11`` when compiling
+- Avoid ``_Atomic``, ``_Generic`` and ``_Thread_local``, for now, we will embrace ``C11`` fully when Twitter's official ``GCC`` version is bumped to 4.9.
 
 Indentation
 ===========
@@ -35,7 +41,7 @@ Naming
 ======
 
 - Use ``snake_case`` for the names of variables, functions, and files.
-- Use your own judgement when you name variables and be as spartan as possible.
+- Use your own judgement when you name variables and be as spartan as possible, abbreviation is common in C.
   For example, do not use a name like ``this_variable_is_a_temporary_counter``.
 
 
@@ -79,8 +85,8 @@ Line length
 
         while (cnt < 20 && this_variable_name_is_too_long &&
             ep != NULL) {
-                z = a + really + long + statement + that + needs
-                    two + lines + gets + indented + four + spaces
+                z = a + really + long + statement + that + needs +
+                    two + lines + gets + indented + four + spaces +
                     on + the + second + and + subsequent + lines;
         }
 
@@ -97,8 +103,8 @@ Braces
 ======
 
 - Always use braces for all conditional blocks (``if``, ``switch``, ``for``,
-  ``while``, and ``do``), even for single statement conditional blocks. For
-  example:
+  ``while``, and ``do``), even for single statement conditional blocks (remember
+  the ``goto fail`` bug by Apple?). For example:
 
   .. code-block:: c
 
@@ -168,7 +174,7 @@ keywords to the same column. For example:
 Infinite loops
 =============
 
-Create inifinite loops with ``for`` statements, not ``while`` statements.
+Create infinite loops with ``for`` statements, not ``while`` statements.
 For example:
 
 .. code-block:: c
@@ -256,7 +262,7 @@ Functions
         {
             ...
 
-- Seperate two successive functions with one blank line.
+- Separate two successive functions with one blank line.
 - Include parameter names with their datypes in the function declaration. For
   example:
 
@@ -398,6 +404,30 @@ Other naming conventions
         #define ADD_1(x) ((x) + 1)
 
 
+
+Inclusion
+=========
+
+- Rule of thumb- local to global: first include header of the same name as
+  source, followed by headers in the same project, and external/system headers
+  last.
+- Organize header inclusion in blocks, separated by blank line(s). For example,
+  headers that are shipped with the project and system headers should be in
+  separate clusters.
+- Sort inclusions within the same block in alphabetic order.
+  .. code-block:: c
+
+        /* File: foo.c */
+        #include "foo.h" /* first block: own header */
+
+        #include "bar.h" /* second block: headers from current project */
+        #include "util/baz.h"
+
+        #include <stdbool.h> /* third block: system/library headers */
+        #include <stdint.h>
+        #include <stdlib.h>
+
+
 Structures
 ==========
 
@@ -463,3 +493,35 @@ Pointers
         if (!*p)
 
 - Use ``const`` for function parameters if the pointer has no side effect.
+
+- Functions in charge of freeing an object should take a pointer to the intended
+  pointer to be freed, and set the pointer to the object to ``NULL`` before
+  returning. This prevents dangling pointers that are often discovered long
+  after ``free`` is called.
+
+  .. code-block:: c
+
+        void
+        destroy_buffer(struct buffer **pb)
+        {
+            free(*pb);
+            *pb = NULL;
+        }
+
+- Dynamically allocated structures should always initialize their members of
+  pointer type as soon as possible, to avoid the dangling pointer problem.
+
+
+Macros
+======
+
+- Prefer ``static inline`` functions over macros. Macros often have unintended
+  side effects, for example:
+
+  .. code-block:: c
+
+        #define MAX(a,b) ((a) > (b) ? (a) : (b))
+
+  When used as in ``MAX(x++, y++)``, will increment either ``x`` or ``y`` twice,
+  which is probably not intended by the caller.
+
