@@ -5,13 +5,14 @@ The C Style Guide is a set of guidelines and conventions that encourage
 good code. While some suggestions are more strict than others, you should
 always practice good judgement.
 
-.. note::
-  This page is `go/c-guide <http://go/c-guide>`_
-
 If following the guide causes unnecessary hoop-jumping or otherwise
 less-readable code, *readability trumps the guide*. However, if the more
 readable variant comes with perils or pitfalls, readability may be
 sacrificed.
+
+Consistency is crucial. Without consistent application, there simply is no style
+to speak of [#fn1]_. Stay in sync with the rest of the codebase; when you want
+to change a rule or style, change it everywhere.
 
 Contents
 --------
@@ -525,4 +526,13 @@ Macros
 
   When used as in ``MAX(x++, y++)``, will increment either ``x`` or ``y`` twice,
   which is probably not intended by the caller.
+
+
+.. rubric:: Footnotes
+
+.. [#fn1] Frederick Brooks gave a definition of "style" in his book, The Design
+   of Design, which begins with "Style is a set of different repeated
+   microdecisions...". The book talked about the importance of Consistency in
+   the pages leading to this definition, starting from page 142, where the
+   author claimed that "consistency underlies all principles of quality".
 
