@@ -28,7 +28,7 @@ C Standard
 
 - Use ``-std=c11`` when compiling
 - Avoid ``_Atomic``, ``_Generic`` and ``_Thread_local``, for now, we will
-  embrace ``C11`` fully when Twitter's official ``GCC`` version is bumped to 4.9.
+  embrace ``C11`` fully when Twitter's official ``GCC`` is bumped to 4.9.
 
 Indentation
 ===========
@@ -43,7 +43,8 @@ Naming
 ======
 
 - Use ``snake_case`` for the names of variables, functions, and files.
-- Use your own judgement when you name variables and be as spartan as possible, abbreviation is common in C.
+- Use your own judgement when you name variables and be as spartan as possible,
+  abbreviation is common in C.
   For example, do not use a name like ``this_variable_is_a_temporary_counter``.
 
 
@@ -373,8 +374,8 @@ Comments
         /*
          * Try to acquire a physical address lock while a pmap is locked.  If we
          * fail to trylock we unlock and lock the pmap directly and cache the
-         * locked pa in *locked.  The caller should then restart their loop in case
-         * the virtual to physical mapping has changed.
+         * locked pa in *locked.  The caller should then restart their loop in
+         * case the virtual to physical mapping has changed.
          */
         int
         vm_page_pa_tryrelock(pmap_t pmap, vm_paddr_t pa, vm_paddr_t *locked)
