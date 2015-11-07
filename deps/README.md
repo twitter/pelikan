@@ -11,7 +11,7 @@ All packages in this directory are tracked using git subtree. For more informati
 
 Setup upstream/remote
 ```bash
-git remote add ccommon_remote https://git.twitter.biz/ccommon
+git remote add ccommon_remote git@github.com:twitter/ccommon.git
 ```
 
 The first time we merge ccommon into deps, the following command was executed.
