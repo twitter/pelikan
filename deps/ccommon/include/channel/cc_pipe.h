@@ -82,6 +82,8 @@ struct pipe_conn {
     err_t                   err;        /* errno */
 };
 
+STAILQ_HEAD(pipe_conn_sqh, pipe_conn); /* corresponding header type for the STAILQ */
+
 void pipe_setup(pipe_metrics_st *metrics);
 void pipe_teardown(void);
 

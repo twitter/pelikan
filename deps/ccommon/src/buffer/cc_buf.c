@@ -66,36 +66,30 @@ buf_teardown(void)
 void
 buf_pool_create(uint32_t max)
 {
+    struct buf *buf;
+
     if (bufp_init) {
         log_warn("buf pool has already been created, ignoring");
-    } else {
-        uint32_t i;
-        struct buf *buf;
 
-        log_info("creating buf pool: max %"PRIu32, max);
+        return;
+    }
 
-        FREEPOOL_CREATE(&bufp, max);
-        bufp_init = true;
+    log_info("creating buf pool: max %"PRIu32, max);
 
-        /**
-         * NOTE: Right now I decide to preallocate if max != 0
-         * whether we want an option where memory is capped but
-         * not preallocated is a question for future exploration
-         * So far I see no point of that.
-         */
-        if (max == 0) {
-            return;
-        }
+    FREEPOOL_CREATE(&bufp, max);
+    bufp_init = true;
 
-        for (i = 0; i < max; ++i) {
-            buf = buf_create();
-            if (buf == NULL) {
-                log_crit("cannot preallocate buf pool, OOM. abort");
-                exit(EXIT_FAILURE);
-            }
-            buf->free = 1;
-            FREEPOOL_RETURN(&bufp, buf, next);
-        }
+    /**
+     * NOTE: Right now I decide to preallocate if max != 0
+     * whether we want an option where memory is capped but
+     * not preallocated is a question for future exploration.
+     * So far I see no point of that.
+     */
+
+    FREEPOOL_PREALLOC(buf, &bufp, max, next, buf_create);
+    if (buf == NULL) {
+        log_crit("cannot preallocate buf pool, OOM. abort");
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -104,14 +98,16 @@ buf_pool_destroy(void)
 {
     struct buf *buf, *nbuf;
 
-    if (bufp_init) {
-        log_info("destroying buf pool: free %"PRIu32, bufp.nfree);
-
-        FREEPOOL_DESTROY(buf, nbuf, &bufp, next, buf_destroy);
-        bufp_init = false;
-    } else {
+    if (!bufp_init) {
         log_warn("buf pool was never created, ignoring destroy");
+
+        return;
     }
+
+    log_info("destroying buf pool: free %"PRIu32, bufp.nfree);
+
+    FREEPOOL_DESTROY(buf, nbuf, &bufp, next, buf_destroy);
+    bufp_init = false;
 }
 
 struct buf *

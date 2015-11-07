@@ -268,32 +268,29 @@ buf_sock_destroy(struct buf_sock **buf_sock)
 void
 buf_sock_pool_create(uint32_t max)
 {
-    if (!bsp_init) {
-        uint32_t i;
-        struct buf_sock *s;
+    struct buf_sock *s;
 
-        log_info("creating buffered socket pool: max %"PRIu32, max);
-
-        FREEPOOL_CREATE(&bsp, max);
-        bsp_init = true;
-
-        /* preallocating, see notes in cc_buf.c */
-        if (max == 0) {
-            return;
-        }
-
-        for (i = 0; i < max; ++i) {
-            s = buf_sock_create();
-            if (s == NULL) {
-                log_crit("cannot preallocate buffered socket pool due to OOM, "
-                        "abort");
-                exit(EXIT_FAILURE);
-            }
-            s->free = true;
-            FREEPOOL_RETURN(&bsp, s, next);
-        }
-    } else {
+    if (bsp_init) {
         log_warn("buffered socket pool has already been created, ignore");
+
+        return;
+    }
+
+    log_info("creating buffered socket pool: max %"PRIu32, max);
+
+    FREEPOOL_CREATE(&bsp, max);
+    bsp_init = true;
+
+    /* preallocating, see notes in cc_buf.c */
+
+    if (max == 0) { /* do not preallocate if pool size is not specified */
+        return;
+    }
+
+    FREEPOOL_PREALLOC(s, &bsp, max, next, buf_sock_create);
+    if (s == NULL) {
+        log_crit("cannot preallocate buffered socket pool due to OOM, abort");
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -302,14 +299,16 @@ buf_sock_pool_destroy(void)
 {
     struct buf_sock *s, *ts;
 
-    if (bsp_init) {
-        log_info("destroying buffered socket pool: free %"PRIu32, bsp.nfree);
-
-        FREEPOOL_DESTROY(s, ts, &bsp, next, buf_sock_destroy);
-        bsp_init = false;
-    } else {
+    if (!bsp_init) {
         log_warn("buffered socket pool was never created, ignore");
+
+        return;
     }
+
+    log_info("destroying buffered socket pool: free %"PRIu32, bsp.nfree);
+
+    FREEPOOL_DESTROY(s, ts, &bsp, next, buf_sock_destroy);
+    bsp_init = false;
 }
 
 void
