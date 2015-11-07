@@ -73,6 +73,8 @@ struct buf_sock {
     struct buf              *wbuf;
 };
 
+STAILQ_HEAD(buf_sock_sqh, buf_sock); /* corresponding header type for the STAILQ */
+
 struct buf_sock *buf_sock_create(void);     /* stream_get_fn */
 void buf_sock_destroy(struct buf_sock **);  /* stream_put_fn */
 

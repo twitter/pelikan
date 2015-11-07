@@ -95,6 +95,8 @@ struct tcp_conn {
     err_t                   err;            /* errno */
 };
 
+STAILQ_HEAD(tcp_conn_sqh, tcp_conn); /* corresponding header type for the STAILQ */
+
 void tcp_setup(int backlog, tcp_metrics_st *metrics);
 void tcp_teardown(void);
 

@@ -187,7 +187,7 @@ extern struct debug_logger *dlog;
     }                                                               \
 } while (0)
 
-#define log(_level, ...) do {                                       \
+#define log_level(_level, ...) do {                                 \
     _log(dlog, __FILE__, __LINE__, _level, __VA_ARGS__);            \
 } while (0)
 
@@ -206,7 +206,7 @@ extern struct debug_logger *dlog;
 #define log_verb(...)
 #define log_vverb(...)
 
-#define log(_level, ...)
+#define log_level(_level, ...)
 #define log_hexdump(_level, _data, _datalen, ...)
 
 #endif

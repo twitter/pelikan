@@ -164,36 +164,36 @@ log_reopen(struct logger *logger)
     return CC_OK;
 }
 
-void
+bool
 _log_write(struct logger *logger, char *buf, int len)
 {
-    int n;
-
     if (logger->buf != NULL) {
-        n = rbuf_write(logger->buf, buf, len);
+        if (rbuf_wcap(logger->buf) >= len) {
+            rbuf_write(logger->buf, buf, len);
+            INCR(log_metrics, log_write);
+            INCR_N(log_metrics, log_write_byte, len);
+        } else {
+            INCR(log_metrics, log_skip);
+            INCR_N(log_metrics, log_skip_byte, len);
+            return false;
+        }
     } else {
         if (logger->fd < 0) {
             INCR(log_metrics, log_write_ex);
-            return;
+            return false;
         }
 
-        n = write(logger->fd, buf, len);
-
-        if (n < 0) {
+        if (write(logger->fd, buf, len) < len) {
             INCR(log_metrics, log_write_ex);
             logger->nerror++;
-            return;
+            return false;
         }
-    }
 
-    if (n < len) {
-        INCR(log_metrics, log_skip);
-        INCR_N(log_metrics, log_skip_byte, len - n);
-        logger->nerror++;
-    } else {
         INCR(log_metrics, log_write);
         INCR_N(log_metrics, log_write_byte, len);
     }
+
+    return true;
 }
 
 void

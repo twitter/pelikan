@@ -125,31 +125,29 @@ pipe_conn_reset(struct pipe_conn *c)
 void
 pipe_conn_pool_create(uint32_t max)
 {
-    if (!cp_init) {
-        uint32_t i;
-        struct pipe_conn *c;
+    struct pipe_conn *c;
 
-        log_info("creating conn pool: max %"PRIu32, max);
-
-        FREEPOOL_CREATE(&cp, max);
-        cp_init = true;
-
-        /* preallocate */
-        if (max == 0) {
-            return;
-        }
-
-        for (i = 0; i < max; ++i) {
-            c = pipe_conn_create();
-            if (c == NULL) {
-                log_crit("cannot preallocate pipe conn pool, OOM");
-                exit(EXIT_FAILURE);
-            }
-            c->free = true;
-            FREEPOOL_RETURN(&cp, c, next);
-        }
-    } else {
+    if (cp_init) {
         log_warn("conn pool has already been created, ignore");
+
+        return;
+    }
+
+    log_info("creating conn pool: max %"PRIu32, max);
+
+    FREEPOOL_CREATE(&cp, max);
+    cp_init = true;
+
+    /* preallocating, see notes in buffer/cc_buf.c */
+
+    if (max == 0) { /* do not preallocate if pool size is not specified */
+        return;
+    }
+
+    FREEPOOL_PREALLOC(c, &cp, max, next, pipe_conn_create);
+    if (c == NULL) {
+        log_crit("cannot preallocate pipe conn pool, OOM");
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -158,14 +156,16 @@ pipe_conn_pool_destroy(void)
 {
     struct pipe_conn *c, *tc;
 
-    if (cp_init) {
-        log_info("destroying pipe conn pool: free %"PRIu32, cp.nfree);
-
-        FREEPOOL_DESTROY(c, tc, &cp, next, pipe_conn_destroy);
-        cp_init = false;
-    } else {
+    if (!cp_init) {
         log_warn("pipe conn pool was never created, ignore");
+
+        return;
     }
+
+    log_info("destroying pipe conn pool: free %"PRIu32, cp.nfree);
+
+    FREEPOOL_DESTROY(c, tc, &cp, next, pipe_conn_destroy);
+    cp_init = false;
 }
 
 struct pipe_conn *

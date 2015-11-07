@@ -1,8 +1,8 @@
 import sys
 import os
 
-project = u'Cache Common'
-description = u"A C library for building extremely fast cache servers, clients and proxies. http://go/ccommon"
+project = u'Pelikan'
+description = u"Unified cache backend. http://go/pelikan"
 copyright = u'Twitter'
 
 extensions = [
