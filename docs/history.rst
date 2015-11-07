@@ -19,7 +19,7 @@ synthesis is perfectly plausible, as we will show in project overview.
 A unified cache is therefore both beneficial and possible, and we went with it.
 Project Broadbill was born, which later got split and renamed as ccommon (Cache
 Common) and Pelikan. The former focuses on the functionalities characterized by
-an RPC server, which robust production support, which isn't particularly cache-
+an RPC server, with robust production support, which isn't particularly cache-
 specific; the latter is a direct replacement of all the cache backends that we
 are using today, built on top of ccommon, and will serve as the only cache
 backend as we move forward.

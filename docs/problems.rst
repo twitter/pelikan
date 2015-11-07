@@ -55,7 +55,7 @@ effort.
 Resource Management
 ===================
 
-In production especially a container-like environment where quotes of all sorts
+In production especially a container-like environment where quotas of all sorts
 are enforced, it is very important to maintain deterministic runtime behavior,
 and avoid throttling, latency outliers and over-allocating memory and other
 important resources. Redis delegates memory allocation to libraries such as
