@@ -73,7 +73,7 @@ struct buf {
 #define BUF_DEFAULT_SIZE   16 * KiB
 #define BUF_POOLSIZE       0    /* unlimited */
 
-STAILQ_HEAD(buf_q, buf);
+STAILQ_HEAD(buf_sqh, buf); /* corresponding header type for the STAILQ */
 
 extern uint32_t buf_init_size;
 extern buf_metrics_st *buf_metrics;

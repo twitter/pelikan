@@ -1,131 +1,121 @@
-cmake_minimum_required (VERSION 2.6)
-project (ccommon)
+cmake_minimum_required(VERSION 2.6)
+project(ccommon)
 
-# detect platform
-set (OperatingSystem "OS_UNKNOWN")
+enable_testing()
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set (OperatingSystem "OS_DARWIN")
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set (OperatingSystem "OS_LINUX")
-endif ()
+###################
+# detect platform #
+###################
 
-if (OperatingSystem STREQUAL "OS_UNKNOWN")
+# TODO(yao):
+#   1. make this a .cmake macro and put it under cmake/
+#   2. avoid calling this twice when included by another project, e.g. Pelikan
+
+macro(set_platform system_name)
+    if(${system_name} MATCHES "Darwin")
+        set(OS_PLATFORM "OS_DARWIN")
+        add_definitions(-DOS_DARWIN)
+    elseif(${system_name} MATCHES "Linux")
+        set(OS_PLATFORM "OS_LINUX")
+        add_definitions(-DOS_LINUX)
+    else()
+        set(OS_PLATFORM "OS_UNSUPPORTED")
+    endif()
+endmacro(set_platform)
+
+set_platform(${CMAKE_SYSTEM_NAME})
+if(OS_PLATFORM STREQUAL "OS_UNSUPPORTED")
     message(FATAL_ERROR "unsupported operating system")
 endif()
+
+####################
+# define variables #
+####################
 
 # the following sections work with config.h(.in): version, compile variables
 # config.h.in has to include entries set/tested here for them to have effect
 
 # version info
-set (CCOMMON_VERSION_MAJOR 1)
-set (CCOMMON_VERSION_MINOR 0)
-set (CCOMMON_VERSION_PATCH 2)
-set (CCOMMON_VERSION
-    ${CCOMMON_VERSION_MAJOR}.${CCOMMON_VERSION_MINOR}.${CCOMMON_VERSION_PATCH}
-    )
-set (CCOMMON_RELEASE_VERSION
-    ${CCOMMON_VERSION_MAJOR}.${CCOMMON_VERSION_MINOR}
-    )
+set(${PROJECT_NAME}_VERSION_MAJOR 1)
+set(${PROJECT_NAME}_VERSION_MINOR 0)
+set(${PROJECT_NAME}_VERSION_PATCH 2)
+set(${PROJECT_NAME}_VERSION
+   ${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}.${${PROJECT_NAME}_VERSION_PATCH}
+   )
+set(${PROJECT_NAME}_RELEASE_VERSION
+   ${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}
+   )
 
 # flags => compile-time variables: use modules/macros
-option (HAVE_ASSERT_LOG "assert_log enabled by default" ON)
-option (HAVE_ASSERT_PANIC "assert_panic disabled by default" OFF)
-option (HAVE_LOGGING "logging enabled by default" ON)
-option (HAVE_STATS "stats enabled by default" ON)
+option(HAVE_ASSERT_LOG "assert_log enabled by default" ON)
+option(HAVE_ASSERT_PANIC "assert_panic disabled by default" OFF)
+option(HAVE_LOGGING "logging enabled by default" ON)
+option(HAVE_STATS "stats enabled by default" ON)
+
+include (CheckIncludeFiles)
+if (OS_PLATFORM STREQUAL "OS_LINUX")
+    check_include_files(linux/time64.h HAVE_TIME64)
+endif ()
+
+include (CheckIncludeFiles)
+if (OperatingSystem STREQUAL "OS_LINUX")
+    check_include_files (linux/time64.h HAVE_TIME64)
+endif ()
 
 include (CheckSymbolExists)
-check_symbol_exists (sys_signame signal.h HAVE_SIGNAME)
+check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
 
-include (CheckFunctionExists)
-check_function_exists (backtrace HAVE_BACKTRACE)
+include(CheckFunctionExists)
+check_function_exists(backtrace HAVE_BACKTRACE)
 
-include (TestBigEndian)
-test_big_endian (HAVE_BIG_ENDIAN)
+include(TestBigEndian)
+test_big_endian(HAVE_BIG_ENDIAN)
 
 # how to use config.h.in to generate config.h
 # this has to be set _after_ the above checks
-configure_file (
+configure_file(
   "${PROJECT_SOURCE_DIR}/config.h.in"
-  "${PROJECT_BINARY_DIR}/config.h"
-  )
+  "${PROJECT_BINARY_DIR}/config.h")
+
+
+##########################
+# other compiler options #
+##########################
 
 # set compiler flags
 # string concat is easier in 3.0, but older versions don't have the concat subcommand
 # so we are using list as input until we move to new version
 # TODO add build types
-add_definitions (-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
-set (CFLAGS_LIST
+add_definitions(-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
+set(CFLAGS_LIST
     "-std=c11 "
     "-ggdb3 -O2 "
     "-Wall "
     "-Wmissing-prototypes -Wmissing-declarations -Wredundant-decls "
     "-Wunused-function -Wunused-value -Wunused-variable "
-    "-fstrict-aliasing "
-    )
-string (REPLACE "" "" CFLAGS ${CFLAGS_LIST})
-set (CMAKE_C_FLAGS
-    "${CMAKE_C_FLAGS}  ${CFLAGS}"
-    )
+    "-fstrict-aliasing ")
+string(REPLACE "" "" CFLAGS ${CFLAGS_LIST})
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  ${CFLAGS}")
 
 # where to find include files
-include_directories ("${PROJECT_BINARY_DIR}" include)
+include_directories("${PROJECT_BINARY_DIR}" include)
 
-# all source files listed here
-set (SOURCE
-    src/cc_array.c
-    src/cc_bstring.c
-    src/cc_debug.c
-    src/cc_log.c
-    src/cc_mm.c
-    src/cc_option.c
-    src/cc_print.c
-    src/cc_rbuf.c
-    src/cc_ring_array.c
-    src/cc_signal.c
-    src/buffer/cc_buf.c
-    src/buffer/cc_dbuf.c
-    src/channel/cc_pipe.c
-    src/channel/cc_tcp.c
-    src/event/cc_shared.c
-    src/hash/cc_hash.c
-    src/hash/cc_lookup3.c
-    src/stats/cc_metric.c
-    src/stream/cc_sockio.c
-    )
-# some files are platform-specific
-if (OperatingSystem STREQUAL "OS_DARWIN")
-    set (SOURCE
-        ${SOURCE}
-        src/event/cc_kqueue.c
-        src/time/cc_timer_darwin.c
-        )
-elseif (OperatingSystem STREQUAL "OS_LINUX")
-    set (SOURCE
-        ${SOURCE}
-        src/event/cc_epoll.c
-        src/time/cc_timer_linux.c
-        )
-endif ()
+###################
+# things to build #
+###################
 
-# targets to build: here we have both static and dynmaic libs
-set (LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
-add_library (ccommon-static STATIC ${SOURCE})
-add_library (ccommon-shared SHARED ${SOURCE})
-set_target_properties (ccommon-static
-    PROPERTIES
-    OUTPUT_NAME ccommon-${CCOMMON_VERSION}
-    )
-set_target_properties (ccommon-shared
-    PROPERTIES
-    OUTPUT_NAME ccommon
-    VERSION ${CCOMMON_VERSION}
-    SOVERSION 0
-    )
+add_subdirectory(src)
 
-# install instructions
-install (TARGETS ccommon-static DESTINATION lib)
-install (TARGETS ccommon-shared DESTINATION lib)
-install (DIRECTORY include/
-    DESTINATION include/ccommon-${CCOMMON_RELEASE_VERSION}
-    FILES_MATCHING PATTERN "*.h")
+###################
+# print a summary #
+###################
+
+message(STATUS "PLATFORM: " ${OS_PLATFORM})
+
+message(STATUS "CPPFLAGS: " ${CMAKE_CPP_FLAGS})
+message(STATUS "CFLAGS: " ${CMAKE_C_FLAGS})
+
+message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
+
+message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
+message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})

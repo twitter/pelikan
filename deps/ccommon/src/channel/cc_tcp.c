@@ -133,31 +133,29 @@ tcp_conn_destroy(struct tcp_conn **conn)
 void
 tcp_conn_pool_create(uint32_t max)
 {
-    if (!cp_init) {
-        uint32_t i;
-        struct tcp_conn *c;
+    struct tcp_conn *c;
 
-        log_info("creating tcp_conn pool: max %"PRIu32, max);
-
-        FREEPOOL_CREATE(&cp, max);
-        cp_init = true;
-
-        /* preallocating, see notes in cc_mbuf.c */
-        if (max == 0) {
-            return;
-        }
-
-        for (i = 0; i < max; ++i) {
-            c = tcp_conn_create();
-            if (c == NULL) {
-                log_crit("cannot preallocate tcp_conn pool due to OOM, abort");
-                exit(EXIT_FAILURE);
-            }
-            c->free = true;
-            FREEPOOL_RETURN(&cp, c, next);
-        }
-    } else {
+    if (cp_init) {
         log_warn("tcp_conn pool has already been created, ignore");
+
+        return;
+    }
+
+    log_info("creating tcp_conn pool: max %"PRIu32, max);
+
+    FREEPOOL_CREATE(&cp, max);
+    cp_init = true;
+
+    /* preallocating, see notes in buffer/cc_buf.c */
+
+    if (max == 0) { /* do not preallocate if pool size is not specified */
+        return;
+    }
+
+    FREEPOOL_PREALLOC(c, &cp, max, next, tcp_conn_create);
+    if (c == NULL) {
+        log_crit("cannot preallocate tcp_conn pool due to OOM, abort");
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -166,15 +164,16 @@ tcp_conn_pool_destroy(void)
 {
     struct tcp_conn *c, *tc;
 
-    if (cp_init) {
-        log_info("destroying tcp_conn pool: free %"PRIu32, cp.nfree);
-
-        FREEPOOL_DESTROY(c, tc, &cp, next, tcp_conn_destroy);
-        cp_init = false;
-    } else {
+    if (!cp_init) {
         log_warn("tcp_conn pool was never created, ignore");
+
+        return;
     }
 
+    log_info("destroying tcp_conn pool: free %"PRIu32, cp.nfree);
+
+    FREEPOOL_DESTROY(c, tc, &cp, next, tcp_conn_destroy);
+    cp_init = false;
 }
 
 struct tcp_conn *
