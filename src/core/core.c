@@ -26,7 +26,7 @@ bool core_init = false;
  */
 
 rstatus_t
-core_setup(struct addrinfo *server_ai, struct addrinfo *admin_ai,
+core_setup(struct addrinfo *data_ai, struct addrinfo *admin_ai,
            uint32_t max_conns, int bg_intvl,
            server_metrics_st *smetrics, worker_metrics_st *wmetrics)
 {
@@ -52,7 +52,7 @@ core_setup(struct addrinfo *server_ai, struct addrinfo *admin_ai,
         return CC_ERROR;
     }
 
-    ret = core_server_setup(server_ai, smetrics);
+    ret = core_server_setup(data_ai, smetrics);
     if (ret != CC_OK) {
         return ret;
     }

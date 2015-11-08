@@ -61,7 +61,7 @@ show_usage(void)
 static void
 setup(void)
 {
-    struct addrinfo *server_ai, *admin_ai;
+    struct addrinfo *data_ai, *admin_ai;
     uint32_t max_conns;
     rstatus_t status;
     struct log_core *lc = NULL;
@@ -137,7 +137,7 @@ setup(void)
     response_pool_create((uint32_t)setting.response_poolsize.val.vuint);
 
     /* set up core */
-    status = getaddr(&server_ai, setting.server_host.val.vstr,
+    status = getaddr(&data_ai, setting.server_host.val.vstr,
                      setting.server_port.val.vstr);
 
     if (status != CC_OK) {
@@ -157,10 +157,10 @@ setup(void)
 
     max_conns = setting.tcp_poolsize.val.vuint == 0 ?
         setting.ring_array_cap.val.vuint : setting.tcp_poolsize.val.vuint;
-    status = core_setup(server_ai, admin_ai, max_conns,
+    status = core_setup(data_ai, admin_ai, max_conns,
                         (int)setting.background_intvl.val.vuint,
                         &glob_stats.server_metrics, &glob_stats.worker_metrics);
-    freeaddrinfo(server_ai);
+    freeaddrinfo(data_ai);
     freeaddrinfo(admin_ai);
 
     if (status != CC_OK) {

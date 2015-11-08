@@ -15,7 +15,7 @@ struct addrinfo;
 struct request;
 struct response;
 
-rstatus_t core_setup(struct addrinfo *server_ai, struct addrinfo *admin_ai,
+rstatus_t core_setup(struct addrinfo *data_ai, struct addrinfo *admin_ai,
                      uint32_t max_conns, int bg_intvl,
                      server_metrics_st *smetrics, worker_metrics_st *wmetrics);
 void core_teardown(void);

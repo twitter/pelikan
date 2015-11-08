@@ -18,7 +18,7 @@ _check_buf_size(struct buf **buf, uint32_t n)
         }
     }
 
-    return CC_OK;
+    return COMPOSE_OK;
 }
 
 int

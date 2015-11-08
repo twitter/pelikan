@@ -56,7 +56,7 @@ show_usage(void)
 static void
 setup(void)
 {
-    struct addrinfo *server_ai, *admin_ai;
+    struct addrinfo *data_ai, *admin_ai;
     int ret;
     uint32_t max_conns;
     rstatus_t status;
@@ -129,7 +129,7 @@ setup(void)
     response_pool_create((uint32_t)setting.response_poolsize.val.vuint);
 
     /* set up core after static resources are ready */
-    status = getaddr(&server_ai, setting.server_host.val.vstr,
+    status = getaddr(&data_ai, setting.server_host.val.vstr,
             setting.server_port.val.vstr);
     if (status != CC_OK) {
         log_error("server address invalid");
@@ -148,10 +148,10 @@ setup(void)
      */
     max_conns = setting.tcp_poolsize.val.vuint == 0 ?
         setting.ring_array_cap.val.vuint : setting.tcp_poolsize.val.vuint;
-    status = core_setup(server_ai, admin_ai, max_conns,
+    status = core_setup(data_ai, admin_ai, max_conns,
                         (int)setting.background_intvl.val.vuint,
                         &glob_stats.server_metrics, &glob_stats.worker_metrics);
-    freeaddrinfo(server_ai); /* freeing it before return/error to avoid memory leak */
+    freeaddrinfo(data_ai); /* freeing it before return/error to avoid memory leak */
     freeaddrinfo(admin_ai);
     if (status != CC_OK) {
         log_crit("cannot start core event loop");
