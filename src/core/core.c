@@ -26,7 +26,8 @@ bool core_init = false;
  */
 
 rstatus_t
-core_setup(struct addrinfo *ai, uint32_t max_conns,
+core_setup(struct addrinfo *server_ai, struct addrinfo *admin_ai,
+           uint32_t max_conns, int bg_intvl,
            server_metrics_st *smetrics, worker_metrics_st *wmetrics)
 {
     rstatus_t ret;
@@ -51,12 +52,17 @@ core_setup(struct addrinfo *ai, uint32_t max_conns,
         return CC_ERROR;
     }
 
-    ret = core_server_setup(ai, smetrics);
+    ret = core_server_setup(server_ai, smetrics);
     if (ret != CC_OK) {
         return ret;
     }
 
     ret = core_worker_setup(wmetrics);
+    if (ret != CC_OK) {
+        return ret;
+    }
+
+    ret = background_setup(admin_ai, bg_intvl);
     if (ret != CC_OK) {
         return ret;
     }
@@ -80,7 +86,7 @@ core_teardown(void)
 void
 core_run(void)
 {
-    pthread_t worker;
+    pthread_t worker, bg;
     int ret;
 
     if (!core_init) {
@@ -92,9 +98,17 @@ core_run(void)
 
     if (ret != 0) {
         log_crit("pthread create failed for worker thread: %s", strerror(ret));
-    } else {
-        core_server_evloop();
+        goto error;
     }
 
+    ret = pthread_create(&bg, NULL, background_evloop, NULL);
+    if (ret != 0) {
+        log_crit("pthread create failed for background thread: %s", strerror(ret));
+        goto error;
+    }
+
+    core_server_evloop();
+
+error:
     core_teardown();
 }

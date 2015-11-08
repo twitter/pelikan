@@ -1,8 +1,9 @@
 #include <core/worker.h>
 
+#include <core/shared.h>
+
 #include <protocol/memcache_include.h>
 #include <time/time.h>
-#include <core/shared.h>
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
@@ -26,7 +27,7 @@ static struct context *ctx = &context;
 static channel_handler_t handlers;
 static channel_handler_t *hdl = &handlers;
 
-static rstatus_t
+static inline rstatus_t
 _worker_write(struct buf_sock *s)
 {
     rstatus_t status;
@@ -41,7 +42,7 @@ _worker_write(struct buf_sock *s)
     return status;
 }
 
-static void
+static inline void
 _worker_post_write(struct buf_sock *s)
 {
     log_verb("post write processing on buf_sock %p", s);
@@ -54,7 +55,7 @@ _worker_post_write(struct buf_sock *s)
     dbuf_shrink(&(s->wbuf));
 }
 
-static void
+static inline void
 _worker_event_write(struct buf_sock *s)
 {
     rstatus_t status;
@@ -69,7 +70,7 @@ _worker_event_write(struct buf_sock *s)
     _worker_post_write(s);
 }
 
-static void
+static inline void
 _worker_read(struct buf_sock *s)
 {
     log_verb("reading on buf_sock %p", s);
@@ -82,7 +83,7 @@ _worker_read(struct buf_sock *s)
     dbuf_tcp_read(s);
 }
 
-static void
+static inline void
 worker_close(struct buf_sock *s)
 {
     log_info("worker core close on buf_sock %p", s);
@@ -92,7 +93,7 @@ worker_close(struct buf_sock *s)
     buf_sock_return(&s);
 }
 
-static void
+static inline void
 _post_read(struct buf_sock *s)
 {
     parse_rstatus_t status;
@@ -195,6 +196,9 @@ _post_read(struct buf_sock *s)
             goto error;
         }
 
+        /* TODO(kevyang): right now errors in post_read are leaky;
+           the resources borrowed (e.g. rsp objects) are not returned
+           since they just skip everything and goto error */
         /* clean up resources */
         request_reset(req);
         for (i = 0; i < card; i++) {
@@ -219,7 +223,7 @@ error:
 }
 
 /* read event over an existing connection */
-static void
+static inline void
 _worker_event_read(struct buf_sock *s)
 {
     ASSERT(s != NULL);

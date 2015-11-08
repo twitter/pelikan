@@ -1,9 +1,9 @@
 #pragma once
 
+#include <protocol/admin/process.h>
 #include <protocol/memcache/process.h>
 
 #include <buffer/cc_buf.h>
-#include <cc_define.h>
 #include <cc_metric.h>
 
 /*          name                        type            description */
@@ -48,7 +48,8 @@
     ACTION( decr_ex,           METRIC_COUNTER, "# decr errors"         )\
     ACTION( stats,             METRIC_COUNTER, "# stats requests"      )\
     ACTION( stats_ex,          METRIC_COUNTER, "# stats errors"        )\
-    ACTION( flush,             METRIC_COUNTER, "# flush_all requests"  )
+    ACTION( flush,             METRIC_COUNTER, "# flush_all requests"  )\
+    ACTION( version,           METRIC_COUNTER, "# version requests"    )
 
 typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)

@@ -61,7 +61,7 @@ show_usage(void)
 static void
 setup(void)
 {
-    struct addrinfo *ai;
+    struct addrinfo *server_ai, *admin_ai;
     uint32_t max_conns;
     rstatus_t status;
     struct log_core *lc = NULL;
@@ -137,21 +137,31 @@ setup(void)
     response_pool_create((uint32_t)setting.response_poolsize.val.vuint);
 
     /* set up core */
-    status = getaddr(&ai, setting.server_host.val.vstr,
+    status = getaddr(&server_ai, setting.server_host.val.vstr,
                      setting.server_port.val.vstr);
 
-    if(status != CC_OK) {
-        log_error("address invalid");
+    if (status != CC_OK) {
+        log_error("server address invalid");
+        goto error;
+    }
+
+    status = getaddr(&admin_ai, setting.admin_host.val.vstr,
+                     setting.admin_port.val.vstr);
+    if (status != CC_OK) {
+        log_error("admin address invalid");
         goto error;
     }
 
     /* Set up core with connection ring array being either the tcp poolsize or
        the ring array default capacity if poolsize is unlimited */
+
     max_conns = setting.tcp_poolsize.val.vuint == 0 ?
         setting.ring_array_cap.val.vuint : setting.tcp_poolsize.val.vuint;
-    status = core_setup(ai, max_conns, &glob_stats.server_metrics,
-                        &glob_stats.worker_metrics);
-    freeaddrinfo(ai);
+    status = core_setup(server_ai, admin_ai, max_conns,
+                        (int)setting.background_intvl.val.vuint,
+                        &glob_stats.server_metrics, &glob_stats.worker_metrics);
+    freeaddrinfo(server_ai);
+    freeaddrinfo(admin_ai);
 
     if (status != CC_OK) {
         log_crit("could not start core event loop");

@@ -1,6 +1,9 @@
 #include <twemcache/process.h>
 
-#include <protocol/memcache_include.h>
+#include <protocol/admin/op.h>
+#include <protocol/admin/reply.h>
+#include <protocol/memcache/request.h>
+#include <protocol/memcache/response.h>
 #include <storage/slab/item.h>
 #include <twemcache/stats.h>
 #include <util/procinfo.h>
@@ -14,6 +17,7 @@
 #define OVERSIZE_ERR_MSG    "oversized value, cannot be stored"
 #define DELTA_ERR_MSG       "value is not a number"
 #define OOM_ERR_MSG         "server is out of memory"
+#define CMD_ERR_MSG         "command not supported"
 #define OTHER_ERR_MSG       "unknown server error"
 
 static bool process_init = false;
@@ -411,13 +415,31 @@ _process_prepend(struct response *rsp, struct request *req)
 }
 
 static void
-_process_flush(struct response *rsp, struct request *req)
+_process_stats(struct reply *rep, struct op *op)
+{
+    /* not implemented */
+    INCR(process_metrics, stats);
+    rep->type = REP_STAT;
+}
+
+static void
+_process_flush(struct reply *rep, struct op *op)
 {
     INCR(process_metrics, flush);
     item_flush();
-    rsp->type = RSP_OK;
+    rep->type = REP_OK;
 
-    log_verb("flush req %p processed, rsp type %d", req, rsp->type);
+    log_info("flush op %p processed, rep type %d", op, rep->type);
+}
+
+static void
+_process_version(struct reply *rep, struct op *op)
+{
+    INCR(process_metrics, version);
+    rep->type = REP_VERSION;
+    rep->vstr = str2bstr(VERSION_STRING);
+
+    log_info("version op %p processed", op);
 }
 
 void
@@ -471,19 +493,29 @@ process_request(struct response *rsp, struct request *req)
         _process_prepend(rsp, req);
         break;
 
-    case REQ_STATS:
-        /* not implemented right now- we are moving this to the background
-         * thread, which will probably go through a different path
-         */
-        log_warn("not implemented at the moment, coming very soon.");
-        break;
-
-    case REQ_FLUSH:
-        _process_flush(rsp, req);
-        break;
-
     default:
-        NOT_REACHED();
+        rsp->type = RSP_CLIENT_ERROR;
+        rsp->vstr = str2bstr(CMD_ERR_MSG);
+        break;
+    }
+}
+
+void
+process_op(struct reply *rep, struct op *op)
+{
+    switch (op->type) {
+    case OP_STATS:
+        _process_stats(rep, op);
+        break;
+    case OP_FLUSH:
+        _process_flush(rep, op);
+        break;
+    case OP_VERSION:
+        _process_version(rep, op);
+        break;
+    default:
+        rep->type = REP_CLIENT_ERROR;
+        rep->vstr = str2bstr(CMD_ERR_MSG);
         break;
     }
 }

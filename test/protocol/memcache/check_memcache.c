@@ -80,32 +80,6 @@ START_TEST(test_quit)
 }
 END_TEST
 
-START_TEST(test_stats)
-{
-#define SERIALIZED "stats\r\n"
-
-    int ret;
-    int len = sizeof(SERIALIZED) - 1;
-
-    test_reset();
-
-    /* compose */
-    req->type = REQ_STATS;
-    ret = compose_req(&buf, req);
-    ck_assert_msg(ret == len, "expected: %d, returned: %d", len, ret);
-    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
-
-    /* parse */
-    request_reset(req);
-    ret = parse_req(req, buf);
-    ck_assert_int_eq(ret, PARSE_OK);
-    ck_assert(req->rstate == REQ_PARSED);
-    ck_assert(req->type == REQ_STATS);
-    ck_assert(buf->rpos == buf->wpos);
-#undef SERIALIZED
-}
-END_TEST
-
 START_TEST(test_delete)
 {
 #define SERIALIZED "delete foo\r\n"
@@ -1092,7 +1066,6 @@ memcache_suite(void)
     suite_add_tcase(s, tc_basic_req);
 
     tcase_add_test(tc_basic_req, test_quit);
-    tcase_add_test(tc_basic_req, test_stats);
     tcase_add_test(tc_basic_req, test_delete);
     tcase_add_test(tc_basic_req, test_delete_noreply);
     tcase_add_test(tc_basic_req, test_get);
