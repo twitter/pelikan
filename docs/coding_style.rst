@@ -27,7 +27,7 @@ C Standard
 ==========
 
 - Use ``-std=c11`` when compiling
-- Avoid ``_Atomic``, ``_Generic`` and ``_Thread_local``, for now, we will
+- Avoid ``_Atomic``, ``_Generic`` and ``_Thread_local``, for now. We will
   embrace ``C11`` fully when Twitter's official ``GCC`` is bumped to 4.9.
 
 Indentation
@@ -284,6 +284,7 @@ Functions
         {
             ...
         }
+
         int
         fib(int n)
         {
@@ -418,6 +419,7 @@ Inclusion
   headers that are shipped with the project and system headers should be in
   separate clusters.
 - Sort inclusions within the same block in alphabetic order.
+
   .. code-block:: c
 
         /* File: foo.c */

@@ -61,8 +61,8 @@ possible. What this means in practice is the following:
   style guide of the project.
 
 - Patches that clearly harm and degrade performance and dependability of the
-  project in Twitter's use cases will not be admitted, even such patches may
-  improve other scenarios.
+  project in Twitter's use cases will not be admitted, even though such patches
+  may improve other scenarios.
 
 
 We surely hope our core team members do *not* remain constant forever. If the

@@ -42,8 +42,8 @@ lot of guessing and testing involved.
 Observability
 =============
 
-Stats are paramount to large-scale deploy. Health of the entire cluster, or in
-fact many clusters, is automatically monitored via reading and interpreting
+Stats are paramount to large-scale deployments. Health of the entire cluster, or
+in fact many clusters, is automatically monitored via reading and interpreting
 system and service stats. The provisioning of consistent, useful stats in Redis
 does not meet our production requirement, even in the latest versions.
 Furthermore, stats in all our current backends are kept in a monolithic
@@ -55,7 +55,7 @@ effort.
 Resource Management
 ===================
 
-In production especially a container-like environment where quotas of all sorts
+In production, especially in a container-like environment where quotas of all sorts
 are enforced, it is very important to maintain deterministic runtime behavior,
 and avoid throttling, latency outliers and over-allocating memory and other
 important resources. Redis delegates memory allocation to libraries such as
@@ -78,7 +78,7 @@ it, if there is a proxy along the way, the proxy has to as well. If we want to
 apply back pressure, a common strategy to cope with hot keys and overloaded
 backends, the existing protocols leave us no room to "tag-along" a flag easily
 and idiomatically. As we try to develop cache to support more use cases and
-intelligently handle larger scale clusters, the limitation of the simple
+intelligently handle larger scale clusters, the limitations of the simple
 protocols become more and more apparent over time.
 
 Solutions

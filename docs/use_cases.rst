@@ -82,7 +82,7 @@ Timelines
 Description
 ^^^^^^^^^^^
 
-Indices of content. Most of Twitter's public content are organized this way. For
+Indices of content. Most of Twitter's public content is organized this way. For
 example, a user timeline which contains all tweet IDs created by a particular
 user and sorted in reverse chronological order is the building block of many
 other views, such as home timeline. The timeline entries are often homogeneous
@@ -96,8 +96,8 @@ and write contention. Updates mostly happen at one end of the timeline- fanout
 appends to the newest end, and truncation happens on the oldest end; insertion
 and deletion at arbitrary location are relatively infrequent.
 
-Example
-^^^^^^^
+Examples
+^^^^^^^^
 * timeline service which has over a dozen timelines of different nature, almost
   all cached
 
@@ -117,8 +117,8 @@ appear very similar to timeline, but the update operation often involves
 arithmetic operations such as `incr/decr`. So this is equivalent to a simple
 counter use case but with structured keys.
 
-Example
-^^^^^^^
+Examples
+^^^^^^^^
 
 * metrics and values which are recorded periodically
 * data analytics maintains per-time-window tweet impression and engagement counts
