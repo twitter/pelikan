@@ -1,4 +1,4 @@
-#include <core/background.h>
+#include <core/admin.h>
 
 #include <core/shared.h>
 
@@ -17,9 +17,9 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#define BACKGROUND_MODULE_NAME "core::background"
+#define ADMIN_MODULE_NAME "core::admin"
 
-static bool background_init = false;
+static bool admin_init = false;
 
 static struct context context;
 static struct context *ctx = &context;
@@ -211,21 +211,21 @@ _admin_event(void *arg, uint32_t events)
 }
 
 rstatus_t
-background_setup(struct addrinfo *ai, int tick)
+admin_setup(struct addrinfo *ai, int tick)
 {
     struct tcp_conn *c;
 
-    log_info("set up the %s module", BACKGROUND_MODULE_NAME);
+    log_info("set up the %s module", ADMIN_MODULE_NAME);
 
-    if (background_init) {
-        log_error("background has already been setup, aborting");
+    if (admin_init) {
+        log_error("admin has already been setup, aborting");
         return CC_ERROR;
     }
 
     ctx->timeout = tick;
     ctx->evb = event_base_create(1024, _admin_event);
     if (ctx->evb == NULL) {
-        log_crit("failed to set up background thread; could not create event "
+        log_crit("failed to set up admin thread; could not create event "
                  "base for control plane");
         return CC_ERROR;
     }
@@ -241,7 +241,7 @@ background_setup(struct addrinfo *ai, int tick)
 
     serversock = buf_sock_borrow();
     if (serversock == NULL) {
-        log_crit("failed to set up background thread; could not get buf_sock");
+        log_crit("failed to set up admin thread; could not get buf_sock");
         return CC_ERROR;
     }
 
@@ -255,27 +255,27 @@ background_setup(struct addrinfo *ai, int tick)
     c->level = CHANNEL_META;
 
     event_add_read(ctx->evb, hdl->rid(c), serversock);
-    background_init = true;
+    admin_init = true;
 
     return CC_OK;
 }
 
 void
-background_teardown(void)
+admin_teardown(void)
 {
-    log_info("tear down the %s module", BACKGROUND_MODULE_NAME);
+    log_info("tear down the %s module", ADMIN_MODULE_NAME);
 
-    if (!background_init) {
-        log_warn("%s has never been setup", BACKGROUND_MODULE_NAME);
+    if (!admin_init) {
+        log_warn("%s has never been setup", ADMIN_MODULE_NAME);
     } else {
         buf_sock_return(&serversock);
         event_base_destroy(&(ctx->evb));
     }
-    background_init = false;
+    admin_init = false;
 }
 
 static rstatus_t
-background_evwait(void)
+admin_evwait(void)
 {
     int n;
 
@@ -290,14 +290,14 @@ background_evwait(void)
 }
 
 void *
-background_evloop(void *arg)
+admin_evloop(void *arg)
 {
     rstatus_t status;
 
     for(;;) {
-        status = background_evwait();
+        status = admin_evwait();
         if (status != CC_OK) {
-            log_crit("background loop exited due to failure");
+            log_crit("admin loop exited due to failure");
             break;
         }
 

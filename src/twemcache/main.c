@@ -158,7 +158,7 @@ setup(void)
     max_conns = setting.tcp_poolsize.val.vuint == 0 ?
         setting.ring_array_cap.val.vuint : setting.tcp_poolsize.val.vuint;
     status = core_setup(data_ai, admin_ai, max_conns,
-                        (int)setting.background_intvl.val.vuint,
+                        (int)setting.admin_intvl.val.vuint,
                         &glob_stats.server_metrics, &glob_stats.worker_metrics);
     freeaddrinfo(data_ai);
     freeaddrinfo(admin_ai);

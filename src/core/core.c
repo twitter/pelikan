@@ -27,7 +27,7 @@ bool core_init = false;
 
 rstatus_t
 core_setup(struct addrinfo *data_ai, struct addrinfo *admin_ai,
-           uint32_t max_conns, int bg_intvl,
+           uint32_t max_conns, int maint_intvl,
            server_metrics_st *smetrics, worker_metrics_st *wmetrics)
 {
     rstatus_t ret;
@@ -62,7 +62,7 @@ core_setup(struct addrinfo *data_ai, struct addrinfo *admin_ai,
         return ret;
     }
 
-    ret = background_setup(admin_ai, bg_intvl);
+    ret = admin_setup(admin_ai, maint_intvl);
     if (ret != CC_OK) {
         return ret;
     }
@@ -86,7 +86,7 @@ core_teardown(void)
 void
 core_run(void)
 {
-    pthread_t worker, bg;
+    pthread_t worker, admin;
     int ret;
 
     if (!core_init) {
@@ -101,9 +101,9 @@ core_run(void)
         goto error;
     }
 
-    ret = pthread_create(&bg, NULL, background_evloop, NULL);
+    ret = pthread_create(&admin, NULL, admin_evloop, NULL);
     if (ret != 0) {
-        log_crit("pthread create failed for background thread: %s", strerror(ret));
+        log_crit("pthread create failed for admin thread: %s", strerror(ret));
         goto error;
     }
 

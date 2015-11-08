@@ -1,6 +1,6 @@
 #pragma once
 
-#include <core/background.h>
+#include <core/admin.h>
 #include <storage/cuckoo/cuckoo.h>
 #include <protocol/memcache_include.h>
 
@@ -26,9 +26,9 @@
 
 /* we compose our setting by including options needed by modules we use */
 #define SETTING(ACTION)         \
+    ADMIN_OPTION(ACTION)        \
     ARRAY_OPTION(ACTION)        \
     BUF_OPTION(ACTION)          \
-    BACKGROUND_OPTION(ACTION)   \
     DBUF_OPTION(ACTION)         \
     SOCKIO_OPTION(ACTION)       \
     CUCKOO_OPTION(ACTION)       \

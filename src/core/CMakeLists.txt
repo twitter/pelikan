@@ -1,5 +1,5 @@
 set(SOURCE
-    background.c
+    admin.c
     core.c
     server.c
     shared.c

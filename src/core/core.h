@@ -4,7 +4,7 @@
  * event driven stuff is handled, it is not a replacement of main()
  */
 
-#include <core/background.h>
+#include <core/admin.h>
 #include <core/server.h>
 #include <core/worker.h>
 

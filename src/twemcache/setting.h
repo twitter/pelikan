@@ -1,6 +1,6 @@
 #pragma once
 
-#include <core/background.h>
+#include <core/admin.h>
 #include <storage/slab/slab.h>
 #include <storage/slab/item.h>
 #include <protocol/memcache_include.h>
@@ -22,8 +22,8 @@
     ACTION( server_port,    OPTION_TYPE_STR,    "12321",        "port listening on"        )
 
 #define SETTING(ACTION)         \
+    ADMIN_OPTION(ACTION)        \
     ARRAY_OPTION(ACTION)        \
-    BACKGROUND_OPTION(ACTION)   \
     SLAB_OPTION(ACTION)         \
     ITEM_OPTION(ACTION)         \
     BUF_OPTION(ACTION)          \
