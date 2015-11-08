@@ -25,6 +25,9 @@ _get_op_type(struct op *op, struct bstring *type)
             op->type = OP_QUIT;
             break;
         }
+
+        break;
+
     case 5:
         if (str5cmp(type->data, 's', 't', 'a', 't', 's')) {
             op->type = OP_STATS;
@@ -35,11 +38,16 @@ _get_op_type(struct op *op, struct bstring *type)
             op->type = OP_FLUSH;
             break;
         }
+
+        break;
+
     case 7:
         if (str7cmp(type->data, 'v', 'e', 'r', 's', 'i', 'o', 'n')) {
             op->type = OP_VERSION;
             break;
         }
+
+        break;
     }
 
     if (op->type == OP_UNKNOWN) { /* no match */
