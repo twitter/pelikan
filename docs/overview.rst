@@ -7,7 +7,7 @@ Cache Backend
 
 Cache backend is where cached data is stored. Conceptually, what it does is
 extremely simple: requests are received over the network or other IO media, the
-requests are then parsed, followed by processing, which mostly consists
+requests are then parsed, followed by processing, which mostly consists of
 retrieving and/or updating data in memory, eventually, responses are formed and
 sent back to the client.
 
@@ -45,7 +45,7 @@ And that's not why we created Pelikan. Instead, we differentiate from existing
 implementations on *how* we implement these functionalities and *how well* we
 achieve the following goals:
 
-* clean, well-defined abstraction to minimize duplicated logic, through
+* clean, well-defined abstractions to minimize duplicated logic, through
   composable and configurable modules
 * built-in observability support *everywhere*, this includes logging, stats, and
   tracing

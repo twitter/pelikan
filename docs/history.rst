@@ -1,6 +1,6 @@
 Genesis
 =======
-The Twitter Cache team (which were part of Runtime Systems, and before that,
+The Twitter Cache team (which was part of Runtime Systems, and before that,
 Infrastructure) started working on a fork of Memcached 1.4.4 in 2010. In 2011,
 with the launch of Haplo (timeline cache), it also took over the maintenance
 and improvement of Redis. We also developed Fatcache (SSD cache) and Slimcache
