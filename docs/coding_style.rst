@@ -35,8 +35,26 @@ Indentation
 
 - Do not use literal tabs. Expand tabs to **four** spaces instead.
 - Use **four** spaces for every indentation level.
-- Do not use more than **three** levels of indentation.
+- Do not use more than **four** levels of indentation unless there's a good
+  reason.
 - Make sure that your editor does not leave space at the end of each line.
+
+Switch alignment
+----------------
+
+Align the ``switch`` keyword and the corresponding ``case`` and ``default``
+keywords to the same column. For example:
+
+.. code-block:: c
+
+      switch (alphabet) {
+      case 'a':
+      case 'b':
+          printf("I am a or b\n");
+          break;
+      default:
+          break;
+      }
 
 
 Naming
@@ -51,14 +69,14 @@ Naming
 Types
 =====
 
-- Do not use the following types:
+- For variables of the following types:
 
   - ``int``
   - ``char``
   - ``short``
   - ``long``
 
-  Instead, include the ``<stdint.h>`` header and use the following types:
+  Prefer the following types declared in the ``<stdint.h>`` header:
 
   - ``int8_t``
   - ``uint8_t``
@@ -68,6 +86,9 @@ Types
   - ``uint32_t``
   - ``int64_t``
   - ``uint64_t``
+
+  The latter types give us more predictable value range and memory layout on
+  different platforms.
 
 - Use the `bool` type for boolean data. You have to include the ``<stdbool.h>``
   header.
@@ -82,13 +103,14 @@ Line length
 
 - Limit each line to 80 columns or less.
 - If you have to wrap a longer statement, put the operator at the end of the
-  line and use **four** spaces to indent the next line. For example:
+  line and use **eight** spaces to indent the next line. Indentation on the
+  next level is not affected. For example:
 
   .. code-block:: c
 
         while (cnt < 20 && this_variable_name_is_too_long &&
-            ep != NULL) {
-                z = a + really + long + statement + that + needs +
+                ep != NULL) {
+            z = a + really + long + statement + that + needs +
                     two + lines + gets + indented + four + spaces +
                     on + the + second + and + subsequent + lines;
         }
@@ -97,9 +119,8 @@ Line length
 
   .. code-block:: c
 
-    int a = function(param_a, param_b, param_c, param_d, param_e,
-                         param_f, param_g, param_h, param_i,
-                         param_j, param_k, param_l);
+    int a = function(param_a, param_b, param_c, param_d, param_e, param_f,
+            param_g, param_h, param_i, param_j, param_k, param_l);
 
 
 Braces
@@ -154,24 +175,6 @@ Braces
         } else {
             ....
         }
-
-
-Switch alignment
-================
-
-Align the ``switch`` keyword and the corresponding ``case`` and ``default``
-keywords to the same column. For example:
-
-.. code-block:: c
-
-      switch (alphabet) {
-      case 'a':
-      case 'b':
-          printf("I am a or b\n");
-          break;
-      default:
-          break;
-      }
 
 
 Infinite loops
@@ -252,6 +255,15 @@ The only exception for using a ``typedef`` is when defining a type for a
 function pointer.
 
 
+Forward Declaration
+===================
+
+Prefer using forward declaration over including another header for type-
+declaration only. Forward declaration such as ``struct request;`` is feasible
+if none of its members are directly accessed, such as when it's used in function
+declaration.
+
+
 Functions
 =========
 
@@ -266,7 +278,7 @@ Functions
             ...
 
 - Separate two successive functions with one blank line.
-- Include parameter names with their datypes in the function declaration. For
+- Include parameter names with their dataypes in the function declaration. For
   example:
 
   .. code-block:: c
@@ -382,9 +394,6 @@ Comments
         {
             ...
 
-- Use only one data declaration per line. (Do not use commas for multiple data
-  declarations.) This leaves you room for a small comment on each
-  item that explains its use.
 
 
 Other naming conventions
