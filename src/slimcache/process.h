@@ -6,6 +6,12 @@
 #include <buffer/cc_buf.h>
 #include <cc_metric.h>
 
+#include <stdbool.h>
+
+/*          name         type              default description */
+#define PROCESS_OPTION(ACTION)                                                        \
+    ACTION( allow_flush, OPTION_TYPE_BOOL, false,  "allow flushing on the data port" )
+
 /*          name                        type            description */
 #define PROCESS_METRIC(ACTION)                                          \
     ACTION( process_req,       METRIC_COUNTER, "# requests processed"  )\
@@ -62,5 +68,5 @@ typedef struct {
 struct request;
 struct response;
 
-void process_setup(process_metrics_st *process_metrics);
+void process_setup(bool flush, process_metrics_st *process_metrics);
 void process_teardown(void);

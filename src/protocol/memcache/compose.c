@@ -133,6 +133,7 @@ compose_req(struct buf **buf, struct request *req)
     int sz, n = 0;
 
     switch (type) {
+    case REQ_FLUSH:
     case REQ_QUIT:
         if (_check_buf_size(buf, str->len) != COMPOSE_OK) {
             goto error;

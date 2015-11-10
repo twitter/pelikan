@@ -1,14 +1,14 @@
 #include <protocol/memcache_include.h>
 
-#include <cc_array.h>
-#include <cc_define.h>
 #include <buffer/cc_buf.h>
+#include <cc_array.h>
 #include <cc_bstring.h>
+#include <cc_define.h>
 
 #include <check.h>
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /* define for each suite, local scope due to macro visibility rule */
 #define SUITE_NAME "memcache"

@@ -103,7 +103,8 @@ setup(void)
     klog_setup(setting.klog_file.val.vstr, (uint32_t)setting.klog_nbuf.val.vuint,
                (uint32_t)setting.klog_intvl.val.vuint, (uint32_t)setting.klog_sample.val.vuint,
                &glob_stats.klog_metrics);
-    process_setup(&glob_stats.process_metrics);
+    process_setup(setting.allow_flush.val.vbool,
+                  &glob_stats.process_metrics);
 
     buf_setup((uint32_t)setting.buf_init_size.val.vuint, &glob_stats.buf_metrics);
     dbuf_setup((uint32_t)setting.dbuf_max_power.val.vuint);

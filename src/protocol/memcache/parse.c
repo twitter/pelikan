@@ -400,6 +400,14 @@ _check_req_type(struct request *req, struct buf *buf, bool *end, struct bstring 
             }
 
             break;
+
+        case 9:
+            if (str9cmp(t->data, 'f', 'l', 'u', 's', 'h', '_', 'a', 'l', 'l')) {
+                req->type = REQ_FLUSH;
+                break;
+            }
+
+            break;
         }
 
         if (req->type == REQ_UNKNOWN) { /* no match */
@@ -759,6 +767,8 @@ _parse_req_hdr(struct request *req, struct buf *buf)
         status = _subrequest_arithmetic(req, buf, &end);
         break;
 
+    /* flush_all can take a delay e.g. 'flush_all 10\r\n', not implemented */
+    case REQ_FLUSH:
     case REQ_QUIT:
         break;
 

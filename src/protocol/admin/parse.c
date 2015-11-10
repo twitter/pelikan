@@ -34,11 +34,6 @@ _get_op_type(struct op *op, struct bstring *type)
             break;
         }
 
-        if (str5cmp(type->data, 'f', 'l', 'u', 's', 'h')) {
-            op->type = OP_FLUSH;
-            break;
-        }
-
         break;
 
     case 7:

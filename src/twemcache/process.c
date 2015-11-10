@@ -22,9 +22,10 @@
 
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
+static bool allow_flush = false;
 
 void
-process_setup(process_metrics_st *metrics)
+process_setup(bool flush, process_metrics_st *metrics)
 {
     log_info("set up the %s module", TWEMCACHE_PROCESS_MODULE_NAME);
     if (process_init) {
@@ -32,6 +33,7 @@ process_setup(process_metrics_st *metrics)
                  TWEMCACHE_PROCESS_MODULE_NAME);
     }
 
+    allow_flush = flush;
     process_metrics = metrics;
     PROCESS_METRIC_INIT(process_metrics);
     process_init = true;
@@ -45,6 +47,7 @@ process_teardown(void)
         log_warn("%s has never been setup", TWEMCACHE_PROCESS_MODULE_NAME);
     }
 
+    allow_flush = false;
     process_metrics = NULL;
     process_init = false;
 }
@@ -415,21 +418,26 @@ _process_prepend(struct response *rsp, struct request *req)
 }
 
 static void
+_process_flush(struct response *rsp, struct request *req)
+{
+    if (allow_flush) {
+        INCR(process_metrics, flush);
+        item_flush();
+        rsp->type = RSP_OK;
+
+        log_info("flush req %p processed, rsp type %d", req, rsp->type);
+    } else {
+        rsp->type = RSP_CLIENT_ERROR;
+        rsp->vstr = str2bstr(CMD_ERR_MSG);
+    }
+}
+
+static void
 _process_stats(struct reply *rep, struct op *op)
 {
     /* not implemented */
     INCR(process_metrics, stats);
     rep->type = REP_STAT;
-}
-
-static void
-_process_flush(struct reply *rep, struct op *op)
-{
-    INCR(process_metrics, flush);
-    item_flush();
-    rep->type = REP_OK;
-
-    log_info("flush op %p processed, rep type %d", op, rep->type);
 }
 
 static void
@@ -493,6 +501,10 @@ process_request(struct response *rsp, struct request *req)
         _process_prepend(rsp, req);
         break;
 
+    case REQ_FLUSH:
+        _process_flush(rsp, req);
+        break;
+
     default:
         rsp->type = RSP_CLIENT_ERROR;
         rsp->vstr = str2bstr(CMD_ERR_MSG);
@@ -506,9 +518,6 @@ process_op(struct reply *rep, struct op *op)
     switch (op->type) {
     case OP_STATS:
         _process_stats(rep, op);
-        break;
-    case OP_FLUSH:
-        _process_flush(rep, op);
         break;
     case OP_VERSION:
         _process_version(rep, op);

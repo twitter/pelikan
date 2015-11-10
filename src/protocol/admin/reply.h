@@ -4,7 +4,6 @@
 
 #define REP_TYPE_MSG(ACTION)                   \
     ACTION( REP_UNKNOWN,      ""              )\
-    ACTION( REP_OK,           "OK\r\n"        )\
     ACTION( REP_STAT,         "STAT "         )\
     ACTION( REP_VERSION,      "VERSION "      )\
     ACTION( REP_CLIENT_ERROR, "CLIENT_ERROR " )\

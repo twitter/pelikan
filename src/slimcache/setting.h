@@ -1,5 +1,7 @@
 #pragma once
 
+#include <slimcache/process.h>
+
 #include <core/admin.h>
 #include <storage/cuckoo/cuckoo.h>
 #include <protocol/memcache_include.h>
@@ -29,16 +31,17 @@
     ADMIN_OPTION(ACTION)        \
     ARRAY_OPTION(ACTION)        \
     BUF_OPTION(ACTION)          \
-    DBUF_OPTION(ACTION)         \
-    SOCKIO_OPTION(ACTION)       \
     CUCKOO_OPTION(ACTION)       \
+    DBUF_OPTION(ACTION)         \
+    DEBUG_OPTION(ACTION)        \
+    KLOG_OPTION(ACTION)         \
+    PROCESS_OPTION(ACTION)      \
     REQUEST_OPTION(ACTION)      \
     RESPONSE_OPTION(ACTION)     \
-    KLOG_OPTION(ACTION)         \
-    DEBUG_OPTION(ACTION)        \
-    TCP_OPTION(ACTION)          \
     RING_ARRAY_OPTION(ACTION)   \
-    SERVER_OPTION(ACTION)
+    SERVER_OPTION(ACTION)       \
+    SOCKIO_OPTION(ACTION)       \
+    TCP_OPTION(ACTION)
 
 struct setting {
     SETTING(OPTION_DECLARE)

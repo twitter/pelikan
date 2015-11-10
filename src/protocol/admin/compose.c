@@ -22,6 +22,31 @@ _check_buf_size(struct buf **buf, uint32_t n)
 }
 
 int
+compose_op(struct buf **buf, struct op *op)
+{
+    op_type_t type = op->type;
+    struct bstring *str = &op_strings[type];
+    int n = 0;
+
+    switch (type) {
+    case OP_STATS:
+    case OP_VERSION:
+    case OP_QUIT:
+        if (_check_buf_size(buf, str->len + CRLF_LEN) != COMPOSE_OK) {
+            return COMPOSE_ENOMEM;
+        }
+        n += buf_write(*buf, str->data, str->len);
+        n += buf_write(*buf, CRLF, CRLF_LEN);
+        break;
+    default:
+        NOT_REACHED();
+        break;
+    }
+
+    return n;
+}
+
+int
 compose_rep(struct buf **buf, struct reply *rep)
 {
     int n = 0;
@@ -29,12 +54,6 @@ compose_rep(struct buf **buf, struct reply *rep)
     struct bstring *str = &reply_strings[type];
 
     switch (type) {
-    case REP_OK:
-        if (_check_buf_size(buf, str->len) != COMPOSE_OK) {
-            return COMPOSE_ENOMEM;
-        }
-        n += buf_write(*buf, str->data, str->len);
-        break;
     case REP_STAT:
         n += buf_write(*buf, "stats not implemented" CRLF,
                        sizeof("stats not implemented") + CRLF_LEN - 1);

@@ -5,7 +5,6 @@
 #define OP_TYPE_MSG(ACTION)                  \
     ACTION( OP_UNKNOWN,       ""            )\
     ACTION( OP_STATS,         "stats"       )\
-    ACTION( OP_FLUSH,         "flush"       )\
     ACTION( OP_VERSION,       "version"     )\
     ACTION( OP_QUIT,          "quit"        )
 
