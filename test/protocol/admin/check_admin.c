@@ -67,7 +67,54 @@ START_TEST(test_quit)
     ck_assert_int_eq(ret, PARSE_OK);
     ck_assert(op->state == OP_PARSED);
     ck_assert(op->type = OP_QUIT);
-    ck_assert(buf->rpos == buf->wpos);
+#undef SERIALIZED
+}
+END_TEST
+
+START_TEST(test_stats)
+{
+#define SERIALIZED "stats\r\n"
+    int ret;
+    int len = sizeof(SERIALIZED) - 1;
+
+    test_reset();
+
+    /* compose */
+    op->type = OP_STATS;
+    ret = compose_op(&buf, op);
+    ck_assert_msg(ret == len, "expected: %d, returned: %d", len, ret);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
+
+    /* parse */
+    op_reset(op);
+    ret = parse_op(op, buf);
+    ck_assert_int_eq(ret, PARSE_OK);
+    ck_assert(op->state == OP_PARSED);
+    ck_assert(op->type = OP_STATS);
+#undef SERIALIZED
+}
+END_TEST
+
+START_TEST(test_version)
+{
+#define SERIALIZED "version\r\n"
+    int ret;
+    int len = sizeof(SERIALIZED) - 1;
+
+    test_reset();
+
+    /* compose */
+    op->type = OP_VERSION;
+    ret = compose_op(&buf, op);
+    ck_assert_msg(ret == len, "expected: %d, returned: %d", len, ret);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
+
+    /* parse */
+    op_reset(op);
+    ret = parse_op(op, buf);
+    ck_assert_int_eq(ret, PARSE_OK);
+    ck_assert(op->state == OP_PARSED);
+    ck_assert(op->type = OP_VERSION);
 #undef SERIALIZED
 }
 END_TEST
@@ -85,6 +132,8 @@ admin_suite(void)
     suite_add_tcase(s, tc_basic_op);
 
     tcase_add_test(tc_basic_op, test_quit);
+    tcase_add_test(tc_basic_op, test_stats);
+    tcase_add_test(tc_basic_op, test_version);
 
     return s;
 }
