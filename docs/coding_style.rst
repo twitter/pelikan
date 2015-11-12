@@ -49,7 +49,10 @@ Indentation
             ACTION( foo_free,       METRIC_GAUGE,   "# free foo"       )\
             ACTION( foo_borrow,     METRIC_COUNTER, "# foos borrowed"  )\
             ACTION( foo_return,     METRIC_COUNTER, "# foos returned"  )\
-        /* type starts on column 29, description on column 45 */
+        /* name starts on column 13
+         * type starts on column 29
+         * description on column 45
+         */
 
         struct foo {
             struct foo      *next;
