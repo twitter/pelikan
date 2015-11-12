@@ -160,8 +160,8 @@ Braces
 
   .. code-block:: c
 
-        if (x is true) {
-            we do y
+        if (x) {
+            foo();
         }
 
 - For functions, put the opening brace at the beginning of the second line
@@ -468,8 +468,8 @@ Structures
   .. code-block:: c
 
         char *p;
-        p = malloc(sizeof(*p))  /* Good example */
-        p = malloc(sizeof(char) /* Bad example */
+        p = malloc(sizeof(*p));   /* Good example */
+        p = malloc(sizeof(char)); /* Bad example */
 
 - Declare each variable in a structure in a separate line. Try to make the
   structure readable by aligning the member names and comments using spaces.
@@ -503,7 +503,7 @@ Pointers
 
         (p = f()) == NULL
 
-  Do not compare to zero. For example:
+  Do not compare to zero the integer. For example:
 
   .. code-block:: c
 
@@ -520,7 +520,7 @@ Pointers
 
   .. code-block:: c
 
-        if (!*p)
+        if (!*p) /* assume p is of type char * */
 
 - Use ``const`` for function parameters if the pointer has no side effect.
 
