@@ -38,6 +38,25 @@ Indentation
 - Do not use more than **four** levels of indentation unless there's a good
   reason.
 - Make sure that your editor does not leave space at the end of each line.
+- When a block of code resembles a table, such as in a macro-block or struct
+  definition, start each field on a ``4k+1`` column, so all fields are **four**
+  space aligned.
+
+  .. code-block:: c
+        /*          name            type            description        */
+        #define FOO_METRIC(ACTION)                                      \
+            ACTION( foo_free,       METRIC_GAUGE,   "# free foo"       )\
+            ACTION( foo_borrow,     METRIC_COUNTER, "# foos borrowed"  )\
+            ACTION( foo_return,     METRIC_COUNTER, "# foos returned"  )\
+        /* type starts on column 29, description on column 45 */
+
+        struct foo {
+            struct foo      *next;
+            struct mumble   amumble;
+            int             bar;
+        };
+        /* type starts on column 5, name on column 21 */
+
 
 Switch alignment
 ----------------
@@ -453,10 +472,9 @@ Structures
         p = malloc(sizeof(char) /* Bad example */
 
 - Declare each variable in a structure in a separate line. Try to make the
-  structure readable by aligning the member names using either tabs or spaces.
-  Use only one space or tab if it suffices to align at least ninety percent
-  of the member names. Separate names that follow extremely long types with
-  a single space.
+  structure readable by aligning the member names and comments using spaces.
+  Use a modest number of spaces if they suffice to align most of the member
+  names. Separate names that follow extremely long types with a single space.
 
   .. code-block:: c
 
