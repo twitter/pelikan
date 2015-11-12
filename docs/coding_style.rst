@@ -43,6 +43,7 @@ Indentation
   space aligned.
 
   .. code-block:: c
+
         /*          name            type            description        */
         #define FOO_METRIC(ACTION)                                      \
             ACTION( foo_free,       METRIC_GAUGE,   "# free foo"       )\
