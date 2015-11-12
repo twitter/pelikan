@@ -1079,6 +1079,84 @@ START_TEST(test_rsp_incomplete_cas)
 }
 END_TEST
 
+START_TEST(test_rsp_pool_basic)
+{
+#define POOL_SIZE 10
+    int i;
+    struct response *rsps[POOL_SIZE];
+    response_setup(NULL);
+    response_pool_create(POOL_SIZE);
+    for (i = 0; i < POOL_SIZE; i++) {
+        rsps[i] = response_borrow();
+        ck_assert_msg(rsps[i] != NULL, "expected to borrow a response");
+    }
+    ck_assert_msg(response_borrow() == NULL, "expected response pool to be depleted");
+    for (i = 0; i < POOL_SIZE; i++) {
+        response_return(&rsps[i]);
+        ck_assert_msg(rsps[i] == NULL, "expected response to be nulled after return");
+    }
+    response_pool_destroy();
+    response_teardown();
+#undef POOL_SIZE
+}
+END_TEST
+
+START_TEST(test_rsp_pool_metrics)
+{
+#define POOL_SIZE 2
+    struct response *rsps[POOL_SIZE];
+    response_metrics_st metrics;
+    response_setup(&metrics);
+    response_pool_create(POOL_SIZE);
+
+    ck_assert_int_eq(metrics.response_borrow.counter, 0);
+    ck_assert_int_eq(metrics.response_create.counter, 2);
+    ck_assert_int_eq(metrics.response_free.counter, 2);
+
+    rsps[0] = response_borrow();
+    ck_assert_msg(rsps[0] != NULL, "expected to borrow a response");
+    ck_assert_int_eq(metrics.response_borrow.counter, 1);
+    ck_assert_int_eq(metrics.response_create.counter, 2);
+    ck_assert_int_eq(metrics.response_free.counter, 1);
+
+    rsps[1] = response_borrow();
+    ck_assert_msg(rsps[1] != NULL, "expected to borrow a response");
+    ck_assert_int_eq(metrics.response_borrow.counter, 2);
+    ck_assert_int_eq(metrics.response_create.counter, 2);
+    ck_assert_int_eq(metrics.response_free.counter, 0);
+
+    ck_assert_msg(response_borrow() == NULL, "expected response pool to be depleted");
+    ck_assert_int_eq(metrics.response_borrow.counter, 2);
+    ck_assert_int_eq(metrics.response_create.counter, 2);
+    ck_assert_int_eq(metrics.response_free.counter, 0);
+
+    response_return(&rsps[1]);
+    ck_assert_int_eq(metrics.response_borrow.counter, 2);
+    ck_assert_int_eq(metrics.response_create.counter, 2);
+    ck_assert_int_eq(metrics.response_free.counter, 1);
+
+    response_return(&rsps[0]);
+    ck_assert_int_eq(metrics.response_borrow.counter, 2);
+    ck_assert_int_eq(metrics.response_create.counter, 2);
+    ck_assert_int_eq(metrics.response_free.counter, 2);
+
+    rsps[0] = response_borrow();
+    ck_assert_msg(rsps[0] != NULL, "expected to borrow a response");
+    ck_assert_int_eq(metrics.response_borrow.counter, 3);
+    ck_assert_int_eq(metrics.response_create.counter, 2);
+    ck_assert_int_eq(metrics.response_free.counter, 1);
+
+    response_return(&rsps[0]);
+    ck_assert_int_eq(metrics.response_borrow.counter, 3);
+    ck_assert_int_eq(metrics.response_create.counter, 2);
+    ck_assert_int_eq(metrics.response_free.counter, 2);
+
+    response_pool_destroy();
+    response_teardown();
+#undef POOL_SIZE
+}
+END_TEST
+
 /*
  * test suite
  */
@@ -1131,6 +1209,13 @@ memcache_suite(void)
     tcase_add_test(tc_basic_rsp, test_rsp_incomplete_key);
     tcase_add_test(tc_basic_rsp, test_rsp_incomplete_flag);
     tcase_add_test(tc_basic_rsp, test_rsp_incomplete_cas);
+
+    /* basic requests */
+    TCase *tc_rsp_pool = tcase_create("response pool");
+    suite_add_tcase(s, tc_rsp_pool);
+
+    tcase_add_test(tc_rsp_pool, test_rsp_pool_basic);
+    tcase_add_test(tc_rsp_pool, test_rsp_pool_metrics);
 
     return s;
 }

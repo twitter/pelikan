@@ -105,7 +105,7 @@ void
 response_pool_create(uint32_t max)
 {
     uint32_t i;
-    struct response *rsp;
+    struct response **rsps;
 
     if (rspp_init) {
         log_warn("response pool has already been created, ignore");
@@ -113,26 +113,32 @@ response_pool_create(uint32_t max)
         return;
     }
 
+    rsps = cc_alloc(max * sizeof(struct response *));
+    if (rsps == NULL) {
+        log_crit("cannot preallocate response pool due to OOM, abort");
+        exit(EXIT_FAILURE);
+    }
+
     log_info("creating response pool: max %"PRIu32, max);
 
     FREEPOOL_CREATE(&rspp, max);
     rspp_init = true;
 
-    /* preallocating, see notes in cc_fbuf.c */
-    if (max == 0) {
-        return;
+    for (i = 0; i < max; ++i) {
+        FREEPOOL_BORROW(rsps[i], &rspp, next, response_create);
+        if (rsps[i] == NULL) {
+            log_crit("borrow rsp failed: OOM %d");
+            exit(EXIT_FAILURE);
+        }
     }
 
     for (i = 0; i < max; ++i) {
-        rsp = response_create();
-        if (rsp == NULL) {
-            log_crit("cannot preallocate response pool due to OOM, abort");
-            exit(EXIT_FAILURE);
-        }
-        rsp->free = true;
-        FREEPOOL_RETURN(&rspp, rsp, next);
+        rsps[i]->free = true;
+        FREEPOOL_RETURN(&rspp, rsps[i], next);
         INCR(response_metrics, response_free);
     }
+
+    cc_free(rsps);
 }
 
 void
