@@ -1,5 +1,8 @@
 #pragma once
 
+#include <twemcache/process.h>
+
+#include <core/admin.h>
 #include <storage/slab/slab.h>
 #include <storage/slab/item.h>
 #include <protocol/memcache_include.h>
@@ -21,19 +24,21 @@
     ACTION( server_port,    OPTION_TYPE_STR,    "12321",        "port listening on"        )
 
 #define SETTING(ACTION)         \
+    ADMIN_OPTION(ACTION)        \
     ARRAY_OPTION(ACTION)        \
-    SLAB_OPTION(ACTION)         \
-    ITEM_OPTION(ACTION)         \
     BUF_OPTION(ACTION)          \
     DBUF_OPTION(ACTION)         \
+    DEBUG_OPTION(ACTION)        \
+    ITEM_OPTION(ACTION)         \
+    KLOG_OPTION(ACTION)         \
+    RING_ARRAY_OPTION(ACTION)   \
     REQUEST_OPTION(ACTION)      \
     RESPONSE_OPTION(ACTION)     \
-    KLOG_OPTION(ACTION)         \
-    DEBUG_OPTION(ACTION)        \
-    TCP_OPTION(ACTION)          \
+    PROCESS_OPTION(ACTION)      \
+    SERVER_OPTION(ACTION)       \
+    SLAB_OPTION(ACTION)         \
     SOCKIO_OPTION(ACTION)       \
-    RING_ARRAY_OPTION(ACTION)   \
-    SERVER_OPTION(ACTION)
+    TCP_OPTION(ACTION)
 
 struct setting {
     SETTING(OPTION_DECLARE)

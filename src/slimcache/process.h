@@ -1,10 +1,16 @@
 #pragma once
 
+#include <protocol/admin/process.h>
 #include <protocol/memcache/process.h>
 
 #include <buffer/cc_buf.h>
-#include <cc_define.h>
 #include <cc_metric.h>
+
+#include <stdbool.h>
+
+/*          name         type              default description */
+#define PROCESS_OPTION(ACTION)                                                        \
+    ACTION( allow_flush, OPTION_TYPE_BOOL, false,  "allow flushing on the data port" )
 
 /*          name                        type            description */
 #define PROCESS_METRIC(ACTION)                                          \
@@ -48,7 +54,8 @@
     ACTION( decr_ex,           METRIC_COUNTER, "# decr errors"         )\
     ACTION( stats,             METRIC_COUNTER, "# stats requests"      )\
     ACTION( stats_ex,          METRIC_COUNTER, "# stats errors"        )\
-    ACTION( flush,             METRIC_COUNTER, "# flush_all requests"  )
+    ACTION( flush,             METRIC_COUNTER, "# flush_all requests"  )\
+    ACTION( version,           METRIC_COUNTER, "# version requests"    )
 
 typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)
@@ -61,5 +68,5 @@ typedef struct {
 struct request;
 struct response;
 
-void process_setup(process_metrics_st *process_metrics);
+void process_setup(bool flush, process_metrics_st *process_metrics);
 void process_teardown(void);

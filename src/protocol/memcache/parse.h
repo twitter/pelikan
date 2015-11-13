@@ -1,8 +1,5 @@
 #pragma once
 
-#include <protocol/memcache/request.h>
-#include <protocol/memcache/response.h>
-
 #include <buffer/cc_buf.h>
 #include <cc_define.h>
 #include <cc_metric.h>

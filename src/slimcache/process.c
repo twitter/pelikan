@@ -1,12 +1,16 @@
 #include <slimcache/process.h>
 
-#include <protocol/memcache_include.h>
+#include <protocol/admin/op.h>
+#include <protocol/admin/reply.h>
+#include <protocol/memcache/request.h>
+#include <protocol/memcache/response.h>
 #include <storage/cuckoo/cuckoo.h>
 #include <slimcache/stats.h>
 #include <util/procinfo.h>
 
 #include <cc_array.h>
 #include <cc_debug.h>
+#include <cc_define.h>
 #include <cc_print.h>
 
 #define SLIMCACHE_PROCESS_MODULE_NAME "slimcache::process"
@@ -17,9 +21,10 @@
 
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
+static bool allow_flush = false;
 
 void
-process_setup(process_metrics_st *metrics)
+process_setup(bool flush, process_metrics_st *metrics)
 {
     log_info("set up the %s module", SLIMCACHE_PROCESS_MODULE_NAME);
     if (process_init) {
@@ -27,6 +32,7 @@ process_setup(process_metrics_st *metrics)
                 SLIMCACHE_PROCESS_MODULE_NAME);
     }
 
+    allow_flush = flush;
     process_metrics = metrics;
     PROCESS_METRIC_INIT(process_metrics);
     process_init = true;
@@ -42,6 +48,7 @@ process_teardown(void)
 
     process_metrics = NULL;
     process_init = false;
+    allow_flush = false;
 }
 
 
@@ -367,11 +374,34 @@ _process_decr(struct response *rsp, struct request *req)
 static void
 _process_flush(struct response *rsp, struct request *req)
 {
-    INCR(process_metrics, flush);
-    cuckoo_reset();
-    rsp->type = RSP_OK;
+    if (allow_flush) {
+        INCR(process_metrics, flush);
+        cuckoo_reset();
+        rsp->type = RSP_OK;
 
-    log_verb("flush req %p processed, rsp type %d", req, rsp->type);
+        log_info("flush req %p processed, rsp type %d", req, rsp->type);
+    } else {
+        rsp->type = RSP_CLIENT_ERROR;
+        rsp->vstr = str2bstr(OTHER_ERR_MSG);
+    }
+}
+
+static void
+_process_stats(struct reply *rep, struct op *op)
+{
+    /* not implemented */
+    INCR(process_metrics, stats);
+    rep->type = REP_STAT;
+}
+
+static void
+_process_version(struct reply *rep, struct op *op)
+{
+    INCR(process_metrics, version);
+    rep->type = REP_VERSION;
+    rep->vstr = str2bstr(VERSION_STRING);
+
+    log_info("version op %p processed", op);
 }
 
 void
@@ -421,14 +451,26 @@ process_request(struct response *rsp, struct request *req)
         _process_flush(rsp, req);
         break;
 
-    case REQ_STATS:
-        /* not implemented right now- we are moving this to the background
-         * thread, which will probably go through a different path
-         */
-        log_info("not implemented at the moment, coming very soon.");
     default:
-        rsp->type = RSP_SERVER_ERROR;
+        rsp->type = RSP_CLIENT_ERROR;
         rsp->vstr = str2bstr(OTHER_ERR_MSG);
+        break;
+    }
+}
+
+void
+process_op(struct reply *rep, struct op *op)
+{
+    switch (op->type) {
+    case OP_STATS:
+        _process_stats(rep, op);
+        break;
+    case OP_VERSION:
+        _process_version(rep, op);
+        break;
+    default:
+        rep->type = REP_CLIENT_ERROR;
+        rep->vstr = str2bstr(OTHER_ERR_MSG);
         break;
     }
 }

@@ -1,8 +1,10 @@
 #include <core/server.h>
 
-#include <time/time.h>
 #include <core/shared.h>
+
 #include <protocol/memcache/parse.h>
+#include <protocol/memcache/request.h>
+#include <time/time.h>
 
 #include <cc_debug.h>
 #include <cc_event.h>
@@ -28,7 +30,7 @@ static channel_handler_t *hdl = &handlers;
 
 static struct buf_sock *serversock; /* server buf_sock */
 
-static void
+static inline void
 _server_close(struct buf_sock *s)
 {
     log_info("core close on buf_sock %p", s);
@@ -40,7 +42,7 @@ _server_close(struct buf_sock *s)
     buf_sock_return(&s);
 }
 
-static void
+static inline void
 _server_pipe_write(void)
 {
     ASSERT(pipe_c != NULL);
@@ -59,7 +61,7 @@ _server_pipe_write(void)
     /* else, pipe write succeeded and no action needs to be taken */
 }
 
-static void
+static inline void
 _tcp_accept(struct buf_sock *ss)
 {
     struct buf_sock *s;
@@ -83,7 +85,7 @@ _tcp_accept(struct buf_sock *ss)
     _server_pipe_write();
 }
 
-static void
+static inline void
 _server_event_read(struct buf_sock *s)
 {
     struct tcp_conn *c = s->ch;
@@ -173,7 +175,7 @@ core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
 
     c = serversock->ch;
     if (!hdl->open(ai, c)) {
-        log_error("server connection setup failed");
+        log_crit("server connection setup failed");
         return CC_ERROR;
     }
     c->level = CHANNEL_META;

@@ -56,7 +56,7 @@ show_usage(void)
 static void
 setup(void)
 {
-    struct addrinfo *ai;
+    struct addrinfo *data_ai, *admin_ai;
     int ret;
     uint32_t max_conns;
     rstatus_t status;
@@ -115,7 +115,8 @@ setup(void)
     klog_setup(setting.klog_file.val.vstr, (uint32_t)setting.klog_nbuf.val.vuint,
                (uint32_t)setting.klog_intvl.val.vuint, (uint32_t)setting.klog_sample.val.vuint,
                &glob_stats.klog_metrics);
-    process_setup(&glob_stats.process_metrics);
+    process_setup(setting.allow_flush.val.vbool,
+                  &glob_stats.process_metrics);
 
     /**
      * Here we don't create buf or conn pool because buf_sock will allocate
@@ -129,11 +130,17 @@ setup(void)
     response_pool_create((uint32_t)setting.response_poolsize.val.vuint);
 
     /* set up core after static resources are ready */
-    status = getaddr(&ai, setting.server_host.val.vstr,
+    status = getaddr(&data_ai, setting.server_host.val.vstr,
             setting.server_port.val.vstr);
     if (status != CC_OK) {
-        log_error("address invalid");
+        log_error("server address invalid");
+        goto error;
+    }
 
+    status = getaddr(&admin_ai, setting.admin_host.val.vstr,
+                     setting.admin_port.val.vstr);
+    if (status != CC_OK) {
+        log_error("admin address invalid");
         goto error;
     }
     /**
@@ -142,9 +149,11 @@ setup(void)
      */
     max_conns = setting.tcp_poolsize.val.vuint == 0 ?
         setting.ring_array_cap.val.vuint : setting.tcp_poolsize.val.vuint;
-    status = core_setup(ai, max_conns, &glob_stats.server_metrics,
-                        &glob_stats.worker_metrics);
-    freeaddrinfo(ai); /* freeing it before return/error to avoid memory leak */
+    status = core_setup(data_ai, admin_ai, max_conns,
+                        (int)setting.admin_intvl.val.vuint,
+                        &glob_stats.server_metrics, &glob_stats.worker_metrics);
+    freeaddrinfo(data_ai); /* freeing it before return/error to avoid memory leak */
+    freeaddrinfo(admin_ai);
     if (status != CC_OK) {
         log_crit("cannot start core event loop");
 

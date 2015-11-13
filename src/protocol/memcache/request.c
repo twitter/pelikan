@@ -1,6 +1,5 @@
 #include <protocol/memcache/request.h>
 
-#include <cc_bstring.h>
 #include <cc_debug.h>
 #include <cc_pool.h>
 
@@ -18,7 +17,6 @@ struct bstring req_strings[] = {
 FREEPOOL(req_pool, reqq, request);
 static struct req_pool reqp;
 static bool reqp_init = false;
-
 
 void
 request_setup(request_metrics_st *metrics)

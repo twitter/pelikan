@@ -3,6 +3,7 @@ set(SOURCE
     process.c)
 
 set(LIBS
+    admin
     core
     slab
     memcache

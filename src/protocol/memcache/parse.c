@@ -1,5 +1,7 @@
 #include <protocol/memcache/parse.h>
 
+#include <protocol/memcache/request.h>
+#include <protocol/memcache/response.h>
 #include <time/time.h>
 
 #include <buffer/cc_buf.h>
@@ -368,14 +370,6 @@ _check_req_type(struct request *req, struct buf *buf, bool *end, struct bstring 
 
             if (str4cmp(t->data, 'q', 'u', 'i', 't')) {
                 req->type = REQ_QUIT;
-                break;
-            }
-
-            break;
-
-        case 5:
-            if (str5cmp(t->data, 's', 't', 'a', 't', 's')) {
-                req->type = REQ_STATS;
                 break;
             }
 
@@ -773,9 +767,7 @@ _parse_req_hdr(struct request *req, struct buf *buf)
         status = _subrequest_arithmetic(req, buf, &end);
         break;
 
-    /* stats can take an option e.g.'stats slab\r\n', not implemented */
-    case REQ_STATS:
-    /* flush_all can take a delay e.g.'flush_all 10\r\n', not implemented */
+    /* flush_all can take a delay e.g. 'flush_all 10\r\n', not implemented */
     case REQ_FLUSH:
     case REQ_QUIT:
         break;
