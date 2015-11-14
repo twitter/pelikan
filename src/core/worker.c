@@ -197,9 +197,6 @@ _post_read(struct buf_sock *s)
             goto error;
         }
 
-        /* TODO(kevyang): right now errors in post_read are leaky;
-           the resources borrowed (e.g. rsp objects) are not returned
-           since they just skip everything and goto error */
         /* clean up resources */
         request_reset(req);
         response_return(&rsp);
