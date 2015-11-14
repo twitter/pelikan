@@ -98,6 +98,7 @@ _post_read(struct buf_sock *s)
 {
     parse_rstatus_t status;
     struct request *req;
+    struct response *rsp = NULL;
 
     log_verb("post read processing on buf_sock %p", s);
 
@@ -118,7 +119,7 @@ _post_read(struct buf_sock *s)
 
     /* keep parse-process-compose until running out of data in rbuf */
     while (buf_rsize(s->rbuf) > 0) {
-        struct response *rsp, *nr;
+        struct response *nr;
         int i, n, card;
 
         /* parsing */
@@ -201,11 +202,8 @@ _post_read(struct buf_sock *s)
            since they just skip everything and goto error */
         /* clean up resources */
         request_reset(req);
-        for (i = 0; i < card; i++) {
-            nr = STAILQ_NEXT(rsp, next);
-            response_return(&rsp);
-            rsp = nr;
-        }
+        response_return(&rsp);
+
         ASSERT(rsp == NULL);
     }
 
@@ -219,6 +217,8 @@ done:
     return;
 
 error:
+    request_return(&req);
+    response_return(&rsp);
     s->ch->state = CHANNEL_TERM;
 }
 
