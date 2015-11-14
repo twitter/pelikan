@@ -436,48 +436,89 @@ START_TEST(test_flush_basic)
 }
 END_TEST
 
+static size_t initialize_string_counter = 0;
+/**
+ * Puts some garbage in str. Every call will probably produce different results
+ * for the same length.
+ */
+static void
+initialize_string(char *str, size_t len)
+{
+    size_t i;
+
+    for (i = 0; i < len; i++) {
+        str[i] = (i + initialize_string_counter++) % CHAR_MAX;
+    }
+}
+
 START_TEST(test_evict_lru_basic)
 {
-    dlog->level = LOG_ERROR;
-    printf("test_evict_lru_basic\n");
-    struct bstring key, val;
+#define MY_SLAB_SIZE 180
+#define MY_SLAB_MAXBYTES (360 + SLAB_HDR_SIZE)
+    /**
+     * These are the slabs that will be created with these parameters:
+     *
+     * slab size 180, slab hdr size 32, item hdr size 40, item chunk size44, total memory 392
+     * class   1: items       3  size      48  data       8  slack       4
+     * class   2: items       2  size      72  data      32  slack       4
+     * class   3: items       1  size     144  data     104  slack       4
+     *
+     * If we use 16 bytes of key+value, it will use the class 2 that can fit
+     * two elements. The third one will cause a full slab eviction.
+     *
+     **/
+#define KEY_LENGTH 6
+#define VALUE_LENGTH 10
+#define NUM_ITEMS 3
+
+    size_t i;
+    struct bstring key[NUM_ITEMS], val[NUM_ITEMS];
     item_rstatus_t status;
-    char datastring[30];
-    uint64_t i;
-    size_t max_elements = 100;
-    size_t max_slab_elements = 10;
-    size_t my_slab_size = max_slab_elements * 60; // MAGIC NUMBER, I DON'T KNOW WHAT TO USE
-    size_t setup_maxbytes = max_elements * (my_slab_size / max_slab_elements);
 
     test_teardown();
-    status = slab_setup(my_slab_size, true,
+    status = slab_setup(MY_SLAB_SIZE, true,
                         EVICT_CS, true, SLAB_MIN_CHUNK,
-                        my_slab_size - SLAB_HDR_SIZE, setup_maxbytes, NULL, str(SLAB_FACTOR), NULL);
+                        MY_SLAB_SIZE - SLAB_HDR_SIZE, MY_SLAB_MAXBYTES, NULL, str(SLAB_FACTOR), NULL);
     ck_assert_msg(status == CC_OK, "could not reset slab module");
     status = item_setup(false, HASH_POWER, NULL);
-    ck_assert_msg(status == CC_OK, "could not reset slab module");
+    ck_assert_msg(status == CC_OK, "could not setup a slab item");
 
-    for (i = 0; i <= max_elements; i++) {
-        val.len = key.len = sprintf(datastring, "%llu", i);
-        key.data = val.data = datastring;
+    for (i = 0; i < NUM_ITEMS; i++) {
+        key[i].len = KEY_LENGTH;
+        key[i].data = cc_alloc(sizeof(char) * key[i].len);
+        ck_assert_ptr_ne(key[i].data, NULL);
+        initialize_string(key[i].data, key[i].len);
 
+        val[i].len = VALUE_LENGTH;
+        val[i].data = cc_alloc(sizeof(char) * val[i].len);
+        ck_assert_ptr_ne(val[i].data, NULL);
+        initialize_string(val[i].data, val[i].len);
+    }
+
+    for (i = 0; i < NUM_ITEMS; i++) {
         time_update();
-        status = item_insert(&key, &val, 0, 0);
+        status = item_insert(&key[i], &val[i], 0, 0);
         ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+        ck_assert_msg(item_get(&key[i]) != NULL, "item %lu not found", i);
     }
 
-    for (i = 0; i <= max_slab_elements; i++) {
-        key.len = sprintf(datastring, "%llu", i);
-        key.data = datastring;
+    ck_assert_msg(item_get(&key[0]) == NULL,
+        "item 0 found, expected to be evicted");
+    ck_assert_msg(item_get(&key[1]) == NULL,
+        "item 1 found, expected to be evicted");
+    ck_assert_msg(item_get(&key[2]) != NULL,
+        "item 2 not found");
 
-        ck_assert_msg(item_get(&key) == NULL,
-            "item 0 found, expected to be evicted");
+    for (i = 0; i < NUM_ITEMS; i++) {
+        cc_free(key[i].data);
+        cc_free(val[i].data);
     }
-    for (; i <= max_elements; i++) {
-        key.len = sprintf(datastring, "%llu", i);
-        key.data = datastring;
-        ck_assert_msg(item_get(&key) != NULL, "item %llu not found", i);
-    }
+
+#undef KEY_LENGTH
+#undef VALUE_LENGTH
+#undef NUM_ITEMS
+#undef MY_SLAB_SIZE
+#undef MY_SLAB_MAXBYTES
 }
 END_TEST
 
