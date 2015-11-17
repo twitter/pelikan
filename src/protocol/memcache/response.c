@@ -179,10 +179,16 @@ response_borrow(void)
 /*
  * Return a single response object
  */
-static inline void
-_response_return(struct response *rsp)
+void
+response_return(struct response **response)
 {
-    ASSERT(rsp != NULL);
+    ASSERT(response != NULL);
+
+    struct response *rsp = *response;
+
+    if (rsp == NULL) {
+        return;
+    }
 
     INCR(response_metrics, response_free);
     INCR(response_metrics, response_return);
@@ -190,23 +196,23 @@ _response_return(struct response *rsp)
 
     rsp->free = true;
     FREEPOOL_RETURN(&rspp, rsp, next);
+
+    *response = NULL;
 }
 
 /*
  * Returns all responses in a chain starting with *response
  */
 void
-response_return(struct response **response)
+response_return_all(struct response **response)
 {
-    struct response *nr, *rsp = *response;
+    ASSERT(response != NULL);
 
-    if (rsp == NULL) {
-        return;
-    }
+    struct response *nr, *rsp = *response;
 
     while (rsp != NULL) {
         nr = STAILQ_NEXT(rsp, next);
-        _response_return(rsp);
+        response_return(&rsp);
         rsp = nr;
     }
 

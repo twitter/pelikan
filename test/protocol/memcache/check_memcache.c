@@ -1075,6 +1075,40 @@ START_TEST(test_rsp_pool_basic)
 }
 END_TEST
 
+START_TEST(test_rsp_pool_chained)
+{
+#define POOL_SIZE 10
+    int i;
+    struct response *r, *nr, *rsps[POOL_SIZE];
+    response_setup(NULL);
+    response_pool_create(POOL_SIZE);
+
+    r = response_borrow();
+    ck_assert_msg(r != NULL, "expected to borrow a response");
+    for (i = 1, nr = r; i < POOL_SIZE; ++i) {
+        STAILQ_NEXT(nr, next) = response_borrow();
+        nr = STAILQ_NEXT(nr, next);
+        ck_assert_msg(nr != NULL, "expected to borrow response %d", i);
+    }
+    ck_assert_msg(response_borrow() == NULL, "expected response pool to be depleted");
+    response_return_all(&r);
+    ck_assert_msg(r == NULL, "expected response to be nulled after return");
+    for (i = 0; i < POOL_SIZE; i++) {
+        rsps[i] = response_borrow();
+        ck_assert_msg(rsps[i] != NULL, "expected to borrow a response");
+    }
+    ck_assert_msg(response_borrow() == NULL, "expected response pool to be depleted");
+    for (i = 0; i < POOL_SIZE; i++) {
+        response_return(&rsps[i]);
+        ck_assert_msg(rsps[i] == NULL, "expected response to be nulled after return");
+    }
+
+    response_pool_destroy();
+    response_teardown();
+#undef POOL_SIZE
+}
+END_TEST
+
 START_TEST(test_rsp_pool_metrics)
 {
 #define POOL_SIZE 2
@@ -1188,6 +1222,7 @@ memcache_suite(void)
     suite_add_tcase(s, tc_rsp_pool);
 
     tcase_add_test(tc_rsp_pool, test_rsp_pool_basic);
+    tcase_add_test(tc_rsp_pool, test_rsp_pool_chained);
     tcase_add_test(tc_rsp_pool, test_rsp_pool_metrics);
 
     return s;

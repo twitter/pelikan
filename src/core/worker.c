@@ -199,7 +199,7 @@ _post_read(struct buf_sock *s)
 
         /* clean up resources */
         request_reset(req);
-        response_return(&rsp);
+        response_return_all(&rsp);
 
         ASSERT(rsp == NULL);
     }
@@ -215,7 +215,7 @@ done:
 
 error:
     request_return(&req);
-    response_return(&rsp);
+    response_return_all(&rsp);
     s->ch->state = CHANNEL_TERM;
 }
 
