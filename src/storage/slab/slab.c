@@ -464,7 +464,7 @@ _slab_hdr_init(struct slab *slab, uint8_t id)
 static bool
 _slab_heap_full(void)
 {
-    // nslab is the last index, +1 to get the count
+    /* check if incrementing `nslab` by one would go over limit */
     return (heapinfo.nslab + 1 >= heapinfo.max_nslab);
 }
 
