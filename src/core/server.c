@@ -148,14 +148,14 @@ core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
         return CC_ERROR;
     }
 
-    hdl->accept = (bool (*)(channel_p, channel_p))tcp_accept;
-    hdl->reject = (void (*)(channel_p))tcp_reject;
-    hdl->open = (bool (*)(address_p, channel_p))tcp_listen;
-    hdl->term = (void (*)(channel_p))tcp_close;
-    hdl->recv = (ssize_t (*)(channel_p, void *, size_t))tcp_recv;
-    hdl->send = (ssize_t (*)(channel_p, void *, size_t))tcp_send;
-    hdl->rid = (ch_id_i (*)(channel_p))tcp_read_id;
-    hdl->wid = (ch_id_i (*)(channel_p))tcp_write_id;
+    hdl->accept = (channel_accept_fn)tcp_accept;
+    hdl->reject = (channel_reject_fn)tcp_reject;
+    hdl->open = (channel_open_fn)tcp_listen;
+    hdl->term = (channel_term_fn)tcp_close;
+    hdl->recv = (channel_recv_fn)tcp_recv;
+    hdl->send = (channel_send_fn)tcp_send;
+    hdl->rid = (channel_id_fn)tcp_read_id;
+    hdl->wid = (channel_id_fn)tcp_write_id;
 
     /**
      * Here we give server socket a buf_sock purely because it is difficult to

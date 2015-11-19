@@ -340,9 +340,9 @@ core_worker_setup(worker_metrics_st *metrics)
     hdl->accept = (channel_accept_fn)tcp_accept;
     hdl->reject = (channel_reject_fn)tcp_reject;
     hdl->open = (channel_open_fn)tcp_listen;
-    hdl->term = tcp_close;
-    hdl->recv = tcp_recv;
-    hdl->send = tcp_send;
+    hdl->term = (channel_term_fn)tcp_close;
+    hdl->recv = (channel_recv_fn)tcp_recv;
+    hdl->send = (channel_send_fn)tcp_send;
     hdl->rid = (channel_id_fn)tcp_read_id;
     hdl->wid = (channel_id_fn)tcp_write_id;
 
