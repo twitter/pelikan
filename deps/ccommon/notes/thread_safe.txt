@@ -1,3 +1,0 @@
-Tracking whether a module is thread-safe or not, and what makes it unsafe. In some cases, it may make sense to have both implementations exist at the same time.
-
-mbuf: NOT thread safe (operation on r/w marker is not atomic)
