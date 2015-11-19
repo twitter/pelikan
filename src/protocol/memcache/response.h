@@ -110,3 +110,4 @@ void response_pool_create(uint32_t max);
 void response_pool_destroy(void);
 struct response *response_borrow(void);
 void response_return(struct response **rsp);
+void response_return_all(struct response **rsp); /* return all responses in chain */
