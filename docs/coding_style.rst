@@ -264,18 +264,30 @@ Spaces
 Type definitions
 ================
 
-Do not use ``typedef`` for structure types. Typedefs are problematic
-because they do not properly hide their underlying type; for example, you
-need to know if the typedef is the structure itself or a pointer to the
-structure. In addition, they must be declared exactly once, whereas an
-incomplete structure type can be mentioned as many times as necessary.
-Typedefs are difficult to use in stand-alone header files: the header
-that defines the typedef must be included before the header that uses it,
-or by the header that uses it (which causes namespace pollution), or
-there must be a back-door mechanism for obtaining the typedef.
+In general, do not use ``typedef`` for the purpose of hiding structures.
+Typedefs used this way are problematic because they do not properly hide their
+underlying type; for example, you need to know if the typedef is the structure
+itself or a pointer to the structure. In addition, they must be declared exactly
+once, whereas an incomplete structure type can be mentioned as many times as
+necessary. Typedefs are difficult to use in stand-alone header files: the header
+that defines the typedef must be included before the header that uses it, or by
+the header that uses it (which causes namespace pollution), or there must be a
+back-door mechanism for obtaining the typedef.
 
-The only exception for using a ``typedef`` is when defining a type for a
-function pointer.
+That said, ``typedef`` can be helpful sometimes. For example, it is routinely
+used to clarify the nature of an argument or return value, which can be of a
+rather generic type such as ``void *``. It is also common to rename ``enum``.
+
+To make ``typedef`` names more informative and regular, we use the following
+suffixes:
+
+ - ``_e`` for ``enum``
+ - ``_f`` for floating point numbers, regardless of size
+ - ``_i`` for signed integers, regardless of size
+ - ``_u`` for unsigned integers, regardless of size
+ - ``_fn`` for function pointers
+ - ``_p`` for other pointer type
+ - ``_st`` for ``struct``
 
 
 Forward Declaration
