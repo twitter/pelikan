@@ -1,0 +1,44 @@
+# Compiled Object files
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+
+# Compiled Static libraries
+*.la
+*.a
+
+# Compiled misc
+*.dep
+*.gcda
+*.gcno
+*.gcov
+
+# Packages
+*.tar.gz
+*.tar.bz2
+
+# Logs
+*.log
+
+# Automatically generated files
+COPYING
+INSTALL
+
+# Temporary
+*.swp
+*.~
+*.project
+*.cproject
+
+# Cmake
+_build
+
+# Tags
+tags
+.tags
+
+# cscope
+cscope.*
+lcov
