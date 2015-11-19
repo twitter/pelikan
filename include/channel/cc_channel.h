@@ -87,7 +87,7 @@ typedef bool (* channel_accept_fn)(channel_p, channel_p);
 typedef void (* channel_reject_fn)(channel_p);
 
 typedef bool (* channel_open_fn)(address_p, channel_p);
-typedef void (* channel_perm_fn)(channel_p);
+typedef void (* channel_term_fn)(channel_p);
 typedef ssize_t (* channel_recv_fn)(channel_p, void *, size_t);
 typedef ssize_t (* channel_send_fn)(channel_p, void *, size_t);
 typedef ch_id_i (* channel_id_fn)(channel_p);
@@ -97,7 +97,7 @@ typedef struct channel_handler {
     channel_reject_fn   reject;
 
     channel_open_fn     open;
-    channel_perm_fn     term;
+    channel_term_fn     term;
     channel_recv_fn     recv;
     channel_send_fn     send;
     channel_id_fn       rid;
