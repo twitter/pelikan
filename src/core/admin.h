@@ -18,7 +18,7 @@
 
 struct addrinfo;
 
-rstatus_t admin_setup(struct addrinfo *ai, int tick);
+rstatus_i admin_setup(struct addrinfo *ai, int tick);
 void admin_teardown(void);
 
 void *admin_evloop(void *arg);

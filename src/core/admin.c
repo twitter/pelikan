@@ -24,8 +24,8 @@ static bool admin_init = false;
 static struct context context;
 static struct context *ctx = &context;
 
-static channel_handler_t handlers;
-static channel_handler_t *hdl = &handlers;
+static channel_handler_st handlers;
+static channel_handler_st *hdl = &handlers;
 
 static struct buf_sock *serversock;
 
@@ -61,10 +61,10 @@ _tcp_accept(struct buf_sock *ss)
     event_add_read(ctx->evb, hdl->rid(s->ch), s);
 }
 
-static inline rstatus_t
+static inline rstatus_i
 _admin_write(struct buf_sock *s)
 {
-    rstatus_t status;
+    rstatus_i status;
 
     ASSERT(s != NULL);
     ASSERT(s->wbuf != NULL && s->rbuf != NULL);
@@ -87,7 +87,7 @@ _admin_post_write(struct buf_sock *s)
 static inline void
 _admin_event_write(struct buf_sock *s)
 {
-    rstatus_t status;
+    rstatus_i status;
     struct tcp_conn *c = s->ch;
 
     status = _admin_write(s);
@@ -210,7 +210,7 @@ _admin_event(void *arg, uint32_t events)
     }
 }
 
-rstatus_t
+rstatus_i
 admin_setup(struct addrinfo *ai, int tick)
 {
     struct tcp_conn *c;
@@ -230,14 +230,14 @@ admin_setup(struct addrinfo *ai, int tick)
         return CC_ERROR;
     }
 
-    hdl->accept = (bool (*)(channel_t, channel_t))tcp_accept;
-    hdl->reject = (void (*)(channel_t))tcp_reject;
-    hdl->open = (bool (*)(address_t, channel_t))tcp_listen;
-    hdl->term = (void (*)(channel_t))tcp_close;
-    hdl->recv = (ssize_t (*)(channel_t, void *, size_t))tcp_recv;
-    hdl->send = (ssize_t (*)(channel_t, void *, size_t))tcp_send;
-    hdl->rid = (ch_id_t (*)(channel_t))tcp_read_id;
-    hdl->wid = (ch_id_t (*)(channel_t))tcp_write_id;
+    hdl->accept = (bool (*)(channel_p, channel_p))tcp_accept;
+    hdl->reject = (void (*)(channel_p))tcp_reject;
+    hdl->open = (bool (*)(address_p, channel_p))tcp_listen;
+    hdl->term = (void (*)(channel_p))tcp_close;
+    hdl->recv = (ssize_t (*)(channel_p, void *, size_t))tcp_recv;
+    hdl->send = (ssize_t (*)(channel_p, void *, size_t))tcp_send;
+    hdl->rid = (ch_id_i (*)(channel_p))tcp_read_id;
+    hdl->wid = (ch_id_i (*)(channel_p))tcp_write_id;
 
     serversock = buf_sock_borrow();
     if (serversock == NULL) {
@@ -274,7 +274,7 @@ admin_teardown(void)
     admin_init = false;
 }
 
-static rstatus_t
+static rstatus_i
 admin_evwait(void)
 {
     int n;
@@ -292,7 +292,7 @@ admin_evwait(void)
 void *
 admin_evloop(void *arg)
 {
-    rstatus_t status;
+    rstatus_i status;
 
     for(;;) {
         status = admin_evwait();

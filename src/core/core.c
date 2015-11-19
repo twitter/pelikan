@@ -25,12 +25,12 @@ bool core_init = false;
  * extend to beyond just TCP
  */
 
-rstatus_t
+rstatus_i
 core_setup(struct addrinfo *data_ai, struct addrinfo *admin_ai,
            uint32_t max_conns, int maint_intvl,
            server_metrics_st *smetrics, worker_metrics_st *wmetrics)
 {
-    rstatus_t ret;
+    rstatus_i ret;
 
     pipe_c = pipe_conn_create();
 
