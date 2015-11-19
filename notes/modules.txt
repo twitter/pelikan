@@ -1,0 +1,3 @@
+current cc_debug.[ch] is not thread-safe, and is blocking on the file I/O.
+
+A more scalable (w.r.t. threads) logging library should adopt a design similar to command logger (klog), to log thread-local messages to memory and use a background thread to commit these messages to disk. The tradeoff here is one additional thread, and the possibility of log loss if the in-memory buffer is full.
