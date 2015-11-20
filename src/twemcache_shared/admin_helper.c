@@ -61,12 +61,12 @@ admin_post_read(struct buf_sock *s)
         reply_destroy(&rep);
     }
 
-    done:
+done:
     if (buf_rsize(s->wbuf) > 0) {
         admin_event_write(s);
     }
     return;
 
-    error:
+error:
     s->ch->state = CHANNEL_TERM;
 }

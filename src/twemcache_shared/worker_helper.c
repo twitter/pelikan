@@ -113,7 +113,7 @@ post_read(struct buf_sock *s)
         ASSERT(rsp == NULL);
     }
 
-    done:
+done:
     /* TODO: call stream write directly to save one event */
     if (buf_rsize(s->wbuf) > 0) {
         log_verb("adding write event");
@@ -122,7 +122,7 @@ post_read(struct buf_sock *s)
 
     return;
 
-    error:
+error:
     request_return(&req);
     response_return_all(&rsp);
     s->ch->state = CHANNEL_TERM;
