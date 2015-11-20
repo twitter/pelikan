@@ -417,6 +417,7 @@ START_TEST(test_insert_insert_expire_swap)
 #undef NOW
 }
 END_TEST
+
 /*
  * test suite
  */

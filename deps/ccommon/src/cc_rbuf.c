@@ -96,7 +96,9 @@ rbuf_destroy(struct rbuf *buf)
     log_verb("Destroy ring buffer %p", buf);
 
     if (buf != NULL) {
+#if defined CC_STATS && CC_STATS == 1
         uint32_t cap = buf->cap;
+#endif
 
         cc_free(buf);
         INCR(rbuf_metrics, rbuf_destroy);

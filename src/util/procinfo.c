@@ -44,8 +44,9 @@ procinfo_teardown(void)
     procinfo_init = false;
 }
 
+#if defined CC_STATS && CC_STATS == 1
 void
-procinfo_update(void)
+_procinfo_update(void)
 {
     struct rusage usage;
 
@@ -78,3 +79,4 @@ procinfo_update(void)
     procinfo_metrics->ru_nvcsw.vintmax    = (intmax_t)usage.ru_nvcsw;
     procinfo_metrics->ru_nivcsw.vintmax   = (intmax_t)usage.ru_nivcsw;
 }
+#endif

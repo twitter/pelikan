@@ -48,7 +48,9 @@ static rstatus_t
 _dbuf_resize(struct buf **buf, uint32_t nsize)
 {
     struct buf *nbuf;
+#if defined CC_STATS && CC_STATS == 1
     uint32_t size = buf_size(*buf);
+#endif
     uint32_t roffset = (*buf)->rpos - (*buf)->begin;
     uint32_t woffset = (*buf)->wpos - (*buf)->begin;
 
