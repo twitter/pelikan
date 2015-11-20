@@ -1,6 +1,8 @@
 set(SOURCE
+    admin_helper.c
     main.c
-    process.c)
+    process.c
+    worker_helper.c)
 
 set(LIBS
     admin
