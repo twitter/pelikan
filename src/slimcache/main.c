@@ -59,7 +59,7 @@ setup(void)
     struct addrinfo *data_ai, *admin_ai;
     int ret;
     uint32_t max_conns;
-    rstatus_t status;
+    rstatus_i status;
     struct log_core *lc = NULL;
 
     /* setup log first, so we log properly */
@@ -201,7 +201,7 @@ error:
 int
 main(int argc, char **argv)
 {
-    rstatus_t status;
+    rstatus_i status;
     FILE *fp = NULL;
 
     if (argc > 2) {

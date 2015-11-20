@@ -48,7 +48,7 @@ _copy_val(struct item *it, const struct bstring *val)
     it->vlen = val->len;
 }
 
-rstatus_t
+rstatus_i
 item_setup(bool enable_cas, uint32_t hash_power, item_metrics_st *metrics)
 {
     log_info("set up the %s module", ITEM_MODULE_NAME);

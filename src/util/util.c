@@ -115,7 +115,7 @@ show_version(void)
     log_stdout("Version: %s", VERSION_STRING);
 }
 
-rstatus_t
+rstatus_i
 getaddr(struct addrinfo **ai, char *hostname, char *servname)
 {
     int ret;

@@ -201,7 +201,7 @@ slab_item_size(uint8_t id) {
 void slab_print(void);
 uint8_t slab_id(size_t size);
 
-rstatus_t slab_setup(size_t setup_slab_size, bool setup_prealloc, int setup_evict_opt,
+rstatus_i slab_setup(size_t setup_slab_size, bool setup_prealloc, int setup_evict_opt,
                      bool setup_use_freeq, size_t setup_min_chunk_size, size_t setup_max_chunk_size,
                      size_t setup_maxbytes, char *setup_profile, char *setup_profile_factor,
                      slab_metrics_st *metrics);

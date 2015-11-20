@@ -27,10 +27,10 @@ static struct context *ctx = &context;
 static channel_handler_st handlers;
 static channel_handler_st *hdl = &handlers;
 
-static inline rstatus_t
+static inline rstatus_i
 _worker_write(struct buf_sock *s)
 {
-    rstatus_t status;
+    rstatus_i status;
 
     log_verb("writing on buf_sock %p", s);
 
@@ -58,7 +58,7 @@ _worker_post_write(struct buf_sock *s)
 static inline void
 _worker_event_write(struct buf_sock *s)
 {
-    rstatus_t status;
+    rstatus_i status;
     struct tcp_conn *c = s->ch;
 
     status = _worker_write(s);
@@ -235,7 +235,7 @@ worker_add_conn(void)
     struct buf_sock *s;
     char buf[RING_ARRAY_DEFAULT_CAP]; /* buffer for discarding pipe data */
     int i;
-    rstatus_t status;
+    rstatus_i status;
 
     /* server pushes connection on to the ring array before writing to the pipe,
      * therefore, we should read from the pipe first and take the connections
@@ -319,7 +319,7 @@ core_worker_event(void *arg, uint32_t events)
     }
 }
 
-rstatus_t
+rstatus_i
 core_worker_setup(worker_metrics_st *metrics)
 {
     if (worker_init) {
@@ -371,7 +371,7 @@ core_worker_teardown(void)
     worker_init = false;
 }
 
-static rstatus_t
+static rstatus_i
 core_worker_evwait(void)
 {
     int n;
@@ -391,7 +391,7 @@ core_worker_evwait(void)
 void *
 core_worker_evloop(void *arg)
 {
-    rstatus_t status;
+    rstatus_i status;
 
     for(;;) {
         status = core_worker_evwait();
