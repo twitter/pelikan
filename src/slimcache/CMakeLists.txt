@@ -1,8 +1,6 @@
 set(SOURCE
-    admin_helper.c
     main.c
-    process.c
-    worker_helper.c )
+    process.c)
 
 set(LIBS
     admin
@@ -10,6 +8,7 @@ set(LIBS
     cuckoo
     memcache
     time
+    twemcache_shared
     util
     ccommon-static
     ${CMAKE_THREAD_LIBS_INIT})
