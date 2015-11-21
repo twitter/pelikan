@@ -87,9 +87,9 @@ metric_print(char *buf, size_t nbuf, struct metric *m)
          * and negatively impact readability, and since this function should not
          * be called often enough to make it absolutely performance critical.
          */
-        return cc_scnprintf(buf, nbuf, "%s %llu", m->name, m->counter);
+        return cc_scnprintf(buf, nbuf, "%s %llu", m->name, __atomic_load_n(&m->counter, __ATOMIC_RELAXED));
     case METRIC_GAUGE:
-        return cc_scnprintf(buf, nbuf, "%s %lld", m->name, m->gauge);
+        return cc_scnprintf(buf, nbuf, "%s %lld", m->name, __atomic_load_n(&m->gauge, __ATOMIC_RELAXED));
     case METRIC_DDOUBLE:
         return cc_scnprintf(buf, nbuf, "%s %f", m->name, m->vdouble);
     case METRIC_DINTMAX:
