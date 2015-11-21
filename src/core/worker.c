@@ -177,17 +177,14 @@ _post_read(struct buf_sock *s)
 
         nr = rsp;
         if (req->type == REQ_GET || req->type == REQ_GETS) {
-            i = req->nfound;
-            /* process returns an extra rsp which accounts for RSP_END */
-            while (i > 0) {
+            for (i = 0; i < req->nfound; nr = STAILQ_NEXT(nr, next), ++i) {
+                /* process returns an extra rsp which accounts for RSP_END */
                 n = compose_rsp(&s->wbuf, nr);
                 if (n < 0) {
                     log_error("composing rsp erred, terminate channel");
 
                     goto error;
                 }
-                nr = STAILQ_NEXT(nr, next);
-                i--;
             }
         }
         n = compose_rsp(&s->wbuf, nr);
@@ -214,7 +211,6 @@ done:
     return;
 
 error:
-    request_return(&req);
     response_return_all(&rsp);
     s->ch->state = CHANNEL_TERM;
 }

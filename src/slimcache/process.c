@@ -389,9 +389,16 @@ _process_flush(struct response *rsp, struct request *req)
 static void
 _process_stats(struct reply *rep, struct op *op)
 {
-    /* not implemented */
-    INCR(process_metrics, stats);
-    rep->type = REP_STAT;
+    struct reply *r = rep;
+    size_t i, card = stats_card();
+
+    for (i = 0; i < card; r = STAILQ_NEXT(r, next), ++i) {
+        ASSERT(r != NULL);
+        r->met = GLOB_STATS_GET(i);
+        r->type = REP_STAT;
+    }
+    ASSERT(r != NULL);
+    r->type = REP_END;
 }
 
 static void

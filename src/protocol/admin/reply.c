@@ -32,6 +32,22 @@ reply_destroy(struct reply **rep)
 }
 
 void
+reply_destroy_all(struct reply **rep)
+{
+    ASSERT(rep != NULL);
+
+    struct reply *nr, *r = *rep;
+
+    while (r != NULL) {
+        nr = STAILQ_NEXT(r, next);
+        reply_destroy(&r);
+        r = nr;
+    }
+
+    *rep = NULL;
+}
+
+void
 reply_reset(struct reply *rep)
 {
     ASSERT(rep != NULL);
