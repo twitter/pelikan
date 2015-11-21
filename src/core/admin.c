@@ -114,6 +114,7 @@ _admin_post_read(struct buf_sock *s)
 {
     parse_rstatus_t status;
     struct op *op;
+    struct reply *rep;
 
     if (s->data == NULL) {
         s->data = op_create();
@@ -126,8 +127,8 @@ _admin_post_read(struct buf_sock *s)
     }
 
     while (buf_rsize(s->rbuf) > 0) {
-        struct reply *rep, *nr;
-        int n;
+        struct reply *nr;
+        int n, i;
 
         status = parse_op(op, s->rbuf);
         if (status == PARSE_EUNFIN) {
@@ -158,7 +159,7 @@ _admin_post_read(struct buf_sock *s)
 
             /* start at i == 0, since we want an extra reply object for "END" */
             for (i = 0, nr = rep; i < card; ++i) {
-                STAILQ_NEXT(nr, next) = repy_create();
+                STAILQ_NEXT(nr, next) = reply_create();
                 nr = STAILQ_NEXT(nr, next);
                 if (nr == NULL) {
                     log_error("cannot create enough reply objects due to OOM");
@@ -172,7 +173,7 @@ _admin_post_read(struct buf_sock *s)
         nr = rep;
         if (op->type == OP_STATS) {
             size_t card = stats_card();
-            for (i = 0; i < stats_card(); nr = STAILQ_NEXT(nr, next), ++i) {
+            for (i = 0; i < card; nr = STAILQ_NEXT(nr, next), ++i) {
                 /* process returns an extra rep for REP_END */
                 n = compose_rep(&s->wbuf, nr);
                 if (n < 0) {
