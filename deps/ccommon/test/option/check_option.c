@@ -8,24 +8,6 @@
 #define SUITE_NAME "option"
 #define DEBUG_LOG  SUITE_NAME ".log"
 
-#define TEST_OPTION(ACTION)                                                                              \
-    ACTION( boolean,        OPTION_TYPE_BOOL,   "yes",          "it may be true of false"               )\
-    ACTION( string,         OPTION_TYPE_STR,    "foo",          "it is a sequence of bytes"             )\
-    ACTION( uinteger,       OPTION_TYPE_UINT,   "1",            "it is a non-negative integer number"   )
-
-#define SETTING(ACTION)         \
-    TEST_OPTION(ACTION)
-
-struct setting {
-    SETTING(OPTION_DECLARE)
-};
-
-static struct setting setting = {
-    SETTING(OPTION_INIT)
-};
-
-static const unsigned int nopt = OPTION_CARDINALITY(struct setting);
-
 /*
  * utilities
  */
@@ -171,6 +153,21 @@ tmpname_destroy(char *path)
 
 START_TEST(test_load_file)
 {
+#define TEST_OPTION(ACTION)                                                                 \
+    ACTION( boolean,    OPTION_TYPE_BOOL,   true,  "it may be true of false"               )\
+    ACTION( string,     OPTION_TYPE_STR,    "foo",  "it is a sequence of bytes"            )\
+    ACTION( uinteger,   OPTION_TYPE_UINT,   2,      "it is a non-negative integer number"  )
+
+#define SETTING(ACTION) \
+    TEST_OPTION(ACTION)
+
+    struct setting {
+        SETTING(OPTION_DECLARE)
+    } setting = {
+        SETTING(OPTION_INIT)
+    };
+    const unsigned int nopt = OPTION_CARDINALITY(struct setting);
+
     char *tmpname;
     FILE *fp;
 
@@ -186,12 +183,14 @@ START_TEST(test_load_file)
     fp = fopen(tmpname, "r");
     ck_assert_ptr_ne(fp, NULL);
 
-    ck_assert_int_eq(option_load_default((struct option *)&setting, nopt), CC_OK);
+    ck_assert_int_eq(option_load_default((struct option *)&setting, nopt),
+            CC_OK);
     ck_assert_int_eq(setting.boolean.val.vbool, true);
-    ck_assert_int_eq(setting.uinteger.val.vuint, 1);
+    ck_assert_int_eq(setting.uinteger.val.vuint, 2);
     ck_assert_str_eq(setting.string.val.vstr, "foo");
 
-    ck_assert_int_eq(option_load_file(fp, (struct option *)&setting, nopt), CC_OK);
+    ck_assert_int_eq(option_load_file(fp, (struct option *)&setting, nopt),
+            CC_OK);
     ck_assert_int_eq(setting.boolean.val.vbool, false);
     ck_assert_int_eq(setting.uinteger.val.vuint, 3);
     ck_assert_str_eq(setting.string.val.vstr, "bar");
@@ -200,6 +199,8 @@ START_TEST(test_load_file)
     fclose(fp);
 
     tmpname_destroy(tmpname);
+#undef TEST_OPTION
+#undef SETTING
 }
 END_TEST
 

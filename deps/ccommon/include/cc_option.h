@@ -44,6 +44,9 @@ extern "C" {
 
 /* TODO(yao): add an (optional) callback that can sanity-check input values */
 
+#define OPTION_TYPE_BOOL_VAR vbool
+#define OPTION_TYPE_UINT_VAR vuint
+#define OPTION_TYPE_STR_VAR vstr
 
 #define OPTION_DECLARE(_name, _type, _default, _description)                \
     struct option _name;
@@ -51,7 +54,7 @@ extern "C" {
 /* Initialize option */
 #define OPTION_INIT(_name, _type, _default, _description)                   \
     ._name = {.name = #_name, .set = false, .type = _type,                  \
-        .default_val_str = _default, .description = _description},
+        .default_val._type ## _VAR = _default, .description = _description},
 
 #define OPTION_CARDINALITY(_o) sizeof(_o)/sizeof(struct option)
 
@@ -64,6 +67,7 @@ typedef enum option_type {
 } option_type_e;
 extern char *option_type_str[];
 
+/* TODO(yao): update the typedef convention to differentiate union & unsigned */
 /* Union containing payload for setting */
 typedef union option_val {
     bool vbool;
@@ -76,15 +80,16 @@ struct option {
     char *name;
     bool set;
     option_type_e type;
-    char *default_val_str;
+    option_val_u default_val;
     option_val_u val;
     char *description;
 };
 
 rstatus_i option_set(struct option *opt, char *val_str);
-rstatus_i option_parse(char *line, char *name, char *val);
+rstatus_i option_default(struct option *opt);
 void option_print(struct option *opt);
 void option_printall(struct option options[], unsigned int nopt);
+void option_printall_default(struct option options[], unsigned int nopt);
 rstatus_i option_load_default(struct option options[], unsigned int nopt);
 rstatus_i option_load_file(FILE *fp, struct option options[], unsigned int nopt);
 void option_free(struct option options[], unsigned int nopt);

@@ -32,7 +32,7 @@ test_reset(void)
 }
 
 static char *
-tmpname_create()
+tmpname_create(void)
 {
 #define PATH "/tmp/temp.XXXXXX"
     char *path = malloc(sizeof(PATH) + 3);
