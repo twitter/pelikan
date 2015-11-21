@@ -52,8 +52,8 @@ struct bstring {
 void bstring_init(struct bstring *str);
 void bstring_deinit(struct bstring *str);
 bool bstring_empty(const struct bstring *str);
-rstatus_t bstring_duplicate(struct bstring *dst, const struct bstring *src);
-rstatus_t bstring_copy(struct bstring *dst, const char *src, uint32_t srclen);
+rstatus_i bstring_duplicate(struct bstring *dst, const struct bstring *src);
+rstatus_i bstring_copy(struct bstring *dst, const char *src, uint32_t srclen);
 int bstring_compare(const struct bstring *s1, const struct bstring *s2);
 
 /* TODO(yao): is this endian thing really useful? */
@@ -159,7 +159,7 @@ int bstring_compare(const struct bstring *s1, const struct bstring *s2);
 
 
 /* bstring to uint conversion */
-rstatus_t bstring_atou64(uint64_t *u64, struct bstring *str);
+rstatus_i bstring_atou64(uint64_t *u64, struct bstring *str);
 
 #ifdef __cplusplus
 }

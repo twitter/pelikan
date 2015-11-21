@@ -77,7 +77,7 @@ request_reset(struct request *req)
 struct request *
 request_create(void)
 {
-    rstatus_t status;
+    rstatus_i status;
     struct request *req = cc_alloc(sizeof(struct request));
 
     if (req == NULL) {

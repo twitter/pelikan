@@ -213,7 +213,7 @@ item_to_slab(struct item *it)
 static inline item_rstatus_t
 item_atou64(uint64_t *vint, struct item *it)
 {
-    rstatus_t status;
+    rstatus_i status;
     struct bstring vstr;
 
     vstr.len = it->vlen;
@@ -227,7 +227,7 @@ item_atou64(uint64_t *vint, struct item *it)
 }
 
 /* Set up/tear down the item module */
-rstatus_t item_setup(bool enable_cas, uint32_t hash_power, item_metrics_st *metrics);
+rstatus_i item_setup(bool enable_cas, uint32_t hash_power, item_metrics_st *metrics);
 void item_teardown(void);
 
 /* Init header for given item */

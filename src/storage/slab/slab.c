@@ -124,7 +124,7 @@ slab_id(size_t size)
  * --slab-size. A single slab is a collection of contiguous, equal sized
  * item chunks of a given size specified by the profile array
  */
-static rstatus_t
+static rstatus_i
 _slab_slabclass_setup(void)
 {
     uint8_t id;      /* slabclass id */
@@ -172,7 +172,7 @@ _slab_slabclass_teardown(void)
  * a slab is allocated, it is never freed, though a slab could be
  * reused on eviction.
  */
-static rstatus_t
+static rstatus_i
 _slab_heapinfo_setup(void)
 {
     heapinfo.nslab = 0;
@@ -214,7 +214,7 @@ _slab_heapinfo_teardown(void)
 {
 }
 
-static rstatus_t
+static rstatus_i
 _slab_profile_setup(char *setup_profile, char *setup_profile_factor)
 {
     int i;
@@ -287,7 +287,7 @@ _slab_profile_setup(char *setup_profile, char *setup_profile_factor)
 /*
  * Initialize the slab module
  */
-rstatus_t
+rstatus_i
 slab_setup(size_t setup_slab_size,
            bool setup_prealloc,
            int setup_evict_opt,
@@ -299,7 +299,7 @@ slab_setup(size_t setup_slab_size,
            char *setup_profile_factor,
            slab_metrics_st *metrics)
 {
-    rstatus_t status;
+    rstatus_i status;
 
     log_info("set up the %s module", SLAB_MODULE_NAME);
 
@@ -613,10 +613,10 @@ _slab_init(struct slab *slab, uint8_t id)
  * 1. slab pool, if not empty. or,
  * 2. evict an active slab and return that instead.
  */
-static rstatus_t
+static rstatus_i
 _slab_get(uint8_t id)
 {
-    rstatus_t status;
+    rstatus_i status;
     struct slab *slab;
 
     ASSERT(slabclass[id].next_item_in_slab == NULL);

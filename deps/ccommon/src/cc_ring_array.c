@@ -93,7 +93,7 @@ ring_array_full(uint32_t rpos, uint32_t wpos, uint32_t cap)
     return ring_array_nelem(rpos, wpos, cap) == cap;
 }
 
-rstatus_t
+rstatus_i
 ring_array_push(const void *elem, struct ring_array *arr)
 {
     /**
@@ -113,13 +113,13 @@ ring_array_push(const void *elem, struct ring_array *arr)
     cc_memcpy(arr->data + (arr->elem_size * arr->wpos), elem, arr->elem_size);
 
     /* update wpos atomically */
-    new_wpos = (arr->wpos + 1) % arr->cap;
+    new_wpos = (arr->wpos + 1) % (arr->cap + 1);
     __atomic_store_n(&(arr->wpos), new_wpos, __ATOMIC_RELAXED);
 
     return CC_OK;
 }
 
-rstatus_t
+rstatus_i
 ring_array_pop(void *elem, struct ring_array *arr)
 {
     /* take snapshot of wpos, since another thread might be pushing */
@@ -136,7 +136,7 @@ ring_array_pop(void *elem, struct ring_array *arr)
     }
 
     /* update rpos atomically */
-    new_rpos = (arr->rpos + 1) % arr->cap;
+    new_rpos = (arr->rpos + 1) % (arr->cap + 1);
     __atomic_store_n(&(arr->rpos), new_rpos, __ATOMIC_RELAXED);
 
     return CC_OK;

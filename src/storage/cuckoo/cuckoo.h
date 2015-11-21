@@ -57,11 +57,11 @@ typedef struct {
         CUCKOO_METRIC(METRIC_INIT) };       \
 } while(0)
 
-rstatus_t cuckoo_setup(size_t size, uint32_t item, uint32_t policy, bool cas, cuckoo_metrics_st *metrics);
+rstatus_i cuckoo_setup(size_t size, uint32_t item, uint32_t policy, bool cas, cuckoo_metrics_st *metrics);
 void cuckoo_teardown(void);
 void cuckoo_reset(void);
 
 struct item * cuckoo_get(struct bstring *key);
-rstatus_t cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire);
-rstatus_t cuckoo_update(struct item *it, struct val *val, rel_time_t expire);
+rstatus_i cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire);
+rstatus_i cuckoo_update(struct item *it, struct val *val, rel_time_t expire);
 bool cuckoo_delete(struct bstring *key);

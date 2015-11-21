@@ -21,6 +21,6 @@ typedef struct {
 
 struct addrinfo;
 
-rstatus_t core_server_setup(struct addrinfo *ai, server_metrics_st *metrics);
+rstatus_i core_server_setup(struct addrinfo *ai, server_metrics_st *metrics);
 void core_server_teardown(void);
 void core_server_evloop(void);

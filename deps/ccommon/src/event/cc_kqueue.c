@@ -40,11 +40,11 @@ struct event_base {
     int           nreturned;    /* # events placed in event[] */
     int           nprocessed;   /* # events processed from event[] */
 
-    event_cb_t    cb;           /* event callback */
+    event_cb_fn    cb;           /* event callback */
 };
 
 struct event_base *
-event_base_create(int nevent, event_cb_t cb)
+event_base_create(int nevent, event_cb_fn cb)
 {
     struct event_base *evb;
     int status, kq;

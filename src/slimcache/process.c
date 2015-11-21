@@ -159,7 +159,7 @@ _process_delete(struct response *rsp, struct request *req)
 static void
 _get_value(struct val *val, struct bstring *vstr)
 {
-    rstatus_t status;
+    rstatus_i status;
 
     log_verb("processing value at %p, store at %p", vstr, val);
 
@@ -175,7 +175,7 @@ _get_value(struct val *val, struct bstring *vstr)
 static void
 _process_set(struct response *rsp, struct request *req)
 {
-    rstatus_t status = CC_OK;
+    rstatus_i status = CC_OK;
     rel_time_t expire;
     struct bstring *key;
     struct item *it;

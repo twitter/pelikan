@@ -51,7 +51,7 @@ typedef struct {
     *(_metrics) = (timing_wheel_metrics_st) { TIMING_WHEEL_METRIC(METRIC_INIT) };   \
 } while(0)
 
-typedef void (*timeout_cb_t)(void *); /* timeout callback */
+typedef void (*timeout_cb_fn)(void *); /* timeout callback */
 
 /**
  * We use TAILQ because for request timeouts it is very important to have
@@ -67,7 +67,7 @@ typedef void (*timeout_cb_t)(void *); /* timeout callback */
  */
 struct timeout_event {
     /* user provided */
-    timeout_cb_t                cb;       /* callback when timed out */
+    timeout_cb_fn                cb;       /* callback when timed out */
     void                        *data;    /* argument of the timeout callback */
     bool                        recur;    /* will be reinserted upon firing */
     struct timeout              delay;    /* delay */
@@ -122,7 +122,7 @@ void timeout_event_pool_destroy(void);
 struct timing_wheel *timing_wheel_create(struct timeout *tick, size_t cap, size_t ntick);
 void timing_wheel_destroy(struct timing_wheel **tw);
 
-rstatus_t timing_wheel_insert(struct timing_wheel *tw, struct timeout_event *tev);
+rstatus_i timing_wheel_insert(struct timing_wheel *tw, struct timeout_event *tev);
 void timing_wheel_remove(struct timing_wheel *tw, struct timeout_event *tev);
 
 void timing_wheel_start(struct timing_wheel *tw);

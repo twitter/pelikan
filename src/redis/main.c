@@ -47,7 +47,7 @@ show_usage(void)
 static void
 setup(void)
 {
-    rstatus_t status;
+    rstatus_i status;
     struct log_core *lc = NULL;
 
     /* Setup log */
@@ -101,7 +101,7 @@ error:
 int
 main(int argc, char **argv)
 {
-    rstatus_t status = CC_OK;
+    rstatus_i status = CC_OK;
     FILE *fp = NULL;
 
     if (argc > 2) {

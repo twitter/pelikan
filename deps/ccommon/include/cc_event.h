@@ -47,7 +47,7 @@ typedef struct {
     *(_metrics) = (event_metrics_st) { EVENT_METRIC(METRIC_INIT) }; \
 } while(0)
 
-typedef void (*event_cb_t)(void *, uint32_t);  /* event callback */
+typedef void (*event_cb_fn)(void *, uint32_t);  /* event callback */
 
 struct event_base;
 
@@ -55,7 +55,7 @@ void event_setup(event_metrics_st *metrics);
 void event_teardown(void);
 
 /* event base */
-struct event_base *event_base_create(int size, event_cb_t cb);
+struct event_base *event_base_create(int size, event_cb_fn cb);
 void event_base_destroy(struct event_base **evb);
 
 /* event control */

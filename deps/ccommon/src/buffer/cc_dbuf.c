@@ -44,7 +44,7 @@ dbuf_teardown(void)
     dbuf_init = false;
 }
 
-static rstatus_t
+static rstatus_i
 _dbuf_resize(struct buf **buf, uint32_t nsize)
 {
     struct buf *nbuf;
@@ -87,7 +87,7 @@ _dbuf_resize(struct buf **buf, uint32_t nsize)
     return CC_OK;
 }
 
-rstatus_t
+rstatus_i
 dbuf_double(struct buf **buf)
 {
     ASSERT(buf_capacity(*buf) <= max_size);
@@ -101,7 +101,7 @@ dbuf_double(struct buf **buf)
     return _dbuf_resize(buf, nsize);
 }
 
-rstatus_t
+rstatus_i
 dbuf_fit(struct buf **buf, uint32_t cap)
 {
     uint32_t nsize = buf_init_size;
@@ -118,7 +118,7 @@ dbuf_fit(struct buf **buf, uint32_t cap)
     return _dbuf_resize(buf, nsize);
 }
 
-rstatus_t
+rstatus_i
 dbuf_shrink(struct buf **buf)
 {
     return _dbuf_resize(buf, buf_init_size);

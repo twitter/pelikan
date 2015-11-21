@@ -24,13 +24,13 @@ worker_metrics_st *worker_metrics = NULL;
 static struct context context;
 static struct context *ctx = &context;
 
-static channel_handler_t handlers;
-static channel_handler_t *hdl = &handlers;
+static channel_handler_st handlers;
+static channel_handler_st *hdl = &handlers;
 
-static inline rstatus_t
+static inline rstatus_i
 _worker_write(struct buf_sock *s)
 {
-    rstatus_t status;
+    rstatus_i status;
 
     log_verb("writing on buf_sock %p", s);
 
@@ -58,7 +58,7 @@ _worker_post_write(struct buf_sock *s)
 static inline void
 _worker_event_write(struct buf_sock *s)
 {
-    rstatus_t status;
+    rstatus_i status;
     struct tcp_conn *c = s->ch;
 
     status = _worker_write(s);
@@ -231,7 +231,7 @@ worker_add_conn(void)
     struct buf_sock *s;
     char buf[RING_ARRAY_DEFAULT_CAP]; /* buffer for discarding pipe data */
     int i;
-    rstatus_t status;
+    rstatus_i status;
 
     /* server pushes connection on to the ring array before writing to the pipe,
      * therefore, we should read from the pipe first and take the connections
@@ -315,7 +315,7 @@ core_worker_event(void *arg, uint32_t events)
     }
 }
 
-rstatus_t
+rstatus_i
 core_worker_setup(worker_metrics_st *metrics)
 {
     if (worker_init) {
@@ -333,14 +333,14 @@ core_worker_setup(worker_metrics_st *metrics)
         return CC_ERROR;
     }
 
-    hdl->accept = (bool (*)(channel_t, channel_t))tcp_accept;
-    hdl->reject = (void (*)(channel_t))tcp_reject;
-    hdl->open = (bool (*)(address_t, channel_t))tcp_listen;
-    hdl->term = (void (*)(channel_t))tcp_close;
-    hdl->recv = (ssize_t (*)(channel_t, void *, size_t))tcp_recv;
-    hdl->send = (ssize_t (*)(channel_t, void *, size_t))tcp_send;
-    hdl->rid = (ch_id_t (*)(channel_t))tcp_read_id;
-    hdl->wid = (ch_id_t (*)(channel_t))tcp_write_id;
+    hdl->accept = (channel_accept_fn)tcp_accept;
+    hdl->reject = (channel_reject_fn)tcp_reject;
+    hdl->open = (channel_open_fn)tcp_listen;
+    hdl->term = (channel_term_fn)tcp_close;
+    hdl->recv = (channel_recv_fn)tcp_recv;
+    hdl->send = (channel_send_fn)tcp_send;
+    hdl->rid = (channel_id_fn)tcp_read_id;
+    hdl->wid = (channel_id_fn)tcp_write_id;
 
     event_add_read(ctx->evb, pipe_read_id(pipe_c), NULL);
     worker_metrics = metrics;
@@ -367,7 +367,7 @@ core_worker_teardown(void)
     worker_init = false;
 }
 
-static rstatus_t
+static rstatus_i
 core_worker_evwait(void)
 {
     int n;
@@ -387,7 +387,7 @@ core_worker_evwait(void)
 void *
 core_worker_evloop(void *arg)
 {
-    rstatus_t status;
+    rstatus_i status;
 
     for(;;) {
         status = core_worker_evwait();

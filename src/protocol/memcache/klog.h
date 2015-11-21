@@ -34,7 +34,7 @@ typedef struct {
 struct request;
 struct response;
 
-rstatus_t klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample,
+rstatus_i klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample,
                      klog_metrics_st *metrics);
 void klog_teardown(void);
 

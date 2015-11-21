@@ -254,7 +254,7 @@ timing_wheel_destroy(struct timing_wheel **tw)
  * Here we treat ms == 0 as a special case and add event to the current slot,
  * otherwise, the offset is at least 1 (next slot)
  */
-rstatus_t
+rstatus_i
 timing_wheel_insert(struct timing_wheel *tw, struct timeout_event *tev)
 {
     size_t offset = 0;
@@ -359,7 +359,7 @@ static inline void
 _process_tick(struct timing_wheel *tw, bool endmode)
 {
     struct timeout_event *t, *tt;
-    rstatus_t status;
+    rstatus_i status;
     uint64_t nprocess = tw->nprocess;
 
     TAILQ_FOREACH_SAFE(t, &tw->table[tw->curr], tqe, tt) {

@@ -60,37 +60,37 @@ extern "C" {
  */
 
 /* channel related data types */
-typedef void * channel_t;
-typedef void * address_t;
-typedef int ch_id_t;
+typedef void * channel_p;
+typedef void * address_p;
+typedef int ch_id_i;
 
 typedef enum channel_level {
     CHANNEL_INVALID,
     CHANNEL_META,
     CHANNEL_BASE
-} ch_level_t;
+} ch_level_e;
 
 /**
  * To give implementation a chance to explicitly manage memory, we separate out
  * the interfaces for acquiring and releasing a channel as a resource, from
  * those that prepare the channels for use/reuse.
  */
-typedef channel_t (* channel_get_fn)(void);
-typedef void (* channel_put_fn)(channel_t *);
+typedef channel_p (* channel_get_fn)(void);
+typedef void (* channel_put_fn)(channel_p *);
 
 /**
  * Operations on the channel, note that no memory allocation/deallocation should
  * happen within the functions below. Delegate resource management to the above
  * callbacks.
  */
-typedef bool (* channel_accept_fn)(channel_t, channel_t);
-typedef void (* channel_reject_fn)(channel_t);
+typedef bool (* channel_accept_fn)(channel_p, channel_p);
+typedef void (* channel_reject_fn)(channel_p);
 
-typedef bool (* channel_open_fn)(address_t, channel_t);
-typedef void (* channel_term_fn)(channel_t);
-typedef ssize_t (* channel_recv_fn)(channel_t, void *, size_t);
-typedef ssize_t (* channel_send_fn)(channel_t, void *, size_t);
-typedef ch_id_t (* channel_id_fn)(channel_t);
+typedef bool (* channel_open_fn)(address_p, channel_p);
+typedef void (* channel_term_fn)(channel_p);
+typedef ssize_t (* channel_recv_fn)(channel_p, void *, size_t);
+typedef ssize_t (* channel_send_fn)(channel_p, void *, size_t);
+typedef ch_id_i (* channel_id_fn)(channel_p);
 
 typedef struct channel_handler {
     channel_accept_fn   accept;
@@ -102,7 +102,7 @@ typedef struct channel_handler {
     channel_send_fn     send;
     channel_id_fn       rid;
     channel_id_fn       wid;
-} channel_handler_t;
+} channel_handler_st;
 
 /* channel states, this is to be revised later (yao) */
 enum {

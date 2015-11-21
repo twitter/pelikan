@@ -21,7 +21,7 @@ void test_expire_basic(uint32_t policy, bool cas);
 /*
  * utilities
  */
-static rstatus_t
+static rstatus_i
 test_setup(uint32_t policy, bool cas)
 {
     return cuckoo_setup(CUCKOO_ITEM_SIZE, CUCKOO_NITEM, policy, cas, NULL);
@@ -33,7 +33,7 @@ test_teardown(void)
     cuckoo_teardown();
 }
 
-static rstatus_t
+static rstatus_i
 test_reset(uint32_t policy, bool cas)
 {
     test_teardown();
@@ -51,7 +51,7 @@ test_insert_basic(uint32_t policy, bool cas)
 #define VAL "value"
     struct bstring key, testval;
     struct val val;
-    rstatus_t status;
+    rstatus_i status;
     struct item *it;
 
     ck_assert_msg(test_reset(policy, cas) == CC_OK,
@@ -85,7 +85,7 @@ test_insert_collision(uint32_t policy, bool cas)
 {
     struct bstring key;
     struct val val;
-    rstatus_t status;
+    rstatus_i status;
     struct item *it;
     int hits = 0;
     char keystring[CC_UINTMAX_MAXLEN];
@@ -133,7 +133,7 @@ test_cas(uint32_t policy)
 #define VAL2 "value2"
     struct bstring key;
     struct val val;
-    rstatus_t status;
+    rstatus_i status;
     struct item *it;
     uint64_t cas1, cas2;
 
@@ -179,7 +179,7 @@ test_delete_basic(uint32_t policy, bool cas)
 #define VAL "value"
     struct bstring key;
     struct val val;
-    rstatus_t status;
+    rstatus_i status;
     struct item *it;
     bool deleted;
 
@@ -221,7 +221,7 @@ test_expire_basic(uint32_t policy, bool cas)
 #define NOW 12345678
     struct bstring key;
     struct val val;
-    rstatus_t status;
+    rstatus_i status;
     struct item *it;
 
     ck_assert_msg(test_reset(policy, cas) == CC_OK,
@@ -329,7 +329,7 @@ START_TEST(test_insert_replace_expired)
 
     struct bstring key;
     struct val val;
-    rstatus_t status;
+    rstatus_i status;
     char keystring[30];
     uint64_t i;
     cuckoo_metrics_st metrics;
@@ -373,7 +373,7 @@ START_TEST(test_insert_insert_expire_swap)
 #define NOW 12345678
     struct bstring key;
     struct val val;
-    rstatus_t status;
+    rstatus_i status;
     char keystring[30];
     uint64_t i;
     cuckoo_metrics_st metrics;

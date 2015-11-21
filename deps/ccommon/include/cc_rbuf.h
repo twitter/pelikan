@@ -50,7 +50,7 @@ void rbuf_teardown(void);
 
 /* creation/destruction */
 struct rbuf *rbuf_create(uint32_t cap);
-void rbuf_destroy(struct rbuf *buf);
+void rbuf_destroy(struct rbuf **buf);
 
 /* read/write capacity */
 size_t rbuf_rcap(struct rbuf *buf);
