@@ -399,6 +399,8 @@ _process_stats(struct reply *rep, struct op *op)
     }
     ASSERT(r != NULL);
     r->type = REP_END;
+
+    INCR(process_metrics, stats);
 }
 
 static void
