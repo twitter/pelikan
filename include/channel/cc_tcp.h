@@ -41,6 +41,11 @@ extern "C" {
 #define TCP_BACKLOG  128
 #define TCP_POOLSIZE 0 /* unlimited */
 
+/*          name            type                default         description */
+#define TCP_OPTION(ACTION)                                                                \
+    ACTION( tcp_backlog,    OPTION_TYPE_UINT,   TCP_BACKLOG,    "tcp conn backlog limit" )\
+    ACTION( tcp_poolsize,   OPTION_TYPE_UINT,   TCP_POOLSIZE,   "tcp conn pool size"     )
+
 /*          name                type            description */
 #define TCP_METRIC(ACTION)                                                      \
     ACTION( tcp_conn_create,    METRIC_COUNTER, "# tcp connections created"    )\
@@ -73,11 +78,6 @@ typedef struct {
 #define TCP_METRIC_INIT(_metrics) do {                          \
     *(_metrics) = (tcp_metrics_st) { TCP_METRIC(METRIC_INIT) }; \
 } while(0)
-
-/*          name            type                default             description */
-#define TCP_OPTION(ACTION)                                                                  \
-    ACTION( tcp_backlog,   OPTION_TYPE_UINT,   str(TCP_BACKLOG),  "tcp conn backlog limit" )\
-    ACTION( tcp_poolsize,  OPTION_TYPE_UINT,   str(TCP_POOLSIZE), "tcp conn pool size"     )
 
 struct tcp_conn {
     STAILQ_ENTRY(tcp_conn)  next;           /* for conn pool */

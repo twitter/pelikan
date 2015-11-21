@@ -116,7 +116,8 @@ _option_convert_rpn(const char *val_str, char *rpn)
             *(rpn++) = ' ';
 
             while (op_stack_len > 0 && op_stack[op_stack_len - 1] != '(' &&
-                   _option_comp_op_precedence(op_stack[op_stack_len - 1], *read_ptr)) {
+                    _option_comp_op_precedence(op_stack[op_stack_len - 1],
+                    *read_ptr)) {
                 /* stack not empty and o_2 > o_1 (see above) */
 
                 /* pop operator off stack */
@@ -157,8 +158,8 @@ _option_convert_rpn(const char *val_str, char *rpn)
             break;
         default:
             /* unrecognized character */
-            log_stderr("option load failed: unrecognized char %c in int expression",
-                       *read_ptr);
+            log_stderr("option load failed: unrecognized char %c in int "
+                    "expression", *read_ptr);
             return CC_ERROR;
         }
     }
@@ -187,10 +188,12 @@ _option_convert_rpn(const char *val_str, char *rpn)
  *    1. If token is a number, push onto the stack
  *    2. Else, token is an operator
  *       a. All valid operators take 2 operands
- *       b. If there are fewer than 2 operands on stack, the expression is erroneous
- *       c. Pop 2 values from the stack, evaluate the operator, then push the value
- *          back onto the stack
- *  - Look at the stack. If there is more than 1 value, too many values were provided
+ *       b. If there are fewer than 2 operands on stack, the expression is
+ *          erroneous
+ *       c. Pop 2 values from the stack, evaluate the operator, then push the
+ *          value back onto the stack
+ *  - Look at the stack. If there is more than 1 value, too many values were
+ *    provided
  */
 static rstatus_i
 _option_eval_rpn(char *rpn, uintmax_t *val)
@@ -209,7 +212,8 @@ _option_eval_rpn(char *rpn, uintmax_t *val)
             uintmax_t first, second, result;
 
             if (stack_len < 2) {
-                log_stderr("RPN expression %s malformed; not enough operands.", rpn);
+                log_stderr("RPN expression %s malformed; not enough operands.",
+                        rpn);
                 return CC_ERROR;
             }
 
@@ -222,7 +226,7 @@ _option_eval_rpn(char *rpn, uintmax_t *val)
 
                 if (result < first) {
                     /* integer overflow */
-                    log_stderr("integer expression causes overflow when evaluated");
+                    log_stderr("evaluating integer expression causes overflow");
                     return CC_ERROR;
                 }
 
@@ -232,7 +236,8 @@ _option_eval_rpn(char *rpn, uintmax_t *val)
 
                 if (result > first) {
                     /* subtraction causes op2 to be negative */
-                    log_stderr("unsigned integer expression contains negative number");
+                    log_stderr("unsigned integer expression contains negative "
+                            "number");
                     return CC_ERROR;
                 }
 
@@ -242,7 +247,7 @@ _option_eval_rpn(char *rpn, uintmax_t *val)
 
                 if (first != 0 && result / first != second) {
                     /* overflow */
-                    log_stderr("integer expression causes overflow when evaluated");
+                    log_stderr("evaluating integer expression causes overflow");
                     return CC_ERROR;
                 }
 
@@ -250,7 +255,8 @@ _option_eval_rpn(char *rpn, uintmax_t *val)
             case '/':
                 if (second == 0) {
                     /* divide by zero */
-                    log_stderr("integer expression causes divide by zero when evaluated");
+                    log_stderr("evaluating integer expression causes divide by "
+                            "zero");
                     return CC_ERROR;
                 }
 
@@ -304,8 +310,8 @@ _option_parse_uint(struct option *opt, const char *val_str)
     uintmax_t val = 0;
 
     if (_option_eval_int_expr(val_str, &val) != CC_OK) {
-        log_stderr("option value %s could not be parsed as an integer expression",
-                   val_str);
+        log_stderr("option value %s could not be parsed as an integer "
+                "expression", val_str);
         return CC_ERROR;
     }
 
@@ -315,7 +321,7 @@ _option_parse_uint(struct option *opt, const char *val_str)
     return CC_OK;
 }
 
-static void
+static rstatus_i
 _option_parse_str(struct option *opt, const char *val_str)
 {
     opt->set = true;
@@ -325,41 +331,70 @@ _option_parse_str(struct option *opt, const char *val_str)
 
     if (val_str == NULL) {
         opt->val.vstr = NULL;
-        return;
+        return CC_OK;
     }
 
     opt->val.vstr = cc_alloc(strlen(val_str) + 1);
     if (opt->val.vstr == NULL) {
         log_crit("cannot store configuration string, OOM");
-        return;
+        return CC_ERROR;
     }
     strcpy(opt->val.vstr, val_str);
+
+    return CC_OK;
+}
+
+rstatus_i
+option_default(struct option *opt)
+{
+    opt->set = true;
+    switch (opt->type) {
+    case OPTION_TYPE_BOOL:
+        opt->val.vbool = opt->default_val.vbool;
+        break;
+
+    case OPTION_TYPE_UINT:
+        opt->val.vuint = opt->default_val.vuint;
+        break;
+
+    case OPTION_TYPE_STR:
+        if (opt->default_val.vstr == NULL) {
+            opt->val.vstr = NULL;
+            return CC_OK;
+        }
+        opt->val.vstr = cc_alloc(strlen(opt->default_val.vstr) + 1);
+        if (opt->val.vstr == NULL) {
+            log_crit("cannot store configuration string, OOM");
+            return CC_ERROR;
+        }
+        strcpy(opt->val.vstr, opt->default_val.vstr);
+        break;
+
+    default:
+        opt->set = false;
+        log_stderr("option set error: unrecognized option type");
+        return CC_ERROR;
+    }
+
+    return CC_OK;
 }
 
 rstatus_i
 option_set(struct option *opt, char *val_str)
 {
-    rstatus_i status;
-
     switch (opt->type) {
     case OPTION_TYPE_BOOL:
-        status = _option_parse_bool(opt, val_str);
-
-	return status;
+        return _option_parse_bool(opt, val_str);
 
     case OPTION_TYPE_UINT:
-        status = _option_parse_uint(opt, val_str);
-
-	return status;
+        return _option_parse_uint(opt, val_str);
 
     case OPTION_TYPE_STR:
-        _option_parse_str(opt, val_str);
-
-	return CC_OK;
+        return _option_parse_str(opt, val_str);
 
     default:
-	log_stderr("option set error: unrecognized option type");
-	return CC_ERROR;
+        log_stderr("option set error: unrecognized option type");
+        return CC_ERROR;
     }
 
     NOT_REACHED();
@@ -377,8 +412,8 @@ _allowed_in_name(char c)
     }
 }
 
-rstatus_i
-option_parse(char *line, char name[OPTNAME_MAXLEN+1], char val[OPTVAL_MAXLEN+1])
+static rstatus_i
+_option_parse(char *line, char name[OPTNAME_MAXLEN+1], char val[OPTVAL_MAXLEN+1])
 {
     char *p = line;
     char *q;
@@ -453,25 +488,22 @@ option_parse(char *line, char name[OPTNAME_MAXLEN+1], char val[OPTVAL_MAXLEN+1])
     return CC_OK;
 }
 
-void option_print(struct option *opt)
+static void
+option_print_val(char *s, size_t len, option_type_e type, option_val_u val)
 {
-    loga("name: %s, type: %s, set? %s, default: %s, description: %s",
-         opt->name, option_type_str[opt->type], opt->set ? "yes" : "no",
-         opt->default_val_str, opt->description);
-
-    switch (opt->type) {
+    switch (type) {
     case OPTION_TYPE_BOOL:
-        loga("current value: %d", opt->val.vbool);
+        snprintf(s, len, "%s", val.vbool ? "yes" : "no");
 
         break;
 
     case OPTION_TYPE_UINT:
-        loga("current value: %ju", opt->val.vuint);
+        snprintf(s, len, "%ju", val.vuint);
 
         break;
 
     case OPTION_TYPE_STR:
-        loga("current value: %s", opt->val.vstr == NULL ? "NULL" : opt->val.vstr);
+        snprintf(s, len, "%s", val.vstr == NULL ? "NULL" : val.vstr);
 
         break;
 
@@ -480,7 +512,20 @@ void option_print(struct option *opt)
     }
 }
 
-void option_printall(struct option options[], unsigned int nopt)
+void
+option_print(struct option *opt)
+{
+    char default_s[PATH_MAX];
+    char current_s[PATH_MAX];
+    option_print_val(default_s, PATH_MAX, opt->type, opt->default_val);
+    option_print_val(current_s, PATH_MAX, opt->type, opt->val);
+    loga("name: %s, type: %s, set? %s, default: %s, description: %s, current: %s",
+         opt->name, option_type_str[opt->type], opt->set ? "yes" : "no",
+         default_s, opt->description, current_s);
+}
+
+void
+option_printall(struct option options[], unsigned int nopt)
 {
     unsigned int i;
     struct option *opt = options;
@@ -491,20 +536,34 @@ void option_printall(struct option options[], unsigned int nopt)
 
 }
 
+static void
+_option_print_default(struct option *opt)
+{
+    char default_s[PATH_MAX + 10];
+    option_print_val(default_s, PATH_MAX + 10, opt->type, opt->default_val);
+    log_stdout("  %-31s ( default: %s )", opt->name, default_s);
+}
+
+void
+option_printall_default(struct option options[], unsigned int nopt)
+{
+    unsigned int i;
+
+    for (i = 0; i < nopt; i++, options++) {
+        _option_print_default(options);
+    }
+}
+
 rstatus_i
 option_load_default(struct option options[], unsigned int nopt)
 {
     unsigned int i;
     rstatus_i status;
-    struct option *opt = options;
 
-    for (i = 0; i < nopt; i++, opt++) {
-        status = option_set(opt, opt->default_val_str);
+    for (i = 0; i < nopt; i++) {
+        status = option_default(&options[i]);
         if (status != CC_OK) {
-            loga("error loading default value %s into option type %d",
-                 opt->default_val_str, opt->type);
-
-            return CC_ERROR;
+            return status;
         }
     }
 
@@ -525,7 +584,7 @@ option_load_file(FILE *fp, struct option options[], unsigned int nopt)
     int fe;
 
     while (fgets(linebuf, OPTLINE_MAXLEN + 1, fp) != NULL) {
-        status = option_parse(linebuf, namebuf, valbuf);
+        status = _option_parse(linebuf, namebuf, valbuf);
         if (status == CC_EEMPTY) {
             continue;
         }

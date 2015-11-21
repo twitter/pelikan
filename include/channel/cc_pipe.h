@@ -32,7 +32,11 @@ extern "C" {
  * This implements the channel interface for pipes
  */
 
-#define PIPE_POOLSIZE 1         /* Currently our applications only use 1 pipe conn */
+#define PIPE_POOLSIZE 0
+
+/*          name                type                default         description */
+#define PIPE_OPTION(ACTION) \
+    ACTION( pipe_poolsize,      OPTION_TYPE_UINT,   PIPE_POOLSIZE,  "pipe conn pool size" )
 
 /*          name                 type            description */
 #define PIPE_METRIC(ACTION) \
@@ -62,9 +66,6 @@ typedef struct {
 #define PIPE_METRIC_INIT(_metrics) do {                           \
     *(_metrics) = (pipe_metrics_st) { PIPE_METRIC(METRIC_INIT) }; \
 } while (0)
-
-#define PIPE_OPTION(ACTION) \
-    ACTION( pipe_poolsize, OPTION_TYPE_UINT, str(PIPE_POOLSIZE), "pipe conn pool size" )
 
 struct pipe_conn {
     STAILQ_ENTRY(pipe_conn) next;       /* for pool */
