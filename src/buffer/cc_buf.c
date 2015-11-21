@@ -40,6 +40,9 @@ buf_setup(uint32_t size, buf_metrics_st *metrics)
 
     buf_init_size = size;
     buf_metrics = metrics;
+    if (metrics != NULL) {
+        BUF_METRIC_INIT(buf_metrics);
+    }
 
     if (buf_init) {
         log_warn("%s was already setup, overwriting", BUF_MODULE_NAME);
