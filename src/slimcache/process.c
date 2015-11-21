@@ -394,7 +394,7 @@ _process_stats(struct reply *rep, struct op *op)
 
     for (i = 0; i < card; r = STAILQ_NEXT(r, next), ++i) {
         ASSERT(r != NULL);
-        r->met = GLOB_STATS_GET(i);
+        r->met = glob_stats_get(i);
         r->type = REP_STAT;
     }
     ASSERT(r != NULL);
