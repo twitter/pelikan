@@ -41,7 +41,7 @@ show_usage(void)
     option_printall_default((struct option *)&setting, nopt);
 }
 
-static rstatus_t
+static rstatus_i
 getaddr(struct addrinfo **ai, char *hostname, char *servname)
 {
     int ret;
@@ -62,7 +62,7 @@ static void
 setup(void)
 {
     struct addrinfo *ai;
-    rstatus_t status;
+    rstatus_i status;
 
     log_setup(NULL);
     status = debug_setup((int)setting.debug_log_level.val.vuint,
@@ -96,7 +96,7 @@ error:
 int
 main(int argc, char *argv[])
 {
-    rstatus_t status = CC_OK;
+    rstatus_i status = CC_OK;
 
     FILE *fp = NULL;
     if (argc > 2) {
