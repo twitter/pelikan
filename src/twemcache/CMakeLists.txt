@@ -8,6 +8,7 @@ set(LIBS
     slab
     memcache
     time
+    twemcache_shared
     util
     ccommon-static
     ${CMAKE_THREAD_LIBS_INIT})

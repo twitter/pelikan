@@ -2,6 +2,7 @@ add_subdirectory(core ${PROJECT_BINARY_DIR}/core)
 add_subdirectory(protocol ${PROJECT_BINARY_DIR}/protocol)
 add_subdirectory(storage ${PROJECT_BINARY_DIR}/storage)
 add_subdirectory(time ${PROJECT_BINARY_DIR}/time)
+add_subdirectory(twemcache_shared ${PROJECT_BINARY_DIR}/twemcache_shared)
 add_subdirectory(util ${PROJECT_BINARY_DIR}/util)
 
 if(TARGET_SLIMCACHE)
