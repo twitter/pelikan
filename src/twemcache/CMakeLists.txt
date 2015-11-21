@@ -1,6 +1,7 @@
 set(SOURCE
     main.c
-    process.c)
+    process.c
+    stats.c)
 
 set(LIBS
     admin

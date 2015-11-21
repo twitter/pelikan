@@ -54,7 +54,6 @@ compose_rep(struct buf **buf, struct reply *rep)
     int n = 0;
     reply_type_t type = rep->type;
     struct bstring stat_str, *str = &reply_strings[type];
-    struct reply *nr;
     char stat_buf[STAT_MAX_LEN];
 
     switch (type) {
@@ -63,8 +62,8 @@ compose_rep(struct buf **buf, struct reply *rep)
         if (stat_str.len == 0) {
             return COMPOSE_EOVERSIZED;
         }
-        stat_str->data = stat_buf;
-        if (_check_buf_size(buf, str->len + stat_str->len + CRLF_LEN) !=
+        stat_str.data = stat_buf;
+        if (_check_buf_size(buf, str->len + stat_str.len + CRLF_LEN) !=
             COMPOSE_OK) {
             return COMPOSE_ENOMEM;
         }

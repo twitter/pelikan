@@ -1,12 +1,11 @@
 #pragma once
 
-#include <util/stats.h>
-
 #include <protocol/memcache_include.h>
 #include <slimcache/process.h>
 #include <storage/cuckoo/cuckoo.h>
 #include <core/core.h>
 #include <util/procinfo.h>
+#include <util/stats.h>
 
 #include <cc_event.h>
 #include <cc_log.h>
@@ -30,6 +29,3 @@ struct glob_stats {
 };
 
 extern struct glob_stats glob_stats;
-extern struct metric *gs;
-
-#define GLOB_STATS_GET(_n) (gs + (_n))

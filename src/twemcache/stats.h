@@ -6,6 +6,7 @@
 #include <twemcache/process.h>
 #include <core/core.h>
 #include <util/procinfo.h>
+#include <util/stats.h>
 
 #include <cc_event.h>
 #include <channel/cc_tcp.h>
@@ -28,4 +29,4 @@ struct glob_stats {
     klog_metrics_st         klog_metrics;
 };
 
-struct glob_stats glob_stats;
+extern struct glob_stats glob_stats;

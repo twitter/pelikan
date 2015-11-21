@@ -1,4 +1,4 @@
-#include <slimcache/stats.h>
+#include <twemcache/stats.h>
 
 struct glob_stats glob_stats;
 struct metric *gs = (struct metric *)&glob_stats;
@@ -8,4 +8,3 @@ stats_card(void)
 {
     return METRIC_CARDINALITY(glob_stats);
 }
-
