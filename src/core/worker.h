@@ -26,6 +26,6 @@ struct tcp_conn;
 struct request;
 struct response;
 
-rstatus_t core_worker_setup(worker_metrics_st *metrics);
+rstatus_i core_worker_setup(worker_metrics_st *metrics);
 void core_worker_teardown(void);
 void *core_worker_evloop(void *arg);

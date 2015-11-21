@@ -90,15 +90,16 @@ _stacktrace(int signo)
     raise(signo);
 }
 
-/* this only works on the default handler given the sig_t format */
+/* this only works on the default handler given the sig_fn format */
 static void
 _logrotate(int signo)
 {
+    log_info("received signal %d, reopen log file", signo);
     log_reopen(dlog->logger);
 }
 
 
-rstatus_t
+rstatus_i
 debug_setup(int log_level, char *log_file, uint32_t log_nbuf)
 {
     log_stderr("Set up the %s module", DEBUG_MODULE_NAME);
@@ -181,7 +182,7 @@ _log(struct debug_logger *dl, const char *file, int line, int level, const char 
 
     buf[len++] = '\n';
 
-    _log_write(dl->logger, buf, len);
+    log_write(dl->logger, buf, len);
 
     errno = errno_save;
 }
@@ -241,7 +242,7 @@ _log_hexdump(struct debug_logger *dl, int level, char *data, int datalen)
         off += 16;
     }
 
-    _log_write(dl->logger, buf, len);
+    log_write(dl->logger, buf, len);
 
     errno = errno_save;
 }

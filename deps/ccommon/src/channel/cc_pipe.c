@@ -212,6 +212,7 @@ pipe_open(void *addr, struct pipe_conn *c)
 {
     int status;
 
+    ASSERT(addr == NULL);
     ASSERT(c != NULL);
 
     status = pipe(c->fd);
@@ -269,17 +270,15 @@ pipe_recv(struct pipe_conn *c, void *buf, size_t nbyte)
         n = read(c->fd[0], buf, nbyte);
         INCR(pipe_metrics, pipe_recv);
 
-        log_verb("read on fd %d %zd of %zu", c->fd[0], n, nbyte);
-
         if (n > 0) {
-            log_verb("%zu bytes recv'd on fd %d", n, c->fd[0]);
+            log_verb("%zu bytes recv'd on pipe fd %d", n, c->fd[0]);
             c->recv_nbyte += (size_t)n;
             INCR_N(pipe_metrics, pipe_recv_byte, n);
             return n;
         }
 
         if (n == 0) {
-            log_debug("eof recv'd on fd %d, total: rb %zu sb %zu", c->fd[0],
+            log_debug("eof recv'd on pipe fd %d, total: rb %zu sb %zu", c->fd[0],
                       c->recv_nbyte, c->send_nbyte);
             return n;
         }
@@ -287,14 +286,14 @@ pipe_recv(struct pipe_conn *c, void *buf, size_t nbyte)
         /* n < 0 */
         INCR(pipe_metrics, pipe_recv_ex);
         if (errno == EINTR) {
-            log_debug("recv on fd %d not ready - EINTR", c->fd[0]);
+            log_debug("recv on pipe fd %d not ready - EINTR", c->fd[0]);
             continue;
         } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            log_debug("recv on fd %d not ready - EAGAIN", c->fd[0]);
+            log_debug("recv on pipe fd %d not ready - EAGAIN", c->fd[0]);
             return CC_EAGAIN;
         } else {
             c->err = errno;
-            log_error("recv on fd %d failed: %s", c->fd[0], strerror(errno));
+            log_error("recv on pipe fd %d failed: %s", c->fd[0], strerror(errno));
             return CC_ERROR;
         }
     }
@@ -312,37 +311,35 @@ ssize_t pipe_send(struct pipe_conn *c, void *buf, size_t nbyte)
     ASSERT(buf != NULL);
     ASSERT(nbyte > 0);
 
-    log_verb("send on fd %d, total %zu bytes", c->fd[1], nbyte);
+    log_verb("send on pipe fd %d, total %zu bytes", c->fd[1], nbyte);
 
     for (;;) {
         n = write(c->fd[1], buf, nbyte);
         INCR(pipe_metrics, pipe_send);
 
-        log_verb("write on fd %d %zd of %zu", c->fd, n, nbyte);
-
         if (n > 0) {
-            log_verb("%zu bytes sent on fd %d", n, c->fd[1]);
+            log_verb("%zu bytes sent on pipe fd %d", n, c->fd[1]);
             c->send_nbyte += (size_t)n;
             INCR_N(pipe_metrics, pipe_send_byte, n);
             return n;
         }
 
         if (n == 0) {
-            log_warn("sendv on fd %d returned zero", c->fd[1]);
+            log_warn("sendv on pipe fd %d returned zero", c->fd[1]);
             return 0;
         }
 
         /* n < 0 */
         INCR(pipe_metrics, pipe_send_ex);
         if (errno == EINTR) {
-            log_verb("send on fd %d not ready - EINTR", c->fd[1]);
+            log_debug("send on pipe fd %d not ready - EINTR", c->fd[1]);
             continue;
         } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            log_verb("send on fd %d not ready - EAGAIN", c->fd[1]);
+            log_debug("send on pipe fd %d not ready - EAGAIN", c->fd[1]);
             return CC_EAGAIN;
         } else {
             c->err = errno;
-            log_error("sendv on fd %d failed: %s", c->fd[1], strerror(errno));
+            log_error("sendv on pipe fd %d failed: %s", c->fd[1], strerror(errno));
             return CC_ERROR;
         }
     }

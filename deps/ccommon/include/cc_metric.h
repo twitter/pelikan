@@ -60,6 +60,29 @@ extern "C" {
 } while(0)
 #define DECR(_base, _metric) DECR_N(_base, _metric, 1)
 
+/**
+ * Note: there's no gcc built-in atomic primitives to do a straight-up store
+ * atomically. But so far we only use the UPDATE_* macros for a few metrics, so
+ * it doesn't matter much.
+ * We can also use an extra variable to store the current value and use a CAS
+ * primitive with the value read as well as the value to set, but the extra
+ * variable is a headache.
+ * Will revisit this later.
+ */
+#define UPDATE_DOUBLE(_base, _metric, _val)                                 \
+    if ((_base) != NULL) {                                                  \
+         (_base)->_metric.vdouble = _val;                                   \
+    }                                                                       \
+} while(0)
+
+#define UPDATE_INTMAX(_base, _metric, _val)                                 \
+    if ((_base) != NULL) {                                                  \
+         if ((_base)->_metric.vintmax < (_val)) {                           \
+            (_base)->_metric.vintmax = _val;                                \
+        }                                                                   \
+    }                                                                       \
+} while(0)
+
 
 #define METRIC_DECLARE(_name, _type, _description)   \
     struct metric _name;
@@ -72,10 +95,12 @@ extern "C" {
 
 #else
 
-#define metric_incr(_metric)
-#define metric_incr_n(_metric, _delta)
-#define metric_decr(_metric)
-#define metric_decr_n(_metric, _delta)
+#define INCR(_base, _metric)
+#define INCR_N(_base, _metric, _delta)
+#define DECR(_base, _metric)
+#define DECR_N(_base, _metric, _delta)
+#define UPDATE_DOUBLE(_base, _metric, _val)
+#define UPDATE_INTMAX(_base, _metric, _val)
 
 #define METRIC_DECLARE(_name, _type, _description)
 #define METRIC_INIT(_name, _type, _description)
@@ -88,13 +113,9 @@ extern "C" {
 typedef enum metric_type {
     METRIC_COUNTER,
     METRIC_GAUGE,
-    /* directly set values */
     METRIC_DDOUBLE,
     METRIC_DINTMAX
-} metric_type_t;
-
-typedef uint64_t counter_t;
-typedef int64_t gauge_t;
+} metric_type_e;
 
 /* Note: anonymous union does not work with older (<gcc4.7) compilers */
 /* TODO(yao): determine if we should dynamically allocate the value field
@@ -102,12 +123,12 @@ typedef int64_t gauge_t;
  * memory for different types of values, potentially wasting space. */
 struct metric {
     char *name;
-    metric_type_t type;
+    metric_type_e type;
     union {
-        counter_t counter;
-        gauge_t gauge;
-        double vdouble;
-        intmax_t vintmax;
+        uint64_t    counter;
+        int64_t     gauge;
+        double      vdouble;
+        intmax_t    vintmax;
     };
 };
 

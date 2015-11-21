@@ -91,14 +91,16 @@ rbuf_create(uint32_t cap)
 }
 
 void
-rbuf_destroy(struct rbuf *buf)
+rbuf_destroy(struct rbuf **buf)
 {
-    log_verb("Destroy ring buffer %p", buf);
+    ASSERT(buf != NULL);
 
-    if (buf != NULL) {
-        uint32_t cap = buf->cap;
+    if (*buf != NULL) {
+        log_verb("Destroy ring buffer %p", *buf);
+        uint32_t cap = (*buf)->cap;
 
-        cc_free(buf);
+        cc_free(*buf);
+        *buf = NULL;
         INCR(rbuf_metrics, rbuf_destroy);
         DECR(rbuf_metrics, rbuf_curr);
         DECR_N(rbuf_metrics, rbuf_byte, RBUF_HDR_SIZE + cap + 1);

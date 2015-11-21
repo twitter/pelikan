@@ -34,7 +34,7 @@ static uint32_t max_nelem_delta = NELEM_DELTA;
  * set up array and allocate data buffer in array
  * returns status of execution, error if out of memory
  */
-rstatus_t
+rstatus_i
 array_data_create(struct array *arr, uint32_t nalloc, size_t size)
 {
     ASSERT(nalloc != 0 && size != 0);
@@ -66,10 +66,10 @@ array_data_destroy(struct array *arr)
  * allocate an array and its data buffer
  * returns status of execution, error if out of memory
  */
-rstatus_t
+rstatus_i
 array_create(struct array **arr, uint32_t nalloc, size_t size)
 {
-    rstatus_t ret;
+    rstatus_i ret;
 
     ASSERT(nalloc != 0 && size != 0);
 
@@ -110,7 +110,7 @@ array_destroy(struct array **arr)
  * 1) doubling, if nelem is less than max_nelem_delta;
  * 2) adding max_nenem_delta elements
  */
-static rstatus_t
+static rstatus_i
 _array_expand(struct array *arr)
 {
     void *data;
@@ -142,7 +142,7 @@ _array_expand(struct array *arr)
 void *
 array_push(struct array *arr)
 {
-    rstatus_t status;
+    rstatus_i status;
 
     if (arr->nelem == arr->nalloc) {
         /* the array is full; expand the data buffer */
@@ -171,7 +171,7 @@ array_pop(struct array *arr)
 
 /* sort array data in ascending order based on the compare comparator */
 void
-array_sort(struct array *arr, array_compare_t compare)
+array_sort(struct array *arr, array_compare_fn compare)
 {
     ASSERT(arr->nelem != 0);
 
@@ -184,7 +184,7 @@ array_sort(struct array *arr, array_compare_t compare)
  * of element where the failure occurred
  */
 uint32_t
-array_each(struct array *arr, array_each_t func, void *arg, err_t *err)
+array_each(struct array *arr, array_each_fn func, void *arg, err_i *err)
 {
     uint32_t i, nelem;
 
@@ -193,7 +193,7 @@ array_each(struct array *arr, array_each_t func, void *arg, err_t *err)
 
     for (i = 0, nelem = arr->nelem; i < nelem; i++) {
         void *elem = array_get(arr, i);
-        rstatus_t status;
+        rstatus_i status;
 
         status = func(elem, arg);
         if (status != CC_OK) {

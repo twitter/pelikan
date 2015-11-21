@@ -28,14 +28,14 @@ extern "C" {
 #define SIGNAL_MIN 1
 #define SIGNAL_MAX 31
 
-#ifndef sig_t
-typedef void (*sig_t)(int);
+#ifndef sig_fn
+typedef void (*sig_fn)(int);
 #endif
 
 struct signal {
     char *info;
     int flags;
-    sig_t handler;
+    sig_fn handler;
     uint32_t mask;  /* additional singals to mask */
 };
 
@@ -50,7 +50,7 @@ struct signal {
  */
 struct signal signals[SIGNAL_MAX]; /* there are only 31 signals from 1 to 31 */
 
-int signal_override(int signo, char *info, int flags, uint32_t mask, sig_t handler);
+int signal_override(int signo, char *info, int flags, uint32_t mask, sig_fn handler);
 
 #ifdef __cplusplus
 }

@@ -22,10 +22,10 @@ Synopsis
   void
   ring_array_destroy(struct ring_array *arr);
 
-  rstatus_t
+  rstatus_i
   ring_array_push(const void *elem, struct ring_array *arr);
 
-  rstatus_t
+  rstatus_i
   ring_array_pop(void *elem, struct ring_array *arr);
 
 Description
@@ -57,8 +57,8 @@ Element Access
 ^^^^^^^^^^^^^^
 ::
 
-   rstatus_t ring_array_push(const void *elem, struct ring_array *arr);
-   rstatus_t ring_array_pop(void *elem, struct ring_array *arr);
+   rstatus_i ring_array_push(const void *elem, struct ring_array *arr);
+   rstatus_i ring_array_pop(void *elem, struct ring_array *arr);
 
 These functions are used to push/pop elements in the ``ring_array``. To push an element into the ``ring_array``, call ``ring_array_push()`` with ``elem`` being a pointer to the element being stored and ``arr`` being the ``ring_array`` being pushed to. ``ring_array_push()`` returns ``CC_OK`` if the element is stored, and ``CC_ERROR`` if the element could not be stored (i.e. the ``ring_array`` is full).
 
@@ -84,7 +84,7 @@ Hello World! with ccommon ``ring_array``:
                     struct ring_array *arr;
                     char c, *msg = "Hello world!\n";
                     int i, msg_len = strlen(msg);
-                    rstatus_t status;
+                    rstatus_i status;
 
                     /* Setup ring array module */
                     ring_array_setup();

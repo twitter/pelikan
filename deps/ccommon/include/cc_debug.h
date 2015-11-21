@@ -27,6 +27,7 @@ extern "C" {
 
 #include <stdint.h>
 
+
 #define DEBUG_LOG_LEVEL 4         /* default log level */
 #define DEBUG_LOG_NBUF  4 * MiB   /* default log buf size */
 #define DEBUG_LOG_INTVL 100000    /* flush every 100 milliseconds */
@@ -80,7 +81,7 @@ extern "C" {
 
 void debug_assert(const char *cond, const char *file, int line, int panic);
 
-rstatus_t debug_setup(int level, char *filename, uint32_t buf_cap);
+rstatus_i debug_setup(int level, char *filename, uint32_t buf_cap);
 void debug_teardown(void);
 
 /**

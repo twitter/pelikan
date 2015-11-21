@@ -25,8 +25,8 @@ static server_metrics_st *server_metrics = NULL;
 static struct context context;
 static struct context *ctx = &context;
 
-static channel_handler_t handlers;
-static channel_handler_t *hdl = &handlers;
+static channel_handler_st handlers;
+static channel_handler_st *hdl = &handlers;
 
 static struct buf_sock *serversock; /* server buf_sock */
 
@@ -128,7 +128,7 @@ core_server_event(void *arg, uint32_t events)
     }
 }
 
-rstatus_t
+rstatus_i
 core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
 {
     struct tcp_conn *c;
@@ -148,14 +148,14 @@ core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
         return CC_ERROR;
     }
 
-    hdl->accept = (bool (*)(channel_t, channel_t))tcp_accept;
-    hdl->reject = (void (*)(channel_t))tcp_reject;
-    hdl->open = (bool (*)(address_t, channel_t))tcp_listen;
-    hdl->term = (void (*)(channel_t))tcp_close;
-    hdl->recv = (ssize_t (*)(channel_t, void *, size_t))tcp_recv;
-    hdl->send = (ssize_t (*)(channel_t, void *, size_t))tcp_send;
-    hdl->rid = (ch_id_t (*)(channel_t))tcp_read_id;
-    hdl->wid = (ch_id_t (*)(channel_t))tcp_write_id;
+    hdl->accept = (channel_accept_fn)tcp_accept;
+    hdl->reject = (channel_reject_fn)tcp_reject;
+    hdl->open = (channel_open_fn)tcp_listen;
+    hdl->term = (channel_term_fn)tcp_close;
+    hdl->recv = (channel_recv_fn)tcp_recv;
+    hdl->send = (channel_send_fn)tcp_send;
+    hdl->rid = (channel_id_fn)tcp_read_id;
+    hdl->wid = (channel_id_fn)tcp_write_id;
 
     /**
      * Here we give server socket a buf_sock purely because it is difficult to
@@ -206,7 +206,7 @@ core_server_teardown(void)
     server_init = false;
 }
 
-static rstatus_t
+static rstatus_i
 core_server_evwait(void)
 {
     int n;
@@ -226,7 +226,7 @@ core_server_evwait(void)
 void
 core_server_evloop(void)
 {
-    rstatus_t status;
+    rstatus_i status;
 
     for(;;) {
         status = core_server_evwait();

@@ -250,7 +250,7 @@ cuckoo_displace(uint32_t displaced)
 }
 
 
-rstatus_t
+rstatus_i
 cuckoo_setup(size_t size, uint32_t item, uint32_t policy, bool cas, cuckoo_metrics_st *metrics)
 {
     if (cuckoo_init) {
@@ -336,7 +336,7 @@ cuckoo_get(struct bstring *key)
 }
 
 /* insert applies to a key that doesn't exist validly in our array */
-rstatus_t
+rstatus_i
 cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
 {
     struct item *it;
@@ -387,7 +387,7 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
     return CC_OK;
 }
 
-rstatus_t
+rstatus_i
 cuckoo_update(struct item *it, struct val *val, rel_time_t expire)
 {
     ASSERT(it != NULL && val != NULL);

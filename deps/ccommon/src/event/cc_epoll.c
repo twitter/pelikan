@@ -45,11 +45,11 @@ struct event_base {
     struct epoll_event *event;  /* event[] - events that were triggered */
     int                nevent;  /* # events */
 
-    event_cb_t         cb;      /* event callback */
+    event_cb_fn         cb;      /* event callback */
 };
 
 struct event_base *
-event_base_create(int nevent, event_cb_t cb)
+event_base_create(int nevent, event_cb_fn cb)
 {
     struct event_base *evb;
     int status, ep;

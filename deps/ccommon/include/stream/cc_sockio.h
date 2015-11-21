@@ -66,7 +66,7 @@ struct buf_sock {
 
     uint64_t                flag;   /* generic flag field to be used by app */
     void                    *data;  /* generic data field to be used by app */
-    channel_handler_t       *hdl;   /* use can specify per-channel action */
+    channel_handler_st       *hdl;   /* use can specify per-channel action */
 
     struct tcp_conn         *ch;
     struct buf              *rbuf;
@@ -85,10 +85,10 @@ void buf_sock_return(struct buf_sock **);   /* stream_put_fn */
 
 void buf_sock_reset(struct buf_sock *);
 
-rstatus_t buf_tcp_read(struct buf_sock *);
-rstatus_t buf_tcp_write(struct buf_sock *);
+rstatus_i buf_tcp_read(struct buf_sock *);
+rstatus_i buf_tcp_write(struct buf_sock *);
 
-rstatus_t dbuf_tcp_read(struct buf_sock *); /* buf_tcp_read with
+rstatus_i dbuf_tcp_read(struct buf_sock *); /* buf_tcp_read with
                                                doubling buffer */
 
 #ifdef __cplusplus

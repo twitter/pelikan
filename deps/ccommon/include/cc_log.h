@@ -75,10 +75,10 @@ struct logger *log_create(char *filename, uint32_t buf_cap);
 
 void log_destroy(struct logger **logger);
 
-rstatus_t log_reopen(struct logger *logger);
+rstatus_i log_reopen(struct logger *logger);
 
 /* _log_write returns true if msg written, false if skipped or failed */
-bool _log_write(struct logger *logger, char *buf, int len);
+bool log_write(struct logger *logger, char *buf, uint32_t len);
 
 void _log_fd(int fd, const char *fmt, ...);
 

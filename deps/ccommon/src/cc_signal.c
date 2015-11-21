@@ -46,7 +46,7 @@ const char* sys_signame[SIGNAL_MAX + 1] = {
 #endif /* CC_HAVE_SIGNAME */
 
 int
-signal_override(int signo, char *info, int flags, uint32_t mask, sig_t handler)
+signal_override(int signo, char *info, int flags, uint32_t mask, sig_fn handler)
 {
     struct sigaction sa;
     int status;

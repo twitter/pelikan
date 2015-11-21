@@ -11,7 +11,7 @@ void daemonize(void);
 void show_version(void);
 
 /* Init ai */
-rstatus_t getaddr(struct addrinfo **ai, char *hostname, char *servname);
+rstatus_i getaddr(struct addrinfo **ai, char *hostname, char *servname);
 
 /* Create pid file */
 void create_pidfile(const char *filename);

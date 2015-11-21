@@ -494,6 +494,7 @@ tcp_set_tcpnodelay(int sd)
     return setsockopt(sd, IPPROTO_TCP, TCP_NODELAY, &nodelay, len);
 }
 
+/*TODO set keepalive paramters (probes, intvl, wait) */
 int
 tcp_set_keepalive(int sd)
 {

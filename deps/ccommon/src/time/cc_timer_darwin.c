@@ -251,7 +251,7 @@ timeout_expired(struct timeout *e)
         return false;
     }
 
-    if (e->tp <= now) {
+    if (e->tp <= (int64_t)now) {
         return true;
     } else {
         return false;

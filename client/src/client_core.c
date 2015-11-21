@@ -11,7 +11,7 @@
 struct tcp_conn connection;
 struct tcp_conn *c = &connection;
 
-rstatus_t
+rstatus_i
 client_core_setup(struct addrinfo *ai)
 {
     if (!tcp_connect(ai, c)) {
@@ -28,7 +28,7 @@ client_core_teardown(void)
     tcp_close(c);
 }
 
-static rstatus_t
+static rstatus_i
 client_core_send(char *buf, size_t nbyte)
 {
     ssize_t ret;

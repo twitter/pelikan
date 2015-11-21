@@ -134,9 +134,7 @@ log_destroy(struct logger **l)
         close(logger->fd);
     }
 
-    if (logger->buf != NULL) {
-        rbuf_destroy(logger->buf);
-    }
+    rbuf_destroy(&logger->buf);
 
     cc_free(logger);
     *l = NULL;
@@ -145,7 +143,7 @@ log_destroy(struct logger **l)
     DECR(log_metrics, log_curr);
 }
 
-rstatus_t
+rstatus_i
 log_reopen(struct logger *logger)
 {
     if (logger->fd != STDERR_FILENO && logger->fd != STDOUT_FILENO) {
@@ -165,7 +163,7 @@ log_reopen(struct logger *logger)
 }
 
 bool
-_log_write(struct logger *logger, char *buf, int len)
+log_write(struct logger *logger, char *buf, uint32_t len)
 {
     if (logger->buf != NULL) {
         if (rbuf_wcap(logger->buf) >= len) {
@@ -183,7 +181,7 @@ _log_write(struct logger *logger, char *buf, int len)
             return false;
         }
 
-        if (write(logger->fd, buf, len) < len) {
+        if (write(logger->fd, buf, len) < (ssize_t)len) {
             INCR(log_metrics, log_write_ex);
             logger->nerror++;
             return false;
@@ -250,7 +248,7 @@ log_flush(struct logger *logger)
     buf_len = rbuf_rcap(logger->buf);
     n = rbuf_read_fd(logger->buf, logger->fd);
 
-    if (n < buf_len) {
+    if (n < (ssize_t)buf_len) {
         INCR(log_metrics, log_flush_ex);
     } else {
         INCR(log_metrics, log_flush);

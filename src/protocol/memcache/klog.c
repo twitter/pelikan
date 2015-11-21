@@ -32,7 +32,7 @@ static uint64_t klog_cmds = 0;
 static uint32_t klog_sample = KLOG_SAMPLE;
 static klog_metrics_st *klog_metrics = NULL;
 
-rstatus_t
+rstatus_i
 klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample, klog_metrics_st *metrics)
 {
     log_info("Set up the %s module", KLOG_MODULE_NAME);
@@ -134,7 +134,7 @@ _klog_write_get(struct request *req, struct response *rsp, char *buf, int len)
 
         ASSERT(len + suffix_len <= KLOG_MAX_LEN);
 
-        if (_log_write(klogger, buf, len + suffix_len)) {
+        if (log_write(klogger, buf, len + suffix_len)) {
             INCR(klog_metrics, klog_logged);
         } else {
             INCR(klog_metrics, klog_discard);
@@ -262,7 +262,7 @@ klog_write(struct request *req, struct response *rsp)
 
     ASSERT(len <= KLOG_MAX_LEN);
 
-    if (_log_write(klogger, buf, len)) {
+    if (log_write(klogger, buf, len)) {
         INCR(klog_metrics, klog_logged);
     } else {
         INCR(klog_metrics, klog_discard);
