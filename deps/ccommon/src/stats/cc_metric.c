@@ -75,3 +75,26 @@ metric_teardown(void)
     }
     metric_init = false;
 }
+
+size_t
+metric_print(char *buf, size_t nbuf, struct metric *m)
+{
+    switch(m->type) {
+    case METRIC_COUNTER:
+        /**
+         * not using cc_print_uint64, since it would complicate implementation
+         * and negatively impact readability, and since this function should not
+         * be called often enough to make it absolutely performance critical.
+         */
+        return cc_scnprintf(buf, nbuf, "%s %llu", m->name, m->counter);
+    case METRIC_GAUGE:
+        return cc_scnprintf(buf, nbuf, "%s %lld", m->name, m->gauge);
+    case METRIC_DDOUBLE:
+        return cc_scnprintf(buf, nbuf, "%s %f", m->name, m->vdouble);
+    case METRIC_DINTMAX:
+        return cc_scnprintf(buf, nbuf, "%s %lld", m->name, m->vintmax);
+    default:
+        NOT_REACHED();
+        return 0;
+    }
+}
