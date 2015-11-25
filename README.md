@@ -33,3 +33,6 @@ Please read README.cmake for more information.
 
 ## Documentation
 We are actively working on documentation using Sphinx. Current source is included under `docs/`
+
+## License
+This software is licensed under the Apache 2 license, see LICENSE for details.
