@@ -4,6 +4,7 @@
 
 #include <protocol/admin_include.h>
 #include <time/time.h>
+#include <util/stats.h>
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
@@ -113,6 +114,7 @@ _admin_post_read(struct buf_sock *s)
 {
     parse_rstatus_t status;
     struct op *op;
+    struct reply *rep;
 
     if (s->data == NULL) {
         s->data = op_create();
@@ -125,8 +127,8 @@ _admin_post_read(struct buf_sock *s)
     }
 
     while (buf_rsize(s->rbuf) > 0) {
-        struct reply *rep;
-        int n;
+        struct reply *nr;
+        int n, i;
 
         status = parse_op(op, s->rbuf);
         if (status == PARSE_EUNFIN) {
@@ -146,24 +148,48 @@ _admin_post_read(struct buf_sock *s)
             goto done;
         }
 
-        /* no chained replies for now */
         rep = reply_create();
         if (rep == NULL) {
             log_error("could not allocate reply object");
             goto error;
         }
 
+        if (op->type == OP_STATS) {
+            size_t card = stats_card();
+
+            /* start at i == 0, since we want an extra reply object for "END" */
+            for (i = 0, nr = rep; i < card; ++i) {
+                STAILQ_NEXT(nr, next) = reply_create();
+                nr = STAILQ_NEXT(nr, next);
+                if (nr == NULL) {
+                    log_error("cannot create enough reply objects due to OOM");
+                    goto error;
+                }
+            }
+        }
+
         process_op(rep, op);
 
+        nr = rep;
+        if (op->type == OP_STATS) {
+            size_t card = stats_card();
+            for (i = 0; i < card; nr = STAILQ_NEXT(nr, next), ++i) {
+                /* process returns an extra rep for REP_END */
+                n = compose_rep(&s->wbuf, nr);
+                if (n < 0) {
+                    log_error("composing rep erred, terminate channel");
+                    goto error;
+                }
+            }
+        }
         n = compose_rep(&s->wbuf, rep);
         if (n < 0) {
             log_error("compose reply error");
-            reply_destroy(&rep);
             goto error;
         }
 
         op_reset(op);
-        reply_destroy(&rep);
+        reply_destroy_all(&rep);
     }
 
 done:
@@ -173,6 +199,7 @@ done:
     return;
 
 error:
+    reply_destroy_all(&rep);
     s->ch->state = CHANNEL_TERM;
 }
 
@@ -196,17 +223,19 @@ _admin_event(void *arg, uint32_t events)
 {
     struct buf_sock *s = arg;
 
-    if (events & EVENT_ERR) {
-        _admin_close(s);
-        return;
-    }
-
     if (events & EVENT_READ) {
         _admin_event_read(s);
+    } else if (events & EVENT_WRITE) {
+        _admin_event_write(s);
+    } else if (events & EVENT_ERR) {
+        s->ch->state = CHANNEL_TERM;
+    } else {
+        NOT_REACHED();
     }
 
-    if (events & EVENT_WRITE) {
-        _admin_event_write(s);
+    if (s->ch->state == CHANNEL_TERM || s->ch->state == CHANNEL_ERROR) {
+        op_destroy((struct op **)&s->data);
+        _admin_close(s);
     }
 }
 

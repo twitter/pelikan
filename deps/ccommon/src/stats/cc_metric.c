@@ -18,6 +18,7 @@
 #include <cc_metric.h>
 
 #include <cc_debug.h>
+#include <cc_print.h>
 
 #include <stdbool.h>
 
@@ -74,4 +75,27 @@ metric_teardown(void)
         log_warn("%s has never been setup", METRIC_MODULE_NAME);
     }
     metric_init = false;
+}
+
+size_t
+metric_print(char *buf, size_t nbuf, struct metric *m)
+{
+    switch(m->type) {
+    case METRIC_COUNTER:
+        /**
+         * not using cc_print_uint64, since it would complicate implementation
+         * and negatively impact readability, and since this function should not
+         * be called often enough to make it absolutely performance critical.
+         */
+        return cc_scnprintf(buf, nbuf, "%s %llu", m->name, __atomic_load_n(&m->counter, __ATOMIC_RELAXED));
+    case METRIC_GAUGE:
+        return cc_scnprintf(buf, nbuf, "%s %lld", m->name, __atomic_load_n(&m->gauge, __ATOMIC_RELAXED));
+    case METRIC_DDOUBLE:
+        return cc_scnprintf(buf, nbuf, "%s %f", m->name, m->vdouble);
+    case METRIC_DINTMAX:
+        return cc_scnprintf(buf, nbuf, "%s %lld", m->name, m->vintmax);
+    default:
+        NOT_REACHED();
+        return 0;
+    }
 }

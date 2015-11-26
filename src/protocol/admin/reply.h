@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cc_bstring.h>
+#include <cc_queue.h>
 
 #define REP_TYPE_MSG(ACTION)                   \
     ACTION( REP_UNKNOWN,      ""              )\
+    ACTION( REP_END,          "END\r\n"       )\
     ACTION( REP_STAT,         "STAT "         )\
     ACTION( REP_VERSION,      "VERSION "      )\
     ACTION( REP_CLIENT_ERROR, "CLIENT_ERROR " )\
@@ -25,14 +27,19 @@ typedef enum reply_state {
     REP_DONE,
 } reply_state_t;
 
+struct metric;
+
 struct reply {
-    reply_state_t        state;  /* reply state */
+    STAILQ_ENTRY(reply)  next;    /* allow chaining */
+
+    reply_state_t        state;   /* reply state */
     reply_type_t         type;
 
-    struct metric        *met;    /* metric, for reporting stats */
+    struct metric        *met;    /* metric for stats */
     struct bstring       vstr;    /* value string */
 };
 
 struct reply *reply_create(void);
 void reply_destroy(struct reply **rep);
+void reply_destroy_all(struct reply **rep);
 void reply_reset(struct reply *rep);
