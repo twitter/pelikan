@@ -49,32 +49,33 @@ procinfo_update(void)
 {
     struct rusage usage;
 
-    procinfo_metrics->pid.vintmax         = (intmax_t)getpid();
-    procinfo_metrics->time.vintmax        = (intmax_t)time_now_abs();
-    procinfo_metrics->uptime.vintmax      = (intmax_t)time_now();
+    UPDATE_VAL(procinfo_metrics, pid, getpid());
+    UPDATE_VAL(procinfo_metrics, time, time_now_abs());
+    UPDATE_VAL(procinfo_metrics, uptime, time_now());
+
     /* "%02d%02d%02d" % (major, minor, patch) */
-    procinfo_metrics->version.vintmax     = (intmax_t)VERSION_MAJOR * 10000 +
-            VERSION_MINOR * 100 + VERSION_PATCH;
+    UPDATE_VAL(procinfo_metrics, version, VERSION_MAJOR * 10000 +
+            VERSION_MINOR * 100 + VERSION_PATCH);
 
     /* not checking return as both parameters should be valid */
     getrusage(RUSAGE_SELF, &usage);
 
-    procinfo_metrics->ru_utime.vdouble    = (double)usage.ru_utime.tv_sec +
-            (double)usage.ru_utime.tv_usec * USEC;
-    procinfo_metrics->ru_stime.vdouble    = (double)usage.ru_stime.tv_sec +
-            (double)usage.ru_stime.tv_usec * USEC;
-    procinfo_metrics->ru_maxrss.vintmax   = (intmax_t)usage.ru_maxrss;
-    procinfo_metrics->ru_ixrss.vintmax    = (intmax_t)usage.ru_ixrss;
-    procinfo_metrics->ru_idrss.vintmax    = (intmax_t)usage.ru_idrss;
-    procinfo_metrics->ru_isrss.vintmax    = (intmax_t)usage.ru_isrss;
-    procinfo_metrics->ru_minflt.vintmax   = (intmax_t)usage.ru_minflt;
-    procinfo_metrics->ru_majflt.vintmax   = (intmax_t)usage.ru_majflt;
-    procinfo_metrics->ru_nswap.vintmax    = (intmax_t)usage.ru_nswap;
-    procinfo_metrics->ru_inblock.vintmax  = (intmax_t)usage.ru_inblock;
-    procinfo_metrics->ru_oublock.vintmax  = (intmax_t)usage.ru_oublock;
-    procinfo_metrics->ru_msgsnd.vintmax   = (intmax_t)usage.ru_msgsnd;
-    procinfo_metrics->ru_msgrcv.vintmax   = (intmax_t)usage.ru_msgrcv;
-    procinfo_metrics->ru_nsignals.vintmax = (intmax_t)usage.ru_nsignals;
-    procinfo_metrics->ru_nvcsw.vintmax    = (intmax_t)usage.ru_nvcsw;
-    procinfo_metrics->ru_nivcsw.vintmax   = (intmax_t)usage.ru_nivcsw;
+    UPDATE_VAL(procinfo_metrics,    ru_utime,       usage.ru_utime.tv_sec +
+            usage.ru_utime.tv_usec * USEC);
+    UPDATE_VAL(procinfo_metrics,    ru_stime,       usage.ru_stime.tv_sec +
+            usage.ru_stime.tv_usec * USEC);
+    UPDATE_VAL(procinfo_metrics,    ru_maxrss,      usage.ru_maxrss  );
+    UPDATE_VAL(procinfo_metrics,    ru_ixrss,       usage.ru_ixrss   );
+    UPDATE_VAL(procinfo_metrics,    ru_idrss,       usage.ru_idrss   );
+    UPDATE_VAL(procinfo_metrics,    ru_isrss,       usage.ru_isrss   );
+    UPDATE_VAL(procinfo_metrics,    ru_minflt,      usage.ru_minflt  );
+    UPDATE_VAL(procinfo_metrics,    ru_majflt,      usage.ru_majflt  );
+    UPDATE_VAL(procinfo_metrics,    ru_nswap,       usage.ru_nswap   );
+    UPDATE_VAL(procinfo_metrics,    ru_inblock,     usage.ru_inblock );
+    UPDATE_VAL(procinfo_metrics,    ru_oublock,     usage.ru_oublock );
+    UPDATE_VAL(procinfo_metrics,    ru_msgsnd,      usage.ru_msgsnd  );
+    UPDATE_VAL(procinfo_metrics,    ru_msgrcv,      usage.ru_msgrcv  );
+    UPDATE_VAL(procinfo_metrics,    ru_nsignals,    usage.ru_nsignals);
+    UPDATE_VAL(procinfo_metrics,    ru_nvcsw,       usage.ru_nvcsw   );
+    UPDATE_VAL(procinfo_metrics,    ru_nivcsw,      usage.ru_nivcsw  );
 }

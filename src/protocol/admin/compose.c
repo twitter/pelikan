@@ -6,7 +6,7 @@
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
 
-#define STAT_MAX_LEN 1024       /* max length of a single stat */
+#define STAT_MAX_LEN 64 /* metric name <32, value <21 */
 
 static inline compose_rstatus_t
 _check_buf_size(struct buf **buf, uint32_t n)
