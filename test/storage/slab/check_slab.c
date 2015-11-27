@@ -1,11 +1,10 @@
-#include <stdio.h>
-
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
 
 #include <cc_bstring.h>
 #include <cc_mm.h>
 
+#include <stdio.h>
 #include <check.h>
 #include <string.h>
 
@@ -426,43 +425,36 @@ START_TEST(test_flush_basic)
 }
 END_TEST
 
-static size_t initialize_string_counter = 0;
-/**
- * Puts some garbage in str. Every call will probably produce different results
- * for the same length.
- */
-static void
-initialize_string(char *str, size_t len)
-{
-    size_t i;
-
-    for (i = 0; i < len; i++) {
-        str[i] = (i + initialize_string_counter++) % CHAR_MAX;
-    }
-}
-
 START_TEST(test_evict_lru_basic)
 {
-#define MY_SLAB_SIZE 180
-#define MY_SLAB_MAXBYTES (360 + SLAB_HDR_SIZE)
+#define MY_SLAB_SIZE 160
+#define MY_SLAB_MAXBYTES 320
     /**
      * These are the slabs that will be created with these parameters:
      *
-     * slab size 180, slab hdr size 32, item hdr size 40, item chunk size44, total memory 392
-     * class   1: items       3  size      48  data       8  slack       4
-     * class   2: items       2  size      72  data      32  slack       4
-     * class   3: items       1  size     144  data     104  slack       4
+     * slab size 160, slab hdr size 32, item hdr size 40, item chunk size44, total memory 320
+     * class   1: items       2  size      48  data       8  slack      32
+     * class   2: items       1  size     128  data      88  slack       0
      *
-     * If we use 16 bytes of key+value, it will use the class 2 that can fit
+     * If we use 8 bytes of key+value, it will use the class 1 that can fit
      * two elements. The third one will cause a full slab eviction.
      *
      **/
-#define KEY_LENGTH 6
-#define VALUE_LENGTH 10
+#define KEY_LENGTH 2
+#define VALUE_LENGTH 8
 #define NUM_ITEMS 3
 
     size_t i;
-    struct bstring key[NUM_ITEMS], val[NUM_ITEMS];
+    struct bstring key[NUM_ITEMS] = {
+        {KEY_LENGTH, "aa"},
+        {KEY_LENGTH, "bb"},
+        {KEY_LENGTH, "cc"},
+    };
+    struct bstring val[NUM_ITEMS] = {
+        {VALUE_LENGTH, "aaaaaaaa"},
+        {VALUE_LENGTH, "bbbbbbbb"},
+        {VALUE_LENGTH, "cccccccc"},
+    };
     item_rstatus_t status;
 
     test_teardown();
@@ -472,18 +464,6 @@ START_TEST(test_evict_lru_basic)
     ck_assert_msg(status == CC_OK, "could not reset slab module");
     status = item_setup(false, HASH_POWER, NULL);
     ck_assert_msg(status == CC_OK, "could not setup a slab item");
-
-    for (i = 0; i < NUM_ITEMS; i++) {
-        key[i].len = KEY_LENGTH;
-        key[i].data = cc_alloc(sizeof(char) * key[i].len);
-        ck_assert_ptr_ne(key[i].data, NULL);
-        initialize_string(key[i].data, key[i].len);
-
-        val[i].len = VALUE_LENGTH;
-        val[i].data = cc_alloc(sizeof(char) * val[i].len);
-        ck_assert_ptr_ne(val[i].data, NULL);
-        initialize_string(val[i].data, val[i].len);
-    }
 
     for (i = 0; i < NUM_ITEMS; i++) {
         time_update();
@@ -498,11 +478,6 @@ START_TEST(test_evict_lru_basic)
         "item 1 found, expected to be evicted");
     ck_assert_msg(item_get(&key[2]) != NULL,
         "item 2 not found");
-
-    for (i = 0; i < NUM_ITEMS; i++) {
-        cc_free(key[i].data);
-        cc_free(val[i].data);
-    }
 
 #undef KEY_LENGTH
 #undef VALUE_LENGTH
