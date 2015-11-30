@@ -17,3 +17,6 @@ cd _build
 cmake ..
 make
 ```
+
+## License
+This software is licensed under the Apache 2 license, see LICENSE for details.

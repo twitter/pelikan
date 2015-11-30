@@ -240,35 +240,6 @@ error:
  * response specific functions
  */
 
-static inline int
-_write_metric(struct buf **buf, struct metric *met)
-{
-    switch (met->type) {
-    case METRIC_COUNTER:
-        return _write_uint64(buf, met->counter);
-
-    case METRIC_GAUGE:
-        return _write_uint64(buf, met->gauge);
-
-    case METRIC_DINTMAX:
-        return _write_uint64(buf, met->vintmax);
-
-    case METRIC_DDOUBLE:
-        /* Note(yao): Currently double is only used for reporting metrics like
-         * CPU time and uptime, so it's safe to turn them into integers, as
-         * the metrics collecting granularity is generally coarser than a
-         * second. Once we get into percentile reporting of latencies or other
-         * cases that require more precise floating values, we should properly
-         * format doubles.
-         */
-        return _write_uint64(buf, (uint64_t)met->vdouble);
-
-    default:
-        NOT_REACHED();
-        return 0;
-    }
-}
-
 int
 compose_rsp(struct buf **buf, struct response *rsp)
 {
@@ -329,20 +300,6 @@ compose_rsp(struct buf **buf, struct response *rsp)
             goto error;
         }
         n += _write_uint64(buf, rsp->vint);
-        n += _crlf(buf);
-        log_verb("response type %d, total length %d", rsp->type, n);
-        break;
-
-    case RSP_STAT:
-        name = (struct bstring) {strlen(rsp->met->name), rsp->met->name};
-        if (_check_buf_size(buf, str->len + name.len + CC_UINT64_MAXLEN +
-                    CRLF_LEN) != COMPOSE_OK) {
-            goto error;
-        }
-        n += _write_bstring(buf, str);
-        n += _write_bstring(buf, &name);
-        n += _delim(buf);
-        n += _write_metric(buf, rsp->met);
         n += _crlf(buf);
         log_verb("response type %d, total length %d", rsp->type, n);
         break;

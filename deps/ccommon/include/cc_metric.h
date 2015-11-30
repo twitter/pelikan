@@ -62,24 +62,27 @@ extern "C" {
 
 /**
  * Note: there's no gcc built-in atomic primitives to do a straight-up store
- * atomically. But so far we only use the UPDATE_* macros for a few metrics, so
+ * atomically. But so far we only use the UPDATE_* macros for sys metrics, so
  * it doesn't matter much.
  * We can also use an extra variable to store the current value and use a CAS
  * primitive with the value read as well as the value to set, but the extra
  * variable is a headache.
  * Will revisit this later.
  */
-#define UPDATE_DOUBLE(_base, _metric, _val)                                 \
-    if ((_base) != NULL) {                                                  \
-         (_base)->_metric.vdouble = _val;                                   \
+#define metric_update_val(_metric, _val) do {                               \
+    if ((_metric).type == METRIC_COUNTER) {                                 \
+         (_metric).counter = (uint64_t)_val;                                \
+    } else if ((_metric).type == METRIC_GAUGE) {                            \
+         (_metric).gauge = (int64_t)_val;                                   \
+    } else if ((_metric).type == METRIC_FPN) {                              \
+         (_metric).fpn = (double)_val;                                      \
+    } else { /* error  */                                                   \
     }                                                                       \
 } while(0)
 
-#define UPDATE_INTMAX(_base, _metric, _val)                                 \
+#define UPDATE_VAL(_base, _metric, _val) do {                               \
     if ((_base) != NULL) {                                                  \
-         if ((_base)->_metric.vintmax < (_val)) {                           \
-            (_base)->_metric.vintmax = _val;                                \
-        }                                                                   \
+         metric_update_val((_base)->_metric, _val);                         \
     }                                                                       \
 } while(0)
 
@@ -99,8 +102,7 @@ extern "C" {
 #define INCR_N(_base, _metric, _delta)
 #define DECR(_base, _metric)
 #define DECR_N(_base, _metric, _delta)
-#define UPDATE_DOUBLE(_base, _metric, _val)
-#define UPDATE_INTMAX(_base, _metric, _val)
+#define UPDATE_VAL(_base, _metric, _val)
 
 #define METRIC_DECLARE(_name, _type, _description)
 #define METRIC_INIT(_name, _type, _description)
@@ -111,10 +113,9 @@ extern "C" {
 #define METRIC_CARDINALITY(_o) sizeof(_o) / sizeof(struct metric)
 
 typedef enum metric_type {
-    METRIC_COUNTER,
-    METRIC_GAUGE,
-    METRIC_DDOUBLE,
-    METRIC_DINTMAX
+    METRIC_COUNTER, /* supports INCR/INCR_N/UPDATE_VAL */
+    METRIC_GAUGE,   /* supports INCR/INCR_N/DECR/DECR_N/UPDATE_VAL */
+    METRIC_FPN      /* supports UPDATE_VAL */
 } metric_type_e;
 
 /* Note: anonymous union does not work with older (<gcc4.7) compilers */
@@ -127,8 +128,7 @@ struct metric {
     union {
         uint64_t    counter;
         int64_t     gauge;
-        double      vdouble;
-        intmax_t    vintmax;
+        double      fpn;
     };
 };
 
