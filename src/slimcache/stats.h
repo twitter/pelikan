@@ -10,6 +10,7 @@
 #include <cc_event.h>
 #include <cc_log.h>
 #include <channel/cc_tcp.h>
+#include <time/cc_wheel.h>
 
 struct glob_stats {
     buf_metrics_st          buf_metrics;
@@ -25,6 +26,7 @@ struct glob_stats {
     response_metrics_st     response_metrics;
     server_metrics_st       server_metrics;
     tcp_metrics_st          tcp_metrics;
+    timing_wheel_metrics_st timing_wheel_metrics;
     worker_metrics_st       worker_metrics;
 };
 

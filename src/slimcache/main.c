@@ -97,6 +97,7 @@ setup(void)
     tcp_setup((int)setting.tcp_backlog.val.vuint, &glob_stats.tcp_metrics);
 
     time_setup();
+    timing_wheel_setup(&glob_stats.timing_wheel_metrics);
     status = cuckoo_setup((size_t)setting.cuckoo_item_size.val.vuint,
             (uint32_t)setting.cuckoo_nitem.val.vuint,
             (uint32_t)setting.cuckoo_policy.val.vuint,
@@ -150,8 +151,9 @@ setup(void)
     max_conns = setting.tcp_poolsize.val.vuint == 0 ?
         setting.ring_array_cap.val.vuint : setting.tcp_poolsize.val.vuint;
     status = core_setup(data_ai, admin_ai, max_conns,
-                        (int)setting.admin_intvl.val.vuint,
-                        &glob_stats.server_metrics, &glob_stats.worker_metrics);
+        (int)setting.admin_intvl.val.vuint, setting.admin_tw_tick.val.vuint,
+        setting.admin_tw_cap.val.vuint, setting.admin_tw_ntick.val.vuint,
+        &glob_stats.server_metrics, &glob_stats.worker_metrics);
     freeaddrinfo(data_ai); /* freeing it before return/error to avoid memory leak */
     freeaddrinfo(admin_ai);
     if (status != CC_OK) {
