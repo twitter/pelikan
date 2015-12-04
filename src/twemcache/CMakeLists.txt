@@ -4,8 +4,8 @@ set(SOURCE
     stats.c)
 
 set(LIBS
+    core    
     admin
-    core
     slab
     memcache
     time

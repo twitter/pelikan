@@ -247,7 +247,6 @@ compose_rsp(struct buf **buf, struct response *rsp)
     uint32_t vlen;
     response_type_t type = rsp->type;
     struct bstring *str = &rsp_strings[type];
-    struct bstring name;
     int cas_len = rsp->cas * CC_UINT64_MAXLEN;
 
     /**

@@ -4,8 +4,8 @@ set(SOURCE
     stats.c)
 
 set(LIBS
-    admin
     core
+    admin
     cuckoo
     memcache
     time
