@@ -4,6 +4,7 @@
 #include <cc_bstring.h>
 #include <cc_mm.h>
 
+#include <stdio.h>
 #include <check.h>
 #include <string.h>
 
@@ -434,6 +435,68 @@ START_TEST(test_flush_basic)
 }
 END_TEST
 
+START_TEST(test_evict_lru_basic)
+{
+#define MY_SLAB_SIZE 160
+#define MY_SLAB_MAXBYTES 320
+    /**
+     * These are the slabs that will be created with these parameters:
+     *
+     * slab size 160, slab hdr size 32, item hdr size 40, item chunk size44, total memory 320
+     * class   1: items       2  size      48  data       8  slack      32
+     * class   2: items       1  size     128  data      88  slack       0
+     *
+     * If we use 8 bytes of key+value, it will use the class 1 that can fit
+     * two elements. The third one will cause a full slab eviction.
+     *
+     **/
+#define KEY_LENGTH 2
+#define VALUE_LENGTH 8
+#define NUM_ITEMS 3
+
+    size_t i;
+    struct bstring key[NUM_ITEMS] = {
+        {KEY_LENGTH, "aa"},
+        {KEY_LENGTH, "bb"},
+        {KEY_LENGTH, "cc"},
+    };
+    struct bstring val[NUM_ITEMS] = {
+        {VALUE_LENGTH, "aaaaaaaa"},
+        {VALUE_LENGTH, "bbbbbbbb"},
+        {VALUE_LENGTH, "cccccccc"},
+    };
+    item_rstatus_t status;
+
+    test_teardown();
+    status = slab_setup(MY_SLAB_SIZE, true,
+                        EVICT_CS, true, SLAB_MIN_CHUNK,
+                        MY_SLAB_SIZE - SLAB_HDR_SIZE, MY_SLAB_MAXBYTES, NULL, str(SLAB_FACTOR), NULL);
+    ck_assert_msg(status == CC_OK, "could not reset slab module");
+    status = item_setup(false, HASH_POWER, NULL);
+    ck_assert_msg(status == CC_OK, "could not setup a slab item");
+
+    for (i = 0; i < NUM_ITEMS; i++) {
+        time_update();
+        status = item_insert(&key[i], &val[i], 0, 0);
+        ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+        ck_assert_msg(item_get(&key[i]) != NULL, "item %lu not found", i);
+    }
+
+    ck_assert_msg(item_get(&key[0]) == NULL,
+        "item 0 found, expected to be evicted");
+    ck_assert_msg(item_get(&key[1]) == NULL,
+        "item 1 found, expected to be evicted");
+    ck_assert_msg(item_get(&key[2]) != NULL,
+        "item 2 not found");
+
+#undef KEY_LENGTH
+#undef VALUE_LENGTH
+#undef NUM_ITEMS
+#undef MY_SLAB_SIZE
+#undef MY_SLAB_MAXBYTES
+}
+END_TEST
+
 /*
  * test suite
  */
@@ -454,6 +517,7 @@ slab_suite(void)
     tcase_add_test(tc_basic_req, test_delete_basic);
     tcase_add_test(tc_basic_req, test_update_basic);
     tcase_add_test(tc_basic_req, test_flush_basic);
+    tcase_add_test(tc_basic_req, test_evict_lru_basic);
 
     return s;
 }
