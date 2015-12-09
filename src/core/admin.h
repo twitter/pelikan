@@ -13,7 +13,7 @@
     ACTION( admin_intvl,    OPTION_TYPE_UINT,   MAINT_INTVL,    "maintenance timer interval"   )\
     ACTION( admin_port,     OPTION_TYPE_STR,    "33333",        "admin port"                   )\
     ACTION( admin_host,     OPTION_TYPE_STR,    NULL,           "admin interfaces listening on")\
-    ACTION( admin_tw_tick,  OPTION_TYPE_UINT,   ADMIN_TW_TICK,  "timing wheel granularity"     )\
+    ACTION( admin_tw_tick,  OPTION_TYPE_UINT,   ADMIN_TW_TICK,  "timing wheel granularity (ns)")\
     ACTION( admin_tw_cap,   OPTION_TYPE_UINT,   ADMIN_TW_CAP,   "# ticks in timing wheel"      )\
     ACTION( admin_tw_ntick, OPTION_TYPE_UINT,   ADMIN_TW_NTICK, "max # ticks processed per ex" )
 
