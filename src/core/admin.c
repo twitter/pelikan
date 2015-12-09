@@ -244,7 +244,7 @@ _admin_event(void *arg, uint32_t events)
 }
 
 rstatus_i
-admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick,
+admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
             size_t tw_cap, size_t tw_ntick)
 {
     struct tcp_conn *c;
@@ -290,7 +290,7 @@ admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick,
     c->level = CHANNEL_META;
     event_add_read(ctx->evb, hdl->rid(c), serversock);
 
-    timeout_set_ns(&tw_tick_timeout, tw_tick);
+    timeout_set_ns(&tw_tick_timeout, tw_tick_ns);
     tw = timing_wheel_create(&tw_tick_timeout, tw_cap, tw_ntick);
 
     admin_init = true;
