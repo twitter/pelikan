@@ -12,6 +12,8 @@
 #include <channel/cc_channel.h>
 #include <channel/cc_tcp.h>
 #include <stream/cc_sockio.h>
+#include <time/cc_timer.h>
+#include <time/cc_wheel.h>
 
 #include <netdb.h>
 #include <stdbool.h>
@@ -27,6 +29,8 @@ static struct context *ctx = &context;
 
 static channel_handler_st handlers;
 static channel_handler_st *hdl = &handlers;
+
+struct timing_wheel *tw;
 
 static struct buf_sock *serversock;
 
@@ -240,9 +244,11 @@ _admin_event(void *arg, uint32_t events)
 }
 
 rstatus_i
-admin_setup(struct addrinfo *ai, int tick)
+admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
+            size_t tw_cap, size_t tw_ntick)
 {
     struct tcp_conn *c;
+    struct timeout tw_tick_timeout;
 
     log_info("set up the %s module", ADMIN_MODULE_NAME);
 
@@ -251,7 +257,7 @@ admin_setup(struct addrinfo *ai, int tick)
         return CC_ERROR;
     }
 
-    ctx->timeout = tick;
+    ctx->timeout = intvl;
     ctx->evb = event_base_create(1024, _admin_event);
     if (ctx->evb == NULL) {
         log_crit("failed to set up admin thread; could not create event "
@@ -282,8 +288,11 @@ admin_setup(struct addrinfo *ai, int tick)
         return CC_ERROR;
     }
     c->level = CHANNEL_META;
-
     event_add_read(ctx->evb, hdl->rid(c), serversock);
+
+    timeout_set_ns(&tw_tick_timeout, tw_tick_ns);
+    tw = timing_wheel_create(&tw_tick_timeout, tw_cap, tw_ntick);
+
     admin_init = true;
 
     return CC_OK;
@@ -299,6 +308,7 @@ admin_teardown(void)
     } else {
         buf_sock_return(&serversock);
         event_base_destroy(&(ctx->evb));
+        timing_wheel_destroy(&tw);
     }
     admin_init = false;
 }
@@ -330,7 +340,7 @@ admin_evloop(void *arg)
             break;
         }
 
-        /* time_wheel execute called here */
+        timing_wheel_execute(tw);
     }
 
     exit(1);

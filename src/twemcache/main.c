@@ -95,6 +95,7 @@ setup(void)
     metric_setup();
 
     time_setup();
+    timing_wheel_setup(&glob_stats.timing_wheel_metrics);
     procinfo_setup(&glob_stats.procinfo_metrics);
     request_setup(&glob_stats.request_metrics);
     response_setup(&glob_stats.response_metrics);
@@ -159,8 +160,9 @@ setup(void)
     max_conns = setting.tcp_poolsize.val.vuint == 0 ?
         setting.ring_array_cap.val.vuint : setting.tcp_poolsize.val.vuint;
     status = core_setup(data_ai, admin_ai, max_conns,
-                        (int)setting.admin_intvl.val.vuint,
-                        &glob_stats.server_metrics, &glob_stats.worker_metrics);
+        (int)setting.admin_intvl.val.vuint, setting.admin_tw_tick.val.vuint,
+        setting.admin_tw_cap.val.vuint, setting.admin_tw_ntick.val.vuint,
+        &glob_stats.server_metrics, &glob_stats.worker_metrics);
     freeaddrinfo(data_ai);
     freeaddrinfo(admin_ai);
 
