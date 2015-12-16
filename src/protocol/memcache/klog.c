@@ -3,12 +3,13 @@
 #include <protocol/memcache/request.h>
 #include <protocol/memcache/response.h>
 #include <time/time.h>
-#include <util/log_core.h>
 
 #include <cc_bstring.h>
 #include <cc_debug.h>
 #include <cc_log.h>
 #include <cc_print.h>
+#include <time/cc_timer.h>
+#include <time/cc_wheel.h>
 
 #include <errno.h>
 #include <stdbool.h>
@@ -26,11 +27,17 @@
 #define KLOG_DELTA_FMT     "\"%.*s%.*s %llu\" %d %u\n"
 
 static bool klog_init = false;
-static struct logger *klogger = NULL;
-struct log_core *klog_core = NULL;
+static struct logger *klogger;
 static uint64_t klog_cmds = 0;
 static uint32_t klog_sample = KLOG_SAMPLE;
-static klog_metrics_st *klog_metrics = NULL;
+static klog_metrics_st *klog_metrics;
+struct timeout_event *klog_tev;
+
+static void
+_klog_flush(void *arg)
+{
+    log_flush(klogger);
+}
 
 rstatus_i
 klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample, klog_metrics_st *metrics)
@@ -57,12 +64,23 @@ klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample, klog_m
         return CC_ERROR;
     }
 
-    klog_core = log_core_create(klogger, interval);
-
-    if (klog_core == NULL) {
-        log_error("Could not create klog core");
-        log_destroy(&klogger);
-        return CC_ERROR;
+    if (nbuf != 0) {
+        /* pauseless logging, must create timeout event for wheel */
+        if (interval == 0) {
+            log_error("invalid klog configuration - klog_intvl must be non-zero"
+                      "for pauseless logging");
+            log_destroy(&klogger);
+            return CC_ERROR;
+        }
+        klog_tev = timeout_event_create();
+        if (klog_tev == NULL) {
+            log_error("Could not create timeout event for klog");
+            log_destroy(&klogger);
+            return CC_ERROR;
+        }
+        klog_tev->cb = &_klog_flush;
+        klog_tev->recur = true;
+        timeout_set_ns(&klog_tev->delay, interval);
     }
 
     if (klog_sample == 0) {
@@ -87,10 +105,13 @@ klog_teardown(void)
     }
 
     klog_metrics = NULL;
-    log_core_destroy(&klog_core);
 
     if (klogger != NULL) {
         log_destroy(&klogger);
+    }
+
+    if (klog_tev != NULL) {
+        timeout_event_destroy(&klog_tev);
     }
 
     klog_sample = 1;

@@ -5,9 +5,9 @@
 
 #include <stdint.h>
 
-#define KLOG_NBUF   2 * MiB /* default log buf size */
-#define KLOG_INTVL  100000  /* flush every 100 milliseconds */
-#define KLOG_SAMPLE 100     /* log one in every 100 commands */
+#define KLOG_NBUF   2 * MiB    /* default log buf size */
+#define KLOG_INTVL  100000000  /* flush every 100 milliseconds */
+#define KLOG_SAMPLE 100        /* log one in every 100 commands */
 
 /*          name         type              default       description */
 #define KLOG_OPTION(ACTION)                                                            \
@@ -33,6 +33,9 @@ typedef struct {
 
 struct request;
 struct response;
+struct timeout_event;
+
+extern struct timeout_event *klog_tev;
 
 rstatus_i klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample,
                      klog_metrics_st *metrics);

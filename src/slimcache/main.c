@@ -11,7 +11,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -159,6 +158,14 @@ setup(void)
     if (status != CC_OK) {
         log_crit("cannot start core event loop");
 
+        goto error;
+    }
+
+    /* add debug log timeout event here */
+
+    status = admin_add_timed_ev(klog_tev);
+    if (status != CC_OK) {
+        log_error("Could not add klog timed event to admin thread");
         goto error;
     }
 

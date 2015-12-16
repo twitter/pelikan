@@ -22,6 +22,9 @@
 
 #define ADMIN_MODULE_NAME "core::admin"
 
+bool admin_running = false;
+struct timing_wheel *tw;
+
 static bool admin_init = false;
 
 static struct context context;
@@ -29,8 +32,6 @@ static struct context *ctx = &context;
 
 static channel_handler_st handlers;
 static channel_handler_st *hdl = &handlers;
-
-struct timing_wheel *tw;
 
 static struct buf_sock *serversock;
 
@@ -244,6 +245,16 @@ _admin_event(void *arg, uint32_t events)
 }
 
 rstatus_i
+admin_add_timed_ev(struct timeout_event *tev)
+{
+    ASSERT(!__atomic_load_n(&admin_running, __ATOMIC_RELAXED));
+    ASSERT(admin_init);
+    ASSERT(tw != NULL);
+
+    return timing_wheel_insert(tw, tev);
+}
+
+rstatus_i
 admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
             size_t tw_cap, size_t tw_ntick)
 {
@@ -292,6 +303,7 @@ admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
 
     timeout_set_ns(&tw_tick_timeout, tw_tick_ns);
     tw = timing_wheel_create(&tw_tick_timeout, tw_cap, tw_ntick);
+    timing_wheel_start(tw);
 
     admin_init = true;
 
@@ -308,6 +320,7 @@ admin_teardown(void)
     } else {
         buf_sock_return(&serversock);
         event_base_destroy(&(ctx->evb));
+        timing_wheel_stop(tw);
         timing_wheel_destroy(&tw);
     }
     admin_init = false;
