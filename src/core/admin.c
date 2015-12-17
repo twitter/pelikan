@@ -356,5 +356,7 @@ admin_evloop(void *arg)
         timing_wheel_execute(tw);
     }
 
+    __atomic_store_n(&admin_running, false, __ATOMIC_RELAXED);
+
     exit(1);
 }
