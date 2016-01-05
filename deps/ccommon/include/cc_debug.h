@@ -22,22 +22,20 @@ extern "C" {
 #endif
 
 #include <cc_define.h>
-#include <cc_log.h>
 #include <cc_signal.h>
 
 #include <stdint.h>
 
-
 #define DEBUG_LOG_LEVEL 4         /* default log level */
 #define DEBUG_LOG_NBUF  4 * MiB   /* default log buf size */
-#define DEBUG_LOG_INTVL 100000    /* flush every 100 milliseconds */
+#define DEBUG_LOG_INTVL 100000000 /* flush every 100 milliseconds */
 
 /*          name             type              default           description */
-#define DEBUG_OPTION(ACTION)                                                                \
-    ACTION( debug_log_level, OPTION_TYPE_UINT, DEBUG_LOG_LEVEL,  "debug log level"         )\
-    ACTION( debug_log_file,  OPTION_TYPE_STR,  NULL,             "debug log file"          )\
-    ACTION( debug_log_nbuf,  OPTION_TYPE_UINT, DEBUG_LOG_NBUF,   "debug log buf size"      )\
-    ACTION( debug_log_intvl, OPTION_TYPE_UINT, DEBUG_LOG_INTVL,  "debug log flush interval")
+#define DEBUG_OPTION(ACTION)                                                                                                      \
+    ACTION( debug_log_level, OPTION_TYPE_UINT, DEBUG_LOG_LEVEL,  "debug log level"                                               )\
+    ACTION( debug_log_file,  OPTION_TYPE_STR,  NULL,             "debug log file"                                                )\
+    ACTION( debug_log_nbuf,  OPTION_TYPE_UINT, DEBUG_LOG_NBUF,   "debug log buf size"                                            )\
+    ACTION( debug_log_intvl, OPTION_TYPE_UINT, DEBUG_LOG_INTVL,  "debug log flush interval in ns (only applies if buf size > 0)")
 
 /**
  * the debug module override the following signal handlers:
@@ -81,7 +79,8 @@ extern "C" {
 
 void debug_assert(const char *cond, const char *file, int line, int panic);
 
-rstatus_i debug_setup(int level, char *filename, uint32_t buf_cap);
+rstatus_i debug_setup(int level, char *log_file, uint32_t log_nbuf,
+    uint64_t log_intvl);
 void debug_teardown(void);
 
 /**
@@ -104,15 +103,19 @@ void debug_teardown(void);
 #define LOG_VERB    6   /* verbose: showing normal logic flow */
 #define LOG_VVERB   7   /* verbose on crack, for annoying msg e.g. timer */
 
+struct logger;
+struct timeout_event;
+
 struct debug_logger {
     struct logger *logger;
     int           level;
 };
 
 /* the default debug logger.
- * This will be NULL as it points to a static variable delcared in cc_debug.c
+ * This will be NULL as it points to a static variable declared in cc_debug.c
  */
 extern struct debug_logger *dlog;
+extern struct timeout_event *dlog_tev;
 
 /*
  * log_stderr   - log to stderr

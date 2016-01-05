@@ -147,13 +147,8 @@ tcp_conn_pool_create(uint32_t max)
     cp_init = true;
 
     /* preallocating, see notes in buffer/cc_buf.c */
-
-    if (max == 0) { /* do not preallocate if pool size is not specified */
-        return;
-    }
-
     FREEPOOL_PREALLOC(c, &cp, max, next, tcp_conn_create);
-    if (c == NULL) {
+    if (cp.nfree < max) {
         log_crit("cannot preallocate tcp_conn pool due to OOM, abort");
         exit(EXIT_FAILURE);
     }
@@ -200,20 +195,18 @@ tcp_conn_borrow(void)
 }
 
 void
-tcp_conn_return(struct tcp_conn **conn)
+tcp_conn_return(struct tcp_conn **c)
 {
-    struct tcp_conn *c = *conn;
-
-    if (c == NULL || c->free) {
+    if (c == NULL || *c == NULL || (*c)->free) {
         return;
     }
 
-    log_verb("return tcp_conn %p", c);
+    log_verb("return tcp_conn %p", *c);
 
-    c->free = true;
-    FREEPOOL_RETURN(&cp, c, next);
+    (*c)->free = true;
+    FREEPOOL_RETURN(*c, &cp, next);
 
-    *conn = NULL;
+    *c = NULL;
     INCR(tcp_metrics, tcp_conn_return);
     DECR(tcp_metrics, tcp_conn_active);
 }

@@ -67,7 +67,7 @@ typedef void (*timeout_cb_fn)(void *); /* timeout callback */
  */
 struct timeout_event {
     /* user provided */
-    timeout_cb_fn                cb;       /* callback when timed out */
+    timeout_cb_fn               cb;       /* callback when timed out */
     void                        *data;    /* argument of the timeout callback */
     bool                        recur;    /* will be reinserted upon firing */
     struct timeout              delay;    /* delay */
@@ -110,11 +110,11 @@ struct timing_wheel {
 };
 
 
-void timeout_event_reset(struct timeout_event *tev);
+void timeout_event_reset(struct timeout_event *t);
 struct timeout_event *timeout_event_create(void);
-void timeout_event_destroy(struct timeout_event **tev);
+void timeout_event_destroy(struct timeout_event **t);
 struct timeout_event *timeout_event_borrow(void);
-void timeout_event_return(struct timeout_event **tev);
+void timeout_event_return(struct timeout_event **t);
 
 void timeout_event_pool_create(uint32_t max);
 void timeout_event_pool_destroy(void);
