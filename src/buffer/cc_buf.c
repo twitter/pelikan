@@ -90,7 +90,7 @@ buf_pool_create(uint32_t max)
      */
 
     FREEPOOL_PREALLOC(buf, &bufp, max, next, buf_create);
-    if (buf == NULL) {
+    if (bufp.nfree < max) {
         log_crit("cannot preallocate buf pool, OOM. abort");
         exit(EXIT_FAILURE);
     }
@@ -150,8 +150,8 @@ buf_return(struct buf **buf)
 
     log_verb("return buf %p", elm);
 
-    elm->free = 1;
-    FREEPOOL_RETURN(&bufp, elm, next);
+    elm->free = true;
+    FREEPOOL_RETURN(elm, &bufp, next);
 
     *buf = NULL;
     INCR(buf_metrics, buf_return);

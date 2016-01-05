@@ -2,6 +2,7 @@
 
 #include <check.h>
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -113,14 +114,14 @@ START_TEST(test_atou64)
     ck_assert_int_eq(bstring_atou64(&val, &str2bstr("123")), CC_OK);
     ck_assert_uint_eq(val, 123);
 
-    sprintf(max_uint64, "%llu", UINT64_MAX);
+    sprintf(max_uint64, "%"PRIu64, UINT64_MAX);
     bstring_init(&bstr);
     ck_assert_int_eq(bstring_copy(&bstr, max_uint64, strlen(max_uint64)), CC_OK);
     ck_assert_int_eq(bstring_atou64(&val, &bstr), CC_OK);
     ck_assert_uint_eq(val, UINT64_MAX);
     bstring_deinit(&bstr);
 
-    sprintf(max_uint64, "%llu", UINT64_MAX);
+    sprintf(max_uint64, "%"PRIu64, UINT64_MAX);
     max_uint64[strlen(max_uint64) - 1]++;
     bstring_init(&bstr);
     ck_assert_int_eq(bstring_copy(&bstr, max_uint64, strlen(max_uint64)), CC_OK);
