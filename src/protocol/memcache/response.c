@@ -112,6 +112,11 @@ response_pool_create(uint32_t max)
         return;
     }
 
+    if (max == 0) {
+        log_error("invalid option: cannot create empty response pool");
+        exit(EXIT_FAILURE);
+    }
+
     rsps = cc_alloc(max * sizeof(struct response *));
     if (rsps == NULL) {
         log_crit("cannot preallocate response pool due to OOM, abort");

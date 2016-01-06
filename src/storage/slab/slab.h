@@ -20,7 +20,7 @@
 #define SLAB_HASH       16
 #define SLAB_FACTOR     1.25
 #define SLAB_MIN_CHUNK  44      /* 40 bytes item overhead */
-#define SLAB_MAX_CHUNK  (SLAB_SIZE - 32) /* 32 bytes slab overhead */
+#define SLAB_MAX_CHUNK  (SLAB_SIZE - 64) /* 64 bytes slab overhead */
 
 /* Eviction options */
 #define EVICT_NONE    0 /* throw OOM, no eviction */

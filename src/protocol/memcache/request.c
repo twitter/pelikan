@@ -120,6 +120,11 @@ request_pool_create(uint32_t max)
         return;
     }
 
+    if (max == 0) {
+        log_error("invalid option: cannot create empty request pool");
+        exit(EXIT_FAILURE);
+    }
+
     reqs = cc_alloc(max * sizeof(struct request *));
     if (reqs == NULL) {
         log_crit("cannot preallocate request pool due to OOM, abort");
