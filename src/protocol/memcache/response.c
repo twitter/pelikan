@@ -1,6 +1,5 @@
 #include <protocol/memcache/response.h>
 
-#include <cc_bstring.h>
 #include <cc_debug.h>
 #include <cc_mm.h>
 #include <cc_pool.h>
@@ -134,7 +133,7 @@ response_pool_create(uint32_t max)
 
     for (i = 0; i < max; ++i) {
         rsps[i]->free = true;
-        FREEPOOL_RETURN(&rspp, rsps[i], next);
+        FREEPOOL_RETURN(rsps[i], &rspp, next);
         INCR(response_metrics, response_free);
     }
 
@@ -195,7 +194,7 @@ response_return(struct response **response)
     log_vverb("return rsp %p", rsp);
 
     rsp->free = true;
-    FREEPOOL_RETURN(&rspp, rsp, next);
+    FREEPOOL_RETURN(rsp, &rspp, next);
 
     *response = NULL;
 }

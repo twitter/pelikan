@@ -9,6 +9,7 @@
 #include <util/stats.h>
 
 #include <cc_event.h>
+#include <cc_log.h>
 #include <channel/cc_tcp.h>
 #include <time/cc_wheel.h>
 

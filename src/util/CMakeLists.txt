@@ -1,5 +1,4 @@
 set(SOURCE
-    log_core.c
     procinfo.c
     util.c)
 

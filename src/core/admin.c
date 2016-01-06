@@ -249,7 +249,6 @@ admin_add_timed_ev(struct timeout_event *tev)
 {
     ASSERT(!__atomic_load_n(&admin_running, __ATOMIC_RELAXED));
     ASSERT(admin_init);
-    ASSERT(tw != NULL);
 
     return timing_wheel_insert(tw, tev);
 }

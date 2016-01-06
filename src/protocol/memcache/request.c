@@ -141,7 +141,7 @@ request_pool_create(uint32_t max)
 
     for (i = 0; i < max; ++i) {
         reqs[i]->free = true;
-        FREEPOOL_RETURN(&reqp, reqs[i], next);
+        FREEPOOL_RETURN(reqs[i], &reqp, next);
         INCR(request_metrics, request_free);
     }
 
@@ -197,7 +197,7 @@ request_return(struct request **request)
     log_vverb("return req %p", req);
 
     req->free = true;
-    FREEPOOL_RETURN(&reqp, req, next);
+    FREEPOOL_RETURN(req, &reqp, next);
 
     *request = NULL;
 }
