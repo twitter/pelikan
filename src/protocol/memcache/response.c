@@ -104,7 +104,7 @@ void
 response_pool_create(uint32_t max)
 {
     uint32_t i;
-    struct response **rsps;
+    struct response **rsps = NULL;
 
     if (rspp_init) {
         log_warn("response pool has already been created, ignore");
@@ -112,15 +112,12 @@ response_pool_create(uint32_t max)
         return;
     }
 
-    if (max == 0) {
-        log_error("invalid option: cannot create empty response pool");
-        exit(EXIT_FAILURE);
-    }
-
-    rsps = cc_alloc(max * sizeof(struct response *));
-    if (rsps == NULL) {
-        log_crit("cannot preallocate response pool due to OOM, abort");
-        exit(EXIT_FAILURE);
+    if (max != 0) {
+        rsps = cc_alloc(max * sizeof(struct response *));
+        if (rsps == NULL) {
+            log_crit("cannot preallocate response pool due to OOM, abort");
+            exit(EXIT_FAILURE);
+        }
     }
 
     log_info("creating response pool: max %"PRIu32, max);
