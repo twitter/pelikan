@@ -128,24 +128,32 @@ debug_setup(int log_level, char *log_file, uint32_t log_nbuf,
     }
     dlog->level = log_level;
 
-    if (log_nbuf != 0) {
-        if (log_intvl == 0) {
-            log_stderr("invalid debug log configuration - debug_log_intvl must"
-                "be non-zero for pauseless logging");
-            log_destroy(&dlog->logger);
-            return CC_ERROR;
-        }
-        dlog_tev = timeout_event_create();
-        if (dlog_tev == NULL) {
-            log_stderr("Could not create timeout event for debug logger");
-            log_destroy(&dlog->logger);
-            return CC_ERROR;
-        }
-        dlog_tev->cb = &_debug_log_flush;
-        dlog_tev->recur = true;
-        timeout_set_ns(&dlog_tev->delay, log_intvl);
+    /*
+     * 0 length buffer indicates that the logger will log directly to the file,
+     * thus we do not need to setup periodic flushing
+     */
+    if (log_nbuf == 0) {
+        goto done;
     }
 
+    if (log_intvl == 0) {
+        log_stderr("invalid debug log configuration - debug_log_intvl must"
+                   "be non-zero for pauseless logging");
+        log_destroy(&dlog->logger);
+        return CC_ERROR;
+    }
+
+    dlog_tev = timeout_event_create();
+    if (dlog_tev == NULL) {
+        log_stderr("Could not create timeout event for debug logger");
+        log_destroy(&dlog->logger);
+        return CC_ERROR;
+    }
+    dlog_tev->cb = &_debug_log_flush;
+    dlog_tev->recur = true;
+    timeout_set_ns(&dlog_tev->delay, log_intvl);
+
+done:
     /* some adjustment on signal handling */
     if (signal_override(SIGSEGV, "printing stacktrace when segfault", 0, 0,
             _stacktrace) < 0) {
@@ -158,7 +166,6 @@ debug_setup(int log_level, char *log_file, uint32_t log_nbuf,
     }
 
     debug_init = true;
-
     return CC_OK;
 }
 
