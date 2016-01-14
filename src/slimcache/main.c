@@ -4,14 +4,12 @@
 
 #include <core/core.h>
 #include <protocol/memcache/klog.h>
-#include <util/log_core.h>
 #include <util/util.h>
 
 #include <cc_debug.h>
 
 #include <errno.h>
 #include <fcntl.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -60,22 +58,16 @@ setup(void)
     int ret;
     uint32_t max_conns;
     rstatus_i status;
-    struct log_core *lc = NULL;
 
     /* setup log first, so we log properly */
     log_setup(&glob_stats.log_metrics);
     ret = debug_setup((int)setting.debug_log_level.val.vuint,
                       setting.debug_log_file.val.vstr,
-                      setting.debug_log_nbuf.val.vuint);
+                      setting.debug_log_nbuf.val.vuint,
+                      setting.debug_log_intvl.val.vuint);
     if (ret < 0) {
         log_stderr("log setup failed");
 
-        goto error;
-    }
-
-    lc = log_core_create(dlog->logger, (int)setting.debug_log_intvl.val.vuint);
-    if (lc == NULL) {
-        log_stderr("Could not set up log core!");
         goto error;
     }
 
@@ -162,6 +154,18 @@ setup(void)
         goto error;
     }
 
+    status = admin_add_timed_ev(dlog_tev);
+    if (status != CC_OK) {
+        log_stderr("Could not add debug log timed event to admin thread");
+        goto error;
+    }
+
+    status = admin_add_timed_ev(klog_tev);
+    if (status != CC_OK) {
+        log_error("Could not add klog timed event to admin thread");
+        goto error;
+    }
+
     return;
 
 error:
@@ -194,7 +198,6 @@ error:
     metric_teardown();
     option_free((struct option *)&setting, nopt);
 
-    log_core_destroy(&lc);
     log_teardown();
 
     exit(EX_CONFIG);

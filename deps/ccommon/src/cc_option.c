@@ -18,6 +18,7 @@
 #include <cc_option.h>
 
 #include <cc_debug.h>
+#include <cc_log.h>
 #include <cc_mm.h>
 
 #include <ctype.h>

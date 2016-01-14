@@ -1,6 +1,5 @@
 #include <protocol/memcache/response.h>
 
-#include <cc_bstring.h>
 #include <cc_debug.h>
 #include <cc_mm.h>
 #include <cc_pool.h>
@@ -105,7 +104,7 @@ void
 response_pool_create(uint32_t max)
 {
     uint32_t i;
-    struct response **rsps;
+    struct response **rsps = NULL;
 
     if (rspp_init) {
         log_warn("response pool has already been created, ignore");
@@ -113,10 +112,12 @@ response_pool_create(uint32_t max)
         return;
     }
 
-    rsps = cc_alloc(max * sizeof(struct response *));
-    if (rsps == NULL) {
-        log_crit("cannot preallocate response pool due to OOM, abort");
-        exit(EXIT_FAILURE);
+    if (max != 0) {
+        rsps = cc_alloc(max * sizeof(struct response *));
+        if (rsps == NULL) {
+            log_crit("cannot preallocate response pool due to OOM, abort");
+            exit(EXIT_FAILURE);
+        }
     }
 
     log_info("creating response pool: max %"PRIu32, max);
@@ -134,7 +135,7 @@ response_pool_create(uint32_t max)
 
     for (i = 0; i < max; ++i) {
         rsps[i]->free = true;
-        FREEPOOL_RETURN(&rspp, rsps[i], next);
+        FREEPOOL_RETURN(rsps[i], &rspp, next);
         INCR(response_metrics, response_free);
     }
 
@@ -195,7 +196,7 @@ response_return(struct response **response)
     log_vverb("return rsp %p", rsp);
 
     rsp->free = true;
-    FREEPOOL_RETURN(&rspp, rsp, next);
+    FREEPOOL_RETURN(rsp, &rspp, next);
 
     *response = NULL;
 }

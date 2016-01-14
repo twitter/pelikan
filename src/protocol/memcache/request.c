@@ -112,7 +112,7 @@ void
 request_pool_create(uint32_t max)
 {
     uint32_t i;
-    struct request **reqs;
+    struct request **reqs = NULL;
 
     if (reqp_init) {
         log_warn("request pool has already been created, ignore");
@@ -120,10 +120,12 @@ request_pool_create(uint32_t max)
         return;
     }
 
-    reqs = cc_alloc(max * sizeof(struct request *));
-    if (reqs == NULL) {
-        log_crit("cannot preallocate request pool due to OOM, abort");
-        exit(EXIT_FAILURE);
+    if (max != 0) {
+        reqs = cc_alloc(max * sizeof(struct request *));
+        if (reqs == NULL) {
+            log_crit("cannot preallocate request pool due to OOM, abort");
+            exit(EXIT_FAILURE);
+        }
     }
 
     log_info("creating request pool: max %"PRIu32, max);
@@ -141,7 +143,7 @@ request_pool_create(uint32_t max)
 
     for (i = 0; i < max; ++i) {
         reqs[i]->free = true;
-        FREEPOOL_RETURN(&reqp, reqs[i], next);
+        FREEPOOL_RETURN(reqs[i], &reqp, next);
         INCR(request_metrics, request_free);
     }
 
@@ -197,7 +199,7 @@ request_return(struct request **request)
     log_vverb("return req %p", req);
 
     req->free = true;
-    FREEPOOL_RETURN(&reqp, req, next);
+    FREEPOOL_RETURN(req, &reqp, next);
 
     *request = NULL;
 }

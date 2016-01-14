@@ -8,6 +8,8 @@
 #include <cc_define.h>
 #include <cc_metric.h>
 
+#include <stdbool.h>
+
 /*          name            type                default         description */
 #define ADMIN_OPTION(ACTION)                                                                    \
     ACTION( admin_intvl,    OPTION_TYPE_UINT,   MAINT_INTVL,    "maintenance timer interval"   )\
@@ -24,11 +26,16 @@
 
 struct addrinfo;
 struct timing_wheel;
+struct timeout_event;
 
 extern struct timing_wheel *tw;
+extern bool admin_running;
 
 rstatus_i admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
                       size_t tw_cap, size_t tw_ntick);
 void admin_teardown(void);
+
+/* timeout events must be added while admin evloop is not running */
+rstatus_i admin_add_timed_ev(struct timeout_event *tev);
 
 void *admin_evloop(void *arg);

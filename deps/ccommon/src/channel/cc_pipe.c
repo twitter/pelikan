@@ -139,13 +139,8 @@ pipe_conn_pool_create(uint32_t max)
     cp_init = true;
 
     /* preallocating, see notes in buffer/cc_buf.c */
-
-    if (max == 0) { /* do not preallocate if pool size is not specified */
-        return;
-    }
-
     FREEPOOL_PREALLOC(c, &cp, max, next, pipe_conn_create);
-    if (c == NULL) {
+    if (cp.nfree < max) {
         log_crit("cannot preallocate pipe conn pool, OOM");
         exit(EXIT_FAILURE);
     }
@@ -200,7 +195,7 @@ pipe_conn_return(struct pipe_conn **c)
     log_verb("return conn %p", *c);
 
     (*c)->free = true;
-    FREEPOOL_RETURN(&cp, *c, next);
+    FREEPOOL_RETURN(*c, &cp, next);
 
     *c = NULL;
     INCR(pipe_metrics, pipe_conn_return);

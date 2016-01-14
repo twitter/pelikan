@@ -6,7 +6,7 @@
 #include <cc_queue.h>
 #include <cc_util.h>
 
-#define RSP_POOLSIZE 0
+#define RSP_POOLSIZE 4096
 
 /*          name                type                default         description */
 #define RESPONSE_OPTION(ACTION)                                                             \

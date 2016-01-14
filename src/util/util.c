@@ -1,6 +1,7 @@
 #include <util/util.h>
 
 #include <cc_debug.h>
+#include <cc_log.h>
 #include <cc_print.h>
 
 #include <errno.h>

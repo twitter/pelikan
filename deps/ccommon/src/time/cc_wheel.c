@@ -50,19 +50,17 @@ timing_wheel_teardown(void)
 /* timeout_event related functions */
 
 void
-timeout_event_reset(struct timeout_event *tev)
+timeout_event_reset(struct timeout_event *t)
 {
-    ASSERT(tev != NULL);
+    ASSERT(t != NULL);
 
-    STAILQ_NEXT(tev, next) = NULL;
-    tev->free = false;
+    STAILQ_NEXT(t, next) = NULL;
+    t->free = false;
 
-    TAILQ_NEXT(tev, tqe) = NULL;
-    TAILQ_PREV(tev, tevent_tqh, tqe) = NULL;
-    tev->cb = NULL;
-    tev->data = NULL;
-    tev->recur = false;
-    timeout_reset(&tev->delay);
+    t->cb = NULL;
+    t->data = NULL;
+    t->recur = false;
+    timeout_reset(&t->delay);
     /* members used by timing wheel are set/cleared by timing wheel ops */
 }
 
@@ -86,18 +84,16 @@ timeout_event_create(void)
 }
 
 void
-timeout_event_destroy(struct timeout_event **tev)
+timeout_event_destroy(struct timeout_event **t)
 {
-    struct timeout_event *t = *tev;
-
-    if (t == NULL) {
+    if (t == NULL || *t == NULL) {
         return;
     }
 
-    log_verb("destroy timeout_event %p", t);
+    log_verb("destroy timeout_event %p", *t);
 
     cc_free(t);
-    *tev = NULL;
+    *t = NULL;
     INCR(timing_wheel_metrics, timeout_event_destroy);
     DECR(timing_wheel_metrics, timeout_event_curr);
 }
@@ -126,20 +122,18 @@ timeout_event_borrow(void)
 }
 
 void
-timeout_event_return(struct timeout_event **tev)
+timeout_event_return(struct timeout_event **t)
 {
-    struct timeout_event *t = *tev;
-
-    if (t == NULL || t->free) {
+    if (t == NULL || *t == NULL || (*t)->free) {
         return;
     }
 
-    log_verb("return timeout_event %p", t);
+    log_verb("return timeout_event %p", *t);
 
-    t->free = true;
-    FREEPOOL_RETURN(&teventp, t, next);
+    (*t)->free = true;
+    FREEPOOL_RETURN(*t, &teventp, next);
 
-    *tev = NULL;
+    *t = NULL;
     INCR(timing_wheel_metrics, timeout_event_return);
     DECR(timing_wheel_metrics, timeout_event_active);
 }
@@ -161,13 +155,8 @@ timeout_event_pool_create(uint32_t max)
     teventp_init = true;
 
     /* preallocating, see notes in buffer/cc_buf.c */
-
-    if (max == 0) { /* do not preallocate if pool size is not specified */
-        return;
-    }
-
     FREEPOOL_PREALLOC(t, &teventp, max, next, timeout_event_create);
-    if (t == NULL) {
+    if (teventp.nfree < max) {
         log_crit("cannot preallocate timeout_event pool due to OOM, abort");
         exit(EXIT_FAILURE);
     }

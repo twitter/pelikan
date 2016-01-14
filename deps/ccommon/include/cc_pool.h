@@ -38,6 +38,7 @@ struct pool {                                                       \
 }
 
 #define FREEPOOL_CREATE(pool, max) do {                             \
+    ASSERT(!(pool)->initialized);                                   \
     STAILQ_INIT(&(pool)->freeq);                                    \
     (pool)->nmax = (max) > 0 ? (max) : UINT32_MAX;                  \
     (pool)->nfree = 0;                                              \
@@ -53,19 +54,22 @@ struct pool {                                                       \
         (pool)->nfree--;                                            \
         destroy(&var);                                              \
     }                                                               \
+    (pool)->initialized = false;                                    \
     ASSERT((pool)->nfree == 0);                                     \
     ASSERT(STAILQ_EMPTY(&(pool)->freeq));                           \
 } while (0)
 
 #define FREEPOOL_PREALLOC(var, pool, size, field, create) do {      \
     ASSERT((pool)->initialized);                                    \
-    do {                                                            \
+    while ((pool)->nfree < size) {                                  \
         (var) = create();                                           \
         if ((var) != NULL) {                                        \
-            STAILQ_INSERT_HEAD(&(pool)->freeq, var, next);          \
+            STAILQ_INSERT_HEAD(&(pool)->freeq, var, field);         \
             (pool)->nfree++;                                        \
+        } else {                                                    \
+            break;                                                  \
         }                                                           \
-    } while ((var) != NULL && (pool)->nfree < (pool)->nmax);        \
+    }                                                               \
 } while (0)
 
 #define FREEPOOL_BORROW(var, pool, field, create) do {              \
@@ -85,9 +89,9 @@ struct pool {                                                       \
     }                                                               \
 } while (0)
 
-#define FREEPOOL_RETURN(pool, elm, field) do {                      \
+#define FREEPOOL_RETURN(var, pool, field) do {                      \
     ASSERT((pool)->initialized);                                    \
-    STAILQ_INSERT_HEAD(&(pool)->freeq, elm, field);                 \
+    STAILQ_INSERT_HEAD(&(pool)->freeq, var, field);                 \
     (pool)->nfree++;                                                \
     (pool)->nused--;                                                \
 } while (0)

@@ -20,6 +20,7 @@
 #include <cc_log.h>
 #include <cc_mm.h>
 #include <cc_print.h>
+#include <time/cc_wheel.h>
 
 #include <ctype.h>
 #include <errno.h>
@@ -35,6 +36,7 @@
 
 struct debug_logger default_logger;
 struct debug_logger *dlog = &default_logger;
+struct timeout_event *dlog_tev;
 static bool debug_init = false;
 static char * level_str[] = {
     "ALWAYS",
@@ -98,9 +100,15 @@ _logrotate(int signo)
     log_reopen(dlog->logger);
 }
 
+static void
+_debug_log_flush(void *arg)
+{
+    log_flush(dlog->logger);
+}
 
 rstatus_i
-debug_setup(int log_level, char *log_file, uint32_t log_nbuf)
+debug_setup(int log_level, char *log_file, uint32_t log_nbuf,
+    uint64_t log_intvl)
 {
     log_stderr("Set up the %s module", DEBUG_MODULE_NAME);
 
@@ -120,6 +128,32 @@ debug_setup(int log_level, char *log_file, uint32_t log_nbuf)
     }
     dlog->level = log_level;
 
+    /*
+     * 0 length buffer indicates that the logger will log directly to the file,
+     * thus we do not need to setup periodic flushing
+     */
+    if (log_nbuf == 0) {
+        goto done;
+    }
+
+    if (log_intvl == 0) {
+        log_stderr("invalid debug log configuration - debug_log_intvl must"
+                   "be non-zero for pauseless logging");
+        log_destroy(&dlog->logger);
+        return CC_ERROR;
+    }
+
+    dlog_tev = timeout_event_create();
+    if (dlog_tev == NULL) {
+        log_stderr("Could not create timeout event for debug logger");
+        log_destroy(&dlog->logger);
+        return CC_ERROR;
+    }
+    dlog_tev->cb = &_debug_log_flush;
+    dlog_tev->recur = true;
+    timeout_set_ns(&dlog_tev->delay, log_intvl);
+
+done:
     /* some adjustment on signal handling */
     if (signal_override(SIGSEGV, "printing stacktrace when segfault", 0, 0,
             _stacktrace) < 0) {
@@ -132,7 +166,6 @@ debug_setup(int log_level, char *log_file, uint32_t log_nbuf)
     }
 
     debug_init = true;
-
     return CC_OK;
 }
 
@@ -147,6 +180,10 @@ debug_teardown(void)
 
     if (dlog->logger != NULL) {
         log_destroy(&dlog->logger);
+    }
+
+    if (dlog_tev != NULL) {
+        timeout_event_destroy(&dlog_tev);
     }
 
     debug_init = false;

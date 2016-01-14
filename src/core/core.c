@@ -102,6 +102,7 @@ core_run(void)
         goto error;
     }
 
+    __atomic_store_n(&admin_running, true, __ATOMIC_RELAXED);
     ret = pthread_create(&admin, NULL, admin_evloop, NULL);
     if (ret != 0) {
         log_crit("pthread create failed for admin thread: %s", strerror(ret));
