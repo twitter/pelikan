@@ -248,30 +248,36 @@ _slab_profile_setup(char *setup_profile, char *setup_profile_factor)
             return CC_ERROR;
         }
 
-        i = SLABCLASS_MIN_ID;
-        nbyte = CC_ALIGN(min_chunk_size, CC_ALIGNMENT);
+        if (min_chunk_size > max_chunk_size) {
+            log_error("Could not setup slab profile; invalid min/max chunk size");
+            return CC_ERROR;
+        }
 
-        /* Calculate # items to fit into the slab, then # bytes per profile entry
-           in order to obtain the tightest fit (i.e. when the slabs are split into
-           chunks, not a lot of space is wasted) per slab */
+        nbyte = SLAB_ALIGN_DOWN(max_chunk_size, CC_ALIGNMENT);
+        nitem = slab_capacity() / nbyte;
+        i = SLABCLASS_MAX_ID;
+
+        /*
+         * Calculate # items to fit into the next slabclass, then # bytes per
+         * profile entry in order to obtain the tightest fit (i.e. when the slabs
+         * are split into chunks, not a lot of space is wasted) per slab
+         */
         do {
-            if (i > SLABCLASS_MAX_ID) {
-                log_error("Slab profile improperly configured - max chunk size too large or growth factor too small");
+            if (i < SLABCLASS_MIN_ID) {
+                log_error("Slab profile improperly configured - max chunk size"
+                          " too large or growth factor too small");
                 return CC_ERROR;
             }
 
-            if (profile[i - 1] == nbyte) {
-                nbyte += CC_ALIGNMENT;
-            }
+            profile[i--] = nbyte;
+            nitem = ((size_t)(nitem * growth_factor) == nitem) ?
+                nitem + 1 : nitem * growth_factor;
+            nbyte = SLAB_ALIGN_DOWN(slab_capacity() / nitem, CC_ALIGNMENT);
+        } while (nbyte >= min_chunk_size);
 
-            profile[i++] = nbyte;
-            nitem = slab_capacity() / nbyte / growth_factor;
-            if (nitem > 0) {
-                nbyte = SLAB_ALIGN_DOWN(slab_capacity() / nitem, CC_ALIGNMENT);
-            }
-        } while (nbyte <= max_chunk_size && nitem > 0);
-
-        profile_last_id = i - 1;
+        profile_last_id = SLABCLASS_MAX_ID - i;
+        cc_memmove(profile + SLABCLASS_MIN_ID, profile + i + 1,
+                   profile_last_id * sizeof(*profile));
     }
 
     log_verb("setup slab profile profile_last_id: %u", profile_last_id);
