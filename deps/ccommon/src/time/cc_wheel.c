@@ -57,8 +57,6 @@ timeout_event_reset(struct timeout_event *t)
     STAILQ_NEXT(t, next) = NULL;
     t->free = false;
 
-    TAILQ_NEXT(t, tqe) = NULL;
-    TAILQ_PREV(t, tevent_tqh, tqe) = NULL;
     t->cb = NULL;
     t->data = NULL;
     t->recur = false;
