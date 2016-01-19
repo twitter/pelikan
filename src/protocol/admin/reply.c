@@ -1,6 +1,7 @@
 #include <protocol/admin/reply.h>
 
 #include <cc_debug.h>
+#include <cc_log.h>
 #include <cc_mm.h>
 
 #define GET_STRING(_name, _str) {sizeof(_str) - 1, (_str)},
@@ -52,6 +53,7 @@ reply_reset(struct reply *rep)
 {
     ASSERT(rep != NULL);
 
+    STAILQ_NEXT(rep, next) = NULL;
     rep->state = REP_PARSING;
     rep->type = REP_UNKNOWN;
     rep->met = NULL;
