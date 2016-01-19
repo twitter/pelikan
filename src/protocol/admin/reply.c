@@ -1,7 +1,6 @@
 #include <protocol/admin/reply.h>
 
 #include <cc_debug.h>
-#include <cc_log.h>
 #include <cc_mm.h>
 
 #define GET_STRING(_name, _str) {sizeof(_str) - 1, (_str)},
