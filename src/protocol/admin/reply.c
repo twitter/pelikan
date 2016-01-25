@@ -52,6 +52,7 @@ reply_reset(struct reply *rep)
 {
     ASSERT(rep != NULL);
 
+    STAILQ_NEXT(rep, next) = NULL;
     rep->state = REP_PARSING;
     rep->type = REP_UNKNOWN;
     rep->met = NULL;
