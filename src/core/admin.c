@@ -163,7 +163,7 @@ _admin_post_read(struct buf_sock *s)
             size_t card = stats_card();
 
             /* start at i == 0, since we want an extra reply object for "END" */
-            for (i = 0, nr = rep; i < card; ++i) {
+            for (i = 0, nr = rep; i <= card; ++i) {
                 STAILQ_NEXT(nr, next) = reply_create();
                 nr = STAILQ_NEXT(nr, next);
                 if (nr == NULL) {
@@ -187,7 +187,7 @@ _admin_post_read(struct buf_sock *s)
                 }
             }
         }
-        n = compose_rep(&s->wbuf, rep);
+        n = compose_rep(&s->wbuf, nr);
         if (n < 0) {
             log_error("compose reply error");
             goto error;
