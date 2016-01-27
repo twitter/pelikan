@@ -66,6 +66,11 @@ set(CFLAGS_LIST
     "-Wmissing-declarations -Wredundant-decls "
     "-Wunused-function -Wunused-value -Wunused-variable "
     "-fno-strict-aliasing ")
+
+if(${OS_PLATFORM} MATCHES "OS_LINUX")
+  set(CFLAGS_LIST "${CFLAGS_LIST} -lrt")
+endif()
+
 string(REPLACE "" "" LOCAL_CFLAGS ${CFLAGS_LIST})
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  ${LOCAL_CFLAGS}")
 
