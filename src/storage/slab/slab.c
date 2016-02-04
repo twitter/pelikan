@@ -323,9 +323,7 @@ _slab_profile_setup(char *setup_profile, char *setup_profile_factor)
 
             profile[i++] = nbyte;
             nitem = slab_capacity() / nbyte / growth_factor;
-            if (nitem > linear_nitem) {
-                nbyte = SLAB_ALIGN_DOWN(slab_capacity() / nitem, CC_ALIGNMENT);
-            }
+            nbyte = SLAB_ALIGN_DOWN(slab_capacity() / nitem, CC_ALIGNMENT);
         }
 
         /* linear growth phase */
