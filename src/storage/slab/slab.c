@@ -240,7 +240,7 @@ _slab_profile_setup(char *setup_profile, char *setup_profile_factor)
         profile_last_id = i;
     } else {
         /* generate slab profile using chunk size, slab size, and factor */
-        size_t nbyte, nitem;
+        size_t nbyte, nitem, linear_nitem;
         double growth_factor = atof(setup_profile_factor);
 
         if (growth_factor <= 1.0) {
@@ -248,15 +248,72 @@ _slab_profile_setup(char *setup_profile, char *setup_profile_factor)
             return CC_ERROR;
         }
 
-        i = SLABCLASS_MIN_ID;
-        nbyte = CC_ALIGN(min_chunk_size, CC_ALIGNMENT);
+        if (min_chunk_size > max_chunk_size) {
+            log_error("Could not setup slab profile; invalid min/max chunk size");
+            return CC_ERROR;
+        }
 
-        /* Calculate # items to fit into the slab, then # bytes per profile entry
-           in order to obtain the tightest fit (i.e. when the slabs are split into
-           chunks, not a lot of space is wasted) per slab */
-        do {
+        /*
+         * Slab profile is determined as follows:
+         *
+         * Exponential growth of item size based on gf^n, from which we determine
+         * the # items that can fit in the slab. At the point that the # items
+         * change is <= 1, we form each slab profile entry as 1 item less than
+         * the last until we hit 1 item.
+         *
+         * Example (assuming max chunk size == slab size):
+         *
+         * Suppose gf == 1.2, so we determine 1.2 * x >= x + 1 --> x >= 5
+         * Thus, once we hit nitem == 5, we reduce nitem linearly by 1 until we
+         * reach nitem == 1:
+         *
+         * Exponential growth while nitem increase still > 1
+         * +-----------------------------------------------------------+
+         * |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
+         * +-----------------------------------------------------------+
+         *
+         * +-----------------------------------------------------------+
+         * |    |    |    |    |    |    |    |    |    |    |    |    |
+         * +-----------------------------------------------------------+
+         *
+         * +-----------------------------------------------------------+
+         * |     |     |     |     |     |     |     |     |     |     |
+         * +-----------------------------------------------------------+
+         *
+         *
+         *                               .
+         *                               .
+         *                               .
+         *
+         *
+         * Transition to linear growth
+         * +-----------------------------------------------------------+
+         * |              |              |              |              |
+         * +-----------------------------------------------------------+
+         *
+         * +-----------------------------------------------------------+
+         * |                   |                   |                   |
+         * +-----------------------------------------------------------+
+         *
+         * +-----------------------------------------------------------+
+         * |                             |                             |
+         * +-----------------------------------------------------------+
+         *
+         * +-----------------------------------------------------------+
+         * |                                                           |
+         * +-----------------------------------------------------------+
+         */
+
+        linear_nitem = 1.0 / (growth_factor - 1.0);
+        i = SLABCLASS_MIN_ID;
+        nitem = slab_capacity() / (CC_ALIGN(min_chunk_size, CC_ALIGNMENT));
+        nbyte = slab_capacity() / nitem;
+
+        /* exponential growth phase */
+        while (nbyte <= max_chunk_size && nitem > linear_nitem) {
             if (i > SLABCLASS_MAX_ID) {
-                log_error("Slab profile improperly configured - max chunk size too large or growth factor too small");
+                log_error("Slab profile improperly configured - max chunk size "
+                          "too large or growth factor too small");
                 return CC_ERROR;
             }
 
@@ -266,10 +323,23 @@ _slab_profile_setup(char *setup_profile, char *setup_profile_factor)
 
             profile[i++] = nbyte;
             nitem = slab_capacity() / nbyte / growth_factor;
-            if (nitem > 0) {
+            nbyte = SLAB_ALIGN_DOWN(slab_capacity() / nitem, CC_ALIGNMENT);
+        }
+
+        /* linear growth phase */
+        nitem = linear_nitem;
+        nbyte = SLAB_ALIGN_DOWN(slab_capacity() / nitem, CC_ALIGNMENT);
+        while (nbyte <= max_chunk_size && nitem > 0) {
+            if (i > SLABCLASS_MAX_ID) {
+                log_error("Slab profile improperly configured - max chunk size "
+                          "too large or growth factor too small");
+                return CC_ERROR;
+            }
+            profile[i++] = nbyte;
+            if (--nitem > 0) {
                 nbyte = SLAB_ALIGN_DOWN(slab_capacity() / nitem, CC_ALIGNMENT);
             }
-        } while (nbyte <= max_chunk_size && nitem > 0);
+        }
 
         profile_last_id = i - 1;
     }
