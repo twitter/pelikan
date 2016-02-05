@@ -1,4 +1,4 @@
-set(suite rbuf)
+set(suite wheel)
 set(test_name check_${suite})
 
 set(source check_${suite}.c)
