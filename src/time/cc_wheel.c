@@ -54,9 +54,7 @@ timeout_event_reset(struct timeout_event *t)
 {
     ASSERT(t != NULL);
 
-    STAILQ_NEXT(t, next) = NULL;
     t->free = false;
-
     t->cb = NULL;
     t->data = NULL;
     t->recur = false;
@@ -92,7 +90,7 @@ timeout_event_destroy(struct timeout_event **t)
 
     log_verb("destroy timeout_event %p", *t);
 
-    cc_free(t);
+    cc_free(*t);
     *t = NULL;
     INCR(timing_wheel_metrics, timeout_event_destroy);
     DECR(timing_wheel_metrics, timeout_event_curr);
@@ -167,7 +165,7 @@ timeout_event_pool_destroy(void)
 {
     struct timeout_event *t, *tt;
 
-    if (teventp_init) {
+    if (!teventp_init) {
         log_warn("timeout_event pool was never created, ignore");
 
         return;
@@ -188,7 +186,7 @@ timing_wheel_create(struct timeout *tick, size_t cap, size_t ntick)
     struct timing_wheel *tw = (struct timing_wheel *)cc_alloc(sizeof(*tw));
 
     ASSERT(tick != NULL);
-    ASSERT(cap > 0 && ntick > 0);
+    ASSERT(cap > 0);
 
     if (tw == NULL) {
         log_error("timing_wheel creation failed due to OOM");
@@ -199,7 +197,7 @@ timing_wheel_create(struct timeout *tick, size_t cap, size_t ntick)
     tw->tick = *tick;
     tw->tick_ns = timeout_ns(tick);
     tw->cap = cap;
-    tw->max_ntick = ntick;
+    tw->max_ntick = ntick; /* if ntick is 0, there's no limit */
     tw->active = false;
     timeout_reset(&tw->due);
     tw->curr = 0;
@@ -350,14 +348,32 @@ _process_tick(struct timing_wheel *tw, bool endmode)
     struct timeout_event *t, *tt;
     rstatus_i status;
     uint64_t nprocess = tw->nprocess;
+    bool recur;
 
     TAILQ_FOREACH_SAFE(t, &tw->table[tw->curr], tqe, tt) {
+        recur = t->recur;
         tw->nprocess++;
         INCR(timing_wheel_metrics, timing_wheel_process);
 
-        t->cb(t->data);
         timing_wheel_remove(tw, t);
-        if (!endmode && t->recur) { /* reinsert if recurring and not ending */
+        /* Note: things get intricate when the life cycle of timeout events are
+         * considered: we cannot recycle events here because timing wheel has no
+         * knowledge of how those events were created (borrowed, created etc),
+         * and the only other place to do it is in the callback. However, once
+         * the callback destroys the timeout event, accessing `t' will lead to
+         * uncertain behavior. This seems extremely prone to misuse and memory
+         * related bugs at runtime.
+         *
+         * For now, we assume that the callback will not attempt to free the
+         * current timeout event if it is a recurring event. For one-time
+         * events, we will not use any attribute of `t' beyond the callback.
+         * For recurring events, since they are on an infinite loop, we assume
+         * some proper *_shutdown() logic will take care of recycling.
+         *
+         * Need to think of a better way of doing this, probably...
+         */
+        t->cb(t->data);
+        if (!endmode && recur) { /* reinsert if recurring and not ending */
             status = timing_wheel_insert(tw, t);
             ASSERT(status == CC_OK); /* shouldn't fail */
         }
@@ -365,6 +381,12 @@ _process_tick(struct timing_wheel *tw, bool endmode)
 
     log_verb("processed %"PRIu64" timeout events during tick %zu of timing "
             "wheel %p", tw->nprocess - nprocess, tw->curr, tw);
+}
+
+static inline bool
+_tick_allowed(struct timing_wheel *tw, size_t ntick)
+{
+    return (tw->max_ntick == 0 || ntick < tw->max_ntick);
 }
 
 void
@@ -378,15 +400,17 @@ timing_wheel_execute(struct timing_wheel *tw)
     /*
      * If timing wheel's current slot is not due, it returns immediately;
      * if multiple slots are due, they will all be triggered in one func call.
+     * However, to prevent from running indefinitely when the wheel is loaded,
+     * we use `max_ntick' to allow the execution to break once in a while.
      *
      * This allows the execution to be called anytime to opportunistically
      * trigger all the timers expired. For example, an application can check
      * if there's any timeouts after every N requests. Separating timing wheel
      * execution from the clock means an innate clock or wait mechanism is not
-     * dictated by the wheel, and user can choose any mechanisms to advance the
+     * dictated by the wheel, and user can choose any mechanism to advance the
      * clock, e.g. nanosleep, select, epoll_wait/kqueue...
      */
-    while (ntick < tw->max_ntick && timeout_expired(&tw->due)) {
+    while (_tick_allowed(tw, ntick) && timeout_expired(&tw->due)) {
         struct duration d;
         struct timeout to;
 

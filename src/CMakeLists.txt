@@ -23,6 +23,10 @@ set(SOURCE
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 add_library(${PROJECT_NAME}-static STATIC ${SOURCE})
 add_library(${PROJECT_NAME}-shared SHARED ${SOURCE})
+if (OS_PLATFORM STREQUAL "OS_LINUX")
+  target_link_libraries(${PROJECT_NAME}-static rt)
+  target_link_libraries(${PROJECT_NAME}-shared rt)
+endif(OS_PLATFORM STREQUAL "OS_LINUX")
 set_target_properties(${PROJECT_NAME}-static
     PROPERTIES
     OUTPUT_NAME ${PROJECT_NAME}-${${PROJECT_NAME}_VERSION})
