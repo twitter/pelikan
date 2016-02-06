@@ -37,6 +37,10 @@ option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
 option(COVERAGE "code coverage" OFF)
 
+# Note: duplicate custom targets only works with Makefile generators, will break XCode & VS
+# reference: http://public.kitware.com/Bug/view.php?id=6348
+set_property(GLOBAL PROPERTY ALLOW_DUPLICATE_CUSTOM_TARGETS 1)
+
 include(CheckSymbolExists)
 check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
 
@@ -86,10 +90,17 @@ add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
 # other dependencies
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
-find_package(Check REQUIRED)
+find_package(Check)
 if(NOT CHECK_FOUND)
-  MESSAGE(FATAL_ERROR "Check is required")
+    message(WARNING "Check is required to build and run tests")
 endif(NOT CHECK_FOUND)
+if(CHECK_FOUND)
+    check_symbol_exists(ck_assert_int_eq check.h CHECK_WORKING)
+    if(NOT CHECK_WORKING)
+        message(WARNING "Check version too old to build tests")
+    endif(NOT CHECK_WORKING)
+endif(CHECK_FOUND)
+
 find_package(Threads)
 
 #set(CMAKE_INCLUDE_CURRENT_DIR)
@@ -106,7 +117,9 @@ add_subdirectory(src)
 add_subdirectory(client)
 
 # tests: always build last
-add_subdirectory(test)
+if(CHECK_WORKING)
+    add_subdirectory(test)
+endif(CHECK_WORKING)
 
 # print a summary
 message(STATUS "PLATFORM: " ${OS_PLATFORM})

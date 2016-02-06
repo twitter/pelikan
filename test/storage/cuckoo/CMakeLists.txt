@@ -8,4 +8,5 @@ target_link_libraries(${test_name} ${suite})
 target_link_libraries(${test_name} ccommon-static ${CHECK_LIBRARIES})
 target_link_libraries(${test_name} time)
 
+add_dependencies(check ${test_name})
 add_test(${test_name} ${test_name})

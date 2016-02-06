@@ -4,7 +4,7 @@ set(SOURCE
     stats.c)
 
 set(LIBS
-    core    
+    core
     admin
     slab
     memcache
