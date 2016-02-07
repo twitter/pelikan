@@ -96,7 +96,7 @@ test_insert_collision(uint32_t policy, bool cas)
 
     time_update();
     for (i = 0; i < CUCKOO_NITEM + 1; i++) {
-        key.len = sprintf(keystring, "%llu", i);
+        key.len = sprintf(keystring, "%"PRIu64, i);
         key.data = keystring;
 
         val.type = VAL_TYPE_INT;
@@ -108,7 +108,7 @@ test_insert_collision(uint32_t policy, bool cas)
     }
 
     for (i = 0; i < CUCKOO_NITEM + 1; i++) {
-        key.len = sprintf(keystring, "%llu", i);
+        key.len = sprintf(keystring, "%"PRIu64, i);
         key.data = keystring;
 
         it = cuckoo_get(&key);
@@ -341,7 +341,7 @@ START_TEST(test_insert_replace_expired)
 
     now = NOW;
     for (i = 0; metrics.item_curr.counter < CUCKOO_NITEM; i++) {
-        key.len = sprintf(keystring, "%llu", i);
+        key.len = sprintf(keystring, "%"PRIu64, i);
         key.data = keystring;
 
         val.type = VAL_TYPE_INT;
@@ -354,7 +354,7 @@ START_TEST(test_insert_replace_expired)
 
     // dict is full, all items will expire in now + 1
     now += 2;
-    key.len = sprintf(keystring, "%llu", i);
+    key.len = sprintf(keystring, "%"PRIu64, i);
     key.data = keystring;
 
     val.type = VAL_TYPE_INT;
@@ -386,7 +386,7 @@ START_TEST(test_insert_insert_expire_swap)
 
     now = NOW;
     for (i = 0; metrics.item_curr.counter < CUCKOO_NITEM; i++) {
-        key.len = sprintf(keystring, "%llu", i);
+        key.len = sprintf(keystring, "%"PRIu64, i);
         key.data = keystring;
 
         val.type = VAL_TYPE_INT;
@@ -397,7 +397,7 @@ START_TEST(test_insert_insert_expire_swap)
                 status);
     }
 
-    key.len = sprintf(keystring, "%llu", i);
+    key.len = sprintf(keystring, "%"PRIu64, i);
     key.data = keystring;
 
     val.type = VAL_TYPE_INT;
