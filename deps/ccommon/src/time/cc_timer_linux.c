@@ -250,27 +250,29 @@ timeout_ns(struct timeout *e)
 int64_t
 timeout_us(struct timeout *e)
 {
-    return timeout_ns(e) / NSEC_PER_USEC;
+    return timeout_ns(e) / (int64_t)NSEC_PER_USEC;
 }
 
 int64_t
 timeout_ms(struct timeout *e)
 {
-    return timeout_ns(e) / NSEC_PER_MSEC;
+    return timeout_ns(e) / (int64_t)NSEC_PER_MSEC;
 }
 
 int64_t
 timeout_sec(struct timeout *e)
 {
-    return timeout_ns(e) / NSEC_PER_SEC;
+    return timeout_ns(e) / (int64_t)NSEC_PER_SEC;
 }
 
 void
 timeout_timespec(struct timespec *ts, struct timeout *e)
 {
-    uint64_t ns = timeout_ns(e);
+    int64_t ns = timeout_ns(e);
 
-    ts->tv_sec = ns / NSEC_PER_SEC;
+    ASSERT(ns >= 0);
+
+    ts->tv_sec = ns / (time_t)NSEC_PER_SEC;
     ts->tv_nsec = ns % NSEC_PER_SEC;
 }
 

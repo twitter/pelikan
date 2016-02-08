@@ -53,17 +53,17 @@ option(HAVE_LOGGING "logging enabled by default" ON)
 option(HAVE_STATS "stats enabled by default" ON)
 option(COVERAGE "code coverage" OFF)
 
-include (CheckIncludeFiles)
-if (OS_PLATFORM STREQUAL "OS_LINUX")
+include(CheckIncludeFiles)
+if(OS_PLATFORM STREQUAL "OS_LINUX")
     check_include_files(linux/time64.h HAVE_TIME64)
-endif ()
+endif()
 
-include (CheckIncludeFiles)
-if (OperatingSystem STREQUAL "OS_LINUX")
-    check_include_files (linux/time64.h HAVE_TIME64)
-endif ()
+include(CheckIncludeFiles)
+if(OperatingSystem STREQUAL "OS_LINUX")
+    check_include_files(linux/time64.h HAVE_TIME64)
+endif()
 
-include (CheckSymbolExists)
+include(CheckSymbolExists)
 check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
 
 include(CheckFunctionExists)
@@ -102,13 +102,20 @@ if (COVERAGE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -Wall -W -fprofile-arcs -ftest-coverage")
 endif(COVERAGE)
 
-# other dependencies
+# test dependencies
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
-find_package(Check REQUIRED)
+find_package(Check)
 if(NOT CHECK_FOUND)
-  MESSAGE(FATAL_ERROR "Check is required")
+    message(WARNING "Check is required to build and run tests")
 endif(NOT CHECK_FOUND)
+if(CHECK_FOUND)
+    check_symbol_exists(ck_assert_int_eq check.h CHECK_WORKING)
+    if(NOT CHECK_WORKING)
+        message(WARNING "Check version too old to build tests")
+    endif(NOT CHECK_WORKING)
+endif(CHECK_FOUND)
+
 find_package(Threads)
 
 # where to find include files
@@ -122,7 +129,9 @@ include_directories(${include_directories}
 ###################
 
 add_subdirectory(src)
-add_subdirectory(test)
+if(CHECK_WORKING)
+    add_subdirectory(test)
+endif(CHECK_WORKING)
 
 ###################
 # print a summary #
@@ -137,3 +146,5 @@ message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
 
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
 message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})
+
+message(STATUS "CHECK_WORKING: " ${CHECK_WORKING})

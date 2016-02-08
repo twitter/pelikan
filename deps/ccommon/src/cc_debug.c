@@ -24,7 +24,9 @@
 
 #include <ctype.h>
 #include <errno.h>
+#ifdef CC_BACKTRACE
 #include <execinfo.h>
+#endif /* CC_BACKTRACE */
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>

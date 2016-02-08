@@ -104,7 +104,7 @@ double duration_sec(struct duration *d);
  * the system clock and scheduling granularity is simply too coarse.
  *
  * The internal presentation limits the maximum timeout duration set by these
- * functions- here use should assume expiration is within 2^64 nanoseconds from
+ * functions- here user should assume expiration is within 2^64 nanoseconds from
  * the starting time of the monotonic clock.
  */
 
@@ -142,6 +142,10 @@ int64_t timeout_ns(struct timeout *e);
 int64_t timeout_us(struct timeout *e);
 int64_t timeout_ms(struct timeout *e);
 int64_t timeout_sec(struct timeout *e);
+/* Note: do not convert negative timeout values to timespec because it is
+ * problematic to assign a negative value to timespec.tv_sec and use it with
+ * certain Linux functions. See: https://lwn.net/Articles/394175/
+ */
 void timeout_timespec(struct timespec *ts, struct timeout *e);
 bool timeout_expired(struct timeout *e);
 
