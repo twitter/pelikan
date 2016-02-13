@@ -16,6 +16,8 @@
 /*          name                        type            description */
 #define PROCESS_METRIC(ACTION)                                          \
     ACTION( process_req,       METRIC_COUNTER, "# requests processed"  )\
+    ACTION( process_ex,        METRIC_COUNTER, "# processing error"    )\
+    ACTION( process_server_ex, METRIC_COUNTER, "# internal error"      )\
     ACTION( get,               METRIC_COUNTER, "# get requests"        )\
     ACTION( get_key,           METRIC_COUNTER, "# keys by get"         )\
     ACTION( get_key_hit,       METRIC_COUNTER, "# key hits by get"     )\

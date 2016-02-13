@@ -173,6 +173,14 @@ _get_value(struct val *val, struct bstring *vstr)
 }
 
 static void
+_error_rsp(struct response *rsp, char *msg)
+{
+    INCR(process_metrics, process_ex);
+    rsp->type = RSP_CLIENT_ERROR;
+    rsp->vstr = str2bstr(msg);
+}
+
+static void
 _process_set(struct response *rsp, struct request *req)
 {
     rstatus_i status = CC_OK;
@@ -197,8 +205,7 @@ _process_set(struct response *rsp, struct request *req)
         rsp->type = RSP_STORED;
         INCR(process_metrics, set_stored);
     } else {
-        rsp->type = RSP_CLIENT_ERROR;
-        rsp->vstr = str2bstr(STORE_ERR_MSG);
+        _error_rsp(rsp, STORE_ERR_MSG);
         INCR(process_metrics, set_ex);
     }
 
@@ -224,8 +231,7 @@ _process_add(struct response *rsp, struct request *req)
             rsp->type = RSP_STORED;
             INCR(process_metrics, add_stored);
         } else {
-            rsp->type = RSP_CLIENT_ERROR;
-            rsp->vstr = str2bstr(STORE_ERR_MSG);
+            _error_rsp(rsp, STORE_ERR_MSG);
             INCR(process_metrics, add_ex);
         }
     }
@@ -249,8 +255,7 @@ _process_replace(struct response *rsp, struct request *req)
             rsp->type = RSP_STORED;
             INCR(process_metrics, replace_stored);
         } else {
-            rsp->type = RSP_CLIENT_ERROR;
-            rsp->vstr = str2bstr(STORE_ERR_MSG);
+            _error_rsp(rsp, STORE_ERR_MSG);
             INCR(process_metrics, replace_ex);
         }
     } else {
@@ -279,8 +284,7 @@ _process_cas(struct response *rsp, struct request *req)
                 rsp->type = RSP_STORED;
                 INCR(process_metrics, cas_stored);
             } else {
-                rsp->type = RSP_CLIENT_ERROR;
-                rsp->vstr = str2bstr(STORE_ERR_MSG);
+                _error_rsp(rsp, STORE_ERR_MSG);
                 INCR(process_metrics, cas_ex);
             }
         } else {
@@ -307,8 +311,7 @@ _process_incr(struct response *rsp, struct request *req)
     it = cuckoo_get(key);
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
-            rsp->type = RSP_CLIENT_ERROR;
-            rsp->vstr = str2bstr(DELTA_ERR_MSG);
+            _error_rsp(rsp, DELTA_ERR_MSG);
             INCR(process_metrics, incr_ex);
             /* TODO(yao): binary key */
             log_warn("value not int, cannot apply incr on key %.*s val %.*s",
@@ -343,8 +346,7 @@ _process_decr(struct response *rsp, struct request *req)
     it = cuckoo_get(key);
     if (NULL != it) {
         if (item_vtype(it) != VAL_TYPE_INT) {
-            rsp->type = RSP_CLIENT_ERROR;
-            rsp->vstr = str2bstr(DELTA_ERR_MSG);
+            _error_rsp(rsp, DELTA_ERR_MSG);
             INCR(process_metrics, decr_ex);
             /* TODO(yao): binary key */
             log_warn("value not int, cannot apply decr on key %.*s val %.*s",
@@ -381,8 +383,7 @@ _process_flush(struct response *rsp, struct request *req)
 
         log_info("flush req %p processed, rsp type %d", req, rsp->type);
     } else {
-        rsp->type = RSP_CLIENT_ERROR;
-        rsp->vstr = str2bstr(OTHER_ERR_MSG);
+        _error_rsp(rsp, OTHER_ERR_MSG);
     }
 }
 

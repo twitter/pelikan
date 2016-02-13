@@ -9,7 +9,8 @@
     ACTION( worker_event_loop,      METRIC_COUNTER, "# worker event loops returned" )\
     ACTION( worker_event_read,      METRIC_COUNTER, "# worker core_read events"     )\
     ACTION( worker_event_write,     METRIC_COUNTER, "# worker core_write events"    )\
-    ACTION( worker_event_error,     METRIC_COUNTER, "# worker core_error events"    )
+    ACTION( worker_event_error,     METRIC_COUNTER, "# worker core_error events"    )\
+    ACTION( worker_oom_ex,          METRIC_COUNTER, "# worker error due to oom"     )
 
 typedef struct {
     CORE_WORKER_METRIC(METRIC_DECLARE)
