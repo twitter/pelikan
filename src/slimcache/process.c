@@ -172,7 +172,7 @@ _get_value(struct val *val, struct bstring *vstr)
     }
 }
 
-static void
+static inline void
 _error_rsp(struct response *rsp, char *msg)
 {
     INCR(process_metrics, process_ex);
