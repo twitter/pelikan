@@ -155,6 +155,8 @@ _process_delete(struct response *rsp, struct request *req)
 static void
 _error_rsp(struct response *rsp, item_rstatus_t status)
 {
+    INCR(process_metrics, process_ex);
+
     if (status == ITEM_EOVERSIZED) {
         rsp->type = RSP_CLIENT_ERROR;
         rsp->vstr = str2bstr(OVERSIZE_ERR_MSG);
@@ -164,10 +166,12 @@ _error_rsp(struct response *rsp, item_rstatus_t status)
     } else if (status == ITEM_ENOMEM) {
         rsp->type = RSP_SERVER_ERROR;
         rsp->vstr = str2bstr(OOM_ERR_MSG);
+        INCR(process_metrics, process_server_ex);
     } else {
         NOT_REACHED();
         rsp->type = RSP_SERVER_ERROR;
         rsp->vstr = str2bstr(OTHER_ERR_MSG);
+        INCR(process_metrics, process_server_ex);
     }
 }
 

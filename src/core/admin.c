@@ -128,6 +128,8 @@ _admin_post_read(struct buf_sock *s)
     op = s->data;
 
     if (op == NULL) {
+        log_error("cannot acquire op: OOM");
+
         goto error;
     }
 
@@ -155,7 +157,8 @@ _admin_post_read(struct buf_sock *s)
 
         rep = reply_create();
         if (rep == NULL) {
-            log_error("could not allocate reply object");
+            log_error("could not allocate reply object due to OOM");
+
             goto error;
         }
 
@@ -168,6 +171,7 @@ _admin_post_read(struct buf_sock *s)
                 nr = STAILQ_NEXT(nr, next);
                 if (nr == NULL) {
                     log_error("cannot create enough reply objects due to OOM");
+
                     goto error;
                 }
             }

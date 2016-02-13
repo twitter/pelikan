@@ -113,6 +113,7 @@ _post_read(struct buf_sock *s)
          * message and send it to the client later.
          */
         log_error("cannot acquire request: OOM");
+        INCR(worker_metrics, worker_oom_ex);
 
         goto error;
     }
@@ -160,6 +161,7 @@ _post_read(struct buf_sock *s)
             nr = STAILQ_NEXT(nr, next);
             if (nr == NULL) {
                 log_error("cannot borrow enough rsp objects, close channel");
+                INCR(worker_metrics, worker_oom_ex);
 
                 goto error;
             }
