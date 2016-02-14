@@ -15,7 +15,12 @@ brew install cmake check
 ### Ubuntu
 
 ```sh
-apt-get install cmake check
+apt-get install cmake libtool autoconf automake pkg-config texinfo
+git clone https://github.com/libcheck/check.git
+cd check
+autoreconf --install
+make
+sudo make install
 ```
 
 ## Build
