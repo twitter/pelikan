@@ -49,6 +49,9 @@ _dbuf_resize(struct buf **buf, uint32_t nsize)
 {
     struct buf *nbuf;
     uint32_t size = buf_size(*buf);
+    if (nsize == size) {
+        return CC_OK;
+    }
     uint32_t roffset = (*buf)->rpos - (*buf)->begin;
     uint32_t woffset = (*buf)->wpos - (*buf)->begin;
 
