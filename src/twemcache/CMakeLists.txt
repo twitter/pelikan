@@ -1,5 +1,6 @@
 set(SOURCE
     main.c
+    process_admin.c
     process.c
     stats.c)
 

@@ -39,4 +39,5 @@ op_reset(struct op *op)
 
     op->state = OP_PARSING;
     op->type = OP_UNKNOWN;
+    bstring_init(&op->arg);
 }

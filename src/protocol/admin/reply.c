@@ -32,29 +32,10 @@ reply_destroy(struct reply **rep)
 }
 
 void
-reply_destroy_all(struct reply **rep)
-{
-    ASSERT(rep != NULL);
-
-    struct reply *nr, *r = *rep;
-
-    while (r != NULL) {
-        nr = STAILQ_NEXT(r, next);
-        reply_destroy(&r);
-        r = nr;
-    }
-
-    *rep = NULL;
-}
-
-void
 reply_reset(struct reply *rep)
 {
     ASSERT(rep != NULL);
 
-    STAILQ_NEXT(rep, next) = NULL;
-    rep->state = REP_PARSING;
-    rep->type = REP_UNKNOWN;
-    rep->met = NULL;
-    bstring_init(&rep->vstr);
+    rep->type = REP_GENERIC;
+    bstring_init(&rep->data);
 }

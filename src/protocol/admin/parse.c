@@ -8,10 +8,18 @@
 
 #include <ctype.h>
 
-static inline void
-_skip_whitespace(struct buf *buf)
+static inline bool
+_is_crlf(struct buf *buf, char *p)
 {
-    for (; isspace(*buf->rpos) && buf->rpos < buf->wpos; ++buf->rpos);
+    if (*p != CR || buf->wpos == p + 1) {
+        return false;
+    }
+
+    if (*(p + 1) == LF) {
+        return true;
+    }
+
+    return false;
 }
 
 static inline parse_rstatus_t
@@ -56,28 +64,31 @@ _get_op_type(struct op *op, struct bstring *type)
 parse_rstatus_t
 parse_op(struct op *op, struct buf *buf)
 {
-    char *p;
+    char *p, *q;
     struct bstring type;
-    parse_rstatus_t status;
 
-    _skip_whitespace(buf);
+    while (*buf->rpos == ' ' && buf->rpos < buf->wpos) {
+        buf->rpos++;
+    }
+    p = q = buf->rpos;
 
-    for (p = buf->rpos; p < buf->wpos; ++p) {
-        if (isspace(*p)) {
-            type.data = buf->rpos;
-            type.len = p - buf->rpos;
-            ASSERT(type.len > 0);
-
-            status = _get_op_type(op, &type);
-
-            buf->rpos = p + 1;
-            ASSERT(buf->rpos <= buf->wpos);
-
-            op->state = OP_PARSED;
-
-            return status;
-        }
+    /* First find CRLF, this simplifies parsing. For admin port we don't care
+     * much about efficiency.
+     */
+    for (; !_is_crlf(buf, p) && p < buf->wpos; p++);
+    if (p == buf->wpos) {
+        return PARSE_EUNFIN;
     }
 
-    return PARSE_EUNFIN;
+    for (; *q != ' ' && q < p; q++);
+
+    type.data = buf->rpos;
+    type.len = q - buf->rpos;
+    if (p < q) { /* intentional: pointing to the leading space */
+        op->arg.len = p - q;
+        op->arg.data = q;
+    }
+    op->state = OP_PARSED;
+    buf->rpos = p + CRLF_LEN;
+    return _get_op_type(op, &type);
 }

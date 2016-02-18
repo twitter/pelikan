@@ -35,6 +35,9 @@ static channel_handler_st *hdl = &handlers;
 
 static struct buf_sock *serversock;
 
+static struct op op;
+static struct reply rep;
+
 static inline void
 _admin_close(struct buf_sock *s)
 {
@@ -118,30 +121,16 @@ static void
 _admin_post_read(struct buf_sock *s)
 {
     parse_rstatus_t status;
-    struct op *op;
-    struct reply *rep;
 
-    if (s->data == NULL) {
-        s->data = op_create();
-    }
-
-    op = s->data;
-
-    if (op == NULL) {
-        log_error("cannot acquire op: OOM");
-
-        goto error;
-    }
+    op_reset(&op);
 
     while (buf_rsize(s->rbuf) > 0) {
-        struct reply *nr;
-        int n, i;
+        int n;
 
-        status = parse_op(op, s->rbuf);
+        status = parse_op(&op, s->rbuf);
         if (status == PARSE_EUNFIN) {
             goto done;
         }
-
         if (status != PARSE_OK) {
             log_info("illegal request received on admin port status %d",
                      status);
@@ -149,56 +138,21 @@ _admin_post_read(struct buf_sock *s)
         }
 
         /* processing */
-        if (op->type == OP_QUIT) {
+        if (op.type == OP_QUIT) {
             log_info("peer called quit");
             s->ch->state = CHANNEL_TERM;
             goto done;
         }
 
-        rep = reply_create();
-        if (rep == NULL) {
-            log_error("could not allocate reply object due to OOM");
+        reply_reset(&rep);
 
-            goto error;
-        }
+        admin_op(&rep, &op);
 
-        if (op->type == OP_STATS) {
-            size_t card = stats_card();
-
-            /* start at i == 0, since we want an extra reply object for "END" */
-            for (i = 0, nr = rep; i <= card; ++i) {
-                STAILQ_NEXT(nr, next) = reply_create();
-                nr = STAILQ_NEXT(nr, next);
-                if (nr == NULL) {
-                    log_error("cannot create enough reply objects due to OOM");
-
-                    goto error;
-                }
-            }
-        }
-
-        process_op(rep, op);
-
-        nr = rep;
-        if (op->type == OP_STATS) {
-            size_t card = stats_card();
-            for (i = 0; i < card; nr = STAILQ_NEXT(nr, next), ++i) {
-                /* process returns an extra rep for REP_END */
-                n = compose_rep(&s->wbuf, nr);
-                if (n < 0) {
-                    log_error("composing rep erred, terminate channel");
-                    goto error;
-                }
-            }
-        }
-        n = compose_rep(&s->wbuf, nr);
+        n = compose_rep(&s->wbuf, &rep);
         if (n < 0) {
             log_error("compose reply error");
             goto error;
         }
-
-        op_reset(op);
-        reply_destroy_all(&rep);
     }
 
 done:
@@ -208,7 +162,6 @@ done:
     return;
 
 error:
-    reply_destroy_all(&rep);
     s->ch->state = CHANNEL_TERM;
 }
 
@@ -243,7 +196,6 @@ _admin_event(void *arg, uint32_t events)
     }
 
     if (s->ch->state == CHANNEL_TERM || s->ch->state == CHANNEL_ERROR) {
-        op_destroy((struct op **)&s->data);
         _admin_close(s);
     }
 }

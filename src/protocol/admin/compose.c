@@ -26,24 +26,19 @@ _check_buf_size(struct buf **buf, uint32_t n)
 int
 compose_op(struct buf **buf, struct op *op)
 {
-    op_type_t type = op->type;
-    struct bstring *str = &op_strings[type];
+    struct bstring *str = &op_strings[op->type];
     int n = 0;
 
-    switch (type) {
-    case OP_STATS:
-    case OP_VERSION:
-    case OP_QUIT:
-        if (_check_buf_size(buf, str->len + CRLF_LEN) != COMPOSE_OK) {
-            return COMPOSE_ENOMEM;
-        }
-        n += buf_write(*buf, str->data, str->len);
-        n += buf_write(*buf, CRLF, CRLF_LEN);
-        break;
-    default:
-        NOT_REACHED();
-        break;
+    if (_check_buf_size(buf, str->len + op->arg.len + CRLF_LEN) !=
+            COMPOSE_OK) {
+        return COMPOSE_ENOMEM;
     }
+
+    n += buf_write(*buf, str->data, str->len);
+    if (op->arg.len > 0) {
+        n += buf_write(*buf, op->arg.data, op->arg.len);
+    }
+    n += buf_write(*buf, CRLF, CRLF_LEN);
 
     return n;
 }
@@ -51,46 +46,16 @@ compose_op(struct buf **buf, struct op *op)
 int
 compose_rep(struct buf **buf, struct reply *rep)
 {
+    struct bstring *str = &reply_strings[rep->type];
     int n = 0;
-    reply_type_t type = rep->type;
-    struct bstring stat_str, *str = &reply_strings[type];
-    char stat_buf[STAT_MAX_LEN];
 
-    switch (type) {
-    case REP_STAT:
-        stat_str.len = metric_print(stat_buf, STAT_MAX_LEN, rep->met);
-        if (stat_str.len == 0) {
-            return COMPOSE_EOVERSIZED;
-        }
-        stat_str.data = stat_buf;
-        if (_check_buf_size(buf, str->len + stat_str.len + CRLF_LEN) !=
-            COMPOSE_OK) {
-            return COMPOSE_ENOMEM;
-        }
-        n += buf_write(*buf, str->data, str->len);
-        n += buf_write(*buf, stat_str.data, stat_str.len);
-        n += buf_write(*buf, CRLF, CRLF_LEN);
-        break;
-    case REP_VERSION:
-    case REP_CLIENT_ERROR:
-    case REP_SERVER_ERROR:
-        if (_check_buf_size(buf, str->len + rep->vstr.len + CRLF_LEN) !=
-            COMPOSE_OK) {
-            return COMPOSE_ENOMEM;
-        }
-        n += buf_write(*buf, str->data, str->len);
-        n += buf_write(*buf, rep->vstr.data, rep->vstr.len);
-        n += buf_write(*buf, CRLF, CRLF_LEN);
-        break;
-    case REP_END:
-        if (_check_buf_size(buf, str->len) != COMPOSE_OK) {
-            return COMPOSE_ENOMEM;
-        }
-        n += buf_write(*buf, str->data, str->len);
-        break;
-    default:
-        NOT_REACHED();
-        break;
+    if (_check_buf_size(buf, str->len + rep->data.len) != COMPOSE_OK) {
+        return COMPOSE_ENOMEM;
+    }
+
+    n += buf_write(*buf, str->data, str->len);
+    if (rep->data.len > 0) {
+        n += buf_write(*buf, rep->data.data, rep->data.len);
     }
 
     return n;

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <protocol/memcache/process.h>
-#include <protocol/admin/process.h>
 
 #include <buffer/cc_buf.h>
 #include <cc_define.h>
@@ -63,10 +62,7 @@
     ACTION( prepend_stored,    METRIC_COUNTER, "# prepend successes"   )\
     ACTION( prepend_notstored, METRIC_COUNTER, "# prepend not_founds"  )\
     ACTION( prepend_ex,        METRIC_COUNTER, "# prepend errors"      )\
-    ACTION( stats,             METRIC_COUNTER, "# stats requests"      )\
-    ACTION( stats_ex,          METRIC_COUNTER, "# stats errors"        )\
-    ACTION( flush,             METRIC_COUNTER, "# flush_all requests"  )\
-    ACTION( version,           METRIC_COUNTER, "# version requests"    )
+    ACTION( flush,             METRIC_COUNTER, "# flush_all requests"  )
 
 typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)
