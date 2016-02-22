@@ -3,14 +3,8 @@
 #include <cc_debug.h>
 #include <cc_mm.h>
 
-#define GET_STRING(_name, _str) {sizeof(_str) - 1, (_str)},
-struct bstring req_strings[] = {
-    REQ_TYPE_MSG(GET_STRING)
-};
-#undef GET_STRING
-
 struct request *
-request_create(void)
+admin_request_create(void)
 {
     struct request *req = cc_alloc(sizeof(struct request));
 
@@ -18,13 +12,13 @@ request_create(void)
         return NULL;
     }
 
-    request_reset(req);
+    admin_request_reset(req);
 
     return req;
 }
 
 void
-request_destroy(struct request **req)
+admin_request_destroy(struct request **req)
 {
     ASSERT(*req != NULL);
 
@@ -33,7 +27,7 @@ request_destroy(struct request **req)
 }
 
 void
-request_reset(struct request *req)
+admin_request_reset(struct request *req)
 {
     ASSERT(req != NULL);
 

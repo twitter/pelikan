@@ -1,4 +1,4 @@
 set(SOURCE
    )
 
-add_library(redis ${SOURCE})
+add_library(protocol_redis ${SOURCE})

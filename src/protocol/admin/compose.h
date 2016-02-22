@@ -11,5 +11,5 @@ struct request;
 struct response;
 
 /* if the return value is negative, it can be interpreted as compose_rstatus */
-int compose_req(struct buf **buf, struct request *req);
-int compose_rsp(struct buf **buf, struct response *rsp);
+int admin_compose_req(struct buf **buf, struct request *req);
+int admin_compose_rsp(struct buf **buf, struct response *rsp);

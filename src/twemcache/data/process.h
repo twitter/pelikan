@@ -2,8 +2,6 @@
 
 #include <protocol/memcache/process.h>
 
-#include <buffer/cc_buf.h>
-#include <cc_define.h>
 #include <cc_metric.h>
 
 #include <stdbool.h>

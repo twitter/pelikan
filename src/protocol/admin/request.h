@@ -34,8 +34,6 @@ typedef enum request_type {
 } request_type_t;
 #undef GET_TYPE
 
-extern struct bstring req_strings[REQ_SENTINEL];
-
 typedef enum request_state {
     REQ_PARSING,
     REQ_PARSED,
@@ -49,6 +47,6 @@ struct request {
     struct bstring  arg;
 };
 
-struct request *request_create(void);
-void request_destroy(struct request **req);
-void request_reset(struct request *req);
+struct request *admin_request_create(void);
+void admin_request_destroy(struct request **req);
+void admin_request_reset(struct request *req);

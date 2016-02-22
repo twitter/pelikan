@@ -4,9 +4,9 @@
  * event driven stuff is handled, it is not a replacement of main()
  */
 
-#include <core/admin.h>
-#include <core/server.h>
-#include <core/worker.h>
+#include <core/admin/admin.h>
+#include <core/server/server.h>
+#include <core/worker/worker.h>
 
 #include <cc_define.h>
 #include <channel/cc_channel.h>

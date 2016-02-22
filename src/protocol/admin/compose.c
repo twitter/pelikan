@@ -8,6 +8,16 @@
 
 #define STAT_MAX_LEN 64 /* metric name <32, value <21 */
 
+#define GET_STRING(_name, _str) {sizeof(_str) - 1, (_str)},
+static struct bstring req_strings[] = {
+    REQ_TYPE_MSG(GET_STRING)
+};
+
+static struct bstring rsp_strings[] = {
+    RSP_TYPE_MSG(GET_STRING)
+};
+#undef GET_STRING
+
 static inline compose_rstatus_t
 _check_buf_size(struct buf **buf, uint32_t n)
 {
@@ -24,7 +34,7 @@ _check_buf_size(struct buf **buf, uint32_t n)
 }
 
 int
-compose_req(struct buf **buf, struct request *req)
+admin_compose_req(struct buf **buf, struct request *req)
 {
     struct bstring *str = &req_strings[req->type];
     int n = 0;
@@ -44,7 +54,7 @@ compose_req(struct buf **buf, struct request *req)
 }
 
 int
-compose_rsp(struct buf **buf, struct response *rsp)
+admin_compose_rsp(struct buf **buf, struct response *rsp)
 {
     struct bstring *str = &rsp_strings[rsp->type];
     int n = 0;

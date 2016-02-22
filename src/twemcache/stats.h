@@ -3,8 +3,8 @@
 #include <protocol/memcache_include.h>
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
-#include <twemcache/process.h>
-#include <twemcache/process_admin.h>
+#include <twemcache/data/process.h>
+#include <twemcache/admin/process.h>
 #include <core/core.h>
 #include <util/procinfo.h>
 #include <util/stats.h>
@@ -23,7 +23,7 @@ struct glob_stats {
     klog_metrics_st             klog_metrics;
     parse_req_metrics_st        parse_req_metrics;
     process_metrics_st          process_metrics;
-    process_admin_metrics_st    process_admin_metrics;
+    admin_process_metrics_st    admin_process_metrics;
     procinfo_metrics_st         procinfo_metrics;
     request_metrics_st          request_metrics;
     response_metrics_st         response_metrics;

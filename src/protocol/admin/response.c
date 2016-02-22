@@ -3,14 +3,8 @@
 #include <cc_debug.h>
 #include <cc_mm.h>
 
-#define GET_STRING(_name, _str) {sizeof(_str) - 1, (_str)},
-struct bstring rsp_strings[] = {
-    RSP_TYPE_MSG(GET_STRING)
-};
-#undef GET_STRING
-
 struct response *
-response_create(void)
+admin_response_create(void)
 {
     struct response *rsp = cc_alloc(sizeof(struct response));
 
@@ -18,12 +12,12 @@ response_create(void)
         return NULL;
     }
 
-    response_reset(rsp);
+    admin_response_reset(rsp);
     return rsp;
 }
 
 void
-response_destroy(struct response **rsp)
+admin_response_destroy(struct response **rsp)
 {
     ASSERT(*rsp != NULL);
 
@@ -32,7 +26,7 @@ response_destroy(struct response **rsp)
 }
 
 void
-response_reset(struct response *rsp)
+admin_response_reset(struct response *rsp)
 {
     ASSERT(rsp != NULL);
 

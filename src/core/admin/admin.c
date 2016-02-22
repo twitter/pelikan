@@ -1,4 +1,4 @@
-#include <core/admin.h>
+#include <core/admin/admin.h>
 
 #include <core/shared.h>
 
@@ -121,12 +121,12 @@ _admin_post_read(struct buf_sock *s)
 {
     parse_rstatus_t status;
 
-    request_reset(&req);
+    admin_request_reset(&req);
 
     while (buf_rsize(s->rbuf) > 0) {
         int n;
 
-        status = parse_req(&req, s->rbuf);
+        status = admin_parse_req(&req, s->rbuf);
         if (status == PARSE_EUNFIN) {
             goto done;
         }
@@ -143,11 +143,11 @@ _admin_post_read(struct buf_sock *s)
             goto done;
         }
 
-        response_reset(&rsp);
+        admin_response_reset(&rsp);
 
-        process_admin(&rsp, &req);
+        admin_process_request(&rsp, &req);
 
-        n = compose_rsp(&s->wbuf, &rsp);
+        n = admin_compose_rsp(&s->wbuf, &rsp);
         if (n < 0) {
             log_error("compose response error");
             goto error;

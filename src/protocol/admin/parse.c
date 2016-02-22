@@ -61,7 +61,7 @@ _get_req_type(struct request *req, struct bstring *type)
 }
 
 parse_rstatus_t
-parse_req(struct request *req, struct buf *buf)
+admin_parse_req(struct request *req, struct buf *buf)
 {
     char *p, *q;
     struct bstring type;

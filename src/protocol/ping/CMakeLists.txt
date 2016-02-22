@@ -4,4 +4,4 @@ set(SOURCE
     parse.c
     compose.c)
 
-add_library(ping ${SOURCE})
+add_library(protocol_ping ${SOURCE})

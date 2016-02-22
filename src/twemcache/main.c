@@ -1,4 +1,4 @@
-#include <twemcache/process.h>
+#include <twemcache/data/process.h>
 #include <twemcache/setting.h>
 #include <twemcache/stats.h>
 
@@ -99,7 +99,7 @@ setup(void)
                &glob_stats.klog_metrics);
     process_setup(setting.allow_flush.val.vbool,
                   &glob_stats.process_metrics);
-    process_admin_setup(&glob_stats.process_admin_metrics);
+    admin_process_setup(&glob_stats.admin_process_metrics);
 
     buf_setup((uint32_t)setting.buf_init_size.val.vuint, &glob_stats.buf_metrics);
     dbuf_setup((uint32_t)setting.dbuf_max_power.val.vuint);

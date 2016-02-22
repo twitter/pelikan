@@ -18,16 +18,16 @@ static void
 test_setup(void)
 {
     buf_setup(BUF_INIT_SIZE, NULL);
-    req = request_create();
-    rsp = response_create();
+    req = admin_request_create();
+    rsp = admin_response_create();
     buf = buf_create();
 }
 
 static void
 test_reset(void)
 {
-    request_reset(req);
-    response_reset(rsp);
+    admin_request_reset(req);
+    admin_response_reset(rsp);
     buf_reset(buf);
 }
 
@@ -35,8 +35,8 @@ static void
 test_teardown(void)
 {
     buf_destroy(&buf);
-    response_destroy(&rsp);
-    request_destroy(&req);
+    admin_response_destroy(&rsp);
+    admin_request_destroy(&req);
     buf_teardown();
 }
 
@@ -57,13 +57,13 @@ START_TEST(test_quit)
 
     /* compose */
     req->type = REQ_QUIT;
-    ret = compose_req(&buf, req);
+    ret = admin_compose_req(&buf, req);
     ck_assert_msg(ret == len, "expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
     /* parse */
-    request_reset(req);
-    ret = parse_req(req, buf);
+    admin_request_reset(req);
+    ret = admin_parse_req(req, buf);
     ck_assert_int_eq(ret, PARSE_OK);
     ck_assert(req->state == REQ_PARSED);
     ck_assert(req->type = REQ_QUIT);
@@ -81,13 +81,13 @@ START_TEST(test_stats)
 
     /* compose */
     req->type = REQ_STATS;
-    ret = compose_req(&buf, req);
+    ret = admin_compose_req(&buf, req);
     ck_assert_msg(ret == len, "expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
     /* parse */
-    request_reset(req);
-    ret = parse_req(req, buf);
+    admin_request_reset(req);
+    ret = admin_parse_req(req, buf);
     ck_assert_int_eq(ret, PARSE_OK);
     ck_assert(req->state == REQ_PARSED);
     ck_assert(req->type = REQ_STATS);
@@ -105,13 +105,13 @@ START_TEST(test_version)
 
     /* compose */
     req->type = REQ_VERSION;
-    ret = compose_req(&buf, req);
+    ret = admin_compose_req(&buf, req);
     ck_assert_msg(ret == len, "expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
     /* parse */
-    request_reset(req);
-    ret = parse_req(req, buf);
+    admin_request_reset(req);
+    ret = admin_parse_req(req, buf);
     ck_assert_int_eq(ret, PARSE_OK);
     ck_assert(req->state == REQ_PARSED);
     ck_assert(req->type = REQ_VERSION);

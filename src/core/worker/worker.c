@@ -1,4 +1,4 @@
-#include <core/worker.h>
+#include <core/worker/worker.h>
 
 #include <core/shared.h>
 

@@ -3,4 +3,4 @@
 struct request;
 struct response;
 
-void process_admin(struct response *rsp, struct request *req);
+void admin_process_request(struct response *rsp, struct request *req);

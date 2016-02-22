@@ -15,13 +15,11 @@ typedef enum response_type {
 } response_type_t;
 #undef GET_TYPE
 
-extern struct bstring rsp_strings[RSP_SENTINEL];
-
 struct response {
     response_type_t type;
     struct bstring  data;    /* value string */
 };
 
-struct response *response_create(void);
-void response_destroy(struct response **rsp);
-void response_reset(struct response *rsp);
+struct response *admin_response_create(void);
+void admin_response_destroy(struct response **rsp);
+void admin_response_reset(struct response *rsp);

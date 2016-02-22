@@ -1,8 +1,8 @@
 #pragma once
 
-#include <twemcache/process.h>
+#include <twemcache/data/process.h>
 
-#include <core/admin.h>
+#include <core/admin/admin.h>
 #include <storage/slab/slab.h>
 #include <storage/slab/item.h>
 #include <protocol/memcache_include.h>

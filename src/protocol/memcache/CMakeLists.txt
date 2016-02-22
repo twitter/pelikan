@@ -5,4 +5,4 @@ set(SOURCE
     compose.c
     klog.c)
 
-add_library(memcache ${SOURCE})
+add_library(protocol_memcache ${SOURCE})
