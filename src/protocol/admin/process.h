@@ -1,6 +1,6 @@
 #pragma once
 
-struct op;
-struct reply;
+struct request;
+struct response;
 
-void admin_op(struct reply *rep, struct op *op);
+void process_admin(struct response *rsp, struct request *req);

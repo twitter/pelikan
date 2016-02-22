@@ -3,7 +3,6 @@
 #include <core/shared.h>
 
 #include <protocol/admin_include.h>
-#include <time/time.h>
 #include <util/stats.h>
 
 #include <buffer/cc_buf.h>
@@ -35,8 +34,8 @@ static channel_handler_st *hdl = &handlers;
 
 static struct buf_sock *serversock;
 
-static struct op op;
-static struct reply rep;
+static struct request req;
+static struct response rsp;
 
 static inline void
 _admin_close(struct buf_sock *s)
@@ -122,12 +121,12 @@ _admin_post_read(struct buf_sock *s)
 {
     parse_rstatus_t status;
 
-    op_reset(&op);
+    request_reset(&req);
 
     while (buf_rsize(s->rbuf) > 0) {
         int n;
 
-        status = parse_op(&op, s->rbuf);
+        status = parse_req(&req, s->rbuf);
         if (status == PARSE_EUNFIN) {
             goto done;
         }
@@ -138,19 +137,19 @@ _admin_post_read(struct buf_sock *s)
         }
 
         /* processing */
-        if (op.type == OP_QUIT) {
+        if (req.type == REQ_QUIT) {
             log_info("peer called quit");
             s->ch->state = CHANNEL_TERM;
             goto done;
         }
 
-        reply_reset(&rep);
+        response_reset(&rsp);
 
-        admin_op(&rep, &op);
+        process_admin(&rsp, &req);
 
-        n = compose_rep(&s->wbuf, &rep);
+        n = compose_rsp(&s->wbuf, &rsp);
         if (n < 0) {
-            log_error("compose reply error");
+            log_error("compose response error");
             goto error;
         }
     }
@@ -290,8 +289,6 @@ admin_evwait(void)
     if (n < 0) {
         return n;
     }
-
-    time_update();
 
     return CC_OK;
 }

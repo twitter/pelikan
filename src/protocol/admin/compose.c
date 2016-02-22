@@ -1,7 +1,7 @@
 #include <protocol/admin/compose.h>
 
-#include <protocol/admin/op.h>
-#include <protocol/admin/reply.h>
+#include <protocol/admin/request.h>
+#include <protocol/admin/response.h>
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
@@ -24,19 +24,19 @@ _check_buf_size(struct buf **buf, uint32_t n)
 }
 
 int
-compose_op(struct buf **buf, struct op *op)
+compose_req(struct buf **buf, struct request *req)
 {
-    struct bstring *str = &op_strings[op->type];
+    struct bstring *str = &req_strings[req->type];
     int n = 0;
 
-    if (_check_buf_size(buf, str->len + op->arg.len + CRLF_LEN) !=
+    if (_check_buf_size(buf, str->len + req->arg.len + CRLF_LEN) !=
             COMPOSE_OK) {
         return COMPOSE_ENOMEM;
     }
 
     n += buf_write(*buf, str->data, str->len);
-    if (op->arg.len > 0) {
-        n += buf_write(*buf, op->arg.data, op->arg.len);
+    if (req->arg.len > 0) {
+        n += buf_write(*buf, req->arg.data, req->arg.len);
     }
     n += buf_write(*buf, CRLF, CRLF_LEN);
 
@@ -44,18 +44,18 @@ compose_op(struct buf **buf, struct op *op)
 }
 
 int
-compose_rep(struct buf **buf, struct reply *rep)
+compose_rsp(struct buf **buf, struct response *rsp)
 {
-    struct bstring *str = &reply_strings[rep->type];
+    struct bstring *str = &rsp_strings[rsp->type];
     int n = 0;
 
-    if (_check_buf_size(buf, str->len + rep->data.len) != COMPOSE_OK) {
+    if (_check_buf_size(buf, str->len + rsp->data.len) != COMPOSE_OK) {
         return COMPOSE_ENOMEM;
     }
 
     n += buf_write(*buf, str->data, str->len);
-    if (rep->data.len > 0) {
-        n += buf_write(*buf, rep->data.data, rep->data.len);
+    if (rsp->data.len > 0) {
+        n += buf_write(*buf, rsp->data.data, rsp->data.len);
     }
 
     return n;

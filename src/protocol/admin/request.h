@@ -21,34 +21,34 @@
  * whole blob.
  */
 
-#define OP_TYPE_MSG(ACTION)                  \
-    ACTION( OP_UNKNOWN,       ""            )\
-    ACTION( OP_STATS,         "stats"       )\
-    ACTION( OP_VERSION,       "version"     )\
-    ACTION( OP_QUIT,          "quit"        )
+#define REQ_TYPE_MSG(ACTION)                \
+    ACTION( REQ_UNKNOWN,       ""          )\
+    ACTION( REQ_STATS,         "stats"     )\
+    ACTION( REQ_VERSION,       "version"   )\
+    ACTION( REQ_QUIT,          "quit"      )
 
 #define GET_TYPE(_name, _str) _name,
-typedef enum op_type {
-    OP_TYPE_MSG(GET_TYPE)
-    OP_SENTINEL
-} op_type_t;
+typedef enum request_type {
+    REQ_TYPE_MSG(GET_TYPE)
+    REQ_SENTINEL
+} request_type_t;
 #undef GET_TYPE
 
-extern struct bstring op_strings[OP_SENTINEL];
+extern struct bstring req_strings[REQ_SENTINEL];
 
-typedef enum op_state {
-    OP_PARSING,
-    OP_PARSED,
-    OP_PROCESSING,
-    OP_DONE,
-} op_state_t;
+typedef enum request_state {
+    REQ_PARSING,
+    REQ_PARSED,
+    REQ_PROCESSING,
+    REQ_DONE,
+} request_state_t;
 
-struct op {
-    op_state_t      state; /* op state */
-    op_type_t       type;
+struct request {
+    request_state_t      state; /* request state */
+    request_type_t       type;
     struct bstring  arg;
 };
 
-struct op *op_create(void);
-void op_destroy(struct op **op);
-void op_reset(struct op *op);
+struct request *request_create(void);
+void request_destroy(struct request **req);
+void request_reset(struct request *req);

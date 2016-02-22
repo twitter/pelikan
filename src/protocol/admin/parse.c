@@ -1,7 +1,6 @@
 #include <protocol/admin/parse.h>
 
-#include <protocol/admin/op.h>
-#include <protocol/admin/reply.h>
+#include <protocol/admin/request.h>
 
 #include <buffer/cc_buf.h>
 #include <cc_debug.h>
@@ -23,14 +22,14 @@ _is_crlf(struct buf *buf, char *p)
 }
 
 static inline parse_rstatus_t
-_get_op_type(struct op *op, struct bstring *type)
+_get_req_type(struct request *req, struct bstring *type)
 {
-    ASSERT(op->type == OP_UNKNOWN);
+    ASSERT(req->type == REQ_UNKNOWN);
 
     switch (type->len) {
     case 4:
         if (str4cmp(type->data, 'q', 'u', 'i', 't')) {
-            op->type = OP_QUIT;
+            req->type = REQ_QUIT;
             break;
         }
 
@@ -38,7 +37,7 @@ _get_op_type(struct op *op, struct bstring *type)
 
     case 5:
         if (str5cmp(type->data, 's', 't', 'a', 't', 's')) {
-            op->type = OP_STATS;
+            req->type = REQ_STATS;
             break;
         }
 
@@ -46,14 +45,14 @@ _get_op_type(struct op *op, struct bstring *type)
 
     case 7:
         if (str7cmp(type->data, 'v', 'e', 'r', 's', 'i', 'o', 'n')) {
-            op->type = OP_VERSION;
+            req->type = REQ_VERSION;
             break;
         }
 
         break;
     }
 
-    if (op->type == OP_UNKNOWN) { /* no match */
+    if (req->type == REQ_UNKNOWN) { /* no match */
         log_warn("ill formatted request: unknown command");
         return PARSE_EINVALID;
     }
@@ -62,7 +61,7 @@ _get_op_type(struct op *op, struct bstring *type)
 }
 
 parse_rstatus_t
-parse_op(struct op *op, struct buf *buf)
+parse_req(struct request *req, struct buf *buf)
 {
     char *p, *q;
     struct bstring type;
@@ -85,10 +84,10 @@ parse_op(struct op *op, struct buf *buf)
     type.data = buf->rpos;
     type.len = q - buf->rpos;
     if (p < q) { /* intentional: pointing to the leading space */
-        op->arg.len = p - q;
-        op->arg.data = q;
+        req->arg.len = p - q;
+        req->arg.data = q;
     }
-    op->state = OP_PARSED;
+    req->state = REQ_PARSED;
     buf->rpos = p + CRLF_LEN;
-    return _get_op_type(op, &type);
+    return _get_req_type(req, &type);
 }
