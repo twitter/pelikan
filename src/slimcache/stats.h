@@ -1,7 +1,8 @@
 #pragma once
 
-#include <protocol/memcache_include.h>
-#include <slimcache/process.h>
+#include <protocol/data/memcache_include.h>
+#include <slimcache/admin/process.h>
+#include <slimcache/data/process.h>
 #include <storage/cuckoo/cuckoo.h>
 #include <core/core.h>
 #include <util/procinfo.h>
@@ -13,21 +14,22 @@
 #include <time/cc_wheel.h>
 
 struct glob_stats {
-    buf_metrics_st          buf_metrics;
-    compose_rsp_metrics_st  compose_rsp_metrics;
-    cuckoo_metrics_st       cuckoo_metrics;
-    event_metrics_st        event_metrics;
-    klog_metrics_st         klog_metrics;
-    log_metrics_st          log_metrics;
-    parse_req_metrics_st    parse_req_metrics;
-    process_metrics_st      process_metrics;
-    procinfo_metrics_st     procinfo_metrics;
-    request_metrics_st      request_metrics;
-    response_metrics_st     response_metrics;
-    server_metrics_st       server_metrics;
-    tcp_metrics_st          tcp_metrics;
-    timing_wheel_metrics_st timing_wheel_metrics;
-    worker_metrics_st       worker_metrics;
+    buf_metrics_st              buf_metrics;
+    compose_rsp_metrics_st      compose_rsp_metrics;
+    cuckoo_metrics_st           cuckoo_metrics;
+    event_metrics_st            event_metrics;
+    klog_metrics_st             klog_metrics;
+    log_metrics_st              log_metrics;
+    parse_req_metrics_st        parse_req_metrics;
+    process_metrics_st          process_metrics;
+    admin_process_metrics_st    admin_process_metrics;
+    procinfo_metrics_st         procinfo_metrics;
+    request_metrics_st          request_metrics;
+    response_metrics_st         response_metrics;
+    server_metrics_st           server_metrics;
+    tcp_metrics_st              tcp_metrics;
+    timing_wheel_metrics_st     timing_wheel_metrics;
+    worker_metrics_st           worker_metrics;
 };
 
 extern struct glob_stats glob_stats;

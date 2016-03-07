@@ -3,8 +3,8 @@
 #include <protocol/data/memcache_include.h>
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
-#include <twemcache/data/process.h>
 #include <twemcache/admin/process.h>
+#include <twemcache/data/process.h>
 #include <core/core.h>
 #include <util/procinfo.h>
 #include <util/stats.h>

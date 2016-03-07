@@ -1,9 +1,8 @@
-#include <slimcache/process.h>
 #include <slimcache/setting.h>
 #include <slimcache/stats.h>
 
 #include <core/core.h>
-#include <protocol/memcache/klog.h>
+#include <protocol/data/memcache/klog.h>
 #include <util/util.h>
 
 #include <cc_debug.h>
@@ -110,6 +109,7 @@ setup(void)
                &glob_stats.klog_metrics);
     process_setup(setting.allow_flush.val.vbool,
                   &glob_stats.process_metrics);
+    admin_process_setup(&glob_stats.admin_process_metrics);
 
     /**
      * Here we don't create buf or conn pool because buf_sock will allocate

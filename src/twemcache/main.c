@@ -1,4 +1,3 @@
-#include <twemcache/data/process.h>
 #include <twemcache/setting.h>
 #include <twemcache/stats.h>
 

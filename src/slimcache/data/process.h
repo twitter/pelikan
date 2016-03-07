@@ -1,8 +1,5 @@
 #pragma once
 
-#include <protocol/admin/process.h>
-#include <protocol/memcache/process.h>
-
 #include <buffer/cc_buf.h>
 #include <cc_metric.h>
 
@@ -53,10 +50,7 @@
     ACTION( decr_stored,       METRIC_COUNTER, "# decr successes"      )\
     ACTION( decr_notfound,     METRIC_COUNTER, "# decr not_founds"     )\
     ACTION( decr_ex,           METRIC_COUNTER, "# decr errors"         )\
-    ACTION( stats,             METRIC_COUNTER, "# stats requests"      )\
-    ACTION( stats_ex,          METRIC_COUNTER, "# stats errors"        )\
-    ACTION( flush,             METRIC_COUNTER, "# flush_all requests"  )\
-    ACTION( version,           METRIC_COUNTER, "# version requests"    )
+    ACTION( flush,             METRIC_COUNTER, "# flush_all requests"  )
 
 typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)
@@ -65,9 +59,6 @@ typedef struct {
 #define PROCESS_METRIC_INIT(_metrics) do {                              \
     *(_metrics) = (process_metrics_st) { PROCESS_METRIC(METRIC_INIT) }; \
 } while(0)
-
-struct request;
-struct response;
 
 void process_setup(bool flush, process_metrics_st *process_metrics);
 void process_teardown(void);
