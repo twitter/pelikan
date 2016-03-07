@@ -332,7 +332,7 @@ timing_wheel_stop(struct timing_wheel *tw)
 static inline void
 _advance_curr(struct timing_wheel *tw)
 {
-    log_verb("advancing the current tick of timing wheel %p from %zu", tw,
+    log_vverb("advancing the current tick of timing wheel %p from %zu", tw,
             tw->curr);
 
     tw->curr++;
@@ -379,7 +379,7 @@ _process_tick(struct timing_wheel *tw, bool endmode)
         }
     }
 
-    log_verb("processed %"PRIu64" timeout events during tick %zu of timing "
+    log_vverb("processed %"PRIu64" timeout events during tick %zu of timing "
             "wheel %p", tw->nprocess - nprocess, tw->curr, tw);
 }
 
@@ -430,7 +430,7 @@ timing_wheel_execute(struct timing_wheel *tw)
         }
     }
 
-    log_verb("execution round %"PRIu64" processed %zu ticks of timing wheel %p "
+    log_vverb("execution round %"PRIu64" processed %zu ticks of timing wheel %p "
             "in %"PRIu64" ns", tw->nexec, ntick, tw, elapsed);
 
     tw->nexec++;
@@ -444,7 +444,7 @@ timing_wheel_flush(struct timing_wheel *tw)
 
     size_t start = tw->curr;
 
-    log_verb("flushing all remaining ticks in timing wheel %p", tw);
+    log_info("flushing all remaining ticks in timing wheel %p", tw);
 
     do {
         _process_tick(tw, true);

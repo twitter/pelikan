@@ -91,7 +91,7 @@ extern "C" {
     struct metric _name;
 
 #define METRIC_INIT(_name, _type, _description)      \
-    ._name = {.name = #_name, .type = _type},
+    ._name = {.name = #_name, .desc = _description, .type = _type},
 
 #define METRIC_NAME(_name, _type, _description)      \
     #_name,
@@ -118,12 +118,15 @@ typedef enum metric_type {
     METRIC_FPN      /* supports UPDATE_VAL */
 } metric_type_e;
 
+extern char *metric_type_str[3];
+
 /* Note: anonymous union does not work with older (<gcc4.7) compilers */
 /* TODO(yao): determine if we should dynamically allocate the value field
  * during init. The benefit is we don't have to allocate the same amount of
  * memory for different types of values, potentially wasting space. */
 struct metric {
     char *name;
+    char *desc;
     metric_type_e type;
     union {
         uint64_t    counter;
@@ -133,10 +136,8 @@ struct metric {
 };
 
 void metric_reset(struct metric sarr[], unsigned int nmetric);
-void metric_setup(void);
-void metric_teardown(void);
-
-size_t metric_print(char *buf, size_t nbuf, struct metric *m);
+size_t metric_print(char *buf, size_t nbuf, char *fmt, struct metric *m);
+size_t metric_describe(char *buf, size_t nbuf, char *fmt, struct metric *m);
 
 #ifdef __cplusplus
 }

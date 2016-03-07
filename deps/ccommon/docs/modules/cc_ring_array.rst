@@ -1,11 +1,13 @@
-ccommon ring array
-==================
+ring array
+==========
 
-The ccommon ring array is a circular array data structure that allows elements to be pushed/popped in FIFO order. This data structure is designed to facilitate the sharing of resources between two threads with a producer/consumer relationship; that is, one thread only pushes to te ring array and the other thread only pops from the ring array.
+Ring array is a circular array data structure that allows elements to be pushed/popped in FIFO order. This data structure is designed to facilitate the sharing of resources between two threads with a producer/consumer relationship; that is, one thread only pushes to the ring array and the other thread only pops from it.
+
+The main difference between ring array and ring buffer is that the former organizes and processes data as elements, while the latter treats data as flexible-length binary string.
 
 Synopsis
 --------
-::
+.. code-block:: C
 
   #include <cc_ring_array.h>
 
@@ -28,7 +30,7 @@ This section contains descriptions of what the functions in the ccommon ring arr
 
 Creation/Destruction
 ^^^^^^^^^^^^^^^^^^^^
-::
+.. code-block:: C
 
    struct ring_array *ring_array_create(size_t elem_size, uint32_t cap);
    void ring_array_destroy(struct ring_array *arr);
@@ -39,7 +41,7 @@ After the ``ring_array`` is no longer needed, ``ring_array_destroy`` should be c
 
 Element Access
 ^^^^^^^^^^^^^^
-::
+.. code-block:: C
 
    rstatus_i ring_array_push(const void *elem, struct ring_array *arr);
    rstatus_i ring_array_pop(void *elem, struct ring_array *arr);
@@ -48,6 +50,7 @@ These functions are used to push/pop elements in the ``ring_array``. To push an 
 
 To pop an element from the ``ring_array``, call ``ring_array_pop()`` with ``elem`` being a pointer to the memory location for where the element should be popped to, and ``arr`` being the ``ring_array`` being popped from. ``ring_array_pop()`` returns ``CC_OK`` if the element was successfully popped, and ``CC_ERROR`` if not successful (i.e. the ``ring_array`` is empty).
 
+
 Examples
 --------
 
@@ -55,48 +58,48 @@ Hello World! with ccommon ``ring_array``:
 
 .. code-block:: c
 
-                #include <cc_define.h>
-                #include <cc_ring_array.h>
+   #include <cc_define.h>
+   #include <cc_ring_array.h>
 
-                #include <stdio.h>
-                #include <stdlib.h>
-                #include <string.h>
+   #include <stdio.h>
+   #include <stdlib.h>
+   #include <string.h>
 
-                int
-                main(int argc, char **argv)
-                {
-                    struct ring_array *arr;
-                    char c, *msg = "Hello world!\n";
-                    int i, msg_len = strlen(msg);
-                    rstatus_i status;
+   int
+   main(int argc, char **argv)
+   {
+       struct ring_array *arr;
+       char c, *msg = "Hello world!\n";
+       int i, msg_len = strlen(msg);
+       rstatus_i status;
 
-                    /* Create ring_array */
-                    arr = ring_array_create(sizeof(char), 100);
+       /* Create ring_array */
+       arr = ring_array_create(sizeof(char), 100);
 
-                    /* Push message into ring_array */
-                    for (i = 0; i < msg_len; ++i) {
-                        status = ring_array_push(msg + i, arr);
+       /* Push message into ring_array */
+       for (i = 0; i < msg_len; ++i) {
+           status = ring_array_push(msg + i, arr);
 
-                        if (status != CC_OK) {
-                            printf("Could not push message!\n");
-                            exit(1);
-                        }
-                    }
+           if (status != CC_OK) {
+               printf("Could not push message!\n");
+               exit(1);
+           }
+       }
 
-                    /* Pop chars stored in arr and print them */
-                    for (i = 0; i < msg_len; ++i) {
-                        status = ring_array_pop(&c, arr);
+       /* Pop chars stored in arr and print them */
+       for (i = 0; i < msg_len; ++i) {
+           status = ring_array_pop(&c, arr);
 
-                        if (status != CC_OK) {
-                            printf("Could not pop entire message!");
-                            exit(1)
-                        }
+           if (status != CC_OK) {
+               printf("Could not pop entire message!");
+               exit(1)
+           }
 
-                        printf("%c", c);
-                    }
+           printf("%c", c);
+       }
 
-                    /* Destroy ring_array */
-                    ring_array_destroy(arr);
+       /* Destroy ring_array */
+       ring_array_destroy(arr);
 
-                    return 0;
-                }
+       return 0;
+   }

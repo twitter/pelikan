@@ -99,7 +99,7 @@ static void
 _logrotate(int signo)
 {
     log_info("received signal %d, reopen log file", signo);
-    log_reopen(dlog->logger);
+    log_reopen(dlog->logger, NULL);
 }
 
 static void
