@@ -1,6 +1,6 @@
 #pragma once
 
-#include <protocol/memcache_include.h>
+#include <protocol/data/memcache_include.h>
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
 #include <twemcache/data/process.h>

@@ -1,8 +1,8 @@
 #include <core/admin/admin.h>
 
-#include <core/shared.h>
+#include <core/context.h>
 
-#include <protocol/admin_include.h>
+#include <protocol/admin/admin_include.h>
 #include <util/stats.h>
 
 #include <buffer/cc_buf.h>

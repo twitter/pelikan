@@ -5,7 +5,7 @@
 #include <core/admin/admin.h>
 #include <storage/slab/slab.h>
 #include <storage/slab/item.h>
-#include <protocol/memcache_include.h>
+#include <protocol/data/memcache_include.h>
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>

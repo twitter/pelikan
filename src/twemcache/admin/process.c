@@ -1,6 +1,6 @@
 #include <twemcache/admin/process.h>
 
-#include <protocol/admin_include.h>
+#include <protocol/admin/admin_include.h>
 #include <util/stats.h>
 #include <util/procinfo.h>
 

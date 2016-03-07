@@ -1,8 +1,9 @@
-#include <core/worker/worker.h>
+#include <core/data/worker.h>
 
-#include <core/shared.h>
+#include <core/context.h>
+#include <core/data/shared.h>
 
-#include <protocol/memcache_include.h>
+#include <protocol/data/memcache_include.h>
 #include <time/time.h>
 
 #include <buffer/cc_buf.h>

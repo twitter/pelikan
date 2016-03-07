@@ -1,4 +1,4 @@
-#include <protocol/ping/response.h>
+#include <protocol/data/ping/response.h>
 
 #include <cc_debug.h>
 

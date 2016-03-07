@@ -1,7 +1,5 @@
 #pragma once
 
-#include <protocol/memcache/process.h>
-
 #include <cc_metric.h>
 
 #include <stdbool.h>

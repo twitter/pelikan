@@ -1,7 +1,7 @@
-#include <protocol/memcache/parse.h>
+#include <protocol/data/memcache/parse.h>
 
-#include <protocol/memcache/request.h>
-#include <protocol/memcache/response.h>
+#include <protocol/data/memcache/request.h>
+#include <protocol/data/memcache/response.h>
 #include <time/time.h>
 
 #include <buffer/cc_buf.h>

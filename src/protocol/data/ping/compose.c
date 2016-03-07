@@ -1,4 +1,4 @@
-#include <protocol/ping/compose.h>
+#include <protocol/data/ping/compose.h>
 
 #include <cc_debug.h>
 

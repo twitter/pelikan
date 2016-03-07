@@ -4,12 +4,12 @@
  * event driven stuff is handled, it is not a replacement of main()
  */
 
+#include <core/context.h>
 #include <core/admin/admin.h>
-#include <core/server/server.h>
-#include <core/worker/worker.h>
+#include <core/data/server.h>
+#include <core/data/worker.h>
 
 #include <cc_define.h>
-#include <channel/cc_channel.h>
 
 struct addrinfo;
 struct request;

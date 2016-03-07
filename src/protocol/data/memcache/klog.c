@@ -1,7 +1,7 @@
-#include <protocol/memcache/klog.h>
+#include <protocol/data/memcache/klog.h>
 
-#include <protocol/memcache/request.h>
-#include <protocol/memcache/response.h>
+#include <protocol/data/memcache/request.h>
+#include <protocol/data/memcache/response.h>
 #include <time/time.h>
 
 #include <cc_bstring.h>

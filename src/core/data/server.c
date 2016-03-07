@@ -1,9 +1,8 @@
-#include <core/server/server.h>
+#include <core/data/server.h>
 
-#include <core/shared.h>
+#include <core/context.h>
+#include <core/data/shared.h>
 
-#include <protocol/memcache/parse.h>
-#include <protocol/memcache/request.h>
 #include <time/time.h>
 
 #include <cc_debug.h>
@@ -38,7 +37,6 @@ _server_close(struct buf_sock *s)
     event_deregister(ctx->evb, s->ch->sd);
 
     hdl->term(s->ch);
-    request_return((struct request **)&s->data);
     buf_sock_return(&s);
 }
 

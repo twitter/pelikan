@@ -1,13 +1,7 @@
 #pragma once
 
-struct event_base;
 struct pipe_conn;
 struct ring_array;
-
-struct context {
-    struct event_base *evb;
-    int timeout;
-};
 
 /* pipe for server/worker thread communication */
 extern struct pipe_conn *pipe_c;

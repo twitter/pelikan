@@ -1,7 +1,6 @@
 #include <twemcache/data/process.h>
 
-#include <protocol/memcache/request.h>
-#include <protocol/memcache/response.h>
+#include <protocol/data/memcache_include.h>
 #include <storage/slab/item.h>
 
 #include <cc_array.h>

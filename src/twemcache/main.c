@@ -3,7 +3,7 @@
 #include <twemcache/stats.h>
 
 #include <core/core.h>
-#include <protocol/memcache/klog.h>
+#include <protocol/data/memcache/klog.h>
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
 #include <time/time.h>
