@@ -27,13 +27,12 @@ extern "C" {
 
 #include <stdbool.h>
 
-#define LOG_MAX_LEN 2560 /* max length of log message */
+#define LOG_MAX_LEN 2560 /* max length of log message to STDOUT/STDERR */
 
 struct logger {
     char *name;                 /* log file name */
     int  fd;                    /* log file descriptor */
-    int  nerror;                /* # log error */
-    struct rbuf *buf;           /* buffer for pausless logging */
+    struct rbuf *buf;           /* ring buffer for pauseless logging */
 };
 
 /*          name            type            description */
@@ -75,14 +74,19 @@ struct logger *log_create(char *filename, uint32_t buf_cap);
 
 void log_destroy(struct logger **logger);
 
-rstatus_i log_reopen(struct logger *logger);
+/**
+ * Reopen the log file. Optional argument target - if left NULL, log_reopen
+ * will simply reopen the log file. If specified, log_reopen will rename the
+ * original log file to the provided target filename, and reopen the log file.
+ */
+rstatus_i log_reopen(struct logger *logger, char *target);
 
 /* _log_write returns true if msg written, false if skipped or failed */
 bool log_write(struct logger *logger, char *buf, uint32_t len);
 
 void _log_fd(int fd, const char *fmt, ...);
 
-void log_flush(struct logger *logger);
+size_t log_flush(struct logger *logger);
 
 #ifdef __cplusplus
 }

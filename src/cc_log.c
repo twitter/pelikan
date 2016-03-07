@@ -144,10 +144,21 @@ log_destroy(struct logger **l)
 }
 
 rstatus_i
-log_reopen(struct logger *logger)
+log_reopen(struct logger *logger, char *target)
 {
+    int ret;
+
     if (logger->fd != STDERR_FILENO && logger->fd != STDOUT_FILENO) {
         close(logger->fd);
+
+        if (target != NULL) {
+            ret = rename(logger->name, target);
+            if (ret < 0) {
+                log_stderr("rename old klog file '%s' to '%s' failed, ignored: "
+                           "%s", logger->name, target, strerror(errno));
+            }
+        }
+
         logger->fd = open(logger->name, O_WRONLY | O_APPEND | O_CREAT, 0644);
         if (logger->fd < 0) {
             log_stderr("reopening log file '%s' failed, ignored: %s", logger->name,
@@ -183,7 +194,6 @@ log_write(struct logger *logger, char *buf, uint32_t len)
 
         if (write(logger->fd, buf, len) < (ssize_t)len) {
             INCR(log_metrics, log_write_ex);
-            logger->nerror++;
             return false;
         }
 
@@ -229,28 +239,77 @@ _log_fd(int fd, const char *fmt, ...)
     errno = errno_save;
 }
 
-void
+
+/* read from rbuf to the fd. attempts to empty the buffer. */
+static ssize_t
+_rbuf_flush(struct rbuf *buf, int fd)
+{
+    uint32_t capacity;
+    ssize_t ret;
+    uint32_t rpos, wpos;
+    rpos = get_rpos(buf);
+    wpos = get_wpos(buf);
+
+    if (wpos < rpos) {
+        /* write until end, then wrap around */
+        capacity = buf->cap - rpos + 1;
+        ret = write(fd, buf->data + rpos, capacity);
+
+        if (ret > 0) {
+            rpos += ret;
+        }
+
+        if (ret == capacity) {
+            /* more can be written, read from beginning of buf */
+            ssize_t remaining_bytes;
+
+            capacity = wpos;
+            remaining_bytes = write(fd, buf->data, capacity);
+
+            if (remaining_bytes >= 0) {
+                rpos = remaining_bytes;
+                ret += remaining_bytes;
+            }
+        }
+    } else {
+        /* no wrap around */
+        capacity = wpos - rpos;
+        ret = write(fd, buf->data + rpos, capacity);
+
+        if (ret > 0) {
+            rpos += ret;
+        }
+    }
+
+    set_rpos(buf, rpos);
+
+    return ret;
+}
+
+size_t
 log_flush(struct logger *logger)
 {
     ssize_t n;
     size_t buf_len;
 
     if (logger->buf == NULL) {
-        return;
+        return 0;
     }
 
     if (logger->fd < 0) {
         log_stderr("Cannot flush logger %p; invalid file descriptor", logger);
         INCR(log_metrics, log_flush_ex);
-        return;
+        return 0;
     }
 
     buf_len = rbuf_rcap(logger->buf);
-    n = rbuf_read_fd(logger->buf, logger->fd);
+    n = _rbuf_flush(logger->buf, logger->fd);
 
     if (n < (ssize_t)buf_len) {
         INCR(log_metrics, log_flush_ex);
     } else {
         INCR(log_metrics, log_flush);
     }
+
+    return n > 0 ? n : 0;
 }
