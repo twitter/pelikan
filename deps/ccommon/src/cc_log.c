@@ -144,10 +144,21 @@ log_destroy(struct logger **l)
 }
 
 rstatus_i
-log_reopen(struct logger *logger)
+log_reopen(struct logger *logger, char *target)
 {
+    int ret;
+
     if (logger->fd != STDERR_FILENO && logger->fd != STDOUT_FILENO) {
         close(logger->fd);
+
+        if (target != NULL) {
+            ret = rename(logger->name, target);
+            if (ret < 0) {
+                log_stderr("rename old klog file '%s' to '%s' failed, ignored: "
+                           "%s", logger->name, target, strerror(errno));
+            }
+        }
+
         logger->fd = open(logger->name, O_WRONLY | O_APPEND | O_CREAT, 0644);
         if (logger->fd < 0) {
             log_stderr("reopening log file '%s' failed, ignored: %s", logger->name,
@@ -282,13 +293,13 @@ log_flush(struct logger *logger)
     size_t buf_len;
 
     if (logger->buf == NULL) {
-        return;
+        return 0;
     }
 
     if (logger->fd < 0) {
         log_stderr("Cannot flush logger %p; invalid file descriptor", logger);
         INCR(log_metrics, log_flush_ex);
-        return;
+        return 0;
     }
 
     buf_len = rbuf_rcap(logger->buf);

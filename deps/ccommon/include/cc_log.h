@@ -74,7 +74,12 @@ struct logger *log_create(char *filename, uint32_t buf_cap);
 
 void log_destroy(struct logger **logger);
 
-rstatus_i log_reopen(struct logger *logger);
+/**
+ * Reopen the log file. Optional argument target - if left NULL, log_reopen
+ * will simply reopen the log file. If specified, log_reopen will rename the
+ * original log file to the provided target filename, and reopen the log file.
+ */
+rstatus_i log_reopen(struct logger *logger, char *target);
 
 /* _log_write returns true if msg written, false if skipped or failed */
 bool log_write(struct logger *logger, char *buf, uint32_t len);
