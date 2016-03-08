@@ -50,25 +50,25 @@ struct rbuf {
 
 #define RBUF_HDR_SIZE   offsetof(struct rbuf, data)
 
-inline uint32_t
+static inline uint32_t
 get_rpos(struct rbuf *buf)
 {
     return __atomic_load_n(&(buf->rpos), __ATOMIC_RELAXED);
 }
 
-inline uint32_t
+static inline uint32_t
 get_wpos(struct rbuf *buf)
 {
     return __atomic_load_n(&(buf->wpos), __ATOMIC_RELAXED);
 }
 
-inline void
+static inline void
 set_rpos(struct rbuf *buf, uint32_t rpos)
 {
     __atomic_store_n(&(buf->rpos), rpos, __ATOMIC_RELAXED);
 }
 
-inline void
+static inline void
 set_wpos(struct rbuf *buf, uint32_t wpos)
 {
     __atomic_store_n(&(buf->wpos), wpos, __ATOMIC_RELAXED);
