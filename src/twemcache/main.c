@@ -94,8 +94,12 @@ setup(void)
     response_setup(&glob_stats.response_metrics);
     parse_setup(&glob_stats.parse_req_metrics, NULL);
     compose_setup(NULL, &glob_stats.compose_rsp_metrics);
-    klog_setup(setting.klog_file.val.vstr, (uint32_t)setting.klog_nbuf.val.vuint,
-               (uint32_t)setting.klog_intvl.val.vuint, (uint32_t)setting.klog_sample.val.vuint,
+    klog_setup(setting.klog_file.val.vstr,
+               setting.klog_backup.val.vstr,
+               (uint32_t)setting.klog_nbuf.val.vuint,
+               (uint32_t)setting.klog_intvl.val.vuint,
+               (uint32_t)setting.klog_sample.val.vuint,
+               (size_t)setting.klog_max.val.vuint,
                &glob_stats.klog_metrics);
     process_setup(setting.allow_flush.val.vbool,
                   &glob_stats.process_metrics);

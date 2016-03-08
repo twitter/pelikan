@@ -1,5 +1,4 @@
 #pragma once
-
 #include <cc_define.h>
 #include <cc_metric.h>
 
@@ -40,8 +39,8 @@ struct timeout_event;
 
 extern struct timeout_event *klog_tev;
 
-rstatus_i klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample,
-                     klog_metrics_st *metrics);
+rstatus_i klog_setup(char *file, char *backup, uint32_t nbuf, uint32_t interval,
+                     uint32_t sample, size_t max, klog_metrics_st *metrics);
 void klog_teardown(void);
 
 void klog_write(struct request *req, struct response *rsp);
