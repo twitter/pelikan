@@ -80,8 +80,6 @@ setup(void)
         create_pidfile(setting.pid_filename.val.vstr);
     }
 
-    metric_setup();
-
     array_setup((uint32_t)setting.array_nelem_delta.val.vuint);
     buf_setup((uint32_t)setting.buf_init_size.val.vuint, &glob_stats.buf_metrics);
     event_setup(&glob_stats.event_metrics);
@@ -195,7 +193,6 @@ error:
     event_teardown();
     buf_teardown();
     array_teardown();
-    metric_teardown();
     option_free((struct option *)&setting, nopt);
 
     log_teardown();

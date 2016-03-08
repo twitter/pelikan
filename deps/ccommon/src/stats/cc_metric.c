@@ -74,13 +74,16 @@ metric_print(char *buf, size_t nbuf, char *fmt, struct metric *m)
          */
         cc_scnprintf(val_buf, VALUE_PRINT_LEN, "%llu", __atomic_load_n(
                     &m->counter, __ATOMIC_RELAXED));
+        break;
 
     case METRIC_GAUGE:
         cc_scnprintf(val_buf, VALUE_PRINT_LEN, "%lld", __atomic_load_n(
                     &m->gauge, __ATOMIC_RELAXED));
+        break;
 
     case METRIC_FPN:
         cc_scnprintf(val_buf, VALUE_PRINT_LEN, "%f", m->fpn);
+        break;
 
     default:
         NOT_REACHED();

@@ -84,8 +84,6 @@ setup(void)
         create_pidfile(setting.pid_filename.val.vstr);
     }
 
-    metric_setup();
-
     time_setup();
     timing_wheel_setup(&glob_stats.timing_wheel_metrics);
     procinfo_setup(&glob_stats.procinfo_metrics);
@@ -205,7 +203,6 @@ error:
     event_teardown();
     procinfo_teardown();
     time_teardown();
-    metric_teardown();
     option_free((struct option *)&setting, nopt);
 
     debug_teardown();
