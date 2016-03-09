@@ -16,7 +16,7 @@
     ACTION( klog_nbuf,   OPTION_TYPE_UINT, KLOG_NBUF,    "command log buf size"                                              )\
     ACTION( klog_intvl,  OPTION_TYPE_UINT, KLOG_INTVL,   "command log flush interval"                                        )\
     ACTION( klog_sample, OPTION_TYPE_UINT, KLOG_SAMPLE,  "command log sample ratio"                                          )\
-    ACTION( klog_max,    OPTION_TYPE_UINT, KLOG_NAX,     "max klog file size - allow up to 2x klog_max disk if using backup" )
+    ACTION( klog_max,    OPTION_TYPE_UINT, KLOG_MAX,     "max klog file size - allow up to 2x klog_max disk if using backup" )
 
 /*          name            type            description */
 #define KLOG_METRIC(ACTION)                                                  \
