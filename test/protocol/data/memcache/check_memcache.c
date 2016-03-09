@@ -1216,7 +1216,7 @@ memcache_suite(void)
     tcase_add_test(tc_basic_req, test_incr);
     tcase_add_test(tc_basic_req, test_decr_noreply);
 
-    /* basic requests */
+    /* basic responses */
     TCase *tc_basic_rsp = tcase_create("basic response");
     suite_add_tcase(s, tc_basic_rsp);
 
