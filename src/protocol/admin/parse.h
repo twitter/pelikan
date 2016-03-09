@@ -8,7 +8,6 @@ typedef enum parse_rstatus {
 } parse_rstatus_t;
 
 struct buf;
-struct op;
-struct reply;
+struct request;
 
-parse_rstatus_t parse_op(struct op *op, struct buf *buf);
+parse_rstatus_t admin_parse_req(struct request *req, struct buf *buf);

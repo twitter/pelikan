@@ -1,9 +1,8 @@
-#include <twemcache/process.h>
 #include <twemcache/setting.h>
 #include <twemcache/stats.h>
 
 #include <core/core.h>
-#include <protocol/memcache/klog.h>
+#include <protocol/data/memcache/klog.h>
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
 #include <time/time.h>
@@ -85,8 +84,6 @@ setup(void)
         create_pidfile(setting.pid_filename.val.vstr);
     }
 
-    metric_setup();
-
     time_setup();
     timing_wheel_setup(&glob_stats.timing_wheel_metrics);
     procinfo_setup(&glob_stats.procinfo_metrics);
@@ -103,6 +100,7 @@ setup(void)
                &glob_stats.klog_metrics);
     process_setup(setting.allow_flush.val.vbool,
                   &glob_stats.process_metrics);
+    admin_process_setup(&glob_stats.admin_process_metrics);
 
     buf_setup((uint32_t)setting.buf_init_size.val.vuint, &glob_stats.buf_metrics);
     dbuf_setup((uint32_t)setting.dbuf_max_power.val.vuint);
@@ -209,7 +207,6 @@ error:
     event_teardown();
     procinfo_teardown();
     time_teardown();
-    metric_teardown();
     option_free((struct option *)&setting, nopt);
 
     debug_teardown();

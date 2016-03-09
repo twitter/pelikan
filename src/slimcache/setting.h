@@ -1,10 +1,11 @@
 #pragma once
 
-#include <slimcache/process.h>
+#include <slimcache/admin/process.h>
+#include <slimcache/data/process.h>
 
-#include <core/admin.h>
+#include <core/core.h>
 #include <storage/cuckoo/cuckoo.h>
-#include <protocol/memcache_include.h>
+#include <protocol/data/memcache_include.h>
 
 #include <buffer/cc_buf.h>
 #include <cc_array.h>

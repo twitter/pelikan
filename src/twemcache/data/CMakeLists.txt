@@ -1,0 +1,2 @@
+add_library(twemcache_data process.c)
+target_link_libraries(twemcache_data protocol_memcache)

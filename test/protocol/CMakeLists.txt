@@ -1,2 +1,2 @@
-add_subdirectory(memcache)
+add_subdirectory(data)
 add_subdirectory(admin)

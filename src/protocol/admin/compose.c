@@ -1,12 +1,22 @@
 #include <protocol/admin/compose.h>
 
-#include <protocol/admin/op.h>
-#include <protocol/admin/reply.h>
+#include <protocol/admin/request.h>
+#include <protocol/admin/response.h>
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
 
 #define STAT_MAX_LEN 64 /* metric name <32, value <21 */
+
+#define GET_STRING(_name, _str) {sizeof(_str) - 1, (_str)},
+static struct bstring req_strings[] = {
+    REQ_TYPE_MSG(GET_STRING)
+};
+
+static struct bstring rsp_strings[] = {
+    RSP_TYPE_MSG(GET_STRING)
+};
+#undef GET_STRING
 
 static inline compose_rstatus_t
 _check_buf_size(struct buf **buf, uint32_t n)
@@ -24,73 +34,38 @@ _check_buf_size(struct buf **buf, uint32_t n)
 }
 
 int
-compose_op(struct buf **buf, struct op *op)
+admin_compose_req(struct buf **buf, struct request *req)
 {
-    op_type_t type = op->type;
-    struct bstring *str = &op_strings[type];
+    struct bstring *str = &req_strings[req->type];
     int n = 0;
 
-    switch (type) {
-    case OP_STATS:
-    case OP_VERSION:
-    case OP_QUIT:
-        if (_check_buf_size(buf, str->len + CRLF_LEN) != COMPOSE_OK) {
-            return COMPOSE_ENOMEM;
-        }
-        n += buf_write(*buf, str->data, str->len);
-        n += buf_write(*buf, CRLF, CRLF_LEN);
-        break;
-    default:
-        NOT_REACHED();
-        break;
+    if (_check_buf_size(buf, str->len + req->arg.len + CRLF_LEN) !=
+            COMPOSE_OK) {
+        return COMPOSE_ENOMEM;
     }
+
+    n += buf_write(*buf, str->data, str->len);
+    if (req->arg.len > 0) {
+        n += buf_write(*buf, req->arg.data, req->arg.len);
+    }
+    n += buf_write(*buf, CRLF, CRLF_LEN);
 
     return n;
 }
 
 int
-compose_rep(struct buf **buf, struct reply *rep)
+admin_compose_rsp(struct buf **buf, struct response *rsp)
 {
+    struct bstring *str = &rsp_strings[rsp->type];
     int n = 0;
-    reply_type_t type = rep->type;
-    struct bstring stat_str, *str = &reply_strings[type];
-    char stat_buf[STAT_MAX_LEN];
 
-    switch (type) {
-    case REP_STAT:
-        stat_str.len = metric_print(stat_buf, STAT_MAX_LEN, rep->met);
-        if (stat_str.len == 0) {
-            return COMPOSE_EOVERSIZED;
-        }
-        stat_str.data = stat_buf;
-        if (_check_buf_size(buf, str->len + stat_str.len + CRLF_LEN) !=
-            COMPOSE_OK) {
-            return COMPOSE_ENOMEM;
-        }
-        n += buf_write(*buf, str->data, str->len);
-        n += buf_write(*buf, stat_str.data, stat_str.len);
-        n += buf_write(*buf, CRLF, CRLF_LEN);
-        break;
-    case REP_VERSION:
-    case REP_CLIENT_ERROR:
-    case REP_SERVER_ERROR:
-        if (_check_buf_size(buf, str->len + rep->vstr.len + CRLF_LEN) !=
-            COMPOSE_OK) {
-            return COMPOSE_ENOMEM;
-        }
-        n += buf_write(*buf, str->data, str->len);
-        n += buf_write(*buf, rep->vstr.data, rep->vstr.len);
-        n += buf_write(*buf, CRLF, CRLF_LEN);
-        break;
-    case REP_END:
-        if (_check_buf_size(buf, str->len) != COMPOSE_OK) {
-            return COMPOSE_ENOMEM;
-        }
-        n += buf_write(*buf, str->data, str->len);
-        break;
-    default:
-        NOT_REACHED();
-        break;
+    if (_check_buf_size(buf, str->len + rsp->data.len) != COMPOSE_OK) {
+        return COMPOSE_ENOMEM;
+    }
+
+    n += buf_write(*buf, str->data, str->len);
+    if (rsp->data.len > 0) {
+        n += buf_write(*buf, rsp->data.data, rsp->data.len);
     }
 
     return n;
