@@ -86,7 +86,7 @@ _test_create_write_destroy(uint32_t buf_cap, bool reopen)
     ck_assert_ptr_ne(logger, NULL);
 
     if (reopen) {
-        log_reopen(logger);
+        log_reopen(logger, NULL);
     }
 
     ck_assert_int_eq(log_write(logger, LOGSTR, sizeof(LOGSTR) - 1), 1);

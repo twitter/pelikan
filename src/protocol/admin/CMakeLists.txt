@@ -1,7 +1,7 @@
 set(SOURCE
     compose.c
-    op.c
     parse.c
-    reply.c)
+    request.c
+    response.c)
 
-add_library(admin ${SOURCE})
+add_library(protocol_admin ${SOURCE})

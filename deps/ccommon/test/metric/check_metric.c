@@ -30,14 +30,12 @@ static test_metrics_st *test_metrics = &_test_metrics;
 static void
 test_setup(void)
 {
-    metric_setup();
     TEST_METRIC_INIT(test_metrics);
 }
 
 static void
 test_teardown(void)
 {
-    metric_teardown();
 }
 
 static void

@@ -24,9 +24,6 @@
 #include <cc_metric.h>
 
 #include <stdint.h>
-#include <unistd.h>
-
-struct rbuf;
 
 /*          name            type            description */
 #define RBUF_METRIC(ACTION)                                           \
@@ -44,6 +41,39 @@ typedef struct {
     *(_metrics) = (rbuf_metrics_st) { RBUF_METRIC(METRIC_INIT) }; \
 } while(0)
 
+struct rbuf {
+    uint32_t     rpos;          /* read offset */
+    uint32_t     wpos;          /* write offset */
+    uint32_t     cap;           /* # bytes allocated for data */
+    uint8_t      data[1];       /* beginning of buffer */
+};
+
+#define RBUF_HDR_SIZE   offsetof(struct rbuf, data)
+
+static inline uint32_t
+get_rpos(struct rbuf *buf)
+{
+    return __atomic_load_n(&(buf->rpos), __ATOMIC_RELAXED);
+}
+
+static inline uint32_t
+get_wpos(struct rbuf *buf)
+{
+    return __atomic_load_n(&(buf->wpos), __ATOMIC_RELAXED);
+}
+
+static inline void
+set_rpos(struct rbuf *buf, uint32_t rpos)
+{
+    __atomic_store_n(&(buf->rpos), rpos, __ATOMIC_RELAXED);
+}
+
+static inline void
+set_wpos(struct rbuf *buf, uint32_t wpos)
+{
+    __atomic_store_n(&(buf->wpos), wpos, __ATOMIC_RELAXED);
+}
+
 /* setup/teardown */
 void rbuf_setup(rbuf_metrics_st *metrics);
 void rbuf_teardown(void);
@@ -60,6 +90,3 @@ size_t rbuf_wcap(struct rbuf *buf);
 size_t rbuf_read(void *dst, struct rbuf *src, size_t n);
 /* write from a buffer in memory to the rbuf */
 size_t rbuf_write(struct rbuf *dst, void *src, size_t n);
-
-/* read from rbuf to the fd. attempts to empty the buffer. */
-ssize_t rbuf_read_fd(struct rbuf *src, int fd);;

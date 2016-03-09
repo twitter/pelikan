@@ -1,4 +1,4 @@
-#include <protocol/admin_include.h>
+#include <protocol/admin/admin_include.h>
 
 #include <buffer/cc_buf.h>
 
@@ -7,8 +7,8 @@
 #define SUITE_NAME "admin"
 #define DEBUG_LOG  SUITE_NAME ".log"
 
-struct op *op;
-struct reply *rep;
+struct request *req;
+struct response *rsp;
 struct buf *buf;
 
 /*
@@ -18,16 +18,16 @@ static void
 test_setup(void)
 {
     buf_setup(BUF_INIT_SIZE, NULL);
-    op = op_create();
-    rep = reply_create();
+    req = admin_request_create();
+    rsp = admin_response_create();
     buf = buf_create();
 }
 
 static void
 test_reset(void)
 {
-    op_reset(op);
-    reply_reset(rep);
+    admin_request_reset(req);
+    admin_response_reset(rsp);
     buf_reset(buf);
 }
 
@@ -35,8 +35,8 @@ static void
 test_teardown(void)
 {
     buf_destroy(&buf);
-    reply_destroy(&rep);
-    op_destroy(&op);
+    admin_response_destroy(&rsp);
+    admin_request_destroy(&req);
     buf_teardown();
 }
 
@@ -56,17 +56,17 @@ START_TEST(test_quit)
     test_reset();
 
     /* compose */
-    op->type = OP_QUIT;
-    ret = compose_op(&buf, op);
+    req->type = REQ_QUIT;
+    ret = admin_compose_req(&buf, req);
     ck_assert_msg(ret == len, "expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
     /* parse */
-    op_reset(op);
-    ret = parse_op(op, buf);
+    admin_request_reset(req);
+    ret = admin_parse_req(req, buf);
     ck_assert_int_eq(ret, PARSE_OK);
-    ck_assert(op->state == OP_PARSED);
-    ck_assert(op->type = OP_QUIT);
+    ck_assert(req->state == REQ_PARSED);
+    ck_assert(req->type = REQ_QUIT);
 #undef SERIALIZED
 }
 END_TEST
@@ -80,17 +80,17 @@ START_TEST(test_stats)
     test_reset();
 
     /* compose */
-    op->type = OP_STATS;
-    ret = compose_op(&buf, op);
+    req->type = REQ_STATS;
+    ret = admin_compose_req(&buf, req);
     ck_assert_msg(ret == len, "expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
     /* parse */
-    op_reset(op);
-    ret = parse_op(op, buf);
+    admin_request_reset(req);
+    ret = admin_parse_req(req, buf);
     ck_assert_int_eq(ret, PARSE_OK);
-    ck_assert(op->state == OP_PARSED);
-    ck_assert(op->type = OP_STATS);
+    ck_assert(req->state == REQ_PARSED);
+    ck_assert(req->type = REQ_STATS);
 #undef SERIALIZED
 }
 END_TEST
@@ -104,17 +104,17 @@ START_TEST(test_version)
     test_reset();
 
     /* compose */
-    op->type = OP_VERSION;
-    ret = compose_op(&buf, op);
+    req->type = REQ_VERSION;
+    ret = admin_compose_req(&buf, req);
     ck_assert_msg(ret == len, "expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
     /* parse */
-    op_reset(op);
-    ret = parse_op(op, buf);
+    admin_request_reset(req);
+    ret = admin_parse_req(req, buf);
     ck_assert_int_eq(ret, PARSE_OK);
-    ck_assert(op->state == OP_PARSED);
-    ck_assert(op->type = OP_VERSION);
+    ck_assert(req->state == REQ_PARSED);
+    ck_assert(req->type = REQ_VERSION);
 #undef SERIALIZED
 }
 END_TEST
@@ -128,12 +128,12 @@ admin_suite(void)
     Suite *s = suite_create(SUITE_NAME);
 
     /* basic ops */
-    TCase *tc_basic_op = tcase_create("basic op");
-    suite_add_tcase(s, tc_basic_op);
+    TCase *tc_basic_req = tcase_create("basic req");
+    suite_add_tcase(s, tc_basic_req);
 
-    tcase_add_test(tc_basic_op, test_quit);
-    tcase_add_test(tc_basic_op, test_stats);
-    tcase_add_test(tc_basic_op, test_version);
+    tcase_add_test(tc_basic_req, test_quit);
+    tcase_add_test(tc_basic_req, test_stats);
+    tcase_add_test(tc_basic_req, test_version);
 
     return s;
 }

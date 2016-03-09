@@ -1,9 +1,8 @@
-#include <slimcache/process.h>
 #include <slimcache/setting.h>
 #include <slimcache/stats.h>
 
 #include <core/core.h>
-#include <protocol/memcache/klog.h>
+#include <protocol/data/memcache/klog.h>
 #include <util/util.h>
 
 #include <cc_debug.h>
@@ -81,8 +80,6 @@ setup(void)
         create_pidfile(setting.pid_filename.val.vstr);
     }
 
-    metric_setup();
-
     array_setup((uint32_t)setting.array_nelem_delta.val.vuint);
     buf_setup((uint32_t)setting.buf_init_size.val.vuint, &glob_stats.buf_metrics);
     event_setup(&glob_stats.event_metrics);
@@ -110,6 +107,7 @@ setup(void)
                &glob_stats.klog_metrics);
     process_setup(setting.allow_flush.val.vbool,
                   &glob_stats.process_metrics);
+    admin_process_setup(&glob_stats.admin_process_metrics);
 
     /**
      * Here we don't create buf or conn pool because buf_sock will allocate
@@ -195,7 +193,6 @@ error:
     event_teardown();
     buf_teardown();
     array_teardown();
-    metric_teardown();
     option_free((struct option *)&setting, nopt);
 
     log_teardown();

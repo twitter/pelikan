@@ -1,0 +1,2 @@
+add_library(slimcache_data process.c)
+target_link_libraries(slimcache_data protocol_memcache)

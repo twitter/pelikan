@@ -1,13 +1,13 @@
+add_subdirectory(admin)
+add_subdirectory(data)
+
 set(SOURCE
     main.c
-    process.c
     stats.c)
 
 set(LIBS
     core
-    admin
     slab
-    memcache
     time
     util
     ccommon-static
@@ -15,4 +15,4 @@ set(LIBS
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/_bin)
 add_executable(${PROJECT_NAME}_twemcache ${SOURCE})
-target_link_libraries(${PROJECT_NAME}_twemcache ${LIBS})
+target_link_libraries(${PROJECT_NAME}_twemcache ${LIBS} twemcache_admin twemcache_data)

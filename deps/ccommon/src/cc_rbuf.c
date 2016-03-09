@@ -23,15 +23,6 @@
 
 #define RBUF_MODULE_NAME "ccommon::rbuf"
 
-struct rbuf {
-    uint32_t     rpos;          /* read offset */
-    uint32_t     wpos;          /* write offset */
-    uint32_t     cap;           /* # bytes allocated for data */
-    uint8_t      data[1];       /* beginning of buffer */
-};
-
-#define RBUF_HDR_SIZE   offsetof(struct rbuf, data)
-
 static rbuf_metrics_st *rbuf_metrics = NULL;
 static bool rbuf_init = false;
 
@@ -107,30 +98,6 @@ rbuf_destroy(struct rbuf **buf)
     }
 }
 
-static inline uint32_t
-_get_rpos(struct rbuf *buf)
-{
-    return __atomic_load_n(&(buf->rpos), __ATOMIC_RELAXED);
-}
-
-static inline uint32_t
-_get_wpos(struct rbuf *buf)
-{
-    return __atomic_load_n(&(buf->wpos), __ATOMIC_RELAXED);
-}
-
-static inline void
-_set_rpos(struct rbuf *buf, uint32_t rpos)
-{
-    __atomic_store_n(&(buf->rpos), rpos, __ATOMIC_RELAXED);
-}
-
-static inline void
-_set_wpos(struct rbuf *buf, uint32_t wpos)
-{
-    __atomic_store_n(&(buf->wpos), wpos, __ATOMIC_RELAXED);
-}
-
 /**
  * RBUF READ/WRITE CAPACITY:
  *
@@ -185,8 +152,8 @@ size_t
 rbuf_rcap(struct rbuf *buf)
 {
     uint32_t rpos, wpos;
-    rpos = _get_rpos(buf);
-    wpos = _get_wpos(buf);
+    rpos = get_rpos(buf);
+    wpos = get_wpos(buf);
 
     if (wpos < rpos) {
         return buf->cap + wpos - rpos + 1;
@@ -199,8 +166,8 @@ size_t
 rbuf_wcap(struct rbuf *buf)
 {
     uint32_t rpos, wpos;
-    rpos = _get_rpos(buf);
-    wpos = _get_wpos(buf);
+    rpos = get_rpos(buf);
+    wpos = get_wpos(buf);
 
     if (wpos < rpos) {
         /* no wrap around */
@@ -221,8 +188,8 @@ rbuf_read(void *dst, struct rbuf *src, size_t n)
 {
     size_t capacity, ret;
     uint32_t rpos, wpos;
-    rpos = _get_rpos(src);
-    wpos = _get_wpos(src);
+    rpos = get_rpos(src);
+    wpos = get_wpos(src);
 
     if (wpos < rpos) {
         /* write until end, then wrap around */
@@ -253,7 +220,7 @@ rbuf_read(void *dst, struct rbuf *src, size_t n)
         rpos += ret;
     }
 
-    _set_rpos(src, rpos);
+    set_rpos(src, rpos);
 
     return ret;
 }
@@ -263,8 +230,8 @@ rbuf_write(struct rbuf *dst, void *src, size_t n)
 {
     size_t capacity, ret;
     uint32_t rpos, wpos;
-    rpos = _get_rpos(dst);
-    wpos = _get_wpos(dst);
+    rpos = get_rpos(dst);
+    wpos = get_wpos(dst);
 
     if (wpos < rpos) {
         /* no wrapping around */
@@ -296,52 +263,7 @@ rbuf_write(struct rbuf *dst, void *src, size_t n)
         }
     }
 
-    _set_wpos(dst, wpos);
-
-    return ret;
-}
-
-ssize_t
-rbuf_read_fd(struct rbuf *src, int fd)
-{
-    uint32_t capacity;
-    ssize_t ret;
-    uint32_t rpos, wpos;
-    rpos = _get_rpos(src);
-    wpos = _get_wpos(src);
-
-    if (wpos < rpos) {
-        /* write until end, then wrap around */
-        capacity = src->cap - rpos + 1;
-        ret = write(fd, src->data + rpos, capacity);
-
-        if (ret > 0) {
-            rpos += ret;
-        }
-
-        if (ret == capacity) {
-            /* more can be written, read from beginning of src */
-            ssize_t remaining_bytes;
-
-            capacity = wpos;
-            remaining_bytes = write(fd, src->data, capacity);
-
-            if (remaining_bytes >= 0) {
-                rpos = remaining_bytes;
-                ret += remaining_bytes;
-            }
-        }
-    } else {
-        /* no wrap around */
-        capacity = wpos - rpos;
-        ret = write(fd, src->data + rpos, capacity);
-
-        if (ret > 0) {
-            rpos += ret;
-        }
-    }
-
-    _set_rpos(src, rpos);
+    set_wpos(dst, wpos);
 
     return ret;
 }

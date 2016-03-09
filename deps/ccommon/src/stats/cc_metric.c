@@ -22,9 +22,9 @@
 
 #include <stdbool.h>
 
-#define METRIC_MODULE_NAME "ccommon::metric"
+#define VALUE_PRINT_LEN 30
 
-static bool metric_init = false;
+char *metric_type_str[] = {"counter", "gauge", "floating point"};
 
 void
 metric_reset(struct metric sarr[], unsigned int n)
@@ -56,31 +56,11 @@ metric_reset(struct metric sarr[], unsigned int n)
     }
 }
 
-void
-metric_setup(void)
-{
-    log_info("set up the %s module", METRIC_MODULE_NAME);
-
-    if (metric_init) {
-        log_warn("%s has already been setup, overwrite", METRIC_MODULE_NAME);
-    }
-    metric_init = true;
-}
-
-void
-metric_teardown(void)
-{
-    log_info("tear down the %s module", METRIC_MODULE_NAME);
-
-    if (!metric_init) {
-        log_warn("%s has never been setup", METRIC_MODULE_NAME);
-    }
-    metric_init = false;
-}
-
 size_t
-metric_print(char *buf, size_t nbuf, struct metric *m)
+metric_print(char *buf, size_t nbuf, char *fmt, struct metric *m)
 {
+    char val_buf[VALUE_PRINT_LEN];
+
     if (m == NULL) {
         return 0;
     }
@@ -92,18 +72,32 @@ metric_print(char *buf, size_t nbuf, struct metric *m)
          * and negatively impact readability, and since this function should not
          * be called often enough to make it absolutely performance critical.
          */
-        return cc_scnprintf(buf, nbuf, "%s %llu", m->name, __atomic_load_n(
+        cc_scnprintf(val_buf, VALUE_PRINT_LEN, "%llu", __atomic_load_n(
                     &m->counter, __ATOMIC_RELAXED));
+        break;
 
     case METRIC_GAUGE:
-        return cc_scnprintf(buf, nbuf, "%s %lld", m->name, __atomic_load_n(
+        cc_scnprintf(val_buf, VALUE_PRINT_LEN, "%lld", __atomic_load_n(
                     &m->gauge, __ATOMIC_RELAXED));
+        break;
 
     case METRIC_FPN:
-        return cc_scnprintf(buf, nbuf, "%s %f", m->name, m->fpn);
+        cc_scnprintf(val_buf, VALUE_PRINT_LEN, "%f", m->fpn);
+        break;
 
     default:
         NOT_REACHED();
+    }
+
+    return cc_scnprintf(buf, nbuf, fmt, m->name, val_buf);
+}
+
+size_t
+metric_describe(char *buf, size_t nbuf, char *fmt, struct metric *m)
+{
+    if (m == NULL) {
         return 0;
     }
+
+    return cc_scnprintf(buf, nbuf, fmt, m->name, metric_type_str[m->type], m->desc);
 }
