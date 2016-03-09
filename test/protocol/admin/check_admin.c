@@ -45,7 +45,7 @@ test_teardown(void)
  **************/
 
 /*
- * basic ops
+ * basic admin requests
  */
 START_TEST(test_quit)
 {
@@ -127,7 +127,7 @@ admin_suite(void)
 {
     Suite *s = suite_create(SUITE_NAME);
 
-    /* basic ops */
+    /* basic admin requests */
     TCase *tc_basic_req = tcase_create("basic req");
     suite_add_tcase(s, tc_basic_req);
 
