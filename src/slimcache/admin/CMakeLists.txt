@@ -1,2 +1,2 @@
 add_library(slimcache_admin process.c)
-target_link_libraries(slimcache_admin protocol_admin)
+target_link_libraries(slimcache_admin protocol_admin ccommon-static)
