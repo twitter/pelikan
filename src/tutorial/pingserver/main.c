@@ -31,13 +31,11 @@ main(int argc, char **argv)
 
     if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
         show_usage();
-
-        exit(EX_OK);
     }
     if (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0) {
         show_version();
-
-        exit(EX_OK);
     }
+
+    exit(EX_OK);
 }
 
