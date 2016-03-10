@@ -28,20 +28,30 @@
 
 static bool klog_init = false;
 static struct logger *klogger;
-static uint64_t klog_cmds = 0;
+static uint64_t klog_cmds;
 static uint32_t klog_sample = KLOG_SAMPLE;
 static klog_metrics_st *klog_metrics;
 struct timeout_event *klog_tev;
+static size_t klog_file_size;
+static char *klog_backup;
+static size_t klog_max = KLOG_MAX;
 
 static void
 _klog_flush(void *arg)
 {
-    log_flush(klogger);
+    klog_file_size += log_flush(klogger);
+    if (klog_file_size >= klog_max) {
+        log_reopen(klogger, klog_backup);
+        klog_file_size = 0;
+    }
 }
 
 rstatus_i
-klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample, klog_metrics_st *metrics)
+klog_setup(char *file, char *backup, uint32_t nbuf, uint32_t interval,
+           uint32_t sample, size_t max, klog_metrics_st *metrics)
 {
+    size_t backup_nfilename;
+
     log_info("Set up the %s module", KLOG_MODULE_NAME);
 
     if (klog_init) {
@@ -58,6 +68,12 @@ klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample, klog_m
     }
 
     klogger = log_create(file, nbuf);
+
+    if (backup != NULL) {
+        backup_nfilename = strlen(backup);
+        klog_backup = cc_alloc(backup_nfilename);
+        cc_memcpy(klog_backup, backup, backup_nfilename);
+    }
 
     if (klogger == NULL) {
         log_error("Could not create klogger!");
@@ -90,6 +106,8 @@ klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample, klog_m
     }
     klog_sample = sample;
 
+    klog_max = max;
+
     klog_init = true;
 
     return CC_OK;
@@ -115,6 +133,10 @@ klog_teardown(void)
     }
 
     klog_sample = 1;
+
+    if (klog_backup != NULL) {
+        cc_free(klog_backup);
+    }
 
     klog_init = false;
 }

@@ -8,13 +8,16 @@
 #define KLOG_NBUF   2 * MiB    /* default log buf size */
 #define KLOG_INTVL  100000000  /* flush every 100 milliseconds */
 #define KLOG_SAMPLE 100        /* log one in every 100 commands */
+#define KLOG_MAX    GiB        /* max klog file size */
 
 /*          name         type              default       description */
-#define KLOG_OPTION(ACTION)                                                            \
-    ACTION( klog_file,   OPTION_TYPE_STR,  NULL,         "command log file"           )\
-    ACTION( klog_nbuf,   OPTION_TYPE_UINT, KLOG_NBUF,    "command log buf size"       )\
-    ACTION( klog_intvl,  OPTION_TYPE_UINT, KLOG_INTVL,   "command log flush interval" )\
-    ACTION( klog_sample, OPTION_TYPE_UINT, KLOG_SAMPLE,  "command log sample ratio"   )
+#define KLOG_OPTION(ACTION)                                                                                                   \
+    ACTION( klog_file,   OPTION_TYPE_STR,  NULL,         "command log file"                                                  )\
+    ACTION( klog_backup, OPTION_TYPE_STR,  NULL,         "command log backup file"                                           )\
+    ACTION( klog_nbuf,   OPTION_TYPE_UINT, KLOG_NBUF,    "command log buf size"                                              )\
+    ACTION( klog_intvl,  OPTION_TYPE_UINT, KLOG_INTVL,   "command log flush interval"                                        )\
+    ACTION( klog_sample, OPTION_TYPE_UINT, KLOG_SAMPLE,  "command log sample ratio"                                          )\
+    ACTION( klog_max,    OPTION_TYPE_UINT, KLOG_MAX,     "max klog file size - allow up to 2x klog_max disk if using backup" )
 
 /*          name            type            description */
 #define KLOG_METRIC(ACTION)                                                  \
@@ -37,8 +40,8 @@ struct timeout_event;
 
 extern struct timeout_event *klog_tev;
 
-rstatus_i klog_setup(char *file, uint32_t nbuf, uint32_t interval, uint32_t sample,
-                     klog_metrics_st *metrics);
+rstatus_i klog_setup(char *file, char *backup, uint32_t nbuf, uint32_t interval,
+                     uint32_t sample, size_t max, klog_metrics_st *metrics);
 void klog_teardown(void);
 
 void klog_write(struct request *req, struct response *rsp);
