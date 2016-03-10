@@ -32,17 +32,17 @@ static uint64_t klog_cmds;
 static uint32_t klog_sample = KLOG_SAMPLE;
 static klog_metrics_st *klog_metrics;
 struct timeout_event *klog_tev;
-static size_t kfs;              /* klog file size */
+static size_t klog_file_size;
 static char *klog_backup;
 static size_t klog_max = KLOG_MAX;
 
 static void
 _klog_flush(void *arg)
 {
-    kfs += log_flush(klogger);
-    if (kfs >= klog_max) {
+    klog_file_size += log_flush(klogger);
+    if (klog_file_size >= klog_max) {
         log_reopen(klogger, klog_backup);
-        kfs = 0;
+        klog_file_size = 0;
     }
 }
 

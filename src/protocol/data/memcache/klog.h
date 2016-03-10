@@ -1,4 +1,5 @@
 #pragma once
+
 #include <cc_define.h>
 #include <cc_metric.h>
 
