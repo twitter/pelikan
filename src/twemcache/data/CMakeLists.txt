@@ -1,2 +1,4 @@
-add_library(twemcache_data process.c)
-target_link_libraries(twemcache_data protocol_memcache)
+set(SOURCE
+    ${SOURCE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/process.c
+    PARENT_SCOPE)

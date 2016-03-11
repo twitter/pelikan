@@ -166,13 +166,13 @@ setup(void)
         goto error;
     }
 
-    status = admin_add_timed_ev(dlog_tev);
+    status = core_admin_add_tev(dlog_tev);
     if (status != CC_OK) {
         log_stderr("Could not add debug log timed event to admin thread");
         goto error;
     }
 
-    status = admin_add_timed_ev(klog_tev);
+    status = core_admin_add_tev(klog_tev);
     if (status != CC_OK) {
         log_error("Could not add klog timed event to admin thread");
         goto error;

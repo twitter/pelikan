@@ -1,2 +1,4 @@
-add_library(slimcache_data process.c)
-target_link_libraries(slimcache_data protocol_memcache)
+set(SOURCE
+    ${SOURCE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/process.c
+    PARENT_SCOPE)

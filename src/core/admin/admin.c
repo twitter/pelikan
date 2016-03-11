@@ -200,7 +200,7 @@ _admin_event(void *arg, uint32_t events)
 }
 
 rstatus_i
-admin_add_timed_ev(struct timeout_event *tev)
+core_admin_add_tev(struct timeout_event *tev)
 {
     ASSERT(!__atomic_load_n(&admin_running, __ATOMIC_RELAXED));
     ASSERT(admin_init);
@@ -209,7 +209,7 @@ admin_add_timed_ev(struct timeout_event *tev)
 }
 
 rstatus_i
-admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
+core_admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
             size_t tw_cap, size_t tw_ntick)
 {
     struct tcp_conn *c;
@@ -265,7 +265,7 @@ admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
 }
 
 void
-admin_teardown(void)
+core_admin_teardown(void)
 {
     log_info("tear down the %s module", ADMIN_MODULE_NAME);
 
@@ -281,7 +281,7 @@ admin_teardown(void)
 }
 
 static rstatus_i
-admin_evwait(void)
+_admin_evwait(void)
 {
     int n;
 
@@ -294,12 +294,12 @@ admin_evwait(void)
 }
 
 void *
-admin_evloop(void *arg)
+core_admin_evloop(void *arg)
 {
     rstatus_i status;
 
     for(;;) {
-        status = admin_evwait();
+        status = _admin_evwait();
         if (status != CC_OK) {
             log_crit("admin loop exited due to failure");
             break;
