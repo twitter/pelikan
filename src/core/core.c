@@ -63,7 +63,7 @@ core_setup(struct addrinfo *data_ai, struct addrinfo *admin_ai,
         return ret;
     }
 
-    ret = admin_setup(admin_ai, maint_intvl, tw_tick, tw_cap, tw_ntick);
+    ret = core_admin_setup(admin_ai, maint_intvl, tw_tick, tw_cap, tw_ntick);
     if (ret != CC_OK) {
         return ret;
     }
@@ -75,8 +75,9 @@ core_setup(struct addrinfo *data_ai, struct addrinfo *admin_ai,
 void
 core_teardown(void)
 {
-    core_server_teardown();
+    core_admin_teardown();
     core_worker_teardown();
+    core_server_teardown();
 
     ring_array_destroy(conn_arr);
     pipe_conn_destroy(&pipe_c);
@@ -103,7 +104,7 @@ core_run(void)
     }
 
     __atomic_store_n(&admin_running, true, __ATOMIC_RELAXED);
-    ret = pthread_create(&admin, NULL, admin_evloop, NULL);
+    ret = pthread_create(&admin, NULL, core_admin_evloop, NULL);
     if (ret != 0) {
         log_crit("pthread create failed for admin thread: %s", strerror(ret));
         goto error;

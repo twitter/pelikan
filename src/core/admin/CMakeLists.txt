@@ -1,2 +1,4 @@
-add_library(core_admin admin.c)
-target_link_libraries(core_admin protocol_admin)
+set(SOURCE
+    ${SOURCE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/admin.c
+    PARENT_SCOPE)

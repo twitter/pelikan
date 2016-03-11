@@ -31,11 +31,11 @@ struct timeout_event;
 extern struct timing_wheel *tw;
 extern bool admin_running;
 
-rstatus_i admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
+rstatus_i core_admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
                       size_t tw_cap, size_t tw_ntick);
-void admin_teardown(void);
+void core_admin_teardown(void);
 
 /* timeout events must be added while admin evloop is not running */
-rstatus_i admin_add_timed_ev(struct timeout_event *tev);
+rstatus_i core_admin_add_tev(struct timeout_event *tev);
 
-void *admin_evloop(void *arg);
+void *core_admin_evloop(void *arg);

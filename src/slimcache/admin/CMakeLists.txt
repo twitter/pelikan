@@ -1,2 +1,4 @@
-add_library(slimcache_admin process.c)
-target_link_libraries(slimcache_admin protocol_admin)
+set(SOURCE
+    ${SOURCE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/process.c
+    PARENT_SCOPE)
