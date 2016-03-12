@@ -9,9 +9,8 @@
 
 #define SLIMCACHE_ADMIN_MODULE_NAME "slimcache::admin"
 
-#define METRIC_HEADER "STAT "
-#define METRIC_PRINT_FMT "%s %s\r\n"
-#define METRIC_PRINT_LEN 64 /* 32 (name) + 30 (value) + CRLF */
+#define METRIC_PRINT_FMT "STAT %s %s\r\n"
+#define METRIC_PRINT_LEN 64 /* > 5("STAT ") + 32 (name) + 20 (value) + CRLF */
 #define METRIC_DESCRIBE_FMT "%33s %15s %s\r\n"
 #define METRIC_DESCRIBE_LEN 120 /* 34 (name) + 16 (type) + 68 (description) + CRLF */
 #define METRIC_FOOTER CRLF
