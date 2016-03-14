@@ -79,7 +79,7 @@ klog_setup(klog_options_st *options, klog_metrics_st *metrics)
         klog_backup = option_str(&options->klog_backup);
         if (klog_backup != NULL) {
             nbyte = strlen(klog_backup);
-            strcpy(backup_path, klog_backup);
+            strncpy(backup_path, klog_backup, PATH_MAX);
             klog_backup = backup_path;
         }
         nbuf = option_uint(&options->klog_nbuf);
