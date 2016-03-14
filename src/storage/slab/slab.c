@@ -24,7 +24,7 @@ struct slab_heapinfo {
 
 static struct slab_heapinfo heapinfo;             /* info of all allocated slabs */
 static size_t profile[SLABCLASS_MAX_ID + 1];      /* slab profile */
-static uint8_t profile_last_id; /* last id in slab profile */
+static uint8_t profile_last_id;                   /* last id in slab profile */
 struct slabclass slabclass[SLABCLASS_MAX_ID + 1]; /* collection of slabs bucketed by slabclass */
 
 size_t slab_size = SLAB_SIZE;           /* # bytes in a slab */

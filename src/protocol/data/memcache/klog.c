@@ -87,7 +87,7 @@ klog_setup(klog_options_st *options, klog_metrics_st *metrics)
         klog_sample = option_uint(&options->klog_sample);
         if (klog_sample == 0) {
             log_error("klog sample rate cannot be 0 - divide by zero");
-            return CC_ERROR;
+            goto error;
         }
         klog_max =  option_uint(&options->klog_max);
     }
@@ -100,7 +100,7 @@ klog_setup(klog_options_st *options, klog_metrics_st *metrics)
     klogger = log_create(filename, nbuf);
     if (klogger == NULL) {
         log_error("Could not create klogger!");
-        return CC_ERROR;
+        goto error;
     }
 
     if (nbuf > 0) {
