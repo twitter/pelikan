@@ -87,4 +87,3 @@ struct slabclass {
 #define SLABCLASS_INVALID_ID    UCHAR_MAX
 
 extern struct slabclass slabclass[SLABCLASS_MAX_ID + 1];  /* collection of slabs bucketed by slabclass */
-uint8_t slab_id(size_t size);

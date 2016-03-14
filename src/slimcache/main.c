@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
-static struct setting setting = (struct setting) {
+static struct setting setting = {
     { SLIMCACHE_OPTION(OPTION_INIT) },
     { ADMIN_OPTION(OPTION_INIT)     },
     { SERVER_OPTION(OPTION_INIT)    },

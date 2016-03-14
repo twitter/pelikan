@@ -79,6 +79,10 @@ klog_setup(klog_options_st *options, klog_metrics_st *metrics)
         klog_backup = option_str(&options->klog_backup);
         if (klog_backup != NULL) {
             nbyte = strlen(klog_backup);
+            if (nbyte > PATH_MAX) {
+                log_error("klog file path too long");
+                goto error;
+            }
             strncpy(backup_path, klog_backup, PATH_MAX);
             klog_backup = backup_path;
         }

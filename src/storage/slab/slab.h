@@ -125,13 +125,6 @@ slab_capacity(void)
     return slab_size - SLAB_HDR_SIZE;
 }
 
-/* Calculate slab id that will accommodate item with given key/val lengths */
-static inline uint8_t
-item_slabid(uint8_t klen, uint32_t vlen)
-{
-    return slab_id(item_ntotal(klen, vlen));
-}
-
 /*
  * Get the slab that contains this item.
  */
@@ -151,6 +144,13 @@ item_to_slab(struct item *it)
 
 void slab_print(void);
 uint8_t slab_id(size_t size);
+
+/* Calculate slab id that will accommodate item with given key/val lengths */
+static inline uint8_t
+item_slabid(uint8_t klen, uint32_t vlen)
+{
+    return slab_id(item_ntotal(klen, vlen));
+}
 
 rstatus_i slab_setup(slab_options_st *options, slab_metrics_st *metrics);
 void slab_teardown(void);
