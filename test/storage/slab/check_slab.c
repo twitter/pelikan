@@ -17,21 +17,12 @@
 static rstatus_i
 test_setup(void)
 {
-    rstatus_i status;
-
-    status = slab_setup(SLAB_SIZE, true, EVICT_NONE, true, SLAB_MIN_CHUNK,
-                        SLAB_MAX_CHUNK, GiB, NULL, str(SLAB_FACTOR), NULL);
-    if (status != CC_OK) {
-        return status;
-    }
-
-    return item_setup(true, HASH_POWER, NULL);
+    return slab_setup(NULL, NULL);
 }
 
 static void
 test_teardown(void)
 {
-    item_teardown();
     slab_teardown();
 }
 

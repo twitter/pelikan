@@ -1,13 +1,15 @@
 #pragma once
 
-#include <buffer/cc_buf.h>
 #include <cc_metric.h>
-
-#include <stdbool.h>
+#include <cc_option.h>
 
 /*          name         type              default description */
 #define PROCESS_OPTION(ACTION)                                                        \
     ACTION( allow_flush, OPTION_TYPE_BOOL, false,  "allow flushing on the data port" )
+
+typedef struct {
+    PROCESS_OPTION(OPTION_DECLARE)
+} process_options_st;
 
 /*          name                        type            description */
 #define PROCESS_METRIC(ACTION)                                          \
@@ -60,5 +62,5 @@ typedef struct {
     *(_metrics) = (process_metrics_st) { PROCESS_METRIC(METRIC_INIT) }; \
 } while(0)
 
-void process_setup(bool flush, process_metrics_st *process_metrics);
+void process_setup(process_options_st *options, process_metrics_st *metrics);
 void process_teardown(void);

@@ -35,6 +35,10 @@ extern "C" {
 #define ARRAY_OPTION(ACTION)                                                                              \
     ACTION( array_nelem_delta,  OPTION_TYPE_UINT,   NELEM_DELTA,      "max nelem delta during expansion" )
 
+typedef struct {
+    ARRAY_OPTION(OPTION_DECLARE)
+} array_options_st;
+
 typedef int (*array_compare_fn)(const void *, const void *);
 typedef rstatus_i (*array_each_fn)(void *, void *);
 
@@ -131,7 +135,7 @@ void array_sort(struct array *arr, array_compare_fn compare);
 uint32_t array_each(struct array *arr, array_each_fn func, void *arg, err_i *err);
 
 /* TODO(yao): refactor to use better arg names */
-void array_setup(uint32_t nelem);
+void array_setup(array_options_st *options);
 void array_teardown(void);
 
 #ifdef __cplusplus

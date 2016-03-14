@@ -2,12 +2,9 @@
 
 #include <protocol/data/memcache_include.h>
 #include <storage/cuckoo/cuckoo.h>
-#include <slimcache/stats.h>
-#include <util/procinfo.h>
 
 #include <cc_array.h>
 #include <cc_debug.h>
-#include <cc_define.h>
 #include <cc_print.h>
 
 #define SLIMCACHE_PROCESS_MODULE_NAME "slimcache::process"
@@ -21,7 +18,7 @@ static process_metrics_st *process_metrics = NULL;
 static bool allow_flush = false;
 
 void
-process_setup(bool flush, process_metrics_st *metrics)
+process_setup(process_options_st *options, process_metrics_st *metrics)
 {
     log_info("set up the %s module", SLIMCACHE_PROCESS_MODULE_NAME);
     if (process_init) {
@@ -29,9 +26,13 @@ process_setup(bool flush, process_metrics_st *metrics)
                 SLIMCACHE_PROCESS_MODULE_NAME);
     }
 
-    allow_flush = flush;
     process_metrics = metrics;
-    PROCESS_METRIC_INIT(process_metrics);
+    if (metrics != NULL) {
+        PROCESS_METRIC_INIT(process_metrics);
+    }
+
+    allow_flush = option_bool(&options->allow_flush);
+
     process_init = true;
 }
 

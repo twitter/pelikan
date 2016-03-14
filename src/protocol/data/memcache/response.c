@@ -20,34 +20,6 @@ static struct rsp_pool rspp;
 static bool rspp_init = false;
 
 void
-response_setup(response_metrics_st *metrics)
-{
-    log_info("set up the %s module", RESPONSE_MODULE_NAME);
-
-    response_metrics = metrics;
-    if (metrics != NULL) {
-        RESPONSE_METRIC_INIT(response_metrics);
-    }
-
-    if (response_init) {
-        log_warn("%s has already been setup, overwrite", RESPONSE_MODULE_NAME);
-    }
-    response_init = true;
-}
-
-void
-response_teardown(void)
-{
-    log_info("tear down the %s module", RESPONSE_MODULE_NAME);
-
-    if (!response_init) {
-        log_warn("%s has never been setup", RESPONSE_MODULE_NAME);
-    }
-    response_metrics = NULL;
-    response_init = false;
-}
-
-void
 response_reset(struct response *rsp)
 {
     ASSERT(rsp != NULL);
@@ -99,50 +71,7 @@ response_destroy(struct response **response)
     *response = NULL;
 }
 
-
-void
-response_pool_create(uint32_t max)
-{
-    uint32_t i;
-    struct response **rsps = NULL;
-
-    if (rspp_init) {
-        log_warn("response pool has already been created, ignore");
-
-        return;
-    }
-
-    if (max != 0) {
-        rsps = cc_alloc(max * sizeof(struct response *));
-        if (rsps == NULL) {
-            log_crit("cannot preallocate response pool due to OOM, abort");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    log_info("creating response pool: max %"PRIu32, max);
-
-    FREEPOOL_CREATE(&rspp, max);
-    rspp_init = true;
-
-    for (i = 0; i < max; ++i) {
-        FREEPOOL_BORROW(rsps[i], &rspp, next, response_create);
-        if (rsps[i] == NULL) {
-            log_crit("borrow rsp failed: OOM %d");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    for (i = 0; i < max; ++i) {
-        rsps[i]->free = true;
-        FREEPOOL_RETURN(rsps[i], &rspp, next);
-        INCR(response_metrics, response_free);
-    }
-
-    cc_free(rsps);
-}
-
-void
+static void
 response_pool_destroy(void)
 {
     struct response *rsp, *trsp;
@@ -155,6 +84,30 @@ response_pool_destroy(void)
     } else {
         log_warn("response pool was never created, ignore");
     }
+}
+
+static void
+response_pool_create(uint32_t max)
+{
+    struct response *rsp;
+
+    if (rspp_init) {
+        log_warn("response pool has already been created, re-creating");
+
+        response_pool_destroy();
+    }
+
+    log_info("creating response pool: max %"PRIu32, max);
+
+    FREEPOOL_CREATE(&rspp, max);
+    rspp_init = true;
+
+    FREEPOOL_PREALLOC(rsp, &rspp, max, next, response_create);
+    if (rspp.nfree < max) {
+        log_crit("cannot preallocate response pool, OOM. abort");
+        exit(EXIT_FAILURE);
+    }
+    UPDATE_VAL(response_metrics, response_free, max);
 }
 
 struct response *
@@ -218,4 +171,40 @@ response_return_all(struct response **response)
     }
 
     *response = NULL;
+}
+
+void
+response_setup(response_options_st *options, response_metrics_st *metrics)
+{
+    uint32_t poolsize;
+
+    log_info("set up the %s module", RESPONSE_MODULE_NAME);
+
+    if (response_init) {
+        log_warn("%s has already been setup, overwrite", RESPONSE_MODULE_NAME);
+    }
+
+    response_metrics = metrics;
+    if (metrics != NULL) {
+        RESPONSE_METRIC_INIT(response_metrics);
+    }
+    poolsize = (options == NULL) ? 0 : option_uint(&options->response_poolsize);
+    response_pool_create(poolsize);
+
+    response_init = true;
+}
+
+void
+response_teardown(void)
+{
+    log_info("tear down the %s module", RESPONSE_MODULE_NAME);
+
+    if (!response_init) {
+        log_warn("%s has never been setup", RESPONSE_MODULE_NAME);
+    }
+
+    response_pool_destroy();
+    response_metrics = NULL;
+
+    response_init = false;
 }

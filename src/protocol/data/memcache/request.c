@@ -19,34 +19,6 @@ static struct req_pool reqp;
 static bool reqp_init = false;
 
 void
-request_setup(request_metrics_st *metrics)
-{
-    log_info("set up the %s module", REQUEST_MODULE_NAME);
-
-    request_metrics = metrics;
-    if (metrics != NULL) {
-        REQUEST_METRIC_INIT(request_metrics);
-    }
-
-    if (request_init) {
-        log_warn("%s has already been setup, overwrite", REQUEST_MODULE_NAME);
-    }
-    request_init = true;
-}
-
-void
-request_teardown(void)
-{
-    log_info("tear down the %s module", REQUEST_MODULE_NAME);
-
-    if (!request_init) {
-        log_warn("%s has never been setup", REQUEST_MODULE_NAME);
-    }
-    request_metrics = NULL;
-    request_init = false;
-}
-
-void
 request_reset(struct request *req)
 {
     ASSERT(req != NULL && req->keys != NULL);
@@ -107,25 +79,30 @@ request_destroy(struct request **request)
     *request = NULL;
 }
 
-
-void
-request_pool_create(uint32_t max)
+static void
+request_pool_destroy(void)
 {
-    uint32_t i;
-    struct request **reqs = NULL;
+    struct request *req, *treq;
 
-    if (reqp_init) {
-        log_warn("request pool has already been created, ignore");
-
-        return;
+    if (!reqp_init) {
+        log_warn("request pool was never created, ignore");
     }
 
-    if (max != 0) {
-        reqs = cc_alloc(max * sizeof(struct request *));
-        if (reqs == NULL) {
-            log_crit("cannot preallocate request pool due to OOM, abort");
-            exit(EXIT_FAILURE);
-        }
+    log_info("destroying request pool: free %"PRIu32, reqp.nfree);
+
+    FREEPOOL_DESTROY(req, treq, &reqp, next, request_destroy);
+    reqp_init = false;
+}
+
+static void
+request_pool_create(uint32_t max)
+{
+    struct request *req;
+
+    if (reqp_init) {
+        log_warn("request pool has already been created, re-creating");
+
+        request_pool_destroy();
     }
 
     log_info("creating request pool: max %"PRIu32, max);
@@ -133,36 +110,12 @@ request_pool_create(uint32_t max)
     FREEPOOL_CREATE(&reqp, max);
     reqp_init = true;
 
-    for (i = 0; i < max; ++i) {
-        FREEPOOL_BORROW(reqs[i], &reqp, next, request_create);
-        if (reqs[i] == NULL) {
-            log_crit("borrow req failed: OOM %d");
-            exit(EXIT_FAILURE);
-        }
+    FREEPOOL_PREALLOC(req, &reqp, max, next, request_create);
+    if (reqp.nfree < max) {
+        log_crit("cannot preallocate request pool, OOM. abort");
+        exit(EXIT_FAILURE);
     }
-
-    for (i = 0; i < max; ++i) {
-        reqs[i]->free = true;
-        FREEPOOL_RETURN(reqs[i], &reqp, next);
-        INCR(request_metrics, request_free);
-    }
-
-    cc_free(reqs);
-}
-
-void
-request_pool_destroy(void)
-{
-    struct request *req, *treq;
-
-    if (reqp_init) {
-        log_info("destroying request pool: free %"PRIu32, reqp.nfree);
-
-        FREEPOOL_DESTROY(req, treq, &reqp, next, request_destroy);
-        reqp_init = false;
-    } else {
-        log_warn("request pool was never created, ignore");
-    }
+    UPDATE_VAL(request_metrics, request_free, max);
 }
 
 struct request *
@@ -202,4 +155,40 @@ request_return(struct request **request)
     FREEPOOL_RETURN(req, &reqp, next);
 
     *request = NULL;
+}
+
+void
+request_setup(request_options_st *options, request_metrics_st *metrics)
+{
+    uint32_t poolsize;
+
+    log_info("set up the %s module", REQUEST_MODULE_NAME);
+
+    if (request_init) {
+        log_warn("%s has already been setup, overwrite", REQUEST_MODULE_NAME);
+    }
+
+    poolsize = (options == NULL) ? 0 : option_uint(&options->request_poolsize);
+    request_pool_create(poolsize);
+
+    request_metrics = metrics;
+    if (metrics != NULL) {
+        REQUEST_METRIC_INIT(request_metrics);
+    }
+
+    request_init = true;
+}
+
+void
+request_teardown(void)
+{
+    log_info("tear down the %s module", REQUEST_MODULE_NAME);
+
+    if (!request_init) {
+        log_warn("%s has never been setup", REQUEST_MODULE_NAME);
+    }
+    request_pool_destroy();
+    request_metrics = NULL;
+
+    request_init = false;
 }

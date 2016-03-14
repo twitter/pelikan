@@ -1,21 +1,9 @@
-#include <storage/slab/item.h>
-
-#include <storage/slab/hashtable.h>
+#include <storage/slab/slab.h>
 
 #include <cc_debug.h>
 
 #include <stdlib.h>
 #include <stdio.h>
-
-#define ITEM_MODULE_NAME "storage::slab::item"
-
-struct hash_table *hash_table;                /* hash table where items are linked */
-
-bool use_cas = true;
-uint64_t cas_id = 0;
-
-static bool item_init = false;
-static item_metrics_st *item_metrics = NULL;
 
 static rel_time_t flush_at = 0;
 
@@ -46,48 +34,6 @@ _copy_val(struct item *it, const struct bstring *val)
 {
     cc_memcpy(item_data(it), val->data, val->len);
     it->vlen = val->len;
-}
-
-rstatus_i
-item_setup(bool enable_cas, uint32_t hash_power, item_metrics_st *metrics)
-{
-    log_info("set up the %s module", ITEM_MODULE_NAME);
-
-    if (item_init) {
-        log_warn("%s has already been set up, overwrite", ITEM_MODULE_NAME);
-    }
-
-    log_debug("item hdr size %d", ITEM_HDR_SIZE);
-
-    use_cas = enable_cas;
-    hash_table = hashtable_create(hash_power);
-
-    if (hash_table == NULL) {
-        return CC_ENOMEM;
-    }
-
-    item_metrics = metrics;
-    if (metrics != NULL) {
-        ITEM_METRIC_INIT(item_metrics);
-    }
-
-    item_init = true;
-
-    return CC_OK;
-}
-
-void
-item_teardown(void)
-{
-    log_info("tear down the %s module", ITEM_MODULE_NAME);
-
-    if (!item_init) {
-        log_warn("%s has never been set up", ITEM_MODULE_NAME);
-    }
-
-    hashtable_destroy(hash_table);
-    item_metrics = NULL;
-    item_init = false;
 }
 
 void
@@ -138,14 +84,14 @@ _item_alloc(struct item **it_p, uint8_t klen, uint32_t vlen)
     _item_reset(it);
     *it_p = it;
     if (it != NULL) {
-        INCR(item_metrics, item_req);
+        INCR(slab_metrics, item_req);
 
         log_verb("alloc it %p of id %"PRIu8" at offset %"PRIu32, it, it->id,
                 it->offset);
 
         return ITEM_OK;
     } else {
-        INCR(item_metrics, item_req_ex);
+        INCR(slab_metrics, item_req_ex);
         log_warn("server error on allocating item in slab %"PRIu8, id);
 
         return ITEM_ENOMEM;
@@ -169,10 +115,10 @@ _item_link(struct item *it)
 
     hashtable_put(it, hash_table);
 
-    INCR(item_metrics, item_curr);
-    INCR(item_metrics, item_insert);
-    INCR_N(item_metrics, item_keyval_byte, it->klen + it->vlen);
-    INCR_N(item_metrics, item_val_byte, it->vlen);
+    INCR(slab_metrics, item_curr);
+    INCR(slab_metrics, item_insert);
+    INCR_N(slab_metrics, item_keyval_byte, it->klen + it->vlen);
+    INCR_N(slab_metrics, item_val_byte, it->vlen);
 }
 
 /*
@@ -192,10 +138,10 @@ _item_unlink(struct item *it)
     }
     slab_put_item(it, it->id);
 
-    DECR(item_metrics, item_curr);
-    INCR(item_metrics, item_remove);
-    DECR_N(item_metrics, item_keyval_byte, it->klen + it->vlen);
-    DECR_N(item_metrics, item_val_byte, it->vlen);
+    DECR(slab_metrics, item_curr);
+    INCR(slab_metrics, item_remove);
+    DECR_N(slab_metrics, item_keyval_byte, it->klen + it->vlen);
+    DECR_N(slab_metrics, item_val_byte, it->vlen);
 }
 
 /**
@@ -275,8 +221,8 @@ item_annex(struct item *oit, const struct bstring *val, bool append)
         if (id == oit->id && !(oit->is_raligned)) {
             cc_memcpy(item_data(oit) + oit->vlen, val->data, val->len);
             oit->vlen = ntotal;
-            INCR_N(item_metrics, item_keyval_byte, val->len);
-            INCR_N(item_metrics, item_val_byte, val->len);
+            INCR_N(slab_metrics, item_keyval_byte, val->len);
+            INCR_N(slab_metrics, item_val_byte, val->len);
             item_set_cas(oit);
         } else {
             status = _item_alloc(&nit, oit->klen, ntotal);
@@ -305,8 +251,8 @@ item_annex(struct item *oit, const struct bstring *val, bool append)
         if (id == oit->id && oit->is_raligned) {
             cc_memcpy(item_data(oit) - val->len, val->data, val->len);
             oit->vlen = ntotal;
-            INCR_N(item_metrics, item_keyval_byte, val->len);
-            INCR_N(item_metrics, item_val_byte, val->len);
+            INCR_N(slab_metrics, item_keyval_byte, val->len);
+            INCR_N(slab_metrics, item_val_byte, val->len);
             item_set_cas(oit);
         } else {
             status = _item_alloc(&nit, oit->klen, ntotal);

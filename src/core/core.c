@@ -26,50 +26,47 @@ bool core_init = false;
  */
 
 rstatus_i
-core_setup(struct addrinfo *data_ai, struct addrinfo *admin_ai,
-           uint32_t max_conns, int maint_intvl, uint64_t tw_tick,
-           size_t tw_cap, size_t tw_ntick, server_metrics_st *smetrics,
-           worker_metrics_st *wmetrics)
+core_setup(admin_options_st *opt_admin,
+        server_options_st *opt_server, worker_options_st *opt_worker,
+        server_metrics_st *smetrics, worker_metrics_st *wmetrics)
 {
-    rstatus_i ret;
-
     pipe_c = pipe_conn_create();
-
     if (pipe_c == NULL) {
         log_error("Could not create connection for pipe, abort");
-        return CC_ERROR;
+        goto error;
     }
 
     if (!pipe_open(NULL, pipe_c)) {
         log_error("Could not open pipe connection: %s", strerror(pipe_c->err));
-        return CC_ERROR;
+        goto error;
     }
 
     pipe_set_nonblocking(pipe_c);
 
-    conn_arr = ring_array_create(sizeof(struct buf_sock *), max_conns);
+    conn_arr = ring_array_create(sizeof(struct buf_sock *), RING_ARRAY_DEFAULT_CAP);
     if (conn_arr == NULL) {
         log_error("core setup failed: could not allocate conn array");
-        return CC_ERROR;
+        goto error;
     }
 
-    ret = core_server_setup(data_ai, smetrics);
-    if (ret != CC_OK) {
-        return ret;
+    if (core_server_setup(opt_server, smetrics) != CC_OK) {
+        goto error;
     }
 
-    ret = core_worker_setup(wmetrics);
-    if (ret != CC_OK) {
-        return ret;
+    if (core_worker_setup(opt_worker, wmetrics) != CC_OK) {
+        goto error;
     }
 
-    ret = core_admin_setup(admin_ai, maint_intvl, tw_tick, tw_cap, tw_ntick);
-    if (ret != CC_OK) {
-        return ret;
+    if (core_admin_setup(opt_admin) != CC_OK) {
+        goto error;
     }
 
     core_init = true;
     return CC_OK;
+
+error:
+    core_teardown();
+    return CC_ERROR;
 }
 
 void
@@ -97,7 +94,6 @@ core_run(void)
     }
 
     ret = pthread_create(&worker, NULL, core_worker_evloop, NULL);
-
     if (ret != 0) {
         log_crit("pthread create failed for worker thread: %s", strerror(ret));
         goto error;

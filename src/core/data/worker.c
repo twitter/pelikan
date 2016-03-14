@@ -269,7 +269,7 @@ worker_add_conn(void)
 }
 
 static void
-core_worker_event(void *arg, uint32_t events)
+_worker_event(void *arg, uint32_t events)
 {
     struct buf_sock *s = arg;
     log_verb("worker event %06"PRIX32" on buf_sock %p", events, s);
@@ -319,18 +319,29 @@ core_worker_event(void *arg, uint32_t events)
 }
 
 rstatus_i
-core_worker_setup(worker_metrics_st *metrics)
+core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
 {
+    log_info("set up the %s module", WORKER_MODULE_NAME);
+
     if (worker_init) {
         log_error("worker has already been setup, aborting");
 
         return CC_ERROR;
     }
 
-    log_info("set up the %s module", WORKER_MODULE_NAME);
+    worker_metrics = metrics;
+    if (metrics != NULL) {
+        WORKER_METRIC_INIT(worker_metrics);
+    }
 
-    ctx->timeout = 100;
-    ctx->evb = event_base_create(1024, core_worker_event);
+    if (options == NULL) {
+        log_error("worker options missing");
+        return CC_ERROR;
+    }
+
+    ctx->timeout = option_uint(&options->worker_timeout);
+    ctx->evb = event_base_create(option_uint(&options->worker_nevent),
+            _worker_event);
     if (ctx->evb == NULL) {
         log_crit("failed to setup worker thread core; could not create event_base");
         return CC_ERROR;
@@ -346,10 +357,6 @@ core_worker_setup(worker_metrics_st *metrics)
     hdl->wid = (channel_id_fn)tcp_write_id;
 
     event_add_read(ctx->evb, pipe_read_id(pipe_c), NULL);
-    worker_metrics = metrics;
-    if (metrics != NULL) {
-        WORKER_METRIC_INIT(worker_metrics);
-    }
 
     worker_init = true;
 
@@ -371,7 +378,7 @@ core_worker_teardown(void)
 }
 
 static rstatus_i
-core_worker_evwait(void)
+_worker_evwait(void)
 {
     int n;
 
@@ -390,11 +397,8 @@ core_worker_evwait(void)
 void *
 core_worker_evloop(void *arg)
 {
-    rstatus_i status;
-
     for(;;) {
-        status = core_worker_evwait();
-        if (status != CC_OK) {
+        if (_worker_evwait() != CC_OK) {
             log_crit("worker core event loop exited due to failure");
             break;
         }

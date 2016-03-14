@@ -26,36 +26,47 @@
 #define KLOG_GET_FMT       "\"%.*s %.*s\" %d %u\n"
 #define KLOG_DELTA_FMT     "\"%.*s%.*s %llu\" %d %u\n"
 
-static bool klog_init = false;
 static struct logger *klogger;
 static uint64_t klog_cmds;
+
+static char backup_path[PATH_MAX + 1];
+static char *klog_backup = NULL;
 static uint32_t klog_sample = KLOG_SAMPLE;
-static klog_metrics_st *klog_metrics;
-struct timeout_event *klog_tev;
-static size_t klog_file_size;
-static char *klog_backup;
 static size_t klog_max = KLOG_MAX;
+static size_t klog_size;
+
+bool klog_enabled = false;
+struct timeout_event *klog_tev;
+
+static bool klog_init = false;
+static klog_metrics_st *klog_metrics;
 
 static void
 _klog_flush(void *arg)
 {
-    klog_file_size += log_flush(klogger);
-    if (klog_file_size >= klog_max) {
-        log_reopen(klogger, klog_backup);
-        klog_file_size = 0;
+    klog_size += log_flush(klogger);
+    if (klog_size >= klog_max) {
+        if (log_reopen(klogger, klog_backup) != CC_OK) {
+            log_error("klog rotation failed to reopen log file, stop logging");
+            klog_enabled = false;
+        }
+        klog_size = 0;
     }
 }
 
 rstatus_i
-klog_setup(char *file, char *backup, uint32_t nbuf, uint32_t interval,
-           uint32_t sample, size_t max, klog_metrics_st *metrics)
+klog_setup(klog_options_st *options, klog_metrics_st *metrics)
 {
-    size_t backup_nfilename;
+    size_t nbyte;
+    size_t nbuf = KLOG_NBUF;
+    uint64_t intvl = KLOG_INTVL;
+    char *filename = NULL;
 
     log_info("Set up the %s module", KLOG_MODULE_NAME);
 
     if (klog_init) {
         log_warn("%s has already been setup, overwrite", KLOG_MODULE_NAME);
+        log_destroy(&klogger);
     }
 
     klog_metrics = metrics;
@@ -63,54 +74,60 @@ klog_setup(char *file, char *backup, uint32_t nbuf, uint32_t interval,
         KLOG_METRIC_INIT(klog_metrics);
     }
 
-    if (klogger != NULL) {
-        log_destroy(&klogger);
+    if (options != NULL) {
+        filename = option_str(&options->klog_file);
+        klog_backup = option_str(&options->klog_backup);
+        if (klog_backup != NULL) {
+            nbyte = strlen(klog_backup);
+            strncpy(backup_path, klog_backup, PATH_MAX);
+            klog_backup = backup_path;
+        }
+        nbuf = option_uint(&options->klog_nbuf);
+        intvl = option_uint(&options->klog_intvl);
+        klog_sample = option_uint(&options->klog_sample);
+        if (klog_sample == 0) {
+            log_error("klog sample rate cannot be 0 - divide by zero");
+            goto error;
+        }
+        klog_max =  option_uint(&options->klog_max);
     }
 
-    klogger = log_create(file, nbuf);
-
-    if (backup != NULL) {
-        backup_nfilename = strlen(backup);
-        klog_backup = cc_alloc(backup_nfilename);
-        cc_memcpy(klog_backup, backup, backup_nfilename);
+    if (filename == NULL) { /* no klog filename provided, do not log */
+        klog_enabled = false;
+        return CC_OK;
     }
 
+    klogger = log_create(filename, nbuf);
     if (klogger == NULL) {
         log_error("Could not create klogger!");
-        return CC_ERROR;
+        goto error;
     }
 
-    if (nbuf != 0) {
+    if (nbuf > 0) {
         /* pauseless logging, must create timeout event for wheel */
-        if (interval == 0) {
+        if (intvl == 0) {
             log_error("invalid klog configuration - klog_intvl must be non-zero"
                       "for pauseless logging");
-            log_destroy(&klogger);
-            return CC_ERROR;
+            goto error;
         }
         klog_tev = timeout_event_create();
         if (klog_tev == NULL) {
             log_error("Could not create timeout event for klog");
-            log_destroy(&klogger);
-            return CC_ERROR;
+            goto error;
         }
         klog_tev->cb = &_klog_flush;
         klog_tev->recur = true;
-        timeout_set_ns(&klog_tev->delay, interval);
+        timeout_set_ms(&klog_tev->delay, intvl);
     }
-
-    if (klog_sample == 0) {
-        log_error("klog sample rate cannot be 0 - divide by zero");
-        log_destroy(&klogger);
-        return CC_ERROR;
-    }
-    klog_sample = sample;
-
-    klog_max = max;
+    klog_enabled = true;
 
     klog_init = true;
 
     return CC_OK;
+
+error:
+    log_destroy(&klogger);
+    return CC_ERROR;
 }
 
 void
@@ -122,21 +139,15 @@ klog_teardown(void)
         log_warn("%s was not setup", KLOG_MODULE_NAME);
     }
 
-    klog_metrics = NULL;
-
-    if (klogger != NULL) {
-        log_destroy(&klogger);
-    }
-
-    if (klog_tev != NULL) {
-        timeout_event_destroy(&klog_tev);
-    }
-
-    klog_sample = 1;
-
+    log_destroy(&klogger);
+    timeout_event_destroy(&klog_tev);
+    klog_backup = NULL;
+    klog_sample = KLOG_SAMPLE;
+    klog_max = KLOG_MAX;
     if (klog_backup != NULL) {
         cc_free(klog_backup);
     }
+    klog_metrics = NULL;
 
     klog_init = false;
 }
@@ -248,7 +259,7 @@ _klog_fmt_delta(struct request *req, struct response *rsp, char *buf, int len)
 
 /* TODO(kyang): update peer to log the peer instead of placeholder (CACHE-3492) */
 void
-klog_write(struct request *req, struct response *rsp)
+_klog_write(struct request *req, struct response *rsp)
 {
     int len, time_len, errno_save;
     char buf[KLOG_MAX_LEN], *peer = "-";

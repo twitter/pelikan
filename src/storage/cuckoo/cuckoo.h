@@ -24,6 +24,11 @@
     ACTION( cuckoo_nitem,       OPTION_TYPE_UINT,   CUCKOO_NITEM,       "# items allocated"     )\
     ACTION( cuckoo_policy,      OPTION_TYPE_UINT,   CUCKOO_POLICY,      "evict policy"          )
 
+typedef struct {
+    CUCKOO_OPTION(OPTION_DECLARE)
+} cuckoo_options_st;
+
+
 /*          name            type            description */
 #define ITEM_METRIC(ACTION)                                         \
     ACTION( item_val_curr,  METRIC_GAUGE,   "#B stored in vals"    )\
@@ -57,7 +62,7 @@ typedef struct {
         CUCKOO_METRIC(METRIC_INIT) };       \
 } while(0)
 
-rstatus_i cuckoo_setup(size_t size, uint32_t item, uint32_t policy, bool cas, cuckoo_metrics_st *metrics);
+rstatus_i cuckoo_setup(cuckoo_options_st *options, cuckoo_metrics_st *metrics);
 void cuckoo_teardown(void);
 void cuckoo_reset(void);
 

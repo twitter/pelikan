@@ -1,6 +1,6 @@
 #pragma once
 
-#include <storage/slab/slab.h>
+#include <storage/slab/slabclass.h>
 
 #include <time/time.h>
 
@@ -11,29 +11,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-
-/*          name                type                default      description */
-#define ITEM_OPTION(ACTION)                                                                         \
-    ACTION( item_use_cas,       OPTION_TYPE_BOOL,   true,        "CAS enabled for slabbed mm"      )\
-    ACTION( item_hash_power,    OPTION_TYPE_UINT,   HASH_POWER,  "Hash power for item table"       )
-
-/*          name                type            description */
-#define ITEM_METRIC(ACTION)                                                             \
-    ACTION( item_keyval_byte,   METRIC_GAUGE,   "# current item key + data bytes" )\
-    ACTION( item_val_byte,      METRIC_GAUGE,   "# current data bytes"            )\
-    ACTION( item_curr,          METRIC_GAUGE,   "# current items"                 )\
-    ACTION( item_req,           METRIC_COUNTER, "# items allocated"               )\
-    ACTION( item_req_ex,        METRIC_COUNTER, "# item alloc errors"             )\
-    ACTION( item_insert,        METRIC_COUNTER, "# items inserted"                )\
-    ACTION( item_remove,        METRIC_COUNTER, "# items removed"                 )
-
-typedef struct item_metric {
-    ITEM_METRIC(METRIC_DECLARE)
-} item_metrics_st;
-
-#define ITEM_METRIC_INIT(_metrics) do {                             \
-    *(_metrics) = (item_metrics_st) { ITEM_METRIC(METRIC_INIT) };   \
-} while(0)
 
 /*
  * Every item chunk in the cache starts with a header (struct item)
@@ -92,7 +69,6 @@ struct item {
     char              end[1];        /* item data */
 };
 
-#define HASH_POWER      16
 #define ITEM_MAGIC      0xfeedface
 #define ITEM_HDR_SIZE   offsetof(struct item, end)
 #define ITEM_CAS_SIZE   sizeof(uint64_t)
@@ -121,11 +97,7 @@ item_flag(struct item *it)
 static inline uint64_t
 item_get_cas(struct item *it)
 {
-    if (use_cas) {
-        return *((uint64_t *)it->end);
-    }
-
-    return 0;
+    return use_cas ? *((uint64_t *)it->end) : 0;
 }
 
 static inline void
@@ -138,6 +110,12 @@ item_set_cas(struct item *it)
     }
 }
 
+static inline size_t
+item_cas_size(void)
+{
+    return use_cas * ITEM_CAS_SIZE;
+}
+
 #if __GNUC__ >= 4 && __GNUC_MINOR__ >= 6
 #pragma GCC diagnostic pop
 #endif
@@ -145,20 +123,13 @@ item_set_cas(struct item *it)
 static inline char *
 item_key(struct item *it)
 {
-    char *key;
-
-    key = it->end;
-    if (use_cas) {
-        key += ITEM_CAS_SIZE;
-    }
-
-    return key;
+    return it->end + item_cas_size();
 }
 
 static inline size_t
 item_ntotal(uint8_t klen, uint32_t vlen)
 {
-    return use_cas * ITEM_CAS_SIZE + ITEM_HDR_SIZE + klen + vlen;
+    return ITEM_HDR_SIZE + item_cas_size() + klen + vlen;
 }
 
 static inline size_t
@@ -178,36 +149,12 @@ item_data(struct item *it)
     char *data;
 
     if (it->is_raligned) {
-        data = (char *)it + slab_item_size(it->id) - it->vlen;
+        data = (char *)it + slabclass[it->id].size - it->vlen;
     } else {
-        data = it->end + it->klen + use_cas * sizeof(uint64_t);
+        data = it->end + item_cas_size() + it->klen;
     }
 
     return data;
-}
-
-/* Calculate slab id that will accommodate item with given key/val lengths */
-static inline uint8_t
-item_slabid(uint8_t klen, uint32_t vlen)
-{
-    return slab_id(item_ntotal(klen, vlen));
-}
-
-/*
- * Get the slab that contains this item.
- */
-static inline struct slab *
-item_to_slab(struct item *it)
-{
-    struct slab *slab;
-
-    ASSERT(it->offset < slab_size);
-
-    slab = (struct slab *)((char *)it - it->offset);
-
-    ASSERT(slab->magic == SLAB_MAGIC);
-
-    return slab;
 }
 
 static inline item_rstatus_t
@@ -225,10 +172,6 @@ item_atou64(uint64_t *vint, struct item *it)
         return ITEM_ENAN;
     }
 }
-
-/* Set up/tear down the item module */
-rstatus_i item_setup(bool enable_cas, uint32_t hash_power, item_metrics_st *metrics);
-void item_teardown(void);
 
 /* Init header for given item */
 void item_hdr_init(struct item *it, uint32_t offset, uint8_t id);

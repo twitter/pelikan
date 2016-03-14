@@ -17,7 +17,6 @@ struct buf *buf;
 static void
 test_setup(void)
 {
-    buf_setup(BUF_INIT_SIZE, NULL);
     req = admin_request_create();
     rsp = admin_response_create();
     buf = buf_create();
@@ -37,7 +36,6 @@ test_teardown(void)
     buf_destroy(&buf);
     admin_response_destroy(&rsp);
     admin_request_destroy(&req);
-    buf_teardown();
 }
 
 /**************

@@ -1,7 +1,7 @@
 #include <twemcache/data/process.h>
 
 #include <protocol/data/memcache_include.h>
-#include <storage/slab/item.h>
+#include <storage/slab/slab.h>
 
 #include <cc_array.h>
 #include <cc_debug.h>
@@ -20,17 +20,22 @@ static process_metrics_st *process_metrics = NULL;
 static bool allow_flush = false;
 
 void
-process_setup(bool flush, process_metrics_st *metrics)
+process_setup(process_options_st *options, process_metrics_st *metrics)
 {
     log_info("set up the %s module", TWEMCACHE_PROCESS_MODULE_NAME);
+
     if (process_init) {
         log_warn("%s has already been setup, overwrite",
                  TWEMCACHE_PROCESS_MODULE_NAME);
     }
 
-    allow_flush = flush;
     process_metrics = metrics;
-    PROCESS_METRIC_INIT(process_metrics);
+    if (metrics != NULL) {
+        PROCESS_METRIC_INIT(process_metrics);
+    }
+
+    allow_flush = option_bool(&options->allow_flush);
+
     process_init = true;
 }
 

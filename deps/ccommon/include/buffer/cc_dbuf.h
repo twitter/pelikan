@@ -29,13 +29,17 @@ extern "C" {
 
 
 /*          name                type                default             description */
-#define DBUF_OPTION(ACTION)                                                                             \
+#define DBUF_OPTION(ACTION)                                                                         \
     ACTION( dbuf_max_power,      OPTION_TYPE_UINT,  DBUF_DEFAULT_MAX,   "max number of doubling"   )
 
-#define DBUF_DEFAULT_MAX    6  /* with 16KiB default size, this gives us 1 MiB max */
+typedef struct {
+    DBUF_OPTION(OPTION_DECLARE)
+} dbuf_options_st;
+
+#define DBUF_DEFAULT_MAX    8  /* with 16KiB default size, this gives us 4 MiB max */
 
 /* Setup/teardown doubling buffer module */
-void dbuf_setup(uint8_t power);
+void dbuf_setup(dbuf_options_st *options);
 void dbuf_teardown(void);
 
 /* Buffer resizing functions */
