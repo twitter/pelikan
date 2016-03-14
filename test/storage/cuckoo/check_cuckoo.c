@@ -18,8 +18,8 @@ void test_cas(uint32_t policy);
 void test_delete_basic(uint32_t policy, bool cas);
 void test_expire_basic(uint32_t policy, bool cas);
 
-cuckoo_options_st options = (cuckoo_options_st) { CUCKOO_OPTION(OPTION_INIT) };
-cuckoo_metrics_st metrics = (cuckoo_metrics_st) { CUCKOO_METRIC(METRIC_INIT) };
+cuckoo_options_st options = { CUCKOO_OPTION(OPTION_INIT) };
+cuckoo_metrics_st metrics = { CUCKOO_METRIC(METRIC_INIT) };
 
 /*
  * utilities
