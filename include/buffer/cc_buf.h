@@ -29,6 +29,7 @@ extern "C" {
 #include <cc_debug.h>
 #include <cc_define.h>
 #include <cc_metric.h>
+#include <cc_option.h>
 #include <cc_queue.h>
 #include <cc_util.h>
 
@@ -40,6 +41,10 @@ extern "C" {
 #define BUF_OPTION(ACTION)                                                                              \
     ACTION( buf_init_size,  OPTION_TYPE_UINT,   BUF_DEFAULT_SIZE,   "default size when buf is created" )\
     ACTION( buf_poolsize,   OPTION_TYPE_UINT,   BUF_POOLSIZE,       "buf pool size"                    )
+
+typedef struct {
+    BUF_OPTION(OPTION_DECLARE)
+} buf_options_st;
 
 /*          name              type            description */
 #define BUF_METRIC(ACTION)                                              \
@@ -89,12 +94,8 @@ extern buf_metrics_st *buf_metrics;
     ((BUF)->wpos == (BUF)->end)
 
 /* Setup/teardown buf module */
-void buf_setup(uint32_t size, buf_metrics_st *metrics);
+void buf_setup(buf_options_st *options, buf_metrics_st *metrics);
 void buf_teardown(void);
-
-/* Create/destroy buffer pool */
-void buf_pool_create(uint32_t max);
-void buf_pool_destroy(void);
 
 /* Obtain/return a buffer from the pool */
 struct buf *buf_borrow(void);

@@ -44,37 +44,6 @@ static tcp_metrics_st *tcp_metrics = NULL;
 static int max_backlog = TCP_BACKLOG;
 
 void
-tcp_setup(int backlog, tcp_metrics_st *metrics)
-{
-    log_info("set up the %s module", TCP_MODULE_NAME);
-
-    if (tcp_init) {
-        log_warn("%s has already been setup, overwrite", TCP_MODULE_NAME);
-    }
-
-    max_backlog = backlog;
-    tcp_metrics = metrics;
-    if (metrics != NULL) {
-        TCP_METRIC_INIT(tcp_metrics);
-    }
-
-    channel_sigpipe_ignore(); /* does it ever fail? */
-    tcp_init = true;
-}
-
-void
-tcp_teardown(void)
-{
-    log_info("tear down the %s module", TCP_MODULE_NAME);
-
-    if (!tcp_init) {
-        log_warn("%s has never been setup", TCP_MODULE_NAME);
-    }
-    tcp_metrics = NULL;
-    tcp_init = false;
-}
-
-void
 tcp_conn_reset(struct tcp_conn *c)
 {
     STAILQ_NEXT(c, next) = NULL;
@@ -130,31 +99,7 @@ tcp_conn_destroy(struct tcp_conn **conn)
     DECR(tcp_metrics, tcp_conn_curr);
 }
 
-void
-tcp_conn_pool_create(uint32_t max)
-{
-    struct tcp_conn *c;
-
-    if (cp_init) {
-        log_warn("tcp_conn pool has already been created, ignore");
-
-        return;
-    }
-
-    log_info("creating tcp_conn pool: max %"PRIu32, max);
-
-    FREEPOOL_CREATE(&cp, max);
-    cp_init = true;
-
-    /* preallocating, see notes in buffer/cc_buf.c */
-    FREEPOOL_PREALLOC(c, &cp, max, next, tcp_conn_create);
-    if (cp.nfree < max) {
-        log_crit("cannot preallocate tcp_conn pool due to OOM, abort");
-        exit(EXIT_FAILURE);
-    }
-}
-
-void
+static void
 tcp_conn_pool_destroy(void)
 {
     struct tcp_conn *c, *tc;
@@ -169,6 +114,30 @@ tcp_conn_pool_destroy(void)
 
     FREEPOOL_DESTROY(c, tc, &cp, next, tcp_conn_destroy);
     cp_init = false;
+}
+
+static void
+tcp_conn_pool_create(uint32_t max)
+{
+    struct tcp_conn *c;
+
+    if (cp_init) {
+        log_warn("tcp_conn pool has already been created, re-creating");
+
+        tcp_conn_pool_destroy();
+    }
+
+    log_info("creating tcp_conn pool: max %"PRIu32, max);
+
+    FREEPOOL_CREATE(&cp, max);
+    cp_init = true;
+
+    /* preallocating, see notes in buffer/cc_buf.c */
+    FREEPOOL_PREALLOC(c, &cp, max, next, tcp_conn_create);
+    if (cp.nfree < max) {
+        log_crit("cannot preallocate tcp_conn pool due to OOM, abort");
+        exit(EXIT_FAILURE);
+    }
 }
 
 struct tcp_conn *
@@ -842,4 +811,42 @@ tcp_sendv(struct tcp_conn *c, struct array *bufv, size_t nbyte)
     NOT_REACHED();
 
     return CC_ERROR;
+}
+
+void
+tcp_setup(tcp_options_st *options, tcp_metrics_st *metrics)
+{
+    log_info("set up the %s module", TCP_MODULE_NAME);
+
+    if (tcp_init) {
+        log_warn("%s has already been setup, overwrite", TCP_MODULE_NAME);
+    }
+
+    tcp_metrics = metrics;
+    if (metrics != NULL) {
+        TCP_METRIC_INIT(tcp_metrics);
+    }
+
+    if (options != NULL) {
+        max_backlog = option_uint(&options->tcp_backlog);
+        tcp_conn_pool_create(option_uint(&options->tcp_poolsize));
+    }
+
+    channel_sigpipe_ignore(); /* does it ever fail? */
+    tcp_init = true;
+}
+
+void
+tcp_teardown(void)
+{
+    log_info("tear down the %s module", TCP_MODULE_NAME);
+
+    if (!tcp_init) {
+        log_warn("%s has never been setup", TCP_MODULE_NAME);
+    }
+
+    tcp_conn_pool_destroy();
+    tcp_metrics = NULL;
+
+    tcp_init = false;
 }

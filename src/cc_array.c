@@ -206,14 +206,18 @@ array_each(struct array *arr, array_each_fn func, void *arg, err_i *err)
 }
 
 /* set the maximum number of elements allocated every time array expands */
-void array_setup(uint32_t nelem)
+void array_setup(array_options_st *options)
 {
     log_info("set up the %s module", ARRAY_MODULE_NAME);
 
-    max_nelem_delta = nelem;
     if (array_init) {
         log_warn("%s has already been setup, overwrite", ARRAY_MODULE_NAME);
     }
+
+    if (options != NULL) {
+        max_nelem_delta = option_uint(&options->array_nelem_delta);
+    }
+
     array_init = true;
 }
 

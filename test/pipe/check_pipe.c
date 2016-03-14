@@ -24,7 +24,7 @@ struct write_task {
 static void
 test_setup(void)
 {
-    pipe_setup(NULL);
+    pipe_setup(NULL, NULL);
 }
 
 static void

@@ -16,7 +16,9 @@
 static void
 test_setup(void)
 {
-    array_setup(ARRAY_MAX_NELEM_DELTA);
+    array_options_st options = {.array_nelem_delta = {.set = true,
+        .type = OPTION_TYPE_UINT, .val.vuint = ARRAY_MAX_NELEM_DELTA}};
+    array_setup(&options);
 }
 
 static void

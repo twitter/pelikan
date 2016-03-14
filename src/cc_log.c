@@ -74,18 +74,14 @@ log_create(char *filename, uint32_t buf_cap)
     log_stderr("create logger with filename %s cap %u", filename, buf_cap);
 
     logger = cc_alloc(sizeof(struct logger));
-
     if (logger == NULL) {
         log_stderr("Could not create logger due to OOM");
         INCR(log_metrics, log_create_ex);
         return NULL;
     }
 
-    logger->name = filename;
-
     if (buf_cap > 0) {
         logger->buf = rbuf_create(buf_cap);
-
         if (logger->buf == NULL) {
             cc_free(logger);
             log_stderr("Could not create logger - buffer not allocated due to OOM");
@@ -96,6 +92,7 @@ log_create(char *filename, uint32_t buf_cap)
         logger->buf = NULL;
     }
 
+    logger->name = filename;
     if (filename != NULL) {
         logger->fd = open(filename, O_WRONLY | O_APPEND | O_CREAT, 0644);
         if (logger->fd < 0) {
@@ -107,6 +104,7 @@ log_create(char *filename, uint32_t buf_cap)
         } else {
             INCR(log_metrics, log_open);
         }
+
     } else {
         logger->fd = STDERR_FILENO;
     }
@@ -154,7 +152,7 @@ log_reopen(struct logger *logger, char *target)
         if (target != NULL) {
             ret = rename(logger->name, target);
             if (ret < 0) {
-                log_stderr("rename old klog file '%s' to '%s' failed, ignored: "
+                log_stderr("rename old log file '%s' to '%s' failed, ignored: "
                            "%s", logger->name, target, strerror(errno));
             }
         }
