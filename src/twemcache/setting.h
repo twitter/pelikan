@@ -2,7 +2,7 @@
 
 #include <twemcache/data/process.h>
 
-#include <core/admin/admin.h>
+#include <core/core.h>
 #include <storage/slab/slab.h>
 #include <storage/slab/item.h>
 #include <protocol/data/memcache_include.h>
@@ -16,30 +16,32 @@
 #include <stream/cc_sockio.h>
 
 /* option related */
-/*          name            type                default         description */
-#define SERVER_OPTION(ACTION)                                                               \
-    ACTION( daemonize,      OPTION_TYPE_BOOL,   false,          "daemonize the process"    )\
-    ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,           "file storing the pid"     )\
-    ACTION( server_host,    OPTION_TYPE_STR,    NULL,           "interfaces listening on"  )\
-    ACTION( server_port,    OPTION_TYPE_STR,    "12321",        "port listening on"        )
+/*          name            type                default description */
+#define TWEMCACHE_OPTION(ACTION)                                                \
+    ACTION( daemonize,      OPTION_TYPE_BOOL,   false,  "daemonize the process")\
+    ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,   "file storing the pid" )
 
-#define SETTING(ACTION)         \
-    ADMIN_OPTION(ACTION)        \
-    ARRAY_OPTION(ACTION)        \
-    BUF_OPTION(ACTION)          \
-    DBUF_OPTION(ACTION)         \
-    DEBUG_OPTION(ACTION)        \
-    ITEM_OPTION(ACTION)         \
-    KLOG_OPTION(ACTION)         \
-    RING_ARRAY_OPTION(ACTION)   \
-    REQUEST_OPTION(ACTION)      \
-    RESPONSE_OPTION(ACTION)     \
-    PROCESS_OPTION(ACTION)      \
-    SERVER_OPTION(ACTION)       \
-    SLAB_OPTION(ACTION)         \
-    SOCKIO_OPTION(ACTION)       \
-    TCP_OPTION(ACTION)
+typedef struct {
+    TWEMCACHE_OPTION(OPTION_DECLARE)
+} twemcache_options_st;
 
 struct setting {
-    SETTING(OPTION_DECLARE)
+    /* top-level */
+    twemcache_options_st    twemcache;
+    /* application modules */
+    admin_options_st        admin;
+    server_options_st       server;
+    worker_options_st       worker;
+    process_options_st      process;
+    klog_options_st         klog;
+    request_options_st      request;
+    response_options_st     response;
+    slab_options_st         slab;
+    /* ccommon libraries */
+    array_options_st        array;
+    buf_options_st          buf;
+    dbuf_options_st         dbuf;
+    debug_options_st        debug;
+    sockio_options_st       sockio;
+    tcp_options_st          tcp;
 };

@@ -2,6 +2,16 @@
 
 #include <cc_define.h>
 #include <cc_metric.h>
+#include <cc_option.h>
+
+/*          name            type                default         description */
+#define WORKER_OPTION(ACTION)                                                                   \
+    ACTION( worker_timeout, OPTION_TYPE_UINT,   100,            "evwait timeout"               )\
+    ACTION( worker_nevent,  OPTION_TYPE_UINT,   1024,           "evwait max nevent returned"   )
+
+typedef struct {
+    WORKER_OPTION(OPTION_DECLARE)
+} worker_options_st;
 
 /*          name                    type            description */
 #define CORE_WORKER_METRIC(ACTION)                                                   \
@@ -27,6 +37,6 @@ struct tcp_conn;
 struct request;
 struct response;
 
-rstatus_i core_worker_setup(worker_metrics_st *metrics);
+rstatus_i core_worker_setup(worker_options_st *options, worker_metrics_st *metrics);
 void core_worker_teardown(void);
 void *core_worker_evloop(void *arg);

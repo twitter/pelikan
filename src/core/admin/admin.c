@@ -4,6 +4,7 @@
 
 #include <protocol/admin/admin_include.h>
 #include <util/stats.h>
+#include <util/util.h>
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
@@ -32,7 +33,8 @@ static struct context *ctx = &context;
 static channel_handler_st handlers;
 static channel_handler_st *hdl = &handlers;
 
-static struct buf_sock *serversock;
+static struct addrinfo *admin_ai;
+static struct buf_sock *admin_sock;
 
 static struct request req;
 static struct response rsp;
@@ -205,15 +207,19 @@ core_admin_add_tev(struct timeout_event *tev)
     ASSERT(!__atomic_load_n(&admin_running, __ATOMIC_RELAXED));
     ASSERT(admin_init);
 
+    if (tev == NULL) {
+        log_verb("skip adding NULL timeout event");
+        return CC_OK;
+    }
+
     return timing_wheel_insert(tw, tev);
 }
 
 rstatus_i
-core_admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
-            size_t tw_cap, size_t tw_ntick)
+core_admin_setup(admin_options_st *options)
 {
     struct tcp_conn *c;
-    struct timeout tw_tick_timeout;
+    struct timeout tick;
 
     log_info("set up the %s module", ADMIN_MODULE_NAME);
 
@@ -222,12 +228,18 @@ core_admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
         return CC_ERROR;
     }
 
-    ctx->timeout = intvl;
-    ctx->evb = event_base_create(1024, _admin_event);
-    if (ctx->evb == NULL) {
-        log_crit("failed to set up admin thread; could not create event "
-                 "base for control plane");
+    if (options == NULL) {
+        log_error("admin options missing");
         return CC_ERROR;
+    }
+
+    ctx->timeout = option_uint(&options->admin_timeout);
+    ctx->evb = event_base_create(option_uint(&options->admin_nevent),
+            _admin_event);
+    if (ctx->evb == NULL) {
+        log_error("failed to set up admin thread; could not create event "
+                 "base for control plane");
+        goto error;
     }
 
     hdl->accept = (channel_accept_fn)tcp_accept;
@@ -239,29 +251,38 @@ core_admin_setup(struct addrinfo *ai, int intvl, uint64_t tw_tick_ns,
     hdl->rid = (channel_id_fn)tcp_read_id;
     hdl->wid = (channel_id_fn)tcp_write_id;
 
-    serversock = buf_sock_borrow();
-    if (serversock == NULL) {
-        log_crit("failed to set up admin thread; could not get buf_sock");
-        return CC_ERROR;
+    admin_sock = buf_sock_borrow();
+    if (admin_sock == NULL) {
+        log_error("failed to set up admin thread; could not get buf_sock");
+        goto error;
     }
 
-    serversock->hdl = hdl;
+    admin_sock->hdl = hdl;
 
-    c = serversock->ch;
-    if (!hdl->open(ai, c)) {
-        log_crit("admin connection setup failed");
-        return CC_ERROR;
+    if (CC_OK != getaddr(&admin_ai, option_str(&options->admin_host),
+            option_str(&options->admin_port))) {
+        goto error;
+    }
+    c = admin_sock->ch;
+    if (!hdl->open(admin_ai, c)) {
+        log_error("admin connection setup failed");
+        goto error;
     }
     c->level = CHANNEL_META;
-    event_add_read(ctx->evb, hdl->rid(c), serversock);
+    event_add_read(ctx->evb, hdl->rid(c), admin_sock);
 
-    timeout_set_ns(&tw_tick_timeout, tw_tick_ns);
-    tw = timing_wheel_create(&tw_tick_timeout, tw_cap, tw_ntick);
+    timeout_set_ms(&tick, option_uint(&options->admin_tw_tick));
+    tw = timing_wheel_create(&tick, option_uint(&options->admin_tw_cap),
+            option_uint(&options->admin_tw_ntick));
     timing_wheel_start(tw);
 
     admin_init = true;
 
     return CC_OK;
+
+error:
+    core_admin_teardown();
+    return CC_ERROR;
 }
 
 void
@@ -272,10 +293,11 @@ core_admin_teardown(void)
     if (!admin_init) {
         log_warn("%s has never been setup", ADMIN_MODULE_NAME);
     } else {
-        buf_sock_return(&serversock);
-        event_base_destroy(&(ctx->evb));
         timing_wheel_stop(tw);
         timing_wheel_destroy(&tw);
+        event_base_destroy(&(ctx->evb));
+        freeaddrinfo(admin_ai);
+        buf_sock_return(&admin_sock);
     }
     admin_init = false;
 }
@@ -296,11 +318,8 @@ _admin_evwait(void)
 void *
 core_admin_evloop(void *arg)
 {
-    rstatus_i status;
-
     for(;;) {
-        status = _admin_evwait();
-        if (status != CC_OK) {
+        if (_admin_evwait() != CC_OK) {
             log_crit("admin loop exited due to failure");
             break;
         }

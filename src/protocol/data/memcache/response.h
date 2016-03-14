@@ -3,6 +3,7 @@
 #include <cc_bstring.h>
 #include <cc_define.h>
 #include <cc_metric.h>
+#include <cc_option.h>
 #include <cc_queue.h>
 #include <cc_util.h>
 
@@ -11,6 +12,11 @@
 /*          name                type                default         description */
 #define RESPONSE_OPTION(ACTION)                                                             \
     ACTION( response_poolsize,  OPTION_TYPE_UINT,   RSP_POOLSIZE,   "response pool size"   )
+
+typedef struct {
+    RESPONSE_OPTION(OPTION_DECLARE)
+} response_options_st;
+
 
 /*          name                type            description */
 #define RESPONSE_METRIC(ACTION)                                         \
@@ -99,15 +105,13 @@ struct response {
     unsigned                error:1;    /* error */
 };
 
-void response_setup(response_metrics_st *metrics);
+void response_setup(response_options_st *options, response_metrics_st *metrics);
 void response_teardown(void);
 
 struct response *response_create(void);
 void response_destroy(struct response **rsp);
 void response_reset(struct response *rsp);
 
-void response_pool_create(uint32_t max);
-void response_pool_destroy(void);
 struct response *response_borrow(void);
 void response_return(struct response **rsp);
 void response_return_all(struct response **rsp); /* return all responses in chain */

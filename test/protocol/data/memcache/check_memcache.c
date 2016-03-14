@@ -24,7 +24,6 @@ struct buf *buf;
 static void
 test_setup(void)
 {
-    buf_setup(BUF_INIT_SIZE, NULL);
     req = request_create();
     rsp = response_create();
     buf = buf_create();
@@ -44,7 +43,6 @@ test_teardown(void)
     buf_destroy(&buf);
     response_destroy(&rsp);
     request_destroy(&req);
-    buf_teardown();
 }
 
 /**************
@@ -1060,8 +1058,10 @@ START_TEST(test_rsp_pool_basic)
 #define POOL_SIZE 10
     int i;
     struct response *rsps[POOL_SIZE];
-    response_setup(NULL);
-    response_pool_create(POOL_SIZE);
+    response_options_st options = {.response_poolsize =
+        {.type = OPTION_TYPE_UINT, .val.vuint = POOL_SIZE}};
+
+    response_setup(&options, NULL);
     for (i = 0; i < POOL_SIZE; i++) {
         rsps[i] = response_borrow();
         ck_assert_msg(rsps[i] != NULL, "expected to borrow a response");
@@ -1071,7 +1071,6 @@ START_TEST(test_rsp_pool_basic)
         response_return(&rsps[i]);
         ck_assert_msg(rsps[i] == NULL, "expected response to be nulled after return");
     }
-    response_pool_destroy();
     response_teardown();
 #undef POOL_SIZE
 }
@@ -1082,8 +1081,10 @@ START_TEST(test_rsp_pool_chained)
 #define POOL_SIZE 10
     int i;
     struct response *r, *nr, *rsps[POOL_SIZE];
-    response_setup(NULL);
-    response_pool_create(POOL_SIZE);
+    response_options_st options = {.response_poolsize =
+        {.type = OPTION_TYPE_UINT, .val.vuint = POOL_SIZE}};
+
+    response_setup(&options, NULL);
 
     r = response_borrow();
     ck_assert_msg(r != NULL, "expected to borrow a response");
@@ -1105,7 +1106,6 @@ START_TEST(test_rsp_pool_chained)
         ck_assert_msg(rsps[i] == NULL, "expected response to be nulled after return");
     }
 
-    response_pool_destroy();
     response_teardown();
 #undef POOL_SIZE
 }
@@ -1116,8 +1116,11 @@ START_TEST(test_rsp_pool_metrics)
 #define POOL_SIZE 2
     struct response *rsps[POOL_SIZE];
     response_metrics_st metrics;
-    response_setup(&metrics);
-    response_pool_create(POOL_SIZE);
+    response_options_st options =
+        (response_options_st) { RESPONSE_OPTION(OPTION_INIT) };
+    options.response_poolsize.val.vuint = POOL_SIZE;
+
+    response_setup(&options, &metrics);
 
     ck_assert_int_eq(metrics.response_borrow.counter, 0);
     ck_assert_int_eq(metrics.response_create.counter, 2);
@@ -1161,7 +1164,6 @@ START_TEST(test_rsp_pool_metrics)
     ck_assert_int_eq(metrics.response_create.counter, 2);
     ck_assert_int_eq(metrics.response_free.counter, 2);
 
-    response_pool_destroy();
     response_teardown();
 #undef POOL_SIZE
 }
@@ -1172,8 +1174,11 @@ START_TEST(test_req_pool_basic)
 #define POOL_SIZE 10
     int i;
     struct request *reqs[POOL_SIZE];
-    request_setup(NULL);
-    request_pool_create(POOL_SIZE);
+    request_options_st options = {.request_poolsize =
+        {.type = OPTION_TYPE_UINT, .val.vuint = POOL_SIZE}};
+
+    request_setup(&options, NULL);
+
     for (i = 0; i < POOL_SIZE; i++) {
         reqs[i] = request_borrow();
         ck_assert_msg(reqs[i] != NULL, "expected to borrow a request");
@@ -1183,7 +1188,7 @@ START_TEST(test_req_pool_basic)
         request_return(&reqs[i]);
         ck_assert_msg(reqs[i] == NULL, "expected request to be nulled after return");
     }
-    request_pool_destroy();
+
     request_teardown();
 #undef POOL_SIZE
 }

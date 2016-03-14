@@ -17,33 +17,33 @@
 #include <channel/cc_tcp.h>
 #include <stream/cc_sockio.h>
 
-#define MAX_CONNS 1024          /* arbitrary number for now */
-
 /* option related */
-/*          name            type                default         description */
-#define SERVER_OPTION(ACTION)                                                               \
-    ACTION( daemonize,      OPTION_TYPE_BOOL,   false,          "daemonize the process"    )\
-    ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,           "file storing the pid"     )\
-    ACTION( server_host,    OPTION_TYPE_STR,    NULL,           "interfaces listening on"  )\
-    ACTION( server_port,    OPTION_TYPE_STR,    "22222",        "port listening on"        )
+/*          name            type                default description */
+#define SLIMCACHE_OPTION(ACTION)                                                    \
+    ACTION( daemonize,      OPTION_TYPE_BOOL,   false,  "daemonize the process"    )\
+    ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,   "file storing the pid"     )
 
-/* we compose our setting by including options needed by modules we use */
-#define SETTING(ACTION)         \
-    ADMIN_OPTION(ACTION)        \
-    ARRAY_OPTION(ACTION)        \
-    BUF_OPTION(ACTION)          \
-    CUCKOO_OPTION(ACTION)       \
-    DBUF_OPTION(ACTION)         \
-    DEBUG_OPTION(ACTION)        \
-    KLOG_OPTION(ACTION)         \
-    PROCESS_OPTION(ACTION)      \
-    REQUEST_OPTION(ACTION)      \
-    RESPONSE_OPTION(ACTION)     \
-    RING_ARRAY_OPTION(ACTION)   \
-    SERVER_OPTION(ACTION)       \
-    SOCKIO_OPTION(ACTION)       \
-    TCP_OPTION(ACTION)
+typedef struct {
+    SLIMCACHE_OPTION(OPTION_DECLARE)
+} slimcache_options_st;
 
 struct setting {
-    SETTING(OPTION_DECLARE)
+    /* top-level */
+    slimcache_options_st    slimcache;
+    /* application modules */
+    admin_options_st        admin;
+    server_options_st       server;
+    worker_options_st       worker;
+    process_options_st      process;
+    klog_options_st         klog;
+    request_options_st      request;
+    response_options_st     response;
+    cuckoo_options_st       cuckoo;
+    /* ccommon libraries */
+    array_options_st        array;
+    buf_options_st          buf;
+    dbuf_options_st         dbuf;
+    debug_options_st        debug;
+    sockio_options_st       sockio;
+    tcp_options_st          tcp;
 };

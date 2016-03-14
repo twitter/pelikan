@@ -1,26 +1,29 @@
 #pragma once
 
+#include <storage/slab/slabclass.h>
+#include <storage/slab/hashtable.h>
+#include <storage/slab/item.h>
+
 #include <time/time.h>
 
 #include <cc_define.h>
 #include <cc_metric.h>
-#include <cc_queue.h>
 #include <cc_util.h>
 
-#include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdint.h>
 
 #define SLAB_MAGIC      0xdeadbeef
 #define SLAB_HDR_SIZE   offsetof(struct slab, data)
-#define SLAB_MIN_SIZE   ((size_t) 512)
-#define SLAB_MAX_SIZE   ((size_t) (128 * MiB))
+#define SLAB_SIZE_MIN   ((size_t) 512)
+#define SLAB_SIZE_MAX   ((size_t) (128 * MiB))
 #define SLAB_SIZE       MiB
+#define SLAB_MEM        (64 * MiB)
 #define SLAB_HASH       16
-#define SLAB_FACTOR     1.25
-#define SLAB_MIN_CHUNK  44      /* 40 bytes item overhead */
-#define SLAB_MAX_CHUNK  (SLAB_SIZE - 32) /* 32 bytes slab overhead */
+#define ITEM_SIZE_MIN   44      /* 40 bytes item overhead */
+#define ITEM_SIZE_MAX   (SLAB_SIZE - 32) /* 32 bytes slab overhead */
+#define ITEM_FACTOR     1.25
+#define HASH_POWER      16
 
 /* Eviction options */
 #define EVICT_NONE    0 /* throw OOM, no eviction */
@@ -29,27 +32,39 @@
 #define EVICT_INVALID 4 /* go no further! */
 
 /* The defaults here are placeholder values for now */
-/*          name                  type                default              description */
-#define SLAB_OPTION(ACTION)                                                                                   \
-    ACTION( slab_prealloc,        OPTION_TYPE_BOOL,   true,                "Allocate slabs ahead of time"    )\
-    ACTION( slab_evict_opt,       OPTION_TYPE_UINT,   EVICT_NONE,          "Eviction strategy"               )\
-    ACTION( slab_use_freeq,       OPTION_TYPE_BOOL,   true,                "Use items in free queue?"        )\
-    ACTION( slab_size,            OPTION_TYPE_UINT,   MiB,                 "Slab size"                       )\
-    ACTION( slab_min_chunk_size,  OPTION_TYPE_UINT,   SLAB_MIN_CHUNK,      "Minimum chunk size"              )\
-    ACTION( slab_max_chunk_size,  OPTION_TYPE_UINT,   SLAB_MAX_CHUNK,      "Maximum chunk size"              )\
-    ACTION( slab_maxbytes,        OPTION_TYPE_UINT,   GiB,                 "Maximum bytes allocated"         )\
-    ACTION( slab_profile,         OPTION_TYPE_STR,    NULL,                "Slab profile"                    )\
-    ACTION( slab_profile_factor,  OPTION_TYPE_STR,    str(SLAB_FACTOR),    "Slab class growth factor"        )\
-    ACTION( slab_use_cas,         OPTION_TYPE_BOOL,   true,                "CAS enabled for slabbed mm"      )\
-    ACTION( slab_hash_power,      OPTION_TYPE_UINT,   SLAB_HASH,           "Hash power for item table"       )
+/*          name                type                default         description */
+#define SLAB_OPTION(ACTION)                                                                          \
+    ACTION( slab_size,          OPTION_TYPE_UINT,   SLAB_SIZE,      "Slab size"                     )\
+    ACTION( slab_mem,           OPTION_TYPE_UINT,   SLAB_MEM,       "Max memory by slabs (byte)"    )\
+    ACTION( slab_prealloc,      OPTION_TYPE_BOOL,   true,           "Pre-allocate slabs at setup"   )\
+    ACTION( slab_evict_opt,     OPTION_TYPE_UINT,   EVICT_RS,       "Eviction strategy"             )\
+    ACTION( slab_use_freeq,     OPTION_TYPE_BOOL,   true,           "Use items in free queue?"      )\
+    ACTION( slab_profile,       OPTION_TYPE_STR,    NULL,           "Specify entire slab profile"   )\
+    ACTION( slab_item_min,      OPTION_TYPE_UINT,   ITEM_SIZE_MIN,  "Minimum item size"             )\
+    ACTION( slab_item_max,      OPTION_TYPE_UINT,   ITEM_SIZE_MAX,  "Maximum item size"             )\
+    ACTION( slab_item_growth,   OPTION_TYPE_FPN,    ITEM_FACTOR,    "Slab class growth factor"      )\
+    ACTION( slab_use_cas,       OPTION_TYPE_BOOL,   true,           "Store CAS value in item"       )\
+    ACTION( slab_hash_power,    OPTION_TYPE_UINT,   HASH_POWER,     "Power for lookup hash table"  )
+
+typedef struct {
+    SLAB_OPTION(OPTION_DECLARE)
+} slab_options_st;
 
 /*          name                type            description */
-#define SLAB_METRIC(ACTION)                                                \
-    ACTION( slab_req,           METRIC_COUNTER, "# req for new slab"      )\
-    ACTION( slab_req_ex,        METRIC_COUNTER, "# slab get exceptions"   )\
-    ACTION( slab_heap_size,     METRIC_GAUGE,   "# slabs in slab heap"    )\
-    ACTION( slab_evict,         METRIC_COUNTER, "# slabs evicted"         )\
-    ACTION( slab_curr,          METRIC_GAUGE,   "# currently active slabs")
+#define SLAB_METRIC(ACTION)                                                 \
+    ACTION( slab_req,           METRIC_COUNTER, "# req for new slab"       )\
+    ACTION( slab_req_ex,        METRIC_COUNTER, "# slab get exceptions"    )\
+    ACTION( slab_evict,         METRIC_COUNTER, "# slabs evicted"          )\
+    ACTION( slab_memory,        METRIC_GAUGE,   "memory allocated to slab" )\
+    ACTION( slab_curr,          METRIC_GAUGE,   "# currently active slabs" )\
+    ACTION( item_keyval_byte,   METRIC_GAUGE,   "key + val in bytes"       )\
+    ACTION( item_val_byte,      METRIC_GAUGE,   "value only in bytes"      )\
+    ACTION( item_curr,          METRIC_GAUGE,   "# current items"          )\
+    ACTION( item_req,           METRIC_COUNTER, "# items allocated"        )\
+    ACTION( item_req_ex,        METRIC_COUNTER, "# item alloc errors"      )\
+    ACTION( item_insert,        METRIC_COUNTER, "# items inserted"         )\
+    ACTION( item_remove,        METRIC_COUNTER, "# items removed"          )
+
 
 typedef struct {
     SLAB_METRIC(METRIC_DECLARE)
@@ -96,89 +111,9 @@ TAILQ_HEAD(slab_tqh, slab);
 
 #define SLAB_HDR_SIZE    offsetof(struct slab, data)
 
-/* Queues for handling items */
-struct item;
-SLIST_HEAD(item_slh, item);
-
-/*
- * Every class (struct slabclass) is a collection of slabs that can serve
- * items of a given maximum size. Every slab in the cache is identified by a
- * unique unsigned 8-bit id, which also identifies its owner slabclass
- *
- * Slabs that belong to a given class are reachable through slabq. Slabs
- * across all classes are reachable through the slabtable and slab lruq.
- *
- * We use unslabbed_free_item as a marker for the next available, unallocated
- * item in the current slab. Items that are available for reuse (i.e. allocated
- * and then freed) are kept track by free_itemq
- *
- * slabclass[]:
- *
- *  +-------------+
- *  |             |
- *  |             |
- *  |             |
- *  |   class 0   |
- *  |             |
- *  |             |
- *  |             |
- *  +-------------+
- *  |             |  ----------------------------------------------------------+
- *  |             | /                                              (last slab) |
- *  |             |/    +---------------+-------------------+    +-------------v-+-------------------+
- *  |             |     |               |                   |    |               |                   |
- *  |   class 1   |     |  slab header  |     slab data     |    |  slab header  |     slab data     |
- *  |             |     |               |                   |    |               |                   |--+
- *  |             |\    +---------------+-------------------+    +---------------+-------------------+  |
- *  |             | \                                                                                   //
- *  |             |  ----> (freeq)
- *  +-------------+
- *  |             |  -----------------+
- *  |             | /     (last slab) |
- *  |             |/    +-------------v-+-------------------+
- *  |             |     |               |                   |
- *  |   class 2   |     |  slab header  |     slab data     |
- *  |             |     |               |                   |--+
- *  |             |\    +---------------+-------------------+  |
- *  |             | \                                          //
- *  |             |  ----> (freeq)
- *  +-------------+
- *  |             |
- *  |             |
- *  .             .
- *  .    ....     .
- *  .             .
- *  |             |
- *  |             |
- *  +-------------+
- *            |
- *            |
- *            //
- */
-struct slabclass {
-    uint32_t        nitem;                 /* # item per slab (const) */
-    size_t          size;                  /* item size (const) */
-
-    uint32_t        nfree_itemq;           /* # free item q */
-    struct item_slh free_itemq;            /* free item q */
-
-    uint32_t        nfree_item;            /* # free item (in current slab) */
-    struct item     *next_item_in_slab;    /* next free item (in current slab, not freeq) */
-};
-
-/*
- * Slabclass id is an unsigned byte. So, maximum number of slab classes
- * cannot exceeded 256
- *
- * We use id = 255 as an invalid id and id = 0 for aggregation. This means
- * that we can have at most 254 usable slab classes
- */
-#define SLABCLASS_MIN_ID        1
-#define SLABCLASS_MAX_ID        (UCHAR_MAX - 1)
-#define SLABCLASS_INVALID_ID    UCHAR_MAX
-
+extern struct hash_table *hash_table;
 extern size_t slab_size;
-extern struct slabclass slabclass[SLABCLASS_MAX_ID + 1];  /* collection of slabs bucketed by slabclass */
+extern slab_metrics_st *slab_metrics;
 
 /*
  * Return the usable space for item sized chunks that would be carved out
@@ -190,21 +125,34 @@ slab_capacity(void)
     return slab_size - SLAB_HDR_SIZE;
 }
 
+/* Calculate slab id that will accommodate item with given key/val lengths */
+static inline uint8_t
+item_slabid(uint8_t klen, uint32_t vlen)
+{
+    return slab_id(item_ntotal(klen, vlen));
+}
+
 /*
- * Return the item size given a slab id
+ * Get the slab that contains this item.
  */
-static inline size_t
-slab_item_size(uint8_t id) {
-    return slabclass[id].size;
+static inline struct slab *
+item_to_slab(struct item *it)
+{
+    struct slab *slab;
+
+    ASSERT(it->offset < slab_size);
+
+    slab = (struct slab *)((char *)it - it->offset);
+
+    ASSERT(slab->magic == SLAB_MAGIC);
+
+    return slab;
 }
 
 void slab_print(void);
 uint8_t slab_id(size_t size);
 
-rstatus_i slab_setup(size_t setup_slab_size, bool setup_prealloc, int setup_evict_opt,
-                     bool setup_use_freeq, size_t setup_min_chunk_size, size_t setup_max_chunk_size,
-                     size_t setup_maxbytes, char *setup_profile, char *setup_profile_factor,
-                     slab_metrics_st *metrics);
+rstatus_i slab_setup(slab_options_st *options, slab_metrics_st *metrics);
 void slab_teardown(void);
 
 struct item *slab_get_item(uint8_t id);

@@ -35,13 +35,16 @@ admin_process_setup(admin_process_metrics_st *metrics)
                  SLIMCACHE_ADMIN_MODULE_NAME);
     }
 
+    admin_metrics = metrics;
+    if (metrics != NULL) {
+        ADMIN_PROCESS_METRIC_INIT(admin_metrics);
+    }
+
     card = stats_card();
     stats_len = METRIC_PRINT_LEN * card;
     stats_buf = cc_alloc(stats_len + METRIC_END_LEN);
     /* TODO: check return status of cc_alloc */
 
-    admin_metrics = metrics;
-    ADMIN_PROCESS_METRIC_INIT(admin_metrics);
     admin_init = true;
 }
 

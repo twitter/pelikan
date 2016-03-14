@@ -4,6 +4,7 @@
 #include <core/data/shared.h>
 
 #include <time/time.h>
+#include <util/util.h>
 
 #include <cc_debug.h>
 #include <cc_event.h>
@@ -27,7 +28,8 @@ static struct context *ctx = &context;
 static channel_handler_st handlers;
 static channel_handler_st *hdl = &handlers;
 
-static struct buf_sock *serversock; /* server buf_sock */
+static struct addrinfo *server_ai;
+static struct buf_sock *server_sock; /* server buf_sock */
 
 static inline void
 _server_close(struct buf_sock *s)
@@ -96,7 +98,7 @@ _server_event_read(struct buf_sock *s)
 }
 
 static void
-core_server_event(void *arg, uint32_t events)
+_server_event(void *arg, uint32_t events)
 {
     struct buf_sock *s = arg;
 
@@ -127,9 +129,11 @@ core_server_event(void *arg, uint32_t events)
 }
 
 rstatus_i
-core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
+core_server_setup(server_options_st *options, server_metrics_st *metrics)
 {
     struct tcp_conn *c;
+
+    log_info("set up the %s module", SERVER_MODULE_NAME);
 
     if (server_init) {
         log_error("server has already been setup, aborting");
@@ -137,13 +141,22 @@ core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
         return CC_ERROR;
     }
 
-    log_info("set up the %s module", SERVER_MODULE_NAME);
+    server_metrics = metrics;
+    if (metrics != NULL) {
+        SERVER_METRIC_INIT(server_metrics);
+    }
 
-    ctx->timeout = 100;
-    ctx->evb = event_base_create(1024, core_server_event);
-    if (ctx->evb == NULL) {
-        log_crit("failed to setup server core; could not create event_base");
+    if (options == NULL) {
+        log_error("server options missing");
         return CC_ERROR;
+    }
+
+    ctx->timeout = option_uint(&options->server_timeout);
+    ctx->evb = event_base_create(option_uint(&options->server_nevent),
+            _server_event);
+    if (ctx->evb == NULL) {
+        log_error("failed to setup server core; could not create event_base");
+        goto error;
     }
 
     hdl->accept = (channel_accept_fn)tcp_accept;
@@ -163,30 +176,34 @@ core_server_setup(struct addrinfo *ai, server_metrics_st *metrics)
      * one that contains a type field and a pointer to the actual struct, or
      * define common fields, like how posix sockaddr structs are used.
      */
-    serversock = buf_sock_borrow();
-    if (serversock == NULL) {
-        log_crit("failed to setup server core; could not get buf_sock");
+    server_sock = buf_sock_borrow();
+    if (server_sock == NULL) {
+        log_error("failed to setup server core; could not get buf_sock");
         return CC_ERROR;
     }
 
-    serversock->hdl = hdl;
+    server_sock->hdl = hdl;
+    if (CC_OK != getaddr(&server_ai, option_str(&options->server_host),
+            option_str(&options->server_port))) {
+        goto error;
+    }
 
-    c = serversock->ch;
-    if (!hdl->open(ai, c)) {
-        log_crit("server connection setup failed");
-        return CC_ERROR;
+    c = server_sock->ch;
+    if (!hdl->open(server_ai, c)) {
+        log_error("server connection setup failed");
+        goto error;
     }
     c->level = CHANNEL_META;
 
-    event_add_read(ctx->evb, hdl->rid(c), serversock);
-    server_metrics = metrics;
-    if (metrics != NULL) {
-        SERVER_METRIC_INIT(server_metrics);
-    }
+    event_add_read(ctx->evb, hdl->rid(c), server_sock);
 
     server_init = true;
 
     return CC_OK;
+
+error:
+    core_server_teardown();
+    return CC_ERROR;
 }
 
 void
@@ -197,15 +214,16 @@ core_server_teardown(void)
     if (!server_init) {
         log_warn("%s has never been setup", SERVER_MODULE_NAME);
     } else {
-        buf_sock_return(&serversock);
         event_base_destroy(&(ctx->evb));
+        freeaddrinfo(server_ai);
+        buf_sock_return(&server_sock);
     }
     server_metrics = NULL;
     server_init = false;
 }
 
 static rstatus_i
-core_server_evwait(void)
+_server_evwait(void)
 {
     int n;
 
@@ -224,11 +242,8 @@ core_server_evwait(void)
 void
 core_server_evloop(void)
 {
-    rstatus_i status;
-
     for(;;) {
-        status = core_server_evwait();
-        if (status != CC_OK) {
+        if (_server_evwait() != CC_OK) {
             log_crit("server core event loop exited due to failure");
             break;
         }

@@ -7,6 +7,7 @@
 #include <cc_define.h>
 #include <cc_metric.h>
 #include <cc_mm.h>
+#include <cc_option.h>
 #include <cc_queue.h>
 
 #include <inttypes.h>
@@ -16,6 +17,10 @@
 /*          name                type                default         description */
 #define REQUEST_OPTION(ACTION)                                                          \
     ACTION( request_poolsize,   OPTION_TYPE_UINT,   REQ_POOLSIZE,   "request pool size")
+
+typedef struct {
+    REQUEST_OPTION(OPTION_DECLARE)
+} request_options_st;
 
 /*          name                type            description */
 #define REQUEST_METRIC(ACTION)                                          \
@@ -100,14 +105,12 @@ struct request {
     unsigned                cerror:1;   /* client error */
 };
 
-void request_setup(request_metrics_st *metrics);
+void request_setup(request_options_st *options, request_metrics_st *metrics);
 void request_teardown(void);
 
 struct request *request_create(void);
 void request_destroy(struct request **req);
 void request_reset(struct request *req);
 
-void request_pool_create(uint32_t max);
-void request_pool_destroy(void);
 struct request *request_borrow(void);
 void request_return(struct request **req);

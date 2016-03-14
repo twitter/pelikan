@@ -1,8 +1,7 @@
 #include <slimcache/setting.h>
 #include <slimcache/stats.h>
 
-#include <core/core.h>
-#include <protocol/data/memcache/klog.h>
+#include <time/time.h>
 #include <util/util.h>
 
 #include <cc_debug.h>
@@ -14,8 +13,22 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
-static struct setting setting = {
-    SETTING(OPTION_INIT)
+static struct setting setting = (struct setting) {
+    { SLIMCACHE_OPTION(OPTION_INIT) },
+    { ADMIN_OPTION(OPTION_INIT)     },
+    { SERVER_OPTION(OPTION_INIT)    },
+    { WORKER_OPTION(OPTION_INIT)    },
+    { PROCESS_OPTION(OPTION_INIT)   },
+    { KLOG_OPTION(OPTION_INIT)      },
+    { REQUEST_OPTION(OPTION_INIT)   },
+    { RESPONSE_OPTION(OPTION_INIT)  },
+    { CUCKOO_OPTION(OPTION_INIT)    },
+    { ARRAY_OPTION(OPTION_INIT)     },
+    { BUF_OPTION(OPTION_INIT)       },
+    { DBUF_OPTION(OPTION_INIT)      },
+    { DEBUG_OPTION(OPTION_INIT)     },
+    { SOCKIO_OPTION(OPTION_INIT)    },
+    { TCP_OPTION(OPTION_INIT)       },
 };
 
 static const unsigned int nopt = OPTION_CARDINALITY(struct setting);
@@ -47,123 +60,97 @@ show_usage(void)
             "Example:" CRLF
             "  ./pelikan_slimcache ../template/slimcache.config" CRLF
             );
-    option_printall_default((struct option *)&setting, nopt);
+    log_stdout("Setting & Default Values:");
+
+    if (option_load_default((struct option *)&setting, nopt) != CC_OK) {
+        log_stderr("failed to load default option values");
+        exit(EX_CONFIG);
+    }
+    option_describe_all((struct option *)&setting, nopt);
+}
+
+static void
+teardown(void)
+{
+    core_teardown();
+    admin_process_teardown();
+    process_teardown();
+    cuckoo_teardown();
+    klog_teardown();
+    compose_teardown();
+    parse_teardown();
+    response_teardown();
+    request_teardown();
+    procinfo_teardown();
+    time_teardown();
+
+    timing_wheel_teardown();
+    tcp_teardown();
+    sockio_teardown();
+    event_teardown();
+    dbuf_teardown();
+    buf_teardown();
+
+    debug_teardown();
+    log_teardown();
 }
 
 static void
 setup(void)
 {
-    struct addrinfo *data_ai, *admin_ai;
-    int ret;
-    uint32_t max_conns;
-    rstatus_i status;
+    char *fname = NULL;
 
-    /* setup log first, so we log properly */
-    log_setup(&glob_stats.log_metrics);
-    ret = debug_setup((int)setting.debug_log_level.val.vuint,
-                      setting.debug_log_file.val.vstr,
-                      setting.debug_log_nbuf.val.vuint,
-                      setting.debug_log_intvl.val.vuint);
-    if (ret < 0) {
-        log_stderr("log setup failed");
-
+    /* Setup logging first */
+    log_setup(&stats.log);
+    if (debug_setup(&setting.debug) < 0) {
+        log_error("log setup failed");
         goto error;
     }
 
-    /* daemonize */
-    if (setting.daemonize.val.vbool) {
+    /* setup top-level application options */
+    if (option_bool(&setting.slimcache.daemonize)) {
         daemonize();
     }
-
-    /* create pid file, call it after daemonize to have the correct pid */
-    if (setting.pid_filename.val.vstr != NULL) {
-        create_pidfile(setting.pid_filename.val.vstr);
+    fname = option_str(&setting.slimcache.pid_filename);
+    if (fname != NULL) {
+        /* to get the correct pid, call create_pidfile after daemonize */
+        create_pidfile(fname);
     }
 
-    array_setup((uint32_t)setting.array_nelem_delta.val.vuint);
-    buf_setup((uint32_t)setting.buf_init_size.val.vuint, &glob_stats.buf_metrics);
-    event_setup(&glob_stats.event_metrics);
-    tcp_setup((int)setting.tcp_backlog.val.vuint, &glob_stats.tcp_metrics);
+    /* setup library modules */
+    buf_setup(&setting.buf, &stats.buf);
+    dbuf_setup(&setting.dbuf);
+    event_setup(&stats.event);
+    sockio_setup(&setting.sockio);
+    tcp_setup(&setting.tcp, &stats.tcp);
+    timing_wheel_setup(&stats.timing_wheel);
 
+    /* setup pelikan modules */
     time_setup();
-    timing_wheel_setup(&glob_stats.timing_wheel_metrics);
-    status = cuckoo_setup((size_t)setting.cuckoo_item_size.val.vuint,
-            (uint32_t)setting.cuckoo_nitem.val.vuint,
-            (uint32_t)setting.cuckoo_policy.val.vuint,
-            setting.cuckoo_item_cas.val.vbool,
-            &glob_stats.cuckoo_metrics);
-    if (status != CC_OK) {
-        log_error("cuckoo module setup failed");
-
+    procinfo_setup(&stats.procinfo);
+    request_setup(&setting.request, &stats.request);
+    response_setup(&setting.response, &stats.response);
+    parse_setup(&stats.parse_req, NULL);
+    compose_setup(NULL, &stats.compose_rsp);
+    if (klog_setup(&setting.klog, &stats.klog) != CC_OK) {
+        log_error("klog setup failed");
         goto error;
     }
-    procinfo_setup(&glob_stats.procinfo_metrics);
-    request_setup(&glob_stats.request_metrics);
-    response_setup(&glob_stats.response_metrics);
-    parse_setup(&glob_stats.parse_req_metrics, NULL);
-    compose_setup(NULL, &glob_stats.compose_rsp_metrics);
-    klog_setup(setting.klog_file.val.vstr,
-               setting.klog_backup.val.vstr,
-               (uint32_t)setting.klog_nbuf.val.vuint,
-               (uint32_t)setting.klog_intvl.val.vuint,
-               (uint32_t)setting.klog_sample.val.vuint,
-               (size_t)setting.klog_max.val.vuint,
-               &glob_stats.klog_metrics);
-    process_setup(setting.allow_flush.val.vbool,
-                  &glob_stats.process_metrics);
-    admin_process_setup(&glob_stats.admin_process_metrics);
-
-    /**
-     * Here we don't create buf or conn pool because buf_sock will allocate
-     * those objects and hold onto them as part of its create/allocate process.
-     * So it will not use buf/conn pool resources and we have no use of them
-     * outside the context of buf_sock.
-     * Do not set those poolsizes in the config script, they will not be used.
-     */
-    buf_sock_pool_create((uint32_t)setting.buf_sock_poolsize.val.vuint);
-    request_pool_create((uint32_t)setting.request_poolsize.val.vuint);
-    response_pool_create((uint32_t)setting.response_poolsize.val.vuint);
-
-    /* set up core after static resources are ready */
-    status = getaddr(&data_ai, setting.server_host.val.vstr,
-            setting.server_port.val.vstr);
-    if (status != CC_OK) {
-        log_error("server address invalid");
+    if (cuckoo_setup(&setting.cuckoo, &stats.cuckoo) != CC_OK) {
+        log_error("slab setup failed");
         goto error;
     }
+    process_setup(&setting.process, &stats.process);
+    admin_process_setup(&stats.admin_process);
+    core_setup(&setting.admin, &setting.server, &setting.worker,
+            &stats.server, &stats.worker);
 
-    status = getaddr(&admin_ai, setting.admin_host.val.vstr,
-                     setting.admin_port.val.vstr);
-    if (status != CC_OK) {
-        log_error("admin address invalid");
-        goto error;
-    }
-    /**
-     * Set up core with connection ring array being either the tcp poolsize or
-     * the ring array default capacity if poolsize is unlimited
-     */
-    max_conns = setting.tcp_poolsize.val.vuint == 0 ?
-        setting.ring_array_cap.val.vuint : setting.tcp_poolsize.val.vuint;
-    status = core_setup(data_ai, admin_ai, max_conns,
-        (int)setting.admin_intvl.val.vuint, setting.admin_tw_tick.val.vuint,
-        setting.admin_tw_cap.val.vuint, setting.admin_tw_ntick.val.vuint,
-        &glob_stats.server_metrics, &glob_stats.worker_metrics);
-    freeaddrinfo(data_ai); /* freeing it before return/error to avoid memory leak */
-    freeaddrinfo(admin_ai);
-    if (status != CC_OK) {
-        log_crit("cannot start core event loop");
-
-        goto error;
-    }
-
-    status = core_admin_add_tev(dlog_tev);
-    if (status != CC_OK) {
+    /* adding recurring events to maintenance/admin thread */
+    if (core_admin_add_tev(dlog_tev) != CC_OK) {
         log_stderr("Could not add debug log timed event to admin thread");
         goto error;
     }
-
-    status = core_admin_add_tev(klog_tev);
-    if (status != CC_OK) {
+    if (core_admin_add_tev(klog_tev) != CC_OK) {
         log_error("Could not add klog timed event to admin thread");
         goto error;
     }
@@ -173,33 +160,11 @@ setup(void)
 error:
     log_crit("setup failed");
 
-    if (setting.pid_filename.val.vstr != NULL) {
-        remove_pidfile(setting.pid_filename.val.vstr);
+    /* tear down everything in the reverse order as setup, then exit */
+    teardown();
+    if (fname != NULL) {
+        remove_pidfile(fname);
     }
-
-    core_teardown();
-
-    request_pool_destroy();
-    buf_sock_pool_destroy();
-    tcp_conn_pool_destroy();
-    buf_pool_destroy();
-
-    cuckoo_teardown();
-    process_teardown();
-    klog_teardown();
-    compose_teardown();
-    parse_teardown();
-    response_teardown();
-    request_teardown();
-    procinfo_teardown();
-    time_teardown();
-    tcp_teardown();
-    event_teardown();
-    buf_teardown();
-    array_teardown();
-    option_free((struct option *)&setting, nopt);
-
-    log_teardown();
 
     exit(EX_CONFIG);
 }
@@ -207,7 +172,7 @@ error:
 int
 main(int argc, char **argv)
 {
-    rstatus_i status;
+    rstatus_i status = CC_OK;
     FILE *fp = NULL;
 
     if (argc > 2) {
@@ -238,27 +203,27 @@ main(int argc, char **argv)
         }
     }
 
-    status = option_load_default((struct option *)&setting, nopt);
-    if (status != CC_OK) {
-        log_stderr("fail to load default option values");
-
+    if (option_load_default((struct option *)&setting, nopt) != CC_OK) {
+        log_stderr("failed to load default option values");
         exit(EX_CONFIG);
     }
+
     if (fp != NULL) {
         log_stderr("load config from %s", argv[1]);
         status = option_load_file(fp, (struct option *)&setting, nopt);
         fclose(fp);
     }
     if (status != CC_OK) {
-        log_stderr("fail to load config");
-
+        log_stderr("failed to load config");
         exit(EX_DATAERR);
     }
-    setup();
 
-    option_printall((struct option *)&setting, nopt);
+    setup();
+    option_print_all((struct option *)&setting, nopt);
 
     core_run();
+
+    teardown();
 
     exit(EX_OK);
 }

@@ -22,23 +22,27 @@ struct slab_heapinfo {
     struct slab_tqh slab_lruq;   /* lru slab q */
 };
 
-extern struct hash_table *hash_table;
-
 static struct slab_heapinfo heapinfo;             /* info of all allocated slabs */
 static size_t profile[SLABCLASS_MAX_ID + 1];      /* slab profile */
+static uint8_t profile_last_id; /* last id in slab profile */
 struct slabclass slabclass[SLABCLASS_MAX_ID + 1]; /* collection of slabs bucketed by slabclass */
 
-size_t slab_size;                            /* # bytes in a slab */
-static bool prealloc;                        /* allocate slabs ahead of time? */
-static int evict_opt;                        /* slab eviction policy */
-static bool use_freeq;                       /* use items in free queue? */
-static size_t min_chunk_size;                /* min chunk size */
-static size_t max_chunk_size;                /* max chunk size */
-static size_t maxbytes;                      /* maximum bytes allocated for slabs */
-static uint8_t profile_last_id;              /* last id in slab profile */
+size_t slab_size = SLAB_SIZE;           /* # bytes in a slab */
+static size_t slab_mem = SLAB_MEM;      /* maximum bytes allocated for slabs */
+static bool prealloc = true;            /* allocate slabs ahead of time? */
+static int evict_opt = EVICT_RS;        /* slab eviction policy */
+static bool use_freeq = true;           /* use items in free queue? */
+static size_t item_min = ITEM_SIZE_MIN; /* min item size */
+static size_t item_max = ITEM_SIZE_MAX; /* max item size */
+static double item_growth = ITEM_FACTOR;/* item size growth factor */
+static uint32_t hash_power = HASH_POWER;/* power (of 2) entries for hashtable */
+
+struct hash_table *hash_table = NULL;
+bool use_cas = true;
+uint64_t cas_id;
 
 static bool slab_init = false;
-static slab_metrics_st *slab_metrics = NULL;
+slab_metrics_st *slab_metrics = NULL;
 
 #define SLAB_RAND_MAX_TRIES         50
 #define SLAB_LRU_MAX_TRIES          50
@@ -51,7 +55,7 @@ slab_print(void)
 
     loga("slab size %zu, slab hdr size %zu, item hdr size %zu, item chunk size"
             "%zu, total memory %zu", slab_size, SLAB_HDR_SIZE, ITEM_HDR_SIZE,
-            min_chunk_size, maxbytes);
+            item_min, slab_mem);
 
     for (id = SLABCLASS_MIN_ID; id <= profile_last_id; id++) {
         p = &slabclass[id];
@@ -176,7 +180,7 @@ static rstatus_i
 _slab_heapinfo_setup(void)
 {
     heapinfo.nslab = 0;
-    heapinfo.max_nslab = maxbytes / slab_size;
+    heapinfo.max_nslab = slab_mem / slab_size;
 
     heapinfo.base = NULL;
     if (prealloc) {
@@ -189,7 +193,7 @@ _slab_heapinfo_setup(void)
         }
 
         log_info("pre-allocated %zu bytes for %"PRIu32" slabs",
-                  maxbytes, heapinfo.max_nslab);
+                  slab_mem, heapinfo.max_nslab);
     }
     heapinfo.curr = heapinfo.base;
 
@@ -204,8 +208,6 @@ _slab_heapinfo_setup(void)
     log_vverb("created slab table with %"PRIu32" entries",
               heapinfo.max_nslab);
 
-    INCR_N(slab_metrics, slab_heap_size, heapinfo.max_nslab);
-
     return CC_OK;
 }
 
@@ -215,41 +217,54 @@ _slab_heapinfo_teardown(void)
 }
 
 static rstatus_i
-_slab_profile_setup(char *setup_profile, char *setup_profile_factor)
+_slab_profile_setup(char *profile_str)
 {
     int i;
 
     /* TODO(yao): check alignment (with machine word length) in the user config,
      * reject ones that don't align
      */
-    if (setup_profile != NULL) {
+    if (profile_str != NULL) {
         /* slab profile specified */
         char *profile_entry;
 
         i = SLABCLASS_MIN_ID - 1;
 
         do {
-            profile_entry = strsep(&setup_profile, " \n\r\t");
+            /*TODO(yao): strsep alters the original slab profile string, which
+             * is probably not desirable (we don't want to modify options once
+             * they are loaded. Do another memcpy to some local variable.
+             */
+            profile_entry = strsep(&profile_str, " \n\r\t");
             profile[++i] = atol(profile_entry);
             if (profile[i] <= profile[i - 1]) {
                 log_error("Invalid setup profile configuration provided");
                 return CC_ERROR;
             }
-        } while (setup_profile != NULL);
+        } while (profile_str != NULL);
 
         profile_last_id = i;
     } else {
         /* generate slab profile using chunk size, slab size, and factor */
         size_t nbyte, nitem, linear_nitem;
-        double growth_factor = atof(setup_profile_factor);
 
-        if (growth_factor <= 1.0) {
-            log_error("Could not setup slab profile; invalid growth factor");
+        if (item_min <= ITEM_HDR_SIZE) {
+            log_error("invalid min chunk size - too small for item overhead");
             return CC_ERROR;
         }
 
-        if (min_chunk_size > max_chunk_size) {
+        if (item_max + SLAB_HDR_SIZE > slab_size) {
+            log_error("invalid max chunk size - too large to fit in one slab");
+            return CC_ERROR;
+        }
+
+        if (item_min > item_max) {
             log_error("Could not setup slab profile; invalid min/max chunk size");
+            return CC_ERROR;
+        }
+
+        if (item_growth <= 1.0) {
+            log_error("Could not setup slab profile; invalid growth factor");
             return CC_ERROR;
         }
 
@@ -304,13 +319,13 @@ _slab_profile_setup(char *setup_profile, char *setup_profile_factor)
          * +-----------------------------------------------------------+
          */
 
-        linear_nitem = 1.0 / (growth_factor - 1.0);
+        linear_nitem = 1.0 / (item_growth - 1.0);
         i = SLABCLASS_MIN_ID;
-        nitem = slab_capacity() / (CC_ALIGN(min_chunk_size, CC_ALIGNMENT));
+        nitem = slab_capacity() / (CC_ALIGN(item_min, CC_ALIGNMENT));
         nbyte = slab_capacity() / nitem;
 
         /* exponential growth phase */
-        while (nbyte <= max_chunk_size && nitem > linear_nitem) {
+        while (nbyte <= item_max && nitem > linear_nitem) {
             if (i > SLABCLASS_MAX_ID) {
                 log_error("Slab profile improperly configured - max chunk size "
                           "too large or growth factor too small");
@@ -322,14 +337,14 @@ _slab_profile_setup(char *setup_profile, char *setup_profile_factor)
             }
 
             profile[i++] = nbyte;
-            nitem = slab_capacity() / nbyte / growth_factor;
+            nitem = slab_capacity() / nbyte / item_growth;
             nbyte = SLAB_ALIGN_DOWN(slab_capacity() / nitem, CC_ALIGNMENT);
         }
 
         /* linear growth phase */
         nitem = linear_nitem;
         nbyte = SLAB_ALIGN_DOWN(slab_capacity() / nitem, CC_ALIGNMENT);
-        while (nbyte <= max_chunk_size && nitem > 0) {
+        while (nbyte <= item_max && nitem > 0) {
             if (i > SLABCLASS_MAX_ID) {
                 log_error("Slab profile improperly configured - max chunk size "
                           "too large or growth factor too small");
@@ -358,53 +373,52 @@ _slab_profile_setup(char *setup_profile, char *setup_profile_factor)
  * Initialize the slab module
  */
 rstatus_i
-slab_setup(size_t setup_slab_size,
-           bool setup_prealloc,
-           int setup_evict_opt,
-           bool setup_use_freeq,
-           size_t setup_min_chunk_size,
-           size_t setup_max_chunk_size,
-           size_t setup_maxbytes,
-           char *setup_profile,
-           char *setup_profile_factor,
-           slab_metrics_st *metrics)
+slab_setup(slab_options_st *options, slab_metrics_st *metrics)
 {
     rstatus_i status;
+    char *profile_str = NULL;
 
     log_info("set up the %s module", SLAB_MODULE_NAME);
 
     if (slab_init) {
-        log_warn("%s has already been set up, overwrite", SLAB_MODULE_NAME);
-    }
-
-    log_verb("Slab header size: %d", SLAB_HDR_SIZE);
-
-    slab_size = setup_slab_size;
-    prealloc = setup_prealloc;
-    evict_opt = setup_evict_opt;
-    use_freeq = setup_use_freeq;
-    min_chunk_size = setup_min_chunk_size;
-    max_chunk_size = setup_max_chunk_size;
-    maxbytes = setup_maxbytes;
-
-    if (min_chunk_size <= ITEM_HDR_SIZE) {
-        log_error("invalid min chunk size - too small for item overhead");
+        log_error("%s has already been set up, abort", SLAB_MODULE_NAME);
         return CC_ERROR;
     }
 
-    if (max_chunk_size + SLAB_HDR_SIZE > slab_size) {
-        log_error("invalid max chunk size - too large to fit in one slab");
-        return CC_ERROR;
-    }
+    log_verb("Slab header size: %d, item header size: %d", SLAB_HDR_SIZE,
+            ITEM_HDR_SIZE);
 
     slab_metrics = metrics;
     if (metrics != NULL) {
         SLAB_METRIC_INIT(slab_metrics);
     }
 
-    slab_init = true;
+    if (options != NULL) {
+        slab_size = option_uint(&options->slab_size);
+        slab_mem = option_uint(&options->slab_mem);
+        prealloc = option_bool(&options->slab_prealloc);
+        evict_opt = option_uint(&options->slab_evict_opt);
+        use_freeq = option_bool(&options->slab_use_freeq);
+        profile_str = option_str(&options->slab_profile);
+        item_min = option_uint(&options->slab_item_min);
+        item_max = option_uint(&options->slab_item_max);
+        item_growth = option_fpn(&options->slab_item_growth);
+        use_cas = option_bool(&options->slab_use_cas);
+        hash_power = option_uint(&options->slab_hash_power);
+    }
 
-    status = _slab_profile_setup(setup_profile, setup_profile_factor);
+    hash_table = hashtable_create(hash_power);
+    if (hash_table == NULL) {
+        return CC_ENOMEM;
+    }
+
+    status = _slab_heapinfo_setup();
+    if (status != CC_OK) {
+        log_error("Could not setup slab heap info");
+        return status;
+    }
+
+    status = _slab_profile_setup(profile_str);
     if (status != CC_OK) {
         log_error("Could not setup slab profile");
         return status;
@@ -416,11 +430,7 @@ slab_setup(size_t setup_slab_size,
         return status;
     }
 
-    status = _slab_heapinfo_setup();
-    if (status != CC_OK) {
-        log_error("Could not setup slab heap info");
-        return status;
-    }
+    slab_init = true;
 
     return status;
 }
@@ -434,9 +444,11 @@ slab_teardown(void)
         log_warn("%s has never been set up", SLAB_MODULE_NAME);
     }
 
-    slab_metrics = NULL;
+    hashtable_destroy(hash_table);
     _slab_heapinfo_teardown();
     _slab_slabclass_teardown();
+    slab_metrics = NULL;
+
     slab_init = false;
 }
 
@@ -468,9 +480,6 @@ _slab_heap_create(void)
         heapinfo.curr += slab_size;
     } else {
         slab = cc_alloc(slab_size);
-        if (slab != NULL) {
-            INCR(slab_metrics, slab_heap_size);
-        }
     }
 
     return slab;
@@ -535,6 +544,8 @@ _slab_get_new(void)
     }
 
     _slab_table_update(slab);
+    INCR(slab_metrics, slab_curr);
+    INCR_N(slab_metrics, slab_memory,slab_size);
 
     return slab;
 }
@@ -584,7 +595,6 @@ _slab_evict_one(struct slab *slab)
     _slab_lruq_remove(slab);
 
     INCR(slab_metrics, slab_evict);
-    DECR(slab_metrics, slab_curr);
 }
 
 /*
@@ -671,8 +681,6 @@ _slab_init(struct slab *slab, uint8_t id)
     /* make this slab as the current slab */
     p->nfree_item = p->nitem;
     p->next_item_in_slab = (struct item *)&slab->data[0];
-
-    INCR(slab_metrics, slab_curr);
 }
 
 /*

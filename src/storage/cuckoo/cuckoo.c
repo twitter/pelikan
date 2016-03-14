@@ -251,31 +251,36 @@ cuckoo_displace(uint32_t displaced)
 
 
 rstatus_i
-cuckoo_setup(size_t size, uint32_t item, uint32_t policy, bool cas, cuckoo_metrics_st *metrics)
+cuckoo_setup(cuckoo_options_st *options, cuckoo_metrics_st *metrics)
 {
-    if (cuckoo_init) {
-        log_error("cuckoo has already been setup, aborting");
-
-        return CC_ERROR;
-    }
-
     log_info("set up the %s module", CUCKOO_MODULE_NAME);
 
-    chunk_size = size;
-    max_item = item;
-    hash_size = size * item;
-    ds = cc_zalloc(hash_size);
-    if (ds == NULL) {
-        log_crit("cuckoo data store allocation failed");
-
+    if (cuckoo_init) {
+        log_error("cuckoo has already been setup, aborting");
         return CC_ERROR;
     }
-    cuckoo_policy = policy;
-    cas_enabled = cas;
+
     cuckoo_metrics = metrics;
     if (metrics != NULL) {
         CUCKOO_METRIC_INIT(cuckoo_metrics);
     }
+
+    if (options == NULL) {
+        log_error("missing cuckoo options");
+        return CC_ERROR;
+    }
+
+    chunk_size = option_uint(&options->cuckoo_item_size);
+    max_item = option_uint(&options->cuckoo_nitem);
+
+    hash_size = chunk_size * max_item;
+    ds = cc_zalloc(hash_size);
+    if (ds == NULL) {
+        log_error("cuckoo data store allocation failed");
+        return CC_ERROR;
+    }
+    cuckoo_policy = option_uint(&options->cuckoo_policy);
+    cas_enabled = option_bool(&options->cuckoo_item_cas);
 
     cuckoo_init = true;
 

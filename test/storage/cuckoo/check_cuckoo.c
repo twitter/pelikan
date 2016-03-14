@@ -18,13 +18,20 @@ void test_cas(uint32_t policy);
 void test_delete_basic(uint32_t policy, bool cas);
 void test_expire_basic(uint32_t policy, bool cas);
 
+cuckoo_options_st options = (cuckoo_options_st) { CUCKOO_OPTION(OPTION_INIT) };
+cuckoo_metrics_st metrics = (cuckoo_metrics_st) { CUCKOO_METRIC(METRIC_INIT) };
+
 /*
  * utilities
  */
 static rstatus_i
 test_setup(uint32_t policy, bool cas)
 {
-    return cuckoo_setup(CUCKOO_ITEM_SIZE, CUCKOO_NITEM, policy, cas, NULL);
+    option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
+    options.cuckoo_policy.val.vuint = policy;
+    options.cuckoo_item_cas.val.vbool = cas;
+
+    return cuckoo_setup(&options, &metrics);
 }
 
 static void
@@ -332,11 +339,9 @@ START_TEST(test_insert_replace_expired)
     rstatus_i status;
     char keystring[30];
     uint64_t i;
-    cuckoo_metrics_st metrics;
 
-    cuckoo_teardown();
-    status = cuckoo_setup(CUCKOO_ITEM_SIZE, CUCKOO_NITEM, CUCKOO_POLICY_RANDOM, true, &metrics);
-    ck_assert_msg(status == CC_OK,
+    metrics = (cuckoo_metrics_st) { CUCKOO_METRIC(METRIC_INIT) };
+    ck_assert_msg(test_reset(CUCKOO_POLICY_EXPIRE, true) == CC_OK,
             "could not setup cuckoo module");
 
     now = NOW;
@@ -376,12 +381,10 @@ START_TEST(test_insert_insert_expire_swap)
     rstatus_i status;
     char keystring[30];
     uint64_t i;
-    cuckoo_metrics_st metrics;
     int hits = 0;
 
-    cuckoo_teardown();
-    status = cuckoo_setup(CUCKOO_ITEM_SIZE, CUCKOO_NITEM, CUCKOO_POLICY_EXPIRE, false, &metrics);
-    ck_assert_msg(status == CC_OK,
+    metrics = (cuckoo_metrics_st) { CUCKOO_METRIC(METRIC_INIT) };
+    ck_assert_msg(test_reset(CUCKOO_POLICY_EXPIRE, false) == CC_OK,
             "could not setup cuckoo module");
 
     now = NOW;

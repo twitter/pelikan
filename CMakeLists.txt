@@ -108,13 +108,10 @@ include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"
     "${CCOMMON_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/src"
-    "${PROJECT_SOURCE_DIR}/client/src"
     "${CHECK_INCLUDES}")
 
 # server
 add_subdirectory(src)
-# client
-add_subdirectory(client)
 
 # tests: always build last
 if(CHECK_WORKING)

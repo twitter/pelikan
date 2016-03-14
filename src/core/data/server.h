@@ -2,6 +2,18 @@
 
 #include <cc_define.h>
 #include <cc_metric.h>
+#include <cc_option.h>
+
+/*          name            type                default         description */
+#define SERVER_OPTION(ACTION)                                                                   \
+    ACTION( server_host,    OPTION_TYPE_STR,    NULL,           "interfaces listening on"      )\
+    ACTION( server_port,    OPTION_TYPE_STR,    "12321",        "port listening on"            )\
+    ACTION( server_timeout, OPTION_TYPE_UINT,   100,            "evwait timeout"               )\
+    ACTION( server_nevent,  OPTION_TYPE_UINT,   1024,           "evwait max nevent returned"   )
+
+typedef struct {
+    SERVER_OPTION(OPTION_DECLARE)
+} server_options_st;
 
 /*          name                    type            description */
 #define CORE_SERVER_METRIC(ACTION)                                                   \
@@ -21,6 +33,6 @@ typedef struct {
 
 struct addrinfo;
 
-rstatus_i core_server_setup(struct addrinfo *ai, server_metrics_st *metrics);
+rstatus_i core_server_setup(server_options_st *options, server_metrics_st *metrics);
 void core_server_teardown(void);
 void core_server_evloop(void);
