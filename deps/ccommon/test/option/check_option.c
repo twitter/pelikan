@@ -2,6 +2,7 @@
 
 #include <check.h>
 
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -73,27 +74,53 @@ START_TEST(test_parse_uinteger)
     ck_assert_int_eq(opt.set, false);
 
     opt.set = false;
-    opt.val.vuint = false;
+    opt.val.vuint = 0;
     ck_assert_int_eq(option_set(&opt, "1"), CC_OK);
     ck_assert_int_eq(opt.val.vuint, 1);
     ck_assert_int_eq(opt.set, true);
 
     opt.set = false;
-    opt.val.vuint = false;
+    opt.val.vuint = 0;
     ck_assert_int_eq(option_set(&opt, "1 + 1"), CC_OK);
     ck_assert_int_eq(opt.val.vuint, 2);
     ck_assert_int_eq(opt.set, true);
 
     opt.set = false;
-    opt.val.vuint = false;
+    opt.val.vuint = 0;
     ck_assert_int_eq(option_set(&opt, "1 + 2 * 3"), CC_OK);
     ck_assert_int_eq(opt.val.vuint, 7);
     ck_assert_int_eq(opt.set, true);
 
     opt.set = false;
-    opt.val.vuint = false;
+    opt.val.vuint = 0;
     ck_assert_int_eq(option_set(&opt, "(1 + 2) * 3"), CC_OK);
     ck_assert_int_eq(opt.val.vuint, 9);
+    ck_assert_int_eq(opt.set, true);
+}
+END_TEST
+
+START_TEST(test_parse_float)
+{
+    struct option opt;
+    opt.type = OPTION_TYPE_FPN;
+    opt.set = false;
+
+    ck_assert_int_ne(option_set(&opt, "invalid"), CC_OK);
+    ck_assert_int_eq(opt.set, false);
+
+    ck_assert_int_ne(option_set(&opt, "1.25ab"), CC_OK);
+    ck_assert_int_eq(opt.set, false);
+
+    opt.set = false;
+    opt.val.vfpn = 0;
+    ck_assert_int_eq(option_set(&opt, "1.25"), CC_OK);
+    ck_assert_msg(fabs(opt.val.vfpn - 1.25) < 1e-5, "value = %f", opt.val.vfpn);
+    ck_assert_int_eq(opt.set, true);
+
+    opt.set = false;
+    opt.val.vfpn = 0;
+    ck_assert_int_eq(option_set(&opt, "-1"), CC_OK);
+    ck_assert(fabs(opt.val.vfpn + 1) < 1e-5);
     ck_assert_int_eq(opt.set, true);
 }
 END_TEST
@@ -154,9 +181,10 @@ tmpname_destroy(char *path)
 START_TEST(test_load_file)
 {
 #define TEST_OPTION(ACTION)                                                                 \
-    ACTION( boolean,    OPTION_TYPE_BOOL,   true,  "it may be true of false"               )\
-    ACTION( string,     OPTION_TYPE_STR,    "foo",  "it is a sequence of bytes"            )\
-    ACTION( uinteger,   OPTION_TYPE_UINT,   2,      "it is a non-negative integer number"  )
+    ACTION( boolean,    OPTION_TYPE_BOOL,   true,   "it may be true of false"              )\
+    ACTION( uinteger,   OPTION_TYPE_UINT,   2,      "it is a non-negative integer number"  )\
+    ACTION( fpn,        OPTION_TYPE_FPN,    1.25,   "it is a floating point number"        )\
+    ACTION( string,     OPTION_TYPE_STR,    "foo",  "it is a sequence of bytes"            )
 
 #define SETTING(ACTION) \
     TEST_OPTION(ACTION)
@@ -175,8 +203,9 @@ START_TEST(test_load_file)
 
     tmpname = tmpname_create(
         "boolean: no\n"
-        "string: bar\n"
         "uinteger: 3\n"
+        "fpn:    2.5\n"
+        "string: bar\n"
     );
     ck_assert_ptr_ne(tmpname, NULL);
 
@@ -187,12 +216,15 @@ START_TEST(test_load_file)
             CC_OK);
     ck_assert_int_eq(setting.boolean.val.vbool, true);
     ck_assert_int_eq(setting.uinteger.val.vuint, 2);
+    ck_assert_msg(fabs(setting.fpn.val.vfpn - 1.25) < 1e-5, "value = %f",
+            setting.fpn.val.vfpn);
     ck_assert_str_eq(setting.string.val.vstr, "foo");
 
     ck_assert_int_eq(option_load_file(fp, (struct option *)&setting, nopt),
             CC_OK);
     ck_assert_int_eq(setting.boolean.val.vbool, false);
     ck_assert_int_eq(setting.uinteger.val.vuint, 3);
+    ck_assert(fabs(setting.fpn.val.vfpn - 2.5) < 1e-5);
     ck_assert_str_eq(setting.string.val.vstr, "bar");
 
     option_free((struct option *)&setting, nopt);
@@ -215,6 +247,7 @@ option_suite(void)
     TCase *tc_option = tcase_create("option test");
     tcase_add_test(tc_option, test_parse_bool);
     tcase_add_test(tc_option, test_parse_uinteger);
+    tcase_add_test(tc_option, test_parse_float);
     tcase_add_test(tc_option, test_parse_string);
     tcase_add_test(tc_option, test_load_file);
     suite_add_tcase(s, tc_option);

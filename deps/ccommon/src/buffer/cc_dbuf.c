@@ -15,21 +15,21 @@ static uint8_t max_power = DBUF_DEFAULT_MAX;
 static uint32_t max_size = BUF_INIT_SIZE << DBUF_DEFAULT_MAX;
 
 void
-dbuf_setup(uint8_t power)
+dbuf_setup(dbuf_options_st *options)
 {
     log_info("set up the %s module", DBUF_MODULE_NAME);
-
-    /* TODO(yao): validate input */
-    max_power = power;
-    max_size = buf_init_size << power;
 
     if (dbuf_init) {
         log_warn("%s has already been setup, overwrite", DBUF_MODULE_NAME);
     }
 
-    dbuf_init = true;
+    if (options != NULL) {
+        /* TODO(yao): validate input */
+        max_power = option_uint(&options->dbuf_max_power);
+        max_size = buf_init_size << max_power;
+    }
 
-    log_info("buffer/dbuf: max size %zu", max_size);
+    dbuf_init = true;
 }
 
 void

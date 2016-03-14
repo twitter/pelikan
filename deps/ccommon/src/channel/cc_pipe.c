@@ -38,36 +38,6 @@ static bool cp_init = false;
 static bool pipe_init = false;
 static pipe_metrics_st *pipe_metrics = NULL;
 
-void
-pipe_setup(pipe_metrics_st *metrics)
-{
-    log_info("set up the %s module", PIPE_MODULE_NAME);
-    if (pipe_init) {
-        log_warn("%s has already been setup, overwrite", PIPE_MODULE_NAME);
-    }
-
-    pipe_metrics = metrics;
-    if (metrics != NULL) {
-        PIPE_METRIC_INIT(pipe_metrics);
-    }
-
-    channel_sigpipe_ignore(); /* does it ever fail */
-    pipe_init = true;
-}
-
-void
-pipe_teardown(void)
-{
-    log_info("tear down the %s module", PIPE_MODULE_NAME);
-
-    if (!pipe_init) {
-        log_warn("%s has never been setup", PIPE_MODULE_NAME);
-    }
-
-    pipe_metrics = NULL;
-    pipe_init = false;
-}
-
 struct pipe_conn *
 pipe_conn_create(void)
 {
@@ -122,31 +92,7 @@ pipe_conn_reset(struct pipe_conn *c)
     c->err = 0;
 }
 
-void
-pipe_conn_pool_create(uint32_t max)
-{
-    struct pipe_conn *c;
-
-    if (cp_init) {
-        log_warn("conn pool has already been created, ignore");
-
-        return;
-    }
-
-    log_info("creating conn pool: max %"PRIu32, max);
-
-    FREEPOOL_CREATE(&cp, max);
-    cp_init = true;
-
-    /* preallocating, see notes in buffer/cc_buf.c */
-    FREEPOOL_PREALLOC(c, &cp, max, next, pipe_conn_create);
-    if (cp.nfree < max) {
-        log_crit("cannot preallocate pipe conn pool, OOM");
-        exit(EXIT_FAILURE);
-    }
-}
-
-void
+static void
 pipe_conn_pool_destroy(void)
 {
     struct pipe_conn *c, *tc;
@@ -161,6 +107,30 @@ pipe_conn_pool_destroy(void)
 
     FREEPOOL_DESTROY(c, tc, &cp, next, pipe_conn_destroy);
     cp_init = false;
+}
+
+static void
+pipe_conn_pool_create(uint32_t max)
+{
+    struct pipe_conn *c;
+
+    if (cp_init) {
+        log_warn("conn pool has already been created, re-creating");
+
+        pipe_conn_pool_destroy();
+    }
+
+    log_info("creating conn pool: max %"PRIu32, max);
+
+    FREEPOOL_CREATE(&cp, max);
+    cp_init = true;
+
+    /* preallocating, see notes in buffer/cc_buf.c */
+    FREEPOOL_PREALLOC(c, &cp, max, next, pipe_conn_create);
+    if (cp.nfree < max) {
+        log_crit("cannot preallocate pipe conn pool, OOM. abort");
+        exit(EXIT_FAILURE);
+    }
 }
 
 struct pipe_conn *
@@ -384,4 +354,41 @@ pipe_set_nonblocking(struct pipe_conn *c)
     ASSERT(c != NULL);
     _pipe_set_nonblocking(pipe_read_id(c));
     _pipe_set_nonblocking(pipe_write_id(c));
+}
+
+void
+pipe_setup(pipe_options_st *options, pipe_metrics_st *metrics)
+{
+    log_info("set up the %s module", PIPE_MODULE_NAME);
+
+    if (pipe_init) {
+        log_warn("%s has already been setup, overwrite", PIPE_MODULE_NAME);
+    }
+
+    pipe_metrics = metrics;
+    if (metrics != NULL) {
+        PIPE_METRIC_INIT(pipe_metrics);
+    }
+
+    if (options != NULL) {
+        pipe_conn_pool_create(option_uint(&options->pipe_poolsize));
+    }
+
+    channel_sigpipe_ignore(); /* does it ever fail */
+    pipe_init = true;
+}
+
+void
+pipe_teardown(void)
+{
+    log_info("tear down the %s module", PIPE_MODULE_NAME);
+
+    if (!pipe_init) {
+        log_warn("%s has never been setup", PIPE_MODULE_NAME);
+    }
+
+    pipe_conn_pool_destroy();
+    pipe_metrics = NULL;
+
+    pipe_init = false;
 }

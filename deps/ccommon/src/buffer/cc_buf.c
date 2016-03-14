@@ -33,48 +33,32 @@ static bool bufp_init = false;
 uint32_t buf_init_size = BUF_INIT_SIZE;
 buf_metrics_st *buf_metrics = NULL;
 
-void
-buf_setup(uint32_t size, buf_metrics_st *metrics)
+static void
+buf_pool_destroy(void)
 {
-    log_info("setting up the %s module", BUF_MODULE_NAME);
+    struct buf *buf, *nbuf;
 
-    buf_init_size = size;
-    buf_metrics = metrics;
-    if (metrics != NULL) {
-        BUF_METRIC_INIT(buf_metrics);
+    if (!bufp_init) {
+        log_warn("buf pool was never created, ignoring destroy");
+
+        return;
     }
 
-    if (buf_init) {
-        log_warn("%s was already setup, overwriting", BUF_MODULE_NAME);
-    }
+    log_info("destroying buf pool: free %"PRIu32, bufp.nfree);
 
-    buf_init = true;
-
-    log_info("buf: size %zu", size);
+    FREEPOOL_DESTROY(buf, nbuf, &bufp, next, buf_destroy);
+    bufp_init = false;
 }
 
-void
-buf_teardown(void)
-{
-    log_info("tear down the %s module", BUF_MODULE_NAME);
-
-    if (!buf_init) {
-        log_warn("%s was not setup but is being torn down", BUF_MODULE_NAME);
-    }
-
-    buf_metrics = NULL;
-    buf_init = false;
-}
-
-void
+static void
 buf_pool_create(uint32_t max)
 {
     struct buf *buf;
 
     if (bufp_init) {
-        log_warn("buf pool has already been created, ignoring");
+        log_warn("buf pool has already been created, re-creating");
 
-        return;
+        buf_pool_destroy();
     }
 
     log_info("creating buf pool: max %"PRIu32, max);
@@ -94,23 +78,6 @@ buf_pool_create(uint32_t max)
         log_crit("cannot preallocate buf pool, OOM. abort");
         exit(EXIT_FAILURE);
     }
-}
-
-void
-buf_pool_destroy(void)
-{
-    struct buf *buf, *nbuf;
-
-    if (!bufp_init) {
-        log_warn("buf pool was never created, ignoring destroy");
-
-        return;
-    }
-
-    log_info("destroying buf pool: free %"PRIu32, bufp.nfree);
-
-    FREEPOOL_DESTROY(buf, nbuf, &bufp, next, buf_destroy);
-    bufp_init = false;
 }
 
 struct buf *
@@ -198,4 +165,41 @@ buf_destroy(struct buf **buf)
     INCR(buf_metrics, buf_destroy);
     DECR(buf_metrics, buf_curr);
     DECR_N(buf_metrics, buf_memory, cap);
+}
+
+void
+buf_setup(buf_options_st *options, buf_metrics_st *metrics)
+{
+    log_info("setting up the %s module", BUF_MODULE_NAME);
+
+    if (buf_init) {
+        log_warn("%s was already setup, overwriting", BUF_MODULE_NAME);
+    }
+
+    buf_metrics = metrics;
+    if (metrics != NULL) {
+        BUF_METRIC_INIT(buf_metrics);
+    }
+
+    if (options != NULL) {
+        buf_init_size = option_uint(&options->buf_init_size);
+        buf_pool_create(option_uint(&options->buf_poolsize));
+    }
+
+    buf_init = true;
+}
+
+void
+buf_teardown(void)
+{
+    log_info("tear down the %s module", BUF_MODULE_NAME);
+
+    if (!buf_init) {
+        log_warn("%s was not setup but is being torn down", BUF_MODULE_NAME);
+    }
+
+    buf_pool_destroy();
+    buf_metrics = NULL;
+
+    buf_init = false;
 }

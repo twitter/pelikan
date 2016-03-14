@@ -29,9 +29,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define OPTION_INFO_FMT "name: %-31s type: %-15s  current: %-20s ( default: %-20s )"
+#define OPTION_DESCRIBE_FMT  "%-31s %-15s %-20s %s"
+
 char * option_type_str[] = {
     "boolean",
     "unsigned int",
+    "double",
     "string"
 };
 
@@ -323,6 +327,31 @@ _option_parse_uint(struct option *opt, const char *val_str)
 }
 
 static rstatus_i
+_option_parse_fpn(struct option *opt, const char *val_str)
+{
+    /* TODO: handle expressions similar to what's allowed with integers */
+    double val = 0;
+    char *loc;
+
+    val = strtod(val_str, &loc);
+    if (errno == ERANGE) {
+        log_stderr("option value %s out of range for double type", val_str);
+        return CC_ERROR;
+    }
+
+    if (*loc != '\0') {
+        log_stderr("option value %s could not be fully parsed, check char at "
+                "offset %ld", val_str, loc - val_str);
+        return CC_ERROR;
+    }
+
+    opt->set = true;
+    opt->val.vfpn = val;
+
+    return CC_OK;
+}
+
+static rstatus_i
 _option_parse_str(struct option *opt, const char *val_str)
 {
     opt->set = true;
@@ -358,6 +387,10 @@ option_default(struct option *opt)
         opt->val.vuint = opt->default_val.vuint;
         break;
 
+    case OPTION_TYPE_FPN:
+        opt->val.vfpn = opt->default_val.vfpn;
+        break;
+
     case OPTION_TYPE_STR:
         if (opt->default_val.vstr == NULL) {
             opt->val.vstr = NULL;
@@ -389,6 +422,9 @@ option_set(struct option *opt, char *val_str)
 
     case OPTION_TYPE_UINT:
         return _option_parse_uint(opt, val_str);
+
+    case OPTION_TYPE_FPN:
+        return _option_parse_fpn(opt, val_str);
 
     case OPTION_TYPE_STR:
         return _option_parse_str(opt, val_str);
@@ -495,17 +531,18 @@ option_print_val(char *s, size_t len, option_type_e type, option_val_u val)
     switch (type) {
     case OPTION_TYPE_BOOL:
         snprintf(s, len, "%s", val.vbool ? "yes" : "no");
-
         break;
 
     case OPTION_TYPE_UINT:
         snprintf(s, len, "%ju", val.vuint);
+        break;
 
+    case OPTION_TYPE_FPN:
+        snprintf(s, len, "%f", val.vfpn);
         break;
 
     case OPTION_TYPE_STR:
         snprintf(s, len, "%s", val.vstr == NULL ? "NULL" : val.vstr);
-
         break;
 
     default:
@@ -518,15 +555,15 @@ option_print(struct option *opt)
 {
     char default_s[PATH_MAX];
     char current_s[PATH_MAX];
+
     option_print_val(default_s, PATH_MAX, opt->type, opt->default_val);
     option_print_val(current_s, PATH_MAX, opt->type, opt->val);
-    loga("name: %s, type: %s, set? %s, default: %s, description: %s, current: %s",
-         opt->name, option_type_str[opt->type], opt->set ? "yes" : "no",
-         default_s, opt->description, current_s);
+    log_stdout(OPTION_INFO_FMT, opt->name, option_type_str[opt->type],
+            default_s, current_s);
 }
 
 void
-option_printall(struct option options[], unsigned int nopt)
+option_print_all(struct option options[], unsigned int nopt)
 {
     unsigned int i;
     struct option *opt = options;
@@ -538,20 +575,25 @@ option_printall(struct option options[], unsigned int nopt)
 }
 
 static void
-_option_print_default(struct option *opt)
+_option_describe(struct option *opt)
 {
     char default_s[PATH_MAX + 10];
+
     option_print_val(default_s, PATH_MAX + 10, opt->type, opt->default_val);
-    log_stdout("  %-31s ( default: %s )", opt->name, default_s);
+    log_stdout(OPTION_DESCRIBE_FMT, opt->name, option_type_str[opt->type],
+            default_s, opt->description);
 }
 
 void
-option_printall_default(struct option options[], unsigned int nopt)
+option_describe_all(struct option options[], unsigned int nopt)
 {
     unsigned int i;
 
+    /* print a header */
+    log_stdout(OPTION_DESCRIBE_FMT, "NAME", "TYPE", "DEFAULT", "DESCRIPTION");
+
     for (i = 0; i < nopt; i++, options++) {
-        _option_print_default(options);
+        _option_describe(options);
     }
 }
 
