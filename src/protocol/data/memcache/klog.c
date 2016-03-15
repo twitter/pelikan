@@ -13,6 +13,7 @@
 
 #include <errno.h>
 #include <stdbool.h>
+#include <sysexits.h>
 #include <time.h>
 
 #define KLOG_MODULE_NAME   "protocol::memcache:klog"
@@ -54,10 +55,9 @@ _klog_flush(void *arg)
     }
 }
 
-rstatus_i
+void
 klog_setup(klog_options_st *options, klog_metrics_st *metrics)
 {
-    size_t nbyte;
     size_t nbuf = KLOG_NBUF;
     uint64_t intvl = KLOG_INTVL;
     char *filename = NULL;
@@ -78,9 +78,9 @@ klog_setup(klog_options_st *options, klog_metrics_st *metrics)
         filename = option_str(&options->klog_file);
         klog_backup = option_str(&options->klog_backup);
         if (klog_backup != NULL) {
-            nbyte = strlen(klog_backup);
+            size_t nbyte = strnlen(klog_backup, PATH_MAX + 1);
             if (nbyte > PATH_MAX) {
-                log_error("klog file path too long");
+                log_crit("klog file path too long");
                 goto error;
             }
             strncpy(backup_path, klog_backup, PATH_MAX);
@@ -90,7 +90,7 @@ klog_setup(klog_options_st *options, klog_metrics_st *metrics)
         intvl = option_uint(&options->klog_intvl);
         klog_sample = option_uint(&options->klog_sample);
         if (klog_sample == 0) {
-            log_error("klog sample rate cannot be 0 - divide by zero");
+            log_crit("klog sample rate cannot be 0 - divide by zero");
             goto error;
         }
         klog_max =  option_uint(&options->klog_max);
@@ -98,25 +98,25 @@ klog_setup(klog_options_st *options, klog_metrics_st *metrics)
 
     if (filename == NULL) { /* no klog filename provided, do not log */
         klog_enabled = false;
-        return CC_OK;
+        return;
     }
 
     klogger = log_create(filename, nbuf);
     if (klogger == NULL) {
-        log_error("Could not create klogger!");
+        log_crit("Could not create klogger!");
         goto error;
     }
 
     if (nbuf > 0) {
         /* pauseless logging, must create timeout event for wheel */
         if (intvl == 0) {
-            log_error("invalid klog configuration - klog_intvl must be non-zero"
+            log_crit("invalid klog configuration - klog_intvl must be non-zero"
                       "for pauseless logging");
             goto error;
         }
         klog_tev = timeout_event_create();
         if (klog_tev == NULL) {
-            log_error("Could not create timeout event for klog");
+            log_crit("Could not create timeout event for klog");
             goto error;
         }
         klog_tev->cb = &_klog_flush;
@@ -127,11 +127,11 @@ klog_setup(klog_options_st *options, klog_metrics_st *metrics)
 
     klog_init = true;
 
-    return CC_OK;
+    return;
 
 error:
     log_destroy(&klogger);
-    return CC_ERROR;
+    exit(EX_CONFIG);
 }
 
 void

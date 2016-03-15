@@ -103,7 +103,7 @@ setup(void)
     /* Setup logging first */
     log_setup(&stats.log);
     if (debug_setup(&setting.debug) < 0) {
-        log_error("log setup failed");
+        log_stderr("debug log setup failed");
         goto error;
     }
 
@@ -132,14 +132,8 @@ setup(void)
     response_setup(&setting.response, &stats.response);
     parse_setup(&stats.parse_req, NULL);
     compose_setup(NULL, &stats.compose_rsp);
-    if (klog_setup(&setting.klog, &stats.klog) != CC_OK) {
-        log_error("klog setup failed");
-        goto error;
-    }
-    if (cuckoo_setup(&setting.cuckoo, &stats.cuckoo) != CC_OK) {
-        log_error("slab setup failed");
-        goto error;
-    }
+    klog_setup(&setting.klog, &stats.klog);
+    cuckoo_setup(&setting.cuckoo, &stats.cuckoo);
     process_setup(&setting.process, &stats.process);
     admin_process_setup(&stats.admin_process);
     core_setup(&setting.admin, &setting.server, &setting.worker,
@@ -158,8 +152,6 @@ setup(void)
     return;
 
 error:
-    log_crit("setup failed");
-
     /* tear down everything in the reverse order as setup, then exit */
     teardown();
     if (fname != NULL) {

@@ -17,6 +17,8 @@
 
 #include <stream/cc_sockio.h>
 
+#include <sysexits.h>
+
 #define WORKER_MODULE_NAME "core::worker"
 
 static bool worker_init = false;
@@ -318,15 +320,17 @@ _worker_event(void *arg, uint32_t events)
     }
 }
 
-rstatus_i
+void
 core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
 {
+    int timeout = WORKER_TIMEOUT;
+    int nevent = WORKER_NEVENT;
+
     log_info("set up the %s module", WORKER_MODULE_NAME);
 
     if (worker_init) {
-        log_error("worker has already been setup, aborting");
-
-        return CC_ERROR;
+        log_warn("worker has already been setup, re-creating");
+        core_worker_teardown();
     }
 
     worker_metrics = metrics;
@@ -334,17 +338,16 @@ core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
         WORKER_METRIC_INIT(worker_metrics);
     }
 
-    if (options == NULL) {
-        log_error("worker options missing");
-        return CC_ERROR;
+    if (options != NULL) {
+        timeout = option_uint(&options->worker_timeout);
+        nevent = option_uint(&options->worker_nevent);
     }
 
-    ctx->timeout = option_uint(&options->worker_timeout);
-    ctx->evb = event_base_create(option_uint(&options->worker_nevent),
-            _worker_event);
+    ctx->timeout = timeout;
+    ctx->evb = event_base_create(nevent, _worker_event);
     if (ctx->evb == NULL) {
         log_crit("failed to setup worker thread core; could not create event_base");
-        return CC_ERROR;
+        exit(EX_CONFIG);
     }
 
     hdl->accept = (channel_accept_fn)tcp_accept;
@@ -359,8 +362,6 @@ core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
     event_add_read(ctx->evb, pipe_read_id(pipe_c), NULL);
 
     worker_init = true;
-
-    return CC_OK;
 }
 
 void

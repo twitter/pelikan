@@ -12,7 +12,7 @@
 
 #include <inttypes.h>
 
-#define REQ_POOLSIZE 4096
+#define REQ_POOLSIZE 0
 
 /*          name                type                default         description */
 #define REQUEST_OPTION(ACTION)                                                          \

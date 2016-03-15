@@ -16,6 +16,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <sysexits.h>
 
 #define SERVER_MODULE_NAME "core::server"
 
@@ -128,17 +129,20 @@ _server_event(void *arg, uint32_t events)
     }
 }
 
-rstatus_i
+void
 core_server_setup(server_options_st *options, server_metrics_st *metrics)
 {
     struct tcp_conn *c;
+    char *host = SERVER_HOST;
+    char *port = SERVER_PORT;
+    int timeout = SERVER_TIMEOUT;
+    int nevent = SERVER_NEVENT;
 
     log_info("set up the %s module", SERVER_MODULE_NAME);
 
     if (server_init) {
-        log_error("server has already been setup, aborting");
-
-        return CC_ERROR;
+        log_warn("server has already been setup, re-creating");
+        core_server_teardown();
     }
 
     server_metrics = metrics;
@@ -146,16 +150,17 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
         SERVER_METRIC_INIT(server_metrics);
     }
 
-    if (options == NULL) {
-        log_error("server options missing");
-        return CC_ERROR;
+    if (options != NULL) {
+        host = option_str(&options->server_host);
+        port = option_str(&options->server_port);
+        timeout = option_uint(&options->server_timeout);
+        nevent = option_uint(&options->server_nevent);
     }
 
-    ctx->timeout = option_uint(&options->server_timeout);
-    ctx->evb = event_base_create(option_uint(&options->server_nevent),
-            _server_event);
+    ctx->timeout = timeout;
+    ctx->evb = event_base_create(nevent, _server_event);
     if (ctx->evb == NULL) {
-        log_error("failed to setup server core; could not create event_base");
+        log_crit("failed to setup server core; could not create event_base");
         goto error;
     }
 
@@ -178,19 +183,19 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
      */
     server_sock = buf_sock_borrow();
     if (server_sock == NULL) {
-        log_error("failed to setup server core; could not get buf_sock");
-        return CC_ERROR;
+        log_crit("failed to setup server core; could not get buf_sock");
+        goto error;
     }
 
     server_sock->hdl = hdl;
-    if (CC_OK != getaddr(&server_ai, option_str(&options->server_host),
-            option_str(&options->server_port))) {
+    if (CC_OK != getaddr(&server_ai, host, port)) {
+        log_crit("failed to resolve address for admin host & port");
         goto error;
     }
 
     c = server_sock->ch;
     if (!hdl->open(server_ai, c)) {
-        log_error("server connection setup failed");
+        log_crit("server connection setup failed");
         goto error;
     }
     c->level = CHANNEL_META;
@@ -199,11 +204,11 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
 
     server_init = true;
 
-    return CC_OK;
+    return;
 
 error:
     core_server_teardown();
-    return CC_ERROR;
+    exit(EX_CONFIG);
 }
 
 void

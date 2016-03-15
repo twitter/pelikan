@@ -46,7 +46,7 @@ struct timeout_event;
 extern bool klog_enabled;
 extern struct timeout_event *klog_tev;
 
-rstatus_i klog_setup(klog_options_st *options, klog_metrics_st *metrics);
+void klog_setup(klog_options_st *options, klog_metrics_st *metrics);
 void klog_teardown(void);
 
 #define klog_write(req, rsp) do {       \

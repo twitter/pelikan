@@ -359,6 +359,8 @@ pipe_set_nonblocking(struct pipe_conn *c)
 void
 pipe_setup(pipe_options_st *options, pipe_metrics_st *metrics)
 {
+    uint32_t max = PIPE_POOLSIZE;
+
     log_info("set up the %s module", PIPE_MODULE_NAME);
 
     if (pipe_init) {
@@ -371,8 +373,9 @@ pipe_setup(pipe_options_st *options, pipe_metrics_st *metrics)
     }
 
     if (options != NULL) {
-        pipe_conn_pool_create(option_uint(&options->pipe_poolsize));
+        max = option_uint(&options->pipe_poolsize);
     }
+    pipe_conn_pool_create(max);
 
     channel_sigpipe_ignore(); /* does it ever fail */
     pipe_init = true;

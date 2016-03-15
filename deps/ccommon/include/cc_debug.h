@@ -28,13 +28,14 @@ extern "C" {
 #include <stdint.h>
 
 #define DEBUG_LOG_LEVEL 4       /* default log level */
+#define DEBUG_LOG_FILE  NULL    /* default log file */
 #define DEBUG_LOG_NBUF  4 * MiB /* default log buf size */
 #define DEBUG_LOG_INTVL 100     /* flush every 100 milliseconds */
 
 /*          name             type              default           description */
 #define DEBUG_OPTION(ACTION)                                                                                                      \
     ACTION( debug_log_level, OPTION_TYPE_UINT, DEBUG_LOG_LEVEL,  "debug log level"                                               )\
-    ACTION( debug_log_file,  OPTION_TYPE_STR,  NULL,             "debug log file"                                                )\
+    ACTION( debug_log_file,  OPTION_TYPE_STR,  DEBUG_LOG_FILE,   "debug log file"                                                )\
     ACTION( debug_log_nbuf,  OPTION_TYPE_UINT, DEBUG_LOG_NBUF,   "debug log buf size"                                            )\
     ACTION( debug_log_intvl, OPTION_TYPE_UINT, DEBUG_LOG_INTVL,  "debug log flush interval in ms (only applies if buf size > 0)")
 

@@ -17,7 +17,7 @@
 
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
-static bool allow_flush = false;
+static bool allow_flush = ALLOW_FLUSH;
 
 void
 process_setup(process_options_st *options, process_metrics_st *metrics)

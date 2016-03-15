@@ -4,12 +4,17 @@
 #include <cc_metric.h>
 #include <cc_option.h>
 
+#define SERVER_HOST     NULL
+#define SERVER_PORT     "12321"
+#define SERVER_TIMEOUT  100     /* in ms */
+#define SERVER_NEVENT   1024
+
 /*          name            type                default         description */
 #define SERVER_OPTION(ACTION)                                                                   \
-    ACTION( server_host,    OPTION_TYPE_STR,    NULL,           "interfaces listening on"      )\
-    ACTION( server_port,    OPTION_TYPE_STR,    "12321",        "port listening on"            )\
-    ACTION( server_timeout, OPTION_TYPE_UINT,   100,            "evwait timeout"               )\
-    ACTION( server_nevent,  OPTION_TYPE_UINT,   1024,           "evwait max nevent returned"   )
+    ACTION( server_host,    OPTION_TYPE_STR,    SERVER_HOST,    "interfaces listening on"      )\
+    ACTION( server_port,    OPTION_TYPE_STR,    SERVER_PORT,    "port listening on"            )\
+    ACTION( server_timeout, OPTION_TYPE_UINT,   SERVER_TIMEOUT, "evwait timeout"               )\
+    ACTION( server_nevent,  OPTION_TYPE_UINT,   SERVER_NEVENT,  "evwait max nevent returned"   )
 
 typedef struct {
     SERVER_OPTION(OPTION_DECLARE)
@@ -33,6 +38,6 @@ typedef struct {
 
 struct addrinfo;
 
-rstatus_i core_server_setup(server_options_st *options, server_metrics_st *metrics);
+void core_server_setup(server_options_st *options, server_metrics_st *metrics);
 void core_server_teardown(void);
 void core_server_evloop(void);

@@ -160,7 +160,7 @@ request_return(struct request **request)
 void
 request_setup(request_options_st *options, request_metrics_st *metrics)
 {
-    uint32_t poolsize;
+    uint32_t max = REQ_POOLSIZE;
 
     log_info("set up the %s module", REQUEST_MODULE_NAME);
 
@@ -168,13 +168,15 @@ request_setup(request_options_st *options, request_metrics_st *metrics)
         log_warn("%s has already been setup, overwrite", REQUEST_MODULE_NAME);
     }
 
-    poolsize = (options == NULL) ? 0 : option_uint(&options->request_poolsize);
-    request_pool_create(poolsize);
-
     request_metrics = metrics;
     if (metrics != NULL) {
         REQUEST_METRIC_INIT(request_metrics);
     }
+
+    if (options != NULL) {
+        max = option_uint(&options->request_poolsize);
+    }
+    request_pool_create(max);
 
     request_init = true;
 }

@@ -816,6 +816,8 @@ tcp_sendv(struct tcp_conn *c, struct array *bufv, size_t nbyte)
 void
 tcp_setup(tcp_options_st *options, tcp_metrics_st *metrics)
 {
+    uint32_t max = TCP_POOLSIZE;
+
     log_info("set up the %s module", TCP_MODULE_NAME);
 
     if (tcp_init) {
@@ -829,8 +831,9 @@ tcp_setup(tcp_options_st *options, tcp_metrics_st *metrics)
 
     if (options != NULL) {
         max_backlog = option_uint(&options->tcp_backlog);
-        tcp_conn_pool_create(option_uint(&options->tcp_poolsize));
+        max = option_uint(&options->tcp_poolsize);
     }
+    tcp_conn_pool_create(max);
 
     channel_sigpipe_ignore(); /* does it ever fail? */
     tcp_init = true;

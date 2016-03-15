@@ -19,7 +19,12 @@
 #define SLAB_SIZE_MAX   ((size_t) (128 * MiB))
 #define SLAB_SIZE       MiB
 #define SLAB_MEM        (64 * MiB)
+#define SLAB_PREALLOC   true
+#define SLAB_EVICT_OPT  EVICT_RS
+#define SLAB_USE_FREEQ  true
+#define SLAB_PROFILE    NULL
 #define SLAB_HASH       16
+#define SLAB_USE_CAS    true
 #define ITEM_SIZE_MIN   44      /* 40 bytes item overhead */
 #define ITEM_SIZE_MAX   (SLAB_SIZE - 32) /* 32 bytes slab overhead */
 #define ITEM_FACTOR     1.25
@@ -36,14 +41,14 @@
 #define SLAB_OPTION(ACTION)                                                                          \
     ACTION( slab_size,          OPTION_TYPE_UINT,   SLAB_SIZE,      "Slab size"                     )\
     ACTION( slab_mem,           OPTION_TYPE_UINT,   SLAB_MEM,       "Max memory by slabs (byte)"    )\
-    ACTION( slab_prealloc,      OPTION_TYPE_BOOL,   true,           "Pre-allocate slabs at setup"   )\
-    ACTION( slab_evict_opt,     OPTION_TYPE_UINT,   EVICT_RS,       "Eviction strategy"             )\
-    ACTION( slab_use_freeq,     OPTION_TYPE_BOOL,   true,           "Use items in free queue?"      )\
-    ACTION( slab_profile,       OPTION_TYPE_STR,    NULL,           "Specify entire slab profile"   )\
+    ACTION( slab_prealloc,      OPTION_TYPE_BOOL,   SLAB_PREALLOC,  "Pre-allocate slabs at setup"   )\
+    ACTION( slab_evict_opt,     OPTION_TYPE_UINT,   SLAB_EVICT_OPT, "Eviction strategy"             )\
+    ACTION( slab_use_freeq,     OPTION_TYPE_BOOL,   SLAB_USE_FREEQ, "Use items in free queue?"      )\
+    ACTION( slab_profile,       OPTION_TYPE_STR,    SLAB_PROFILE,   "Specify entire slab profile"   )\
     ACTION( slab_item_min,      OPTION_TYPE_UINT,   ITEM_SIZE_MIN,  "Minimum item size"             )\
     ACTION( slab_item_max,      OPTION_TYPE_UINT,   ITEM_SIZE_MAX,  "Maximum item size"             )\
     ACTION( slab_item_growth,   OPTION_TYPE_FPN,    ITEM_FACTOR,    "Slab class growth factor"      )\
-    ACTION( slab_use_cas,       OPTION_TYPE_BOOL,   true,           "Store CAS value in item"       )\
+    ACTION( slab_use_cas,       OPTION_TYPE_BOOL,   SLAB_USE_CAS,   "Store CAS value in item"       )\
     ACTION( slab_hash_power,    OPTION_TYPE_UINT,   HASH_POWER,     "Power for lookup hash table"  )
 
 typedef struct {
@@ -152,7 +157,7 @@ item_slabid(uint8_t klen, uint32_t vlen)
     return slab_id(item_ntotal(klen, vlen));
 }
 
-rstatus_i slab_setup(slab_options_st *options, slab_metrics_st *metrics);
+void slab_setup(slab_options_st *options, slab_metrics_st *metrics);
 void slab_teardown(void);
 
 struct item *slab_get_item(uint8_t id);
