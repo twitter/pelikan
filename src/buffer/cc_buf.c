@@ -171,6 +171,7 @@ void
 buf_setup(buf_options_st *options, buf_metrics_st *metrics)
 {
     log_info("setting up the %s module", BUF_MODULE_NAME);
+    uint32_t max = BUF_POOLSIZE;
 
     if (buf_init) {
         log_warn("%s was already setup, overwriting", BUF_MODULE_NAME);
@@ -183,8 +184,10 @@ buf_setup(buf_options_st *options, buf_metrics_st *metrics)
 
     if (options != NULL) {
         buf_init_size = option_uint(&options->buf_init_size);
-        buf_pool_create(option_uint(&options->buf_poolsize));
+        max = option_uint(&options->buf_poolsize);
     }
+
+    buf_pool_create(max);
 
     buf_init = true;
 }

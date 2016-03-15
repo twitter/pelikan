@@ -111,9 +111,9 @@ _debug_log_flush(void *arg)
 rstatus_i
 debug_setup(debug_options_st *options)
 {
-    size_t log_nbuf = 0;
-    uint64_t log_intvl = 0;
-    char *filename = NULL;
+    size_t log_nbuf = DEBUG_LOG_NBUF;
+    uint64_t log_intvl = DEBUG_LOG_INTVL;
+    char *filename = DEBUG_LOG_FILE;
 
     /* since logs are not setup yet, we have to log to stderr */
     log_stderr("Set up the %s module", DEBUG_MODULE_NAME);
@@ -125,6 +125,7 @@ debug_setup(debug_options_st *options)
         }
     }
 
+    dlog->level = DEBUG_LOG_LEVEL;
     if (options != NULL) {
         filename = option_str(&options->debug_log_file);
         log_nbuf = option_uint(&options->debug_log_nbuf);
@@ -135,7 +136,7 @@ debug_setup(debug_options_st *options)
     dlog->logger = log_create(filename, log_nbuf);
     if (dlog->logger == NULL) {
         log_stderr("Could not create logger");
-        return CC_ERROR;
+        goto error;
     }
 
     /*
@@ -149,15 +150,12 @@ debug_setup(debug_options_st *options)
     if (log_intvl == 0) {
         log_stderr("invalid debug log configuration - debug_log_intvl must"
                    "be non-zero for pauseless logging");
-        log_destroy(&dlog->logger);
-        return CC_ERROR;
     }
 
     dlog_tev = timeout_event_create();
     if (dlog_tev == NULL) {
         log_stderr("Could not create timeout event for debug logger");
-        log_destroy(&dlog->logger);
-        return CC_ERROR;
+        goto error;
     }
     dlog_tev->cb = &_debug_log_flush;
     dlog_tev->recur = true;
@@ -167,16 +165,20 @@ done:
     /* some adjustment on signal handling */
     if (signal_override(SIGSEGV, "printing stacktrace when segfault", 0, 0,
             _stacktrace) < 0) {
-        return CC_ERROR;
+        goto error;
     }
 
     /* override the TTIN signal to allow nocopytruncate style rotation of logs */
     if (signal_override(SIGTTIN, "reopen log file", 0, 0, _logrotate) < 0) {
-        return CC_ERROR;
+        goto error;
     }
 
     debug_init = true;
     return CC_OK;
+
+error:
+    log_destroy(&dlog->logger);
+    return CC_ERROR;
 }
 
 void
