@@ -359,9 +359,13 @@ buf_sock_return(struct buf_sock **s)
 void
 sockio_setup(sockio_options_st *options)
 {
+    uint32_t max = BUFSOCK_POOLSIZE;
+
     if (options != NULL) {
-        buf_sock_pool_create(option_uint(&options->buf_sock_poolsize));
+        max = option_uint(&options->buf_sock_poolsize);
     }
+
+    buf_sock_pool_create(max);
 }
 
 void
