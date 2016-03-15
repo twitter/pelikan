@@ -21,14 +21,15 @@ procinfo_setup(procinfo_metrics_st *metrics)
 {
     log_info("set up the %s module", PROCINFO_MODULE_NAME);
 
+    if (procinfo_init) {
+        log_warn("%s has already been setup, overwrite", PROCINFO_MODULE_NAME);
+    }
+
     procinfo_metrics = metrics;
     if (metrics != NULL) {
         PROCINFO_METRIC_INIT(procinfo_metrics);
     }
 
-    if (procinfo_init) {
-        log_warn("%s has already been setup, overwrite", PROCINFO_MODULE_NAME);
-    }
     procinfo_init = true;
 }
 

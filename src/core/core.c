@@ -15,6 +15,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sysexits.h>
 #include <unistd.h>
 
 struct buf_sock;
@@ -25,7 +26,7 @@ bool core_init = false;
  * extend to beyond just TCP
  */
 
-rstatus_i
+void
 core_setup(admin_options_st *opt_admin,
         server_options_st *opt_server, worker_options_st *opt_worker,
         server_metrics_st *smetrics, worker_metrics_st *wmetrics)
@@ -49,24 +50,16 @@ core_setup(admin_options_st *opt_admin,
         goto error;
     }
 
-    if (core_server_setup(opt_server, smetrics) != CC_OK) {
-        goto error;
-    }
-
-    if (core_worker_setup(opt_worker, wmetrics) != CC_OK) {
-        goto error;
-    }
-
-    if (core_admin_setup(opt_admin) != CC_OK) {
-        goto error;
-    }
+    core_server_setup(opt_server, smetrics);
+    core_worker_setup(opt_worker, wmetrics);
+    core_admin_setup(opt_admin);
 
     core_init = true;
-    return CC_OK;
+
+    return;
 
 error:
-    core_teardown();
-    return CC_ERROR;
+    exit(EX_CONFIG);
 }
 
 void

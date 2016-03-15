@@ -12,6 +12,7 @@
 #define CUCKOO_POLICY_EXPIRE 2
 
 #define CUCKOO_DISPLACE 2
+#define CUCKOO_ITEM_CAS true
 #define CUCKOO_ITEM_SIZE 64
 #define CUCKOO_NITEM 1024
 #define CUCKOO_POLICY CUCKOO_POLICY_RANDOM
@@ -19,7 +20,7 @@
 /*          name                type                default             description */
 #define CUCKOO_OPTION(ACTION)                                                                    \
     ACTION( cuckoo_displace,    OPTION_TYPE_UINT,   CUCKOO_DISPLACE,    "# displaces allowed"   )\
-    ACTION( cuckoo_item_cas,    OPTION_TYPE_BOOL,   true,               "support cas in items"  )\
+    ACTION( cuckoo_item_cas,    OPTION_TYPE_BOOL,   CUCKOO_ITEM_CAS,    "support cas in items"  )\
     ACTION( cuckoo_item_size,   OPTION_TYPE_UINT,   CUCKOO_ITEM_SIZE,   "item size (inclusive)" )\
     ACTION( cuckoo_nitem,       OPTION_TYPE_UINT,   CUCKOO_NITEM,       "# items allocated"     )\
     ACTION( cuckoo_policy,      OPTION_TYPE_UINT,   CUCKOO_POLICY,      "evict policy"          )
@@ -62,7 +63,7 @@ typedef struct {
         CUCKOO_METRIC(METRIC_INIT) };       \
 } while(0)
 
-rstatus_i cuckoo_setup(cuckoo_options_st *options, cuckoo_metrics_st *metrics);
+void cuckoo_setup(cuckoo_options_st *options, cuckoo_metrics_st *metrics);
 void cuckoo_teardown(void);
 void cuckoo_reset(void);
 

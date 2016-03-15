@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sysexits.h>
 
 #define ADMIN_MODULE_NAME "core::admin"
 
@@ -215,29 +216,40 @@ core_admin_add_tev(struct timeout_event *tev)
     return timing_wheel_insert(tw, tev);
 }
 
-rstatus_i
+void
 core_admin_setup(admin_options_st *options)
 {
     struct tcp_conn *c;
     struct timeout tick;
+    char *host = ADMIN_HOST;
+    char *port = ADMIN_PORT;
+    int timeout = ADMIN_TIMEOUT;
+    int nevent = ADMIN_NEVENT;
+    uint64_t tick_ms = ADMIN_TW_TICK;
+    size_t cap = ADMIN_TW_CAP;
+    size_t ntick = ADMIN_TW_NTICK;
 
     log_info("set up the %s module", ADMIN_MODULE_NAME);
 
     if (admin_init) {
-        log_error("admin has already been setup, aborting");
-        return CC_ERROR;
+        log_warn("admin has already been setup, re-creating");
+        core_admin_teardown();
     }
 
-    if (options == NULL) {
-        log_error("admin options missing");
-        return CC_ERROR;
+    if (options != NULL) {
+        host = option_str(&options->admin_host);
+        port = option_str(&options->admin_port);
+        timeout = option_uint(&options->admin_timeout);
+        nevent = option_uint(&options->admin_nevent);
+        tick_ms = option_uint(&options->admin_tw_tick);
+        cap = option_uint(&options->admin_tw_cap);
+        ntick = option_uint(&options->admin_tw_ntick);
     }
 
-    ctx->timeout = option_uint(&options->admin_timeout);
-    ctx->evb = event_base_create(option_uint(&options->admin_nevent),
-            _admin_event);
+    ctx->timeout = timeout;
+    ctx->evb = event_base_create(nevent, _admin_event);
     if (ctx->evb == NULL) {
-        log_error("failed to set up admin thread; could not create event "
+        log_crit("failed to set up admin thread; could not create event "
                  "base for control plane");
         goto error;
     }
@@ -253,36 +265,35 @@ core_admin_setup(admin_options_st *options)
 
     admin_sock = buf_sock_borrow();
     if (admin_sock == NULL) {
-        log_error("failed to set up admin thread; could not get buf_sock");
+        log_crit("failed to set up admin thread; could not get buf_sock");
         goto error;
     }
 
     admin_sock->hdl = hdl;
 
-    if (CC_OK != getaddr(&admin_ai, option_str(&options->admin_host),
-            option_str(&options->admin_port))) {
+    if (CC_OK != getaddr(&admin_ai, host, port)) {
+        log_crit("failed to resolve address for admin host & port");
         goto error;
     }
     c = admin_sock->ch;
     if (!hdl->open(admin_ai, c)) {
-        log_error("admin connection setup failed");
+        log_crit("admin connection setup failed");
         goto error;
     }
     c->level = CHANNEL_META;
     event_add_read(ctx->evb, hdl->rid(c), admin_sock);
 
-    timeout_set_ms(&tick, option_uint(&options->admin_tw_tick));
-    tw = timing_wheel_create(&tick, option_uint(&options->admin_tw_cap),
-            option_uint(&options->admin_tw_ntick));
+    timeout_set_ms(&tick, tick_ms);
+    tw = timing_wheel_create(&tick, cap, ntick);
     timing_wheel_start(tw);
 
     admin_init = true;
 
-    return CC_OK;
+    return;
 
 error:
     core_admin_teardown();
-    return CC_ERROR;
+    exit(EX_CONFIG);
 }
 
 void

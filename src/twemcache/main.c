@@ -99,9 +99,9 @@ setup(void)
 
     /* Setup logging first */
     log_setup(&stats.log);
-    if (debug_setup(&setting.debug) < 0) {
-        log_error("log setup failed");
-        goto error;
+    if (debug_setup(&setting.debug) != CC_OK) {
+        log_stderr("debug log setup failed");
+        exit(EX_CONFIG);
     }
 
     /* setup top-level application options */
@@ -129,14 +129,8 @@ setup(void)
     response_setup(&setting.response, &stats.response);
     parse_setup(&stats.parse_req, NULL);
     compose_setup(NULL, &stats.compose_rsp);
-    if (klog_setup(&setting.klog, &stats.klog) != CC_OK) {
-        log_error("klog setup failed");
-        goto error;
-    }
-    if (slab_setup(&setting.slab, &stats.slab) != CC_OK) {
-        log_error("slab setup failed");
-        goto error;
-    }
+    klog_setup(&setting.klog, &stats.klog);
+    slab_setup(&setting.slab, &stats.slab);
     process_setup(&setting.process, &stats.process);
     admin_process_setup(&stats.admin_process);
     core_setup(&setting.admin, &setting.server, &setting.worker,
@@ -155,8 +149,6 @@ setup(void)
     return;
 
 error:
-    log_crit("setup failed");
-
     /* tear down everything in the reverse order as setup, then exit */
     teardown();
     if (fname != NULL) {

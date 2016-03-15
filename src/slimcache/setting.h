@@ -19,9 +19,9 @@
 
 /* option related */
 /*          name            type                default description */
-#define SLIMCACHE_OPTION(ACTION)                                                    \
-    ACTION( daemonize,      OPTION_TYPE_BOOL,   false,  "daemonize the process"    )\
-    ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,   "file storing the pid"     )
+#define SLIMCACHE_OPTION(ACTION)                                                \
+    ACTION( daemonize,      OPTION_TYPE_BOOL,   false,  "daemonize the process")\
+    ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,   "file storing the pid" )
 
 typedef struct {
     SLIMCACHE_OPTION(OPTION_DECLARE)

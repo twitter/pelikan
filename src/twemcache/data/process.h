@@ -3,9 +3,11 @@
 #include <cc_metric.h>
 #include <cc_option.h>
 
-/*          name         type              default description */
-#define PROCESS_OPTION(ACTION)                                                        \
-    ACTION( allow_flush, OPTION_TYPE_BOOL, false,  "allow flushing on the data port" )
+#define ALLOW_FLUSH false
+
+/*          name         type              default      description */
+#define PROCESS_OPTION(ACTION)                                                              \
+    ACTION( allow_flush, OPTION_TYPE_BOOL, ALLOW_FLUSH, "allow flushing on the data port"  )
 
 typedef struct {
     PROCESS_OPTION(OPTION_DECLARE)

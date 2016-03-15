@@ -7,7 +7,7 @@
  * Allocate table given size
  */
 static struct item_slh *
-_hashtable_alloc(uint32_t size)
+_hashtable_alloc(uint64_t size)
 {
     struct item_slh *table;
     uint32_t i;
@@ -27,7 +27,7 @@ struct hash_table *
 hashtable_create(uint32_t hash_power)
 {
     struct hash_table *ht;
-    uint32_t size;
+    uint64_t size;
 
     ASSERT(hash_power > 0);
 
@@ -118,7 +118,6 @@ hashtable_get(const char *key, uint32_t klen, struct hash_table *ht)
     ASSERT(klen != 0);
 
     bucket = _get_bucket(key, klen, ht);
-
     /* iterate through bucket looking for item */
     for (it = SLIST_FIRST(bucket); it != NULL; it = SLIST_NEXT(it, i_sle)) {
         if ((klen == it->klen) && cc_memcmp(key, item_key(it), klen) == 0) {

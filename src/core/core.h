@@ -11,7 +11,8 @@
 
 #include <cc_define.h>
 
-rstatus_i core_setup(admin_options_st *opt_admin, server_options_st *opt_server, worker_options_st *opt_worker,
-                     server_metrics_st *smetrics, worker_metrics_st *wmetrics);
+void core_setup(admin_options_st *opt_admin,
+                server_options_st *opt_server, worker_options_st *opt_worker,
+                server_metrics_st *smetrics, worker_metrics_st *wmetrics);
 void core_teardown(void);
 void core_run(void);

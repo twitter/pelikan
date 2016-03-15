@@ -9,8 +9,9 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 
-#define SLAB_MODULE_NAME       "storage::slab::slab"
+#define SLAB_MODULE_NAME       "storage::slab"
 #define SLAB_ALIGN_DOWN(d, n)  ((d) - ((d) % (n)))
 
 struct slab_heapinfo {
@@ -29,16 +30,16 @@ struct slabclass slabclass[SLABCLASS_MAX_ID + 1]; /* collection of slabs buckete
 
 size_t slab_size = SLAB_SIZE;           /* # bytes in a slab */
 static size_t slab_mem = SLAB_MEM;      /* maximum bytes allocated for slabs */
-static bool prealloc = true;            /* allocate slabs ahead of time? */
-static int evict_opt = EVICT_RS;        /* slab eviction policy */
-static bool use_freeq = true;           /* use items in free queue? */
+static bool prealloc = SLAB_PREALLOC;   /* allocate slabs ahead of time? */
+static int evict_opt = SLAB_EVICT_OPT;  /* slab eviction policy */
+static bool use_freeq = SLAB_USE_FREEQ; /* use items in free queue? */
 static size_t item_min = ITEM_SIZE_MIN; /* min item size */
 static size_t item_max = ITEM_SIZE_MAX; /* max item size */
 static double item_growth = ITEM_FACTOR;/* item size growth factor */
 static uint32_t hash_power = HASH_POWER;/* power (of 2) entries for hashtable */
 
+bool use_cas = SLAB_USE_CAS;
 struct hash_table *hash_table = NULL;
-bool use_cas = true;
 uint64_t cas_id;
 
 static bool slab_init = false;
@@ -143,7 +144,8 @@ _slab_slabclass_setup(void)
         nitem = slab_capacity() / profile[id];
 
         if (nitem == 0) {
-            log_error("Invalid slab class size %u; too large to fit in slab!", profile[id]);
+            log_error("Invalid slab class size %u; too large to fit in slab!",
+                    profile[id]);
             return CC_ERROR;
         }
 
@@ -369,20 +371,33 @@ _slab_profile_setup(char *profile_str)
     return CC_OK;
 }
 
-/*
- * Initialize the slab module
- */
-rstatus_i
+void
+slab_teardown(void)
+{
+    log_info("tear down the %s module", SLAB_MODULE_NAME);
+
+    if (!slab_init) {
+        log_warn("%s has never been set up", SLAB_MODULE_NAME);
+    }
+
+    hashtable_destroy(hash_table);
+    _slab_heapinfo_teardown();
+    _slab_slabclass_teardown();
+    slab_metrics = NULL;
+
+    slab_init = false;
+}
+
+void
 slab_setup(slab_options_st *options, slab_metrics_st *metrics)
 {
-    rstatus_i status;
-    char *profile_str = NULL;
+    char *profile_str = SLAB_PROFILE;
 
     log_info("set up the %s module", SLAB_MODULE_NAME);
 
     if (slab_init) {
-        log_error("%s has already been set up, abort", SLAB_MODULE_NAME);
-        return CC_ERROR;
+        log_warn("%s has already been set up, re-creating", SLAB_MODULE_NAME);
+        slab_teardown();
     }
 
     log_verb("Slab header size: %d, item header size: %d", SLAB_HDR_SIZE,
@@ -409,47 +424,32 @@ slab_setup(slab_options_st *options, slab_metrics_st *metrics)
 
     hash_table = hashtable_create(hash_power);
     if (hash_table == NULL) {
-        return CC_ENOMEM;
+        log_crit("Could not create hash table");
+        goto error;
     }
 
-    status = _slab_heapinfo_setup();
-    if (status != CC_OK) {
-        log_error("Could not setup slab heap info");
-        return status;
+    if (_slab_heapinfo_setup() != CC_OK) {
+        log_crit("Could not setup slab heap info");
+        goto error;
     }
 
-    status = _slab_profile_setup(profile_str);
-    if (status != CC_OK) {
-        log_error("Could not setup slab profile");
-        return status;
+    if (_slab_profile_setup(profile_str) != CC_OK) {
+        log_crit("Could not setup slab profile");
+        goto error;
     }
 
-    status = _slab_slabclass_setup();
-    if (status != CC_OK) {
-        log_error("Could not setup slabclasses");
-        return status;
+    if (_slab_slabclass_setup() != CC_OK) {
+        log_crit("Could not setup slabclasses");
+        goto error;
     }
 
     slab_init = true;
 
-    return status;
-}
+    return;
 
-void
-slab_teardown(void)
-{
-    log_info("tear down the %s module", SLAB_MODULE_NAME);
-
-    if (!slab_init) {
-        log_warn("%s has never been set up", SLAB_MODULE_NAME);
-    }
-
-    hashtable_destroy(hash_table);
-    _slab_heapinfo_teardown();
-    _slab_slabclass_teardown();
-    slab_metrics = NULL;
-
-    slab_init = false;
+error:
+    slab_teardown();
+    exit(EX_CONFIG);
 }
 
 static void

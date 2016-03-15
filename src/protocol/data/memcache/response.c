@@ -176,7 +176,7 @@ response_return_all(struct response **response)
 void
 response_setup(response_options_st *options, response_metrics_st *metrics)
 {
-    uint32_t poolsize;
+    uint32_t max = RSP_POOLSIZE;
 
     log_info("set up the %s module", RESPONSE_MODULE_NAME);
 
@@ -188,8 +188,12 @@ response_setup(response_options_st *options, response_metrics_st *metrics)
     if (metrics != NULL) {
         RESPONSE_METRIC_INIT(response_metrics);
     }
-    poolsize = (options == NULL) ? 0 : option_uint(&options->response_poolsize);
-    response_pool_create(poolsize);
+
+    if (options != NULL) {
+        max = option_uint(&options->response_poolsize);
+    }
+
+    response_pool_create(max);
 
     response_init = true;
 }

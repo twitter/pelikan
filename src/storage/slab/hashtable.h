@@ -8,7 +8,7 @@ struct hash_table {
     uint32_t hash_power;
 };
 
-#define HASHSIZE(_n) (1UL << (_n))
+#define HASHSIZE(_n) (1ULL << (_n))
 #define HASHMASK(_n) (HASHSIZE(_n) - 1)
 
 struct hash_table *hashtable_create(uint32_t hash_power);

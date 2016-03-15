@@ -14,10 +14,10 @@
 /*
  * utilities
  */
-static rstatus_i
+static void
 test_setup(void)
 {
-    return slab_setup(NULL, NULL);
+    slab_setup(NULL, NULL);
 }
 
 static void
@@ -26,11 +26,11 @@ test_teardown(void)
     slab_teardown();
 }
 
-static rstatus_i
+static void
 test_reset(void)
 {
     test_teardown();
-    return test_setup();
+    test_setup();
 }
 
 /**
@@ -46,7 +46,6 @@ START_TEST(test_insert_basic)
     struct item *it;
     uint32_t dataflag = 12345;
 
-    ck_assert_msg(test_reset() == CC_OK, "could not reset slab module");
 
     key.data = KEY;
     key.len = sizeof(KEY) - 1;
@@ -84,7 +83,7 @@ START_TEST(test_insert_large)
     struct item *it;
     uint32_t dataflag = 12345;
 
-    ck_assert_msg(test_reset() == CC_OK, "could not reset slab module");
+    test_reset();
 
     key.data = KEY;
     key.len = sizeof(KEY) - 1;
@@ -124,7 +123,7 @@ START_TEST(test_append_basic)
     struct item *it;
     uint32_t dataflag = 12345;
 
-    ck_assert_msg(test_reset() == CC_OK, "could not reset slab module");
+    test_reset();
 
     key.data = KEY;
     key.len = sizeof(KEY) - 1;
@@ -173,7 +172,7 @@ START_TEST(test_prepend_basic)
     struct item *it;
     uint32_t dataflag = 12345;
 
-    ck_assert_msg(test_reset() == CC_OK, "could not reset slab module");
+    test_reset();
 
     key.data = KEY;
     key.len = sizeof(KEY) - 1;
@@ -224,7 +223,7 @@ START_TEST(test_annex_sequence)
     struct item *it;
     uint32_t dataflag = 12345;
 
-    ck_assert_msg(test_reset() == CC_OK, "could not reset slab module");
+    test_reset();
 
     key.data = KEY;
     key.len = sizeof(KEY) - 1;
@@ -307,7 +306,7 @@ START_TEST(test_update_basic)
     struct item *it;
     uint32_t dataflag = 12345;
 
-    ck_assert_msg(test_reset() == CC_OK, "could not reset slab module");
+    test_reset();
 
     key.data = KEY;
     key.len = sizeof(KEY) - 1;
@@ -355,7 +354,7 @@ START_TEST(test_delete_basic)
     struct item *it;
     uint32_t dataflag = 12345;
 
-    ck_assert_msg(test_reset() == CC_OK, "could not reset slab module");
+    test_reset();
 
     key.data = KEY;
     key.len = sizeof(KEY) - 1;
@@ -391,7 +390,7 @@ START_TEST(test_flush_basic)
     item_rstatus_t status;
     struct item *it;
 
-    ck_assert_msg(test_reset() == CC_OK, "could not reset slab module");
+    test_reset();
 
     key1.data = KEY1;
     key1.len = sizeof(KEY1) - 1;
