@@ -26,9 +26,6 @@ procinfo_setup(procinfo_metrics_st *metrics)
     }
 
     procinfo_metrics = metrics;
-    if (metrics != NULL) {
-        PROCINFO_METRIC_INIT(procinfo_metrics);
-    }
 
     procinfo_init = true;
 }

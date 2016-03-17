@@ -185,9 +185,6 @@ response_setup(response_options_st *options, response_metrics_st *metrics)
     }
 
     response_metrics = metrics;
-    if (metrics != NULL) {
-        RESPONSE_METRIC_INIT(response_metrics);
-    }
 
     if (options != NULL) {
         max = option_uint(&options->response_poolsize);

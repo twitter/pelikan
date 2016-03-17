@@ -12,14 +12,13 @@ request_setup(request_metrics_st *metrics)
 {
     log_info("set up the %s module", REQUEST_MODULE_NAME);
 
-    request_metrics = metrics;
-    if (metrics != NULL) {
-        REQUEST_METRIC_INIT(request_metrics);
-    }
 
     if (request_init) {
         log_warn("%s has already been setup, overwrite", REQUEST_MODULE_NAME);
     }
+
+    request_metrics = metrics;
+
     request_init = true;
 }
 

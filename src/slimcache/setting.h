@@ -47,3 +47,6 @@ struct setting {
     sockio_options_st       sockio;
     tcp_options_st          tcp;
 };
+
+extern struct setting setting;
+extern unsigned int nopt;

@@ -70,9 +70,6 @@ klog_setup(klog_options_st *options, klog_metrics_st *metrics)
     }
 
     klog_metrics = metrics;
-    if (metrics != NULL) {
-        KLOG_METRIC_INIT(klog_metrics);
-    }
 
     if (options != NULL) {
         filename = option_str(&options->klog_file);

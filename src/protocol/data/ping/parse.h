@@ -25,17 +25,9 @@ typedef struct {
     PARSE_REQ_METRIC(METRIC_DECLARE)
 } parse_req_metrics_st;
 
-#define PARSE_REQ_METRIC_INIT(_metrics) do {                                \
-    *(_metrics) = (parse_req_metrics_st) { PARSE_REQ_METRIC(METRIC_INIT) }; \
-} while(0)
-
 typedef struct {
     PARSE_RSP_METRIC(METRIC_DECLARE)
 } parse_rsp_metrics_st;
-
-#define PARSE_RSP_METRIC_INIT(_metrics) do {                                \
-    *(_metrics) = (parse_rsp_metrics_st) { PARSE_RSP_METRIC(METRIC_INIT) }; \
-} while(0)
 
 typedef enum parse_rstatus {
     PARSE_OK        = 0,

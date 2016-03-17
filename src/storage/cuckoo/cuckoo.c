@@ -262,9 +262,6 @@ cuckoo_setup(cuckoo_options_st *options, cuckoo_metrics_st *metrics)
     }
 
     cuckoo_metrics = metrics;
-    if (metrics != NULL) {
-        CUCKOO_METRIC_INIT(cuckoo_metrics);
-    }
 
     if (options != NULL) {
         item_size = option_uint(&options->cuckoo_item_size);

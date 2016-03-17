@@ -4,6 +4,7 @@ add_subdirectory(data)
 set(SOURCE
     ${SOURCE}
     main.c
+    setting.c
     stats.c)
 
 set(MODULES

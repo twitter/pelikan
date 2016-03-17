@@ -16,10 +16,6 @@ typedef struct {
     RESPONSE_METRIC(METRIC_DECLARE)
 } response_metrics_st;
 
-#define RESPONSE_METRIC_INIT(_metrics) do {                                 \
-    *(_metrics) = (response_metrics_st) { RESPONSE_METRIC(METRIC_INIT) };   \
-} while(0)
-
 #define RSP_TYPE_MSG(ACTION)                        \
     ACTION( RSP_UNKNOWN,        ""                 )\
     ACTION( RSP_PONG,           "PONG\r\n"         )

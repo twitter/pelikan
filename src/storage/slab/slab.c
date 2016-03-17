@@ -404,9 +404,6 @@ slab_setup(slab_options_st *options, slab_metrics_st *metrics)
             ITEM_HDR_SIZE);
 
     slab_metrics = metrics;
-    if (metrics != NULL) {
-        SLAB_METRIC_INIT(slab_metrics);
-    }
 
     if (options != NULL) {
         slab_size = option_uint(&options->slab_size);

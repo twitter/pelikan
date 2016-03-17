@@ -3,7 +3,6 @@
 #include <core/context.h>
 
 #include <protocol/admin/admin_include.h>
-#include <util/stats.h>
 #include <util/util.h>
 
 #include <buffer/cc_buf.h>

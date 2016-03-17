@@ -19,7 +19,7 @@ void test_delete_basic(uint32_t policy, bool cas);
 void test_expire_basic(uint32_t policy, bool cas);
 
 cuckoo_options_st options = { CUCKOO_OPTION(OPTION_INIT) };
-cuckoo_metrics_st metrics = { CUCKOO_METRIC(METRIC_INIT) };
+cuckoo_metrics_st metrics = { ITEM_METRIC(METRIC_INIT) CUCKOO_METRIC(METRIC_INIT) };
 
 /*
  * utilities
@@ -335,7 +335,7 @@ START_TEST(test_insert_replace_expired)
     char keystring[30];
     uint64_t i;
 
-    metrics = (cuckoo_metrics_st) { CUCKOO_METRIC(METRIC_INIT) };
+    metrics = (cuckoo_metrics_st) { ITEM_METRIC(METRIC_INIT) CUCKOO_METRIC(METRIC_INIT) };
     test_reset(CUCKOO_POLICY_EXPIRE, true);
 
     now = NOW;

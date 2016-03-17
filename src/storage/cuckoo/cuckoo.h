@@ -29,7 +29,7 @@ typedef struct {
     CUCKOO_OPTION(OPTION_DECLARE)
 } cuckoo_options_st;
 
-
+/* TODO(yao): combine the two macros */
 /*          name            type            description */
 #define ITEM_METRIC(ACTION)                                         \
     ACTION( item_val_curr,  METRIC_GAUGE,   "#B stored in vals"    )\
@@ -56,12 +56,6 @@ typedef struct {
     ITEM_METRIC(METRIC_DECLARE)
     CUCKOO_METRIC(METRIC_DECLARE)
 } cuckoo_metrics_st;
-
-#define CUCKOO_METRIC_INIT(_metrics) do {   \
-    *(_metrics) = (cuckoo_metrics_st) {     \
-        ITEM_METRIC(METRIC_INIT)            \
-        CUCKOO_METRIC(METRIC_INIT) };       \
-} while(0)
 
 void cuckoo_setup(cuckoo_options_st *options, cuckoo_metrics_st *metrics);
 void cuckoo_teardown(void);

@@ -17,7 +17,6 @@ typedef struct {
     RESPONSE_OPTION(OPTION_DECLARE)
 } response_options_st;
 
-
 /*          name                type            description */
 #define RESPONSE_METRIC(ACTION)                                         \
     ACTION( response_free,      METRIC_GAUGE,   "# free rsp in pool"   )\
@@ -29,10 +28,6 @@ typedef struct {
 typedef struct {
     RESPONSE_METRIC(METRIC_DECLARE)
 } response_metrics_st;
-
-#define RESPONSE_METRIC_INIT(_metrics) do {                                 \
-    *(_metrics) = (response_metrics_st) { RESPONSE_METRIC(METRIC_INIT) };   \
-} while(0)
 
 /**
  * Note: there are some semi special values here:
