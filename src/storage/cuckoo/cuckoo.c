@@ -18,7 +18,7 @@ uint64_t cas_val;
 bool cas_enabled = CUCKOO_ITEM_CAS;
 uint32_t cuckoo_policy = CUCKOO_POLICY;
 
-static cuckoo_metrics_st *cuckoo_metrics = NULL;
+cuckoo_metrics_st *cuckoo_metrics = NULL;
 static bool cuckoo_init; /* need to make sure memory has been pre-allocate */
 
 /**
