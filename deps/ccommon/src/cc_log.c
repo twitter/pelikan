@@ -154,7 +154,7 @@ log_reopen(struct logger *logger, char *target)
             }
         }
 
-        logger->fd = open(logger->name, O_WRONLY | O_APPEND | O_CREAT, 0644);
+        logger->fd = open(logger->name, O_WRONLY | O_TRUNC | O_CREAT, 0644);
         if (logger->fd < 0) {
             log_stderr("reopening log file '%s' failed, ignored: %s", logger->name,
                        strerror(errno));
