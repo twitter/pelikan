@@ -67,10 +67,6 @@ typedef struct {
     PIPE_METRIC(METRIC_DECLARE)
 } pipe_metrics_st;
 
-#define PIPE_METRIC_INIT(_metrics) do {                           \
-    *(_metrics) = (pipe_metrics_st) { PIPE_METRIC(METRIC_INIT) }; \
-} while (0)
-
 struct pipe_conn {
     STAILQ_ENTRY(pipe_conn) next;       /* for pool */
     bool                    free;       /* in use? */

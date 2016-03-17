@@ -9,13 +9,15 @@
 #define SUITE_NAME "wheel"
 #define DEBUG_LOG  SUITE_NAME ".log"
 
-timing_wheel_metrics_st metrics;
+static timing_wheel_metrics_st metrics;
+
 /*
  * utilities
  */
 static void
 test_setup(void)
 {
+    metrics = (timing_wheel_metrics_st) { TIMING_WHEEL_METRIC(METRIC_INIT) };
     timing_wheel_setup(&metrics);
 }
 
@@ -316,7 +318,7 @@ START_TEST(test_timing_wheel_edge_case)
     metrics.timeout_event_create.counter = 1;
     timing_wheel_setup(NULL);
     timing_wheel_setup(&metrics);
-    ck_assert_uint_eq(metrics.timeout_event_create.counter, 0);
+    ck_assert_uint_eq(metrics.timeout_event_create.counter, 1);
 
     timeout_set_ns(&tick, TICK_NS);
     timeout_set_ns(&delay, TICK_NS * NSLOT);

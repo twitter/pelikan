@@ -43,9 +43,6 @@ log_setup(log_metrics_st *metrics)
     log_stderr("set up the %s module", LOG_MODULE_NAME);
 
     log_metrics = metrics;
-    if (metrics != NULL) {
-        LOG_METRIC_INIT(log_metrics);
-    }
 
     if (log_init) {
         log_stderr("%s has already been setup, overwrite", LOG_MODULE_NAME);
