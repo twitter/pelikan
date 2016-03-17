@@ -334,9 +334,6 @@ core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
     }
 
     worker_metrics = metrics;
-    if (metrics != NULL) {
-        WORKER_METRIC_INIT(worker_metrics);
-    }
 
     if (options != NULL) {
         timeout = option_uint(&options->worker_timeout);

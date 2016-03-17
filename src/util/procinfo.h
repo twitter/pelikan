@@ -30,10 +30,6 @@ typedef struct {
     PROCINFO_METRIC(METRIC_DECLARE)
 } procinfo_metrics_st;
 
-#define PROCINFO_METRIC_INIT(_metrics) do {                                 \
-    *(_metrics) = (procinfo_metrics_st) { PROCINFO_METRIC(METRIC_INIT) };   \
-} while(0)
-
 void procinfo_setup(procinfo_metrics_st *procinfo_metrics);
 void procinfo_teardown(void);
 

@@ -37,10 +37,6 @@ typedef struct {
     RBUF_METRIC(METRIC_DECLARE)
 } rbuf_metrics_st;
 
-#define RBUF_METRIC_INIT(_metrics) do {                           \
-    *(_metrics) = (rbuf_metrics_st) { RBUF_METRIC(METRIC_INIT) }; \
-} while(0)
-
 struct rbuf {
     uint32_t     rpos;          /* read offset */
     uint32_t     wpos;          /* write offset */

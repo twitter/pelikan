@@ -29,10 +29,6 @@ typedef struct {
     CORE_WORKER_METRIC(METRIC_DECLARE)
 } worker_metrics_st;
 
-#define WORKER_METRIC_INIT(_metrics) do {                                  \
-    *(_metrics) = (worker_metrics_st) { CORE_WORKER_METRIC(METRIC_INIT) }; \
-} while(0)
-
 extern worker_metrics_st *worker_metrics;
 
 struct buf_sock;

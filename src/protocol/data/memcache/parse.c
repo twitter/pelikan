@@ -24,18 +24,13 @@ parse_setup(parse_req_metrics_st *req, parse_rsp_metrics_st *rsp)
 {
     log_info("set up the %s module", PARSE_MODULE_NAME);
 
-    parse_req_metrics = req;
-    if (parse_req_metrics != NULL) {
-        PARSE_REQ_METRIC_INIT(parse_req_metrics);
-    }
-    parse_rsp_metrics = rsp;
-    if (parse_rsp_metrics != NULL) {
-        PARSE_RSP_METRIC_INIT(parse_rsp_metrics);
-    }
-
     if (parse_init) {
         log_warn("%s has already been setup, overwrite", PARSE_MODULE_NAME);
     }
+
+    parse_req_metrics = req;
+    parse_rsp_metrics = rsp;
+
     parse_init = true;
 }
 

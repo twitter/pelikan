@@ -12,10 +12,5 @@ typedef struct {
     ADMIN_PROCESS_METRIC(METRIC_DECLARE)
 } admin_process_metrics_st;
 
-#define ADMIN_PROCESS_METRIC_INIT(_metrics) do {    \
-    *(_metrics) = (admin_process_metrics_st) {      \
-        ADMIN_PROCESS_METRIC(METRIC_INIT) };        \
-} while(0)
-
 void admin_process_setup(admin_process_metrics_st *metrics);
 void admin_process_teardown(void);

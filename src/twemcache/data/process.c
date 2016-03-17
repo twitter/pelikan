@@ -30,11 +30,10 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
     }
 
     process_metrics = metrics;
-    if (metrics != NULL) {
-        PROCESS_METRIC_INIT(process_metrics);
-    }
 
-    allow_flush = option_bool(&options->allow_flush);
+    if (options != NULL) {
+        allow_flush = option_bool(&options->allow_flush);
+    }
 
     process_init = true;
 }

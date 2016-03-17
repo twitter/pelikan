@@ -825,9 +825,6 @@ tcp_setup(tcp_options_st *options, tcp_metrics_st *metrics)
     }
 
     tcp_metrics = metrics;
-    if (metrics != NULL) {
-        TCP_METRIC_INIT(tcp_metrics);
-    }
 
     if (options != NULL) {
         max_backlog = option_uint(&options->tcp_backlog);

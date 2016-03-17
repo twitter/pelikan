@@ -60,9 +60,5 @@ typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)
 } process_metrics_st;
 
-#define PROCESS_METRIC_INIT(_metrics) do {                              \
-    *(_metrics) = (process_metrics_st) { PROCESS_METRIC(METRIC_INIT) }; \
-} while(0)
-
 void process_setup(process_options_st *options, process_metrics_st *metrics);
 void process_teardown(void);

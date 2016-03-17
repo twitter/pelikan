@@ -34,11 +34,6 @@ typedef struct {
     KLOG_METRIC(METRIC_DECLARE)
 } klog_metrics_st;
 
-#define KLOG_METRIC_INIT(_metrics) do {                     \
-    *(_metrics) =                                           \
-        (klog_metrics_st) { KLOG_METRIC(METRIC_INIT) };     \
-} while (0)
-
 struct request;
 struct response;
 struct timeout_event;

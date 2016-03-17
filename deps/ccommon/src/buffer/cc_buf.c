@@ -178,9 +178,6 @@ buf_setup(buf_options_st *options, buf_metrics_st *metrics)
     }
 
     buf_metrics = metrics;
-    if (metrics != NULL) {
-        BUF_METRIC_INIT(buf_metrics);
-    }
 
     if (options != NULL) {
         buf_init_size = option_uint(&options->buf_init_size);

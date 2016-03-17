@@ -146,9 +146,6 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
     }
 
     server_metrics = metrics;
-    if (metrics != NULL) {
-        SERVER_METRIC_INIT(server_metrics);
-    }
 
     if (options != NULL) {
         host = option_str(&options->server_host);

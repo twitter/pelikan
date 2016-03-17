@@ -6,7 +6,6 @@
 #include <storage/cuckoo/cuckoo.h>
 #include <core/core.h>
 #include <util/procinfo.h>
-#include <util/stats.h>
 
 #include <cc_event.h>
 #include <cc_log.h>
@@ -24,9 +23,9 @@ struct stats {
     klog_metrics_st             klog;
     request_metrics_st          request;
     response_metrics_st         response;
+    cuckoo_metrics_st           cuckoo;
     server_metrics_st           server;
     worker_metrics_st           worker;
-    cuckoo_metrics_st           cuckoo;
     /* ccommon libraries */
     buf_metrics_st              buf;
     event_metrics_st            event;
@@ -36,3 +35,4 @@ struct stats {
 };
 
 extern struct stats stats;
+extern unsigned int nmetric;

@@ -12,14 +12,13 @@ response_setup(response_metrics_st *metrics)
 {
     log_info("set up the %s module", RESPONSE_MODULE_NAME);
 
-    response_metrics = metrics;
-    if (metrics != NULL) {
-        RESPONSE_METRIC_INIT(response_metrics);
-    }
 
     if (response_init) {
         log_warn("%s has already been setup, overwrite", RESPONSE_MODULE_NAME);
     }
+
+    response_metrics = metrics;
+
     response_init = true;
 }
 

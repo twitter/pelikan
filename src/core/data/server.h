@@ -32,10 +32,6 @@ typedef struct {
     CORE_SERVER_METRIC(METRIC_DECLARE)
 } server_metrics_st;
 
-#define SERVER_METRIC_INIT(_metrics) do {                                  \
-    *(_metrics) = (server_metrics_st) { CORE_SERVER_METRIC(METRIC_INIT) }; \
-} while(0)
-
 struct addrinfo;
 
 void core_server_setup(server_options_st *options, server_metrics_st *metrics);

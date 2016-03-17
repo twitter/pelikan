@@ -6,7 +6,6 @@
  */
 
 #include <cc_define.h>
-#include <cc_metric.h>
 #include <cc_option.h>
 
 #include <stdbool.h>

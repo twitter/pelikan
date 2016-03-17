@@ -28,9 +28,6 @@ event_setup(event_metrics_st *metrics)
     log_info("set up the %s module", EVENT_MODULE_NAME);
 
     event_metrics = metrics;
-    if (metrics != NULL) {
-        EVENT_METRIC_INIT(event_metrics);
-    }
 
     if (event_init) {
         log_warn("%s has already been setup, overwrite", EVENT_MODULE_NAME);

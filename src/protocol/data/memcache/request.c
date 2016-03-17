@@ -169,9 +169,6 @@ request_setup(request_options_st *options, request_metrics_st *metrics)
     }
 
     request_metrics = metrics;
-    if (metrics != NULL) {
-        REQUEST_METRIC_INIT(request_metrics);
-    }
 
     if (options != NULL) {
         max = option_uint(&options->request_poolsize);

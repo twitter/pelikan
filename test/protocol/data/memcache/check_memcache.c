@@ -1115,7 +1115,8 @@ START_TEST(test_rsp_pool_metrics)
 {
 #define POOL_SIZE 2
     struct response *rsps[POOL_SIZE];
-    response_metrics_st metrics;
+    response_metrics_st metrics =
+        (response_metrics_st) { RESPONSE_METRIC(METRIC_INIT) };
     response_options_st options =
         (response_options_st) { RESPONSE_OPTION(OPTION_INIT) };
     options.response_poolsize.val.vuint = POOL_SIZE;

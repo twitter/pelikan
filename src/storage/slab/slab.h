@@ -75,10 +75,6 @@ typedef struct {
     SLAB_METRIC(METRIC_DECLARE)
 } slab_metrics_st;
 
-#define SLAB_METRIC_INIT(_metrics) do {                           \
-    *(_metrics) = (slab_metrics_st) { SLAB_METRIC(METRIC_INIT) }; \
-} while(0)
-
 /*
  * Every slab (struct slab) in the cache starts with a slab header
  * followed by slab data. The slab data is essentially a collection of

@@ -1,7 +1,6 @@
-#include <twemcache/admin/process.h>
+#include <slimcache/admin/process.h>
 
 #include <protocol/admin/admin_include.h>
-#include <util/stats.h>
 #include <util/procinfo.h>
 
 #include <cc_mm.h>
@@ -20,11 +19,14 @@
 #define VERSION_PRINT_FMT "VERSION %s\r\n"
 #define VERSION_PRINT_LEN 30
 
+extern struct stats stats;
+extern unsigned int nmetric;
+
 static bool admin_init = false;
 static admin_process_metrics_st *admin_metrics = NULL;
 static char *stats_buf = NULL;
 static char version_buf[VERSION_PRINT_LEN];
-static size_t card, stats_len;
+static size_t stats_len;
 
 void
 admin_process_setup(admin_process_metrics_st *metrics)
@@ -36,12 +38,8 @@ admin_process_setup(admin_process_metrics_st *metrics)
     }
 
     admin_metrics = metrics;
-    if (metrics != NULL) {
-        ADMIN_PROCESS_METRIC_INIT(admin_metrics);
-    }
 
-    card = stats_card();
-    stats_len = METRIC_PRINT_LEN * card;
+    stats_len = METRIC_PRINT_LEN * nmetric;
     stats_buf = cc_alloc(stats_len + METRIC_END_LEN);
     /* TODO: check return status of cc_alloc */
 
@@ -64,13 +62,14 @@ static void
 _admin_stats(struct response *rsp, struct request *req)
 {
     size_t offset = 0;
+    struct metric *metrics = (struct metric *)&stats;
 
     INCR(admin_metrics, stats);
 
     procinfo_update();
-    for (int i = 0; i < card; ++i) {
+    for (int i = 0; i < nmetric; ++i) {
         offset += metric_print(stats_buf + offset, stats_len - offset,
-                METRIC_PRINT_FMT, &gs[i]);
+                METRIC_PRINT_FMT, &metrics[i]);
     }
     strcpy(stats_buf + offset, METRIC_END);
 

@@ -16,10 +16,6 @@ typedef struct {
     REQUEST_METRIC(METRIC_DECLARE)
 } request_metrics_st;
 
-#define REQUEST_METRIC_INIT(_metrics) do {                              \
-    *(_metrics) = (request_metrics_st) { REQUEST_METRIC(METRIC_INIT) }; \
-} while(0)
-
 #define REQ_TYPE_MSG(ACTION)                        \
     ACTION( REQ_UNKNOWN,        ""                 )\
     ACTION( REQ_PING,           "ping"             )

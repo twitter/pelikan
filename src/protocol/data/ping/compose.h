@@ -19,19 +19,9 @@ typedef struct {
     COMPOSE_REQ_METRIC(METRIC_DECLARE)
 } compose_req_metrics_st;
 
-#define COMPOSE_REQ_METRIC_INIT(_metrics) do {                          \
-    *(_metrics) =                                                       \
-        (compose_req_metrics_st) { COMPOSE_REQ_METRIC(METRIC_INIT) };   \
-} while(0)
-
 typedef struct {
     COMPOSE_RSP_METRIC(METRIC_DECLARE)
 } compose_rsp_metrics_st;
-
-#define COMPOSE_RSP_METRIC_INIT(_metrics) do {                          \
-    *(_metrics) =                                                       \
-        (compose_rsp_metrics_st) { COMPOSE_RSP_METRIC(METRIC_INIT) };   \
-} while(0)
 
 typedef enum compose_rstatus {
     COMPOSE_OK          = 0,
