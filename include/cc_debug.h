@@ -29,7 +29,7 @@ extern "C" {
 
 #define DEBUG_LOG_LEVEL 4       /* default log level */
 #define DEBUG_LOG_FILE  NULL    /* default log file */
-#define DEBUG_LOG_NBUF  4 * MiB /* default log buf size */
+#define DEBUG_LOG_NBUF  0       /* default log buf size */
 #define DEBUG_LOG_INTVL 100     /* flush every 100 milliseconds */
 
 /*          name             type              default           description */
