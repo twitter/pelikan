@@ -78,11 +78,6 @@ typedef struct {
     TCP_METRIC(METRIC_DECLARE)
 } tcp_metrics_st;
 
-
-#define TCP_METRIC_INIT(_metrics) do {                          \
-    *(_metrics) = (tcp_metrics_st) { TCP_METRIC(METRIC_INIT) }; \
-} while(0)
-
 struct tcp_conn {
     STAILQ_ENTRY(tcp_conn)  next;           /* for conn pool */
     bool                    free;           /* in use? */

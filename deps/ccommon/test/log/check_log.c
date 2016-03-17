@@ -9,12 +9,14 @@
 #define DEBUG_LOG  SUITE_NAME ".log"
 
 static log_metrics_st metrics;
+
 /*
  * utilities
  */
 static void
 test_setup(void)
 {
+    metrics = (log_metrics_st) { LOG_METRIC(METRIC_INIT) };
     log_setup(&metrics);
 }
 

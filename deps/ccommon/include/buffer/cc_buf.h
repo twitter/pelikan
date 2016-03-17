@@ -62,10 +62,6 @@ typedef struct {
     BUF_METRIC(METRIC_DECLARE)
 } buf_metrics_st;
 
-#define BUF_METRIC_INIT(_metrics) do {                          \
-    *(_metrics) = (buf_metrics_st) { BUF_METRIC(METRIC_INIT) }; \
-} while(0)
-
 struct buf {
     STAILQ_ENTRY(buf) next;     /* next buf in pool */
     char              *rpos;    /* read marker */

@@ -27,9 +27,6 @@ timing_wheel_setup(timing_wheel_metrics_st *metrics)
     }
 
     timing_wheel_metrics = metrics;
-    if (metrics != NULL) {
-        TIMING_WHEEL_METRIC_INIT(timing_wheel_metrics);
-    }
 
     timing_wheel_init = true;
 }

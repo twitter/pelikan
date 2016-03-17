@@ -46,11 +46,6 @@ typedef struct {
     TIMING_WHEEL_METRIC(METRIC_DECLARE)
 } timing_wheel_metrics_st;
 
-
-#define TIMING_WHEEL_METRIC_INIT(_metrics) do {                                     \
-    *(_metrics) = (timing_wheel_metrics_st) { TIMING_WHEEL_METRIC(METRIC_INIT) };   \
-} while(0)
-
 typedef void (*timeout_cb_fn)(void *); /* timeout callback */
 
 /**

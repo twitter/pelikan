@@ -368,9 +368,6 @@ pipe_setup(pipe_options_st *options, pipe_metrics_st *metrics)
     }
 
     pipe_metrics = metrics;
-    if (metrics != NULL) {
-        PIPE_METRIC_INIT(pipe_metrics);
-    }
 
     if (options != NULL) {
         max = option_uint(&options->pipe_poolsize);

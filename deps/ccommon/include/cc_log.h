@@ -55,10 +55,6 @@ typedef struct {
     LOG_METRIC(METRIC_DECLARE)
 } log_metrics_st;
 
-#define LOG_METRIC_INIT(_metrics) do {                          \
-    *(_metrics) = (log_metrics_st) { LOG_METRIC(METRIC_INIT) }; \
-} while(0)
-
 #define log_stderr(...) _log_fd(STDERR_FILENO, __VA_ARGS__)
 #define log_stdout(...) _log_fd(STDOUT_FILENO, __VA_ARGS__)
 
