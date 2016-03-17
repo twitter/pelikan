@@ -168,8 +168,8 @@ done:
         goto error;
     }
 
-    /* override the TTIN signal to allow nocopytruncate style rotation of logs */
-    if (signal_override(SIGTTIN, "reopen log file", 0, 0, _logrotate) < 0) {
+    /* override the SIGHUP signal to allow nocopytruncate style rotation of logs */
+    if (signal_override(SIGHUP, "reopen log file", 0, 0, _logrotate) < 0) {
         goto error;
     }
 
