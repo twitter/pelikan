@@ -559,7 +559,7 @@ option_print(struct option *opt)
     option_print_val(default_s, PATH_MAX, opt->type, opt->default_val);
     option_print_val(current_s, PATH_MAX, opt->type, opt->val);
     log_stdout(OPTION_INFO_FMT, opt->name, option_type_str[opt->type],
-            default_s, current_s);
+            current_s, default_s);
 }
 
 void
