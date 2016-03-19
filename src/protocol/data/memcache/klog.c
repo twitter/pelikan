@@ -37,14 +37,17 @@ static size_t klog_max = KLOG_MAX;
 static size_t klog_size;
 
 bool klog_enabled = false;
-struct timeout_event *klog_tev;
 
 static bool klog_init = false;
 static klog_metrics_st *klog_metrics;
 
-static void
-_klog_flush(void *arg)
+void
+klog_flush(void *arg)
 {
+    if (klogger == NULL) {
+        return;
+    }
+
     klog_size += log_flush(klogger);
     if (klog_size >= klog_max) {
         if (log_reopen(klogger, klog_backup) != CC_OK) {
@@ -59,7 +62,6 @@ void
 klog_setup(klog_options_st *options, klog_metrics_st *metrics)
 {
     size_t nbuf = KLOG_NBUF;
-    uint64_t intvl = KLOG_INTVL;
     char *filename = NULL;
 
     log_info("Set up the %s module", KLOG_MODULE_NAME);
@@ -84,7 +86,6 @@ klog_setup(klog_options_st *options, klog_metrics_st *metrics)
             klog_backup = backup_path;
         }
         nbuf = option_uint(&options->klog_nbuf);
-        intvl = option_uint(&options->klog_intvl);
         klog_sample = option_uint(&options->klog_sample);
         if (klog_sample == 0) {
             log_crit("klog sample rate cannot be 0 - divide by zero");
@@ -104,22 +105,6 @@ klog_setup(klog_options_st *options, klog_metrics_st *metrics)
         goto error;
     }
 
-    if (nbuf > 0) {
-        /* pauseless logging, must create timeout event for wheel */
-        if (intvl == 0) {
-            log_crit("invalid klog configuration - klog_intvl must be non-zero"
-                      "for pauseless logging");
-            goto error;
-        }
-        klog_tev = timeout_event_create();
-        if (klog_tev == NULL) {
-            log_crit("Could not create timeout event for klog");
-            goto error;
-        }
-        klog_tev->cb = &_klog_flush;
-        klog_tev->recur = true;
-        timeout_set_ms(&klog_tev->delay, intvl);
-    }
     klog_enabled = true;
 
     klog_init = true;
@@ -141,7 +126,6 @@ klog_teardown(void)
     }
 
     log_destroy(&klogger);
-    timeout_event_destroy(&klog_tev);
     klog_backup = NULL;
     klog_sample = KLOG_SAMPLE;
     klog_max = KLOG_MAX;
