@@ -197,7 +197,5 @@ main(int argc, char **argv)
 
     core_run();
 
-    teardown();
-
     exit(EX_OK);
 }
