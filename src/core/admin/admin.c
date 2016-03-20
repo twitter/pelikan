@@ -303,15 +303,15 @@ core_admin_teardown(void)
 }
 
 struct timeout_event *
-core_admin_register(uint64_t delay_ms, bool recur, timeout_cb_fn cb, void *arg)
+core_admin_register(uint64_t intvl_ms, timeout_cb_fn cb, void *arg)
 {
     struct timeout delay;
 
     ASSERT(!__atomic_load_n(&admin_running, __ATOMIC_RELAXED));
     ASSERT(admin_init);
 
-    timeout_set_ms(&delay, delay_ms);
-    return timing_wheel_insert(tw, &delay, recur, cb, arg);
+    timeout_set_ms(&delay, intvl_ms);
+    return timing_wheel_insert(tw, &delay, true, cb, arg);
 }
 
 static rstatus_i

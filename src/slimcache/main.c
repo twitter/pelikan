@@ -127,13 +127,13 @@ setup(void)
 
     /* adding recurring events to maintenance/admin thread */
     intvl = option_uint(&setting.slimcache.dlog_intvl);
-    if (core_admin_register(intvl, true, debug_log_flush, NULL) == NULL) {
+    if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
         log_stderr("Could not register timed event to flush debug log");
         goto error;
     }
 
     intvl = option_uint(&setting.slimcache.klog_intvl);
-    if (core_admin_register(intvl, true, klog_flush, NULL) == NULL) {
+    if (core_admin_register(intvl, klog_flush, NULL) == NULL) {
         log_error("Could not register timed event to flush command log");
         goto error;
     }

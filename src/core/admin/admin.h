@@ -38,8 +38,8 @@ extern bool admin_running;
 void core_admin_setup(admin_options_st *options);
 void core_admin_teardown(void);
 
-/* add timed actions to be executed on the admin thread, which uses timing wheel */
+/* add a periodic action to be executed on the admin thread, which uses timing wheel */
 struct timeout_event *
-core_admin_register(uint64_t delay_ms, bool recur, timeout_cb_fn cb, void *arg);
+core_admin_register(uint64_t intvl_ms, timeout_cb_fn cb, void *arg);
 
 void *core_admin_evloop(void *arg);
