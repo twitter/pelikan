@@ -22,26 +22,22 @@ show_usage(void)
     log_stdout(
             "Description:" CRLF
             "  pelikan_twemcache is one of the unified cache backends. " CRLF
-            "  It uses a slab based key/val storage scheme to cache key/val" CRLF
-            "  pairs. It speaks the memcached protocol and supports all " CRLF
-            "  ASCII memcached commands." CRLF
+            "  It uses a slab-based storage to cache key/val pairs. " CRLF
+            "  It speaks the memcached ASCII protocol and supports almost " CRLF
+            "  all ASCII memcached commands." CRLF
             );
     log_stdout(
-            "Options:" CRLF
+            "Command-line options:" CRLF
             "  -h, --help        show this message" CRLF
             "  -v, --version     show version number" CRLF
+            "  -c, --config      list & describe all options in config" CRLF
+            "  -s, --stats       list & describe all metrics in stats" CRLF
             );
     log_stdout(
             "Example:" CRLF
-            "  ./pelikan_twemcache ../template/twemcache.conf" CRLF
+            "  pelikan_twemcache twemcache.conf" CRLF CRLF
+            "Sample config files can be found under the template dir." CRLF
             );
-    log_stdout("Setting & Default Values:");
-
-    if (option_load_default((struct option *)&setting, nopt) != CC_OK) {
-        log_stderr("failed to load default option values");
-        exit(EX_CONFIG);
-    }
-    option_describe_all((struct option *)&setting, nopt);
 }
 
 static void
@@ -161,25 +157,25 @@ main(int argc, char **argv)
         /* argc == 2 */
         if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
             show_usage();
-
             exit(EX_OK);
         }
         if (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0) {
             show_version();
-
+            exit(EX_OK);
+        }
+        if (strcmp(argv[1], "-c") == 0 || strcmp(argv[1], "--config") == 0) {
+            option_describe_all((struct option *)&setting, nopt);
+            exit(EX_OK);
+        }
+        if (strcmp(argv[1], "-s") == 0 || strcmp(argv[1], "--stats") == 0) {
+            metric_describe_all((struct metric *)&stats, nmetric);
             exit(EX_OK);
         }
         fp = fopen(argv[1], "r");
         if (fp == NULL) {
             log_stderr("cannot open config: incorrect path or doesn't exist");
-
             exit(EX_DATAERR);
         }
-    }
-
-    if (option_load_default((struct option *)&setting, nopt) != CC_OK) {
-        log_stderr("failed to load default option values");
-        exit(EX_CONFIG);
     }
 
     if (fp != NULL) {
