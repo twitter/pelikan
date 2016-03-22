@@ -7,6 +7,7 @@
 
 #include <cc_define.h>
 #include <cc_option.h>
+#include <time/cc_wheel.h>
 
 #include <stdbool.h>
 
@@ -32,15 +33,13 @@ typedef struct {
     ADMIN_OPTION(OPTION_DECLARE)
 } admin_options_st;
 
-struct timing_wheel;
-struct timeout_event;
-
 extern bool admin_running;
 
 void core_admin_setup(admin_options_st *options);
 void core_admin_teardown(void);
 
-/* timeout events must be added while admin evloop is not running */
-rstatus_i core_admin_add_tev(struct timeout_event *tev);
+/* add a periodic action to be executed on the admin thread, which uses timing wheel */
+struct timeout_event *
+core_admin_register(uint64_t intvl_ms, timeout_cb_fn cb, void *arg);
 
 void *core_admin_evloop(void *arg);

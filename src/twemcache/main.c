@@ -5,8 +5,6 @@
 #include <util/util.h>
 
 #include <cc_debug.h>
-#include <cc_metric.h>
-#include <cc_option.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -76,6 +74,12 @@ static void
 setup(void)
 {
     char *fname = NULL;
+    uint64_t intvl;
+
+    if (atexit(teardown) != 0) {
+        log_stderr("cannot register teardown procedure with atexit()");
+        exit(EX_OSERR); /* only failure comes from NOMEM */
+    }
 
     /* Setup logging first */
     log_setup(&stats.log);
@@ -117,24 +121,26 @@ setup(void)
             &stats.server, &stats.worker);
 
     /* adding recurring events to maintenance/admin thread */
-    if (core_admin_add_tev(dlog_tev) != CC_OK) {
-        log_stderr("Could not add debug log timed event to admin thread");
+    intvl = option_uint(&setting.twemcache.dlog_intvl);
+    if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
+        log_stderr("Could not register timed event to flush debug log");
         goto error;
     }
-    if (core_admin_add_tev(klog_tev) != CC_OK) {
-        log_error("Could not add klog timed event to admin thread");
+
+    intvl = option_uint(&setting.twemcache.klog_intvl);
+    if (core_admin_register(intvl, klog_flush, NULL) == NULL) {
+        log_error("Could not register timed event to flush command log");
         goto error;
     }
 
     return;
 
 error:
-    /* tear down everything in the reverse order as setup, then exit */
-    teardown();
     if (fname != NULL) {
         remove_pidfile(fname);
     }
 
+    /* since we registered teardown with atexit, it'll be called upon exit */
     exit(EX_CONFIG);
 }
 
@@ -190,8 +196,6 @@ main(int argc, char **argv)
     option_print_all((struct option *)&setting, nopt);
 
     core_run();
-
-    teardown();
 
     exit(EX_OK);
 }

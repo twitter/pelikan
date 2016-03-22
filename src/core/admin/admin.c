@@ -201,20 +201,6 @@ _admin_event(void *arg, uint32_t events)
     }
 }
 
-rstatus_i
-core_admin_add_tev(struct timeout_event *tev)
-{
-    ASSERT(!__atomic_load_n(&admin_running, __ATOMIC_RELAXED));
-    ASSERT(admin_init);
-
-    if (tev == NULL) {
-        log_verb("skip adding NULL timeout event");
-        return CC_OK;
-    }
-
-    return timing_wheel_insert(tw, tev);
-}
-
 void
 core_admin_setup(admin_options_st *options)
 {
@@ -284,6 +270,10 @@ core_admin_setup(admin_options_st *options)
 
     timeout_set_ms(&tick, tick_ms);
     tw = timing_wheel_create(&tick, cap, ntick);
+    if (tw == NULL) {
+        log_crit("create timing wheel failed");
+        goto error;
+    }
     timing_wheel_start(tw);
 
     admin_init = true;
@@ -310,6 +300,18 @@ core_admin_teardown(void)
         buf_sock_return(&admin_sock);
     }
     admin_init = false;
+}
+
+struct timeout_event *
+core_admin_register(uint64_t intvl_ms, timeout_cb_fn cb, void *arg)
+{
+    struct timeout delay;
+
+    ASSERT(!__atomic_load_n(&admin_running, __ATOMIC_RELAXED));
+    ASSERT(admin_init);
+
+    timeout_set_ms(&delay, intvl_ms);
+    return timing_wheel_insert(tw, &delay, true, cb, arg);
 }
 
 static rstatus_i

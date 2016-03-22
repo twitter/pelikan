@@ -30,14 +30,12 @@ extern "C" {
 #define DEBUG_LOG_LEVEL 4       /* default log level */
 #define DEBUG_LOG_FILE  NULL    /* default log file */
 #define DEBUG_LOG_NBUF  0       /* default log buf size */
-#define DEBUG_LOG_INTVL 100     /* flush every 100 milliseconds */
 
 /*          name             type              default           description */
-#define DEBUG_OPTION(ACTION)                                                                                                      \
-    ACTION( debug_log_level, OPTION_TYPE_UINT, DEBUG_LOG_LEVEL,  "debug log level"                                               )\
-    ACTION( debug_log_file,  OPTION_TYPE_STR,  DEBUG_LOG_FILE,   "debug log file"                                                )\
-    ACTION( debug_log_nbuf,  OPTION_TYPE_UINT, DEBUG_LOG_NBUF,   "debug log buf size"                                            )\
-    ACTION( debug_log_intvl, OPTION_TYPE_UINT, DEBUG_LOG_INTVL,  "debug log flush interval in ms (only applies if buf size > 0)")
+#define DEBUG_OPTION(ACTION)                                                            \
+    ACTION( debug_log_level, OPTION_TYPE_UINT, DEBUG_LOG_LEVEL,  "debug log level"     )\
+    ACTION( debug_log_file,  OPTION_TYPE_STR,  DEBUG_LOG_FILE,   "debug log file"      )\
+    ACTION( debug_log_nbuf,  OPTION_TYPE_UINT, DEBUG_LOG_NBUF,   "debug log buf size"  )
 
 typedef struct {
     DEBUG_OPTION(OPTION_DECLARE)
@@ -120,7 +118,6 @@ struct debug_logger {
  * This will be NULL as it points to a static variable declared in cc_debug.c
  */
 extern struct debug_logger *dlog;
-extern struct timeout_event *dlog_tev;
 
 /*
  * log_stderr   - log to stderr
@@ -223,7 +220,7 @@ extern struct timeout_event *dlog_tev;
 void _log(struct debug_logger *dl, const char *file, int line, int level, const char *fmt, ...);
 void _log_hexdump(struct debug_logger *dl, int level, char *data, int datalen);
 
-int signal_ttin_logrotate(void);
+void debug_log_flush(void *arg); /* compatible type: timeout_cb_fn */
 
 #ifdef __cplusplus
 }
