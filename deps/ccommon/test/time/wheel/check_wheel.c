@@ -34,129 +34,6 @@ test_reset(void)
     test_setup();
 }
 
-/*
- * tests
- */
-START_TEST(test_timeout_event_create_destroy)
-{
-    struct timeout_event *tev, *tev2;
-
-    test_reset();
-
-    tev = timeout_event_create();
-    ck_assert_uint_eq(metrics.timeout_event_create.counter, 1);
-    ck_assert_uint_eq(metrics.timeout_event_curr.gauge, 1);
-    timeout_event_destroy(&tev);
-    ck_assert_uint_eq(metrics.timeout_event_destroy.counter, 1);
-    ck_assert_uint_eq(metrics.timeout_event_curr.gauge, 0);
-
-    tev = timeout_event_create();
-    ck_assert_uint_eq(metrics.timeout_event_create.counter, 2);
-    ck_assert_uint_eq(metrics.timeout_event_curr.gauge, 1);
-    tev2 = timeout_event_create();
-    ck_assert_uint_eq(metrics.timeout_event_create.counter, 3);
-    ck_assert_uint_eq(metrics.timeout_event_curr.gauge, 2);
-    timeout_event_destroy(&tev);
-    timeout_event_destroy(&tev2);
-    ck_assert_uint_eq(metrics.timeout_event_destroy.counter, 3);
-    ck_assert_uint_eq(metrics.timeout_event_curr.gauge, 0);
-}
-END_TEST
-
-START_TEST(test_timeout_event_pool)
-{
-#define POOL_SIZE 2
-
-    struct timeout_event *tev, *tev2;
-
-    test_reset();
-
-    timeout_event_pool_create(POOL_SIZE);
-    ck_assert_uint_eq(metrics.timeout_event_create.counter, POOL_SIZE);
-    ck_assert_uint_eq(metrics.timeout_event_curr.gauge, POOL_SIZE);
-
-    tev = timeout_event_borrow();
-    ck_assert_uint_eq(metrics.timeout_event_borrow.counter, 1);
-    ck_assert_uint_eq(metrics.timeout_event_active.gauge, 1);
-    timeout_event_return(&tev);
-    ck_assert_uint_eq(metrics.timeout_event_return.counter, 1);
-    ck_assert_uint_eq(metrics.timeout_event_active.gauge, 0);
-
-    tev = timeout_event_borrow();
-    ck_assert_uint_eq(metrics.timeout_event_borrow.counter, 2);
-    ck_assert_uint_eq(metrics.timeout_event_active.gauge, 1);
-    tev2 = timeout_event_borrow();
-    ck_assert_uint_eq(metrics.timeout_event_borrow.counter, 3);
-    ck_assert_uint_eq(metrics.timeout_event_active.gauge, 2);
-    ck_assert(timeout_event_borrow() == NULL); /* over pool limit */
-    ck_assert_uint_eq(metrics.timeout_event_borrow_ex.counter, 1);
-    timeout_event_return(&tev);
-    timeout_event_return(&tev2);
-    ck_assert_uint_eq(metrics.timeout_event_return.counter, 3);
-    ck_assert_uint_eq(metrics.timeout_event_active.gauge, 0);
-
-    timeout_event_pool_destroy();
-    ck_assert_uint_eq(metrics.timeout_event_destroy.counter, POOL_SIZE);
-    ck_assert_uint_eq(metrics.timeout_event_curr.gauge, 0);
-
-#undef POOL_SIZE
-}
-END_TEST
-
-START_TEST(test_timeout_event_pool_unlimited)
-{
-    struct timeout_event *tev;
-
-    test_reset();
-
-    timeout_event_pool_create(0);
-    ck_assert_uint_eq(metrics.timeout_event_create.counter, 0);
-
-    tev = timeout_event_borrow();
-    ck_assert_uint_eq(metrics.timeout_event_create.counter, 1);
-    ck_assert_uint_eq(metrics.timeout_event_borrow.counter, 1);
-    ck_assert_uint_eq(metrics.timeout_event_curr.gauge, 1);
-    ck_assert_uint_eq(metrics.timeout_event_active.gauge, 1);
-    timeout_event_return(&tev);
-    ck_assert_uint_eq(metrics.timeout_event_return.counter, 1);
-    ck_assert_uint_eq(metrics.timeout_event_active.gauge, 0);
-
-    timeout_event_pool_destroy();
-    ck_assert_uint_eq(metrics.timeout_event_destroy.counter, 1);
-    ck_assert_uint_eq(metrics.timeout_event_curr.gauge, 0);
-}
-END_TEST
-
-START_TEST(test_timeout_event_edge_case)
-{
-    struct timeout_event *tev = NULL;
-
-    test_reset();
-
-    /* destroy edge cases */
-    timeout_event_destroy(NULL);
-    timeout_event_destroy(&tev);
-
-    /* return edge cases */
-    timeout_event_return(NULL);
-    timeout_event_return(&tev);
-
-    /* pool destroy re-entry should be fine */
-    timeout_event_pool_destroy();
-    timeout_event_pool_destroy();
-
-    /* create re-entry should be fine */
-    timeout_event_pool_create(0);
-    timeout_event_pool_create(0);
-
-    tev = timeout_event_borrow();
-    tev->free = true;
-    timeout_event_return(&tev); /* should not return an already free item */
-    ck_assert_uint_eq(metrics.timeout_event_active.gauge, 1);
-
-}
-END_TEST
-
 static void
 _incr_cb(void *v)
 {
@@ -186,20 +63,14 @@ START_TEST(test_timing_wheel_basic)
     timing_wheel_start(tw);
     ck_assert_int_le(timeout_ns(&tw->due), TICK_NS);
 
-    /* init, insert, delete timeout event */
-    tev = timeout_event_create();
-    tev->cb = _incr_cb;
-    tev->data = &i;
-    tev->recur = false;
-    tev->delay = delay;
-
-    timing_wheel_insert(tw, tev);
+    /* insert, delete timeout event */
+    tev = timing_wheel_insert(tw, &delay, false, _incr_cb, &i);
     ck_assert_int_eq(tw->nevent, 1);
-    timing_wheel_remove(tw, tev);
+    timing_wheel_remove(tw, &tev);
     ck_assert_int_eq(tw->nevent, 0);
 
     /* execute with finer clock */
-    timing_wheel_insert(tw, tev);
+    tev = timing_wheel_insert(tw, &delay, false, _incr_cb, &i);
     ck_assert_int_eq(tw->nevent, 1);
     nanosleep(&short_ts, NULL);
     timing_wheel_execute(tw);
@@ -213,7 +84,7 @@ START_TEST(test_timing_wheel_basic)
     ck_assert_int_eq(i, 1);
 
     /* execute with coarser clock/sleep */
-    timing_wheel_insert(tw, tev);
+    tev = timing_wheel_insert(tw, &delay, false, _incr_cb, &i);
     nanosleep(&long_ts, NULL);
     timing_wheel_execute(tw);
     ck_assert_int_eq(tw->nexec, 3);
@@ -227,31 +98,30 @@ START_TEST(test_timing_wheel_basic)
 
     /* add to the immediate next tick */
     timeout_set_ns(&delay, 0);
-    tev->delay = delay;
-    timing_wheel_insert(tw, tev);
+    tev = timing_wheel_insert(tw, &delay, false, _incr_cb, &i);
+    ck_assert(tev != NULL);
     nanosleep(&short_ts, NULL);
     timing_wheel_execute(tw);
+    ck_assert_int_eq(tw->nexec, 5);
     ck_assert_int_eq(tw->nprocess, 3);
 
     timing_wheel_stop(tw);
-    timeout_event_destroy(&tev);
     timing_wheel_destroy(&tw);
 
 #undef NTICK
 #undef NSLOT
-#undef TICK_MS
+#undef TICK_NS
 }
 END_TEST
 
 START_TEST(test_timing_wheel_recur)
 {
-#define TICK_NS 1000000
+#define TICK_NS 10000000
 #define NSLOT 3
 #define NTICK 2
 
     struct timeout tick, delay;
     struct timing_wheel *tw;
-    struct timeout_event *tev;
     struct timespec ts = (struct timespec){0, TICK_NS};
     int i = 0;
 
@@ -264,12 +134,7 @@ START_TEST(test_timing_wheel_recur)
     timing_wheel_start(tw);
     ck_assert_int_le(timeout_ns(&tw->due), TICK_NS);
 
-    tev = timeout_event_create();
-    tev->cb = _incr_cb;
-    tev->data = &i;
-    tev->recur = true;
-    tev->delay = delay;
-    timing_wheel_insert(tw, tev);
+    timing_wheel_insert(tw, &delay, true, _incr_cb, &i);
 
     nanosleep(&ts, NULL);
     timing_wheel_execute(tw);
@@ -280,10 +145,10 @@ START_TEST(test_timing_wheel_recur)
     timing_wheel_execute(tw);
     ck_assert_int_eq(tw->nevent, 1);
     ck_assert_int_eq(tw->nprocess, 1);
-    ck_assert_int_eq(tw->nevent, 1);
     ck_assert_int_eq(i, 1);
     nanosleep(&ts, NULL);
     timing_wheel_execute(tw);
+    ck_assert_int_eq(tw->nevent, 1);
     ck_assert_int_eq(tw->nprocess, 2);
     ck_assert_int_eq(i, 2);
 
@@ -291,12 +156,11 @@ START_TEST(test_timing_wheel_recur)
     timing_wheel_flush(tw);
     ck_assert_int_eq(tw->nevent, 0);
     ck_assert_int_eq(tw->nprocess, 3);
-    timeout_event_destroy(&tev);
     timing_wheel_destroy(&tw);
 
 #undef NTICK
 #undef NSLOT
-#undef TICK_MS
+#undef TICK_NS
 }
 END_TEST
 
@@ -308,35 +172,31 @@ START_TEST(test_timing_wheel_edge_case)
 
     struct timeout tick, delay;
     struct timing_wheel *tw;
-    struct timeout_event *tev;
 
     /* re-entry on teardown should work */
     timing_wheel_teardown();
     timing_wheel_teardown();
 
     /* re-entry on setup should work */
-    metrics.timeout_event_create.counter = 1;
+    metrics.timeout_event_borrow.counter = 1;
     timing_wheel_setup(NULL);
     timing_wheel_setup(&metrics);
-    ck_assert_uint_eq(metrics.timeout_event_create.counter, 1);
+    ck_assert_uint_eq(metrics.timeout_event_borrow.counter, 1);
 
     timeout_set_ns(&tick, TICK_NS);
-    timeout_set_ns(&delay, TICK_NS * NSLOT);
     tw = timing_wheel_create(&tick, NSLOT, NTICK);
     timing_wheel_start(tw);
 
-    tev = timeout_event_create();
-    tev->recur = true;
-    timeout_set_ns(&tev->delay, 0);
-    ck_assert(timing_wheel_insert(tw, tev) == CC_EINVAL);
-    tev->delay = delay;
-    ck_assert(timing_wheel_insert(tw, tev) == CC_EINVAL);
+    timeout_set_ns(&delay, 0);
+    ck_assert(timing_wheel_insert(tw, &delay, true, NULL, NULL) == NULL);
+    timeout_set_ns(&delay, TICK_NS * NSLOT);
+    ck_assert(timing_wheel_insert(tw, &delay, true, NULL, NULL) == NULL);
 
     timing_wheel_destroy(&tw);
 
 #undef NTICK
 #undef NSLOT
-#undef TICK_MS
+#undef TICK_NS
 }
 END_TEST
 
@@ -352,10 +212,6 @@ wheel_suite(void)
     TCase *tc_wheel = tcase_create("timer/timing_wheel test");
     suite_add_tcase(s, tc_wheel);
 
-    tcase_add_test(tc_wheel, test_timeout_event_create_destroy);
-    tcase_add_test(tc_wheel, test_timeout_event_pool);
-    tcase_add_test(tc_wheel, test_timeout_event_pool_unlimited);
-    tcase_add_test(tc_wheel, test_timeout_event_edge_case);
     tcase_add_test(tc_wheel, test_timing_wheel_basic);
     tcase_add_test(tc_wheel, test_timing_wheel_recur);
     tcase_add_test(tc_wheel, test_timing_wheel_edge_case);

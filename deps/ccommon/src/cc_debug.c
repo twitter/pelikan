@@ -38,7 +38,6 @@
 
 struct debug_logger default_logger;
 struct debug_logger *dlog = &default_logger;
-struct timeout_event *dlog_tev;
 static bool debug_init = false;
 static char * level_str[] = {
     "ALWAYS",
@@ -102,8 +101,8 @@ _logrotate(int signo)
     log_reopen(dlog->logger, NULL);
 }
 
-static void
-_debug_log_flush(void *arg)
+void
+debug_log_flush(void *arg)
 {
     log_flush(dlog->logger);
 }
@@ -112,7 +111,6 @@ rstatus_i
 debug_setup(debug_options_st *options)
 {
     size_t log_nbuf = DEBUG_LOG_NBUF;
-    uint64_t log_intvl = DEBUG_LOG_INTVL;
     char *filename = DEBUG_LOG_FILE;
 
     /* since logs are not setup yet, we have to log to stderr */
@@ -129,7 +127,6 @@ debug_setup(debug_options_st *options)
     if (options != NULL) {
         filename = option_str(&options->debug_log_file);
         log_nbuf = option_uint(&options->debug_log_nbuf);
-        log_intvl = option_uint(&options->debug_log_intvl);
         dlog->level = option_uint(&options->debug_log_level);
     }
 
@@ -139,36 +136,13 @@ debug_setup(debug_options_st *options)
         goto error;
     }
 
-    /*
-     * 0 length buffer indicates that the logger will log directly to the file,
-     * thus we do not need to setup periodic flushing
-     */
-    if (log_nbuf == 0) {
-        goto done;
-    }
-
-    if (log_intvl == 0) {
-        log_stderr("invalid debug log configuration - debug_log_intvl must"
-                   "be non-zero for pauseless logging");
-    }
-
-    dlog_tev = timeout_event_create();
-    if (dlog_tev == NULL) {
-        log_stderr("Could not create timeout event for debug logger");
-        goto error;
-    }
-    dlog_tev->cb = &_debug_log_flush;
-    dlog_tev->recur = true;
-    timeout_set_ms(&dlog_tev->delay, log_intvl);
-
-done:
     /* some adjustment on signal handling */
     if (signal_override(SIGSEGV, "printing stacktrace when segfault", 0, 0,
             _stacktrace) < 0) {
         goto error;
     }
 
-    /* override the SIGHUP signal to allow nocopytruncate style rotation of logs */
+    /* to allow logrotate with nocopytruncate, use SIGHUP to reopen log */
     if (signal_override(SIGHUP, "reopen log file", 0, 0, _logrotate) < 0) {
         goto error;
     }
@@ -192,10 +166,6 @@ debug_teardown(void)
 
     if (dlog->logger != NULL) {
         log_destroy(&dlog->logger);
-    }
-
-    if (dlog_tev != NULL) {
-        timeout_event_destroy(&dlog_tev);
     }
 
     debug_init = false;

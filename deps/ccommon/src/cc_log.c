@@ -256,14 +256,14 @@ _rbuf_flush(struct rbuf *buf, int fd)
 
         if (ret == capacity) {
             /* more can be written, read from beginning of buf */
-            ssize_t remaining_bytes;
+            ssize_t ret2;
 
             capacity = wpos;
-            remaining_bytes = write(fd, buf->data, capacity);
+            ret2 = write(fd, buf->data, capacity);
 
-            if (remaining_bytes >= 0) {
-                rpos = remaining_bytes;
-                ret += remaining_bytes;
+            if (ret2 >= 0) {
+                rpos = ret2;
+                ret += ret2;
             }
         }
     } else {
