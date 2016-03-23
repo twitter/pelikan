@@ -18,11 +18,13 @@
 #include <cc_metric.h>
 
 #include <cc_debug.h>
+#include <cc_log.h>
 #include <cc_print.h>
 
 #include <stdbool.h>
 
 #define VALUE_PRINT_LEN 30
+#define METRIC_DESCRIBE_FMT  "%-31s %-15s %s"
 
 char *metric_type_str[] = {"counter", "gauge", "floating point"};
 
@@ -83,7 +85,6 @@ metric_print(char *buf, size_t nbuf, char *fmt, struct metric *m)
 
     case METRIC_FPN:
         cc_scnprintf(val_buf, VALUE_PRINT_LEN, "%f", m->fpn);
-        break;
 
     default:
         NOT_REACHED();
@@ -92,12 +93,16 @@ metric_print(char *buf, size_t nbuf, char *fmt, struct metric *m)
     return cc_scnprintf(buf, nbuf, fmt, m->name, val_buf);
 }
 
-size_t
-metric_describe(char *buf, size_t nbuf, char *fmt, struct metric *m)
+void
+metric_describe_all(struct metric metrics[], unsigned int nmetric)
 {
-    if (m == NULL) {
-        return 0;
-    }
+    unsigned int i;
 
-    return cc_scnprintf(buf, nbuf, fmt, m->name, metric_type_str[m->type], m->desc);
+    /* print a header */
+    log_stdout(METRIC_DESCRIBE_FMT, "NAME", "TYPE", "DESCRIPTION");
+
+    for (i = 0; i < nmetric; i++, metrics++) {
+        log_stdout(METRIC_DESCRIBE_FMT, metrics->name,
+                metric_type_str[metrics->type], metrics->desc);
+    }
 }
