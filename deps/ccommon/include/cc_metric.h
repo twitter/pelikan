@@ -137,7 +137,7 @@ struct metric {
 
 void metric_reset(struct metric sarr[], unsigned int nmetric);
 size_t metric_print(char *buf, size_t nbuf, char *fmt, struct metric *m);
-size_t metric_describe(char *buf, size_t nbuf, char *fmt, struct metric *m);
+void metric_describe_all(struct metric metrics[], unsigned int nmetric);
 
 #ifdef __cplusplus
 }
