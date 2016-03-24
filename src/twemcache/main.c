@@ -178,6 +178,11 @@ main(int argc, char **argv)
         }
     }
 
+    if (option_load_default((struct option *)&setting, nopt) != CC_OK) {
+        log_stderr("failed to load default option values");
+        exit(EX_CONFIG);
+    }
+
     if (fp != NULL) {
         log_stderr("load config from %s", argv[1]);
         status = option_load_file(fp, (struct option *)&setting, nopt);
