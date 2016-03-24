@@ -20,9 +20,11 @@
 #include <cc_debug.h>
 #include <cc_mm.h>
 #include <cc_pool.h>
+#include <cc_print.h>
 #include <cc_util.h>
 #include <cc_event.h>
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -32,6 +34,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/un.h>
 
 #define TCP_MODULE_NAME "ccommon::tcp"
 
@@ -313,6 +316,67 @@ tcp_close(struct tcp_conn *c)
     }
 }
 
+static void
+_tcp_resolve_peer(int sd, char *buf, int size)
+{
+    int status;
+    struct sockaddr *addr;
+    struct sockaddr_storage addr_storage;
+    socklen_t addrlen;
+    const char *p;
+    int plen;
+    uint16_t port;
+
+    addr = (struct sockaddr *)&addr_storage;
+    addrlen = sizeof(addr_storage);
+
+    status = getpeername(sd, addr, &addrlen);
+    if (status == -1) {
+        goto error;
+    }
+
+    switch (addr->sa_family) {
+    case AF_INET:
+        p = inet_ntop(AF_INET, &((struct sockaddr_in *)&addr_storage)->sin_addr, buf, size);
+        if (p == NULL) {
+            goto error;
+        }
+        plen = cc_strlen(p);
+
+        port = ntohs(((struct sockaddr_in *)&addr_storage)->sin_port);
+        if (port == 0) {
+            goto error;
+        }
+
+        cc_snprintf(p + plen, size - plen, ":%d", port);
+        break;
+
+    case AF_INET6:
+        p = inet_ntop(AF_INET6, &((struct sockaddr_in6 *)&addr_storage)->sin6_addr, buf, size);
+        if (p == NULL) {
+            goto error;
+        }
+        plen = cc_strlen(p);
+
+        port = ntohs(((struct sockaddr_in6 *)&addr_storage)->sin6_port);
+        if (port == 0) {
+            goto error;
+        }
+
+        cc_snprintf(p + plen, size - plen, ":%d", port);
+        break;
+
+    default:
+        NOT_REACHED();
+        break;
+    }
+
+    return;
+
+error:
+    cc_snprintf(buf, size, "%s", "-");
+}
+
 static inline int
 _tcp_accept(struct tcp_conn *sc)
 {
@@ -372,6 +436,8 @@ tcp_accept(struct tcp_conn *sc, struct tcp_conn *c)
         log_warn("set tcp nodelay on sd %d failed, ignored: %s", sd,
                  strerror(errno));
     }
+
+    _tcp_resolve_peer(sd, c->peer, sizeof(c->peer));
 
     log_info("accepted c %d on sd %d", c->sd, sc->sd);
 
