@@ -9,6 +9,22 @@
 
 #define TIMING_WHEEL_MODULE_NAME "ccommon::timing_wheel"
 
+struct timeout_event {
+    /* user provided */
+    timeout_cb_fn               cb;     /* callback when timed out */
+    void                        *data;  /* argument of the timeout callback */
+    bool                        recur;  /* will be reinserted upon firing */
+    struct timeout              delay;  /* delay */
+    /* the following is set internally */
+    size_t                      offset; /* bucket offset in the timing wheel */
+    bool                        free;   /* is this object free to reuse? */
+    TAILQ_ENTRY(timeout_event)  tqe;    /* entry in the wheel TAILQ */
+    STAILQ_ENTRY(timeout_event) next;   /* next timeout_event in pool */
+};
+
+STAILQ_HEAD(tevent_sqh, timeout_event); /* corresponding header type for the STAILQ */
+TAILQ_HEAD(tevent_tqh, timeout_event);  /* head type for timeout events */
+
 FREEPOOL(tevent_pool, teventq, timeout_event);
 static struct tevent_pool teventp;
 static bool teventp_init = false;
@@ -16,69 +32,40 @@ static bool teventp_init = false;
 static timing_wheel_metrics_st *timing_wheel_metrics = NULL;
 static bool timing_wheel_init = false;
 
-void
-timing_wheel_setup(timing_wheel_metrics_st *metrics)
-{
-    log_info("set up the %s module", TIMING_WHEEL_MODULE_NAME);
-
-    if (timing_wheel_init) {
-        log_warn("%s has already been setup, overwrite",
-                TIMING_WHEEL_MODULE_NAME);
-    }
-
-    timing_wheel_metrics = metrics;
-
-    timing_wheel_init = true;
-}
-
-void
-timing_wheel_teardown(void)
-{
-    log_info("tear down the %s module", TIMING_WHEEL_MODULE_NAME);
-
-    if (!timing_wheel_init) {
-        log_warn("%s has never been setup", TIMING_WHEEL_MODULE_NAME);
-    }
-
-    timing_wheel_metrics = NULL;
-    timing_wheel_init = false;
-}
-
 /* timeout_event related functions */
 
-void
+static void
 timeout_event_reset(struct timeout_event *t)
 {
     ASSERT(t != NULL);
 
-    t->free = false;
     t->cb = NULL;
     t->data = NULL;
     t->recur = false;
     timeout_reset(&t->delay);
-    /* members used by timing wheel are set/cleared by timing wheel ops */
+    t->offset = 0;
+    t->free = false;
+    /* queue-related members are set/cleared by timing wheel ops */
 }
 
-struct timeout_event *
+static struct timeout_event *
 timeout_event_create(void)
 {
     struct timeout_event *t = (struct timeout_event *)cc_alloc(sizeof(*t));
     if (t == NULL) {
         log_info("timeout_event creation failed due to OOM");
-        INCR(timing_wheel_metrics, timeout_event_create_ex);
 
         return NULL;
     }
 
     timeout_event_reset(t);
-    INCR(timing_wheel_metrics, timeout_event_create);
     INCR(timing_wheel_metrics, timeout_event_curr);
     log_verb("created timeout_event %p", t);
 
     return t;
 }
 
-void
+static void
 timeout_event_destroy(struct timeout_event **t)
 {
     if (t == NULL || *t == NULL) {
@@ -89,11 +76,10 @@ timeout_event_destroy(struct timeout_event **t)
 
     cc_free(*t);
     *t = NULL;
-    INCR(timing_wheel_metrics, timeout_event_destroy);
     DECR(timing_wheel_metrics, timeout_event_curr);
 }
 
-struct timeout_event *
+static struct timeout_event *
 timeout_event_borrow(void)
 {
     struct timeout_event *t;
@@ -106,8 +92,8 @@ timeout_event_borrow(void)
 
         return NULL;
     }
-
     timeout_event_reset(t);
+
     INCR(timing_wheel_metrics, timeout_event_borrow);
     INCR(timing_wheel_metrics, timeout_event_active);
 
@@ -116,7 +102,7 @@ timeout_event_borrow(void)
     return t;
 }
 
-void
+static void
 timeout_event_return(struct timeout_event **t)
 {
     if (t == NULL || *t == NULL || (*t)->free) {
@@ -127,13 +113,13 @@ timeout_event_return(struct timeout_event **t)
 
     (*t)->free = true;
     FREEPOOL_RETURN(*t, &teventp, next);
-
     *t = NULL;
+
     INCR(timing_wheel_metrics, timeout_event_return);
     DECR(timing_wheel_metrics, timeout_event_active);
 }
 
-void
+static void
 timeout_event_pool_create(uint32_t max)
 {
     struct timeout_event *t;
@@ -157,7 +143,7 @@ timeout_event_pool_create(uint32_t max)
     }
 }
 
-void
+static void
 timeout_event_pool_destroy(void)
 {
     struct timeout_event *t, *tt;
@@ -176,6 +162,38 @@ timeout_event_pool_destroy(void)
 
 
 /* timing wheel related functions */
+
+void
+timing_wheel_setup(timing_wheel_metrics_st *metrics)
+{
+    log_info("set up the %s module", TIMING_WHEEL_MODULE_NAME);
+
+    if (timing_wheel_init) {
+        log_warn("%s has already been setup, overwrite",
+                TIMING_WHEEL_MODULE_NAME);
+    }
+
+    timing_wheel_metrics = metrics;
+
+    timeout_event_pool_create(0); /* TODO(yao): add an option to set this */
+
+    timing_wheel_init = true;
+}
+
+void
+timing_wheel_teardown(void)
+{
+    log_info("tear down the %s module", TIMING_WHEEL_MODULE_NAME);
+
+    if (!timing_wheel_init) {
+        log_warn("%s has never been setup", TIMING_WHEEL_MODULE_NAME);
+    }
+
+    timeout_event_pool_destroy();
+    timing_wheel_metrics = NULL;
+
+    timing_wheel_init = false;
+}
 
 struct timing_wheel *
 timing_wheel_create(struct timeout *tick, size_t cap, size_t ntick)
@@ -233,56 +251,77 @@ timing_wheel_destroy(struct timing_wheel **tw)
     *tw = NULL;
 }
 
+static inline size_t
+_offset(struct timing_wheel *tw, struct timeout *delay) {
+    uint64_t delay_ns = (uint64_t)timeout_ns(delay);
+
+    return (delay_ns == 0) ? 0 : (delay_ns - 1) / tw->tick_ns + 1;
+}
+
 /**
  * Since timing wheel is discrete, the events are bucket'ed approximately.
  * Here we treat ms == 0 as a special case and add event to the current slot,
  * otherwise, the offset is at least 1 (next slot)
  */
-rstatus_i
-timing_wheel_insert(struct timing_wheel *tw, struct timeout_event *tev)
+static void
+_timing_wheel_insert(struct timing_wheel *tw, struct timeout_event *tev)
 {
-    size_t offset = 0;
-
-    ASSERT(tw != NULL && tev != NULL);
-    ASSERT(tev->delay.is_intvl);
-
-    tev->delay_ns = (uint64_t)timeout_ns(&tev->delay);
-
-    if (tev->delay_ns > 0) {
-        offset = (tev->delay_ns - 1) / tw->tick_ns + 1;
-    }
-
-    if (offset >= tw->cap) { /* wraps around */
-        log_error("insert timeout event into timing wheel failed: timeout "
-                PRIu64"ns too long for wheel capacity %"PRIu64"ns",
-                tev->delay_ns, tw->tick_ns * tw->cap);
-
-        return CC_EINVAL;
-    }
-
-    if (tev->recur && tev->delay_ns == 0) {
-        log_error("insert timeout event into timing wheel failed: timeout "
-                "cannot be 0 for recurring events");
-
-        return CC_EINVAL;
-    }
-
-    timeout_add_intvl(&tev->to, &tev->delay);
-    offset = (tw->curr + offset) % tw->cap; /* convert to absolute offset */
-    tev->offset = offset;
-    TAILQ_INSERT_TAIL(&tw->table[offset], tev, tqe);
+    TAILQ_INSERT_TAIL(&tw->table[tev->offset], tev, tqe);
     tw->nevent++;
+
     INCR(timing_wheel_metrics, timing_wheel_insert);
     INCR(timing_wheel_metrics, timing_wheel_event);
 
     log_verb("added timeout event %p into timing wheel %p: curr tick %zu, "
             "scheduled offset %zu", tev, tw, tw->curr, tev->offset);
-
-    return CC_OK;
 }
 
-void
-timing_wheel_remove(struct timing_wheel *tw, struct timeout_event *tev)
+struct timeout_event *
+timing_wheel_insert(struct timing_wheel *tw, struct timeout *delay, bool recur,
+                    timeout_cb_fn cb, void *arg)
+{
+    struct timeout_event *tev;
+    size_t offset;
+
+    ASSERT(tw != NULL && delay != NULL && cb != NULL);
+    ASSERT(delay->is_intvl);
+
+    tev = timeout_event_borrow();
+    if (tev == NULL) {
+        log_error("cannot create allocate timeout events due to OOM");
+        goto error;
+    }
+    tev->cb = cb;
+    tev->data = arg;
+    tev->recur = recur;
+    tev->delay = *delay;
+
+    offset = _offset(tw, delay);
+    if (offset >= tw->cap) { /* wraps around */
+        log_error("insert timeout event into timing wheel failed: timeout "
+                "%"PRIi64"ns too long for wheel capacity %"PRIu64"ns",
+                timeout_ns(delay), tw->tick_ns * tw->cap);
+        goto error;
+    }
+    if (recur && offset == 0) {
+        log_error("insert timeout event into timing wheel failed: recurring "
+                "events cannot be scheduled without delay");
+        goto error;
+    }
+
+    tev->offset = (tw->curr + offset) % tw->cap; /* convert to absolute offset */
+    _timing_wheel_insert(tw, tev);
+
+    return tev;
+
+error:
+    timeout_event_return(&tev);
+
+    return NULL;
+}
+
+static void
+_timing_wheel_remove(struct timing_wheel *tw, struct timeout_event *tev)
 {
     ASSERT(tw != NULL && tev != NULL);
 
@@ -290,12 +329,18 @@ timing_wheel_remove(struct timing_wheel *tw, struct timeout_event *tev)
             "scheduled offset %zu", tev, tw, tw->curr, tev->offset);
 
     TAILQ_REMOVE(&tw->table[tev->offset], tev, tqe);
-    tev->offset = 0;
-    timeout_reset(&tev->to);
-    tev->delay_ns = 0;
     tw->nevent--;
+
     INCR(timing_wheel_metrics, timing_wheel_remove);
     DECR(timing_wheel_metrics, timing_wheel_event);
+}
+
+void
+timing_wheel_remove(struct timing_wheel *tw, struct timeout_event **tev)
+{
+    /* consider the timeout event canceled if removed externally, and recycle */
+    _timing_wheel_remove(tw, *tev);
+    timeout_event_return(tev);
 }
 
 void
@@ -343,36 +388,23 @@ static inline void
 _process_tick(struct timing_wheel *tw, bool endmode)
 {
     struct timeout_event *t, *tt;
-    rstatus_i status;
     uint64_t nprocess = tw->nprocess;
-    bool recur;
 
     TAILQ_FOREACH_SAFE(t, &tw->table[tw->curr], tqe, tt) {
-        recur = t->recur;
         tw->nprocess++;
         INCR(timing_wheel_metrics, timing_wheel_process);
 
-        timing_wheel_remove(tw, t);
-        /* Note: things get intricate when the life cycle of timeout events are
-         * considered: we cannot recycle events here because timing wheel has no
-         * knowledge of how those events were created (borrowed, created etc),
-         * and the only other place to do it is in the callback. However, once
-         * the callback destroys the timeout event, accessing `t' will lead to
-         * uncertain behavior. This seems extremely prone to misuse and memory
-         * related bugs at runtime.
-         *
-         * For now, we assume that the callback will not attempt to free the
-         * current timeout event if it is a recurring event. For one-time
-         * events, we will not use any attribute of `t' beyond the callback.
-         * For recurring events, since they are on an infinite loop, we assume
-         * some proper *_shutdown() logic will take care of recycling.
-         *
-         * Need to think of a better way of doing this, probably...
-         */
-        t->cb(t->data);
-        if (!endmode && recur) { /* reinsert if recurring and not ending */
-            status = timing_wheel_insert(tw, t);
-            ASSERT(status == CC_OK); /* shouldn't fail */
+        _timing_wheel_remove(tw, t);
+        /* allowing t->cb to be NULL makes it easier to test/benchmark */
+        if (t->cb != NULL) {
+            t->cb(t->data);
+        }
+        if (!endmode && t->recur) {
+            /* re-calculate offset & insert if recurring and not ending */
+            t->offset = (tw->curr + _offset(tw, &t->delay)) % tw->cap;
+            _timing_wheel_insert(tw, t);
+        } else {
+            timeout_event_return(&t);
         }
     }
 

@@ -25,16 +25,22 @@ extern "C" {
 #include <cc_queue.h>
 #include <time/cc_timer.h>
 
+    /* TODO(yao): we need to ask the question of whether we want to expose
+     * `struct timeout_event` and its related functions at all, given the
+     * difficulty of managing the resource lifecycle in combination with
+     * the arbitrary nature of callback functions.
+     *
+     * Keeping the existing interfaces untouched for now to minimize changes
+     * introduced at once. Will revisit very soon.
+     */
+
 /*          name                    type            description */
 #define TIMING_WHEEL_METRIC(ACTION)                                                 \
-    ACTION( timeout_event_create,   METRIC_COUNTER, "# timeout events created"     )\
-    ACTION( timeout_event_create_ex,METRIC_COUNTER, "# tevents create errors"      )\
-    ACTION( timeout_event_destroy,  METRIC_COUNTER, "# timeout events destroyed"   )\
     ACTION( timeout_event_curr,     METRIC_GAUGE,   "# timeout events allocated"   )\
+    ACTION( timeout_event_active,   METRIC_GAUGE,   "# timeout events in use"      )\
     ACTION( timeout_event_borrow,   METRIC_COUNTER, "# timeout events borrowed"    )\
     ACTION( timeout_event_borrow_ex,METRIC_COUNTER, "# tevents borrow errors"      )\
     ACTION( timeout_event_return,   METRIC_COUNTER, "# timeout events returned"    )\
-    ACTION( timeout_event_active,   METRIC_GAUGE,   "# timeout events in use"      )\
     ACTION( timing_wheel_insert,    METRIC_COUNTER, "# tevent insertions"          )\
     ACTION( timing_wheel_remove,    METRIC_COUNTER, "# tevent removal"             )\
     ACTION( timing_wheel_event,     METRIC_GAUGE,   "# tevents in timing wheels"   )\
@@ -60,24 +66,39 @@ typedef void (*timeout_cb_fn)(void *); /* timeout callback */
  * timing wheel shouldn't use very fine grain timeouts due to both scheduling
  * overhead and the batching nature of processing.
  */
-struct timeout_event {
-    /* user provided */
-    timeout_cb_fn               cb;       /* callback when timed out */
-    void                        *data;    /* argument of the timeout callback */
-    bool                        recur;    /* will be reinserted upon firing */
-    struct timeout              delay;    /* delay */
-    /* the following is used internally */
-    uint64_t                    delay_ns; /* delay in nanoseconds */
-    TAILQ_ENTRY(timeout_event)  tqe;      /* entry in the wheel TAILQ */
-    struct timeout              to;       /* timeout/trigger time */
-    size_t                      offset;   /* offset in the timing wheel */
-    /* for organizing timeout events */
-    STAILQ_ENTRY(timeout_event) next;     /* next timeout_event in pool */
-    bool                        free;     /* is this object free to reuse? */
-};
 
-STAILQ_HEAD(tevent_sqh, timeout_event); /* corresponding header type for the STAILQ */
-TAILQ_HEAD(tevent_tqh, timeout_event);   /* head type for timeout events */
+/**
+ * For timing wheel, we hide the definition of `struct timeout_event', a
+ * practice we do not usually adopt in this project unless there is a good
+ * reason to.
+ * Here, the reason lies in the life-cycle management of timeout events. The
+ * caller of `timing_wheel_insert' by nature cannot determine whether or when
+ * the timeout event will eventually be triggered beforehand. As a result,
+ * the caller has to keep reference and free up resources associated with the
+ * timeout event in the callback if the timeout event is triggerred.
+ *
+ * Hence if the caller to create and pass in a timeout event object, it is on
+ * the hook to manage the life cycle of that object. On the other hand, the
+ * sole purpose of such an event is to be used with timing wheel. So if we can
+ * take over the burden of managing these objects, it will simplify usage and
+ * prevent memory leak caused by not freeing up timeout event objects.
+ * Therefore, by hiding `struct timeout_event's definition, caller can only get
+ * a reference to it, which can be used to delete the timeout if desired. Other
+ * than that, caller need not worry about the life cycle of these objects. If
+ * the caller is confident that the timeout event will be triggered, it can even
+ * ignore the reference returned at insertion.
+ *
+ * For insertions that may or may not be removed before due, the caller is
+ * expected to clear the pointer returned in the callback, but _not_ attempt to
+ * remove it (since it is already removed).
+ */
+
+/**
+ * Recurring events, by definition, are never removed unless the service is
+ * being shut down. In this case, the teardown logic of timing wheel will
+ * properly clean up all resources tied to such events.
+ */
+struct timeout_event;
 
 struct timing_wheel {
     /* basic properties of the timing wheel */
@@ -104,21 +125,11 @@ struct timing_wheel {
     uint64_t            ntick;      /* total # ticks processed */
 };
 
-
-void timeout_event_reset(struct timeout_event *t);
-struct timeout_event *timeout_event_create(void);
-void timeout_event_destroy(struct timeout_event **t);
-struct timeout_event *timeout_event_borrow(void);
-void timeout_event_return(struct timeout_event **t);
-
-void timeout_event_pool_create(uint32_t max);
-void timeout_event_pool_destroy(void);
-
 struct timing_wheel *timing_wheel_create(struct timeout *tick, size_t cap, size_t ntick);
 void timing_wheel_destroy(struct timing_wheel **tw);
 
-rstatus_i timing_wheel_insert(struct timing_wheel *tw, struct timeout_event *tev);
-void timing_wheel_remove(struct timing_wheel *tw, struct timeout_event *tev);
+struct timeout_event * timing_wheel_insert(struct timing_wheel *tw, struct timeout *delay, bool recur, timeout_cb_fn cb, void *arg);
+void timing_wheel_remove(struct timing_wheel *tw, struct timeout_event **tev);
 
 void timing_wheel_start(struct timing_wheel *tw);
 void timing_wheel_stop(struct timing_wheel *tw);
