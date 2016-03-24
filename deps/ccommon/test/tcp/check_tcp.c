@@ -19,11 +19,11 @@ static struct tcp_conn *client;
  * utilities
  */
 static int
-get_addr(struct addrinfo **ai)
+get_addr(struct addrinfo **ai_ptr)
 {
     struct addrinfo hints = { .ai_flags = AI_PASSIVE, .ai_family = AF_UNSPEC,
                               .ai_socktype = SOCK_STREAM };
-    return getaddrinfo(HOST, PORT, &hints, ai);
+    return getaddrinfo(HOST, PORT, &hints, ai_ptr);
 }
 
 static void
