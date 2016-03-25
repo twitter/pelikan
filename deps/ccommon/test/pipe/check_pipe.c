@@ -40,7 +40,8 @@ test_reset(void)
     test_setup();
 }
 
-static void *do_write(void *_write_task)
+static void *
+do_write(void *_write_task)
 {
     struct write_task* task = _write_task;
     if (task->usleep) {
