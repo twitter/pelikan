@@ -172,7 +172,7 @@ _post_read(struct buf_sock *s)
         /* actual handling */
         process_request(rsp, req);
 
-        klog_write(req, rsp);
+        klog_write(req, rsp, s->ch->peer);
 
         /* writing results */
         if (req->noreply) { /* noreply means no writing to buffers */

@@ -242,12 +242,11 @@ _klog_fmt_delta(struct request *req, struct response *rsp, char *buf, int len)
     return len;
 }
 
-/* TODO(kyang): update peer to log the peer instead of placeholder (CACHE-3492) */
 void
-_klog_write(struct request *req, struct response *rsp)
+_klog_write(struct request *req, struct response *rsp, char *peer)
 {
     int len, time_len, errno_save;
-    char buf[KLOG_MAX_LEN], *peer = "-";
+    char buf[KLOG_MAX_LEN];
     time_t t;
 
     if (klogger == NULL) {
@@ -259,6 +258,10 @@ _klog_write(struct request *req, struct response *rsp)
     if (klog_cmds % klog_sample != 0) {
         INCR(klog_metrics, klog_skip);
         return;
+    }
+
+    if (peer == NULL) {
+        peer = "-";
     }
 
     errno_save = errno;
