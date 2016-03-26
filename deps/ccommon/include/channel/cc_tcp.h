@@ -32,6 +32,7 @@ extern "C" {
 #include <stdbool.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <unistd.h>
 
 /**
@@ -79,19 +80,20 @@ typedef struct {
 } tcp_metrics_st;
 
 struct tcp_conn {
-    STAILQ_ENTRY(tcp_conn)  next;           /* for conn pool */
-    bool                    free;           /* in use? */
+    STAILQ_ENTRY(tcp_conn)  next;                               /* for conn pool */
+    bool                    free;                               /* in use? */
 
-    ch_level_e              level;          /* meta or base */
-    int                     sd;             /* socket descriptor */
+    ch_level_e              level;                              /* meta or base */
+    int                     sd;                                 /* socket descriptor */
+    char                    peer[INET6_ADDRSTRLEN + 1 + 5 + 1]; /* printable host:port */
 
-    size_t                  recv_nbyte;     /* received (read) bytes */
-    size_t                  send_nbyte;     /* sent (written) bytes */
+    size_t                  recv_nbyte;                         /* received (read) bytes */
+    size_t                  send_nbyte;                         /* sent (written) bytes */
 
-    unsigned                state:4;        /* channel state */
-    unsigned                flags:12;       /* annotation fields */
+    unsigned                state:4;                            /* channel state */
+    unsigned                flags:12;                           /* annotation fields */
 
-    err_i                   err;            /* errno */
+    err_i                   err;                                /* errno */
 };
 
 STAILQ_HEAD(tcp_conn_sqh, tcp_conn); /* corresponding header type for the STAILQ */

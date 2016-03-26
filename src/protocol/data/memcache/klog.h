@@ -41,12 +41,12 @@ extern bool klog_enabled;
 void klog_setup(klog_options_st *options, klog_metrics_st *metrics);
 void klog_teardown(void);
 
-#define klog_write(req, rsp) do {   \
-    if (klog_enabled) {             \
-        _klog_write(req, rsp);      \
-    }                               \
+#define klog_write(req, rsp, peer) do {  \
+    if (klog_enabled) {                  \
+        _klog_write(req, rsp, peer);     \
+    }                                    \
 } while (0)
 
-void _klog_write(struct request *req, struct response *rsp);
+void _klog_write(struct request *req, struct response *rsp, char *peer);
 
 void klog_flush(void *arg); /* compatible type: timeout_cb_fn */
