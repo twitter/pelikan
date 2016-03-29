@@ -55,10 +55,19 @@ struct event_base *event_base_create(int size, event_cb_fn cb);
 void event_base_destroy(struct event_base **evb);
 
 /* event control */
+/**
+ * Note: the asymmetry between add and del is intentional:
+ * - when enabling events on a fd, different types correspond to different
+ *   follow-up actions, and are often added independently. For example, a
+ *   server socket does not ever need to write to its sd, and therefore will
+ *   never use write events.
+ * - when removing events from a fd, it is common to delete both types as part
+ *   of the teardown routine. So it is convenient to provide an API to clean
+ *   up whatever flag that was set.
+ */
 int event_add_read(struct event_base *evb, int fd, void *data);
 int event_add_write(struct event_base *evb, int fd, void *data);
-int event_register(struct event_base *evb, int fd, void *data);
-int event_deregister(struct event_base *evb, int fd);
+int event_del(struct event_base *evb, int fd);
 
 /* event wait */
 int event_wait(struct event_base *evb, int timeout);

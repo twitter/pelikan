@@ -85,6 +85,7 @@ metric_print(char *buf, size_t nbuf, char *fmt, struct metric *m)
 
     case METRIC_FPN:
         cc_scnprintf(val_buf, VALUE_PRINT_LEN, "%f", m->fpn);
+        break;
 
     default:
         NOT_REACHED();

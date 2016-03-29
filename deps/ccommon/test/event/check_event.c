@@ -76,6 +76,7 @@ START_TEST(test_read)
     ck_assert_ptr_eq(event_log[0].arg, random_pointer);
     ck_assert_int_eq(event_log[0].events, EVENT_READ);
 
+    ck_assert_int_eq(event_del(event_base, pipe_read_id(pipe)), 0);
     event_base_destroy(&event_base);
     pipe_close(pipe);
     pipe_conn_destroy(&pipe);
@@ -104,6 +105,7 @@ START_TEST(test_cannot_read)
 
     ck_assert_int_eq(event_log_count, 0);
 
+    ck_assert_int_eq(event_del(event_base, pipe_read_id(pipe)), 0);
     event_base_destroy(&event_base);
     pipe_close(pipe);
     pipe_conn_destroy(&pipe);
@@ -133,6 +135,7 @@ START_TEST(test_write)
     ck_assert_ptr_eq(event_log[0].arg, random_pointer);
     ck_assert_int_eq(event_log[0].events, EVENT_WRITE);
 
+    ck_assert_int_eq(event_del(event_base, pipe_write_id(pipe)), 0);
     event_base_destroy(&event_base);
     pipe_close(pipe);
     pipe_conn_destroy(&pipe);

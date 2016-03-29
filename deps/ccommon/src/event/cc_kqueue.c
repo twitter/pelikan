@@ -108,6 +108,8 @@ event_base_create(int nevent, event_cb_fn cb)
 void
 event_base_destroy(struct event_base **evb)
 {
+    ASSERT(evb != NULL);
+
     int status;
     struct event_base *e = *evb;
 
@@ -131,24 +133,29 @@ event_base_destroy(struct event_base **evb)
     *evb = NULL;
 }
 
-int
-event_add_read(struct event_base *evb, int fd, void *data)
+static void
+_event_update(struct event_base *evb, int fd, uint16_t flags, uint32_t fflags,
+        void *data)
 {
     struct kevent *event;
 
-    ASSERT(evb != NULL);
-    ASSERT(evb->kq > 0);
-    ASSERT(evb->nchange < evb->nevent);
+    ASSERT(evb != NULL && evb->kq > 0);
     ASSERT(fd > 0);
+    ASSERT(evb->nchange < evb->nevent);
 
     event = &evb->change[evb->nchange++];
-    EV_SET(event, fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, data);
+    EV_SET(event, fd, flags, fflags, 0, 0, data);
     kevent(evb->kq, evb->change, evb->nchange, NULL, 0, NULL);
-
-    log_verb("adding read event at %p, nchange %d", event, evb->nchange);
-
     evb->nchange = 0;
+}
+
+int
+event_add_read(struct event_base *evb, int fd, void *data)
+{
+    _event_update(evb, fd, EVFILT_READ, EV_ADD | EV_CLEAR, data);
     INCR(event_metrics, event_read);
+
+    log_verb("adding read event to fd %d", fd);
 
     return 0;
 }
@@ -156,50 +163,19 @@ event_add_read(struct event_base *evb, int fd, void *data)
 int
 event_add_write(struct event_base *evb, int fd, void *data)
 {
-    struct kevent *event;
-
-    ASSERT(evb != NULL);
-    ASSERT(evb->kq > 0);
-    ASSERT(evb->nchange < evb->nevent);
-    ASSERT(fd > 0);
-
-    event = &evb->change[evb->nchange++];
-    EV_SET(event, fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, data);
-    kevent(evb->kq, evb->change, evb->nchange, NULL, 0, NULL);
-
-    log_verb("adding write event at %p, nchange %d", event, evb->nchange);
-
-    evb->nchange = 0;
+    _event_update(evb, fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, data);
     INCR(event_metrics, event_write);
 
-    return 0;
-}
-
-int
-event_register(struct event_base *evb, int fd, void *data)
-{
-    event_add_read(evb, fd, data);
-    event_add_write(evb, fd, data);
+    log_verb("adding read event to fd %d", fd);
 
     return 0;
 }
 
 int
-event_deregister(struct event_base *evb, int fd)
+event_del(struct event_base *evb, int fd)
 {
-    struct kevent *event;
-
-    ASSERT(evb != NULL);
-    ASSERT(evb->kq > 0);
-    ASSERT(evb->nchange < evb->nevent);
-    ASSERT(fd > 0);
-
-    event = &evb->change[evb->nchange++];
-    EV_SET(event, fd, EVFILT_READ, EV_DELETE, 0, 0, 0);
-    event = &evb->change[evb->nchange++];
-    EV_SET(event, fd, EVFILT_WRITE, EV_DELETE, 0, 0, 0);
-    kevent(evb->kq, evb->change, evb->nchange, NULL, 0, NULL);
-    evb->nchange = 0;
+    _event_update(evb, fd, EVFILT_READ, EV_DELETE, NULL);
+    _event_update(evb, fd, EVFILT_WRITE, EV_DELETE, NULL);
 
     return 0;
 }
