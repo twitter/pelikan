@@ -37,7 +37,7 @@ _server_close(struct buf_sock *s)
 {
     log_info("core close on buf_sock %p", s);
 
-    event_del(ctx->evb, s->ch->sd);
+    event_del(ctx->evb, hdl->rid(s->ch));
 
     hdl->term(s->ch);
     buf_sock_return(&s);
