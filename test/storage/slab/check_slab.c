@@ -432,7 +432,7 @@ END_TEST
 START_TEST(test_evict_lru_basic)
 {
 #define MY_SLAB_SIZE 160
-#define MY_SLAB_MAXBYTES 320
+#define MY_SLAB_MAXBYTES 160
     /**
      * These are the slabs that will be created with these parameters:
      *
@@ -446,15 +446,15 @@ START_TEST(test_evict_lru_basic)
      **/
 #define KEY_LENGTH 2
 #define VALUE_LENGTH 8
-#define NUM_ITEMS 3
+#define NUM_ITEMS 2
 
     size_t i;
-    struct bstring key[NUM_ITEMS] = {
+    struct bstring key[NUM_ITEMS + 1] = {
         {KEY_LENGTH, "aa"},
         {KEY_LENGTH, "bb"},
         {KEY_LENGTH, "cc"},
     };
-    struct bstring val[NUM_ITEMS] = {
+    struct bstring val[NUM_ITEMS + 1] = {
         {VALUE_LENGTH, "aaaaaaaa"},
         {VALUE_LENGTH, "bbbbbbbb"},
         {VALUE_LENGTH, "cccccccc"},
@@ -470,7 +470,7 @@ START_TEST(test_evict_lru_basic)
     test_teardown();
     slab_setup(&options, &metrics);
 
-    for (i = 0; i < NUM_ITEMS; i++) {
+    for (i = 0; i < NUM_ITEMS + 1; i++) {
         time_update();
         status = item_insert(&key[i], &val[i], 0, 0);
         ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
