@@ -4,13 +4,16 @@
 #include <cc_bstring.h>
 #include <cc_mm.h>
 
-#include <stdio.h>
 #include <check.h>
+#include <stdio.h>
 #include <string.h>
 
 /* define for each suite, local scope due to macro visibility rule */
 #define SUITE_NAME "slab"
 #define DEBUG_LOG  SUITE_NAME ".log"
+
+slab_options_st options = { SLAB_OPTION(OPTION_INIT) };
+slab_metrics_st metrics = { SLAB_METRIC(METRIC_INIT) };
 
 /*
  * utilities
@@ -18,7 +21,8 @@
 static void
 test_setup(void)
 {
-    slab_setup(NULL, NULL);
+    option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
+    slab_setup(&options, &metrics);
 }
 
 static void
@@ -457,13 +461,14 @@ START_TEST(test_evict_lru_basic)
     };
     item_rstatus_t status;
 
+    option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
+    options.slab_size.val.vuint = MY_SLAB_SIZE;
+    options.slab_mem.val.vuint = MY_SLAB_MAXBYTES;
+    options.slab_evict_opt.val.vuint = EVICT_CS;
+    options.slab_item_max.val.vuint = MY_SLAB_SIZE - SLAB_HDR_SIZE;
+
     test_teardown();
-    status = slab_setup(MY_SLAB_SIZE, true,
-                        EVICT_CS, true, SLAB_MIN_CHUNK,
-                        MY_SLAB_SIZE - SLAB_HDR_SIZE, MY_SLAB_MAXBYTES, NULL, str(SLAB_FACTOR), NULL);
-    ck_assert_msg(status == CC_OK, "could not reset slab module");
-    status = item_setup(false, HASH_POWER, NULL);
-    ck_assert_msg(status == CC_OK, "could not setup a slab item");
+    slab_setup(&options, &metrics);
 
     for (i = 0; i < NUM_ITEMS; i++) {
         time_update();

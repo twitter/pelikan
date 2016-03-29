@@ -45,9 +45,6 @@ uint64_t cas_id;
 static bool slab_init = false;
 slab_metrics_st *slab_metrics = NULL;
 
-#define SLAB_RAND_MAX_TRIES         50
-#define SLAB_LRU_MAX_TRIES          50
-
 void
 slab_print(void)
 {
@@ -606,19 +603,7 @@ _slab_evict_one(struct slab *slab)
 static struct slab *
 _slab_evict_rand(void)
 {
-    struct slab *slab;
-    uint32_t tries;
-
-    tries = SLAB_RAND_MAX_TRIES;
-    do {
-        slab = _slab_table_rand();
-        tries--;
-    } while (tries > 0);
-
-    if (tries == 0) {
-        /* all randomly chosen slabs are in use */
-        return NULL;
-    }
+    struct slab *slab = _slab_table_rand();
 
     log_debug("random-evicting slab %p with id %u", slab, slab->id);
 
@@ -633,17 +618,7 @@ _slab_evict_rand(void)
 static struct slab *
 _slab_evict_lru(int id)
 {
-    struct slab *slab;
-    uint32_t tries;
-
-    for (tries = SLAB_LRU_MAX_TRIES, slab = _slab_lruq_head();
-         tries > 0 && slab == NULL;
-         tries--, slab = TAILQ_NEXT(slab, s_tqe)) {
-    }
-
-    if (tries == 0 || slab == NULL) {
-        return NULL;
-    }
+    struct slab *slab = _slab_lruq_head();
 
     log_debug("lru-evicting slab %p with id %u", slab, slab->id);
 
