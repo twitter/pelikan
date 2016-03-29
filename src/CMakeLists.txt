@@ -12,7 +12,3 @@ endif()
 if(TARGET_TWEMCACHE)
     add_subdirectory(twemcache)
 endif()
-
-if(TARGET_REDIS)
-    add_subdirectory(redis)
-endif()
