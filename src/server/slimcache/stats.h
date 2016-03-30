@@ -1,8 +1,9 @@
 #pragma once
 
+#include "admin/process.h"
+#include "data/process.h"
+
 #include <protocol/data/memcache_include.h>
-#include <slimcache/admin/process.h>
-#include <slimcache/data/process.h>
 #include <storage/cuckoo/cuckoo.h>
 #include <core/core.h>
 #include <util/procinfo.h>

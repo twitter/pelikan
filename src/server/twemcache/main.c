@@ -1,5 +1,5 @@
-#include <twemcache/setting.h>
-#include <twemcache/stats.h>
+#include "setting.h"
+#include "stats.h"
 
 #include <time/time.h>
 #include <util/util.h>

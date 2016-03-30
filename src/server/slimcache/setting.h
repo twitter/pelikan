@@ -1,7 +1,7 @@
 #pragma once
 
-#include <slimcache/admin/process.h>
-#include <slimcache/data/process.h>
+#include "admin/process.h"
+#include "data/process.h"
 
 #include <core/core.h>
 #include <storage/cuckoo/cuckoo.h>

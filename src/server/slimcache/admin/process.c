@@ -1,4 +1,4 @@
-#include <twemcache/admin/process.h>
+#include "process.h"
 
 #include <protocol/admin/admin_include.h>
 #include <util/procinfo.h>
@@ -6,7 +6,7 @@
 #include <cc_mm.h>
 #include <cc_print.h>
 
-#define TWEMCACHE_ADMIN_MODULE_NAME "twemcache::admin"
+#define SLIMCACHE_ADMIN_MODULE_NAME "slimcache::admin"
 
 #define METRIC_PRINT_FMT "STAT %s %s\r\n"
 #define METRIC_PRINT_LEN 64 /* > 5("STAT ") + 32 (name) + 20 (value) + CRLF */
@@ -31,10 +31,10 @@ static size_t stats_len;
 void
 admin_process_setup(admin_process_metrics_st *metrics)
 {
-    log_info("set up the %s module", TWEMCACHE_ADMIN_MODULE_NAME);
+    log_info("set up the %s module", SLIMCACHE_ADMIN_MODULE_NAME);
     if (admin_init) {
         log_warn("%s has already been setup, overwrite",
-                 TWEMCACHE_ADMIN_MODULE_NAME);
+                 SLIMCACHE_ADMIN_MODULE_NAME);
     }
 
     admin_metrics = metrics;
@@ -49,9 +49,9 @@ admin_process_setup(admin_process_metrics_st *metrics)
 void
 admin_process_teardown(void)
 {
-    log_info("tear down the %s module", TWEMCACHE_ADMIN_MODULE_NAME);
+    log_info("tear down the %s module", SLIMCACHE_ADMIN_MODULE_NAME);
     if (!admin_init) {
-        log_warn("%s has never been setup", TWEMCACHE_ADMIN_MODULE_NAME);
+        log_warn("%s has never been setup", SLIMCACHE_ADMIN_MODULE_NAME);
     }
 
     admin_metrics = NULL;

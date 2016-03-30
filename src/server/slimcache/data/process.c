@@ -1,4 +1,4 @@
-#include <slimcache/data/process.h>
+#include "process.h"
 
 #include <protocol/data/memcache_include.h>
 #include <storage/cuckoo/cuckoo.h>
