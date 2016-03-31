@@ -76,7 +76,7 @@ core_teardown(void)
 }
 
 void
-core_run(void)
+core_run(void *arg_admin, void *arg_worker)
 {
     pthread_t worker, admin;
     int ret;
@@ -86,14 +86,14 @@ core_run(void)
         return;
     }
 
-    ret = pthread_create(&worker, NULL, core_worker_evloop, NULL);
+    ret = pthread_create(&worker, NULL, core_worker_evloop, arg_worker);
     if (ret != 0) {
         log_crit("pthread create failed for worker thread: %s", strerror(ret));
         goto error;
     }
 
     __atomic_store_n(&admin_running, true, __ATOMIC_RELAXED);
-    ret = pthread_create(&admin, NULL, core_admin_evloop, NULL);
+    ret = pthread_create(&admin, NULL, core_admin_evloop, arg_admin);
     if (ret != 0) {
         log_crit("pthread create failed for admin thread: %s", strerror(ret));
         goto error;

@@ -13,6 +13,11 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
+struct post_processor worker_processor = {
+    slimcache_process_read,
+    slimcache_process_write
+};
+
 static void
 show_usage(void)
 {
@@ -202,7 +207,7 @@ main(int argc, char **argv)
     setup();
     option_print_all((struct option *)&setting, nopt);
 
-    core_run();
+    core_run(NULL, &worker_processor);
 
     exit(EX_OK);
 }

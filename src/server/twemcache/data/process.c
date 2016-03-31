@@ -496,3 +496,130 @@ process_request(struct response *rsp, struct request *req)
         break;
     }
 }
+
+static void
+_cleanup(struct request **req, struct response **rsp)
+{
+    request_return(req);
+    response_return_all(rsp);
+}
+
+int
+twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
+{
+    parse_rstatus_t status;
+    struct request *req;
+    struct response *rsp = NULL;
+
+    log_verb("post read processing on rbuf %p", *rbuf);
+
+    req =  (*data == NULL) ? request_borrow() : *data;
+    if (req == NULL) {
+        /* TODO(yao): simply return for now, better to respond with OOM */
+        log_error("cannot acquire request: OOM");
+        INCR(process_metrics, process_ex);
+
+        return -1;
+    }
+
+    /* keep parse-process-compose until running out of data in rbuf */
+    while (buf_rsize(*rbuf) > 0) {
+        struct response *nr;
+        int i, card;
+
+        /* stage 1: parsing */
+        log_verb("%"PRIu32" bytes left", buf_rsize(*rbuf));
+
+        status = parse_req(req, *rbuf);
+        if (status == PARSE_EUNFIN) {
+            *data = req; /* save partially parsed request */
+
+            return 0;
+        }
+        if (status != PARSE_OK) {
+            /* parsing errors are all client errors, since we don't know
+             * how to recover from client errors in this condition (we do not
+             * have a valid request so we don't know where the invalid request
+             * ends), we should close the connection
+             */
+            log_warn("illegal request received, status: %d", status);
+            _cleanup(&req, &rsp);
+
+            return -1;
+        }
+
+        /* stage 2: processing- check for quit, allocate response(s), process */
+
+        /* quit is special, no response expected */
+        if (req->type == REQ_QUIT) {
+            log_info("peer called quit");
+            _cleanup(&req, &rsp);
+
+            return -1;
+        }
+
+        /* find cardinality of the request and get enough response objects */
+        card = array_nelem(req->keys);
+        if (req->type == REQ_GET || req->type == REQ_GETS) {
+            /* extra response object for the "END" line after values */
+            card++;
+        }
+        for (i = 0, rsp = response_borrow(), nr = rsp;
+             i < card;
+             i++, STAILQ_NEXT(nr, next) = response_borrow(), nr =
+                STAILQ_NEXT(nr, next)) {
+            if (nr == NULL) {
+                log_error("cannot acquire response: OOM");
+                INCR(process_metrics, process_ex);
+                _cleanup(&req, &rsp);
+
+                return -1;
+            }
+        }
+
+        /* actual processing & command logging */
+        process_request(rsp, req);
+        klog_write(req, rsp);
+
+
+        /* stage 3: write response(s) */
+
+        /* noreply means no need to write to buffers */
+        if (req->noreply) {
+            request_reset(req);
+            continue;
+        }
+
+        /* write to wbuf */
+        nr = rsp;
+        if (req->type == REQ_GET || req->type == REQ_GETS) {
+            card = req->nfound + 1;
+        } /* no need to update for other req types- card remains 1 */
+        for (i = 0; i < card; nr = STAILQ_NEXT(nr, next), ++i) {
+            if (compose_rsp(wbuf, nr) < 0) {
+                log_error("composing rsp erred");
+                INCR(process_metrics, process_ex);
+                _cleanup(&req, &rsp);
+
+                return -1;
+            }
+        }
+    }
+
+    _cleanup(&req, &rsp);
+    *data = NULL;
+
+    return 0;
+}
+
+int
+twemcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
+{
+    buf_lshift(*rbuf);
+    buf_lshift(*wbuf);
+
+    dbuf_shrink(rbuf);
+    dbuf_shrink(wbuf);
+
+    return 0;
+}
