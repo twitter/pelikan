@@ -511,7 +511,7 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
     struct request *req;
     struct response *rsp = NULL;
 
-    log_verb("post read processing on rbuf %p", *rbuf);
+    log_verb("post-read processing");
 
     req =  (*data == NULL) ? request_borrow() : *data;
     if (req == NULL) {
@@ -615,6 +615,8 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 int
 twemcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
 {
+    log_verb("post-write processing");
+
     buf_lshift(*rbuf);
     buf_lshift(*wbuf);
 
