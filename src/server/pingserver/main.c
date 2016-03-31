@@ -38,4 +38,3 @@ main(int argc, char **argv)
 
     exit(EX_OK);
 }
-

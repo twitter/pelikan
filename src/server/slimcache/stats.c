@@ -1,4 +1,4 @@
-#include <slimcache/stats.h>
+#include "stats.h"
 
 struct stats stats = {
     { PROCINFO_METRIC(METRIC_INIT)      },

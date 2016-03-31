@@ -1,5 +1,5 @@
-#include <slimcache/setting.h>
-#include <slimcache/stats.h>
+#include "setting.h"
+#include "stats.h"
 
 #include <time/time.h>
 #include <util/util.h>
