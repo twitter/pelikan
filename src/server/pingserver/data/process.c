@@ -17,7 +17,6 @@ pingserver_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
         log_verb("%"PRIu32" bytes left", buf_rsize(*rbuf));
 
         status = parse_req(*rbuf);
-        log_verb("parse returns: %d", status);
         if (status == PARSE_EUNFIN) {
             return 0;
         }
