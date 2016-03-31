@@ -1,38 +1,22 @@
-*Pelikan* is Twitter's unified cache backend.
+# ccommon
+
+*ccommon* is a C library for the various cache projects developed by Twitter's cache team. It is currently used by unified cache backend.
 
 ## Origins
-The Twitter Cache team started working on a fork of Memcached in 2010, and currently owns several cache backends such as *redis*, *fatcache*, and  *slimcache*. These projects are highly similar in their main functionality and architecture, so we built a common framework to incorporate the features provided by *all of them*. With a highly modular architecture, we will get to keep most of the reusable parts as we iterate, improving existing functionalities and introducing new features and/or protocols in the near future.
+The Twitter Cache team started working on a fork of Memcached in 2010, and over time has written various cache backends such as *fatcache*, *slimcache* and cache middle layer *twemproxy*. These projects have a lot in common, especially when you examine the project structure and the underlying mechanism that drives the runtime. Instead of stretching our effort thin by maintaining several individual code bases, we started building a library that captures the commonality of these projects. It is also our belief that the commonality extends beyond just caching, and can be used as the skeleton of writing many more high-throughput, low-latency services used intended for a distributed environment.
 
 ## Dependencies
-To compile and run tests, you will have to install `cmake` and `check`, a C unit test framework.
 
-### OS X
-
-```sh
-brew install cmake check
-```
-
-### Ubuntu
-
-```sh
-apt-get install cmake check
-```
-
-## Build
-To build:
-```sh
+## Build using CMake
+To use cmake, make sure you already have it installed and the version is above 2.8
+```bash
+# you can also configure and compile in-source, i.e., directly at the project top level, but out-of-source compile is strongly encouraged by CMake.
+# For one: there won't be something like "make (dist)clean" to help you clean up the mess afterwards
 mkdir _build
 cd _build
 cmake ..
-make -j
-make test
-# executables can be found at $(topdir)/_bin/*
+make
 ```
-
-Please read README.cmake for more information.
-
-## Documentation
-We are actively working on documentation using Sphinx. Current source is included under `docs/`
 
 ## License
 This software is licensed under the Apache 2 license, see LICENSE for details.

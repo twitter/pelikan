@@ -1,7 +1,0 @@
-The motivation behind batching is perfectly reasonable- if the request is tiny, such as get("foo"}, networking overhead becomes relatively significant for sending such requests; in a blocking/synchronous client, it also means sending multiple requests requires equal number of round trips, leading to longer overall completion time.
-
-However, the use of timeouts, which is unavoidable in a distributed system, means most systems don't work very well with request cost/size discrepancies. Applying the same timeout means larger, more expensive requests are more likely to time out. And batching greatly increases such discrepancies. A lot of the tail latency problems can be explained by allowing very large batch sizes.
-
-Moreover, with proper pipelining, we don't really need batching to achieve the same efficiency gain for simple requests (hirarchical value such as data structures introduces the same problem on a different level, and is ignored here).
-
-Given the incentive- network RTT & overhead, and the limitation- single request latencies, I think an acceptable middle ground is to set an explicit limit on batch size. This allows us to understand and predict the latency numbers with high confidence, which is good for keeping a good SLA; by throwing an explicit error/exception on oversized batches, we force clients to consider the implication of batching and adopt reasonable behavior.

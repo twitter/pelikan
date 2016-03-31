@@ -2,53 +2,35 @@
 Overview
 ********
 
-Cache Backend
-=============
+Background
+==========
 
-Cache backend is where cached data is stored. Conceptually, what it does is
-extremely simple: requests are received over the network or other IO media, the
-requests are then parsed, followed by processing, which mostly consists of
-retrieving and/or updating data in memory, eventually, responses are formed and
-sent back to the client.
+Building a Cache Common library has a lot to do with the historical context that gave rise to the idea. The current open-source caching field is both sparse and crowded- most of what people use today trace back to either Memcached or Redis, maybe forked over them. On the other hand, many of the customization and improvement individuals come up with don't make their way back into the trunk version very easily, indicating an architectural problem with the original codebases.
 
-In terms of functionality hierarchy, processing has a dependency on both syntax
-and storage (usually in-memory). It is possible to mix and match different
-protocols and storage schemes for different backends. Receiving and sending data
-is delegated to functionalities provided in ccommon, including buffer
-management, channel (such as TCP connections) management, and event-driven IO.
+Fundamentally, there hasn't been enough modularity in either project, or the many that derived from them, to encourage sharing and reuse. During our own, multiple attempts to create Twemperf, Twemproxy, Fatcache and Slimcache, regardless of whether we were writing a server, a proxy or a client, we had to resort to copy-and-paste, and littered our changes across the landscape.
 
-(insert a chart for cache backend dependencies)
+It certainly *feels* that there was a lot in common among these projects, so we formalized it by abstracting the commonality as modules and putting them in a single library, which is ccommon, short for Cache Common.
 
-Caching is a performance-critical piece of infrastructure. In many systems, it
-is the key provisioning that allows the service to scale. Even though cached
-data is logically redundant, in production the tolerance to cache misbehavior
-or slowdown remains low. Cache is also stateful, meaning local issues can
-easily propagate due to request fanout, and are likely to persist. Cache must be
-highly reliable in terms of performance, and *statistically reliable* in terms
-of data availability.
+We went through the existing code bases that have implemented some or all of the core functionalities and have been tested in production for years, synthesized them, made changes whenever necessary, to make the APIs generic enough for all the use cases we know of. Inheriting code makes it faster and more reliable to build the library; holding the APIs against known implementations allow the core library to be generic and flexible enough for our needs.
 
-Understanding cache use cases is important for the entire caching solution.
-However, it is particularly important for designing the backend. For performance
-and extensibility considerations, it is better to allow requests to pass through
-cache proxies with as little processing as possible. But each new use case *has*
-to be supported by the backend, and will have an impact on both the protocol
-syntax and storage. To understand what the cache backend is designed *for*,
-please read about Typical Cache Use Cases.
+Given that multi-threaded programs are much harder to get right than their single-threaded counterpart, and sometimes incur non-trivial synchronization overhead, the priority is to get single-threading right first, with the possibility of investing in multi-threading in the future on a module-by-module basis.
 
 
-Design Goals
-============
+Goals
+=====
 
-The basic functionalities of a cache backend are utterly uninteresting to
-anybody who has a little knowledge about what caching is supposed to provide.
-And that's not why we created Pelikan. Instead, we differentiate from existing
-implementations on *how* we implement these functionalities and *how well* we
-achieve the following goals:
+#. Modularized functionality with consistent, intuitive interface.
+   
+#. Use abstraction to allow compile-time choice from multiple implementations of the same interface, but avoid excessive, multi-layered abstraction unless absolutely necessary.
 
-* clean, well-defined abstractions to minimize duplicated logic, through
-  composable and configurable modules
-* built-in observability support *everywhere*, this includes logging, stats, and
-  tracing
-* efficient, deterministic runtime behavior and controllable resource management
+#. Production quality code that has built-in configuration, monitoring and logging support.
 
-To understand why we elected these goals, please read Problems and Priorities.
+
+#. Work well on platforms emerging in the next 3-5 years.
+
+
+Modules
+=======
+
+:doc:`modules/cc_ring_array`
+

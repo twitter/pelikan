@@ -1,7 +1,6 @@
 # Compiled Object files
 *.lo
 *.o
-/_bin
 
 # Compiled Dynamic libraries
 *.so
@@ -23,16 +22,23 @@
 # Logs
 *.log
 
+# Automatically generated files
+COPYING
+INSTALL
+
 # Temporary
-/_build
 *.swp
 *.~
 *.project
 *.cproject
 
-# cscope
-cscope.out
+# Cmake
+_build
 
-# CLion
-/.idea
+# Tags
+tags
+.tags
+
+# cscope
+cscope.*
 lcov

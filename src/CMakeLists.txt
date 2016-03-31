@@ -1,18 +1,44 @@
-add_subdirectory(core ${PROJECT_BINARY_DIR}/core)
-add_subdirectory(protocol ${PROJECT_BINARY_DIR}/protocol)
-add_subdirectory(storage ${PROJECT_BINARY_DIR}/storage)
-add_subdirectory(time ${PROJECT_BINARY_DIR}/time)
-add_subdirectory(tutorial ${PROJECT_BINARY_DIR}/tutorial)
-add_subdirectory(util ${PROJECT_BINARY_DIR}/util)
+add_subdirectory(buffer)
+add_subdirectory(channel)
+add_subdirectory(event)
+add_subdirectory(hash)
+add_subdirectory(stats)
+add_subdirectory(stream)
+add_subdirectory(time)
 
-if(TARGET_SLIMCACHE)
-    add_subdirectory(slimcache)
-endif()
+set(SOURCE
+    ${SOURCE}
+    cc_array.c
+    cc_bstring.c
+    cc_debug.c
+    cc_log.c
+    cc_mm.c
+    cc_option.c
+    cc_print.c
+    cc_rbuf.c
+    cc_ring_array.c
+    cc_signal.c)
 
-if(TARGET_TWEMCACHE)
-    add_subdirectory(twemcache)
-endif()
+# targets to build: here we have both static and dynmaic libs
+set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
+add_library(${PROJECT_NAME}-static STATIC ${SOURCE})
+add_library(${PROJECT_NAME}-shared SHARED ${SOURCE})
+if (OS_PLATFORM STREQUAL "OS_LINUX")
+  target_link_libraries(${PROJECT_NAME}-static rt)
+  target_link_libraries(${PROJECT_NAME}-shared rt)
+endif(OS_PLATFORM STREQUAL "OS_LINUX")
+set_target_properties(${PROJECT_NAME}-static
+    PROPERTIES
+    OUTPUT_NAME ${PROJECT_NAME}-${${PROJECT_NAME}_VERSION})
+set_target_properties (${PROJECT_NAME}-shared
+    PROPERTIES
+    OUTPUT_NAME ${PROJECT_NAME}
+    VERSION ${${PROJECT_NAME}_VERSION}
+    SOVERSION 0)
 
-if(TARGET_REDIS)
-    add_subdirectory(redis)
-endif()
+# install instructions
+install(TARGETS ${PROJECT_NAME}-static DESTINATION lib)
+install(TARGETS ${PROJECT_NAME}-shared DESTINATION lib)
+install(DIRECTORY include/
+    DESTINATION include/${PROJECT_NAME}-${${PROJECT_NAME}_RELEASE_VERSION}
+    FILES_MATCHING PATTERN "*.h")
