@@ -29,6 +29,7 @@ struct stats {
     worker_metrics_st           worker;
     /* ccommon libraries */
     buf_metrics_st              buf;
+    dbuf_metrics_st             dbuf;
     event_metrics_st            event;
     log_metrics_st              log;
     tcp_metrics_st              tcp;

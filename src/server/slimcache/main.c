@@ -106,7 +106,7 @@ setup(void)
 
     /* setup library modules */
     buf_setup(&setting.buf, &stats.buf);
-    dbuf_setup(&setting.dbuf);
+    dbuf_setup(&setting.dbuf, &stats.dbuf);
     event_setup(&stats.event);
     sockio_setup(&setting.sockio);
     tcp_setup(&setting.tcp, &stats.tcp);
