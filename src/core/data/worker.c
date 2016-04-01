@@ -3,7 +3,6 @@
 #include <core/context.h>
 #include <core/data/shared.h>
 
-#include <protocol/data/memcache_include.h>
 #include <time/time.h>
 
 #include <buffer/cc_buf.h>
@@ -30,6 +29,8 @@ static struct context *ctx = &context;
 static channel_handler_st handlers;
 static channel_handler_st *hdl = &handlers;
 
+struct post_processor *processor;
+
 static inline rstatus_i
 _worker_write(struct buf_sock *s)
 {
@@ -46,19 +47,6 @@ _worker_write(struct buf_sock *s)
 }
 
 static inline void
-_worker_post_write(struct buf_sock *s)
-{
-    log_verb("post write processing on buf_sock %p", s);
-
-    /* left-shift rbuf and wbuf */
-    buf_lshift(s->rbuf);
-    buf_lshift(s->wbuf);
-
-    dbuf_shrink(&(s->rbuf));
-    dbuf_shrink(&(s->wbuf));
-}
-
-static inline void
 _worker_event_write(struct buf_sock *s)
 {
     rstatus_i status;
@@ -70,7 +58,12 @@ _worker_event_write(struct buf_sock *s)
     } else if (status == CC_ERROR) {
         c->state = CHANNEL_TERM;
     }
-    _worker_post_write(s);
+
+    if (processor->post_write(&s->rbuf, &s->wbuf, &s->data) < 0) {
+        log_debug("handler signals channel termination");
+        s->ch->state = CHANNEL_TERM;
+        return;
+    }
 }
 
 static inline void
@@ -96,130 +89,6 @@ worker_close(struct buf_sock *s)
     buf_sock_return(&s);
 }
 
-static inline void
-_post_read(struct buf_sock *s)
-{
-    parse_rstatus_t status;
-    struct request *req;
-    struct response *rsp = NULL;
-
-    log_verb("post read processing on buf_sock %p", s);
-
-    if (s->data == NULL) {
-        s->data = request_borrow();
-    }
-
-    req = s->data;
-
-    if (req == NULL) {
-        /* TODO(yao): close the connection for now, we should write a OOM
-         * message and send it to the client later.
-         */
-        log_error("cannot acquire request: OOM");
-        INCR(worker_metrics, worker_oom_ex);
-
-        goto error;
-    }
-
-    /* keep parse-process-compose until running out of data in rbuf */
-    while (buf_rsize(s->rbuf) > 0) {
-        struct response *nr;
-        int i, n, card;
-
-        /* parsing */
-        log_verb("%"PRIu32" bytes left", buf_rsize(s->rbuf));
-
-        status = parse_req(req, s->rbuf);
-        if (status == PARSE_EUNFIN) {
-            goto done;
-        }
-
-        if (status != PARSE_OK) {
-            /* parsing errors are all client errors, since we don't know
-             * how to recover from client errors in this condition (we do not
-             * have a valid request so we don't know where the invalid request
-             * ends), we should close the connection
-             */
-            log_info("illegal request received, status: %d", status);
-
-            goto error;
-        }
-
-        /* processing */
-        if (req->type == REQ_QUIT) {
-            log_info("peer called quit");
-            s->ch->state = CHANNEL_TERM;
-            goto done;
-        }
-
-        /* find cardinality of the request and get enough response objects */
-        card = array_nelem(req->keys);
-        if (req->type == REQ_GET || req->type == REQ_GETS) {
-            /* extra response object for the "END" line after values */
-            card++;
-        }
-        rsp = response_borrow();
-        for (i = 1, nr = rsp; i < card; i++) {
-            STAILQ_NEXT(nr, next) = response_borrow();
-            nr = STAILQ_NEXT(nr, next);
-            if (nr == NULL) {
-                log_error("cannot borrow enough rsp objects, close channel");
-                INCR(worker_metrics, worker_oom_ex);
-
-                goto error;
-            }
-        }
-        /* actual handling */
-        process_request(rsp, req);
-
-        klog_write(req, rsp);
-
-        /* writing results */
-        if (req->noreply) { /* noreply means no writing to buffers */
-            request_reset(req);
-            continue;
-        }
-
-        nr = rsp;
-        if (req->type == REQ_GET || req->type == REQ_GETS) {
-            for (i = 0; i < req->nfound; nr = STAILQ_NEXT(nr, next), ++i) {
-                /* process returns an extra rsp which accounts for RSP_END */
-                n = compose_rsp(&s->wbuf, nr);
-                if (n < 0) {
-                    log_error("composing rsp erred, terminate channel");
-
-                    goto error;
-                }
-            }
-        }
-        n = compose_rsp(&s->wbuf, nr);
-        if (n < 0) {
-            log_error("composing rsp erred, terminate channel");
-
-            goto error;
-        }
-
-        /* clean up resources */
-        request_reset(req);
-        response_return_all(&rsp);
-
-        ASSERT(rsp == NULL);
-    }
-
-done:
-    /* TODO: call stream write directly to save one event */
-    if (buf_rsize(s->wbuf) > 0) {
-        log_verb("adding write event");
-        _worker_event_write(s);
-    }
-
-    return;
-
-error:
-    response_return_all(&rsp);
-    s->ch->state = CHANNEL_TERM;
-}
-
 /* read event over an existing connection */
 static inline void
 _worker_event_read(struct buf_sock *s)
@@ -227,7 +96,15 @@ _worker_event_read(struct buf_sock *s)
     ASSERT(s != NULL);
 
     _worker_read(s);
-    _post_read(s);
+    if (processor->post_read(&s->rbuf, &s->wbuf, &s->data) < 0) {
+        log_debug("handler signals channel termination");
+        s->ch->state = CHANNEL_TERM;
+        return;
+    }
+    if (buf_rsize(s->wbuf) > 0) {
+        log_verb("attempt to write");
+        _worker_event_write(s);
+    }
 }
 
 static void
@@ -314,7 +191,6 @@ _worker_event(void *arg, uint32_t events)
          * but simpler to implement and probably fine initially.
          */
         if (s->ch->state == CHANNEL_TERM || s->ch->state == CHANNEL_ERROR) {
-            request_return((struct request **)&s->data);
             worker_close(s);
         }
     }
@@ -395,6 +271,8 @@ _worker_evwait(void)
 void *
 core_worker_evloop(void *arg)
 {
+    processor = arg;
+
     for(;;) {
         if (_worker_evwait() != CC_OK) {
             log_crit("worker core event loop exited due to failure");

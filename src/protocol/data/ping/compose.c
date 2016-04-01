@@ -1,5 +1,6 @@
 #include <protocol/data/ping/compose.h>
 
+#include <buffer/cc_dbuf.h>
 #include <cc_debug.h>
 
 #define COMPOSE_MODULE_NAME "protocol::ping::compose"
@@ -34,4 +35,38 @@ compose_teardown(void)
     compose_req_metrics = NULL;
     compose_rsp_metrics = NULL;
     compose_init = false;
+}
+
+compose_rstatus_t
+compose_req(struct buf **buf)
+{
+    log_verb("composing request to buf %p", buf);
+
+    if (buf_wsize(*buf) < sizeof(REQUEST) && dbuf_double(buf) != CC_OK) {
+        log_debug("failed to double buf %p");
+        INCR(compose_req_metrics, request_compose_ex);
+
+        return COMPOSE_ENOMEM;
+    }
+
+    buf_write(*buf, REQUEST, REQ_LEN);
+    INCR(compose_req_metrics, request_compose);
+    return COMPOSE_OK;
+}
+
+compose_rstatus_t
+compose_rsp(struct buf **buf)
+{
+    log_verb("composing response to buf %p", buf);
+
+    if (buf_wsize(*buf) < sizeof(RESPONSE) && dbuf_double(buf) != CC_OK) {
+        log_debug("failed to double buf %p");
+        INCR(compose_rsp_metrics, response_compose_ex);
+
+        return COMPOSE_ENOMEM;
+    }
+
+    buf_write(*buf, RESPONSE, RSP_LEN);
+    INCR(compose_rsp_metrics, response_compose);
+    return COMPOSE_OK;
 }

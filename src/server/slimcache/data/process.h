@@ -1,5 +1,6 @@
 #pragma once
 
+#include <buffer/cc_buf.h>
 #include <cc_metric.h>
 #include <cc_option.h>
 
@@ -62,3 +63,6 @@ typedef struct {
 
 void process_setup(process_options_st *options, process_metrics_st *metrics);
 void process_teardown(void);
+
+int slimcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data);
+int slimcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data);

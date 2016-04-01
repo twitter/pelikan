@@ -271,9 +271,6 @@ _timing_wheel_insert(struct timing_wheel *tw, struct timeout_event *tev)
 
     INCR(timing_wheel_metrics, timing_wheel_insert);
     INCR(timing_wheel_metrics, timing_wheel_event);
-
-    log_verb("added timeout event %p into timing wheel %p: curr tick %zu, "
-            "scheduled offset %zu", tev, tw, tw->curr, tev->offset);
 }
 
 struct timeout_event *
@@ -310,6 +307,8 @@ timing_wheel_insert(struct timing_wheel *tw, struct timeout *delay, bool recur,
     }
 
     tev->offset = (tw->curr + offset) % tw->cap; /* convert to absolute offset */
+    log_verb("inserting timeout event %p into timing wheel %p: curr tick %zu, "
+            "scheduled offset %zu", tev, tw, tw->curr, tev->offset);
     _timing_wheel_insert(tw, tev);
 
     return tev;
@@ -325,9 +324,6 @@ _timing_wheel_remove(struct timing_wheel *tw, struct timeout_event *tev)
 {
     ASSERT(tw != NULL && tev != NULL);
 
-    log_verb("removing timeout event %p from timing wheel %p: curr tick %zu, "
-            "scheduled offset %zu", tev, tw, tw->curr, tev->offset);
-
     TAILQ_REMOVE(&tw->table[tev->offset], tev, tqe);
     tw->nevent--;
 
@@ -339,6 +335,9 @@ void
 timing_wheel_remove(struct timing_wheel *tw, struct timeout_event **tev)
 {
     /* consider the timeout event canceled if removed externally, and recycle */
+    log_verb("removing timeout event %p from timing wheel %p: curr tick %zu, "
+            "scheduled offset %zu", *tev, tw, tw->curr, (*tev)->offset);
+
     _timing_wheel_remove(tw, *tev);
     timeout_event_return(tev);
 }
@@ -394,6 +393,8 @@ _process_tick(struct timing_wheel *tw, bool endmode)
         tw->nprocess++;
         INCR(timing_wheel_metrics, timing_wheel_process);
 
+        log_vverb("(internal) removing timeout event %p from timing wheel %p: "
+                "curr tick %zu", t, tw, tw->curr);
         _timing_wheel_remove(tw, t);
         /* allowing t->cb to be NULL makes it easier to test/benchmark */
         if (t->cb != NULL) {
@@ -402,6 +403,8 @@ _process_tick(struct timing_wheel *tw, bool endmode)
         if (!endmode && t->recur) {
             /* re-calculate offset & insert if recurring and not ending */
             t->offset = (tw->curr + _offset(tw, &t->delay)) % tw->cap;
+            log_vverb("(internal) inserting timeout event %p into timing wheel "
+                    "%p: scheduled offset %zu", t, tw, t->offset);
             _timing_wheel_insert(tw, t);
         } else {
             timeout_event_return(&t);

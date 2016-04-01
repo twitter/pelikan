@@ -89,6 +89,7 @@ debug_assert(const char *cond, const char *file, int line, int panic)
 static void
 _stacktrace(int signo)
 {
+    log_stderr("received signal %d", signo);
     debug_stacktrace(2); /* skipping functions inside signal module */
     raise(signo);
 }
