@@ -66,11 +66,6 @@ typedef enum request_state {
     REQ_DONE
 } request_state_t;
 
-typedef enum request_parse_state {
-    REQ_HDR,
-    REQ_VAL
-} request_parse_state_t;
-
 /*
  * NOTE(yao): we store key and value as location in rbuf, this assumes the data
  * will not be overwritten before the current request is completed.
@@ -81,7 +76,6 @@ struct request {
     bool                    free;
 
     request_state_t         rstate;     /* request state */
-    request_parse_state_t   pstate;     /* parsing state */
 
     request_type_t          type;
 

@@ -717,12 +717,9 @@ _parse_req_hdr(struct request *req, struct buf *buf)
 {
     parse_rstatus_t status;
     bool end = false;
-    char *old_rpos = buf->rpos;
 
     ASSERT(req != NULL);
     ASSERT(buf != NULL);
-    ASSERT(req->rstate == REQ_PARSING);
-    ASSERT(req->pstate == REQ_HDR);
 
     log_verb("parsing hdr at %p into req %p", buf->rpos, req);
 
@@ -773,15 +770,10 @@ _parse_req_hdr(struct request *req, struct buf *buf)
     }
 
     if (status != PARSE_OK) {
-        buf->rpos = old_rpos; /* reset rpos */
-
         return status;
     }
     if (!end) {
         status = _chase_crlf(buf);
-        if (status != PARSE_OK) {
-            buf->rpos = old_rpos;
-        }
     }
 
     return status;
@@ -791,36 +783,30 @@ parse_rstatus_t
 parse_req(struct request *req, struct buf *buf)
 {
     parse_rstatus_t status = PARSE_EUNFIN;
+    char *old_rpos = buf->rpos;
 
     ASSERT(req->rstate == REQ_PARSING);
 
     log_verb("parsing buf %p into req %p", buf, req);
 
-    if (req->pstate == REQ_HDR) {
-        status = _parse_req_hdr(req, buf);
-        if (status != PARSE_OK) {
-            goto done;
-        }
-        if (req->val) {
-            req->pstate = REQ_VAL;
-        }
-    }
-
-    if (req->pstate == REQ_VAL) {
+    status = _parse_req_hdr(req, buf);
+    if (status == PARSE_OK && req->val) {
         status = _parse_val(&req->vstr, buf, req->vlen);
-        if (status != PARSE_OK) {
-            goto done;
-        }
     }
 
-    req->rstate = REQ_PARSED;
-    INCR(parse_req_metrics, request_parse);
-
-done:
-    if (status != PARSE_OK && status != PARSE_EUNFIN) {
+    if (status == PARSE_EUNFIN) {
+        log_verb("incomplete data: reset read position, jump back %zu bytes",
+                buf->rpos - old_rpos);
+        buf->rpos = old_rpos; /* start from beginning next time */
+        return PARSE_EUNFIN;
+    }
+    if (status != PARSE_OK) {
         log_debug("parse req returned error state %d", status);
         req->cerror = 1;
         INCR(parse_req_metrics, request_parse_ex);
+    } else {
+        req->rstate = REQ_PARSED;
+        INCR(parse_req_metrics, request_parse);
     }
 
     return status;
@@ -1129,12 +1115,9 @@ _parse_rsp_hdr(struct response *rsp, struct buf *buf)
 {
     parse_rstatus_t status;
     bool end = false;
-    char *old_rpos = buf->rpos;
 
     ASSERT(rsp != NULL);
     ASSERT(buf != NULL);
-    ASSERT(rsp->rstate == RSP_PARSING);
-    ASSERT(rsp->pstate == RSP_HDR);
 
     log_verb("parsing hdr at %p into rsp %p", buf->rpos, rsp);
 
@@ -1181,15 +1164,10 @@ _parse_rsp_hdr(struct response *rsp, struct buf *buf)
     }
 
     if (status != PARSE_OK) {
-        buf->rpos = old_rpos; /* reset rpos */
-
         return status;
     }
     if (!end) {
         status = _chase_crlf(buf);
-        if (status != PARSE_OK) {
-            buf->rpos = old_rpos;
-        }
     }
 
     return status;
@@ -1199,35 +1177,30 @@ parse_rstatus_t
 parse_rsp(struct response *rsp, struct buf *buf)
 {
     parse_rstatus_t status = PARSE_EUNFIN;
+    char *old_rpos = buf->rpos;
 
     ASSERT(rsp->rstate == RSP_PARSING);
 
     log_verb("parsing buf %p into rsp %p", buf, rsp);
 
-    if (rsp->pstate == RSP_HDR) {
-        status = _parse_rsp_hdr(rsp, buf);
-        if (status != PARSE_OK) {
-            goto done;
-        }
-        if (rsp->val) {
-            rsp->pstate = RSP_VAL;
-        }
-    }
-
-    if (rsp->pstate == RSP_VAL) {
+    status = _parse_rsp_hdr(rsp, buf);
+    if (status == CC_OK && rsp->val) {
         status = _parse_val(&rsp->vstr, buf, rsp->vlen);
-        if (status != PARSE_OK) {
-            goto done;
-        }
     }
 
-    rsp->rstate = RSP_PARSED;
-    INCR(parse_rsp_metrics, response_parse);
-
-done:
-    if (status != PARSE_OK && status != PARSE_EUNFIN) {
+    if (status == PARSE_EUNFIN) {
+        log_verb("incomplete data: reset read position, jump back %zu bytes",
+                buf->rpos - old_rpos);
+        buf->rpos = old_rpos; /* start from beginning next time */
+        return PARSE_EUNFIN;
+    }
+    if (status != PARSE_OK) {
+        log_debug("parse rsp returned error state %d", status);
         rsp->error = 1;
         INCR(parse_rsp_metrics, response_parse_ex);
+    } else {
+        rsp->rstate = RSP_PARSED;
+        INCR(parse_rsp_metrics, response_parse);
     }
 
     return status;

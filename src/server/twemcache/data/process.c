@@ -513,7 +513,7 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 
     log_verb("post-read processing");
 
-    req =  (*data == NULL) ? request_borrow() : *data;
+    req = request_borrow();
     if (req == NULL) {
         /* TODO(yao): simply return for now, better to respond with OOM */
         log_error("cannot acquire request: OOM");
@@ -532,9 +532,7 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 
         status = parse_req(req, *rbuf);
         if (status == PARSE_EUNFIN) {
-            *data = req; /* save partially parsed request */
-
-            return 0;
+            goto done;
         }
         if (status != PARSE_OK) {
             /* parsing errors are all client errors, since we don't know
@@ -543,9 +541,7 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
              * ends), we should close the connection
              */
             log_warn("illegal request received, status: %d", status);
-            _cleanup(&req, &rsp);
-
-            return -1;
+            goto error;
         }
 
         /* stage 2: processing- check for quit, allocate response(s), process */
@@ -553,9 +549,7 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
         /* quit is special, no response expected */
         if (req->type == REQ_QUIT) {
             log_info("peer called quit");
-            _cleanup(&req, &rsp);
-
-            return -1;
+            goto error;
         }
 
         /* find cardinality of the request and get enough response objects */
@@ -571,16 +565,13 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
             if (nr == NULL) {
                 log_error("cannot acquire response: OOM");
                 INCR(process_metrics, process_ex);
-                _cleanup(&req, &rsp);
-
-                return -1;
+                goto error;
             }
         }
 
         /* actual processing & command logging */
         process_request(rsp, req);
         klog_write(req, rsp);
-
 
         /* stage 3: write response(s) */
 
@@ -599,17 +590,18 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
             if (compose_rsp(wbuf, nr) < 0) {
                 log_error("composing rsp erred");
                 INCR(process_metrics, process_ex);
-                _cleanup(&req, &rsp);
-
-                return -1;
+                goto error;
             }
         }
     }
 
+done:
     _cleanup(&req, &rsp);
-    *data = NULL;
-
     return 0;
+
+error:
+    _cleanup(&req, &rsp);
+    return -1;
 }
 
 int

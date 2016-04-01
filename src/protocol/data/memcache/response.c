@@ -28,7 +28,6 @@ response_reset(struct response *rsp)
     rsp->free = false;
 
     rsp->rstate = RSP_PARSING;
-    rsp->pstate = RSP_HDR;
     rsp->type = RSP_UNKNOWN;
 
     bstring_init(&rsp->key);

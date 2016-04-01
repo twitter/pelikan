@@ -27,7 +27,6 @@ request_reset(struct request *req)
     req->free = false;
 
     req->rstate = REQ_PARSING;
-    req->pstate = REQ_HDR;
     req->type = REQ_UNKNOWN;
 
     req->keys->nelem = 0;
