@@ -1,50 +1,171 @@
-*Pelikan* is Twitter's unified cache backend.
+#### Pelikan is Twitter's unified cache server.
 
-## Origins
-The Twitter Cache team started working on a fork of Memcached in 2010, and currently owns several cache backends such as *redis*, *fatcache*, and  *slimcache*. These projects are highly similar in their main functionality and architecture, so we built a common framework to incorporate the features provided by *all of them*. With a highly modular architecture, we will get to keep most of the reusable parts as we iterate, improving existing functionalities and introducing new features and/or protocols in the near future.
+# Content
+* [Overview](#overview)
+  * [Products](#products)
+  * [Features](#features)
+* [Build](#building-pelikan)
+* [Usage](#usage)
+* [Community](#community)
+  * [Stay in touch](#stay-in-touch)
+  * [Contributing](#contributing)
+* [Documentation](#documentation)
+* [License](#license)
 
-## Dependencies
-To compile and run tests, you will have to install `cmake` and `check`, a C unit test framework.
 
-### OS X
+# Overview
+After years of using and working on various cache services, we built a common
+framework that reveals the inherent architectural similarity among them.
 
-```sh
-brew install cmake libtool autoconf automake pkg-config texinfo
-git clone https://github.com/libcheck/check.git
-cd check
-autoreconf --install
-./configure
-make
-sudo make install
-```
+By creating well-defined modules, most of the low-level functionalities are
+reused as we create different binaries. The implementation learns from our
+operational experiences to improve performance and reliability, and leads to
+software designed for large-scale deployment.
 
-### Ubuntu
+The framework approach allows us to develop new features and protocols quickly.
 
-```sh
-apt-get install cmake libtool autoconf automake pkg-config texinfo
-git clone https://github.com/libcheck/check.git
-cd check
-autoreconf --install
-./configure
-make
-sudo make install
-```
+## Products
+Currently Pelikan yields three main products, all of which are backends/servers.
+- `pelikan_twemcache`: a Twemcache replacement
+- `pelikan_slimcache`: a Memcached-like server with ultra-low memory overhead-
+  compared to Memcached/Redis, the per-key overhead is reduced by up to 90%
+- `pelikan_pingserver`: an over-engineered, production-ready ping server useful
+  as a tutorial and for measuring baseline RPC performance
+
+## Features
+- runtime separation of control and data plane
+- predictably low latencies via lockless data structures, worker never blocks
+- per-module config options and metrics that can be composed easily
+- multiple storage and protocol implementations, easy to further extend
+- low-overhead command logger for hotkey and other important data analysis
+
+# Building Pelikan
+
+## Requirement
+- platform: Mac OS X or Linux
+- build tools: `cmake (>=2.8)`
+- compiler: `gcc (>=4.8)` or `clang (>=3.1)`
+- (optional) unit testing framework: `check (>=0.10.0)`. See below.
 
 ## Build
-To build:
 ```sh
-mkdir _build
-cd _build
+git clone https://github.com/twitter/pelikan.git
+mkdir _build && cd _build
 cmake ..
 make -j
-make test
-# executables can be found at $(topdir)/_bin/*
+```
+The executables can be found under ``./_bin/``
+
+To run all the tests, including those on `ccommon`, run:
+```sh
+make check
+# 'make test' works too
 ```
 
-Please read README.cmake for more information.
+To skip building tests, replace the `cmake` step with the following:
+```sh
+cmake -DCHECK_WORKING=off ..
+```
+## Install `check`
+To compile and run tests, you will have to install [check](http://libcheck.github.io/check/).
+Please follow instructions in the project.
 
-## Documentation
-We are actively working on documentation using Sphinx. Current source is included under `docs/`
+**Note**: we highly recommend installing the latest version of `check` from
+source, as there are, unfortunately, a [linker bug](https://sourceforge.net/p/check/mailman/message/32835594/)
+in packages installed by the current versions of `brew` (OS X),
+`CentOS` and `Ubuntu LTS`. The bug does not affect building executables.
+
+
+# Usage
+Using `pelikan_twemcache` as an example, other executables are highly similar.
+
+To get info of the service, including usage format and options, run:
+```sh
+_bin/pelikan_twemcache -h
+```
+
+To launch the service with default settings, simply run:
+```sh
+_bin/pelikan_twemcache
+```
+
+To launch the service with the sample config file, run:
+```sh
+_bin/pelikan_twemcache template/twemcache.conf
+```
+
+You should be able to try out the server using an existing memcached client,
+or simply with `telnet`.
+```sh
+$ telnet localhost 12321
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+set foo 0 0 3
+bar
+STORED
+```
+
+**Attention**: use `admin` port for all non-data commands.
+```sh
+$ telnet localhost 9999
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+version
+VERSION 0.1.0
+stats
+STAT pid 54937
+STAT time 1459634909
+STAT uptime 22
+STAT version 100
+STAT ru_stime 0.019172
+...
+```
+
+## Configuration
+
+Pelikan is file-first when it comes to configurations, and currently is
+config-file only. You can create a new config file following the examples
+included under the `template` directory.
+
+**Tip**: to get a list of config options for each executable, use `-c` option:
+```sh
+_bin/pelikan_twemcache -c
+```
+
+
+# Community
+
+## Stay in touch
+- Join our [mailinglist](https://groups.google.com/forum/#!forum/pelikan-cache)
+  or [![Gitter](https://badges.gitter.im/twitter/pelikan.svg)](https://gitter.im/twitter/pelikan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+  for questions and discussions
+- Follow us on Twitter: [@pelikan_cache](https://twitter.com/pelikan_cache)
+- Visit <http://pelikan.io>
+
+## Contributing
+
+Please take a look at our [community manifesto](https://github.com/twitter/pelikan/blob/master/docs/manifesto.rst)
+and [coding style guide](https://github.com/twitter/pelikan/blob/master/docs/coding_style.rst).
+
+To get a sense of where things are going next, please visit our
+[Roadmap wiki](https://github.com/twitter/pelikan/wiki/Roadmap).
+
+If you want to submit a patch, please follow these steps:
+* create an issue
+* fork on github & clone your fork
+* create a feature branch on your fork
+* push your feature branch
+* create a pull request, linking the issue
+
+
+# Documentation
+We have made progress and are actively working on documentation, and will put it
+on our website. Meanwhile, check out the current material under `docs/`
+
+We also maintain a list of topics for upcoming [blog posts](https://github.com/twitter/pelikan/wiki/Technical-details),
+please let us know what (else) interests you.
 
 ## License
-This software is licensed under the Apache 2 license, see LICENSE for details.
+This software is licensed under the Apache 2.0 license, see LICENSE for details.
