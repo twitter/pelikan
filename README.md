@@ -9,13 +9,25 @@ To compile and run tests, you will have to install `cmake` and `check`, a C unit
 ### OS X
 
 ```sh
-brew install cmake check
+brew install cmake libtool autoconf automake pkg-config texinfo
+git clone https://github.com/libcheck/check.git
+cd check
+autoreconf --install
+./configure
+make
+sudo make install
 ```
 
 ### Ubuntu
 
 ```sh
-apt-get install cmake check
+apt-get install cmake libtool autoconf automake pkg-config texinfo
+git clone https://github.com/libcheck/check.git
+cd check
+autoreconf --install
+./configure
+make
+sudo make install
 ```
 
 ## Build
