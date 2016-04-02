@@ -62,7 +62,8 @@ _server_pipe_write(void)
     /* else, pipe write succeeded and no action needs to be taken */
 }
 
-static inline void
+/* returns true if a connection is present, false if no more pending */
+static inline bool
 _tcp_accept(struct buf_sock *ss)
 {
     struct buf_sock *s;
@@ -73,17 +74,19 @@ _tcp_accept(struct buf_sock *ss)
         log_error("establish connection failed: cannot allocate buf_sock, "
                 "reject connection request");
         ss->hdl->reject(sc); /* server rejects connection by closing it */
-        return;
+        return true;
     }
 
     if (!ss->hdl->accept(sc, s->ch)) {
-        return;
+        return false;
     }
 
     /* push buf_sock to queue */
     ring_array_push(&s, conn_arr);
 
     _server_pipe_write();
+
+    return true;
 }
 
 static inline void
@@ -91,11 +94,9 @@ _server_event_read(struct buf_sock *s)
 {
     struct tcp_conn *c = s->ch;
 
-    if (c->level == CHANNEL_META) {
-        _tcp_accept(s);
-    } else {
-        NOT_REACHED();
-    }
+    ASSERT(c->level == CHANNEL_META);
+
+    while (_tcp_accept(s));
 }
 
 static void
