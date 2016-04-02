@@ -152,7 +152,7 @@ _event_update(struct event_base *evb, int fd, uint16_t flags, uint32_t fflags,
 int
 event_add_read(struct event_base *evb, int fd, void *data)
 {
-    _event_update(evb, fd, EVFILT_READ, EV_ADD | EV_CLEAR, data);
+    _event_update(evb, fd, EVFILT_READ, EV_ADD, data);
     INCR(event_metrics, event_read);
 
     log_verb("adding read event to fd %d", fd);
@@ -163,7 +163,7 @@ event_add_read(struct event_base *evb, int fd, void *data)
 int
 event_add_write(struct event_base *evb, int fd, void *data)
 {
-    _event_update(evb, fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, data);
+    _event_update(evb, fd, EVFILT_WRITE, EV_ADD, data);
     INCR(event_metrics, event_write);
 
     log_verb("adding read event to fd %d", fd);
