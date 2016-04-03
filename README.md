@@ -164,8 +164,9 @@ If you want to submit a patch, please follow these steps:
 We have made progress and are actively working on documentation, and will put it
 on our website. Meanwhile, check out the current material under `docs/`
 
-We also maintain a list of topics for upcoming [blog posts](https://github.com/twitter/pelikan/wiki/Technical-details),
-please let us know what (else) interests you.
+We also maintain a [list of topics](https://github.com/twitter/pelikan/wiki/Technical-details)
+for upcoming [blog posts](http://pelikan.io/blog). Please let us know what
+(else) interests you.
 
 ## License
-This software is licensed under the Apache 2.0 license, see LICENSE for details.
+This software is licensed under the Apache 2.0 license, see [LICENSE](LICENSE) for details.
