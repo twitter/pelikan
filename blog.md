@@ -13,7 +13,7 @@ permalink: /blog/
         </h2>
         {% if post.content.size > 300 %}
            {{ post.content | truncatewords: 150 }}
-           <a href="{{ post.url }}">read more</a>
+           <a href="{{ post.url | prepend: site.baseurl }}">read more</a>
         {% else %}
            {{ post.content }}
         {% endif %}
