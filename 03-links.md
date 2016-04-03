@@ -1,7 +1,7 @@
 ---
 layout: page
-title: Resources
-permalink: /resources/
+title: Links
+permalink: /links/
 ---
   <h4>memcached</h4>
   <h4>redis</h4>

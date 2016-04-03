@@ -8,9 +8,9 @@ permalink: /project/
   <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png" alt="Fork me on GitHub">
 </a>
 
-Pelikan is a cache framework written in C. It provides an expanding
-collection of cache services, and a common library (ccommon) used to build
-them.
+[Pelikan](https://github.com/twitter/pelikan) is a cache framework written in C.
+It provides an expanding collection of cache services, and a common library,
+[ccommon](https://github.com/twitter/ccommon), used to build them.
 
 Pelikan optimizes for high-throughput, low-latency data access in a
 datacenter-like environment. It adopts a highly modularized architecture,

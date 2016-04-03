@@ -13,6 +13,7 @@ description: > # this means to ignore newlines until "baseurl:"
   It is part of Twitter's unified cache project.
 baseurl: "/pelikan"
 url: "https://twitter.github.io"
+githuburl: "https://github.com/twitter/pelikan"
 twitter_username: pelikan_cache
 github_username: twitter
 
