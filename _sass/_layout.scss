@@ -172,6 +172,7 @@
 }
 
 .page-heading {
+    margin-top: $spacing-unit;
     font-size: 26px;
 }
 
@@ -181,8 +182,9 @@
 }
 
 .page-info {
-    margin-top: $spacing-unit;
-    margin-bottom: $spacing-unit;
+    margin-top: $spacing-unit / 2;
+    margin-bottom: $spacing-unit / 2;
+    padding: 10px 5px 1px 5px;
     color: $grey-color-dark;
 }
 
