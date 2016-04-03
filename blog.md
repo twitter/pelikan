@@ -1,20 +1,8 @@
 ---
 layout: default
+title: Blog
+permalink: /blog/
 ---
-
-<div class="home">
-
-  <p>
-    <strong>Pelikan is a cache framework written in C. It provides an expanding
-    collection of cache services, and a common library used to build them.</strong>
-  </p>
-
-  <h1 class="page-heading">News</h1>
-  <ul>
-    <li>[2016/04/04] The pelikan <a href="https://github.com/twitter/pelikan">github repo</a> is now live!</li>
-  </ul>
-
-  <h1 class="page-heading">Posts</h1>
   <ul class="post-list">
     {% for post in site.posts %}
       <li>
@@ -23,9 +11,14 @@ layout: default
         <h2>
           <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
         </h2>
+        {% if post.content.size > 300 %}
+           {{ post.content | truncatewords: 150 }}
+           <a href="{{ post.url }}">read more</a>
+        {% else %}
+           {{ post.content }}
+        {% endif %}
       </li>
     {% endfor %}
   </ul>
 
   <p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>
-</div>
