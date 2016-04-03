@@ -91,7 +91,7 @@ _bin/pelikan_twemcache
 
 To launch the service with the sample config file, run:
 ```sh
-_bin/pelikan_twemcache template/twemcache.conf
+_bin/pelikan_twemcache config/twemcache.conf
 ```
 
 You should be able to try out the server using an existing memcached client,
@@ -127,7 +127,7 @@ STAT ru_stime 0.019172
 
 Pelikan is file-first when it comes to configurations, and currently is
 config-file only. You can create a new config file following the examples
-included under the `template` directory.
+included under the `config` directory.
 
 **Tip**: to get a list of config options for each executable, use `-c` option:
 ```sh
@@ -153,11 +153,12 @@ To get a sense of where things are going next, please visit our
 [Roadmap wiki](https://github.com/twitter/pelikan/wiki/Roadmap).
 
 If you want to submit a patch, please follow these steps:
-* create an issue
-* fork on github & clone your fork
-* create a feature branch on your fork
-* push your feature branch
-* create a pull request, linking the issue
+
+1. create a new issue
+2. fork on github & clone your fork
+3. create a feature branch on your fork
+4. push your feature branch
+5. create a pull request linked to the issue
 
 
 # Documentation

@@ -46,7 +46,7 @@ show_usage(void)
     log_stdout(
             "Example:" CRLF
             "  pelikan_slimcache slimcache.conf" CRLF CRLF
-            "Sample config files can be found under the template dir." CRLF
+            "Sample config files can be found under the config dir." CRLF
             );
 }
 
