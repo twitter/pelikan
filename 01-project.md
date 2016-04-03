@@ -49,8 +49,8 @@ To get a sense of where things are going next, please visit our
 
 If you want to submit a patch, please follow these steps:
 
-* create an issue
-* fork on github & clone your fork
-* create a feature branch on your fork
-* push your feature branch
-* create a pull request, linking the issue
+1. [create a new issue](https://github.com/twitter/pelikan/issues)
+2. fork on github & clone your fork
+3. create a feature branch on your fork
+4. push your feature branch
+5. create a pull request linked to the issue
