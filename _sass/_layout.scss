@@ -214,29 +214,32 @@
 }
 
 .post-content {
+    margin-top: $spacing-unit;
     margin-bottom: $spacing-unit;
 
     h1 {
-        font-size: 36px;
-
-        @include media-query($on-laptop) {
-            font-size: 32px;
-        }
-    }
-
-    h2 {
-        font-size: 32px;
+        margin-top: $spacing-unit * 1.5;
+        font-size: 34px;
 
         @include media-query($on-laptop) {
             font-size: 28px;
         }
     }
 
-    h3 {
-        font-size: 26px;
+    h2 {
+        margin-top: $spacing-unit;
+        font-size: 28px;
 
         @include media-query($on-laptop) {
             font-size: 22px;
+        }
+    }
+
+    h3 {
+        font-size: 24px;
+
+        @include media-query($on-laptop) {
+            font-size: 20px;
         }
     }
 
