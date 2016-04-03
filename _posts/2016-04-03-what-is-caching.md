@@ -1,9 +1,8 @@
 ---
 layout: post
 title:  "What is caching?"
-date:   2016-04-01 11:11:11 -0700
+date:   2016-04-03 04:56:00 -0700
 author: <a href="https://twitter.com/thinkingfish">Yao Yue</a>
-categories: all
 ---
 
 There are many different definitions of caching, depending on contexts. Caching is ubiquitous as long as locality is present – from CPU to CDN, from hardware controllers to Wide Area Networks. Caching also varies greatly in its medium and location, and as a result, its speed. CPU cache using SRAM clocks a mere couple of nanoseconds per operation, while downloading an image from the nearest CDN server can take seconds. But there is one invariant – people use cache as a way to get data faster and more cheaply.

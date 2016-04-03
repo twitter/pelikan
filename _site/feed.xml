@@ -6,8 +6,8 @@
 </description>
     <link>http://pelikan.io/</link>
     <atom:link href="http://pelikan.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sun, 03 Apr 2016 04:55:34 -0700</pubDate>
-    <lastBuildDate>Sun, 03 Apr 2016 04:55:34 -0700</lastBuildDate>
+    <pubDate>Sun, 03 Apr 2016 04:57:54 -0700</pubDate>
+    <lastBuildDate>Sun, 03 Apr 2016 04:57:54 -0700</lastBuildDate>
     <generator>Jekyll v3.0.3</generator>
     
       <item>
@@ -115,12 +115,10 @@
 
 &lt;p&gt;In the next post, we will explore some design principles that allows us to satisfy both the obvious and hidden requirements.&lt;/p&gt;
 </description>
-        <pubDate>Fri, 01 Apr 2016 11:11:11 -0700</pubDate>
-        <link>http://pelikan.io/all/2016/04/01/what-is-caching.html</link>
-        <guid isPermaLink="true">http://pelikan.io/all/2016/04/01/what-is-caching.html</guid>
+        <pubDate>Sun, 03 Apr 2016 04:56:00 -0700</pubDate>
+        <link>http://pelikan.io/2016/04/03/what-is-caching.html</link>
+        <guid isPermaLink="true">http://pelikan.io/2016/04/03/what-is-caching.html</guid>
         
-        
-        <category>all</category>
         
       </item>
     
