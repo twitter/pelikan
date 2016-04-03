@@ -21,13 +21,13 @@ iterating on such services easier and faster.
 
 ### Products
 
-Currently Pelikan yields three main products, all of which are
+Currently Pelikan yields three production-ready products, all of which are
 backends/servers.
 
 * `pelikan_twemcache`: a Twemcache replacement
 * `pelikan_slimcache`: a Memcached-like server with ultra-low memory overhead-
   compared to Memcached/Redis, the per-key overhead is reduced by up to 90%
-* `pelikan_pingserver`: an over-engineered, production-ready ping server useful
+* `pelikan_pingserver`: an over-engineered ping server useful
   as a tutorial and for measuring baseline RPC performance
 
 
