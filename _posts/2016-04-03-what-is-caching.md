@@ -22,7 +22,7 @@ Datacenters are filled with servers and networks that are largely homogeneous, e
 Most datacenters are still using Ethernet. Current network bandwidth ranges from 1Gbps to 40Gbps at the edge, with 10Gbps increasingly becoming mainstream. In such a setup, the end-to-end latencies are often on the order of 100μs. SSDs have a seek time at about the same level, with a bandwidth somewhere between 100MB/s and 1GB/s, also comparable to Ethernet. Spinning disks, on the other hand, have a seek time one to two orders of magnitude higher, and are thus much slow for random read/write. DRAM bandwidths are on the order of 10GB/s, with an access latency of about 100ns.
 
 The following figure captures the relative "closeness" of different data locations.
-  ![data access speed](/assets/img/data_access_speed.jpg)
+  ![data access speed]({{ "/assets/img/data_access_speed.jpg" | prepend: site.baseurl }})
 
 
 The typical datacenter infrastructure implies a few things:
