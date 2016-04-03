@@ -2,7 +2,8 @@
 layout: post
 title:  "What is caching?"
 date:   2016-04-03 04:56:00 -0700
-author: <a href="https://twitter.com/thinkingfish">Yao Yue</a>
+author: Yao Yue
+twitter_username: thinkingfish
 ---
 
 There are many different definitions of caching, depending on contexts. Caching
@@ -23,7 +24,7 @@ A little paranoia about things that may slow down caching is thus understandable
 once you realize the whole existence, a.k.a. competitive advantage, of caching
 systems lie squarely on it.
 
-## Caching in a Datacenter
+## Caching in Datacenters
 
 Caching in datacenters is the focus here (this will be what we mean by 'caching'
 unless otherwise specified). Making cache worthwhile in datacenters means
@@ -111,7 +112,7 @@ lighter-weight compared to their networking counterparts.
 
 ### Requirements
 
-Marrying the problem at hand with underlying constraints, caching in datacenter
+Marrying the problem at hand with underlying constraints, caching in datacenters
 is usually a combination of in-process caching, local- and remote- in-memory
 caching. There are a few commonalities among good caching solutions:
 
