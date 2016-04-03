@@ -11,8 +11,8 @@ email: pelikan-cache@googlegroups.com
 description: > # this means to ignore newlines until "baseurl:"
   Pelikan is a framework for building cache services.
   It is part of Twitter's unified cache project.
-baseurl: "" # the subpath of your site, e.g. /blog
-url: "http://pelikan.io" # the base hostname & protocol for your site
+baseurl: "/pelikan"
+url: "https://twitter.github.io"
 twitter_username: pelikan_cache
 github_username: twitter
 
