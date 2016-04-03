@@ -177,6 +177,12 @@
 
 .page-announce {
     font-size: 18px;
+    line-height: 1.5;
+}
+
+.page-info {
+    margin-top: $spacing-unit;
+    color: $grey-color-dark;
 }
 
 .post-list {
