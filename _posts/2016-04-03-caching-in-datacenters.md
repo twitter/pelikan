@@ -1,10 +1,13 @@
 ---
 layout: post
-title:  "What is caching?"
+title:  "Caching in datacenters"
 date:   2016-04-03 04:56:00 -0700
 author: Yao Yue
 twitter_username: thinkingfish
 ---
+
+*This is the first post in our blog series about the design, implementation and
+usage of caching in datacenters.*
 
 There are many different definitions of caching. And indeed caching is
 [ubiquitous](https://www.quora.com/How-to-understand-Computer-Science-has-only-three-ideas-cache-hash-trash)
@@ -28,7 +31,8 @@ hinges squarely on it.
 ## Caching in Datacenters
 
 What we care about here is caching in datacenters (this will be what we mean by
-'caching' unless otherwise specified). The goal is to find the fastest, cheapest
+'caching' unless otherwise specified). The term applies whenever data is stored
+outside their canonical source. The goal is to find the fastest, cheapest
 way to data. But before we start, one needs to understand both the underlying
 infrastructure and the problem.
 
