@@ -8,6 +8,7 @@
 #include <core/core.h>
 #include <util/procinfo.h>
 
+#include <buffer/cc_dbuf.h>
 #include <cc_event.h>
 #include <cc_log.h>
 #include <channel/cc_tcp.h>
@@ -24,6 +25,7 @@ struct stats {
     worker_metrics_st           worker;
     /* ccommon libraries */
     buf_metrics_st              buf;
+    dbuf_metrics_st             dbuf;
     event_metrics_st            event;
     log_metrics_st              log;
     tcp_metrics_st              tcp;

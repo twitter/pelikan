@@ -550,9 +550,6 @@ slimcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     log_verb("post-write processing");
 
-    buf_lshift(*rbuf);
-    buf_lshift(*wbuf);
-
     dbuf_shrink(rbuf);
     dbuf_shrink(wbuf);
 
