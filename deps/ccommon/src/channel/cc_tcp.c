@@ -333,6 +333,8 @@ _tcp_accept(struct tcp_conn *sc)
                 return -1;
             }
 
+            log_error("accept on sd %d failed: %s", sc->sd, strerror(errno));
+            INCR(tcp_metrics, tcp_accept_ex);
             return -1;
         }
 
@@ -351,9 +353,6 @@ tcp_accept(struct tcp_conn *sc, struct tcp_conn *c)
     sd = _tcp_accept(sc);
     INCR(tcp_metrics, tcp_accept);
     if (sd < 0) {
-        log_error("accept on sd %d failed: %s", sc->sd, strerror(errno));
-        INCR(tcp_metrics, tcp_accept_ex);
-
         return false;
     }
 
