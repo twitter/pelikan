@@ -13,15 +13,18 @@ static bool dbuf_init = false;
 /* Maximum size of the buffer */
 static uint8_t max_power = DBUF_DEFAULT_MAX;
 static uint32_t max_size = BUF_INIT_SIZE << DBUF_DEFAULT_MAX;
+dbuf_metrics_st *dbuf_metrics = NULL;
 
 void
-dbuf_setup(dbuf_options_st *options)
+dbuf_setup(dbuf_options_st *options, dbuf_metrics_st *metrics)
 {
     log_info("set up the %s module", DBUF_MODULE_NAME);
 
     if (dbuf_init) {
         log_warn("%s has already been setup, overwrite", DBUF_MODULE_NAME);
     }
+
+    dbuf_metrics = metrics;
 
     if (options != NULL) {
         /* TODO(yao): validate input */
@@ -48,46 +51,25 @@ static rstatus_i
 _dbuf_resize(struct buf **buf, uint32_t nsize)
 {
     struct buf *nbuf;
-    uint32_t size = buf_size(*buf);
-
-    if (nsize == size) {
-        return CC_OK;
-    }
-
+    uint32_t osize = buf_size(*buf);
     uint32_t roffset = (*buf)->rpos - (*buf)->begin;
     uint32_t woffset = (*buf)->wpos - (*buf)->begin;
 
-    if (nsize - BUF_HDR_SIZE < woffset) {
-        /* shift data to fit in new buffer size */
-        buf_lshift(*buf);
-
-        roffset = (*buf)->rpos - (*buf)->begin;
-        woffset = (*buf)->wpos - (*buf)->begin;
-
-        if (nsize - BUF_HDR_SIZE < woffset) {
-            /* Unread data too large to be contained in new size */
-            return CC_ERROR;
-        }
-    }
-
-    /* cc_realloc can return an address different than *buf, hence we should
-     * update *buf if allocation is successful, but leave it if failed.
-     */
     nbuf = cc_realloc(*buf, nsize);
-
-    if (nbuf == NULL) {
+    if (nbuf == NULL) { /* realloc failed, but *buf is still valid */
         return CC_ENOMEM;
     }
+
+    log_verb("buf %p of size %"PRIu32" resized to %p of size %"PRIu32, *buf,
+            osize, nbuf, nsize);
 
     /* end, rpos, wpos need to be adjusted for the new address of buf */
     nbuf->end = (char *)nbuf + nsize;
     nbuf->rpos = nbuf->begin + roffset;
     nbuf->wpos = nbuf->begin + woffset;
     *buf = nbuf;
-    DECR_N(buf_metrics, buf_memory, size);
+    DECR_N(buf_metrics, buf_memory, osize);
     INCR_N(buf_metrics, buf_memory, nsize);
-
-    log_verb("buf %p resized to %u", *buf, buf_size(*buf));
 
     return CC_OK;
 }
@@ -95,23 +77,31 @@ _dbuf_resize(struct buf **buf, uint32_t nsize)
 rstatus_i
 dbuf_double(struct buf **buf)
 {
-    ASSERT(buf_capacity(*buf) <= max_size);
-
+    rstatus_i status;
     uint32_t nsize = buf_size(*buf) * 2;
 
     if (nsize > max_size) {
         return CC_ERROR;
     }
 
-    return _dbuf_resize(buf, nsize);
+    status = _dbuf_resize(buf, nsize);
+    if (status == CC_OK) {
+        INCR(dbuf_metrics, dbuf_double);
+    } else {
+        INCR(dbuf_metrics, dbuf_double_ex);
+    }
+
+    return status;
 }
 
 rstatus_i
 dbuf_fit(struct buf **buf, uint32_t cap)
 {
+    rstatus_i status = CC_OK;
     uint32_t nsize = buf_init_size;
 
-    if (cap + BUF_HDR_SIZE > max_size) {
+    buf_lshift(*buf);
+    if (buf_rsize(*buf) > cap || cap + BUF_HDR_SIZE > max_size) {
         return CC_ERROR;
     }
 
@@ -120,11 +110,39 @@ dbuf_fit(struct buf **buf, uint32_t cap)
         nsize *= 2;
     }
 
-    return _dbuf_resize(buf, nsize);
+    if (nsize != buf_size(*buf)) {
+        status = _dbuf_resize(buf, nsize);
+        if (status == CC_OK) {
+            INCR(dbuf_metrics, dbuf_fit);
+        } else {
+            INCR(dbuf_metrics, dbuf_fit_ex);
+        }
+    }
+
+    return status;
 }
 
 rstatus_i
 dbuf_shrink(struct buf **buf)
 {
-    return _dbuf_resize(buf, buf_init_size);
+    rstatus_i status = CC_OK;
+    uint32_t nsize = buf_init_size;
+    uint32_t cap = buf_rsize(*buf);
+
+    buf_lshift(*buf);
+
+    while (nsize < cap + BUF_HDR_SIZE) {
+        nsize *= 2;
+    }
+
+    if (nsize != buf_size(*buf)) {
+        status = _dbuf_resize(buf, nsize);
+        if (status == CC_OK) {
+            INCR(dbuf_metrics, dbuf_shrink);
+        } else {
+            INCR(dbuf_metrics, dbuf_shrink_ex);
+        }
+    }
+
+    return status;
 }

@@ -38,13 +38,27 @@ typedef struct {
 
 #define DBUF_DEFAULT_MAX    8  /* with 16KiB default size, this gives us 4 MiB max */
 
+/*          name            type            description */
+#define DBUF_METRIC(ACTION)                                         \
+    ACTION( dbuf_double,    METRIC_COUNTER, "# double completed"   )\
+    ACTION( dbuf_double_ex, METRIC_COUNTER, "# double failed"      )\
+    ACTION( dbuf_shrink,    METRIC_COUNTER, "# shrink completed"   )\
+    ACTION( dbuf_shrink_ex, METRIC_COUNTER, "# srhink failed"      )\
+    ACTION( dbuf_fit,       METRIC_COUNTER, "# fit completed"      )\
+    ACTION( dbuf_fit_ex,    METRIC_COUNTER, "# fit failed"         )
+
+typedef struct {
+    DBUF_METRIC(METRIC_DECLARE)
+} dbuf_metrics_st;
+
 /* Setup/teardown doubling buffer module */
-void dbuf_setup(dbuf_options_st *options);
+void dbuf_setup(dbuf_options_st *options, dbuf_metrics_st *metrics);
 void dbuf_teardown(void);
 
 /* Buffer resizing functions */
 rstatus_i dbuf_double(struct buf **buf); /* 2x size, slightly >2x capacity */
-rstatus_i dbuf_shrink(struct buf **buf); /* reset to initial size */
+/* shrink to initial size or content size, whichever is larger */
+rstatus_i dbuf_shrink(struct buf **buf);
 rstatus_i dbuf_fit(struct buf **buf, uint32_t cap); /* resize to fit cap */
 
 #ifdef __cplusplus
