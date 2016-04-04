@@ -65,12 +65,6 @@ typedef enum response_state {
     RSP_DONE
 } response_state_t;
 
-typedef enum response_parse_state {
-    RSP_HDR,
-    RSP_VAL
-} response_parse_state_t;
-
-
 /*
  * NOTE(yao): we store fields as location in rbuf, this assumes the data will
  * not be overwritten prematurely.
@@ -81,7 +75,6 @@ struct response {
     bool                    free;
 
     response_state_t        rstate;     /* response state */
-    response_parse_state_t  pstate;     /* parsing state */
 
     response_type_t         type;
 
