@@ -9,9 +9,37 @@ layout: default
     collection of cache services, and a common library used to build them.
   </p>
 
+  <div class="page-col-wrapper">
+    <div class="page-col">
+      <div align="center">
+        <h2>Source</h3>
+        <a href="https://github.com/twitter/pelikan"><span class="icon-large icon--github">{% include icon-github.svg %}</span></a>
+      </div>
+    </div>
+    <div class="page-col">
+      <div align="center">
+        <h2>Discussion</h3>
+        <p><a href="https://groups.google.com/forum/#!forum/pelikan-cache">Google group</a></p>
+        <span><a href="https://gitter.im/twitter/pelikan?utm_source=badge&amp;utm_medium=badge&amp;utm_campaign=pr-badge"><img src="https://camo.githubusercontent.com/7b1e52d06d50c8a484f2c8a994ac191dca4cc618/68747470733a2f2f6261646765732e6769747465722e696d2f747769747465722f70656c696b616e2e737667" alt="Gitter" data-canonical-src="https://badges.gitter.im/twitter/pelikan.svg" style="max-width:100%;"></a></span>
+      </div>
+    </div>
+    <div class="page-col">
+      <div align="center">
+        <h2>Follow</h3>
+        <p class="rss-subscribe" style="padding-bottom: 4px"><a href="{{ "/feed.xml" | prepend: site.baseurl }}">Blog RSS</a></p>
+        <span><a href="https://twitter.com/pelikan_cache" class="twitter-follow-button" data-show-count="false">Follow @pelikan_cache</a></span>
+        <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+      </div>
+    </div>
+  </div>
+
   <h1 class="page-heading">News</h1>
-  <ul>
-    <li>(2016/04/04) The pelikan <a href="https://github.com/twitter/pelikan">github repo</a> is now live!</li>
+  <ul class="news-list">
+    {% for news in site.news %}
+      <li>
+        <span class="news-meta">{{ news.date | date: "%b %-d, %Y" }}</span> {{ news.content }}
+      </li>
+    {% endfor %}
   </ul>
 
   <h1 class="page-heading">Posts</h1>
@@ -27,7 +55,4 @@ layout: default
     {% endfor %}
   </ul>
 
-  <div class="page-info" align="right">
-    <p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>
-  <div>
 </div>

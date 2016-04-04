@@ -19,3 +19,7 @@ github_username: twitter
 
 # Build settings
 markdown: kramdown
+
+# Other collection
+collections:
+- news

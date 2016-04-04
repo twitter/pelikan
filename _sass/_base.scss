@@ -203,3 +203,17 @@ pre {
         }
     }
 }
+
+.icon-large {
+
+    > svg {
+        display: inline-block;
+        width: 64px;
+        height: 64px;
+        vertical-align: middle;
+
+        path {
+            fill: $grey-color-dark;
+        }
+    }
+}
