@@ -228,6 +228,10 @@
     margin-right:  $spacing-unit * 1.5;
     list-style: none;
 
+    @include media-query($on-laptop) {
+        margin-right: 0;
+    }
+
     > li {
         margin-bottom: $spacing-unit;
     }
