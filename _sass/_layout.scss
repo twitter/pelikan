@@ -222,6 +222,27 @@
     color: $grey-color-dark;
 }
 
+.video-list {
+    padding: 0 0 $spacing-unit 0;
+    margin-left: 0;
+    list-style: none;
+
+    > li {
+        margin-bottom: $spacing-unit;
+    }
+}
+
+.video-text-wrap {
+    float: right;
+    padding-left: 15px;
+    margin-right: 30px;
+}
+
+.video-text {
+    font-size: $small-font-size;
+    color: $grey-color-dark;
+}
+
 .post-list {
     margin-left: 0;
     list-style: none;
