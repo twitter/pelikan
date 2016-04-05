@@ -240,6 +240,17 @@
 .video-text-wrap {
     float: right;
     margin-left: $spacing-unit;
+    @include media-query($on-laptop) {
+        margin-left: 0;
+    }
+
+    > iframe {
+        width: 320;
+        height: 180;
+        @include media-query($on-laptop) {
+            width: 100%;
+        }
+    }
 }
 
 .video-text {
@@ -323,3 +334,4 @@
         }
     }
 }
+
