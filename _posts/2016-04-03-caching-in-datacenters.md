@@ -3,6 +3,7 @@ layout: post
 title:  "Caching in datacenters"
 date:   2016-04-03 04:56:00 -0700
 author: Yao Yue
+tags: design, performance, operations
 twitter_username: thinkingfish
 ---
 

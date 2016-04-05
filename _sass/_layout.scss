@@ -225,6 +225,7 @@
 .video-list {
     padding: 0 0 $spacing-unit 0;
     margin-left: 0;
+    margin-right:  $spacing-unit * 1.5;
     list-style: none;
 
     > li {
@@ -234,8 +235,7 @@
 
 .video-text-wrap {
     float: right;
-    padding-left: 15px;
-    margin-right: 30px;
+    margin-left: $spacing-unit;
 }
 
 .video-text {
