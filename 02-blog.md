@@ -5,7 +5,7 @@ permalink: /blog/
 ---
   <div class="page-info" style="background-color: #EFEFEF">
     <p>We plan to release a series of blog posts in the upcoming weeks. Please
-    take a look at our <a href="https://github.com/twitter/pelikan/wiki/Technical-details">
+    take a look at our <a href="https://github.com/twitter/pelikan/wiki/Blog-Post-lineup">
     list of topics</a> and let us know what (else) interests you.</p>
   </div>
 
