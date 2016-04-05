@@ -165,7 +165,7 @@ If you want to submit a patch, please follow these steps:
 We have made progress and are actively working on documentation, and will put it
 on our website. Meanwhile, check out the current material under `docs/`
 
-We also maintain a [list of topics](https://github.com/twitter/pelikan/wiki/Technical-details)
+We also maintain a [list of topics](https://github.com/twitter/pelikan/wiki/Blog-Post-lineup)
 for upcoming [blog posts](http://pelikan.io/blog). Please let us know what
 (else) interests you.
 
