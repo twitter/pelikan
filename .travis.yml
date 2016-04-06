@@ -1,0 +1,60 @@
+sudo: required
+language: c
+
+matrix:
+  include:
+    - compiler: gcc
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - gcc-4.8
+      env: C_COMPILER=gcc-4.8
+    - compiler: gcc
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - gcc-4.9
+      env: C_COMPILER=gcc-4.9
+    - compiler: gcc
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - gcc-5
+      env: C_COMPILER=gcc-5
+    - compiler: clang
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-precise-3.6
+          packages:
+            - clang-3.6
+      env: C_COMPILER=clang-3.6
+    - compiler: clang
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-precise-3.7
+          packages:
+            - clang-3.7
+      env: C_COMPILER=clang-3.7
+
+
+before_install:
+  - export CC=$C_COMPILER
+  - wget https://github.com/libcheck/check/files/71408/check-0.10.0.tar.gz
+  - tar xvfz check-0.10.0.tar.gz
+  - cd check-0.10.0 && ./configure && make && sudo make install && cd ..
+
+script:
+  - mkdir _build && cd _build
+  - cmake ..
+  - make -j
+  - make check
