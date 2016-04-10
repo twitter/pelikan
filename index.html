@@ -35,7 +35,7 @@ layout: default
 
   <h1 class="page-heading">News</h1>
   <ul class="news-list">
-    {% for news in site.news %}
+    {% for news in site.news reversed  %}
       <li>
         <span class="news-meta">{{ news.date | date: "%b %-d, %Y" }}</span> {{ news.content }}
       </li>
