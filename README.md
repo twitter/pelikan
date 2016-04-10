@@ -12,6 +12,7 @@
 * [Documentation](#documentation)
 * [License](#license)
 
+[![Build Status](https://travis-ci.org/twitter/pelikan.svg?branch=travis_ci)](https://travis-ci.org/twitter/pelikan)
 
 # Overview
 After years of using and working on various cache services, we built a common
