@@ -7,8 +7,8 @@ tags: design, performance, operations
 twitter_username: thinkingfish
 ---
 
-*This is the first post in our blog series about the design, implementation and
-usage of caching in datacenters.*
+*This is the first post in our [blog series](http://twitter.github.io/pelikan/blog/)
+about the design, implementation and usage of caching in datacenters.*
 
 There are many different definitions of caching. And indeed caching is
 [ubiquitous](https://www.quora.com/How-to-understand-Computer-Science-has-only-three-ideas-cache-hash-trash)
@@ -165,8 +165,11 @@ main challenge facing anybody who wants to build a good caching solution.
 
 ## Coming up...
 
-In the next post, we will explore some design principles that allows us to
-satisfy both the obvious and hidden requirements.
+In the next few posts, we will zoom into the server aspect of caching, and
+explore some design principles that allows us to satisfy both the obvious and
+hidden requirements.
 
-[^1]: cache coherency/invalidation is both important and hard, but we have established that people are often willing to sacrifice is for speed.
-[^2]: [`fatcache`](https://github.com/twitter/fatcache) is our previous attempt to do so.
+[^1]: cache coherency/invalidation is both important and hard, but we have
+established that people are often willing to sacrifice is for speed.
+[^2]: [`fatcache`](https://github.com/twitter/fatcache) is our previous attempt
+to do so.
