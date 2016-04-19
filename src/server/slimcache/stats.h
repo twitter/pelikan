@@ -3,10 +3,10 @@
 #include "admin/process.h"
 #include "data/process.h"
 
-#include "../../protocol/data/memcache_include.h"
-#include "../../storage/cuckoo/cuckoo.h"
-#include "../../core/core.h"
-#include "../../util/procinfo.h"
+#include "core/core.h"
+#include "protocol/data/memcache_include.h"
+#include "storage/cuckoo/cuckoo.h"
+#include "util/procinfo.h"
 
 #include <cc_event.h>
 #include <cc_log.h>

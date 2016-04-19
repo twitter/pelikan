@@ -2,7 +2,7 @@
 
 #include "slabclass.h"
 
-#include "../../time/time.h"
+#include "time/time.h"
 
 #include <cc_bstring.h>
 #include <cc_metric.h>

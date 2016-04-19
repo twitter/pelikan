@@ -1,7 +1,7 @@
 #include "process.h"
 
-#include "../../../protocol/admin/admin_include.h"
-#include "../../../util/procinfo.h"
+#include "protocol/admin/admin_include.h"
+#include "util/procinfo.h"
 
 #include <cc_mm.h>
 #include <cc_print.h>

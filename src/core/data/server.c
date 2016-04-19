@@ -1,6 +1,6 @@
 #include "server.h"
 
-#include "../context.h"
+#include "core/context.h"
 #include "shared.h"
 
 #include <time/time.h>
