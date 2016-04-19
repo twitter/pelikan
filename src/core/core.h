@@ -4,10 +4,10 @@
  * event driven stuff is handled, it is not a replacement of main()
  */
 
-#include <core/context.h>
-#include <core/admin/admin.h>
-#include <core/data/server.h>
-#include <core/data/worker.h>
+#include "admin/admin.h"
+#include "context.h"
+#include "data/server.h"
+#include "data/worker.h"
 
 #include <cc_define.h>
 

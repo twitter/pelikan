@@ -1,9 +1,9 @@
-#include <core/admin/admin.h>
+#include "admin.h"
 
-#include <core/context.h>
+#include "../context.h"
 
-#include <protocol/admin/admin_include.h>
-#include <util/util.h>
+#include "../../protocol/admin/admin_include.h"
+#include "../../util/util.h"
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>

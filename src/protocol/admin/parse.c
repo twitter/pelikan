@@ -1,6 +1,6 @@
-#include <protocol/admin/parse.h>
+#include "parse.h"
 
-#include <protocol/admin/request.h>
+#include "request.h"
 
 #include <buffer/cc_buf.h>
 #include <cc_debug.h>

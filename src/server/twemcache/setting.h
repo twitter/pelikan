@@ -2,10 +2,10 @@
 
 #include "data/process.h"
 
-#include <core/core.h>
-#include <storage/slab/slab.h>
-#include <storage/slab/item.h>
-#include <protocol/data/memcache_include.h>
+#include "../../core/core.h"
+#include "../../protocol/data/memcache_include.h"
+#include "../../storage/slab/item.h"
+#include "../../storage/slab/slab.h"
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>

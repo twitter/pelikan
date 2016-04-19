@@ -1,8 +1,8 @@
-#include <protocol/data/memcache/compose.h>
+#include "compose.h"
 
-#include <protocol/data/memcache/request.h>
-#include <protocol/data/memcache/response.h>
-#include <time/time.h>
+#include "request.h"
+#include "response.h"
+#include "../../../time/time.h"
 
 #include <cc_debug.h>
 #include <cc_print.h>

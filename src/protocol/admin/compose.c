@@ -1,7 +1,7 @@
-#include <protocol/admin/compose.h>
+#include "compose.h"
 
-#include <protocol/admin/request.h>
-#include <protocol/admin/response.h>
+#include "request.h"
+#include "response.h"
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>

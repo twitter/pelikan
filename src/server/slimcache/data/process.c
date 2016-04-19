@@ -1,7 +1,7 @@
 #include "process.h"
 
-#include <protocol/data/memcache_include.h>
-#include <storage/cuckoo/cuckoo.h>
+#include "../../../protocol/data/memcache_include.h"
+#include "../../../storage/cuckoo/cuckoo.h"
 
 #include <cc_array.h>
 #include <cc_debug.h>

@@ -1,6 +1,6 @@
-#include <util/procinfo.h>
+#include "procinfo.h"
 
-#include <time/time.h>
+#include "../time/time.h"
 
 #include <cc_debug.h>
 

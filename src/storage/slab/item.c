@@ -1,4 +1,4 @@
-#include <storage/slab/slab.h>
+#include "slab.h"
 
 #include <cc_debug.h>
 

@@ -3,10 +3,9 @@
 #include "admin/process.h"
 #include "data/process.h"
 
-#include <protocol/data/ping_include.h>
-#include <storage/cuckoo/cuckoo.h>
-#include <core/core.h>
-#include <util/procinfo.h>
+#include "../../protocol/data/ping_include.h"
+#include "../../core/core.h"
+#include "../../util/procinfo.h"
 
 #include <buffer/cc_dbuf.h>
 #include <cc_event.h>

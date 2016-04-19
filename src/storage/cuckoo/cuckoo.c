@@ -1,4 +1,4 @@
-#include <storage/cuckoo/cuckoo.h>
+#include "cuckoo.h"
 
 #include <cc_debug.h>
 #include <cc_define.h>

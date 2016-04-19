@@ -1,8 +1,8 @@
 #include "setting.h"
 #include "stats.h"
 
-#include <time/time.h>
-#include <util/util.h>
+#include "../../time/time.h"
+#include "../../util/util.h"
 
 #include <cc_debug.h>
 

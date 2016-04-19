@@ -1,6 +1,7 @@
-#include <storage/slab/slab.h>
-#include <storage/slab/item.h>
-#include <storage/slab/hashtable.h>
+#include "slab.h"
+
+#include "hashtable.h"
+#include "item.h"
 
 #include <cc_mm.h>
 #include <cc_util.h>
