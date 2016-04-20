@@ -1,6 +1,6 @@
-#include <core/core.h>
+#include "core.h"
 
-#include <core/data/shared.h>
+#include "data/shared.h"
 
 #include <cc_debug.h>
 #include <cc_ring_array.h>

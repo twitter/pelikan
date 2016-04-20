@@ -1,4 +1,4 @@
-#include <storage/slab/hashtable.h>
+#include "hashtable.h"
 
 #include <cc_hash.h>
 #include <cc_mm.h>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <storage/cuckoo/item.h>
+#include "item.h"
 
 #include <cc_define.h>
 #include <cc_bstring.h>

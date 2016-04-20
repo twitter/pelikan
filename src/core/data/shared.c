@@ -1,4 +1,4 @@
-#include <core/data/shared.h>
+#include "shared.h"
 
 #include <stdlib.h>             /* for NULL */
 

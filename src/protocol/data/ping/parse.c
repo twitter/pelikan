@@ -1,4 +1,4 @@
-#include <protocol/data/ping/parse.h>
+#include "parse.h"
 
 #include <cc_bstring.h>
 #include <cc_debug.h>

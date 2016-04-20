@@ -1,7 +1,7 @@
 #pragma once
 
-#include <protocol/data/ping/request.h>
-#include <protocol/data/ping/response.h>
+#include "request.h"
+#include "response.h"
 
 #include <buffer/cc_buf.h>
 #include <cc_metric.h>

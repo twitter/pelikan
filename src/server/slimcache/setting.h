@@ -3,9 +3,9 @@
 #include "admin/process.h"
 #include "data/process.h"
 
-#include <core/core.h>
-#include <storage/cuckoo/cuckoo.h>
-#include <protocol/data/memcache_include.h>
+#include "core/core.h"
+#include "storage/cuckoo/cuckoo.h"
+#include "protocol/data/memcache_include.h"
 
 #include <buffer/cc_buf.h>
 #include <cc_array.h>

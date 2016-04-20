@@ -1,7 +1,7 @@
-#include <core/data/server.h>
+#include "server.h"
 
-#include <core/context.h>
-#include <core/data/shared.h>
+#include "core/context.h"
+#include "shared.h"
 
 #include <time/time.h>
 #include <util/util.h>

@@ -1,4 +1,4 @@
-#include <protocol/data/memcache/request.h>
+#include "request.h"
 
 #include <cc_debug.h>
 #include <cc_pool.h>

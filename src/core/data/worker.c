@@ -1,7 +1,7 @@
-#include <core/data/worker.h>
+#include "worker.h"
 
-#include <core/context.h>
-#include <core/data/shared.h>
+#include "core/context.h"
+#include "shared.h"
 
 #include <time/time.h>
 

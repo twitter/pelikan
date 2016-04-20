@@ -1,10 +1,10 @@
 #pragma once
 
-#include <storage/slab/slabclass.h>
-#include <storage/slab/hashtable.h>
-#include <storage/slab/item.h>
+#include "item.h"
+#include "hashtable.h"
+#include "slabclass.h"
 
-#include <time/time.h>
+#include "time/time.h"
 
 #include <cc_define.h>
 #include <cc_metric.h>

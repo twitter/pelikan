@@ -3,8 +3,8 @@
 #include "admin/process.h"
 #include "data/process.h"
 
-#include <core/core.h>
-#include <protocol/data/ping_include.h>
+#include "core/core.h"
+#include "protocol/data/ping_include.h"
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>

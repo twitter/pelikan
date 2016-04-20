@@ -1,4 +1,4 @@
-#include <protocol/data/memcache/response.h>
+#include "response.h"
 
 #include <cc_debug.h>
 #include <cc_mm.h>
