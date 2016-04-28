@@ -88,6 +88,7 @@ configure_file(
 # so we are using list as input until we move to new version
 # TODO add build types
 add_definitions(-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
+set(CMAKE_MACOSX_RPATH 1)
 set(CFLAGS_LIST
     "-std=c11 "
     "-ggdb3 -O2 "

@@ -35,10 +35,3 @@ set_target_properties (${PROJECT_NAME}-shared
     OUTPUT_NAME ${PROJECT_NAME}
     VERSION ${${PROJECT_NAME}_VERSION}
     SOVERSION 0)
-
-# install instructions
-install(TARGETS ${PROJECT_NAME}-static DESTINATION lib)
-install(TARGETS ${PROJECT_NAME}-shared DESTINATION lib)
-install(DIRECTORY include/
-    DESTINATION include/${PROJECT_NAME}-${${PROJECT_NAME}_RELEASE_VERSION}
-    FILES_MATCHING PATTERN "*.h")
