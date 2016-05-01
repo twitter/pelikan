@@ -41,6 +41,8 @@ option(COVERAGE "code coverage" OFF)
 # Note: duplicate custom targets only works with Makefile generators, will break XCode & VS
 # reference: http://public.kitware.com/Bug/view.php?id=6348
 set_property(GLOBAL PROPERTY ALLOW_DUPLICATE_CUSTOM_TARGETS 1)
+set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
+set(CMAKE_MACOSX_RPATH 1)
 
 include(CheckSymbolExists)
 check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
@@ -129,3 +131,6 @@ message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
 
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
 message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})
+
+# Note: to uninstall targets, run:
+#  xargs rm < install_manifest.txt

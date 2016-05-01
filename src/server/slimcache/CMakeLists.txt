@@ -20,5 +20,10 @@ set(LIBS
     ${CMAKE_THREAD_LIBS_INIT})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/_bin)
-add_executable(${PROJECT_NAME}_slimcache ${SOURCE})
-target_link_libraries(${PROJECT_NAME}_slimcache ${MODULES} ${LIBS})
+set(TARGET_NAME ${PROJECT_NAME}_slimcache)
+
+add_executable(${TARGET_NAME} ${SOURCE})
+target_link_libraries(${TARGET_NAME} ${MODULES} ${LIBS})
+
+install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
+add_dependencies(service ${TARGET_NAME})
