@@ -110,14 +110,14 @@ find_package(Threads)
 include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"
     "${CCOMMON_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src"
-    "${CHECK_INCLUDES}")
+    "${PROJECT_SOURCE_DIR}/src")
 
 # server
 add_subdirectory(src)
 
 # tests: always build last
 if(CHECK_WORKING)
+    include_directories(${include_directories} "${CHECK_INCLUDES}")
     add_subdirectory(test)
 endif(CHECK_WORKING)
 
