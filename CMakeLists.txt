@@ -122,8 +122,7 @@ find_package(Threads)
 # where to find include files
 include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"
-    "include"
-    "${CHECK_INCLUDES}")
+    "include")
 
 ###################
 # things to build #
@@ -131,6 +130,7 @@ include_directories(${include_directories}
 
 add_subdirectory(src)
 if(CHECK_WORKING)
+    include_directories(${include_directories} "${CHECK_INCLUDES}")
     add_subdirectory(test)
 endif(CHECK_WORKING)
 
