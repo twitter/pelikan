@@ -8,7 +8,7 @@ ENV PELIKAN_URL https://github.com/twitter/pelikan/archive/0.1.1.tar.gz
 ENV PELIKAN_SHA1 b2dc5796702f106d14a645155a7837c11c79e231
 
 # build and install binaries, config
-RUN BUILDDEPS='cmake curl gcc g++ libc6-dev make' \
+RUN BUILDDEPS='cmake curl gcc libc6-dev make' \
 	&& set -x \
 	&& apt-get update && apt-get install --no-install-recommends -y $BUILDDEPS \
 	&& rm -rf /var/lib/apt/lists/* \
