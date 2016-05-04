@@ -27,13 +27,13 @@ RUN BUILDDEPS='cmake curl gcc g++ libc6-dev make' \
 	&& cd / && rm -rf /usr/src/pelikan \
 	&& apt-get purge -y --auto-remove $BUILDDEPS
 
-RUN mkdir /data && chown pelikan:pelikan /data
-VOLUME ["/data"]
-WORKDIR /data
+RUN mkdir /pelikan && chown pelikan:pelikan /pelikan
+VOLUME ["/pelikan"]
+WORKDIR /pelikan
 
 USER pelikan
 # data port:
 EXPOSE 12321
 # admin port:
 EXPOSE 9999
-CMD ["pelikan_twemcache", "/etc/pelikan/twemcache.conf"]
+CMD ["which", "pelikan_pingserver"]
