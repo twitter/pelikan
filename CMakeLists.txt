@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(pelikan)
+project(pelikan C)
 
 enable_testing()
 
