@@ -3,9 +3,9 @@ FROM debian:jessie
 # add our user and group first to make sure their IDs get assigned consistently, regardless of whatever dependencies get added
 RUN groupadd -r pelikan && useradd -r -g pelikan pelikan
 
-ENV PELIKAN_VERSION 0.1.1
-ENV PELIKAN_URL https://github.com/twitter/pelikan/archive/0.1.1.tar.gz
-ENV PELIKAN_SHA1 b2dc5796702f106d14a645155a7837c11c79e231
+ENV PELIKAN_VERSION 0.1.2
+ENV PELIKAN_URL https://github.com/twitter/pelikan/archive/0.1.2.tar.gz
+ENV PELIKAN_SHA1 b8cb249fc44dc1a16f8ed9ce0be008c43ceb3599
 
 # build and install binaries, config
 RUN BUILDDEPS='cmake curl gcc libc6-dev make' \
