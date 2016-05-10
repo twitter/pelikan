@@ -209,6 +209,19 @@
     }
 }
 
+.page-double-col {
+    float: left;
+    margin-bottom: $spacing-unit / 2;
+    padding-left: $spacing-unit / 2;
+    width: -webkit-calc(63% - (#{$spacing-unit} / 2));
+    width:         calc(63% - (#{$spacing-unit} / 2));
+    @include media-query($on-laptop) {
+        float: none;
+        width: -webkit-calc(100% - (#{$spacing-unit} / 2));
+        width:         calc(100% - (#{$spacing-unit} / 2));
+    }
+}
+
 .news-list {
     margin-left: 0;
     list-style: none;
@@ -268,17 +281,6 @@
     }
 }
 
-.post-meta {
-    font-size: $small-font-size;
-    color: $grey-color;
-}
-
-.post-link {
-    display: block;
-    font-size: 22px;
-}
-
-
 
 /**
  * Posts
@@ -295,6 +297,16 @@
     @include media-query($on-laptop) {
         font-size: 36px;
     }
+}
+
+.post-meta {
+    font-size: $small-font-size;
+    color: $grey-color;
+}
+
+.post-link {
+    display: block;
+    font-size: 22px;
 }
 
 .post-content {
@@ -336,3 +348,78 @@
     }
 }
 
+
+/**
+ * Talk content
+ */
+.talk-cover {
+    margin-top: $spacing-unit;
+}
+
+.talk-meta {
+    font-size: $small-font-size;
+    color: $grey-color;
+}
+
+.talk-header {
+    margin-bottom: 0;
+}
+
+.talk-title {
+    font-size: 32px;
+    letter-spacing: -1px;
+    line-height: 1;
+
+    @include media-query($on-laptop) {
+        font-size: 28px;
+    }
+}
+
+.talk-info {
+    margin-top: 0;
+    margin-bottom: $spacing-unit;
+    padding: 10px 5px 1px 0px;
+    color: $grey-color-dark;
+}
+
+.talk-link {
+    display: block;
+    font-size: 22px;
+}
+
+.talk-content {
+    padding-top: $spacing-unit / 2;
+}
+
+.talk-col-wrapper {
+    margin-top: $spacing-unit;
+    margin-bottom: $spacing-unit;
+    margin-left: -$spacing-unit / 2;
+    @extend %clearfix;
+}
+
+.talk-col-img {
+    float: left;
+    margin-bottom: $spacing-unit;
+    padding-left: $spacing-unit / 2;
+    width: -webkit-calc(39% - (#{$spacing-unit} / 2));
+    width:         calc(39% - (#{$spacing-unit} / 2));
+    @include media-query($on-laptop) {
+        float: none;
+        width: -webkit-calc(100% - (#{$spacing-unit} / 2));
+        width:         calc(100% - (#{$spacing-unit} / 2));
+    }
+}
+
+.talk-col-text {
+    float: left;
+    margin-bottom: $spacing-unit / 2;
+    padding-left: $spacing-unit / 2;
+    width: -webkit-calc(60% - (#{$spacing-unit} / 2));
+    width:         calc(60% - (#{$spacing-unit} / 2));
+    @include media-query($on-laptop) {
+        float: none;
+        width: -webkit-calc(100% - (#{$spacing-unit} / 2));
+        width:         calc(100% - (#{$spacing-unit} / 2));
+    }
+}

@@ -22,4 +22,8 @@ markdown: kramdown
 
 # Other collection
 collections:
-- news
+  talks:
+    output: true
+    permalink: /talks/:path/
+  news:
+    output: false

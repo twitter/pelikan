@@ -1,0 +1,45 @@
+---
+layout: basic
+---
+<article class="talk" itemscope itemtype="http://schema.org/Article">
+  <div class="wrapper">
+    <header class="talk-header">
+      <h1 class="talk-title" itemprop="name headline">{{ page.title }}</h1>
+      {% if page.author %}
+        <div class="talk-meta">
+          <span itemprop="author" itemscope itemtype="http://schema.org/Person">
+            <span itemprop="name">{{ page.author }}</span>
+            {% if page.twitter_username %}
+              {% include icon-twitter.html username=page.twitter_username %}
+            {% endif %}
+          </span>
+        {% if page.date %}
+          •
+          <span class="talk-meta" itemprop="datePosted" itemscope itemtype="http://schema.org/Date">
+            <time datetime="{{ page.date | date_to_xmlschema }}">{{ page.date | date: "%b %-d, %Y" }}</time>
+          </span>
+        {% endif %}
+        </div>
+      {% endif %}
+      {% if page.event %}
+        <div class="talk-meta" itemscope itemtype="http://schema.org/Event">
+          <span itemprop="name">{{ page.event }}</span>
+          •
+          <span itemprop="location" itemscope itemtype="http://schema.org/Place">
+            {{ page.location }}
+          </span>
+        </div>
+      {% endif %}
+      <div class="talk-info">
+        This is a text version of <a href="{{ page.talk_url }}">the talk</a>.
+        You can also download <a href="{{ page.slides_url }}">the slides</a> and watch <a href="{{ page.video_url }}">the video</a> [{{ page.talk_duration }}].
+      </div>
+    </header>
+  </div>
+
+  <div class="wrapper-wide">
+    <div class="talk-content" itemprop="articleBody">
+      {{ content }}
+    </div>
+  </div>
+</article>
