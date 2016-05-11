@@ -156,7 +156,7 @@ cover: "/assets/img/craft2016/001.jpg"
       <p>
       People do not take their fanciest china to a picnic. Most scenarios do not
       warrant "better". Instead, before we try to make things better, "good" has
-      to happen first. History does not wait for the perfect preson or occasion
+      to happen first. History does not wait for the perfect person or occasion
       to be created.
       </p>
     </div>
@@ -201,10 +201,10 @@ cover: "/assets/img/craft2016/001.jpg"
       much resources would it take to implement?
       </p>
       <p>
-      These questions need to be repeated asked, until we are honestly confident
-      about our answers. For Pelikan, the amount of time since its inception and
-      the amount of political capital it took showed how difficult it can be to
-      justify betterment.
+      These questions need to be repeatedly asked, until we are honestly
+      confident about our answers. For Pelikan, the amount of time since its
+      inception and the amount of political capital it took showed how difficult
+      it can be to justify betterment.
       </p>
     </div>
   </div>
