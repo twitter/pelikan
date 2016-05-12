@@ -108,10 +108,10 @@ cover: "/assets/img/craft2016/001.jpg"
       such as Fatcache, Slimcache and Twemproxy.
       </p>
       <p>
-      One the one hand, we recognize the great structural similarity in these
+      On the one hand, we recognize the great structural similarity in these
       services; on the other hand, we hesitate to introduce some of them and
       other new features into production, as we hesitate to support a plurality
-      of codebases. We realize to move forward, we have to consolidate and
+      of codebases. We realize to make real progress, we have to consolidate and
       improve existing solutions, so we can avoid the maintenance baggage moving
       forward.
       </p>
@@ -171,14 +171,14 @@ cover: "/assets/img/craft2016/001.jpg"
       <p>
       Timing is important. For example, Twitter infrastructure in general went
       through stages: first we used available tech that worked, then went on to
-      patch and fork, eventually we have enough experiences and resources to
+      patch and fork, eventually we had enough experiences and resources to
       reconsider our problems and solutions from first principles. We could not
-      have made the kind of improvements that’s happening now 5 years ago.
+      have made the kind of improvements that are happening now 5 years ago.
       </p>
       <p>
-      One tool that has been repeated used to assess projects is the 2x2 risk
+      One tool that has been repeatedly used to assess projects is the 2x2 risk
       matrix by Ryan King (an ex-Tweep): it compares the status quo and the
-      goal of a project. Generally, we want to gradual improvement, and avoid
+      goal of a project. Generally, we want gradual improvement, and avoid
       aiming for perfection when having nothing. The motto is "evolution, not
       revolution".
       </p>
@@ -196,14 +196,14 @@ cover: "/assets/img/craft2016/001.jpg"
       on creating “something new”, or “something better”?
       If we think it is more beneficial to improve something that already
       exists, do we understand concretely the weakness and strength of existing
-      solutions, and therefore what will make it better?
+      solutions, and therefore what will make it stronger?
       Do we know the technical solution that addresses those weaknesses? How
       much resources would it take to implement?
       </p>
       <p>
       These questions need to be repeatedly asked, until we are honestly
       confident about our answers. For Pelikan, the amount of time since its
-      inception and the amount of political capital it took showed how difficult
+      inception and the amount of political capital it cost showed how difficult
       it can be to justify betterment.
       </p>
     </div>
@@ -338,7 +338,7 @@ cover: "/assets/img/craft2016/001.jpg"
       <p>
       We summarize our insight into the problem as a concrete goal: when we say
       we want to build a better cache, we mean we want build a production-ready
-      cache, which provides predictable runtime performance, is operations-
+      cache, which provides predictable runtime performance, is operations
       friendly, and is maintainable in the long term.
       </p>
     </div>
@@ -352,7 +352,7 @@ cover: "/assets/img/craft2016/001.jpg"
     <div class="talk-col-text">
       <p>
       These areas get further expanded according to the way cache is used in
-      our context, providing criteria that can be evaluated against.
+      our context, providing specific criteria that can be evaluated against.
       </p>
     </div>
   </div>
@@ -419,7 +419,7 @@ cover: "/assets/img/craft2016/001.jpg"
     <div class="talk-col-text">
       <p>
       A concept closely related to interface is abstraction. When do we need
-      it? How can we avoid over- or under- apply abstraction?
+      it? How can we avoid over- or under- applying abstraction?
       </p>
       <p>
       In the 90s, the Olson twins starred in a show called Two Of A Kind, that
@@ -470,7 +470,7 @@ cover: "/assets/img/craft2016/001.jpg"
     <div class="talk-col-text">
       <p>
       Layering is one of the most powerful concept leading to the explosion of
-      software. We all stand on the shoulder of giants, but sometimes, that
+      software. We all stand on the shoulders of giants. But sometimes, that
       shoulder patch can be a little slippery.
       A Lego tower like this is not possible if all the pieces have smooth
       surfaces. Writing good software is similar – we want different layers to
@@ -505,7 +505,7 @@ cover: "/assets/img/craft2016/001.jpg"
       For example, with Twemcache, we had to disable logging beyond the ERROR
       level in production, because it directly calls `write()` which occasional
       requires flushing to disk. Rarely but eventually, such activity slows
-      down the main thread when another unrelated background tasks creates
+      down the main thread when another unrelated background task creates
       contention at the disk, which is beyond our control. Logging is something
       developers rarely give a second thought about, and yet to achieve
       deterministic runtime, we had to completely change how logging is
@@ -524,12 +524,12 @@ cover: "/assets/img/craft2016/001.jpg"
       <p>
       Rigor also means spending a lot of time thinking about corner cases. A lot
       of states in distributed systems are hard to produce with simple unit test.
-      In practice, people often resort to use “battle-tested” systems whose
+      In practice, people often resort to using “battle-tested” systems whose
       states are more thoroughly explored, even just by chance. If one wants to
       build a more robust solution from the beginning, they have to carefully
       reason about the problem in an exhausitve way – Margaret Hamilton did not
       have the chance to "battle-test" her team's software for Project Apollo,
-      instead, they foresore what might go wrong.
+      instead, they foresaw what might go wrong.
       </p>
       <p>
       On top of that, it would be great if formal proof is more widely used to
@@ -667,7 +667,7 @@ cover: "/assets/img/craft2016/001.jpg"
       functionalities, they have similar shapes and patterns. A closer
       examination reveal the reason behind it – at a meta level, configuration
       is how a service builder gives input to various modules, while metrics are
-      how service builder gather output about the internal states of the same
+      how a service builder gathers output about the internal states of the same
       modules. The symmetry in form reflects the deeper symmetry in their
       purposes. Code like this can be called beautiful, for it surfaces the
       underlying truth.
@@ -703,8 +703,8 @@ cover: "/assets/img/craft2016/001.jpg"
       </p>
       <p>
       I worked on Twemcache for 2 years without understanding how event loops
-      work. When working on Pelikan, I had to learn about epoll and kqeuue from
-      scratch, making many mistakes in the process. Later on, in a separate
+      worked . When working on Pelikan, I had to learn about epoll and kqeuue
+      from scratch, making many mistakes in the process. Later on, in a separate
       project, I proposed how to abstract event handling with a set of
       interfaces, and got increasingly frustrated when nobody in the room seemed
       to know what I was talking about after hours of meetings. Then I realized
@@ -766,10 +766,10 @@ cover: "/assets/img/craft2016/001.jpg"
       to do it.
       </p>
       <p>
-      In the past few years I’ve never met a feature that takes more than a day
-      to implement, and that is entirely deliberate. Once I realize a feature
-      will take longer than a day, I started asking if it is due to some design
-      misfit or architectural shortcoming. And often enough, there is. So a new
+      In the past few years I’ve never met a feature that took more than a day
+      to implement, and that is entirely deliberate. Once I realized a feature
+      would take longer than a day, I started asking if it is due to some design
+      misfit or architectural shortcoming. And often enough, it is. So a new
       feature becomes refactoring – the interface may need modification, or the
       modules need to be restructured, or an abstraction requires re-visiting.
       After spending days doing that and changing 1000+ lines of code, at the
