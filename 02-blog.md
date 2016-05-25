@@ -17,8 +17,8 @@ permalink: /blog/
         <h2>
           <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
         </h2>
-        {% if post.content.size > 300 %}
-           {{ post.content | truncatewords: 150 }}
+        {% if post.content.size > 100 %}
+           {{ post.content | truncatewords: 50 }}
            <a href="{{ post.url | prepend: site.baseurl }}">read more</a>
         {% else %}
            {{ post.content }}
