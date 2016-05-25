@@ -47,7 +47,7 @@ of large-scale distributed systems, have given this problem plenty of thoughts.
 
 Networking provides the substructure to most distributed systems. To maximize
 throughput, minimize latencies and jitter, networking technologies in recent
-decades adheres to a divide between *control plane* and *data plane*[^1]. Data
+decades adhere to a divide between *control plane* and *data plane*[^1]. Data
 plane is in charge of actually forwarding individual packets, and its
 performance is directly measurable by the end users, such as when you send a
 `ping` and wait for the response. Control plane deals with uncommon events,
@@ -154,8 +154,8 @@ disk activities are not logged by default, we had to sift through a much wider
 range of application logs to find correlation. Eventually a pattern emerged,
 where we notice latency spikes were observed only when certain I/O-intensive
 application were activated through cron. Still, presumably Twemcache stored
-everything in memory and swap was disabled on these, so when would we ever go
-to disk? The culprit turned out to be a small change in the rather innocent
+everything in memory and swap was disabled on these hosts, so when would we ever
+go to disk? The culprit turned out to be a small change in the rather innocent
 looking log utility, a standard part of most production services. Shortly before
 the symptoms appeared, we had increased our log level slightly to study
 connection activities. After the incident, we had to turn the log level back
