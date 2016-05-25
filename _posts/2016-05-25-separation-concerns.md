@@ -204,7 +204,7 @@ In comparison, connection establishment is more syscall-intensive:
 3. one or more syscalls to set socket as nonblocking unless a more efficient API
   such as `accept4` is available, other attributes such as `keepalive` still
   need to be set separately;
-4. another syscall to add the socket needs to the right event loop, if the right
+4. another syscall to add the socket to the right event loop, and if the right
   event loop runs on a different thread, inter-thread communication is required.
 
 That amounts to at least 2 syscalls per connection, but often quite a few more.
@@ -259,7 +259,7 @@ invoke them inside processing pipelines that are performance-sensitive:
   type (read, write), and avoid synchronization as much as possible. When
   communication is necessary, such as connection handover between server/worker
   threads, prefer asynchronous data structures and mechanisms such as pipes and
-  events. *futex*-based primitives should be used sparingly, in favor of lighter
+  events. `futex`-based primitives should be used sparingly, in favor of lighter
   weight alternatives, such as atomic instructions. For example, metric
   operations can be entirely carried out with atomic instructions, so worker
   thread can update them and admin thread can read them without locking.
