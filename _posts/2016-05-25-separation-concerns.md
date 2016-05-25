@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Separation of Concerns"
-date:   2016-05-24 22:48:00 -0700
+date:   2016-05-25 00:20:00 -0700
 author: Yao Yue
 tags: design, performance, operations
 twitter_username: thinkingfish
