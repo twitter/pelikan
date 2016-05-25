@@ -222,22 +222,26 @@ connection establishment and request handling.
 
 ### One thread per processing pipeline
 
-The first and most important decision in such an architecture is to give each
-processing pipeline its own thread. For a simple in-memory cache implementation
-like `pelikan_twemcache` or `pelikan_slimcache`, we use three threads:
+The first and most important decision in such an architecture is to assign
+functionalities to either data plane or control plane– request-response and
+connection establishment belong to data plane and need to be fast, while the
+rest should go to control plane. Furthermore, we give each major processing
+pipeline its own thread. For a simple in-memory cache implementation like
+`pelikan_twemcache` or `pelikan_slimcache`, we use three threads:
 
-* **Worker thread**: worker thread handles all latency-sensitive requests, such
-  as `get`, `set`, but is not responsible for those related to administrative
-  tasks, such as `stats`. Worker thread is also off the hook from accepting
-  connections, but still needs to register connections for event notifications.
-* **Server thread**: server thread listens on the advertised port and accepts
-  (or rejects, when necessary) incoming connection requests. It should be mostly
-  idling when connections are stable and reused, but can handle big spikes of
-  new connection requests.
+* **Worker thread**: worker thread handles all latency-sensitive data requests,
+  such as `get`, `set`, but is not responsible for those related to
+  administrative tasks, such as `stats`. Worker thread is also off the hook from
+  accepting connections, but still needs to register connections for event
+  notifications.
+* **Server thread**: server thread listens on the advertised data port and
+  accepts (or rejects, when necessary) incoming connection requests. It should
+  be mostly idling when connections are stable and reused, but can handle big
+  spikes of new connection requests.
 * **Admin thread**: admin thread does all the housekeeping: it listens on a
-  separate port to avoid mixing data plane traffic with control plane, accepts
-  connections, answers requests regarding service status, and periodically
-  aggregates metrics, flushes logs, etc.
+  separate control plane port ("admin port") to avoid mixing data plane traffic
+  with control plane, accepts connections, answers requests regarding service
+  status, and periodically aggregates metrics, flushes logs, etc.
 
 ### Performance-sensitive threads should not block
 
