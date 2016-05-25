@@ -51,7 +51,7 @@ decades adhere to a divide between *control plane* and *data plane*[^1]. Data
 plane is in charge of actually forwarding individual packets, and its
 performance is directly measurable by the end users, such as when you send a
 `ping` and wait for the response. Control plane deals with uncommon events,
-such as a packet than cannot be routed, or recomputing routing table upon
+such as a stray packet that cannot be routed, or recomputing routing table upon
 topology changes. Unsurprisingly, a trip through the data plane is called the
 "fast path" while landing on the control plane puts a packet through the "slow
 path". Data plane optimizes for latency and throughput, often implementing a
