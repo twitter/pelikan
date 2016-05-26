@@ -1,5 +1,6 @@
 ---
 layout: post
+comments: true
 title:  "Server First"
 date:   2016-04-11 02:11:00 -0700
 author: Yao Yue

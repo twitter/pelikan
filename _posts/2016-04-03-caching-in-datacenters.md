@@ -1,5 +1,6 @@
 ---
 layout: post
+comments: true
 title:  "Caching in datacenters"
 date:   2016-04-03 04:56:00 -0700
 author: Yao Yue
@@ -169,7 +170,5 @@ In the next few posts, we will zoom into the server aspect of caching, and
 explore some design principles that allows us to satisfy both the obvious and
 hidden requirements.
 
-[^1]: cache coherency/invalidation is both important and hard, but we have
-established that people are often willing to sacrifice is for speed.
-[^2]: [`fatcache`](https://github.com/twitter/fatcache) is our previous attempt
-to do so.
+[^1]: cache coherency/invalidation is both important and hard, but we have established that people are often willing to sacrifice is for speed.
+[^2]: [`fatcache`](https://github.com/twitter/fatcache) is our previous attempt to do so.

@@ -1,5 +1,6 @@
 ---
 layout: post
+comments: true
 title:  "Separation of Concerns"
 date:   2016-05-25 00:20:00 -0700
 author: Yao Yue
