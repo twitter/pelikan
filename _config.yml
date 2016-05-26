@@ -20,6 +20,8 @@ github_username: twitter
 # Build settings
 markdown: kramdown
 
+permalink: /:year/:month/:day/:title.html
+
 # Other collection
 collections:
   talks:
