@@ -46,7 +46,11 @@ _worker_write(struct buf_sock *s)
     return status;
 }
 
-static inline void
+/* the caller only needs to check the return status of this function if
+ * it previously received a write event and wants to re-register the
+ * read event upon full, successful write.
+ */
+static inline rstatus_i
 _worker_event_write(struct buf_sock *s)
 {
     rstatus_i status;
@@ -54,6 +58,15 @@ _worker_event_write(struct buf_sock *s)
 
     status = _worker_write(s);
     if (status == CC_ERETRY || status == CC_EAGAIN) { /* retry write */
+        /* by removing current masks and only listen to write event(s), we are
+         * effectively stopping processing incoming data until we can write
+         * something to the (kernel) buffer for the channel. This is sensible
+         * because either the local network or the client is backed up when
+         * kernel write buffer is full, and this allows us to propagate back
+         * pressure to the sending side.
+         */
+
+        event_del(ctx->evb, hdl->wid(c));
         event_add_write(ctx->evb, hdl->wid(c), s);
     } else if (status == CC_ERROR) {
         c->state = CHANNEL_TERM;
@@ -62,8 +75,10 @@ _worker_event_write(struct buf_sock *s)
     if (processor->post_write(&s->rbuf, &s->wbuf, &s->data) < 0) {
         log_debug("handler signals channel termination");
         s->ch->state = CHANNEL_TERM;
-        return;
+        return CC_ERROR;
     }
+
+    return status;
 }
 
 static inline void
@@ -171,9 +186,14 @@ _worker_event(void *arg, uint32_t events)
             INCR(worker_metrics, worker_event_read);
             _worker_event_read(s);
         } else if (events & EVENT_WRITE) {
+            /* got here only when a previous write was incompleted/retried */
             log_verb("processing worker write event on buf_sock %p", s);
             INCR(worker_metrics, worker_event_write);
-            _worker_event_write(s);
+            if (_worker_event_write(s) == CC_OK) {
+                /* write backlog cleared up, re-add read event (only) */
+                event_del(ctx->evb, hdl->wid(s->ch));
+                event_add_read(ctx->evb, hdl->rid(s->ch), s);
+            }
         } else if (events & EVENT_ERR) {
             s->ch->state = CHANNEL_TERM;
             INCR(worker_metrics, worker_event_error);
