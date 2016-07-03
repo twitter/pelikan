@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cc_define.h>
+
 #include <stddef.h>
 
 /*
@@ -41,8 +43,13 @@
 #define cc_calloc(_n, _s)                                       \
     _cc_calloc((size_t)(_n), (size_t)(_s), __FILE__, __LINE__)
 
+#if defined CC_DEBUG_MM && CC_DEBUG_MM == 1
+#define cc_realloc(_p, _s)                                      \
+    _cc_realloc_move(_p, (size_t)(_s), __FILE__, __LINE__)
+#else
 #define cc_realloc(_p, _s)                                      \
     _cc_realloc(_p, (size_t)(_s), __FILE__, __LINE__)
+#endif
 
 #define cc_free(_p) do {                                        \
     _cc_free(_p, __FILE__, __LINE__);                           \
@@ -59,6 +66,7 @@ void * _cc_alloc(size_t size, const char *name, int line);
 void * _cc_zalloc(size_t size, const char *name, int line);
 void * _cc_calloc(size_t nmemb, size_t size, const char *name, int line);
 void * _cc_realloc(void *ptr, size_t size, const char *name, int line);
+void * _cc_realloc_move(void *ptr, size_t size, const char *name, int line);
 void _cc_free(void *ptr, const char *name, int line);
 void * _cc_mmap(size_t size, const char *name, int line);
 int _cc_munmap(void *p, size_t size, const char *name, int line);
