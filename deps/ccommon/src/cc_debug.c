@@ -105,6 +105,12 @@ _logrotate(int signo)
 void
 debug_log_flush(void *arg)
 {
+    /*
+     * arg is unused but necessary for debug_log_flush to be used in conjunction
+     * with cc_timer and cc_wheel facilities, since to be inserted into a timing
+     * wheel the function must have the type signature of timeout_cb_fn.
+     */
+    (void)arg;
     log_flush(dlog->logger);
 }
 
