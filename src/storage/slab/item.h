@@ -68,6 +68,7 @@ struct item {
     uint16_t          padding;       /* keep end 64-bit aligned, it may be a cas */
     char              end[1];        /* item data */
 };
+/* TODO(yao): dataflag is memcached-specific, can we abstract it out of storage? */
 
 #define ITEM_MAGIC      0xfeedface
 #define ITEM_HDR_SIZE   offsetof(struct item, end)
@@ -176,14 +177,24 @@ item_atou64(uint64_t *vint, struct item *it)
 /* Init header for given item */
 void item_hdr_init(struct item *it, uint32_t offset, uint8_t id);
 
-/* Item lookup */
+/* acquire an item */
 struct item *item_get(const struct bstring *key);
 
-/* Insert item, this assumes the key does not exist */
+/* TODO: make the following APIs protocol agnostic */
+
+/* insert an item, this assumes the key does not exist */
 item_rstatus_t item_insert(const struct bstring *key, const struct bstring *val, uint32_t dataflag, rel_time_t expire_at);
+
+/* reserve an item, this does not link it or remove existing item with the same key */
+item_rstatus_t item_reserve(struct item **it_p, const struct bstring *key, const struct bstring *val, uint32_t vlen, uint32_t dataflag, rel_time_t expire_at);
+/* item_release is used for reserved item only (not linked) */
+void item_release(struct item **it_p);
+
+void item_backfill(struct item *it, const struct bstring *val, bool complete);
 
 /* Append/prepend */
 item_rstatus_t item_annex(struct item *it, const struct bstring *val, bool append);
+
 
 /* In place item update (replace item value) */
 item_rstatus_t item_update(struct item *it, const struct bstring *val);

@@ -12,8 +12,9 @@
 #include <string.h>
 #include <sysexits.h>
 
-#define SLAB_MODULE_NAME       "storage::slab"
-#define SLAB_ALIGN_DOWN(d, n)  ((d) - ((d) % (n)))
+#define SLAB_MODULE_NAME        "storage::slab"
+#define SLAB_ALIGN_DOWN(d, n)   ((d) - ((d) % (n)))
+#define TRIES_MAX               10
 
 struct slab_heapinfo {
     uint8_t         *base;       /* prealloc base */
@@ -457,6 +458,7 @@ _slab_hdr_init(struct slab *slab, uint8_t id)
 #endif
     slab->id = id;
     slab->padding = 0;
+    slab->refcount = 0;
 }
 
 static bool
@@ -545,6 +547,19 @@ _slab_get_new(void)
     return slab;
 }
 
+
+/*
+ * Because a slab can have a reserved item (claimed but not linked), which is
+ * requested when a write command does not have the entirety of value in the
+ * buffer, eviction will fail if the slab has a non-zero refcount. True is
+ * returned if the slab is successfully evicted, False if eviction is denied.
+ */
+static inline bool
+_slab_evict_ok(struct slab *slab)
+{
+    return (slab->refcount == 0);
+}
+
 /*
  * Evict a slab by evicting all the items within it. This means that the
  * items that are carved out of the slab must either be deleted from their
@@ -603,11 +618,23 @@ _slab_evict_one(struct slab *slab)
 static struct slab *
 _slab_evict_rand(void)
 {
-    struct slab *slab = _slab_table_rand();
+    struct slab *slab;
+    int i = 0;
 
-    log_debug("random-evicting slab %p with id %u", slab, slab->id);
+    do {
+        slab = _slab_table_rand();
+    } while (++i < TRIES_MAX && !_slab_evict_ok(slab));
 
-    _slab_evict_one(slab);
+    if (slab == NULL) {
+        /* warning here because eviction failure should be rare. This can
+         * indicate there are dead/idle connections hanging onto items and
+         * slab refcounts.
+         */
+        log_warn("can't find a slab for random-evicting slab with %d tries", i);
+    } else {
+        log_verb("random-evicting slab %p with id %u", slab, slab->id);
+        _slab_evict_one(slab);
+    }
 
     return slab;
 }
@@ -619,10 +646,22 @@ static struct slab *
 _slab_evict_lru(int id)
 {
     struct slab *slab = _slab_lruq_head();
+    int i = 0;
 
-    log_debug("lru-evicting slab %p with id %u", slab, slab->id);
+    while (++i < TRIES_MAX && !_slab_evict_ok(slab)) {
+        slab = TAILQ_NEXT(slab, s_tqe);
+    };
 
-    _slab_evict_one(slab);
+    if (slab == NULL) {
+        /* warning here because eviction failure should be rare. This can
+         * indicate there are dead/idle connections hanging onto items and
+         * slab refcounts.
+         */
+        log_warn("can't find a slab for lru-evicting slab with %d tries", i);
+    } else {
+        log_verb("lru-evicting slab %p with id %u", slab, slab->id);
+        _slab_evict_one(slab);
+    }
 
     return slab;
 }

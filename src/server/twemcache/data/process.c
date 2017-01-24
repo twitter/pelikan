@@ -174,16 +174,42 @@ _error_rsp(struct response *rsp, item_rstatus_t status)
     }
 }
 
+
+static item_rstatus_t
+_generic_set(struct request *req, bool delete)
+{
+    item_rstatus_t status = ITEM_OK;
+    struct bstring *key = array_first(req->keys);
+
+    if (!req->partial) { /* should update hash */
+        if (delete) {
+            item_delete(key);
+        }
+        if (req->reserved == NULL) { /* self-contained req */
+            status = item_insert(key, &(req->vstr), req->flag,
+                    time_reltime(req->expiry));
+        } else { /* backfill reserved item */
+            item_backfill(req->reserved, &req->vstr, true);
+        }
+    } else { /* should not update hash */
+        if (req->reserved == NULL) { /* first segment */
+            status = item_reserve((struct item **)&req->reserved, key,
+                    &req->vstr, req->vlen, req->flag, time_reltime(req->expiry));
+        } else {
+            item_backfill(req->reserved, &req->vstr, false);
+        }
+    }
+
+    return status;
+}
+
 static void
 _process_set(struct response *rsp, struct request *req)
 {
     item_rstatus_t status;
-    struct bstring *key;
-
     INCR(process_metrics, set);
-    key = array_first(req->keys);
-    item_delete(key);
-    status = item_insert(key, &(req->vstr), req->flag, time_reltime(req->expiry));
+
+    status =_generic_set(req, true);
     if (status == ITEM_OK) {
         rsp->type = RSP_STORED;
         INCR(process_metrics, set_stored);
@@ -207,7 +233,7 @@ _process_add(struct response *rsp, struct request *req)
         rsp->type = RSP_NOT_STORED;
         INCR(process_metrics, add_notstored);
     } else {
-        status = item_insert(key, &(req->vstr), req->flag, time_reltime(req->expiry));
+        status =_generic_set(req, false);
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, add_stored);
@@ -225,12 +251,12 @@ _process_replace(struct response *rsp, struct request *req)
 {
     item_rstatus_t status;
     struct bstring *key;
+    struct item *it;
 
     INCR(process_metrics, replace);
     key = array_first(req->keys);
-    if (item_get(key) != NULL) {
-        item_delete(key);
-        status = item_insert(key, &(req->vstr), req->flag, time_reltime(req->expiry));
+    if ((it = item_get(key)) != NULL) {
+        status =_generic_set(req, true);
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, replace_stored);
@@ -262,8 +288,7 @@ _process_cas(struct response *rsp, struct request *req)
         rsp->type = RSP_EXISTS;
         INCR(process_metrics, cas_exists);
     } else {
-        item_delete(key);
-        status = item_insert(key, &(req->vstr), req->flag, time_reltime(req->expiry));
+        status =_generic_set(req, true);
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, cas_stored);
@@ -381,7 +406,11 @@ _process_append(struct response *rsp, struct request *req)
         rsp->type = RSP_NOT_STORED;
         INCR(process_metrics, append_notstored);
     } else {
-        status = item_annex(it, &(req->vstr), true);
+        if (req->partial) { /* reject incomplete append requests */
+            status = ITEM_EOVERSIZED;
+        } else {
+            status = item_annex(it, &(req->vstr), true);
+        }
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, append_stored);
@@ -407,7 +436,11 @@ _process_prepend(struct response *rsp, struct request *req)
         rsp->type = RSP_NOT_STORED;
         INCR(process_metrics, prepend_notstored);
     } else {
-        status = item_annex(it, &(req->vstr), false);
+        if (req->partial) { /* reject incomplete prepend requests */
+            status = ITEM_EOVERSIZED;
+        } else {
+            status = item_annex(it, &(req->vstr), false);
+        }
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, prepend_stored);
@@ -497,10 +530,14 @@ process_request(struct response *rsp, struct request *req)
     }
 }
 
-static void
-_cleanup(struct request **req, struct response **rsp)
+static inline void
+_cleanup(struct request *req, struct response **rsp)
 {
-    request_return(req);
+
+    /* reset req, return rsp: this is likely to change when partial write needs
+     * to be supported
+     */
+    request_reset(req);
     response_return_all(rsp);
 }
 
@@ -509,19 +546,21 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     parse_rstatus_t status;
     struct request *req;
-    struct response *rsp = NULL;
+    struct response *rsp;
 
     log_verb("post-read processing");
 
-    req = request_borrow();
-    if (req == NULL) {
-        /* TODO(yao): simply return for now, better to respond with OOM */
-        log_error("cannot acquire request: OOM");
-        INCR(process_metrics, process_ex);
+    if (*data == NULL) { /* *data is a request pointer, one per sock_buf */
+        if ((*data = request_borrow()) == NULL) {
+            /* TODO(yao): simply return for now, better to respond with OOM */
+            log_error("cannot acquire request: OOM");
+            INCR(process_metrics, process_ex);
 
-        return -1;
+            return -1;
+        }
     }
 
+    req = *data;
     /* keep parse-process-compose until running out of data in rbuf */
     while (buf_rsize(*rbuf) > 0) {
         struct response *nr;
@@ -532,7 +571,7 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 
         status = parse_req(req, *rbuf);
         if (status == PARSE_EUNFIN) {
-            goto done;
+            return 0;
         }
         if (status != PARSE_OK) {
             /* parsing errors are all client errors, since we don't know
@@ -541,7 +580,7 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
              * ends), we should close the connection
              */
             log_warn("illegal request received, status: %d", status);
-            goto error;
+            return -1;
         }
 
         /* stage 2: processing- check for quit, allocate response(s), process */
@@ -549,7 +588,7 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
         /* quit is special, no response expected */
         if (req->type == REQ_QUIT) {
             log_info("peer called quit");
-            goto error;
+            return -1;
         }
 
         /* find cardinality of the request and get enough response objects */
@@ -565,44 +604,44 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
             if (nr == NULL) {
                 log_error("cannot acquire response: OOM");
                 INCR(process_metrics, process_ex);
-                goto error;
+                _cleanup(req, &rsp);
+                return -1;
             }
         }
 
         /* actual processing & command logging */
         process_request(rsp, req);
+        if (req->partial) { /* implies end of rbuf w/o complete processing */
+            /* in this case, do not attempt to log or write response */
+            return 0;
+        }
+
         klog_write(req, rsp);
 
-        /* stage 3: write response(s) */
+        /* stage 3: write response(s) if necessary */
 
         /* noreply means no need to write to buffers */
-        if (req->noreply) {
-            request_reset(req);
-            continue;
-        }
-
-        /* write to wbuf */
-        nr = rsp;
-        if (req->type == REQ_GET || req->type == REQ_GETS) {
-            card = req->nfound + 1;
-        } /* no need to update for other req types- card remains 1 */
-        for (i = 0; i < card; nr = STAILQ_NEXT(nr, next), ++i) {
-            if (compose_rsp(wbuf, nr) < 0) {
-                log_error("composing rsp erred");
-                INCR(process_metrics, process_ex);
-                goto error;
+        if (!req->noreply) {
+            nr = rsp;
+            if (req->type == REQ_GET || req->type == REQ_GETS) {
+                card = req->nfound + 1;
+            } /* no need to update for other req types- card remains 1 */
+            for (i = 0; i < card; nr = STAILQ_NEXT(nr, next), ++i) {
+                if (compose_rsp(wbuf, nr) < 0) {
+                    log_error("composing rsp erred");
+                    INCR(process_metrics, process_ex);
+                    _cleanup(req, &rsp);
+                    return -1;
+                }
             }
         }
+
+        _cleanup(req, &rsp);
     }
 
-done:
-    _cleanup(&req, &rsp);
     return 0;
-
-error:
-    _cleanup(&req, &rsp);
-    return -1;
 }
+
 
 int
 twemcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
@@ -611,6 +650,30 @@ twemcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
 
     dbuf_shrink(rbuf);
     dbuf_shrink(wbuf);
+
+    return 0;
+}
+
+
+int
+twemcache_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
+{
+    log_verb("post-error processing");
+
+    /* normalize buffer size */
+    buf_reset(*rbuf);
+    dbuf_shrink(rbuf);
+    buf_reset(*wbuf);
+    dbuf_shrink(wbuf);
+
+    /* release request data & associated reserved data */
+    if (*data != NULL) {
+        struct request *req = (struct request *)*data;
+        if (req->reserved != NULL) {
+            item_release((struct item **)&req->reserved);
+        }
+        request_return((struct request **)data);
+    }
 
     return 0;
 }

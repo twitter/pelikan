@@ -61,8 +61,8 @@ extern struct bstring req_strings[REQ_SENTINEL];
 
 typedef enum request_state {
     REQ_PARSING,
+    REQ_PARTIAL,
     REQ_PARSED,
-    REQ_PROCESSING,
     REQ_DONE
 } request_state_t;
 
@@ -88,6 +88,10 @@ struct request {
     uint32_t                vlen;
     uint64_t                delta;
     uint64_t                vcas;
+
+    bool                    partial;    /* partial value received? */
+    uint32_t                nremain;
+    void                    *reserved;  /* storage reserved for partial value */
 
     unsigned                noreply:1;
     unsigned                val:1;      /* value needed? */

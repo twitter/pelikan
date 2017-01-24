@@ -26,7 +26,7 @@
 #define SLAB_HASH       16
 #define SLAB_USE_CAS    true
 #define ITEM_SIZE_MIN   44      /* 40 bytes item overhead */
-#define ITEM_SIZE_MAX   (SLAB_SIZE - 32) /* 32 bytes slab overhead */
+#define ITEM_SIZE_MAX   (SLAB_SIZE - SLAB_HDR_SIZE)
 #define ITEM_FACTOR     1.25
 #define HASH_POWER      16
 
@@ -62,13 +62,15 @@ typedef struct {
     ACTION( slab_evict,         METRIC_COUNTER, "# slabs evicted"          )\
     ACTION( slab_memory,        METRIC_GAUGE,   "memory allocated to slab" )\
     ACTION( slab_curr,          METRIC_GAUGE,   "# currently active slabs" )\
-    ACTION( item_keyval_byte,   METRIC_GAUGE,   "key + val in bytes"       )\
-    ACTION( item_val_byte,      METRIC_GAUGE,   "value only in bytes"      )\
     ACTION( item_curr,          METRIC_GAUGE,   "# current items"          )\
-    ACTION( item_req,           METRIC_COUNTER, "# items allocated"        )\
-    ACTION( item_req_ex,        METRIC_COUNTER, "# item alloc errors"      )\
-    ACTION( item_insert,        METRIC_COUNTER, "# items inserted"         )\
-    ACTION( item_remove,        METRIC_COUNTER, "# items removed"          )
+    ACTION( item_alloc,         METRIC_COUNTER, "# items allocated"        )\
+    ACTION( item_alloc_ex,      METRIC_COUNTER, "# item alloc errors"      )\
+    ACTION( item_dealloc,       METRIC_COUNTER, "# items de-allocated"     )\
+    ACTION( item_linked_curr,   METRIC_GAUGE,   "# current items, linked"  )\
+    ACTION( item_link,          METRIC_COUNTER, "# items inserted to HT"   )\
+    ACTION( item_unlink,        METRIC_COUNTER, "# items removed from HT"  )\
+    ACTION( item_keyval_byte,   METRIC_GAUGE,   "key+val in bytes, linked" )\
+    ACTION( item_val_byte,      METRIC_GAUGE,   "value only in bytes"      )
 
 
 typedef struct {
@@ -105,6 +107,7 @@ struct slab {
     rel_time_t        utime;        /* last update time in secs */
     uint8_t           id;           /* slabclass id */
     uint32_t          padding:24;   /* unused */
+    uint32_t          refcount;     /* number of reserved items */
     uint8_t           data[1];      /* opaque data */
 };
 
@@ -141,6 +144,20 @@ item_to_slab(struct item *it)
     ASSERT(slab->magic == SLAB_MAGIC);
 
     return slab;
+}
+
+static inline void
+slab_ref(struct slab *slab)
+{
+    slab->refcount++;
+}
+
+static inline void
+slab_deref(struct slab *slab)
+{
+    ASSERT(slab->refcount > 0);
+
+    slab->refcount--;
 }
 
 void slab_print(void);

@@ -99,6 +99,7 @@ worker_close(struct buf_sock *s)
 {
     log_info("worker core close on buf_sock %p", s);
 
+    processor->post_error(&s->rbuf, &s->wbuf, &s->data);
     event_del(ctx->evb, hdl->rid(s->ch));
     hdl->term(s->ch);
     buf_sock_return(&s);

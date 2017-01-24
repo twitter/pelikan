@@ -75,3 +75,4 @@ void process_teardown(void);
 
 int twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data);
 int twemcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data);
+int twemcache_process_error(struct buf **rbuf, struct buf **wbuf, void **data);

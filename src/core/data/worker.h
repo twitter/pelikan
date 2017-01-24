@@ -43,6 +43,7 @@ typedef int (*post_process_fn)(struct buf **, struct buf **, void **);
 struct post_processor {
     post_process_fn post_read;
     post_process_fn post_write;
+    post_process_fn post_error;
 };
 
 void core_worker_setup(worker_options_st *options, worker_metrics_st *metrics);

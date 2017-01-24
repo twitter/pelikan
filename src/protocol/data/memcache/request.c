@@ -39,6 +39,10 @@ request_reset(struct request *req)
     req->delta = 0;
     req->vcas = 0;
 
+    req->partial = false; /* only set to true when partial value received */
+    req->nremain = 0;
+    req->reserved = NULL;
+
     req->noreply = 0;
     req->val = 0;
     req->serror = 0;

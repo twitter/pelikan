@@ -14,7 +14,8 @@
 
 struct post_processor worker_processor = {
     twemcache_process_read,
-    twemcache_process_write
+    twemcache_process_write,
+    twemcache_process_error,
 };
 
 static void

@@ -16,24 +16,10 @@ _item_expired(struct item *it)
 }
 
 static inline void
-_copy_key(struct item *it, const struct bstring *key)
-{
-    cc_memcpy(item_key(it), key->data, key->len);
-    it->klen = key->len;
-}
-
-static inline void
 _copy_key_item(struct item *nit, struct item *oit)
 {
     cc_memcpy(item_key(nit), item_key(oit), oit->klen);
     nit->klen = oit->klen;
-}
-
-static inline void
-_copy_val(struct item *it, const struct bstring *val)
-{
-    cc_memcpy(item_data(it), val->data, val->len);
-    it->vlen = val->len;
 }
 
 void
@@ -76,6 +62,7 @@ _item_alloc(struct item **it_p, uint8_t klen, uint32_t vlen)
 
     log_verb("allocate item with klen %u vlen %u", klen, vlen);
 
+    *it_p = NULL;
     if (id == SLABCLASS_INVALID_ID) {
         return ITEM_EOVERSIZED;
     }
@@ -84,18 +71,30 @@ _item_alloc(struct item **it_p, uint8_t klen, uint32_t vlen)
     *it_p = it;
     if (it != NULL) {
         _item_reset(it);
-        INCR(slab_metrics, item_req);
+        slab_ref(item_to_slab(it)); /* slab to be deref'ed in _item_link */
+        INCR(slab_metrics, item_curr);
+        INCR(slab_metrics, item_alloc);
 
         log_verb("alloc it %p of id %"PRIu8" at offset %"PRIu32, it, it->id,
                 it->offset);
 
         return ITEM_OK;
     } else {
-        INCR(slab_metrics, item_req_ex);
+        INCR(slab_metrics, item_alloc_ex);
         log_warn("server error on allocating item in slab %"PRIu8, id);
 
         return ITEM_ENOMEM;
     }
+}
+
+static inline void
+_item_dealloc(struct item **it_p)
+{
+    DECR(slab_metrics, item_curr);
+    INCR(slab_metrics, item_dealloc);
+
+    slab_put_item(*it_p, (*it_p)->id);
+    *it_p = NULL;
 }
 
 /*
@@ -112,11 +111,12 @@ _item_link(struct item *it)
             it->offset);
 
     it->is_linked = 1;
+    slab_deref(item_to_slab(it)); /* slab ref'ed in _item_alloc */
 
     hashtable_put(it, hash_table);
 
-    INCR(slab_metrics, item_curr);
-    INCR(slab_metrics, item_insert);
+    INCR(slab_metrics, item_linked_curr);
+    INCR(slab_metrics, item_link);
     INCR_N(slab_metrics, item_keyval_byte, it->klen + it->vlen);
     INCR_N(slab_metrics, item_val_byte, it->vlen);
 }
@@ -136,10 +136,8 @@ _item_unlink(struct item *it)
         it->is_linked = 0;
         hashtable_delete(item_key(it), it->klen, hash_table);
     }
-    slab_put_item(it, it->id);
-
-    DECR(slab_metrics, item_curr);
-    INCR(slab_metrics, item_remove);
+    DECR(slab_metrics, item_linked_curr);
+    INCR(slab_metrics, item_unlink);
     DECR_N(slab_metrics, item_keyval_byte, it->klen + it->vlen);
     DECR_N(slab_metrics, item_val_byte, it->vlen);
 }
@@ -162,14 +160,29 @@ item_get(const struct bstring *key)
     log_verb("get it key %.*s val %.*s", key->len, key->data, it->vlen, item_data(it));
 
     if (_item_expired(it)) {
-        _item_unlink(it);
         log_verb("get it '%.*s' expired and nuked", key->len, key->data);
+        _item_unlink(it);
+        _item_dealloc(&it);
         return NULL;
     }
 
     log_verb("get it %p of id %"PRIu8, it, it->id);
 
     return it;
+}
+
+/* TODO(yao): move this to memcache-specific location */
+static void
+_item_define(struct item *it, const struct bstring *key, const struct bstring *val, uint32_t dataflag, rel_time_t expire_at)
+{
+    it->create_at = time_now();
+    it->expire_at = expire_at;
+    it->dataflag = dataflag;
+    item_set_cas(it);
+    cc_memcpy(item_key(it), key->data, key->len);
+    it->klen = key->len;
+    cc_memcpy(item_data(it), val->data, val->len);
+    it->vlen = val->len;
 }
 
 item_rstatus_t
@@ -179,20 +192,61 @@ item_insert(const struct bstring *key, const struct bstring *val, uint32_t dataf
     struct item *it = NULL;
 
     if ((status = _item_alloc(&it, key->len, val->len)) != ITEM_OK) {
+        log_debug("item insertion failed");
         return status;
     }
 
-    it->expire_at = expire_at;
-    it->create_at = time_now();
-    it->dataflag = dataflag;
-    _copy_key(it, key);
-    _copy_val(it, val);
-    item_set_cas(it);
+    _item_define(it, key, val, dataflag, expire_at);
     _item_link(it);
 
     log_verb("insert it %p of id %"PRIu8" it->klen: %d dataflag %u", it, it->id, it->klen, it->dataflag);
 
     return ITEM_OK;
+}
+
+item_rstatus_t
+item_reserve(struct item **it_p, const struct bstring *key, const struct bstring *val, uint32_t vlen, uint32_t dataflag, rel_time_t expire_at)
+{
+    item_rstatus_t status;
+    struct item *it;
+
+    if ((status = _item_alloc(it_p, key->len, vlen)) != ITEM_OK) {
+        log_debug("item reservation failed");
+        return status;
+    }
+
+    it = *it_p;
+
+    _item_define(it, key, val, dataflag, expire_at);
+
+    log_verb("reserve it %p of id %"PRIu8" it->klen: %d dataflag %u", it,
+            it->id, it->klen, it->dataflag);
+
+    return ITEM_OK;
+}
+
+void
+item_release(struct item **it_p)
+{
+    slab_deref(item_to_slab(*it_p)); /* slab ref'ed in _item_alloc */
+    _item_dealloc(it_p);
+}
+
+void
+item_backfill(struct item *it, const struct bstring *val, bool complete)
+{
+    ASSERT(it != NULL);
+
+    cc_memcpy(item_data(it) + it->vlen, val->data, val->len);
+    it->vlen += val->len;
+
+    log_verb("backfill it %p with %"PRIu32" bytes, now %"PRIu32" bytes total",
+            it, val->len);
+
+    if (complete) {
+        _item_link(it);
+        log_verb("item %p completely backfilled and linked", it);
+    }
 }
 
 item_rstatus_t
@@ -240,6 +294,7 @@ item_annex(struct item *oit, const struct bstring *val, bool append)
             cc_memcpy(item_data(nit) + oit->vlen, val->data, val->len);
             nit->vlen = ntotal;
             _item_unlink(oit);
+            _item_dealloc(&oit);
             _item_link(nit);
         }
     } else {
@@ -271,6 +326,7 @@ item_annex(struct item *oit, const struct bstring *val, bool append)
             cc_memcpy(item_data(nit) - oit->vlen, item_data(oit), oit->vlen);
             nit->vlen = ntotal;
             _item_unlink(oit);
+            _item_dealloc(&oit);
             _item_link(nit);
         }
     }
@@ -303,6 +359,7 @@ item_delete(const struct bstring *key)
     it = item_get(key);
     if (it != NULL) {
         _item_unlink(it);
+        _item_dealloc(&it);
         return true;
     } else {
         return false;
