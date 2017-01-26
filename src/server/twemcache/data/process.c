@@ -15,6 +15,12 @@
 #define CMD_ERR_MSG         "command not supported"
 #define OTHER_ERR_MSG       "unknown server error"
 
+typedef enum put_rstatus {
+    PUT_OK,
+    PUT_PARTIAL,
+    PUT_ERROR,
+} put_rstatus_t;
+
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
 static bool allow_flush = ALLOW_FLUSH;
@@ -175,29 +181,42 @@ _error_rsp(struct response *rsp, item_rstatus_t status)
 }
 
 
-static item_rstatus_t
-_generic_set(struct request *req, bool delete)
+/*
+ * for the first segment three return values are possible:
+ *   - PUT_OK
+ *   - PUT_PARTIAL
+ *   - PUT_ERROR (error code given in *istatus)
+ *
+ * for the following segment(s) two return values are possible:
+ *   - PUT_OK
+ *   - PUT_PARTIAL
+ */
+static put_rstatus_t
+_put(item_rstatus_t *istatus, struct request *req)
 {
-    item_rstatus_t status = ITEM_OK;
+    put_rstatus_t status;
     struct bstring *key = array_first(req->keys);
+    struct item *it = NULL;
 
-    if (!req->partial) { /* should update hash */
-        if (delete) {
-            item_delete(key);
-        }
-        if (req->reserved == NULL) { /* self-contained req */
-            status = item_insert(key, &(req->vstr), req->flag,
-                    time_reltime(req->expiry));
-        } else { /* backfill reserved item */
-            item_backfill(req->reserved, &req->vstr, true);
-        }
+    *istatus = ITEM_OK;
+    if (req->first) { /* self-contained req */
+        *istatus = item_reserve(&it, key, &req->vstr, req->vlen, req->flag,
+                time_reltime(req->expiry));
+        req->first = false;
+        req->reserved = it;
+    } else { /* backfill reserved item */
+        item_backfill(req->reserved, &req->vstr);
+    }
+
+    if (!req->partial) {
+        /* even reserve failed we want to delete old key */
+        status = (*istatus == ITEM_OK) ? PUT_OK : PUT_ERROR;
     } else { /* should not update hash */
-        if (req->reserved == NULL) { /* first segment */
-            status = item_reserve((struct item **)&req->reserved, key,
-                    &req->vstr, req->vlen, req->flag, time_reltime(req->expiry));
-        } else {
-            item_backfill(req->reserved, &req->vstr, false);
-        }
+        status = (*istatus == ITEM_OK) ? PUT_PARTIAL : PUT_ERROR;
+    }
+
+    if (status == PUT_ERROR) {
+        req->swallow = true;
     }
 
     return status;
@@ -206,15 +225,23 @@ _generic_set(struct request *req, bool delete)
 static void
 _process_set(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
-    INCR(process_metrics, set);
+    put_rstatus_t status;
+    item_rstatus_t istatus;
+    struct bstring *key;
 
-    status =_generic_set(req, true);
-    if (status == ITEM_OK) {
+    status = _put(&istatus, req);
+    if (status == PUT_PARTIAL) {
+        return;
+    }
+
+    INCR(process_metrics, set);
+    if (status == PUT_OK) {
+        key = array_first(req->keys);
+        item_insert((struct item *)req->reserved, key);
         rsp->type = RSP_STORED;
         INCR(process_metrics, set_stored);
-    } else {
-        _error_rsp(rsp, status);
+    } else { /* PUT_ERROR */
+        _error_rsp(rsp, istatus);
         INCR(process_metrics, set_ex);
     }
 
@@ -224,21 +251,29 @@ _process_set(struct response *rsp, struct request *req)
 static void
 _process_add(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
+    put_rstatus_t status;
+    item_rstatus_t istatus;
     struct bstring *key;
+
+    status = _put(&istatus, req);
+    if (status == PUT_PARTIAL) {
+        return;
+    }
 
     INCR(process_metrics, add);
     key = array_first(req->keys);
     if (item_get(key) != NULL) {
+        item_release((struct item **)&req->reserved);
         rsp->type = RSP_NOT_STORED;
         INCR(process_metrics, add_notstored);
     } else {
-        status =_generic_set(req, false);
-        if (status == ITEM_OK) {
+        if (status == PUT_OK) {
+            item_insert((struct item *)req->reserved, key);
             rsp->type = RSP_STORED;
             INCR(process_metrics, add_stored);
-        } else {
-            _error_rsp(rsp, status);
+        } else { /* PUT_ERROR */
+            req->serror = true;
+            _error_rsp(rsp, istatus);
             INCR(process_metrics, add_ex);
         }
     }
@@ -249,22 +284,28 @@ _process_add(struct response *rsp, struct request *req)
 static void
 _process_replace(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
+    put_rstatus_t status;
+    item_rstatus_t istatus;
     struct bstring *key;
-    struct item *it;
+
+    status = _put(&istatus, req);
+    if (status == PUT_PARTIAL) {
+        return;
+    }
 
     INCR(process_metrics, replace);
     key = array_first(req->keys);
-    if ((it = item_get(key)) != NULL) {
-        status =_generic_set(req, true);
-        if (status == ITEM_OK) {
+    if (item_get(key) != NULL) {
+        if (status == PUT_OK) {
+            item_insert((struct item *)req->reserved, key);
             rsp->type = RSP_STORED;
             INCR(process_metrics, replace_stored);
-        } else {
-            _error_rsp(rsp, status);
+        } else { /* PUT_ERROR */
+            _error_rsp(rsp, istatus);
             INCR(process_metrics, replace_ex);
         }
     } else {
+        item_release((struct item **)&req->reserved);
         rsp->type = RSP_NOT_STORED;
         INCR(process_metrics, replace_notstored);
     }
@@ -275,25 +316,33 @@ _process_replace(struct response *rsp, struct request *req)
 static void
 _process_cas(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
+    put_rstatus_t status;
+    item_rstatus_t istatus;
     struct bstring *key;
     struct item *it;
+
+    status = _put(&istatus, req);
+    if (status == PUT_PARTIAL) {
+        return;
+    }
 
     key = array_first(req->keys);
     it = item_get(key);
     if (it == NULL) {
+        item_release((struct item **)&req->reserved);
         rsp->type = RSP_NOT_FOUND;
         INCR(process_metrics, cas_notfound);
     } else if (item_get_cas(it) != req->vcas) {
+        item_release((struct item **)&req->reserved);
         rsp->type = RSP_EXISTS;
         INCR(process_metrics, cas_exists);
     } else {
-        status =_generic_set(req, true);
-        if (status == ITEM_OK) {
+        if (status == PUT_OK) {
+            item_insert((struct item *)req->reserved, key);
             rsp->type = RSP_STORED;
             INCR(process_metrics, cas_stored);
-        } else {
-            _error_rsp(rsp, status);
+        } else { /* PUT_ERROR */
+            _error_rsp(rsp, istatus);
             INCR(process_metrics, cas_ex);
         }
     }
@@ -331,8 +380,9 @@ _process_delta(struct response *rsp, struct item *it, struct request *req,
             status = item_update(it, &nval);
         } else {
             uint32_t dataflag = it->dataflag;
-            item_delete(key);
-            status = item_insert(key, &nval, dataflag, it->expire_at);
+            status = item_reserve(&it, key, &nval, nval.len, dataflag,
+                    it->expire_at);
+            item_insert(it, key);
         }
     }
 
@@ -409,7 +459,7 @@ _process_append(struct response *rsp, struct request *req)
         if (req->partial) { /* reject incomplete append requests */
             status = ITEM_EOVERSIZED;
         } else {
-            status = item_annex(it, &(req->vstr), true);
+            status = item_annex(it, key, &(req->vstr), true);
         }
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
@@ -439,7 +489,7 @@ _process_prepend(struct response *rsp, struct request *req)
         if (req->partial) { /* reject incomplete prepend requests */
             status = ITEM_EOVERSIZED;
         } else {
-            status = item_annex(it, &(req->vstr), false);
+            status = item_annex(it, key, &(req->vstr), false);
         }
         if (status == ITEM_OK) {
             rsp->type = RSP_STORED;
@@ -571,6 +621,7 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 
         status = parse_req(req, *rbuf);
         if (status == PARSE_EUNFIN) {
+            buf_lshift(*rbuf);
             return 0;
         }
         if (status != PARSE_OK) {
@@ -610,9 +661,13 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
         }
 
         /* actual processing & command logging */
+        if (req->swallow) { /* skip to the end of current request */
+            continue;
+        }
         process_request(rsp, req);
         if (req->partial) { /* implies end of rbuf w/o complete processing */
             /* in this case, do not attempt to log or write response */
+            buf_lshift(*rbuf);
             return 0;
         }
 

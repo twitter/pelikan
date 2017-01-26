@@ -57,7 +57,7 @@ struct item {
     uint32_t          is_linked:1;   /* item in hash */
     uint32_t          in_freeq:1;    /* item in free queue */
     uint32_t          is_raligned:1; /* item data (payload) is right-aligned */
-    uint32_t          vlen:29;       /* data size (29 bits since uint32_t is 32 bits and we have 5 flags)
+    uint32_t          vlen:29;       /* data size (29 bits since uint32_t is 32 bits and we have 3 flags)
                                         NOTE: need at least enough bits to support the largest value size allowed
                                         by the implementation, i.e. SLAB_MAX_SIZE */
 
@@ -182,18 +182,18 @@ struct item *item_get(const struct bstring *key);
 
 /* TODO: make the following APIs protocol agnostic */
 
-/* insert an item, this assumes the key does not exist */
-item_rstatus_t item_insert(const struct bstring *key, const struct bstring *val, uint32_t dataflag, rel_time_t expire_at);
+/* insert an item, removes existing item of the same key (if applicable) */
+void item_insert(struct item *it, const struct bstring *key);
 
 /* reserve an item, this does not link it or remove existing item with the same key */
 item_rstatus_t item_reserve(struct item **it_p, const struct bstring *key, const struct bstring *val, uint32_t vlen, uint32_t dataflag, rel_time_t expire_at);
 /* item_release is used for reserved item only (not linked) */
 void item_release(struct item **it_p);
 
-void item_backfill(struct item *it, const struct bstring *val, bool complete);
+void item_backfill(struct item *it, const struct bstring *val);
 
 /* Append/prepend */
-item_rstatus_t item_annex(struct item *it, const struct bstring *val, bool append);
+item_rstatus_t item_annex(struct item *it, const struct bstring *key, const struct bstring *val, bool append);
 
 
 /* In place item update (replace item value) */

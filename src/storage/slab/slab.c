@@ -623,7 +623,7 @@ _slab_evict_rand(void)
 
     do {
         slab = _slab_table_rand();
-    } while (++i < TRIES_MAX && !_slab_evict_ok(slab));
+    } while (slab != NULL && ++i < TRIES_MAX && !_slab_evict_ok(slab));
 
     if (slab == NULL) {
         /* warning here because eviction failure should be rare. This can
@@ -648,7 +648,7 @@ _slab_evict_lru(int id)
     struct slab *slab = _slab_lruq_head();
     int i = 0;
 
-    while (++i < TRIES_MAX && !_slab_evict_ok(slab)) {
+    while (slab != NULL && ++i < TRIES_MAX && !_slab_evict_ok(slab)) {
         slab = TAILQ_NEXT(slab, s_tqe);
     };
 

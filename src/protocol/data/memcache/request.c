@@ -30,7 +30,7 @@ request_reset(struct request *req)
     req->type = REQ_UNKNOWN;
 
     req->keys->nelem = 0;
-    bstring_init(&req->vstr);
+    bstring_init(&(req->vstr));
     req->nfound = 0;
 
     req->flag = 0;
@@ -39,10 +39,12 @@ request_reset(struct request *req)
     req->delta = 0;
     req->vcas = 0;
 
-    req->partial = false; /* only set to true when partial value received */
     req->nremain = 0;
     req->reserved = NULL;
 
+    req->partial = 0;
+    req->first = 0;
+    req->swallow = 0;
     req->noreply = 0;
     req->val = 0;
     req->serror = 0;

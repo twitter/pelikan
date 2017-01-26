@@ -284,9 +284,6 @@ _parse_val(struct bstring *val, struct buf *buf, uint32_t nbyte)
     if (rsize < nbyte + CRLF_LEN) {
         complete = false;
         status = PARSE_EUNFIN;
-
-        log_verb("buf %p has %"PRIu32" out of the %"PRIu32" bytes expected",
-                buf, rsize, nbyte + CRLF_LEN);
     }
 
     val->len = MIN(nbyte, rsize);
@@ -298,9 +295,14 @@ _parse_val(struct bstring *val, struct buf *buf, uint32_t nbyte)
         status = _try_crlf(buf, buf->rpos);
         if (status == PARSE_OK) {
             buf->rpos += CRLF_LEN;
+        } else {
+            log_debug("CRLF expected at %p, '%c%c' found instead", buf->rpos,
+                    *buf->rpos, *(buf->rpos + 1));
         }
     }
 
+    log_verb("buf %p has %"PRIu32" out of the %"PRIu32" bytes expected", buf,
+            rsize, nbyte + CRLF_LEN);
     return status;
 }
 
@@ -791,6 +793,7 @@ parse_req(struct request *req, struct buf *buf)
     parse_rstatus_t status = PARSE_OK;
     char *old_rpos = buf->rpos;
     bool leftmost = (buf->rpos == buf->begin);
+    log_verb("rpos: %p, begin: %p", buf->rpos, buf->begin);
 
     /*
      * we allow partial value in the request (but not the head portion),
@@ -802,20 +805,28 @@ parse_req(struct request *req, struct buf *buf)
     switch (req->rstate) {
     case REQ_PARSING: /* a new request */
         log_verb("parsing buf %p into req %p", buf, req);
+        req->first = true;
         status = _parse_req_hdr(req, buf);
         if (status == PARSE_EUNFIN) {
             log_verb("incomplete data: reset read position, jump back %zu bytes",
                     buf->rpos - old_rpos);
             /* return and start from beginning next time */
+            request_reset(req);
             buf->rpos = old_rpos;
-            return PARSE_EUNFIN;
+        }
+        log_verb("request hdr parsed: %zu bytes scanned, parsing status %d",
+                buf->rpos - old_rpos);
+        if (req->val == 0 || status != PARSE_OK) {
+            req->rstate = REQ_PARSED;
+            break;
         }
         /* fall-through intended */
 
     case REQ_PARTIAL: /* continuation of value parsing for the current request */
-        if (status == PARSE_OK && req->val) {
-            status = _parse_val(&req->vstr, buf, req->nremain);
-        }
+        status = _parse_val(&(req->vstr), buf, req->nremain);
+        req->nremain -= req->vstr.len;
+        log_verb("this value segment: %"PRIu32", remain: %"PRIu32, req->vstr.len,
+                req->nremain);
         if (status == PARSE_OK) {
             req->rstate = REQ_PARSED;
             req->partial = false;
@@ -849,11 +860,14 @@ parse_req(struct request *req, struct buf *buf)
                  * possibility that a small append request just happens to come
                  * behind a number of other requests.
                  */
+
                 if (leftmost) {
                     req->partial = true;
                     status = PARSE_OK;
                     req->rstate = REQ_PARTIAL;
                 } else {
+                    log_verb("try to left shift a request when possible");
+                    request_reset(req);
                     buf->rpos = old_rpos;
                 }
             }

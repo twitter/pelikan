@@ -89,10 +89,12 @@ struct request {
     uint64_t                delta;
     uint64_t                vcas;
 
-    bool                    partial;    /* partial value received? */
     uint32_t                nremain;
     void                    *reserved;  /* storage reserved for partial value */
 
+    unsigned                partial:1;  /* partial value received? */
+    unsigned                first:1;    /* first segment? */
+    unsigned                swallow:1;  /* swallow rest of the request? */
     unsigned                noreply:1;
     unsigned                val:1;      /* value needed? */
     unsigned                serror:1;   /* server error */

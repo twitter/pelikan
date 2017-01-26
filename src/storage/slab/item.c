@@ -121,6 +121,20 @@ _item_link(struct item *it)
     INCR_N(slab_metrics, item_val_byte, it->vlen);
 }
 
+void
+item_insert(struct item *it, const struct bstring *key)
+{
+    ASSERT(key != NULL);
+
+    item_delete(key);
+
+    if (it != NULL) {
+        _item_link(it);
+        log_verb("insert it %p of id %"PRIu8" for key %.*s", it, it->id, key->len,
+            key->data);
+    }
+}
+
 /*
  * Unlinks an item from the hash table.
  */
@@ -157,7 +171,8 @@ item_get(const struct bstring *key)
         return NULL;
     }
 
-    log_verb("get it key %.*s val %.*s", key->len, key->data, it->vlen, item_data(it));
+    log_verb("get it key %.*s val %.*s", key->len, key->data, it->vlen,
+            item_data(it));
 
     if (_item_expired(it)) {
         log_verb("get it '%.*s' expired and nuked", key->len, key->data);
@@ -183,25 +198,6 @@ _item_define(struct item *it, const struct bstring *key, const struct bstring *v
     it->klen = key->len;
     cc_memcpy(item_data(it), val->data, val->len);
     it->vlen = val->len;
-}
-
-item_rstatus_t
-item_insert(const struct bstring *key, const struct bstring *val, uint32_t dataflag, rel_time_t expire_at)
-{
-    item_rstatus_t status;
-    struct item *it = NULL;
-
-    if ((status = _item_alloc(&it, key->len, val->len)) != ITEM_OK) {
-        log_debug("item insertion failed");
-        return status;
-    }
-
-    _item_define(it, key, val, dataflag, expire_at);
-    _item_link(it);
-
-    log_verb("insert it %p of id %"PRIu8" it->klen: %d dataflag %u", it, it->id, it->klen, it->dataflag);
-
-    return ITEM_OK;
 }
 
 item_rstatus_t
@@ -233,7 +229,7 @@ item_release(struct item **it_p)
 }
 
 void
-item_backfill(struct item *it, const struct bstring *val, bool complete)
+item_backfill(struct item *it, const struct bstring *val)
 {
     ASSERT(it != NULL);
 
@@ -241,16 +237,11 @@ item_backfill(struct item *it, const struct bstring *val, bool complete)
     it->vlen += val->len;
 
     log_verb("backfill it %p with %"PRIu32" bytes, now %"PRIu32" bytes total",
-            it, val->len);
-
-    if (complete) {
-        _item_link(it);
-        log_verb("item %p completely backfilled and linked", it);
-    }
+            it, val->len, it->vlen);
 }
 
 item_rstatus_t
-item_annex(struct item *oit, const struct bstring *val, bool append)
+item_annex(struct item *oit, const struct bstring *key, const struct bstring *val, bool append)
 {
     item_rstatus_t status = ITEM_OK;
     struct item *nit = NULL;
@@ -293,9 +284,7 @@ item_annex(struct item *oit, const struct bstring *val, bool append)
             cc_memcpy(item_data(nit), item_data(oit), oit->vlen);
             cc_memcpy(item_data(nit) + oit->vlen, val->data, val->len);
             nit->vlen = ntotal;
-            _item_unlink(oit);
-            _item_dealloc(&oit);
-            _item_link(nit);
+            item_insert(nit, key);
         }
     } else {
         /* if oit is large enough to hold the extra data and is already
@@ -325,9 +314,7 @@ item_annex(struct item *oit, const struct bstring *val, bool append)
             cc_memcpy(item_data(nit) - ntotal, val->data, val->len);
             cc_memcpy(item_data(nit) - oit->vlen, item_data(oit), oit->vlen);
             nit->vlen = ntotal;
-            _item_unlink(oit);
-            _item_dealloc(&oit);
-            _item_link(nit);
+            item_insert(nit, key);
         }
     }
 
@@ -351,6 +338,15 @@ item_update(struct item *it, const struct bstring *val)
     return ITEM_OK;
 }
 
+static void
+_item_delete(struct item **it)
+{
+    log_verb("delete it %p of id %"PRIu8, *it, (*it)->id);
+
+    _item_unlink(*it);
+    _item_dealloc(it);
+}
+
 bool
 item_delete(const struct bstring *key)
 {
@@ -358,8 +354,8 @@ item_delete(const struct bstring *key)
 
     it = item_get(key);
     if (it != NULL) {
-        _item_unlink(it);
-        _item_dealloc(&it);
+        _item_delete(&it);
+
         return true;
     } else {
         return false;
