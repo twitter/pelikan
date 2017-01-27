@@ -793,7 +793,6 @@ parse_req(struct request *req, struct buf *buf)
     parse_rstatus_t status = PARSE_OK;
     char *old_rpos = buf->rpos;
     bool leftmost = (buf->rpos == buf->begin);
-    log_verb("rpos: %p, begin: %p", buf->rpos, buf->begin);
 
     /*
      * we allow partial value in the request (but not the head portion),
@@ -815,7 +814,7 @@ parse_req(struct request *req, struct buf *buf)
             buf->rpos = old_rpos;
         }
         log_verb("request hdr parsed: %zu bytes scanned, parsing status %d",
-                buf->rpos - old_rpos);
+                buf->rpos - old_rpos, status);
         if (req->val == 0 || status != PARSE_OK) {
             req->rstate = REQ_PARSED;
             break;

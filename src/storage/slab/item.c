@@ -215,8 +215,8 @@ item_reserve(struct item **it_p, const struct bstring *key, const struct bstring
 
     _item_define(it, key, val, dataflag, expire_at);
 
-    log_verb("reserve it %p of id %"PRIu8" it->klen: %d dataflag %u", it,
-            it->id, it->klen, it->dataflag);
+    log_verb("reserve it %p of id %"PRIu8" for key '%.*s' dataflag %u", it,
+            it->id, key->len, key->data, it->dataflag);
 
     return ITEM_OK;
 }
