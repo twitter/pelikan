@@ -287,7 +287,7 @@ _parse_val(struct bstring *val, struct buf *buf, uint32_t nbyte)
     }
 
     val->len = MIN(nbyte, rsize);
-    val->data = buf->rpos;
+    val->data = (val->len > 0) ? buf->rpos : NULL;
     buf->rpos += val->len;
 
     /* verify CRLF */
@@ -866,6 +866,7 @@ parse_req(struct request *req, struct buf *buf)
                     status = PARSE_OK;
                     req->rstate = REQ_PARTIAL;
                 } else {
+                    ASSERT(req->first == 1);
                     log_verb("try to left shift a request when possible");
                     request_reset(req);
                     buf->rpos = old_rpos;
