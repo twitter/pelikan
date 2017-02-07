@@ -121,7 +121,7 @@ compose_req(struct buf **buf, struct request *req)
 {
     request_type_t type = req->type;
     struct bstring *str = &req_strings[type];
-    struct bstring *key = req->keys->data;
+    struct bstring *key = (struct bstring *)req->keys->data;
     int noreply_len = req->noreply * NOREPLY_LEN;
     int cas_len = (req->type == REQ_CAS) ? CC_UINT64_MAXLEN : 0;
     uint32_t i;

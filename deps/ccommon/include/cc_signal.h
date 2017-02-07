@@ -48,7 +48,7 @@ struct signal {
  * - SIGSEGV(debug): print stacktrace before reraise segfault again
  * - SIGPIPE(channel): ignored, this prevents service from exiting when pipe closes
  */
-struct signal signals[SIGNAL_MAX]; /* there are only 31 signals from 1 to 31 */
+extern struct signal signals[SIGNAL_MAX]; /* there are only 31 signals from 1 to 31 */
 
 int signal_override(int signo, char *info, int flags, uint32_t mask, sig_fn handler);
 
