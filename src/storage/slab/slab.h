@@ -107,7 +107,7 @@ struct slab {
     rel_time_t        utime;        /* last update time in secs */
     uint8_t           id;           /* slabclass id */
     uint32_t          padding:24;   /* unused */
-    uint32_t          refcount;     /* number of reserved items */
+    uint32_t          refcount;     /* # items that can't evicted in the slab */
     uint8_t           data[1];      /* opaque data */
 };
 

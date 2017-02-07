@@ -80,19 +80,22 @@ END_TEST
 START_TEST(test_insert_large)
 {
 #define KEY "key"
+#define VLEN (1000 * KiB)
+
     struct bstring key, val;
     item_rstatus_t status;
     struct item *it;
     uint32_t dataflag = 12345;
+    size_t len;
+    char *p;
 
     test_reset();
 
     key = str2bstr(KEY);
 
-    val.data = cc_alloc(1000 * KiB);
-    cc_memset(val.data, 'A', 1000 * KiB);
-    val.data[1000 * KiB - 1] = '\0';
-    val.len = 1000 * KiB;
+    val.data = cc_alloc(VLEN);
+    cc_memset(val.data, 'A', VLEN);
+    val.len = VLEN;
 
     time_update();
     status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
@@ -105,10 +108,14 @@ START_TEST(test_insert_large)
     ck_assert_msg(it->is_linked, "item with key %.*s not linked", key.len, key.data);
     ck_assert_msg(!it->in_freeq, "linked item with key %.*s in freeq", key.len, key.data);
     ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
-    ck_assert_int_eq(it->vlen, 1000 * KiB);
+    ck_assert_int_eq(it->vlen, VLEN);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
     ck_assert_int_eq(it->dataflag, dataflag);
-    ck_assert_msg(strspn(item_data(it), "A") == 1000 * KiB - 1, "item_data contains wrong value %.*s", 1000 * KiB, item_data(it));
+
+    for (p = item_data(it), len = it->vlen; len > 0 && *p == 'A'; p++, len--);
+    ck_assert_msg(len == 0, "item_data contains wrong value %.*s", VLEN, item_data(it));
+
+#undef VLEN
 #undef KEY
 }
 END_TEST
@@ -119,33 +126,42 @@ END_TEST
 START_TEST(test_reserve_backfill_release)
 {
 #define KEY "key"
+#define VLEN (1000 * KiB)
+
     struct bstring key, val;
     item_rstatus_t status;
     struct item *it;
     uint32_t vlen, dataflag = 12345;
+    size_t len;
+    char *p;
 
     test_reset();
 
     key = str2bstr(KEY);
 
-    vlen = 1000 * KiB;
-    val.len = vlen / 2;
+    vlen = VLEN;
+    val.len = vlen / 2 - 3;
     val.data = cc_alloc(val.len);
     cc_memset(val.data, 'A', val.len);
 
     /* reserve */
     status = item_reserve(&it, &key, &val, vlen, dataflag, 0);
     free(val.data);
-    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
+            status);
 
     ck_assert_msg(it != NULL, "item_reserve returned NULL object");
     ck_assert_msg(!it->is_linked, "item linked by mistake");
-    ck_assert_msg(!it->in_freeq, "linked item with key %.*s in freeq", key.len, key.data);
-    ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
+    ck_assert_msg(!it->in_freeq, "linked item with key %.*s in freeq", key.len,
+            key.data);
+    ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len,
+            key.data);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
     ck_assert_int_eq(it->dataflag, dataflag);
     ck_assert_int_eq(it->vlen, val.len);
-    ck_assert_msg(strspn(item_data(it), "A") == val.len, "item_data contains wrong value %.*s", it->vlen, item_data(it));
+    for (p = item_data(it), len = it->vlen; len > 0 && *p == 'A'; p++, len--);
+    ck_assert_msg(len == 0, "item_data contains wrong value %.*s", it->vlen,
+            item_data(it));
 
     /* backfill */
     val.len = vlen - val.len;
@@ -155,11 +171,14 @@ START_TEST(test_reserve_backfill_release)
     free(val.data);
     ck_assert_msg(!it->is_linked, "item linked by mistake");
     ck_assert_int_eq(it->vlen, vlen);
-    ck_assert_msg(strspn(item_data(it) + vlen - val.len, "B") == val.len,
-            "item_data contains wrong value %.*s", vlen, item_data(it));
+    for (p = item_data(it) + vlen - val.len, len = val.len;
+            len > 0 && *p == 'B'; p++, len--);
+    ck_assert_msg(len == 0, "item_data contains wrong value %.*s", val.len,
+            item_data(it) + vlen - val.len);
 
     /* release */
     item_release(&it);
+#undef VLEN
 #undef KEY
 }
 END_TEST
@@ -173,6 +192,8 @@ START_TEST(test_reserve_backfill_link)
     item_rstatus_t status;
     struct item *it;
     uint32_t dataflag = 12345;
+    size_t len;
+    char *p;
 
     test_reset();
 
@@ -194,8 +215,11 @@ START_TEST(test_reserve_backfill_link)
     item_insert(it, &key);
     ck_assert_msg(it->is_linked, "completely backfilled item not linked");
     ck_assert_int_eq(it->vlen, VLEN);
-    ck_assert_msg(strspn(item_data(it), "A") == VLEN,
-            "item_data contains wrong value %.*s", VLEN, item_data(it));
+
+    for (p = item_data(it), len = it->vlen; len > 0 && *p == 'A'; p++, len--);
+    ck_assert_msg(len == 0, "item_data contains wrong value %.*s", VLEN, item_data(it));
+
+#undef VLEN
 #undef KEY
 }
 END_TEST
