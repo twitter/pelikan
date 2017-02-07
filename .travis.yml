@@ -53,17 +53,17 @@ matrix:
           <<: *apt
           packages: clang-3.7
 
-    # gcc 4.8 on osx
-    - os: osx
-      env: FORMULA=gcc48 COMPILER=gcc C_COMPILER=gcc-4.8
-
-    # gcc 4.9 on osx
-    - os: osx
-      env: FORMULA=gcc49 COMPILER=gcc C_COMPILER=gcc-4.9
-
-    # gcc 5 on osx
-    - os: osx
-      env: FORMULA=gcc5 COMPILER=gcc C_COMPILER=gcc-5
+    ## gcc 4.8 on osx
+    #- os: osx
+    #  env: FORMULA=gcc48 COMPILER=gcc C_COMPILER=gcc-4.8
+    #
+    ## gcc 4.9 on osx
+    #- os: osx
+    #  env: FORMULA=gcc49 COMPILER=gcc C_COMPILER=gcc-4.9
+    #
+    ## gcc 5 on osx
+    #- os: osx
+    #  env: FORMULA=gcc5 COMPILER=gcc C_COMPILER=gcc-5
 
     # clang 3.6 on osx
     - os: osx
@@ -84,9 +84,9 @@ before_install:
   - 'if [[ "$TRAVIS_OS_NAME" == "osx" && "$COMPILER" == "gcc" ]]; then brew unlink $FORMULA || true; fi' # ignore unlink errors
   - 'if [[ "$TRAVIS_OS_NAME" == "osx" && "$COMPILER" == "gcc" ]]; then brew install $FORMULA; fi'
   - export CC=$C_COMPILER
-  - wget https://github.com/libcheck/check/files/71408/check-0.10.0.tar.gz
-  - tar xvfz check-0.10.0.tar.gz
-  - cd check-0.10.0 && ./configure && make && sudo make install && cd ..
+  - wget https://github.com/libcheck/check/releases/download/0.11.0/check-0.11.0.tar.gz
+  - tar xvfz check-0.11.0.tar.gz
+  - cd check-0.11.0 && ./configure && make && sudo make install && cd ..
 
 script:
   - mkdir _build && cd _build
