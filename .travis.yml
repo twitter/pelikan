@@ -84,9 +84,9 @@ before_install:
   - 'if [[ "$TRAVIS_OS_NAME" == "osx" && "$COMPILER" == "gcc" ]]; then brew unlink $FORMULA || true; fi' # ignore unlink errors
   - 'if [[ "$TRAVIS_OS_NAME" == "osx" && "$COMPILER" == "gcc" ]]; then brew install $FORMULA; fi'
   - export CC=$C_COMPILER
-  - wget https://github.com/libcheck/check/files/71408/check-0.10.0.tar.gz
-  - tar xvfz check-0.10.0.tar.gz
-  - cd check-0.10.0 && ./configure && make && sudo make install && cd ..
+  - wget https://github.com/libcheck/check/releases/download/0.11.0/check-0.11.0.tar.gz
+  - tar xvfz check-0.11.0.tar.gz
+  - cd check-0.11.0 && ./configure && make && sudo make install && cd ..
 
 script:
   - mkdir _build && cd _build
