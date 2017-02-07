@@ -53,17 +53,17 @@ matrix:
           <<: *apt
           packages: clang-3.7
 
-    # gcc 4.8 on osx
-    - os: osx
-      env: FORMULA=gcc48 COMPILER=gcc C_COMPILER=gcc-4.8
-
-    # gcc 4.9 on osx
-    - os: osx
-      env: FORMULA=gcc49 COMPILER=gcc C_COMPILER=gcc-4.9
-
-    # gcc 5 on osx
-    - os: osx
-      env: FORMULA=gcc5 COMPILER=gcc C_COMPILER=gcc-5
+    ## gcc 4.8 on osx
+    #- os: osx
+    #  env: FORMULA=gcc48 COMPILER=gcc C_COMPILER=gcc-4.8
+    #
+    ## gcc 4.9 on osx
+    #- os: osx
+    #  env: FORMULA=gcc49 COMPILER=gcc C_COMPILER=gcc-4.9
+    #
+    ## gcc 5 on osx
+    #- os: osx
+    #  env: FORMULA=gcc5 COMPILER=gcc C_COMPILER=gcc-5
 
     # clang 3.6 on osx
     - os: osx
