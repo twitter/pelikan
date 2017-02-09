@@ -630,6 +630,33 @@ START_TEST(test_decr_noreply)
 }
 END_TEST
 
+START_TEST(test_set_partial)
+{
+#define SERIALIZED "set foo 123 "
+
+    int ret;
+    int len = sizeof(SERIALIZED) - 1;
+    char *pos;
+
+    test_reset();
+
+    /* compose */
+    buf_write(buf, SERIALIZED, len);
+    pos = buf->rpos;
+
+    /* parse (nothing should change) */
+    request_reset(req);
+    ret = parse_req(req, buf);
+    ck_assert_int_eq(ret, PARSE_EUNFIN);
+    ck_assert(req->rstate == REQ_PARSING);
+    ck_assert(buf->rpos == pos);
+#undef EXPIRY
+#undef FLAG
+#undef VAL
+#undef KEY
+#undef SERIALIZED
+}
+END_TEST
 /*
  * basic responses
  */
@@ -1221,6 +1248,7 @@ memcache_suite(void)
     tcase_add_test(tc_basic_req, test_prepend_noreply);
     tcase_add_test(tc_basic_req, test_incr);
     tcase_add_test(tc_basic_req, test_decr_noreply);
+    tcase_add_test(tc_basic_req, test_set_partial);
 
     /* basic responses */
     TCase *tc_basic_rsp = tcase_create("basic response");
