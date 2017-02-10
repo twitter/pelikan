@@ -124,15 +124,13 @@ _item_link(struct item *it)
 void
 item_insert(struct item *it, const struct bstring *key)
 {
-    ASSERT(key != NULL);
+    ASSERT(it != NULL && key != NULL);
 
     item_delete(key);
 
-    if (it != NULL) {
-        _item_link(it);
-        log_verb("insert it %p of id %"PRIu8" for key %.*s", it, it->id, key->len,
-            key->data);
-    }
+    _item_link(it);
+    log_verb("insert it %p of id %"PRIu8" for key %.*s", it, it->id, key->len,
+        key->data);
 }
 
 /*
@@ -324,7 +322,7 @@ item_annex(struct item *oit, const struct bstring *key, const struct bstring *va
     return status;
 }
 
-item_rstatus_t
+void
 item_update(struct item *it, const struct bstring *val)
 {
     ASSERT(item_slabid(it->klen, val->len) == it->id);
@@ -334,8 +332,6 @@ item_update(struct item *it, const struct bstring *val)
     item_set_cas(it);
 
     log_verb("update it %p of id %"PRIu8, it, it->id);
-
-    return ITEM_OK;
 }
 
 static void

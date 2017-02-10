@@ -277,21 +277,17 @@ _parse_val(struct bstring *val, struct buf *buf, uint32_t nbyte)
 {
     parse_rstatus_t status;
     uint32_t rsize = buf_rsize(buf);
-    bool complete = true;
 
     log_verb("parsing val (string) at %p", buf->rpos);
-
-    if (rsize < nbyte + CRLF_LEN) {
-        complete = false;
-        status = PARSE_EUNFIN;
-    }
 
     val->len = MIN(nbyte, rsize);
     val->data = (val->len > 0) ? buf->rpos : NULL;
     buf->rpos += val->len;
 
     /* verify CRLF */
-    if (complete) { /* _try_crlf cannot return EUNFIN in this case */
+    if (rsize < nbyte + CRLF_LEN) {
+        status = PARSE_EUNFIN;
+    } else {
         status = _try_crlf(buf, buf->rpos);
         if (status == PARSE_OK) {
             buf->rpos += CRLF_LEN;
@@ -303,6 +299,7 @@ _parse_val(struct bstring *val, struct buf *buf, uint32_t nbyte)
 
     log_verb("buf %p has %"PRIu32" out of the %"PRIu32" bytes expected", buf,
             rsize, nbyte + CRLF_LEN);
+
     return status;
 }
 
@@ -812,6 +809,7 @@ parse_req(struct request *req, struct buf *buf)
             /* return and start from beginning next time */
             request_reset(req);
             buf->rpos = old_rpos;
+            break;
         }
         log_verb("request hdr parsed: %zu bytes scanned, parsing status %d",
                 buf->rpos - old_rpos, status);

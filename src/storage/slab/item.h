@@ -197,7 +197,7 @@ item_rstatus_t item_annex(struct item *it, const struct bstring *key, const stru
 
 
 /* In place item update (replace item value) */
-item_rstatus_t item_update(struct item *it, const struct bstring *val);
+void item_update(struct item *it, const struct bstring *val);
 
 /* Remove item from cache */
 bool item_delete(const struct bstring *key);

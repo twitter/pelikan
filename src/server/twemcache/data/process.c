@@ -198,7 +198,7 @@ _error_rsp(struct response *rsp, item_rstatus_t status)
  *   - PUT_PARTIAL
  */
 static put_rstatus_t
-_put(item_rstatus_t *istatus, struct request *req)
+_put(item_rstatus_t *istatus, struct request *req, bool del_on_err)
 {
     put_rstatus_t status;
     struct item *it = NULL;
@@ -208,6 +208,9 @@ _put(item_rstatus_t *istatus, struct request *req)
         struct bstring *key = array_first(req->keys);
         *istatus = item_reserve(&it, key, &req->vstr, req->vlen, req->flag,
                 time_reltime(req->expiry));
+        if (it == NULL && del_on_err) {
+            item_delete(key);
+        }
         req->first = false;
         req->reserved = it;
     } else { /* backfill reserved item */
@@ -215,7 +218,6 @@ _put(item_rstatus_t *istatus, struct request *req)
     }
 
     if (!req->partial) {
-        /* even reserve failed we want to delete old key */
         status = (*istatus == ITEM_OK) ? PUT_OK : PUT_ERROR;
     } else { /* should not update hash */
         status = (*istatus == ITEM_OK) ? PUT_PARTIAL : PUT_ERROR;
@@ -223,6 +225,7 @@ _put(item_rstatus_t *istatus, struct request *req)
 
     if (status == PUT_ERROR) {
         req->swallow = true;
+        req->serror = true;
     }
 
     return status;
@@ -242,22 +245,24 @@ _process_set(struct response *rsp, struct request *req)
     struct item *it;
     struct bstring key;
 
-    status = _put(&istatus, req);
+    status = _put(&istatus, req, true);
     if (status == PUT_PARTIAL) {
         return;
     }
-
-    INCR(process_metrics, set);
-    if (status == PUT_OK) {
-        it = (struct item *)req->reserved;
-        key = (struct bstring){it->klen, item_key(it)};
-        item_insert(it, &key);
-        rsp->type = RSP_STORED;
-        INCR(process_metrics, set_stored);
-    } else { /* PUT_ERROR */
+    if (status == PUT_ERROR) {
         _error_rsp(rsp, istatus);
-        INCR(process_metrics, set_ex);
+        INCR(process_metrics, cas_ex);
+
+        return;
     }
+
+    /* PUT_OK, meaning we have an item reserved, i.e. req->reserved != NULL */
+    INCR(process_metrics, set);
+    it = (struct item *)req->reserved;
+    key = (struct bstring){it->klen, item_key(it)};
+    item_insert(it, &key);
+    rsp->type = RSP_STORED;
+    INCR(process_metrics, set_stored);
 
     log_verb("set req %p processed, rsp type %d", req, rsp->type);
 }
@@ -270,11 +275,18 @@ _process_add(struct response *rsp, struct request *req)
     struct item *it;
     struct bstring key;
 
-    status = _put(&istatus, req);
+    status = _put(&istatus, req, false);
     if (status == PUT_PARTIAL) {
         return;
     }
+    if (status == PUT_ERROR) {
+        _error_rsp(rsp, istatus);
+        INCR(process_metrics, add_ex);
 
+        return;
+    }
+
+    /* PUT_OK, meaning we have an item reserved, i.e. req->reserved != NULL */
     INCR(process_metrics, add);
     it = (struct item *)req->reserved;
     key = (struct bstring){it->klen, item_key(it)};
@@ -283,15 +295,9 @@ _process_add(struct response *rsp, struct request *req)
         rsp->type = RSP_NOT_STORED;
         INCR(process_metrics, add_notstored);
     } else {
-        if (status == PUT_OK) {
-            item_insert(it, &key);
-            rsp->type = RSP_STORED;
-            INCR(process_metrics, add_stored);
-        } else { /* PUT_ERROR */
-            req->serror = true;
-            _error_rsp(rsp, istatus);
-            INCR(process_metrics, add_ex);
-        }
+        item_insert(it, &key);
+        rsp->type = RSP_STORED;
+        INCR(process_metrics, add_stored);
     }
 
     log_verb("add req %p processed, rsp type %d", req, rsp->type);
@@ -305,23 +311,25 @@ _process_replace(struct response *rsp, struct request *req)
     struct item *it = NULL;
     struct bstring key;
 
-    status = _put(&istatus, req);
+    status = _put(&istatus, req, true);
     if (status == PUT_PARTIAL) {
         return;
     }
+    if (status == PUT_ERROR) {
+        _error_rsp(rsp, istatus);
+        INCR(process_metrics, replace_ex);
 
+        return;
+    }
+
+    /* PUT_OK, meaning we have an item reserved, i.e. req->reserved != NULL */
     INCR(process_metrics, replace);
     it = (struct item *)req->reserved;
     key = (struct bstring){it->klen, item_key(it)};
     if (item_get(&key) != NULL) {
-        if (status == PUT_OK) {
-            item_insert(it, &key);
-            rsp->type = RSP_STORED;
-            INCR(process_metrics, replace_stored);
-        } else { /* PUT_ERROR */
-            _error_rsp(rsp, istatus);
-            INCR(process_metrics, replace_ex);
-        }
+        item_insert(it, &key);
+        rsp->type = RSP_STORED;
+        INCR(process_metrics, replace_stored);
     } else {
         item_release((struct item **)&req->reserved);
         rsp->type = RSP_NOT_STORED;
@@ -339,11 +347,18 @@ _process_cas(struct response *rsp, struct request *req)
     struct item *it, *oit;
     struct bstring key;
 
-    status = _put(&istatus, req);
+    status = _put(&istatus, req, true);
     if (status == PUT_PARTIAL) {
         return;
     }
+    if (status == PUT_ERROR) {
+        _error_rsp(rsp, istatus);
+        INCR(process_metrics, cas_ex);
 
+        return;
+    }
+
+    /* PUT_OK, meaning we have an item reserved, i.e. req->reserved != NULL */
     it = (struct item *)req->reserved;
     key = (struct bstring){it->klen, item_key(it)};
     oit = item_get(&key);
@@ -357,14 +372,9 @@ _process_cas(struct response *rsp, struct request *req)
             rsp->type = RSP_EXISTS;
             INCR(process_metrics, cas_exists);
         } else {
-            if (status == PUT_OK) {
-                item_insert(it, &key);
-                rsp->type = RSP_STORED;
-                INCR(process_metrics, cas_stored);
-            } else { /* PUT_ERROR */
-                _error_rsp(rsp, istatus);
-                INCR(process_metrics, cas_ex);
-            }
+            item_insert(it, &key);
+            rsp->type = RSP_STORED;
+            INCR(process_metrics, cas_stored);
         }
     }
 
@@ -379,32 +389,39 @@ _process_delta(struct response *rsp, struct item *it, struct request *req,
         struct bstring *key, bool incr)
 {
     item_rstatus_t status;
+    uint32_t dataflag;
     uint64_t vint;
     struct bstring nval;
     char buf[CC_UINT64_MAXLEN];
 
     status = item_atou64(&vint, it);
+    if (status != ITEM_OK) {
+        return status;
+    }
+
+    if (incr) {
+        vint += req->delta;
+    } else {
+        if (vint < req->delta) {
+            vint = 0;
+        } else {
+            vint -= req->delta;
+        }
+    }
+
+    rsp->vint = vint;
+    nval.len = cc_print_uint64_unsafe(buf, vint);
+    nval.data = buf;
+    if (item_slabid(it->klen, nval.len) == it->id) {
+        item_update(it, &nval);
+        return ITEM_OK;
+    }
+
+    dataflag = it->dataflag;
+    status = item_reserve(&it, key, &nval, nval.len, dataflag,
+            it->expire_at);
     if (status == ITEM_OK) {
-        if (incr) {
-            vint += req->delta;
-        } else {
-            if (vint < req->delta) {
-                vint = 0;
-            } else {
-                vint -= req->delta;
-            }
-        }
-        rsp->vint = vint;
-        nval.len = cc_print_uint64_unsafe(buf, vint);
-        nval.data = buf;
-        if (item_slabid(it->klen, nval.len) == it->id) {
-            status = item_update(it, &nval);
-        } else {
-            uint32_t dataflag = it->dataflag;
-            status = item_reserve(&it, key, &nval, nval.len, dataflag,
-                    it->expire_at);
-            item_insert(it, key);
-        }
+        item_insert(it, key);
     }
 
     return status;
@@ -425,7 +442,7 @@ _process_incr(struct response *rsp, struct request *req)
         if (status == ITEM_OK) {
             rsp->type = RSP_NUMERIC;
             INCR(process_metrics, incr_stored);
-        } else { /* not a number */
+        } else {
             _error_rsp(rsp, status);
             INCR(process_metrics, incr_ex);
         }

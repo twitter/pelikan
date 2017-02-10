@@ -419,8 +419,7 @@ START_TEST(test_update_basic)
     it = item_get(&key);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
 
-    status = item_update(it, &new_val);
-    ck_assert_msg(status == CC_OK, "item_update not OK - return status %d", status);
+    item_update(it, &new_val);
 
     it = item_get(&key);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
