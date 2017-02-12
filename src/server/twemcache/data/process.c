@@ -251,7 +251,7 @@ _process_set(struct response *rsp, struct request *req)
     }
     if (status == PUT_ERROR) {
         _error_rsp(rsp, istatus);
-        INCR(process_metrics, cas_ex);
+        INCR(process_metrics, set_ex);
 
         return;
     }
