@@ -198,7 +198,7 @@ _error_rsp(struct response *rsp, item_rstatus_t status)
  *   - PUT_PARTIAL
  */
 static put_rstatus_t
-_put(item_rstatus_t *istatus, struct request *req, bool del_on_err)
+_put(item_rstatus_t *istatus, struct request *req)
 {
     put_rstatus_t status;
     struct item *it = NULL;
@@ -208,9 +208,6 @@ _put(item_rstatus_t *istatus, struct request *req, bool del_on_err)
         struct bstring *key = array_first(req->keys);
         *istatus = item_reserve(&it, key, &req->vstr, req->vlen, req->flag,
                 time_reltime(req->expiry));
-        if (it == NULL && del_on_err) {
-            item_delete(key);
-        }
         req->first = false;
         req->reserved = it;
     } else { /* backfill reserved item */
@@ -245,7 +242,7 @@ _process_set(struct response *rsp, struct request *req)
     struct item *it;
     struct bstring key;
 
-    status = _put(&istatus, req, true);
+    status = _put(&istatus, req);
     if (status == PUT_PARTIAL) {
         return;
     }
@@ -275,7 +272,7 @@ _process_add(struct response *rsp, struct request *req)
     struct item *it;
     struct bstring key;
 
-    status = _put(&istatus, req, false);
+    status = _put(&istatus, req);
     if (status == PUT_PARTIAL) {
         return;
     }
@@ -311,7 +308,7 @@ _process_replace(struct response *rsp, struct request *req)
     struct item *it = NULL;
     struct bstring key;
 
-    status = _put(&istatus, req, true);
+    status = _put(&istatus, req);
     if (status == PUT_PARTIAL) {
         return;
     }
@@ -347,7 +344,7 @@ _process_cas(struct response *rsp, struct request *req)
     struct item *it, *oit;
     struct bstring key;
 
-    status = _put(&istatus, req, true);
+    status = _put(&istatus, req);
     if (status == PUT_PARTIAL) {
         return;
     }
