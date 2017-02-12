@@ -11,6 +11,7 @@
 #include <cc_event.h>
 #include <cc_log.h>
 #include <channel/cc_tcp.h>
+#include <stream/cc_sockio.h>
 #include <time/cc_wheel.h>
 
 struct stats {
@@ -27,6 +28,7 @@ struct stats {
     dbuf_metrics_st             dbuf;
     event_metrics_st            event;
     log_metrics_st              log;
+    sockio_metrics_st           sockio;
     tcp_metrics_st              tcp;
     timing_wheel_metrics_st     timing_wheel;
 };

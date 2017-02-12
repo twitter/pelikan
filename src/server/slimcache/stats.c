@@ -16,6 +16,7 @@ struct stats stats = {
     { DBUF_METRIC(METRIC_INIT)          },
     { EVENT_METRIC(METRIC_INIT)         },
     { LOG_METRIC(METRIC_INIT)           },
+    { SOCKIO_METRIC(METRIC_INIT)        },
     { TCP_METRIC(METRIC_INIT)           },
     { TIMING_WHEEL_METRIC(METRIC_INIT)  },
 };

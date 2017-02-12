@@ -108,7 +108,7 @@ setup(void)
     buf_setup(&setting.buf, &stats.buf);
     dbuf_setup(&setting.dbuf, &stats.dbuf);
     event_setup(&stats.event);
-    sockio_setup(&setting.sockio);
+    sockio_setup(&setting.sockio, &stats.sockio);
     tcp_setup(&setting.tcp, &stats.tcp);
     timing_wheel_setup(&stats.timing_wheel);
 

@@ -55,7 +55,7 @@ mkdir _build && cd _build
 cmake ..
 make -j
 ```
-The executables can be found under ``./_bin/``
+The executables can be found under ``_bin/`` (under build directory)
 
 To run all the tests, including those on `ccommon`, run:
 ```sh
