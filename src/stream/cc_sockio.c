@@ -42,7 +42,9 @@
 FREEPOOL(buf_sock_pool, buf_sockq, buf_sock);
 struct buf_sock_pool bsp;
 
+static bool sockio_init = false;
 static bool bsp_init = false;
+static sockio_metrics_st *sockio_metrics = NULL;
 
 rstatus_i
 buf_tcp_read(struct buf_sock *s)
@@ -212,6 +214,7 @@ buf_sock_create(void)
 
     s = (struct buf_sock *)cc_alloc(sizeof(struct buf_sock));
     if (s == NULL) {
+        INCR(sockio_metrics, buf_sock_create_ex);
         return NULL;
     }
     STAILQ_NEXT(s, next) = NULL;
@@ -235,12 +238,16 @@ buf_sock_create(void)
         goto error;
     }
 
+    INCR(sockio_metrics, buf_sock_create);
+    INCR(sockio_metrics, buf_sock_curr);
+
     log_verb("created buffered socket %p", s);
 
     return s;
 
 error:
     log_info("buffered socket creation failed");
+    INCR(sockio_metrics, buf_sock_create_ex);
     buf_sock_destroy(&s);
 
     return NULL;
@@ -261,6 +268,8 @@ buf_sock_destroy(struct buf_sock **s)
     cc_free(*s);
 
     *s = NULL;
+    INCR(sockio_metrics, buf_sock_destroy);
+    DECR(sockio_metrics, buf_sock_curr);
 }
 
 static void
@@ -331,10 +340,13 @@ buf_sock_borrow(void)
     FREEPOOL_BORROW(s, &bsp, next, buf_sock_create);
     if (s == NULL) {
         log_debug("borrow buffered socket failed: OOM or over limit");
+        INCR(sockio_metrics, buf_sock_borrow_ex);
 
         return NULL;
     }
     buf_sock_reset(s);
+    INCR(sockio_metrics, buf_sock_borrow);
+    INCR(sockio_metrics, buf_sock_active);
 
     log_verb("borrowed buffered socket %p", s);
 
@@ -354,18 +366,29 @@ buf_sock_return(struct buf_sock **s)
     FREEPOOL_RETURN(*s, &bsp, next);
 
     *s = NULL;
+    INCR(sockio_metrics, buf_sock_return);
+    DECR(sockio_metrics, buf_sock_active);
 }
 
 void
-sockio_setup(sockio_options_st *options)
+sockio_setup(sockio_options_st *options, sockio_metrics_st *metrics)
 {
     uint32_t max = BUFSOCK_POOLSIZE;
+
+    log_info("set up the %s module", SOCKIO_MODULE_NAME);
+
+    if (sockio_init) {
+        log_warn("%s has already been setup, overwrite", SOCKIO_MODULE_NAME);
+    }
+
+    sockio_metrics = metrics;
 
     if (options != NULL) {
         max = option_uint(&options->buf_sock_poolsize);
     }
 
     buf_sock_pool_create(max);
+    sockio_init = true;
 }
 
 void
