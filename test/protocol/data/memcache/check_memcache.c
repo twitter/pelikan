@@ -312,12 +312,12 @@ END_TEST
 
 START_TEST(test_partial_value)
 {
-#define SERIALIZED_1 "set foo 0 0 6\r\nXYZ"
-#define SERIALIZED_2 "xyz"
+#define SERIALIZED_1 "set foo 0 0 7\r\nXYZ"
+#define SERIALIZED_2 "abcd"
 #define SERIALIZED_3 "\r\n"
 #define KEY "foo"
 #define VAL1 "XYZ"
-#define VAL2 "xyz"
+#define VAL2 "abcd"
 
     int ret;
     struct bstring key = str2bstr(KEY);
@@ -721,10 +721,7 @@ START_TEST(test_partial_header)
     ck_assert_int_eq(ret, PARSE_EUNFIN);
     ck_assert(req->rstate == REQ_PARSING);
     ck_assert(buf->rpos == pos);
-#undef EXPIRY
-#undef FLAG
-#undef VAL
-#undef KEY
+
 #undef SERIALIZED
 }
 END_TEST
