@@ -1,0 +1,95 @@
+sudo: required
+language: c
+
+# using anchor to import sources into linux builds
+addons:
+  apt: &apt
+    sources:
+      - ubuntu-toolchain-r-test
+      - llvm-toolchain-precise-3.6
+      - llvm-toolchain-precise-3.7
+      - llvm-toolchain-precise
+
+# travis currently does not support directly setting gcc/clang with versions
+# (e.g. gcc-4.8) as value for the compiler key. So we will have to manually
+# request these packages and use environment varibles to create the matrix.
+#
+# In the case of osx, use brew to install the paritcular versions, instead of
+# specifying with packages.
+matrix:
+  include:
+    # gcc 4.8 on linux
+    - env: C_COMPILER=gcc-4.8
+      addons:
+        apt:
+          <<: *apt
+          packages: gcc-4.8
+
+    # gcc 4.9 on linux
+    - env: C_COMPILER=gcc-4.9
+      addons:
+        apt:
+          <<: *apt
+          packages: gcc-4.9
+
+    # gcc 5 on linux
+    - env: C_COMPILER=gcc-5
+      addons:
+        apt:
+          <<: *apt
+          packages: gcc-5
+
+    # clang 3.6 on linux
+    - env: C_COMPILER=clang-3.6
+      addons:
+        apt:
+          <<: *apt
+          packages: clang-3.6
+
+    # clang 3.7 on linux
+    - env: C_COMPILER=clang-3.7
+      addons:
+        apt:
+          <<: *apt
+          packages: clang-3.7
+
+    ## gcc 4.8 on osx
+    #- os: osx
+    #  env: FORMULA=gcc48 COMPILER=gcc C_COMPILER=gcc-4.8
+    #
+    ## gcc 4.9 on osx
+    #- os: osx
+    #  env: FORMULA=gcc49 COMPILER=gcc C_COMPILER=gcc-4.9
+    #
+    ## gcc 5 on osx
+    #- os: osx
+    #  env: FORMULA=gcc5 COMPILER=gcc C_COMPILER=gcc-5
+
+    # clang 3.6 on osx
+    - os: osx
+      osx_image: xcode6.4
+      env: C_COMPILER=clang
+
+    # clang 3.7 on osx
+    - os: osx
+      osx_image: xcode7.1
+      env: C_COMPILER=clang
+
+
+before_install:
+  # for osx: 0. update brew; 1. install cmake if missing; 2. (gcc) unlink pre-installed gcc; 3. (gcc) install desired version of gcc
+  - 'if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi'
+  - 'if [[ "$TRAVIS_OS_NAME" == "osx" && -z "$(which cmake)" ]]; then brew install cmake; fi' # xcode 7.1 is missing cmake
+  - 'if [[ "$TRAVIS_OS_NAME" == "osx" && "$COMPILER" == "gcc" ]]; then brew unlink gcc || true; fi' # ignore unlink errors
+  - 'if [[ "$TRAVIS_OS_NAME" == "osx" && "$COMPILER" == "gcc" ]]; then brew unlink $FORMULA || true; fi' # ignore unlink errors
+  - 'if [[ "$TRAVIS_OS_NAME" == "osx" && "$COMPILER" == "gcc" ]]; then brew install $FORMULA; fi'
+  - export CC=$C_COMPILER
+  - wget https://github.com/libcheck/check/releases/download/0.11.0/check-0.11.0.tar.gz
+  - tar xvfz check-0.11.0.tar.gz
+  - cd check-0.11.0 && ./configure && make && sudo make install && cd ..
+
+script:
+  - mkdir _build && cd _build
+  - cmake ..
+  - make -j
+  - make check

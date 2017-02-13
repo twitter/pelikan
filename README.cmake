@@ -18,4 +18,4 @@ cmake ..
 make -j
 make test
 
-# executables can be found at $(topdir)/_bin/*
+# executables can be found at $(builddir)/_bin/*

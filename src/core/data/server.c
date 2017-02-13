@@ -78,6 +78,7 @@ _tcp_accept(struct buf_sock *ss)
     }
 
     if (!ss->hdl->accept(sc, s->ch)) {
+        buf_sock_return(&s);
         return false;
     }
 
