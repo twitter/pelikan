@@ -1,9 +1,10 @@
 #include "hotkey.h"
 
 #include "constant.h"
-#include "counter_table.h"
-#include "queue.h"
+#include "kc_map.h"
+#include "key_window.h"
 
+#include <cc_bstring.h>
 #include <cc_debug.h>
 
 #define HOTKEY_MODULE_NAME "hotkey::hotkey"
@@ -13,10 +14,10 @@ bool hotkey_enabled = false;
 static uint64_t hotkey_counter;
 
 static bool hotkey_init = false;
-static uint32_t hotkey_nsample = HOTKEY_NSAMPLE;
+static uint32_t hotkey_window_size = HOTKEY_WINDOW_SIZE;
 static uint32_t hotkey_rate = HOTKEY_RATE;
 static uint32_t hotkey_threshold = HOTKEY_THRESHOLD;
-static uint32_t hotkey_nsample_cur = 0;
+static uint32_t hotkey_window_size_cur = 0;
 
 void
 hotkey_setup(hotkey_options_st *options)
@@ -25,16 +26,16 @@ hotkey_setup(hotkey_options_st *options)
 
     if (options != NULL) {
         hotkey_enabled = option_bool(&options->hotkey_enable);
-        hotkey_nsample = option_uint(&options->hotkey_sample_size);
+        hotkey_window_size = option_uint(&options->hotkey_sample_size);
         hotkey_rate = option_uint(&options->hotkey_sample_rate);
-        hotkey_threshold = option_uint(&options->hotkey_threshold);
+        hotkey_threshold = (uint32_t)(option_fpn(&options->hotkey_threshold_ratio) * hotkey_window_size);
     }
 
-    hotkey_nsample_cur = 0;
+    hotkey_window_size_cur = 0;
     hotkey_counter = 0;
-    queue_setup(hotkey_nsample);
+    key_window_setup(hotkey_window_size);
     /* TODO: determine whether table size should be a tuneable parameter */
-    counter_table_setup(hotkey_nsample, hotkey_nsample);
+    kc_map_setup(hotkey_window_size, hotkey_window_size);
     hotkey_init = true;
 }
 
@@ -45,32 +46,35 @@ hotkey_teardown(void)
 
     if (!hotkey_init) {
         log_warn("%s was not setup", HOTKEY_MODULE_NAME);
+        return;
     }
 
     hotkey_enabled = false;
-    queue_teardown();
-    counter_table_teardown();
+    key_window_teardown();
+    kc_map_teardown();
     hotkey_init = false;
 }
 
 bool
-_hotkey_sample(char *key, uint32_t nkey)
+hotkey_sample(const struct bstring *key)
 {
     if (++hotkey_counter % hotkey_rate == 0) {
         /* sample this key */
         uint32_t freq;
 
-        if (queue_len() == hotkey_nsample) {
+        if (key_window_len() == hotkey_window_size) {
             char buf[MAX_KEY_LEN];
-            uint32_t len;
+            struct bstring popped;
 
-            /* pop from queue, decrement in counter table */
-            len = queue_pop(buf);
-            counter_table_decr(buf, len);
+            popped.data = buf;
+
+            /* pop from key_window, decrement in counter table */
+            popped.len = key_window_pop(popped.data);
+            kc_map_decr(&popped);
         }
 
-        queue_push(key, nkey);
-        freq = counter_table_incr(key, nkey);
+        key_window_push(key);
+        freq = kc_map_incr(key);
 
         return freq >= hotkey_threshold;
     }

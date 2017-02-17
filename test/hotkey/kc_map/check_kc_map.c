@@ -1,12 +1,15 @@
-#include <hotkey/counter_table.h>
+#include <hotkey/kc_map.h>
 
 #include <hotkey/constant.h>
 
 #include <check.h>
 
-#include <stdlib.h>
+#include <cc_bstring.h>
 
-#define SUITE_NAME "counter_table"
+#include <stdlib.h>
+#include <string.h>
+
+#define SUITE_NAME "kc_map"
 #define DEBUG_LOG  SUITE_NAME ".log"
 
 #define TEST_TABLE_SIZE 10
@@ -17,13 +20,13 @@
 static void
 test_setup(void)
 {
-    counter_table_setup(TEST_TABLE_SIZE, TEST_TABLE_SIZE);
+    kc_map_setup(TEST_TABLE_SIZE, TEST_TABLE_SIZE);
 }
 
 static void
 test_teardown(void)
 {
-    counter_table_teardown();
+    kc_map_teardown();
 }
 
 static void
@@ -39,23 +42,28 @@ test_reset(void)
 
 START_TEST(test_basic)
 {
-    char *key1 = "key1", *key2 = "key2";
-    uint32_t klen = 4;
+    char *key1str = "key1", *key2str = "key22";
     uint32_t count;
+    struct bstring key1, key2;
+
+    key1.data = key1str;
+    key1.len = strlen(key1str);
+    key2.data = key2str;
+    key2.len = strlen(key2str);;
 
     test_reset();
 
-    count = counter_table_incr(key1, klen);
+    count = kc_map_incr(&key1);
     ck_assert_int_eq(count, 1);
 
-    count = counter_table_incr(key2, klen);
+    count = kc_map_incr(&key2);
     ck_assert_int_eq(count, 1);
 
-    count = counter_table_incr(key1, klen);
+    count = kc_map_incr(&key1);
     ck_assert_int_eq(count, 2);
 
-    counter_table_decr(key1, klen);
-    count = counter_table_incr(key1, klen);
+    kc_map_decr(&key1);
+    count = kc_map_incr(&key1);
     ck_assert_int_eq(count, 2);
 }
 END_TEST
@@ -64,15 +72,15 @@ END_TEST
  * test suite
  */
 static Suite *
-counter_table_suite(void)
+kc_map_suite(void)
 {
     Suite *s = suite_create(SUITE_NAME);
 
     /* basic functionality */
-    TCase *tc_basic_counter_table = tcase_create("basic counter_table");
-    suite_add_tcase(s, tc_basic_counter_table);
+    TCase *tc_basic_kc_map = tcase_create("basic kc_map");
+    suite_add_tcase(s, tc_basic_kc_map);
 
-    tcase_add_test(tc_basic_counter_table, test_basic);
+    tcase_add_test(tc_basic_kc_map, test_basic);
 
     return s;
 }
@@ -85,7 +93,7 @@ main(void)
     /* setup */
     test_setup();
 
-    Suite *suite = counter_table_suite();
+    Suite *suite = kc_map_suite();
     SRunner *srunner = srunner_create(suite);
     srunner_set_log(srunner, DEBUG_LOG);
     srunner_run_all(srunner, CK_ENV); /* set CK_VERBOSITY in ENV to customize */

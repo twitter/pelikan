@@ -7,16 +7,17 @@
 
 /* TODO(kevyang): add stats for hotkey module */
 
-#define HOTKEY_NSAMPLE   10000 /* keep last 10000 keys sampled by default */
-#define HOTKEY_RATE      100   /* sample one in every 100 keys by default */
-#define HOTKEY_THRESHOLD 10    /* signal for hotkey if 10 or more keys in sample by default */
+#define HOTKEY_WINDOW_SIZE     10000 /* keep last 10000 keys sampled by default */
+#define HOTKEY_RATE            100   /* sample one in every 100 keys by default */
+#define HOTKEY_THRESHOLD_RATIO 0.01  /* signal hotkey if key takes up >= 0.01 of all keys by default */
+#define HOTKEY_THRESHOLD       (uint32_t)(HOTKEY_THRESHOLD_RATIO * HOTKEY_WINDOW_SIZE)
 
-/*          name                type                default             description */
-#define HOTKEY_OPTION(ACTION)                                                                    \
-    ACTION( hotkey_enable,      OPTION_TYPE_BOOL,   false,              "use hotkey detection?"      )\
-    ACTION( hotkey_sample_size, OPTION_TYPE_UINT,   HOTKEY_NSAMPLE,     "number of keys to maintain" )\
-    ACTION( hotkey_sample_rate, OPTION_TYPE_UINT,   HOTKEY_RATE,        "hotkey sample ratio"        )\
-    ACTION( hotkey_threshold,   OPTION_TYPE_UINT,   HOTKEY_THRESHOLD,   "threshold for hotkey signal")
+/*          name                    type                default                 description */
+#define HOTKEY_OPTION(ACTION)                                                                                 \
+    ACTION( hotkey_enable,          OPTION_TYPE_BOOL,   false,                  "use hotkey detection?"      )\
+    ACTION( hotkey_sample_size,     OPTION_TYPE_UINT,   HOTKEY_WINDOW_SIZE,     "number of keys to maintain" )\
+    ACTION( hotkey_sample_rate,     OPTION_TYPE_UINT,   HOTKEY_RATE,            "hotkey sample ratio"        )\
+    ACTION( hotkey_threshold_ratio, OPTION_TYPE_UINT,   HOTKEY_THRESHOLD_RATIO, "threshold for hotkey signal")
 
 typedef struct {
     HOTKEY_OPTION(OPTION_DECLARE)
@@ -26,11 +27,4 @@ extern bool hotkey_enabled;
 
 void hotkey_setup(hotkey_options_st *options);
 void hotkey_teardown(void);
-
-#define hotkey_sample(key, nkey) do { \
-    if (hotkey_enabled) {                            \
-        _hotkey_sample(key, nkey);                   \
-    }                                                \
-} while (0)
-
-bool _hotkey_sample(char *key, uint32_t nkey);
+bool hotkey_sample(const struct bstring *key);

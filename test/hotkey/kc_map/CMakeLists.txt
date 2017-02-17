@@ -1,4 +1,4 @@
-set(suite queue)
+set(suite kc_map)
 set(test_name check_${suite})
 
 set(source check_${suite}.c)

@@ -1,4 +1,4 @@
-set(suite counter_table)
+set(suite key_window)
 set(test_name check_${suite})
 
 set(source check_${suite}.c)
