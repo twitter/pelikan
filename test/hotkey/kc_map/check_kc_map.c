@@ -42,14 +42,10 @@ test_reset(void)
 
 START_TEST(test_basic)
 {
-    char *key1str = "key1", *key2str = "key22";
+#define KEY1 "key1"
+#define KEY2 "key22"
     uint32_t count;
-    struct bstring key1, key2;
-
-    key1.data = key1str;
-    key1.len = strlen(key1str);
-    key2.data = key2str;
-    key2.len = strlen(key2str);;
+    struct bstring key1 = str2bstr(KEY1), key2 = str2bstr(KEY2);
 
     test_reset();
 
@@ -65,6 +61,8 @@ START_TEST(test_basic)
     kc_map_decr(&key1);
     count = kc_map_incr(&key1);
     ck_assert_int_eq(count, 2);
+#undef KEY1
+#undef KEY2
 }
 END_TEST
 

@@ -43,13 +43,10 @@ test_reset(void)
 
 START_TEST(test_basic)
 {
-    char *key1str = "key1";
+#define KEY1 "key1"
+    struct bstring key1 = str2bstr(KEY1);
     char buf[MAX_KEY_LEN];
     uint32_t key_window_pop_len;
-    struct bstring key1;
-
-    key1.data = key1str;
-    key1.len = strlen(key1str);
 
     test_reset();
 
@@ -62,22 +59,19 @@ START_TEST(test_basic)
     ck_assert_int_eq(key_window_len(), 0);
     ck_assert_int_eq(key_window_pop_len, key1.len);
     ck_assert(strncmp(key1.data, buf, key1.len) == 0);
+#undef KEY1
 }
 END_TEST
 
 START_TEST(test_multiple)
 {
-    char *key1str = "key1", *key2str = "key22", *key3str = "key333";
+#define KEY1 "key1"
+#define KEY2 "key22"
+#define KEY3 "key333"
     char buf[MAX_KEY_LEN];
     uint32_t key_window_pop_len;
-    struct bstring key1, key2, key3;
-
-    key1.data = key1str;
-    key1.len = strlen(key1str);
-    key2.data = key2str;
-    key2.len = strlen(key2str);
-    key3.data = key3str;
-    key3.len = strlen(key3str);
+    struct bstring key1 = str2bstr(KEY1), key2 = str2bstr(KEY2),
+        key3 = str2bstr(KEY3);
 
     test_reset();
 
@@ -102,6 +96,9 @@ START_TEST(test_multiple)
     ck_assert_int_eq(key_window_pop_len, key3.len);
     ck_assert(strncmp(key3.data, buf, key3.len) == 0);
     ck_assert_int_eq(key_window_len(), 0);
+#undef KEY1
+#undef KEY2
+#undef KEY3
 }
 END_TEST
 
