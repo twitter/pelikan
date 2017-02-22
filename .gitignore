@@ -37,3 +37,6 @@ cscope.out
 # CLion
 /.idea
 lcov
+
+# python compiled files
+*.pyc
