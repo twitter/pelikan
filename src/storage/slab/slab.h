@@ -72,10 +72,33 @@ typedef struct {
     ACTION( item_keyval_byte,   METRIC_GAUGE,   "key+val in bytes, linked" )\
     ACTION( item_val_byte,      METRIC_GAUGE,   "value only in bytes"      )
 
-
 typedef struct {
     SLAB_METRIC(METRIC_DECLARE)
 } slab_metrics_st;
+
+/*
+ *
+    ACTION( chunk_size,         METRIC_GAUGE,   "# byte per item"      )\
+    ACTION( chunks_per_page,    METRIC_GAUGE,   "# items in each slab" )\
+ */
+/*          name                type            description */
+#define PERSLAB_METRIC(ACTION)                                          \
+    ACTION( item_keyval_byte,   METRIC_GAUGE,   "keyval stored (byte) ")\
+    ACTION( item_val_byte,      METRIC_GAUGE,   "value portion of data")\
+    ACTION( item_curr,          METRIC_GAUGE,   "# items stored"       )\
+    ACTION( item_free,          METRIC_GAUGE,   "# free items"         )\
+    ACTION( slab_curr,          METRIC_GAUGE,   "# slabs"              )
+
+typedef struct {
+    PERSLAB_METRIC(METRIC_DECLARE)
+} perslab_metrics_st;
+
+extern perslab_metrics_st perslab[SLABCLASS_MAX_ID];
+
+#define PERSLAB_INCR(id, metric) INCR(&perslab[id], metric)
+#define PERSLAB_DECR(id, metric) DECR(&perslab[id], metric)
+#define PERSLAB_INCR_N(id, metric, delta) INCR_N(&perslab[id], metric, delta)
+#define PERSLAB_DECR_N(id, metric, delta) DECR_N(&perslab[id], metric, delta)
 
 /*
  * Every slab (struct slab) in the cache starts with a slab header

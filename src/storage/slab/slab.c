@@ -25,6 +25,8 @@ struct slab_heapinfo {
     struct slab_tqh slab_lruq;   /* lru slab q */
 };
 
+perslab_metrics_st perslab[SLABCLASS_MAX_ID];
+
 static struct slab_heapinfo heapinfo;             /* info of all allocated slabs */
 static size_t profile[SLABCLASS_MAX_ID + 1];      /* slab profile */
 static uint8_t profile_last_id;                   /* last id in slab profile */
@@ -205,6 +207,8 @@ _slab_heapinfo_setup(void)
         return CC_ENOMEM;
     }
     TAILQ_INIT(&heapinfo.slab_lruq);
+
+    metric_reset((struct metric *)perslab, METRIC_CARDINALITY(perslab));
 
     log_vverb("created slab table with %"PRIu32" entries",
               heapinfo.max_nslab);
@@ -542,7 +546,8 @@ _slab_get_new(void)
 
     _slab_table_update(slab);
     INCR(slab_metrics, slab_curr);
-    INCR_N(slab_metrics, slab_memory,slab_size);
+    PERSLAB_INCR(slab->id, slab_curr);
+    INCR_N(slab_metrics, slab_memory, slab_size);
 
     return slab;
 }
@@ -577,6 +582,8 @@ _slab_evict_one(struct slab *slab)
 
     p = &slabclass[slab->id];
 
+    INCR(slab_metrics, slab_evict);
+
     /* candidate slab is also the current slab */
     if (p->next_item_in_slab != NULL && slab == item_to_slab(p->next_item_in_slab)) {
         p->nfree_item = 0;
@@ -603,8 +610,6 @@ _slab_evict_one(struct slab *slab)
 
     /* unlink the slab from its class */
     _slab_lruq_remove(slab);
-
-    INCR(slab_metrics, slab_evict);
 }
 
 /*
@@ -765,6 +770,7 @@ _slab_get_item_from_freeq(uint8_t id)
     ASSERT(p->nfree_itemq > 0);
     p->nfree_itemq--;
     SLIST_REMOVE(&p->free_itemq, it, item, i_sle);
+    PERSLAB_DECR(id, item_free);
 
     log_verb("get free q it %p at offset %"PRIu32" with id %"PRIu8, it,
             it->offset, it->id);
@@ -843,6 +849,8 @@ _slab_put_item_into_freeq(struct item *it, uint8_t id)
 
     p->nfree_itemq++;
     SLIST_INSERT_HEAD(&p->free_itemq, it, i_sle);
+
+    PERSLAB_INCR(id, item_free);
 }
 
 /*

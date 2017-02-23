@@ -7,7 +7,6 @@
 
 static rel_time_t flush_at = 0;
 
-
 static inline bool
 _item_expired(struct item *it)
 {
@@ -74,6 +73,7 @@ _item_alloc(struct item **it_p, uint8_t klen, uint32_t vlen)
         slab_ref(item_to_slab(it)); /* slab to be deref'ed in _item_link */
         INCR(slab_metrics, item_curr);
         INCR(slab_metrics, item_alloc);
+        PERSLAB_INCR(id, item_curr);
 
         log_verb("alloc it %p of id %"PRIu8" at offset %"PRIu32, it, it->id,
                 it->offset);
@@ -90,10 +90,13 @@ _item_alloc(struct item **it_p, uint8_t klen, uint32_t vlen)
 static inline void
 _item_dealloc(struct item **it_p)
 {
+    uint8_t id = (*it_p)->id;
+
     DECR(slab_metrics, item_curr);
     INCR(slab_metrics, item_dealloc);
+    PERSLAB_DECR(id, item_curr);
 
-    slab_put_item(*it_p, (*it_p)->id);
+    slab_put_item(*it_p, id);
     *it_p = NULL;
 }
 
@@ -119,6 +122,8 @@ _item_link(struct item *it)
     INCR(slab_metrics, item_link);
     INCR_N(slab_metrics, item_keyval_byte, it->klen + it->vlen);
     INCR_N(slab_metrics, item_val_byte, it->vlen);
+    PERSLAB_INCR_N(it->id, item_keyval_byte, it->klen + it->vlen);
+    PERSLAB_INCR_N(it->id, item_val_byte, it->vlen);
 }
 
 void
@@ -152,6 +157,8 @@ _item_unlink(struct item *it)
     INCR(slab_metrics, item_unlink);
     DECR_N(slab_metrics, item_keyval_byte, it->klen + it->vlen);
     DECR_N(slab_metrics, item_val_byte, it->vlen);
+    PERSLAB_DECR_N(it->id, item_keyval_byte, it->klen + it->vlen);
+    PERSLAB_DECR_N(it->id, item_val_byte, it->vlen);
 }
 
 /**
