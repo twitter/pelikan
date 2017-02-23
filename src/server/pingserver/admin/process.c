@@ -14,7 +14,7 @@
 #define METRIC_DESCRIBE_LEN 120 /* 34 (name) + 16 (type) + 68 (description) + CRLF */
 #define METRIC_FOOTER CRLF
 #define METRIC_END "END\r\n"
-#define METRIC_END_LEN sizeof(METRIC_END)
+#define METRIC_END_LEN (sizeof(METRIC_END) - 1)
 
 #define VERSION_PRINT_FMT "VERSION %s\r\n"
 #define VERSION_PRINT_LEN 30
