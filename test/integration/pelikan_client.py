@@ -26,8 +26,8 @@ class PelikanClient(object):
                 else:
                     raise
         self.admin.setblocking(True)
-        # this NULL is kinda unexpected for me
-        if data[-6:] != 'END\r\n\0':
+        if data[-5:] != 'END\r\n':
+            print(data[-5:])
             raise Exception('Invalid data while fetching stats: {}'.format(data))
         return dict(line.split(' ')[1:] for line in data[:-6].strip().split('\r\n'))
 
