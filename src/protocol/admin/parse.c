@@ -71,19 +71,20 @@ admin_parse_req(struct request *req, struct buf *buf)
     }
     p = q = buf->rpos;
 
-    /* First find CRLF, this simplifies parsing. For admin port we don't care
-     * much about efficiency.
+    /* First find CRLF and store it in p, this simplifies parsing.
+     * For admin port we don't care much about efficiency.
      */
     for (; !_is_crlf(buf, p) && p < buf->wpos; p++);
     if (p == buf->wpos) {
         return PARSE_EUNFIN;
     }
 
+    /* type: between rpos and q */
     for (; *q != ' ' && q < p; q++);
-
     type.data = buf->rpos;
     type.len = q - buf->rpos;
-    if (p < q) { /* intentional: pointing to the leading space */
+
+    if (p > q) { /* intentional: pointing to the leading space */
         req->arg.len = p - q;
         req->arg.data = q;
     }

@@ -76,13 +76,9 @@ typedef struct {
     SLAB_METRIC(METRIC_DECLARE)
 } slab_metrics_st;
 
-/*
- *
-    ACTION( chunk_size,         METRIC_GAUGE,   "# byte per item"      )\
-    ACTION( chunks_per_page,    METRIC_GAUGE,   "# items in each slab" )\
- */
 /*          name                type            description */
 #define PERSLAB_METRIC(ACTION)                                          \
+    ACTION( chunk_size,         METRIC_GAUGE,   "# byte per item cunk" )\
     ACTION( item_keyval_byte,   METRIC_GAUGE,   "keyval stored (byte) ")\
     ACTION( item_val_byte,      METRIC_GAUGE,   "value portion of data")\
     ACTION( item_curr,          METRIC_GAUGE,   "# items stored"       )\
@@ -94,6 +90,7 @@ typedef struct {
 } perslab_metrics_st;
 
 extern perslab_metrics_st perslab[SLABCLASS_MAX_ID];
+extern uint8_t profile_last_id;
 
 #define PERSLAB_INCR(id, metric) INCR(&perslab[id], metric)
 #define PERSLAB_DECR(id, metric) DECR(&perslab[id], metric)

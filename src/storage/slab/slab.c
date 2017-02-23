@@ -26,10 +26,10 @@ struct slab_heapinfo {
 };
 
 perslab_metrics_st perslab[SLABCLASS_MAX_ID];
+uint8_t profile_last_id; /* last id in slab profile */
 
 static struct slab_heapinfo heapinfo;             /* info of all allocated slabs */
 static size_t profile[SLABCLASS_MAX_ID + 1];      /* slab profile */
-static uint8_t profile_last_id;                   /* last id in slab profile */
 struct slabclass slabclass[SLABCLASS_MAX_ID + 1]; /* collection of slabs bucketed by slabclass */
 
 size_t slab_size = SLAB_SIZE;           /* # bytes in a slab */
@@ -156,6 +156,10 @@ _slab_slabclass_setup(void)
         p->nitem = nitem;
         p->size = item_sz;
 
+        /* chunk_size is static */
+        perslab[id] = (perslab_metrics_st){PERSLAB_METRIC(METRIC_INIT)};
+        UPDATE_VAL(&perslab[id], chunk_size, item_sz);
+
         p->nfree_itemq = 0;
         SLIST_INIT(&p->free_itemq);
 
@@ -207,8 +211,6 @@ _slab_heapinfo_setup(void)
         return CC_ENOMEM;
     }
     TAILQ_INIT(&heapinfo.slab_lruq);
-
-    metric_reset((struct metric *)perslab, METRIC_CARDINALITY(perslab));
 
     log_vverb("created slab table with %"PRIu32" entries",
               heapinfo.max_nslab);
