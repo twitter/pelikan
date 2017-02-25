@@ -118,7 +118,7 @@ setup(void)
     klog_setup(&setting.klog, &stats.klog);
     slab_setup(&setting.slab, &stats.slab);
     process_setup(&setting.process, &stats.process);
-    admin_process_setup(&stats.admin_process);
+    admin_process_setup();
     core_setup(&setting.admin, &setting.server, &setting.worker,
             &stats.server, &stats.worker);
 
