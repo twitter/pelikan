@@ -112,7 +112,7 @@ setup(void)
     procinfo_setup(&stats.procinfo);
     parse_setup(&stats.parse_req, NULL);
     compose_setup(NULL, &stats.compose_rsp);
-    admin_process_setup(&stats.admin_process);
+    admin_process_setup();
     core_setup(&setting.admin, &setting.server, &setting.worker,
             &stats.server, &stats.worker);
 
