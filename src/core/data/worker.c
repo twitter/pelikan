@@ -91,7 +91,7 @@ _worker_read(struct buf_sock *s)
 
     /* TODO(kyang): consider refactoring dbuf_tcp_read and buf_tcp_read to have no return status
        at all, since the return status is already given by the connection state */
-    dbuf_tcp_read(s);
+    buf_tcp_read(s);
 }
 
 static inline void
