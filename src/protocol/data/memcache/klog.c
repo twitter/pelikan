@@ -202,7 +202,7 @@ _klog_fmt_store(struct request *req, struct response *rsp, char *buf, int len)
 
     len += cc_scnprintf(buf + len, KLOG_MAX_LEN - len, KLOG_STORE_FMT, req_strings[req->type].len,
                         req_strings[req->type].data, key->len, key->data, req->flag,
-                        req->expiry, req->vstr.len, rsp->type,
+                        req->expiry, req->vlen, rsp->type,
                         req->noreply ? 0 : rsp_strings[rsp->type].len);
 
     return len;
@@ -215,7 +215,7 @@ _klog_fmt_cas(struct request *req, struct response *rsp, char *buf, int len)
 
     len += cc_scnprintf(buf + len, KLOG_MAX_LEN - len, KLOG_CAS_FMT, req_strings[req->type].len,
                         req_strings[req->type].data, key->len, key->data, req->flag,
-                        req->expiry, req->vstr.len, req->vcas, rsp->type,
+                        req->expiry, req->vlen, req->vcas, rsp->type,
                         req->noreply ? 0 : rsp_strings[rsp->type].len);
 
     return len;

@@ -273,28 +273,32 @@ _chase_uint(uint64_t *num, struct buf *buf, bool *end, uint64_t max)
 }
 
 static parse_rstatus_t
-_parse_val(struct bstring *val, struct buf *buf, uint32_t vlen)
+_parse_val(struct bstring *val, struct buf *buf, uint32_t nbyte)
 {
     parse_rstatus_t status;
+    uint32_t rsize = buf_rsize(buf);
 
     log_verb("parsing val (string) at %p", buf->rpos);
 
-    if (buf_rsize(buf) < vlen + CRLF_LEN) {
-        log_verb("buf %p has %"PRIu32" out of the %"PRIu32" bytes expected",
-                buf, buf_rsize(buf), vlen + CRLF_LEN);
-
-        return PARSE_EUNFIN;
-    }
-
-    val->len = vlen;
-    val->data = buf->rpos;
-    buf->rpos += vlen;
+    val->len = MIN(nbyte, rsize);
+    val->data = (val->len > 0) ? buf->rpos : NULL;
+    buf->rpos += val->len;
 
     /* verify CRLF */
-    status = _try_crlf(buf, buf->rpos);
-    if (status == PARSE_OK) {
-        buf->rpos += CRLF_LEN;
+    if (rsize < nbyte + CRLF_LEN) {
+        status = PARSE_EUNFIN;
+    } else {
+        status = _try_crlf(buf, buf->rpos);
+        if (status == PARSE_OK) {
+            buf->rpos += CRLF_LEN;
+        } else {
+            log_debug("CRLF expected at %p, '%c%c' found instead", buf->rpos,
+                    *buf->rpos, *(buf->rpos + 1));
+        }
     }
+
+    log_verb("buf %p has %"PRIu32" out of the %"PRIu32" bytes expected", buf,
+            rsize, nbyte + CRLF_LEN);
 
     return status;
 }
@@ -657,6 +661,7 @@ _subrequest_store(struct request *req, struct buf *buf, bool *end, bool cas)
         return status;
     }
     req->vlen = (uint32_t)n;
+    req->nremain = req->vlen;
     /* CAS, conditional */
     if (cas) {
         if (*end) {
@@ -782,31 +787,94 @@ _parse_req_hdr(struct request *req, struct buf *buf)
 parse_rstatus_t
 parse_req(struct request *req, struct buf *buf)
 {
-    parse_rstatus_t status = PARSE_EUNFIN;
+    parse_rstatus_t status = PARSE_OK;
     char *old_rpos = buf->rpos;
+    bool leftmost = (buf->rpos == buf->begin);
 
-    ASSERT(req->rstate == REQ_PARSING);
+    /*
+     * we allow partial value in the request (but not the head portion),
+     * so that we can incrementally fill in a large value over multiple socket
+     * reads. This is more useful for the server which allows more predictable
+     * buffer management (e.g. no unbounded read buffer). Currently partial
+     * value is not implemented for the response.
+     */
+    switch (req->rstate) {
+    case REQ_PARSING: /* a new request */
+        log_verb("parsing buf %p into req %p", buf, req);
+        req->first = true;
+        status = _parse_req_hdr(req, buf);
+        if (status == PARSE_EUNFIN) {
+            log_verb("incomplete data: reset read position, jump back %zu bytes",
+                    buf->rpos - old_rpos);
+            /* return and start from beginning next time */
+            request_reset(req);
+            buf->rpos = old_rpos;
+            break;
+        }
+        log_verb("request hdr parsed: %zu bytes scanned, parsing status %d",
+                buf->rpos - old_rpos, status);
+        if (req->val == 0 || status != PARSE_OK) {
+            req->rstate = REQ_PARSED;
+            break;
+        }
+        /* fall-through intended */
 
-    log_verb("parsing buf %p into req %p", buf, req);
+    case REQ_PARTIAL: /* continuation of value parsing for the current request */
+        status = _parse_val(&(req->vstr), buf, req->nremain);
+        req->nremain -= req->vstr.len;
+        log_verb("this value segment: %"PRIu32", remain: %"PRIu32, req->vstr.len,
+                req->nremain);
+        if (status == PARSE_OK) {
+            req->rstate = REQ_PARSED;
+            req->partial = false;
+            INCR(parse_req_metrics, request_parse);
+        } else {
+            if (status != PARSE_EUNFIN) {
+                log_debug("parse req returned error state %d", status);
+                req->cerror = 1;
+                INCR(parse_req_metrics, request_parse_ex);
+            } else { /* partial val, we return upon partial header above */
+                /*
+                 * We try to fit as much data into read buffer as possible
+                 * before processing starts. When request starts somewhere in
+                 * the middle of buf, we jump back and wait for more data to
+                 * arrive (and expect caller to left-shift data in buf)
+                 *
+                 * This is a seemingly weird and unnecessary decision, the
+                 * reason we need to do this is because we want to allow
+                 * partial value only for set/add/cas/replace, but not for
+                 * append/prepend. Because append/prepend are modifying keys
+                 * already linked into hash, if we want to support partial
+                 * value we need to either copy the key/value or temporarily
+                 * unlink the key. And either option has severe drawbacks. Given
+                 * append/prepend very large value is a case that I've never
+                 * seen any need for in the field, it's a reasonable assumption
+                 * to make, at least for now.
+                 *
+                 * With this behavior in place, the processing logic can assume
+                 * that if it sees a partial request for append/prepend, the
+                 * payload is too big to be held in the read buffer, without the
+                 * possibility that a small append request just happens to come
+                 * behind a number of other requests.
+                 */
 
-    status = _parse_req_hdr(req, buf);
-    if (status == PARSE_OK && req->val) {
-        status = _parse_val(&req->vstr, buf, req->vlen);
-    }
+                if (leftmost) {
+                    req->partial = true;
+                    status = PARSE_OK;
+                    req->rstate = REQ_PARTIAL;
+                } else {
+                    ASSERT(req->first == 1);
+                    log_verb("try to left shift a request when possible");
+                    request_reset(req);
+                    buf->rpos = old_rpos;
+                }
+            }
+        }
+        break;
 
-    if (status == PARSE_EUNFIN) {
-        log_verb("incomplete data: reset read position, jump back %zu bytes",
-                buf->rpos - old_rpos);
-        buf->rpos = old_rpos; /* start from beginning next time */
-        return PARSE_EUNFIN;
-    }
-    if (status != PARSE_OK) {
-        log_debug("parse req returned error state %d", status);
-        req->cerror = 1;
-        INCR(parse_req_metrics, request_parse_ex);
-    } else {
-        req->rstate = REQ_PARSED;
-        INCR(parse_req_metrics, request_parse);
+    default:
+        NOT_REACHED();
+        status = PARSE_EOTHER;
     }
 
     return status;

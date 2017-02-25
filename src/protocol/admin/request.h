@@ -37,7 +37,6 @@ typedef enum request_type {
 typedef enum request_state {
     REQ_PARSING,
     REQ_PARSED,
-    REQ_PROCESSING,
     REQ_DONE,
 } request_state_t;
 

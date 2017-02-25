@@ -51,26 +51,23 @@ START_TEST(test_insert_basic)
     struct item *it;
     uint32_t dataflag = 12345;
 
-
-    key.data = KEY;
-    key.len = sizeof(KEY) - 1;
-
-    val.data = VAL;
-    val.len = sizeof(VAL) - 1;
+    key = str2bstr(KEY);
+    val = str2bstr(VAL);
 
     time_update();
-    status = item_insert(&key, &val, dataflag, 0);
-    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
-
-    it = item_get(&key);
+    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    ck_assert_msg(!it->is_linked, "item with key %.*s not linked", key.len, key.data);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
-    ck_assert_msg(it->is_linked, "item with key %.*s not linked", key.len, key.data);
     ck_assert_msg(!it->in_freeq, "linked item with key %.*s in freeq", key.len, key.data);
     ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
     ck_assert_int_eq(it->vlen, sizeof(VAL) - 1);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
     ck_assert_int_eq(it->dataflag, dataflag);
     ck_assert_int_eq(cc_memcmp(item_data(it), VAL, val.len), 0);
+
+    item_insert(it, &key);
+    ck_assert_msg(it->is_linked, "item with key %.*s not linked", key.len, key.data);
 #undef KEY
 #undef VAL
 }
@@ -83,34 +80,146 @@ END_TEST
 START_TEST(test_insert_large)
 {
 #define KEY "key"
+#define VLEN (1000 * KiB)
+
     struct bstring key, val;
     item_rstatus_t status;
     struct item *it;
     uint32_t dataflag = 12345;
+    size_t len;
+    char *p;
 
     test_reset();
 
-    key.data = KEY;
-    key.len = sizeof(KEY) - 1;
+    key = str2bstr(KEY);
 
-    val.data = cc_alloc(1000 * KiB);
-    cc_memset(val.data, 'A', 1000 * KiB);
-    val.data[1000 * KiB - 1] = '\0';
-    val.len = 1000 * KiB;
+    val.data = cc_alloc(VLEN);
+    cc_memset(val.data, 'A', VLEN);
+    val.len = VLEN;
 
     time_update();
-    status = item_insert(&key, &val, dataflag, 0);
-    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    free(val.data);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    item_insert(it, &key);
 
     it = item_get(&key);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
     ck_assert_msg(it->is_linked, "item with key %.*s not linked", key.len, key.data);
     ck_assert_msg(!it->in_freeq, "linked item with key %.*s in freeq", key.len, key.data);
     ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
-    ck_assert_int_eq(it->vlen, 1000 * KiB);
+    ck_assert_int_eq(it->vlen, VLEN);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
     ck_assert_int_eq(it->dataflag, dataflag);
-    ck_assert_msg(strspn(item_data(it), "A") == 1000 * KiB - 1, "item_data contains wrong value %.*s", 1000 * KiB, item_data(it));
+
+    for (p = item_data(it), len = it->vlen; len > 0 && *p == 'A'; p++, len--);
+    ck_assert_msg(len == 0, "item_data contains wrong value %.*s", VLEN, item_data(it));
+
+#undef VLEN
+#undef KEY
+}
+END_TEST
+
+/**
+ * Tests item_reserve, item_backfill and item_release
+ */
+START_TEST(test_reserve_backfill_release)
+{
+#define KEY "key"
+#define VLEN (1000 * KiB)
+
+    struct bstring key, val;
+    item_rstatus_t status;
+    struct item *it;
+    uint32_t vlen, dataflag = 12345;
+    size_t len;
+    char *p;
+
+    test_reset();
+
+    key = str2bstr(KEY);
+
+    vlen = VLEN;
+    val.len = vlen / 2 - 3;
+    val.data = cc_alloc(val.len);
+    cc_memset(val.data, 'A', val.len);
+
+    /* reserve */
+    status = item_reserve(&it, &key, &val, vlen, dataflag, 0);
+    free(val.data);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
+            status);
+
+    ck_assert_msg(it != NULL, "item_reserve returned NULL object");
+    ck_assert_msg(!it->is_linked, "item linked by mistake");
+    ck_assert_msg(!it->in_freeq, "linked item with key %.*s in freeq", key.len,
+            key.data);
+    ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len,
+            key.data);
+    ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
+    ck_assert_int_eq(it->dataflag, dataflag);
+    ck_assert_int_eq(it->vlen, val.len);
+    for (p = item_data(it), len = it->vlen; len > 0 && *p == 'A'; p++, len--);
+    ck_assert_msg(len == 0, "item_data contains wrong value %.*s", it->vlen,
+            item_data(it));
+
+    /* backfill */
+    val.len = vlen - val.len;
+    val.data = cc_alloc(val.len);
+    cc_memset(val.data, 'B', val.len);
+    item_backfill(it, &val);
+    free(val.data);
+    ck_assert_msg(!it->is_linked, "item linked by mistake");
+    ck_assert_int_eq(it->vlen, vlen);
+    for (p = item_data(it) + vlen - val.len, len = val.len;
+            len > 0 && *p == 'B'; p++, len--);
+    ck_assert_msg(len == 0, "item_data contains wrong value %.*s", val.len,
+            item_data(it) + vlen - val.len);
+
+    /* release */
+    item_release(&it);
+#undef VLEN
+#undef KEY
+}
+END_TEST
+
+START_TEST(test_reserve_backfill_link)
+{
+#define KEY "key"
+#define VLEN (1000 * KiB)
+
+    struct bstring key, val;
+    item_rstatus_t status;
+    struct item *it;
+    uint32_t dataflag = 12345;
+    size_t len;
+    char *p;
+
+    test_reset();
+
+    key = str2bstr(KEY);
+
+    val.len = VLEN;
+    val.data = cc_alloc(val.len);
+    cc_memset(val.data, 'A', val.len);
+
+    /* reserve */
+    time_update();
+    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    free(val.data);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+
+    /* backfill & link */
+    val.len = 0;
+    item_backfill(it, &val);
+    item_insert(it, &key);
+    ck_assert_msg(it->is_linked, "completely backfilled item not linked");
+    ck_assert_int_eq(it->vlen, VLEN);
+
+    for (p = item_data(it), len = it->vlen; len > 0 && *p == 'A'; p++, len--);
+    ck_assert_msg(len == 0, "item_data contains wrong value %.*s", VLEN, item_data(it));
+
+#undef VLEN
 #undef KEY
 }
 END_TEST
@@ -130,23 +239,19 @@ START_TEST(test_append_basic)
 
     test_reset();
 
-    key.data = KEY;
-    key.len = sizeof(KEY) - 1;
-
-    val.data = VAL;
-    val.len = sizeof(VAL) - 1;
-
-    append.data = APPEND;
-    append.len = sizeof(APPEND) - 1;
+    key = str2bstr(KEY);
+    val = str2bstr(VAL);
+    append = str2bstr(APPEND);
 
     time_update();
-    status = item_insert(&key, &val, dataflag, 0);
-    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    item_insert(it, &key);
 
     it = item_get(&key);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
 
-    status = item_annex(it, &append, true);
+    status = item_annex(it, &key, &append, true);
     ck_assert_msg(status == ITEM_OK, "item_append not OK - return status %d", status);
 
     it = item_get(&key);
@@ -179,23 +284,19 @@ START_TEST(test_prepend_basic)
 
     test_reset();
 
-    key.data = KEY;
-    key.len = sizeof(KEY) - 1;
-
-    val.data = VAL;
-    val.len = sizeof(VAL) - 1;
-
-    prepend.data = PREPEND;
-    prepend.len = sizeof(PREPEND) - 1;
+    key = str2bstr(KEY);
+    val = str2bstr(VAL);
+    prepend = str2bstr(PREPEND);
 
     time_update();
-    status = item_insert(&key, &val, dataflag, 0);
-    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    item_insert(it, &key);
 
     it = item_get(&key);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
 
-    status = item_annex(it, &prepend, false);
+    status = item_annex(it, &key, &prepend, false);
     ck_assert_msg(status == ITEM_OK, "item_prepend not OK - return status %d", status);
 
     it = item_get(&key);
@@ -230,29 +331,22 @@ START_TEST(test_annex_sequence)
 
     test_reset();
 
-    key.data = KEY;
-    key.len = sizeof(KEY) - 1;
+    key = str2bstr(KEY);
+    val = str2bstr(VAL);
 
-    val.data = VAL;
-    val.len = sizeof(VAL) - 1;
-
-    prepend.data = PREPEND;
-    prepend.len = sizeof(PREPEND) - 1;
-
-    append1.data = APPEND1;
-    append1.len = sizeof(APPEND1) - 1;
-
-    append2.data = APPEND2;
-    append2.len = sizeof(APPEND2) - 1;
+    prepend = str2bstr(PREPEND);
+    append1 = str2bstr(APPEND1);
+    append2 = str2bstr(APPEND2);
 
     time_update();
-    status = item_insert(&key, &val, dataflag, 0);
-    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    item_insert(it, &key);
 
     it = item_get(&key);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
 
-    status = item_annex(it, &append1, true);
+    status = item_annex(it, &key, &append1, true);
     ck_assert_msg(status == ITEM_OK, "item_append not OK - return status %d", status);
 
     it = item_get(&key);
@@ -265,7 +359,7 @@ START_TEST(test_annex_sequence)
     ck_assert_int_eq(it->dataflag, dataflag);
     ck_assert_int_eq(cc_memcmp(item_data(it), VAL APPEND1, val.len + append1.len), 0);
 
-    status = item_annex(it, &prepend, false);
+    status = item_annex(it, &key, &prepend, false);
     ck_assert_msg(status == ITEM_OK, "item_prepend not OK - return status %d", status);
 
     it = item_get(&key);
@@ -278,7 +372,7 @@ START_TEST(test_annex_sequence)
     ck_assert_int_eq(it->dataflag, dataflag);
     ck_assert_int_eq(cc_memcmp(item_data(it), PREPEND VAL APPEND1, val.len + append1.len + prepend.len), 0);
 
-    status = item_annex(it, &append2, true);
+    status = item_annex(it, &key, &append2, true);
     ck_assert_msg(status == ITEM_OK, "item_append not OK - return status %d", status);
 
     it = item_get(&key);
@@ -313,24 +407,19 @@ START_TEST(test_update_basic)
 
     test_reset();
 
-    key.data = KEY;
-    key.len = sizeof(KEY) - 1;
-
-    old_val.data = OLD_VAL;
-    old_val.len = sizeof(OLD_VAL) - 1;
-
-    new_val.data = NEW_VAL;
-    new_val.len = sizeof(NEW_VAL) - 1;
+    key = str2bstr(KEY);
+    old_val = str2bstr(OLD_VAL);
+    new_val = str2bstr(NEW_VAL);
 
     time_update();
-    status = item_insert(&key, &old_val, dataflag, 0);
-    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+    status = item_reserve(&it, &key, &old_val, old_val.len, dataflag, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    item_insert(it, &key);
 
     it = item_get(&key);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
 
-    status = item_update(it, &new_val);
-    ck_assert_msg(status == CC_OK, "item_update not OK - return status %d", status);
+    item_update(it, &new_val);
 
     it = item_get(&key);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
@@ -361,15 +450,13 @@ START_TEST(test_delete_basic)
 
     test_reset();
 
-    key.data = KEY;
-    key.len = sizeof(KEY) - 1;
-
-    val.data = VAL;
-    val.len = sizeof(VAL) - 1;
+    key = str2bstr(KEY);
+    val = str2bstr(VAL);
 
     time_update();
-    status = item_insert(&key, &val, dataflag, 0);
-    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    item_insert(it, &key);
 
     it = item_get(&key);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
@@ -397,25 +484,21 @@ START_TEST(test_flush_basic)
 
     test_reset();
 
-    key1.data = KEY1;
-    key1.len = sizeof(KEY1) - 1;
+    key1 = str2bstr(KEY1);
+    val1 = str2bstr(VAL1);
 
-    val1.data = VAL1;
-    val1.len = sizeof(VAL1) - 1;
-
-    key2.data = KEY2;
-    key2.len = sizeof(KEY2) - 1;
-
-    val2.data = VAL2;
-    val2.len = sizeof(VAL2) - 1;
+    key2 = str2bstr(KEY2);
+    val2 = str2bstr(VAL2);
 
     time_update();
-    status = item_insert(&key1, &val1, 0, 0);
-    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+    status = item_reserve(&it, &key1, &val1, val1.len, 0, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    item_insert(it, &key1);
 
     time_update();
-    status = item_insert(&key2, &val2, 0, 0);
-    ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+    status = item_reserve(&it, &key2, &val2, val2.len, 0, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    item_insert(it, &key2);
 
     item_flush();
     it = item_get(&key1);
@@ -429,6 +512,7 @@ START_TEST(test_flush_basic)
 }
 END_TEST
 
+
 START_TEST(test_evict_lru_basic)
 {
 #define MY_SLAB_SIZE 160
@@ -436,9 +520,9 @@ START_TEST(test_evict_lru_basic)
     /**
      * These are the slabs that will be created with these parameters:
      *
-     * slab size 160, slab hdr size 32, item hdr size 40, item chunk size44, total memory 320
-     * class   1: items       2  size      48  data       8  slack      32
-     * class   2: items       1  size     128  data      88  slack       0
+     * slab size 160, slab hdr size 36, item hdr size 40, item chunk size44, total memory 320
+     * class   1: items       2  size      48  data       8  slack      28
+     * class   2: items       1  size     120  data      80  slack       4
      *
      * If we use 8 bytes of key+value, it will use the class 1 that can fit
      * two elements. The third one will cause a full slab eviction.
@@ -460,6 +544,7 @@ START_TEST(test_evict_lru_basic)
         {VALUE_LENGTH, "cccccccc"},
     };
     item_rstatus_t status;
+    struct item *it;
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
     options.slab_size.val.vuint = MY_SLAB_SIZE;
@@ -472,8 +557,9 @@ START_TEST(test_evict_lru_basic)
 
     for (i = 0; i < NUM_ITEMS + 1; i++) {
         time_update();
-        status = item_insert(&key[i], &val[i], 0, 0);
-        ck_assert_msg(status == ITEM_OK, "item_insert not OK - return status %d", status);
+        status = item_reserve(&it, &key[i], &val[i], val[i].len, 0, 0);
+        ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+        item_insert(it, &key[i]);
         ck_assert_msg(item_get(&key[i]) != NULL, "item %lu not found", i);
     }
 
@@ -492,6 +578,89 @@ START_TEST(test_evict_lru_basic)
 }
 END_TEST
 
+START_TEST(test_refcount)
+{
+#define KEY "key"
+#define VAL "val"
+    struct bstring key, val;
+    item_rstatus_t status;
+    struct item *it;
+    struct slab * s;
+    uint32_t dataflag = 12345;
+
+    test_reset();
+
+    key = str2bstr(KEY);
+    val = str2bstr(VAL);
+
+    /* reserve & release */
+    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    s = item_to_slab(it);
+    ck_assert_msg(s->refcount == 1, "slab refcount %"PRIu32"; 1 expected", s->refcount);
+    item_release(&it);
+    ck_assert_msg(s->refcount == 0, "slab refcount %"PRIu32"; 0 expected", s->refcount);
+
+    /* reserve & backfill (& link) */
+    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    s = item_to_slab(it);
+    ck_assert_msg(s->refcount == 1, "slab refcount %"PRIu32"; 1 expected", s->refcount);
+    val = null_bstring;
+    item_backfill(it, &val);
+    item_insert(it, &key);
+    ck_assert_msg(s->refcount == 0, "slab refcount %"PRIu32"; 0 expected", s->refcount);
+}
+END_TEST
+
+START_TEST(test_evict_refcount)
+{
+#define MY_SLAB_SIZE 96
+#define MY_SLAB_MAXBYTES 96
+    /**
+     * The slab will be created with these parameters:
+     *   slab size 96, slab hdr size 36, item hdr size 40
+     * Given that cas 8,
+     * we know: key + val < 12
+     *
+     **/
+#define KEY "key"
+#define VAL "val"
+
+    struct bstring key, val;
+    item_rstatus_t status;
+    struct item *it, *nit;
+
+    option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
+    options.slab_size.val.vuint = MY_SLAB_SIZE;
+    options.slab_mem.val.vuint = MY_SLAB_MAXBYTES;
+    options.slab_evict_opt.val.vuint = EVICT_CS;
+    options.slab_item_max.val.vuint = MY_SLAB_SIZE - SLAB_HDR_SIZE;
+
+    test_teardown();
+    slab_setup(&options, &metrics);
+    key = str2bstr(KEY);
+    val = str2bstr(VAL);
+
+    status = item_reserve(&it, &key, &val, val.len, 0, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    status = item_reserve(&nit, &key, &val, val.len, 0, 0);
+    ck_assert_msg(status == ITEM_ENOMEM, "item_reserve should fail - return status %d", status);
+
+    item_insert(it, &key); /* clears slab refcount, can be evicted */
+    status = item_reserve(&nit, &key, &val, val.len, 0, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+
+#undef KEY
+#undef VAL
+#undef MY_SLAB_SIZE
+#undef MY_SLAB_MAXBYTES
+    test_reset();
+
+    /* reserve & release */
+}
+END_TEST
+
 /*
  * test suite
  */
@@ -500,19 +669,26 @@ slab_suite(void)
 {
     Suite *s = suite_create(SUITE_NAME);
 
-    /* basic requests */
-    TCase *tc_basic_req = tcase_create("basic item api");
-    suite_add_tcase(s, tc_basic_req);
+    /* basic item */
+    TCase *tc_item = tcase_create("item api");
+    suite_add_tcase(s, tc_item);
 
-    tcase_add_test(tc_basic_req, test_insert_basic);
-    tcase_add_test(tc_basic_req, test_insert_large);
-    tcase_add_test(tc_basic_req, test_append_basic);
-    tcase_add_test(tc_basic_req, test_prepend_basic);
-    tcase_add_test(tc_basic_req, test_annex_sequence);
-    tcase_add_test(tc_basic_req, test_delete_basic);
-    tcase_add_test(tc_basic_req, test_update_basic);
-    tcase_add_test(tc_basic_req, test_flush_basic);
-    tcase_add_test(tc_basic_req, test_evict_lru_basic);
+    tcase_add_test(tc_item, test_insert_basic);
+    tcase_add_test(tc_item, test_insert_large);
+    tcase_add_test(tc_item, test_reserve_backfill_release);
+    tcase_add_test(tc_item, test_reserve_backfill_link);
+    tcase_add_test(tc_item, test_append_basic);
+    tcase_add_test(tc_item, test_prepend_basic);
+    tcase_add_test(tc_item, test_annex_sequence);
+    tcase_add_test(tc_item, test_delete_basic);
+    tcase_add_test(tc_item, test_update_basic);
+    tcase_add_test(tc_item, test_flush_basic);
+
+    TCase *tc_slab = tcase_create("slab api");
+    suite_add_tcase(s, tc_slab);
+    tcase_add_test(tc_slab, test_evict_lru_basic);
+    tcase_add_test(tc_slab, test_refcount);
+    tcase_add_test(tc_slab, test_evict_refcount);
 
     return s;
 }

@@ -93,4 +93,4 @@ script:
   - cmake ..
   - make -j
   - make check
-  - cd ../test && python -m unittest discover
+  # - cd ../test && python -m unittest discover

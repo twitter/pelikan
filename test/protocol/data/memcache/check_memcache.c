@@ -310,6 +310,77 @@ START_TEST(test_set)
 }
 END_TEST
 
+START_TEST(test_partial_value)
+{
+#define SERIALIZED_1 "set foo 0 0 7\r\nXYZ"
+#define SERIALIZED_2 "abcd"
+#define SERIALIZED_3 "\r\n"
+#define KEY "foo"
+#define VAL1 "XYZ"
+#define VAL2 "abcd"
+
+    int ret;
+    struct bstring key = str2bstr(KEY);
+    struct bstring val1 = str2bstr(VAL1);
+    struct bstring val2 = str2bstr(VAL2);
+    char *pos;
+
+    test_reset();
+
+    /* first segment */
+    buf_write(buf, SERIALIZED_1, sizeof(SERIALIZED_1) - 1);
+    ret = parse_req(req, buf);
+    ck_assert_int_eq(ret, PARSE_OK);
+    ck_assert(req->rstate == REQ_PARTIAL);
+    ck_assert(req->partial);
+    ck_assert(req->nremain == val2.len);
+    ck_assert_int_eq(bstring_compare(&val1, &req->vstr), 0);
+    ck_assert(buf->rpos == buf->wpos);
+
+    /* second segment */
+    buf_lshift(buf);
+    buf_write(buf, SERIALIZED_2, sizeof(SERIALIZED_2) - 1);
+    ret = parse_req(req, buf);
+    ck_assert_int_eq(ret, PARSE_OK);
+    ck_assert(req->rstate == REQ_PARTIAL);
+    ck_assert(req->partial);
+    ck_assert_int_eq(array_nelem(req->keys), 1);
+    ck_assert_int_eq(bstring_compare(&key, array_first(req->keys)), 0);
+    ck_assert(req->nremain == 0);
+    ck_assert_int_eq(bstring_compare(&val2, &req->vstr), 0);
+
+    /* final segment */
+    buf_lshift(buf);
+    buf_write(buf, SERIALIZED_3, sizeof(SERIALIZED_3) - 1);
+    ret = parse_req(req, buf);
+    ck_assert_int_eq(ret, PARSE_OK);
+    ck_assert(req->rstate == REQ_PARSED);
+    ck_assert(!req->partial);
+    ck_assert(req->nremain == 0);
+    ck_assert_int_eq(bstring_compare(&null_bstring, &req->vstr), 0);
+
+    /* if request is not left-shifted, should return EUNFIN */
+    pos = buf->rpos;
+    request_reset(req);
+    buf_write(buf, SERIALIZED_1, sizeof(SERIALIZED_1) - 1);
+    ret = parse_req(req, buf);
+    ck_assert_int_eq(ret, PARSE_EUNFIN);
+    ck_assert(buf->rpos == pos);
+
+    /* leftshift, should work now */
+    buf_lshift(buf);
+    ret = parse_req(req, buf);
+    ck_assert_int_eq(ret, PARSE_OK);
+
+#undef VAL2
+#undef VAL1
+#undef KEY
+#undef SERIALIZED_3
+#undef SERIALIZED_2
+#undef SERIALIZED_1
+}
+END_TEST
+
 START_TEST(test_add_noreply)
 {
 #define SERIALIZED "add foo 123 86400 3 noreply\r\nXYZ\r\n"
@@ -630,6 +701,30 @@ START_TEST(test_decr_noreply)
 }
 END_TEST
 
+START_TEST(test_partial_header)
+{
+#define SERIALIZED "set foo 123 "
+
+    int ret;
+    int len = sizeof(SERIALIZED) - 1;
+    char *pos;
+
+    test_reset();
+
+    /* compose */
+    buf_write(buf, SERIALIZED, len);
+    pos = buf->rpos;
+
+    /* parse (nothing should change) */
+    request_reset(req);
+    ret = parse_req(req, buf);
+    ck_assert_int_eq(ret, PARSE_EUNFIN);
+    ck_assert(req->rstate == REQ_PARSING);
+    ck_assert(buf->rpos == pos);
+
+#undef SERIALIZED
+}
+END_TEST
 /*
  * basic responses
  */
@@ -1221,6 +1316,8 @@ memcache_suite(void)
     tcase_add_test(tc_basic_req, test_prepend_noreply);
     tcase_add_test(tc_basic_req, test_incr);
     tcase_add_test(tc_basic_req, test_decr_noreply);
+    tcase_add_test(tc_basic_req, test_partial_header);
+    tcase_add_test(tc_basic_req, test_partial_value);
 
     /* basic responses */
     TCase *tc_basic_rsp = tcase_create("basic response");
