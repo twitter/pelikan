@@ -814,6 +814,9 @@ parse_req(struct request *req, struct buf *buf)
         log_verb("request hdr parsed: %zu bytes scanned, parsing status %d",
                 buf->rpos - old_rpos, status);
         if (req->val == 0 || status != PARSE_OK) {
+            if (status == PARSE_OK) {
+                INCR(parse_req_metrics, request_parse);
+            }
             req->rstate = REQ_PARSED;
             break;
         }
