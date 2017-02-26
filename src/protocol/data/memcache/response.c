@@ -55,6 +55,7 @@ response_create(void)
     response_reset(rsp);
 
     INCR(response_metrics, response_create);
+    INCR(response_metrics, response_free);
 
     return rsp;
 }
@@ -106,7 +107,6 @@ response_pool_create(uint32_t max)
         log_crit("cannot preallocate response pool, OOM. abort");
         exit(EXIT_FAILURE);
     }
-    UPDATE_VAL(response_metrics, response_free, max);
 }
 
 struct response *

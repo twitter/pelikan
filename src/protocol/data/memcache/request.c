@@ -68,6 +68,7 @@ request_create(void)
     request_reset(req);
 
     INCR(request_metrics, request_create);
+    INCR(request_metrics, request_free);
 
     return req;
 }
@@ -120,7 +121,6 @@ request_pool_create(uint32_t max)
         log_crit("cannot preallocate request pool, OOM. abort");
         exit(EXIT_FAILURE);
     }
-    UPDATE_VAL(request_metrics, request_free, max);
 }
 
 struct request *
