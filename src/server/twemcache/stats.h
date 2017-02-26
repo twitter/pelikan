@@ -1,6 +1,5 @@
 #pragma once
 
-#include "admin/process.h"
 #include "data/process.h"
 
 #include "core/core.h"
@@ -20,7 +19,6 @@ struct stats {
     procinfo_metrics_st         procinfo;
     /* application modules */
     process_metrics_st          process;
-    admin_process_metrics_st    admin_process;
     parse_req_metrics_st        parse_req;
     compose_rsp_metrics_st      compose_rsp;
     klog_metrics_st             klog;

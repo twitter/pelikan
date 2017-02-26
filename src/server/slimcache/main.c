@@ -122,7 +122,7 @@ setup(void)
     klog_setup(&setting.klog, &stats.klog);
     cuckoo_setup(&setting.cuckoo, &stats.cuckoo);
     process_setup(&setting.process, &stats.process);
-    admin_process_setup(&stats.admin_process);
+    admin_process_setup();
     core_setup(&setting.admin, &setting.server, &setting.worker,
             &stats.server, &stats.worker);
 

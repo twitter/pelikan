@@ -3,7 +3,6 @@
 struct stats stats = {
     { PROCINFO_METRIC(METRIC_INIT)      },
     { PROCESS_METRIC(METRIC_INIT)       },
-    { ADMIN_PROCESS_METRIC(METRIC_INIT) },
     { PARSE_REQ_METRIC(METRIC_INIT)     },
     { COMPOSE_RSP_METRIC(METRIC_INIT)   },
     { KLOG_METRIC(METRIC_INIT)          },
