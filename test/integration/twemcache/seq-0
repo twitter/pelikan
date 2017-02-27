@@ -1,0 +1,11 @@
+>>> get foo
+<<< END
+
+>>> set foo 0 0 3
+>>> bar
+<<< STORED
+
+>>> get foo
+<<< VALUE foo 0 3
+<<< bar
+<<< END

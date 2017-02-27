@@ -1,9 +1,11 @@
 import os
 import subprocess
-import tempfile
+#import tempfile
 
 
 class PelikanServer(object):
+    SUPPORTED_SERVER = ['pelikan_twemcache', 'pelikan_slimcache', 'pelikan_pingserver']
+
     @staticmethod
     def default_path():
         return os.path.realpath(os.path.join(
@@ -11,27 +13,34 @@ class PelikanServer(object):
             '../../_build/_bin'
         ))
 
-    def __init__(self, executable):
+    def __init__(self, executable, config=None):
+        if executable not in PelikanServer.SUPPORTED_SERVER:
+            raise Exception('executable not supported')
         self.executable = executable
+        self.config = config
+        if config:  # server different from default
+            # TODO: find out server info from config
+            pass
+        self.start(config)
 
-    def start(self, **kwargs):
-        self.config_file = tempfile.NamedTemporaryFile()
-        self.config_file.write('\n'.join(('{}: {}'.format(k, v) for (k, v) in kwargs.items())))
-        self.config_file.flush()
-
+    def start(self, config):
         executable = os.path.join(
             os.getenv('PELIKAN_BIN_PATH', PelikanServer.default_path()),
             self.executable
         )
-        self.server = subprocess.Popen((executable, self.config_file.name),
+        exec_tup = (executable, self.config) if self.config else (executable)
+
+        self.server = subprocess.Popen(exec_tup,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
 
-    def wait_ready(self):
+    def ready(self):
         # wait for the port to be listening; no great "ready" output present
         # but it lists all configs, so this must exist
+        if not self.server:
+            raise Exception('server is not started')
         while 'name: server_port' not in self.server.stdout.readline():
             pass
 
