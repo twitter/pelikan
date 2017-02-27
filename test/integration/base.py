@@ -7,7 +7,6 @@ import unittest
 DEFAULT_SERVER = ('localhost', 12321)
 DEFAULT_ADMIN = ('localhost', 9999)
 
-
 class GenericTest(unittest.TestCase):
     def setUp(self):
         self.server = PelikanServer('pelikan_twemcache')
@@ -27,16 +26,17 @@ class GenericTest(unittest.TestCase):
 
     def assertResponse(self, expected):
         """receive and verify response (a list) matches expectation"""
-        rsp = self.data_client.response()
-        self.assertEqual(len(rsp), len(expected))
-        for i in range(len(rsp)):
-            self.assertEqual(rsp[i], expected[i])
+        if len(expected) > 0:
+            rsp = self.data_client.response()
+            self.assertEqual(len(rsp), len(expected))
+            for i in range(len(rsp)):
+                self.assertEqual(rsp[i], expected[i])
 
     def assertStats(self, delta):
         """delta, a dict, captures the expected change in a subset of metrics"""
         stats = self.admin_client.stats()
         for k in delta:
-            self.assertEqual(stats[k] - self.stats[k], delta[k])
+            self.assertEqual(int(stats[k]) - int(self.stats[k]), delta[k])
         self.stats = stats
 
     def runTest(self):

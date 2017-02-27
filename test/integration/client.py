@@ -44,7 +44,11 @@ class TCPClient(object):
         data = ''
         while True:
             try:
-                data += self.sock.recv(self.recv_size)
+                seg = self.sock.recv(self.recv_size)
+                if seg == '':
+                    self.close()
+                else:
+                    data += seg
             except (IOError, socket.error) as e:
                 err = e.args[0]
                 if err == errno.EINTR:
@@ -61,6 +65,8 @@ class TCPClient(object):
 
     def send(self, data):
         """send req until all data is sent, or an error occurs"""
+        if not self.sock:
+            self.connect()
         try:
             self.sock.sendall(data)
         except Exception:
