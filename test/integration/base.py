@@ -29,14 +29,15 @@ class GenericTest(unittest.TestCase):
         if len(expected) > 0:
             rsp = self.data_client.response()
             self.assertEqual(len(rsp), len(expected))
-            for i in range(len(rsp)):
-                self.assertEqual(rsp[i], expected[i])
+            self.assertEqual(rsp, expected)
 
     def assertStats(self, delta):
         """delta, a dict, captures the expected change in a subset of metrics"""
         stats = self.admin_client.stats()
         for k in delta:
-            self.assertEqual(int(stats[k]) - int(self.stats[k]), delta[k])
+            self.assertEqual(int(stats[k]) - int(self.stats[k]), delta[k],
+                "expecting '{}' to change by {}, previously {}, currently {}"\
+                    .format(k, delta[k], self.stats[k], stats[k]))
         self.stats = stats
 
     def runTest(self):

@@ -77,13 +77,10 @@ class TCPClient(object):
 class DataClient(TCPClient):
     DELIM = '\r\n'
 
-    def __init__(self, *args, **kwargs):
-        super(DataClient, self).__init__(*args, **kwargs)
-
     def request(self, req):
         """send a (multi-line) request, req should be of a sequence type"""
-        data = DataClient.DELIM.join(req)
-        self.send(data + DataClient.DELIM)
+        for line in req:
+            self.send(line + DataClient.DELIM)
 
     def response(self):
         """receive a response, which will be split by delimiter (retained)"""
@@ -99,9 +96,6 @@ class DataClient(TCPClient):
 class AdminClient(TCPClient):
     DELIM = '\r\n'
     STATS_CMD = 'stats'
-
-    def __init__(self, *args, **kwargs):
-        super(AdminClient, self).__init__(*args, **kwargs)
 
     def stats(self):
         self.send(AdminClient.STATS_CMD + AdminClient.DELIM)

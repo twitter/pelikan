@@ -27,6 +27,7 @@ def split_metrics(line):
 
 def load_seq(fname):
     """Load the test (a sequence of commands and asserts) from a file.
+
     Each command contains one or more lines of request, leading with '>>> ', and
     one or more lines of response, leading with '<<< '. Commands are separated
     by an empty line.
