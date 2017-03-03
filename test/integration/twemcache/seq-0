@@ -1,0 +1,14 @@
+>>> get foo
+<<< END
++++ request_parse +1, get +1, get_key +1, get_key_miss +1
+
+>>> set foo 0 0 3
+>>> bar
+<<< STORED
++++ request_parse +1, set +1, set_stored +1
+
+>>> get foo
+<<< VALUE foo 0 3
+<<< bar
+<<< END
++++ get_key_hit +1

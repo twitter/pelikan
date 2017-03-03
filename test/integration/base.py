@@ -1,50 +1,47 @@
+from client import DataClient, AdminClient
+from loader import load_seq
+from server import PelikanServer
+
 import unittest
 
-from .pelikan_client import PelikanClient
-from .pelikan_server import PelikanServer
+DEFAULT_SERVER = ('localhost', 12321)
+DEFAULT_ADMIN = ('localhost', 9999)
 
-SERVER_PORT = 12345
-ADMIN_PORT = 12346
-
-
-class PelikanTest(unittest.TestCase):
-    reserved_ports = set()
-
+class GenericTest(unittest.TestCase):
     def setUp(self):
-        self.server = self.getServer(
-            server_port=SERVER_PORT,
-            admin_port=ADMIN_PORT
-        )
-        self.client = PelikanClient(
-            server_port=SERVER_PORT,
-            admin_port=ADMIN_PORT
-        )
+        self.server = PelikanServer('pelikan_twemcache')
+        self.server.ready()
+        self.data_client = DataClient(DEFAULT_SERVER)
+        self.admin_client = AdminClient(DEFAULT_ADMIN)
+        self.stats = self.admin_client.stats()
 
     def tearDown(self):
+        self.data_client.close()
+        self.admin_client.close()
         self.server.stop()
 
-    def assertRead(self, expected):
-        read = self.client.read(len(expected))
-        self.assertEqual(expected, read)
+    def load(self, fname):
+        """loading a test sequence from a file"""
+        self.seq = load_seq(fname)
 
+    def assertResponse(self, expected):
+        """receive and verify response (a list) matches expectation"""
+        if len(expected) > 0:
+            rsp = self.data_client.response()
+            self.assertEqual(len(rsp), len(expected))
+            self.assertEqual(rsp, expected)
 
-    def assertMetrics(self, *args):
-        stats = self.client.getStats()
-        for (k, v) in args:
-            self.assertEqual(
-                stats.get(k, None),
-                str(v),
-                'Expected {} to be {}, got {} instead'.format(
-                    k,
-                    v,
-                    stats.get(k, None),
-                )
-            )
+    def assertStats(self, delta):
+        """delta, a dict, captures the expected change in a subset of metrics"""
+        stats = self.admin_client.stats()
+        for k in delta:
+            self.assertEqual(int(stats[k]) - int(self.stats[k]), delta[k],
+                "expecting '{}' to change by {}, previously {}, currently {}"\
+                    .format(k, delta[k], self.stats[k], stats[k]))
+        self.stats = stats
 
-
-class TwemcacheTest(PelikanTest):
-    def getServer(self, **kwargs):
-        server = PelikanServer('pelikan_twemcache')
-        server.start(**kwargs)
-        server.wait_ready()
-        return server
+    def runTest(self):
+        for d in self.seq:
+            self.data_client.request(d['req'])
+            self.assertResponse(d['rsp'])
+            self.assertStats(d['stat'])
