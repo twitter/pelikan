@@ -10,6 +10,7 @@ set(SOURCE
 set(MODULES
     core
     cuckoo
+    hotkey
     protocol_admin
     protocol_memcache
     time

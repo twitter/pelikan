@@ -4,6 +4,7 @@
 #include "data/process.h"
 
 #include "core/core.h"
+#include "hotkey/hotkey.h"
 #include "storage/cuckoo/cuckoo.h"
 #include "protocol/data/memcache_include.h"
 
@@ -38,6 +39,7 @@ struct setting {
     worker_options_st       worker;
     process_options_st      process;
     klog_options_st         klog;
+    hotkey_options_st       hotkey;
     request_options_st      request;
     response_options_st     response;
     cuckoo_options_st       cuckoo;

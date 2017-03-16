@@ -1,5 +1,6 @@
 #include "process.h"
 
+#include "hotkey/hotkey.h"
 #include "protocol/data/memcache_include.h"
 #include "storage/slab/slab.h"
 
@@ -73,10 +74,19 @@ _get_key(struct response *rsp, struct bstring *key)
     if (it != NULL) {
         rsp->type = RSP_VALUE;
         rsp->key = *key;
-        rsp->flag = item_flag(it);
         rsp->vcas = item_get_cas(it);
         rsp->vstr.len = it->vlen;
         rsp->vstr.data = item_data(it);
+
+        if (hotkey_enabled) {
+            if (hotkey_sample(key)) {
+                rsp->flag = RSP_FLAG_HOTKEY;
+            } else {
+                rsp->flag = RSP_FLAG_DEFAULT;
+            }
+        } else {
+            rsp->flag = item_flag(it);
+        }
 
         log_verb("found key at %p, location %p", key, it);
         return true;
