@@ -1,7 +1,8 @@
 #pragma once
 
-#include "constant.h"
-//#include "hash.h"
+#include "cmd_hash.h"
+#include "cmd_misc.h"
+#include "cmd_zset.h"
 
 #include <cc_array.h>
 #include <cc_define.h>
@@ -12,6 +13,7 @@
 #include <inttypes.h>
 
 #define REQ_NTOKEN 127 /* # tokens in a command */
+#define KEY_MAXLEN 255 /* # tokens in a command */
 #define REQ_POOLSIZE 0
 
 /*          name                type                default         description */
@@ -25,6 +27,7 @@ typedef struct {
 
 /*          name                type            description */
 #define REQUEST_METRIC(ACTION)                                          \
+    ACTION( request_curr,       METRIC_GAUGE,   "# req created"        )\
     ACTION( request_free,       METRIC_GAUGE,   "# free req in pool"   )\
     ACTION( request_borrow,     METRIC_COUNTER, "# reqs borrowed"      )\
     ACTION( request_return,     METRIC_COUNTER, "# reqs returned"      )\
@@ -35,48 +38,34 @@ typedef struct {
     REQUEST_METRIC(METRIC_DECLARE)
 } request_metrics_st;
 
-#define REQ_GROUP_MSG(ACTION)                       \
-    ACTION( REQ_UNKNOWN,        ""                 )\
-    ACTION( REQ_HASH,           "hash"             )\
-    ACTION( REQ_ZSET,           "zset"             )
-
-#define GET_TYPE(_name, _str) _name,
-typedef enum request_group {
-    REQ_GROUP_MSG(GET_TYPE)
+#define GET_TYPE(_type, _str, narg) _type,
+typedef enum cmd_type {
+    REQ_UNKNOWN,
+    REQ_HASH(GET_TYPE)
+    REQ_ZSET(GET_TYPE)
+    REQ_MISC(GET_TYPE)
     REQ_SENTINEL
-} request_group_t;
+} cmd_type_e;
 #undef GET_TYPE
 
-typedef enum request_state {
-    REQ_PARSING,
-    REQ_PARSED,
-    REQ_PROCESSING,
-    REQ_DONE
-} request_state_t;
+struct command {
+    cmd_type_e      type;
+    struct bstring  bstr;
+    int8_t          narg;
+};
 
-//struct command_storage {
-//    union {
-//        struct hash_command hash;
-//    };
-//};
+extern struct command command_table[REQ_SENTINEL];
 
 struct request {
-    STAILQ_ENTRY(request)   next;       /* allow request pooling/chaining */
+    STAILQ_ENTRY(request)   next;     /* allow request pooling/chaining */
     bool                    free;
-
-    request_state_t         rstate;     /* request state */
 
     bool                    noreply;  /* skip response */
     bool                    serror;   /* server error */
     bool                    cerror;   /* client error */
 
-    request_group_t         group;      /* so we know how to cast fields below */
-//    struct command_storage  command;    /* fixed length part of the command */
-    struct array            token;      /* array elements are bstrings */
-    uint8_t                 data[];     /* array data are tokens in command */
-    /* the memory allocated to data (pointed to by token.data) will be
-     * determined by the maximum number of tokens (req_ntoken) allowed.
-     */
+    cmd_type_e              type;
+    struct array            *token;    /* array elements are tokens */
 };
 
 void request_setup(request_options_st *options, request_metrics_st *metrics);

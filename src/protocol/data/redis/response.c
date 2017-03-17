@@ -59,6 +59,18 @@ response_create(void)
     return rsp;
 }
 
+static struct response *
+_response_create(void)
+{
+    struct response *rsp = response_create();
+
+    if (rsp != NULL) {
+        INCR(response_metrics, response_free);
+    }
+
+    return rsp;
+}
+
 void
 response_destroy(struct response **response)
 {
@@ -71,6 +83,13 @@ response_destroy(struct response **response)
 }
 
 static void
+_response_destroy(struct response **response)
+{
+    response_destroy(response);
+    DECR(response_metrics, response_free);
+}
+
+static void
 response_pool_destroy(void)
 {
     struct response *rsp, *trsp;
@@ -78,7 +97,7 @@ response_pool_destroy(void)
     if (rspp_init) {
         log_info("destroying response pool: free %"PRIu32, rspp.nfree);
 
-        FREEPOOL_DESTROY(rsp, trsp, &rspp, next, response_destroy);
+        FREEPOOL_DESTROY(rsp, trsp, &rspp, next, _response_destroy);
         rspp_init = false;
     } else {
         log_warn("response pool was never created, ignore");
@@ -101,12 +120,11 @@ response_pool_create(uint32_t max)
     FREEPOOL_CREATE(&rspp, max);
     rspp_init = true;
 
-    FREEPOOL_PREALLOC(rsp, &rspp, max, next, response_create);
+    FREEPOOL_PREALLOC(rsp, &rspp, max, next, _response_create);
     if (rspp.nfree < max) {
         log_crit("cannot preallocate response pool, OOM. abort");
         exit(EXIT_FAILURE);
     }
-    UPDATE_VAL(response_metrics, response_free, max);
 }
 
 struct response *
@@ -114,7 +132,7 @@ response_borrow(void)
 {
     struct response *rsp;
 
-    FREEPOOL_BORROW(rsp, &rspp, next, response_create);
+    FREEPOOL_BORROW(rsp, &rspp, next, _response_create);
     if (rsp == NULL) {
         log_debug("borrow rsp failed: OOM %d");
 

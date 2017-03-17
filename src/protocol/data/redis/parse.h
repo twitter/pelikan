@@ -1,5 +1,8 @@
 #pragma once
 
+#include "request.h"
+#include "response.h"
+
 #include <buffer/cc_buf.h>
 #include <cc_define.h>
 #include <cc_metric.h>
@@ -39,12 +42,15 @@ typedef enum parse_rstatus {
     PARSE_EOTHER    = -5,
 } parse_rstatus_t;
 
-struct request;
-struct response;
+void parse_setup(parse_req_metrics_st *req, parse_rsp_metrics_st *rsp);
+void parse_teardown(void);
 
-//void parse_setup(parse_req_metrics_st *req, parse_rsp_metrics_st *rsp);
-//void parse_teardown(void);
-//
-//parse_rstatus_t parse_req(struct request *req, struct buf *buf);
-//
+static inline bool
+key_valid(struct bstring *key)
+{
+    return (key->len > 0 && key->len <= KEY_MAXLEN);
+}
+
+parse_rstatus_t parse_req(struct request *req, struct buf *buf);
+
 //parse_rstatus_t parse_rsp(struct response *rsp, struct buf *buf);

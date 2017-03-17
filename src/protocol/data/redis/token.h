@@ -45,6 +45,7 @@
 
 #include <buffer/cc_buf.h>
 #include <cc_bstring.h>
+#include <cc_util.h>
 
 /* array is not a basic element type */
 typedef enum element_type {
@@ -58,13 +59,30 @@ typedef enum element_type {
 struct element {
     element_type_t      type;
     union {
-        struct bstring  str;
+        struct bstring  bstr;
         int64_t         num;
     };
 };
 
+static inline bool
+is_crlf(struct buf *buf)
+{
+    ASSERT(buf_rsize(buf) >= CRLF_LEN);
+
+    return (*buf->rpos == CR && *(buf->rpos + 1) == LF);
+}
+
+
+static inline bool
+line_end(struct buf *buf)
+{
+    return (buf_rsize(buf) >= CRLF_LEN && is_crlf(buf));
+}
+
 bool token_is_array(struct buf *buf);
 parse_rstatus_t token_array_nelem(int32_t *nelem, struct buf *buf);
-
 parse_rstatus_t parse_element(struct element *el, struct buf *buf);
+
+int compose_array_header(struct buf **buf, int nelem);
 int compose_element(struct buf **buf, struct element *el);
+

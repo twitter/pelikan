@@ -15,7 +15,6 @@
 #define DEBUG_LOG  SUITE_NAME ".log"
 
 struct request *req;
-struct response *rsp;
 struct buf *buf;
 
 /*
@@ -25,7 +24,6 @@ static void
 test_setup(void)
 {
     req = request_create();
-    rsp = response_create();
     buf = buf_create();
 }
 
@@ -33,7 +31,6 @@ static void
 test_reset(void)
 {
     request_reset(req);
-    response_reset(rsp);
     buf_reset(buf);
 }
 
@@ -41,7 +38,6 @@ static void
 test_teardown(void)
 {
     buf_destroy(&buf);
-    response_destroy(&rsp);
     request_destroy(&req);
 }
 
@@ -66,7 +62,7 @@ START_TEST(test_simple_string)
 
     /* compose */
     el.type = ELEM_STR;
-    el.str = str2bstr(STR);
+    el.bstr = str2bstr(STR);
     ret = compose_element(&buf, &el);
     ck_assert_msg(ret == len, "bytes expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
@@ -77,8 +73,8 @@ START_TEST(test_simple_string)
     ck_assert_int_eq(ret, PARSE_OK);
     ck_assert(buf->rpos == buf->wpos);
     ck_assert(el.type == ELEM_STR);
-    ck_assert(el.str.len == sizeof(STR) - 1);
-    ck_assert(el.str.data == pos);
+    ck_assert(el.bstr.len == sizeof(STR) - 1);
+    ck_assert(el.bstr.data == pos);
 
 #undef STR
 #undef SERIALIZED
@@ -99,7 +95,7 @@ START_TEST(test_error)
 
     /* compose */
     el.type = ELEM_ERR;
-    el.str = str2bstr(ERR);
+    el.bstr = str2bstr(ERR);
     ret = compose_element(&buf, &el);
     ck_assert_msg(ret == len, "bytes expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
@@ -110,8 +106,8 @@ START_TEST(test_error)
     ck_assert_int_eq(ret, PARSE_OK);
     ck_assert(buf->rpos == buf->wpos);
     ck_assert(el.type == ELEM_ERR);
-    ck_assert(el.str.len == sizeof(ERR) - 1);
-    ck_assert(el.str.data == pos);
+    ck_assert(el.bstr.len == sizeof(ERR) - 1);
+    ck_assert(el.bstr.data == pos);
 
 #undef ERR
 #undef SERIALIZED
@@ -182,7 +178,7 @@ START_TEST(test_bulk_string)
 
     /* compose */
     el.type = ELEM_BULK;
-    el.str = str2bstr(BULK);
+    el.bstr = str2bstr(BULK);
     ret = compose_element(&buf, &el);
     ck_assert_msg(ret == len, "bytes expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
@@ -192,8 +188,8 @@ START_TEST(test_bulk_string)
     ck_assert_int_eq(ret, PARSE_OK);
     ck_assert(buf->rpos == buf->wpos);
     ck_assert(el.type == ELEM_BULK);
-    ck_assert(el.str.len == sizeof(BULK) - 1);
-    ck_assert(el.str.data + el.str.len == buf->rpos - CRLF_LEN);
+    ck_assert(el.bstr.len == sizeof(BULK) - 1);
+    ck_assert(el.bstr.data + el.bstr.len == buf->rpos - CRLF_LEN);
 
 #undef BULK
 #undef SERIALIZED
@@ -222,130 +218,54 @@ START_TEST(test_array)
 }
 END_TEST
 
-START_TEST(test_rsp_pool_basic)
-{
-#define POOL_SIZE 10
-    int i;
-    struct response *rsps[POOL_SIZE];
-    response_options_st options = {.response_poolsize =
-        {.type = OPTION_TYPE_UINT, .val.vuint = POOL_SIZE}};
 
-    response_setup(&options, NULL);
-    for (i = 0; i < POOL_SIZE; i++) {
-        rsps[i] = response_borrow();
-        ck_assert_msg(rsps[i] != NULL, "expected to borrow a response");
-    }
-    ck_assert_msg(response_borrow() == NULL, "expected response pool to be depleted");
-    for (i = 0; i < POOL_SIZE; i++) {
-        response_return(&rsps[i]);
-        ck_assert_msg(rsps[i] == NULL, "expected response to be nulled after return");
-    }
-    response_teardown();
-#undef POOL_SIZE
+/*
+ * request
+ */
+
+START_TEST(test_quit)
+{
+#define QUIT "quit"
+#define SERIALIZED "*1\r\n$4\r\nquit\r\n"
+    int ret;
+    struct element *el;
+
+    test_reset();
+
+    req->type = REQ_QUIT;
+    el = array_push(req->token);
+    el->type = ELEM_BULK;
+    el->bstr = (struct bstring){sizeof(QUIT) - 1, QUIT};
+    ret = compose_req(&buf, req);
+    ck_assert_int_eq(ret, sizeof(SERIALIZED) - 1);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
+
+    el->type = ELEM_UNKNOWN;
+    request_reset(req);
+    ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
+    ck_assert_int_eq(req->type, REQ_QUIT);
+    ck_assert_int_eq(req->token->nelem, 1);
+    el = array_first(req->token);
+    ck_assert_int_eq(el->type, ELEM_BULK);
+    ck_assert_int_eq(cc_bcmp(el->bstr.data, QUIT, sizeof(QUIT) - 1), 0);
+
+#undef SERIALIZED
+#undef QUIT
 }
 END_TEST
 
-START_TEST(test_rsp_pool_chained)
-{
-#define POOL_SIZE 10
-    int i;
-    struct response *r, *nr, *rsps[POOL_SIZE];
-    response_options_st options = {.response_poolsize =
-        {.type = OPTION_TYPE_UINT, .val.vuint = POOL_SIZE}};
-
-    response_setup(&options, NULL);
-
-    r = response_borrow();
-    ck_assert_msg(r != NULL, "expected to borrow a response");
-    for (i = 1, nr = r; i < POOL_SIZE; ++i) {
-        STAILQ_NEXT(nr, next) = response_borrow();
-        nr = STAILQ_NEXT(nr, next);
-        ck_assert_msg(nr != NULL, "expected to borrow response %d", i);
-    }
-    ck_assert_msg(response_borrow() == NULL, "expected response pool to be depleted");
-    response_return_all(&r);
-    ck_assert_msg(r == NULL, "expected response to be nulled after return");
-    for (i = 0; i < POOL_SIZE; i++) {
-        rsps[i] = response_borrow();
-        ck_assert_msg(rsps[i] != NULL, "expected to borrow a response");
-    }
-    ck_assert_msg(response_borrow() == NULL, "expected response pool to be depleted");
-    for (i = 0; i < POOL_SIZE; i++) {
-        response_return(&rsps[i]);
-        ck_assert_msg(rsps[i] == NULL, "expected response to be nulled after return");
-    }
-
-    response_teardown();
-#undef POOL_SIZE
-}
-END_TEST
-
-START_TEST(test_rsp_pool_metrics)
-{
-#define POOL_SIZE 2
-    struct response *rsps[POOL_SIZE];
-    response_metrics_st metrics =
-        (response_metrics_st) { RESPONSE_METRIC(METRIC_INIT) };
-    response_options_st options =
-        (response_options_st) { RESPONSE_OPTION(OPTION_INIT) };
-    options.response_poolsize.val.vuint = POOL_SIZE;
-
-    response_setup(&options, &metrics);
-
-    ck_assert_int_eq(metrics.response_borrow.counter, 0);
-    ck_assert_int_eq(metrics.response_create.counter, 2);
-    ck_assert_int_eq(metrics.response_free.counter, 2);
-
-    rsps[0] = response_borrow();
-    ck_assert_msg(rsps[0] != NULL, "expected to borrow a response");
-    ck_assert_int_eq(metrics.response_borrow.counter, 1);
-    ck_assert_int_eq(metrics.response_create.counter, 2);
-    ck_assert_int_eq(metrics.response_free.counter, 1);
-
-    rsps[1] = response_borrow();
-    ck_assert_msg(rsps[1] != NULL, "expected to borrow a response");
-    ck_assert_int_eq(metrics.response_borrow.counter, 2);
-    ck_assert_int_eq(metrics.response_create.counter, 2);
-    ck_assert_int_eq(metrics.response_free.counter, 0);
-
-    ck_assert_msg(response_borrow() == NULL, "expected response pool to be depleted");
-    ck_assert_int_eq(metrics.response_borrow.counter, 2);
-    ck_assert_int_eq(metrics.response_create.counter, 2);
-    ck_assert_int_eq(metrics.response_free.counter, 0);
-
-    response_return(&rsps[1]);
-    ck_assert_int_eq(metrics.response_borrow.counter, 2);
-    ck_assert_int_eq(metrics.response_create.counter, 2);
-    ck_assert_int_eq(metrics.response_free.counter, 1);
-
-    response_return(&rsps[0]);
-    ck_assert_int_eq(metrics.response_borrow.counter, 2);
-    ck_assert_int_eq(metrics.response_create.counter, 2);
-    ck_assert_int_eq(metrics.response_free.counter, 2);
-
-    rsps[0] = response_borrow();
-    ck_assert_msg(rsps[0] != NULL, "expected to borrow a response");
-    ck_assert_int_eq(metrics.response_borrow.counter, 3);
-    ck_assert_int_eq(metrics.response_create.counter, 2);
-    ck_assert_int_eq(metrics.response_free.counter, 1);
-
-    response_return(&rsps[0]);
-    ck_assert_int_eq(metrics.response_borrow.counter, 3);
-    ck_assert_int_eq(metrics.response_create.counter, 2);
-    ck_assert_int_eq(metrics.response_free.counter, 2);
-
-    response_teardown();
-#undef POOL_SIZE
-}
-END_TEST
+/*
+ * request pool
+ */
 
 START_TEST(test_req_pool_basic)
 {
 #define POOL_SIZE 10
     int i;
     struct request *reqs[POOL_SIZE];
-    request_options_st options = {.request_poolsize =
-        {.type = OPTION_TYPE_UINT, .val.vuint = POOL_SIZE}};
+    request_options_st options = {
+        .request_ntoken = {.type = OPTION_TYPE_UINT, .val.vuint = REQ_NTOKEN},
+        .request_poolsize = {.type = OPTION_TYPE_UINT, .val.vuint = POOL_SIZE}};
 
     request_setup(&options, NULL);
 
@@ -383,14 +303,12 @@ redis_suite(void)
     tcase_add_test(tc_token, test_array);
 
     /* basic requests */
+    TCase *tc_request = tcase_create("request");
+    suite_add_tcase(s, tc_request);
+
+    tcase_add_test(tc_request, test_quit);
+
     /* basic responses */
-
-    TCase *tc_rsp_pool = tcase_create("response pool");
-    suite_add_tcase(s, tc_rsp_pool);
-
-    tcase_add_test(tc_rsp_pool, test_rsp_pool_basic);
-    tcase_add_test(tc_rsp_pool, test_rsp_pool_chained);
-    tcase_add_test(tc_rsp_pool, test_rsp_pool_metrics);
 
     TCase *tc_req_pool = tcase_create("request pool");
     suite_add_tcase(s, tc_req_pool);

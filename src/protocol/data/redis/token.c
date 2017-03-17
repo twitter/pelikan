@@ -13,26 +13,6 @@
 #define BULK_MAXLEN (512 * MiB)
 #define ARRAY_MAXLEN (64 * MiB)
 
-/* TODO(yao): make CRLF detection a shared util among all protocols */
-/* for now, we copy the following function from memcache parser */
-
-
-/* make sure there are at least 2 bytes left in buf! call _is_unfin first */
-static inline bool
-_is_crlf(struct buf *buf)
-{
-    ASSERT(buf_rsize(buf) >= CRLF_LEN);
-
-    return (*buf->rpos == CR && *(buf->rpos + 1) == LF);
-}
-
-
-static inline bool
-_token_end(struct buf *buf)
-{
-    return (buf_rsize(buf) >= CRLF_LEN && _is_crlf(buf));
-}
-
 
 static inline compose_rstatus_t
 _check_buf_size(struct buf **buf, uint32_t n)
@@ -66,7 +46,7 @@ _read_str(struct bstring *str, struct buf *buf)
      * we allow it in this function
      */
     for (; buf->rpos < buf->wpos; buf->rpos++) {
-        if (_token_end(buf)) {
+        if (line_end(buf)) {
             buf->rpos += CRLF_LEN;
             log_vverb("simple string detected at %p, length %"PRIu32, str->len);
 
@@ -111,7 +91,7 @@ _read_int(int64_t *num, struct buf *buf, int64_t min, int64_t max)
             len++;
             *num = *num * 10ULL + sign * (*buf->rpos - '0');
         } else {
-            if (len > 0 && _token_end(buf)) {
+            if (len > 0 && line_end(buf)) {
                 buf->rpos += CRLF_LEN;
                 log_vverb("parsed integer, value %"PRIi64, *num);
 
@@ -151,7 +131,7 @@ _read_bulk(struct bstring *str, struct buf *buf)
         str->data = buf->rpos;
         buf->rpos += str->len;
 
-        if (_token_end(buf)) {
+        if (line_end(buf)) {
             buf->rpos += CRLF_LEN;
             log_vverb("bulk string detected at %p, length %"PRIu32, buf->rpos,
                     len);
@@ -231,13 +211,13 @@ parse_element(struct element *el, struct buf *buf)
     case '+':
         /* imple string */
         el->type = ELEM_STR;
-        status = _read_str(&el->str, buf);
+        status = _read_str(&el->bstr, buf);
         break;
 
     case '-':
         /* error */
         el->type = ELEM_ERR;
-        status = _read_str(&el->str, buf);
+        status = _read_str(&el->bstr, buf);
         break;
 
     case ':':
@@ -249,7 +229,7 @@ parse_element(struct element *el, struct buf *buf)
     case '$':
         /* bulk string */
         el->type = ELEM_BULK;
-        status = _read_bulk(&el->str, buf);
+        status = _read_bulk(&el->bstr, buf);
         break;
 
     default:
@@ -264,6 +244,21 @@ parse_element(struct element *el, struct buf *buf)
 }
 
 
+int
+compose_array_header(struct buf **buf, int nelem)
+{
+    struct buf *b;
+    size_t n = 1 + CRLF_LEN + CC_UINT64_MAXLEN;
+
+    if (_check_buf_size(buf, n) != CC_OK) {
+        return COMPOSE_ENOMEM;
+    }
+
+    b = *buf;
+    *b->wpos++ = '*';
+    return (1 + _write_int(b, nelem));
+}
+
 /* this function does not handle array, which is a composite type */
 int
 compose_element(struct buf **buf, struct element *el)
@@ -277,7 +272,7 @@ compose_element(struct buf **buf, struct element *el)
     switch (el->type) {
     case ELEM_STR:
     case ELEM_ERR:
-        n += el->str.len;
+        n += el->bstr.len;
         break;
 
     case ELEM_INT:
@@ -285,7 +280,7 @@ compose_element(struct buf **buf, struct element *el)
         break;
 
     case ELEM_BULK:
-        n += el->str.len + CC_UINT64_MAXLEN + CRLF_LEN;
+        n += el->bstr.len + CC_UINT64_MAXLEN + CRLF_LEN;
         break;
 
     default:
@@ -303,12 +298,12 @@ compose_element(struct buf **buf, struct element *el)
     switch (el->type) {
     case ELEM_STR:
         *b->wpos++ = '+';
-        n += _write_bstr(b, &el->str);
+        n += _write_bstr(b, &el->bstr);
         break;
 
     case ELEM_ERR:
         *b->wpos++ = '-';
-        n += _write_bstr(b, &el->str);
+        n += _write_bstr(b, &el->bstr);
         break;
 
     case ELEM_INT:
@@ -318,8 +313,8 @@ compose_element(struct buf **buf, struct element *el)
 
     case ELEM_BULK:
         *b->wpos++ = '$';
-        n += _write_int(b, el->str.len);
-        n += _write_bstr(b, &el->str);
+        n += _write_int(b, el->bstr.len);
+        n += _write_bstr(b, &el->bstr);
         break;
 
     default:
