@@ -248,7 +248,7 @@ int
 compose_array_header(struct buf **buf, int nelem)
 {
     struct buf *b;
-    size_t n = 1 + CRLF_LEN + CC_UINT64_MAXLEN;
+    size_t n = 1 + CRLF_LEN + CC_INT64_MAXLEN;
 
     if (_check_buf_size(buf, n) != CC_OK) {
         return COMPOSE_ENOMEM;
@@ -276,11 +276,11 @@ compose_element(struct buf **buf, struct element *el)
         break;
 
     case ELEM_INT:
-        n += CC_UINT64_MAXLEN;
+        n += CC_INT64_MAXLEN;
         break;
 
     case ELEM_BULK:
-        n += el->bstr.len + CC_UINT64_MAXLEN + CRLF_LEN;
+        n += el->bstr.len + CC_INT64_MAXLEN + CRLF_LEN;
         break;
 
     default:

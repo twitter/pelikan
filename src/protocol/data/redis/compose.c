@@ -2,6 +2,7 @@
 
 #include "request.h"
 #include "response.h"
+#include "token.h"
 
 #include <cc_debug.h>
 #include <cc_print.h>

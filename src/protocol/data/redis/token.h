@@ -85,4 +85,3 @@ parse_rstatus_t parse_element(struct element *el, struct buf *buf);
 
 int compose_array_header(struct buf **buf, int nelem);
 int compose_element(struct buf **buf, struct element *el);
-
