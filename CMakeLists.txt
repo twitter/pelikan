@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
-project(ccommon)
+project(ccommon C)
 
 enable_testing()
 
@@ -37,8 +37,8 @@ endif()
 
 # version info
 set(${PROJECT_NAME}_VERSION_MAJOR 1)
-set(${PROJECT_NAME}_VERSION_MINOR 0)
-set(${PROJECT_NAME}_VERSION_PATCH 2)
+set(${PROJECT_NAME}_VERSION_MINOR 1)
+set(${PROJECT_NAME}_VERSION_PATCH 0)
 set(${PROJECT_NAME}_VERSION
    ${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}.${${PROJECT_NAME}_VERSION_PATCH}
    )
@@ -51,6 +51,7 @@ option(HAVE_ASSERT_LOG "assert_log enabled by default" ON)
 option(HAVE_ASSERT_PANIC "assert_panic disabled by default" OFF)
 option(HAVE_LOGGING "logging enabled by default" ON)
 option(HAVE_STATS "stats enabled by default" ON)
+option(HAVE_DEBUG_MM "debugging oriented memory management disabled by default" OFF)
 option(COVERAGE "code coverage" OFF)
 
 include(CheckIncludeFiles)

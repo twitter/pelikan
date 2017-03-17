@@ -17,3 +17,5 @@
 #cmakedefine HAVE_LOGGING
 
 #cmakedefine HAVE_STATS
+
+#cmakedefine HAVE_DEBUG_MM
