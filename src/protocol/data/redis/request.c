@@ -204,6 +204,8 @@ request_teardown(void)
     if (!request_init) {
         log_warn("%s has never been setup", REQUEST_MODULE_NAME);
     }
+
+    ntoken = REQ_NTOKEN;
     request_pool_destroy();
     request_metrics = NULL;
 

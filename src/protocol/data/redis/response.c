@@ -1,5 +1,7 @@
 #include "response.h"
 
+#include "token.h"
+
 #include <cc_debug.h>
 #include <cc_mm.h>
 #include <cc_pool.h>
@@ -9,12 +11,7 @@
 static bool response_init = false;
 static response_metrics_st *response_metrics = NULL;
 
-#define GET_STRING(_name, _str) {sizeof(_str) - 1, (_str)},
-struct bstring rsp_strings[] = {
-    RSP_TYPE_MSG(GET_STRING)
-};
-#undef GET_STRING
-
+static size_t ntoken = RSP_NTOKEN;
 FREEPOOL(rsp_pool, rspq, response);
 static struct rsp_pool rspp;
 static bool rspp_init = false;
@@ -27,34 +24,28 @@ response_reset(struct response *rsp)
     STAILQ_NEXT(rsp, next) = NULL;
     rsp->free = false;
 
-    rsp->rstate = RSP_PARSING;
     rsp->type = RSP_UNKNOWN;
-
-    bstring_init(&rsp->key);
-    bstring_init(&rsp->vstr);
-    rsp->vint = 0;
-    rsp->vcas = 0;
-    rsp->met = NULL;
-    rsp->flag = 0;
-
-    rsp->cas = 0;
-    rsp->num = 0;
-    rsp->val = 0;
-    rsp->error = 0;
+    rsp->token->nelem = 0;
 }
 
 struct response *
 response_create(void)
 {
+    rstatus_i status;
     struct response *rsp = cc_alloc(sizeof(struct response));
 
     if (rsp == NULL) {
         return NULL;
     }
 
+    status = array_create(&rsp->token, ntoken, sizeof(struct element));
+    if (status != CC_OK) {
+        return NULL;
+    }
     response_reset(rsp);
 
     INCR(response_metrics, response_create);
+    INCR(response_metrics, response_curr);
 
     return rsp;
 }
@@ -78,6 +69,8 @@ response_destroy(struct response **response)
     ASSERT(rsp != NULL);
 
     INCR(response_metrics, response_destroy);
+    DECR(response_metrics, response_curr);
+    array_destroy(&rsp->token);
     cc_free(rsp);
     *response = NULL;
 }
@@ -171,25 +164,6 @@ response_return(struct response **response)
     *response = NULL;
 }
 
-/*
- * Returns all responses in a chain starting with *response
- */
-void
-response_return_all(struct response **response)
-{
-    ASSERT(response != NULL);
-
-    struct response *nr, *rsp = *response;
-
-    while (rsp != NULL) {
-        nr = STAILQ_NEXT(rsp, next);
-        response_return(&rsp);
-        rsp = nr;
-    }
-
-    *response = NULL;
-}
-
 void
 response_setup(response_options_st *options, response_metrics_st *metrics)
 {
@@ -204,6 +178,7 @@ response_setup(response_options_st *options, response_metrics_st *metrics)
     response_metrics = metrics;
 
     if (options != NULL) {
+        ntoken = option_uint(&options->response_ntoken);
         max = option_uint(&options->response_poolsize);
     }
 
@@ -221,6 +196,7 @@ response_teardown(void)
         log_warn("%s has never been setup", RESPONSE_MODULE_NAME);
     }
 
+    ntoken = RSP_NTOKEN;
     response_pool_destroy();
     response_metrics = NULL;
 

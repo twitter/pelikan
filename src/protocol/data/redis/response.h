@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cc_array.h>
 #include <cc_bstring.h>
 #include <cc_define.h>
 #include <cc_metric.h>
@@ -7,10 +8,12 @@
 #include <cc_queue.h>
 #include <cc_util.h>
 
+#define RSP_NTOKEN 255 /* # tokens in a command */
 #define RSP_POOLSIZE 0
 
 /*          name                type                default         description */
 #define RESPONSE_OPTION(ACTION)                                                             \
+    ACTION( response_ntoken,    OPTION_TYPE_UINT,   RSP_NTOKEN,     "# tokens in response" )\
     ACTION( response_poolsize,  OPTION_TYPE_UINT,   RSP_POOLSIZE,   "response pool size"   )
 
 typedef struct {
@@ -19,6 +22,7 @@ typedef struct {
 
 /*          name                type            description */
 #define RESPONSE_METRIC(ACTION)                                         \
+    ACTION( response_curr,      METRIC_GAUGE,   "# rsp created"        )\
     ACTION( response_free,      METRIC_GAUGE,   "# free rsp in pool"   )\
     ACTION( response_borrow,    METRIC_COUNTER, "# rsps borrowed"      )\
     ACTION( response_return,    METRIC_COUNTER, "# rsps returned"      )\
@@ -34,36 +38,16 @@ typedef struct {
  * - a dummy entry RSP_UNKNOWN so we can use it as the initial type value;
  * - a RSP_NUMERIC type that doesn't have a corresponding message body.
  */
-#define RSP_TYPE_MSG(ACTION)                        \
-    ACTION( RSP_UNKNOWN,        ""                 )\
-    ACTION( RSP_OK,             "OK\r\n"           )\
-    ACTION( RSP_END,            "END\r\n"          )\
-    ACTION( RSP_STAT,           "STAT "            )\
-    ACTION( RSP_VALUE,          "VALUE "           )\
-    ACTION( RSP_STORED,         "STORED\r\n"       )\
-    ACTION( RSP_EXISTS,         "EXISTS\r\n"       )\
-    ACTION( RSP_DELETED,        "DELETED\r\n"      )\
-    ACTION( RSP_NOT_FOUND,      "NOT_FOUND\r\n"    )\
-    ACTION( RSP_NOT_STORED,     "NOT_STORED\r\n"   )\
-    ACTION( RSP_CLIENT_ERROR,   "CLIENT_ERROR "    )\
-    ACTION( RSP_SERVER_ERROR,   "SERVER_ERROR "    )\
-    ACTION( RSP_NUMERIC,        ""                 )
+#define RSP_STR_OK "+OK\r\n"
 
-#define GET_TYPE(_name, _str) _name,
 typedef enum response_type {
-    RSP_TYPE_MSG(GET_TYPE)
+    RSP_UNKNOWN,
+    RSP_OK,
+    RSP_ERR,
+    RSP_INT,
+    RSP_VAL,
     RSP_SENTINEL
-} response_type_t;
-#undef GET_TYPE
-
-extern struct bstring rsp_strings[RSP_SENTINEL];
-
-typedef enum response_state {
-    RSP_PARSING,
-    RSP_PARSED,
-    RSP_PROCESSING,
-    RSP_DONE
-} response_state_t;
+} response_type_e;
 
 /*
  * NOTE(yao): we store fields as location in rbuf, this assumes the data will
@@ -74,23 +58,8 @@ struct response {
     STAILQ_ENTRY(response)  next;       /* allow response pooling/chaining */
     bool                    free;
 
-    response_state_t        rstate;     /* response state */
-
-    response_type_t         type;
-
-    struct bstring          key;        /* key string */
-    struct bstring          vstr;       /* value string */
-    uint64_t                vint;       /* return value for incr/decr, or integer get value */
-    uint64_t                vcas;       /* value for cas */
-    struct metric           *met;       /* metric, for reporting stats */
-
-    uint32_t                flag;
-    uint32_t                vlen;
-
-    unsigned                cas:1;      /* print cas ? */
-    unsigned                num:1;      /* is the value a number? */
-    unsigned                val:1;      /* value needed? */
-    unsigned                error:1;    /* error */
+    response_type_e         type;
+    struct array            *token;     /* array elements are tokens */
 };
 
 void response_setup(response_options_st *options, response_metrics_st *metrics);
@@ -102,4 +71,3 @@ void response_reset(struct response *rsp);
 
 struct response *response_borrow(void);
 void response_return(struct response **rsp);
-void response_return_all(struct response **rsp); /* return all responses in chain */

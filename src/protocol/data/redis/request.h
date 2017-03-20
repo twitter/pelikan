@@ -13,7 +13,7 @@
 #include <inttypes.h>
 
 #define REQ_NTOKEN 127 /* # tokens in a command */
-#define KEY_MAXLEN 255 /* # tokens in a command */
+#define KEY_MAXLEN 255
 #define REQ_POOLSIZE 0
 
 /*          name                type                default         description */
@@ -51,7 +51,7 @@ typedef enum cmd_type {
 struct command {
     cmd_type_e      type;
     struct bstring  bstr;
-    int8_t          narg;
+    int32_t         narg;
 };
 
 extern struct command command_table[REQ_SENTINEL];
