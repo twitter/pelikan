@@ -317,7 +317,7 @@ START_TEST(test_ping)
 END_TEST
 
 /*
- * request pool
+ * request/response pool
  */
 
 START_TEST(test_req_pool_basic)
@@ -342,6 +342,32 @@ START_TEST(test_req_pool_basic)
     }
 
     request_teardown();
+#undef POOL_SIZE
+}
+END_TEST
+
+START_TEST(test_rsp_pool_basic)
+{
+#define POOL_SIZE 10
+    int i;
+    struct response *rsps[POOL_SIZE];
+    response_options_st options = {
+        .response_ntoken = {.type = OPTION_TYPE_UINT, .val.vuint = RSP_NTOKEN},
+        .response_poolsize = {.type = OPTION_TYPE_UINT, .val.vuint = POOL_SIZE}};
+
+    response_setup(&options, NULL);
+
+    for (i = 0; i < POOL_SIZE; i++) {
+        rsps[i] = response_borrow();
+        ck_assert_msg(rsps[i] != NULL, "expected to borrow a response");
+    }
+    ck_assert_msg(response_borrow() == NULL, "expected response pool to be depleted");
+    for (i = 0; i < POOL_SIZE; i++) {
+        response_return(&rsps[i]);
+        ck_assert_msg(rsps[i] == NULL, "expected response to be nulled after return");
+    }
+
+    response_teardown();
 #undef POOL_SIZE
 }
 END_TEST
@@ -373,10 +399,12 @@ redis_suite(void)
 
     /* basic responses */
 
-    TCase *tc_req_pool = tcase_create("request pool");
-    suite_add_tcase(s, tc_req_pool);
+    /* req/rsp objects, pooling */
+    TCase *tc_pool = tcase_create("request/response pool");
+    suite_add_tcase(s, tc_pool);
 
-    tcase_add_test(tc_req_pool, test_req_pool_basic);
+    tcase_add_test(tc_pool, test_req_pool_basic);
+    tcase_add_test(tc_pool, test_rsp_pool_basic);
 
     return s;
 }
