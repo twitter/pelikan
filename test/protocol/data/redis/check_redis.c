@@ -227,6 +227,7 @@ START_TEST(test_quit)
 {
 #define QUIT "quit"
 #define SERIALIZED "*1\r\n$4\r\nquit\r\n"
+#define INVALID "*2\r\n$4\r\nquit\r\n$3\r\nnow\r\n"
     int ret;
     struct element *el;
 
@@ -249,7 +250,68 @@ START_TEST(test_quit)
     ck_assert_int_eq(el->type, ELEM_BULK);
     ck_assert_int_eq(cc_bcmp(el->bstr.data, QUIT, sizeof(QUIT) - 1), 0);
 
+    /* invalid number of arguments */
+    test_reset();
+    buf_write(buf, INVALID, sizeof(INVALID) - 1);
+    ck_assert_int_eq(parse_req(req, buf), PARSE_EINVALID);
+#undef INVALID
 #undef SERIALIZED
+#undef QUIT
+}
+END_TEST
+
+
+START_TEST(test_ping)
+{
+#define PING "ping"
+#define VAL "hello"
+#define S_PING "*1\r\n$4\r\nping\r\n"
+#define S_ECHO "*2\r\n$4\r\nping\r\n$5\r\nhello\r\n"
+#define S_ECHO2 "*3\r\n$4\r\nping\r\n$5\r\nhello\r\n$5\r\nworld\r\n"
+    int ret;
+    struct element *el;
+
+    test_reset();
+
+    /* simple ping */
+    buf_write(buf, S_PING, sizeof(S_PING) - 1);
+    ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
+
+    /* ping as echo */
+    test_reset();
+
+    req->type = REQ_PING;
+    el = array_push(req->token);
+    el->type = ELEM_BULK;
+    el->bstr = (struct bstring){sizeof(PING) - 1, PING};
+    el = array_push(req->token);
+    el->type = ELEM_BULK;
+    el->bstr = (struct bstring){sizeof(VAL) - 1, VAL};
+    ret = compose_req(&buf, req);
+    ck_assert_int_eq(ret, sizeof(S_ECHO) - 1);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, S_ECHO, ret), 0);
+
+    el->type = ELEM_UNKNOWN;
+    request_reset(req);
+    ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
+    ck_assert_int_eq(req->type, REQ_PING);
+    ck_assert_int_eq(req->token->nelem, 2);
+    el = array_first(req->token);
+    ck_assert_int_eq(el->type, ELEM_BULK);
+    ck_assert_int_eq(cc_bcmp(el->bstr.data, PING, sizeof(PING) - 1), 0);
+    el = array_get(req->token, 1);
+    ck_assert_int_eq(el->type, ELEM_BULK);
+    ck_assert_int_eq(cc_bcmp(el->bstr.data, VAL, sizeof(VAL) - 1), 0);
+
+    /* more arguments */
+    test_reset();
+    buf_write(buf, S_ECHO2, sizeof(S_ECHO2) - 1);
+    ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
+    ck_assert_int_eq(req->token->nelem, 3);
+#undef S_ECHO2
+#undef S_ECHO
+#undef ECHO
+#undef S_PING
 #undef QUIT
 }
 END_TEST
@@ -307,6 +369,7 @@ redis_suite(void)
     suite_add_tcase(s, tc_request);
 
     tcase_add_test(tc_request, test_quit);
+    tcase_add_test(tc_request, test_ping);
 
     /* basic responses */
 
