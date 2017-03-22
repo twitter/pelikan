@@ -98,4 +98,5 @@ script:
   - cmake ..
   - make -j
   - make check
+  - egrep -r ":F:|:E:" . || true
   - cd ../test/integration && python test_twemcache.py
