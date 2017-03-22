@@ -82,7 +82,7 @@ line_end(struct buf *buf)
 }
 
 bool token_is_array(struct buf *buf);
-parse_rstatus_t token_array_nelem(int32_t *nelem, struct buf *buf);
+parse_rstatus_t token_array_nelem(int64_t *nelem, struct buf *buf);
 parse_rstatus_t parse_element(struct element *el, struct buf *buf);
 
 int compose_array_header(struct buf **buf, int nelem);

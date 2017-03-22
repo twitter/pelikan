@@ -186,13 +186,13 @@ token_is_array(struct buf *buf)
 }
 
 parse_rstatus_t
-token_array_nelem(int32_t *nelem, struct buf *buf)
+token_array_nelem(int64_t *nelem, struct buf *buf)
 {
     ASSERT(nelem != NULL && buf != NULL);
     ASSERT(token_is_array(buf));
 
     buf->rpos++;
-    return _read_int((int64_t *)nelem, buf, -1, ARRAY_MAXLEN);
+    return _read_int(nelem, buf, -1, ARRAY_MAXLEN);
 }
 
 

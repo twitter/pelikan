@@ -87,7 +87,7 @@ parse_req(struct request *req, struct buf *buf)
 {
     parse_rstatus_t status = PARSE_OK;
     char *old_rpos = buf->rpos;
-    int32_t nelem;
+    int64_t nelem;
     struct element *el;
 
     log_verb("parsing buf %p into req %p", buf, req);
@@ -134,7 +134,7 @@ parse_rsp(struct response *rsp, struct buf *buf)
 {
     parse_rstatus_t status = PARSE_OK;
     char *old_rpos = buf->rpos;
-    int32_t nelem = 1;
+    int64_t nelem = 1;
     struct element *el;
 
     ASSERT(rsp->type == ELEM_UNKNOWN);

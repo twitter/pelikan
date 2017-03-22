@@ -205,8 +205,8 @@ START_TEST(test_array)
 #define SERIALIZED "*2\r\n+foo\r\n$4\r\nbarr\r\n"
 #define NELEM 2
 
-    int len = sizeof(SERIALIZED) - 1;
-    int nelem;
+    size_t len = sizeof(SERIALIZED) - 1;
+    int64_t nelem;
 
     test_reset();
 
