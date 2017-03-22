@@ -13,6 +13,8 @@
 #define BULK_MAXLEN (512 * MiB)
 #define ARRAY_MAXLEN (64 * MiB)
 
+#define NIL_STR "$-1\r\n"
+
 
 static inline compose_rstatus_t
 _check_buf_size(struct buf **buf, uint32_t n)
@@ -110,7 +112,6 @@ _read_int(int64_t *num, struct buf *buf, int64_t min, int64_t max)
 static parse_rstatus_t
 _read_bulk(struct bstring *str, struct buf *buf)
 {
-    /* this does not handle Null Bulk string properly */
     parse_rstatus_t status;
     int64_t len;
 
@@ -122,7 +123,7 @@ _read_bulk(struct bstring *str, struct buf *buf)
     if (len < 0) {
         log_vverb("null bulk string detected at %p", buf->rpos);
 
-        return PARSE_OK;
+        return PARSE_EEMPTY;
     }
 
     if (buf_rsize(buf) >= str->len + CRLF_LEN) {
@@ -230,6 +231,10 @@ parse_element(struct element *el, struct buf *buf)
         /* bulk string */
         el->type = ELEM_BULK;
         status = _read_bulk(&el->bstr, buf);
+        if (status == PARSE_EEMPTY) {
+            status = PARSE_OK;
+            el->type = ELEM_NIL;
+        }
         break;
 
     default:
@@ -283,6 +288,10 @@ compose_element(struct buf **buf, struct element *el)
         n += el->bstr.len + CC_INT64_MAXLEN + CRLF_LEN;
         break;
 
+    case ELEM_NIL:
+        n += 2; /* "-1" */
+        break;
+
     default:
         return COMPOSE_EINVALID;
     }
@@ -315,6 +324,11 @@ compose_element(struct buf **buf, struct element *el)
         *b->wpos++ = '$';
         n += _write_int(b, el->bstr.len);
         n += _write_bstr(b, &el->bstr);
+        break;
+
+    case ELEM_NIL:
+        n = sizeof(NIL_STR) - 1;
+        buf_write(b, NIL_STR, n);
         break;
 
     default:

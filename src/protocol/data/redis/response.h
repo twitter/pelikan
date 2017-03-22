@@ -40,25 +40,18 @@ typedef struct {
  */
 #define RSP_STR_OK "+OK\r\n"
 
-typedef enum response_type {
-    RSP_UNKNOWN,
-    RSP_OK,
-    RSP_ERR,
-    RSP_INT,
-    RSP_VAL,
-    RSP_SENTINEL
-} response_type_e;
-
 /*
  * NOTE(yao): we store fields as location in rbuf, this assumes the data will
  * not be overwritten prematurely.
  * Whether this is a reasonable design decision eventually remains to be seen.
  */
+
 struct response {
     STAILQ_ENTRY(response)  next;       /* allow response pooling/chaining */
     bool                    free;
 
-    response_type_e         type;
+    int                     type;
+    bool                    nil;
     struct array            *token;     /* array elements are tokens */
 };
 

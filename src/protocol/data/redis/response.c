@@ -24,7 +24,8 @@ response_reset(struct response *rsp)
     STAILQ_NEXT(rsp, next) = NULL;
     rsp->free = false;
 
-    rsp->type = RSP_UNKNOWN;
+    rsp->type = ELEM_UNKNOWN;
+    rsp->nil = false;
     rsp->token->nelem = 0;
 }
 

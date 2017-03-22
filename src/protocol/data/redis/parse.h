@@ -53,4 +53,4 @@ key_valid(struct bstring *key)
 
 parse_rstatus_t parse_req(struct request *req, struct buf *buf);
 
-//parse_rstatus_t parse_rsp(struct response *rsp, struct buf *buf);
+parse_rstatus_t parse_rsp(struct response *rsp, struct buf *buf);

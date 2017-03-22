@@ -54,10 +54,12 @@ typedef enum element_type {
     ELEM_ERR        = 2,
     ELEM_INT        = 3,
     ELEM_BULK       = 4,
-} element_type_t;
+    ELEM_ARRAY      = 5,
+    ELEM_NIL        = 6,
+} element_type_e;
 
 struct element {
-    element_type_t      type;
+    element_type_e      type;
     union {
         struct bstring  bstr;
         int64_t         num;

@@ -81,6 +81,7 @@ _parse_cmd(struct request *req)
     return PARSE_OK;
 }
 
+
 parse_rstatus_t
 parse_req(struct request *req, struct buf *buf)
 {
@@ -123,6 +124,55 @@ parse_req(struct request *req, struct buf *buf)
     status = _parse_cmd(req);
     if (status != PARSE_OK) {
         return status;
+    }
+
+    return PARSE_OK;
+}
+
+parse_rstatus_t
+parse_rsp(struct response *rsp, struct buf *buf)
+{
+    parse_rstatus_t status = PARSE_OK;
+    char *old_rpos = buf->rpos;
+    int32_t nelem = 1;
+    struct element *el;
+
+    ASSERT(rsp->type == ELEM_UNKNOWN);
+
+    log_verb("parsing buf %p into rsp %p", buf, rsp);
+
+    if (token_is_array(buf)) {
+        status = token_array_nelem(&nelem, buf);
+        if (status != PARSE_OK) {
+            buf->rpos = old_rpos;
+            return status;
+        }
+        rsp->type = ELEM_ARRAY;
+        if (nelem > rsp->token->nalloc) {
+            log_debug("parse rsp: invalid # of elements, %d > %"PRIu32, nelem,
+                 rsp->token->nalloc);
+            return PARSE_EOVERSIZE;
+        }
+        if (nelem < 0) {
+            rsp->nil = true;
+            return PARSE_OK;
+        }
+    }
+
+    /* parse elements */
+    while (nelem > 0) {
+        el = array_push(rsp->token);
+        status = parse_element(el, buf);
+        if (status != PARSE_OK) {
+            log_verb("parse element returned status %d", status);
+            response_reset(rsp);
+            buf->rpos = old_rpos;
+            return status;
+        }
+        if (rsp->type == ELEM_UNKNOWN) {
+            rsp->type = el->type;
+        }
+        nelem--;
     }
 
     return PARSE_OK;

@@ -15,6 +15,7 @@
 #define DEBUG_LOG  SUITE_NAME ".log"
 
 struct request *req;
+struct response *rsp;
 struct buf *buf;
 
 /*
@@ -24,6 +25,7 @@ static void
 test_setup(void)
 {
     req = request_create();
+    rsp = response_create();
     buf = buf_create();
 }
 
@@ -31,6 +33,7 @@ static void
 test_reset(void)
 {
     request_reset(req);
+    response_reset(rsp);
     buf_reset(buf);
 }
 
@@ -38,6 +41,7 @@ static void
 test_teardown(void)
 {
     buf_destroy(&buf);
+    response_destroy(&rsp);
     request_destroy(&req);
 }
 
@@ -200,7 +204,6 @@ START_TEST(test_array)
 {
 #define SERIALIZED "*2\r\n+foo\r\n$4\r\nbarr\r\n"
 #define NELEM 2
-#define NULLARRAY "*-1\r\n"
 
     int len = sizeof(SERIALIZED) - 1;
     int nelem;
@@ -212,9 +215,30 @@ START_TEST(test_array)
     ck_assert_int_eq(token_array_nelem(&nelem, buf), PARSE_OK);
     ck_assert_int_eq(nelem, NELEM);
 
-#undef NULLARRAY
 #undef NELEM
 #undef SERIALIZED
+}
+END_TEST
+
+START_TEST(test_nil_bulk)
+{
+#define NIL_BULK "$-1\r\n"
+
+    size_t len = sizeof(NIL_BULK) - 1;
+    struct element el;
+
+    test_reset();
+
+    el.type = ELEM_NIL;
+    ck_assert_int_eq(compose_element(&buf, &el), len);
+    ck_assert_int_eq(buf_rsize(buf), len);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, NIL_BULK, len), 0);
+
+    el.type = ELEM_UNKNOWN;
+    ck_assert_int_eq(parse_element(&el, buf), PARSE_OK);
+    ck_assert_int_eq(el.type, ELEM_NIL);
+
+#undef NIL_BULK
 }
 END_TEST
 
@@ -317,6 +341,71 @@ START_TEST(test_ping)
 END_TEST
 
 /*
+ * response
+ */
+START_TEST(test_ok)
+{
+#define OK "OK"
+#define SERIALIZED "+OK\r\n"
+    int ret;
+    struct element *el;
+
+    test_reset();
+
+    rsp->type = ELEM_STR;
+    el = array_push(rsp->token);
+    el->type = ELEM_STR;
+    el->bstr = (struct bstring){sizeof(OK) - 1, OK};
+    ret = compose_rsp(&buf, rsp);
+    ck_assert_int_eq(ret, sizeof(SERIALIZED) - 1);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
+
+    el->type = ELEM_UNKNOWN;
+    response_reset(rsp);
+    ck_assert_int_eq(parse_rsp(rsp, buf), PARSE_OK);
+    ck_assert_int_eq(rsp->type, ELEM_STR);
+    ck_assert_int_eq(rsp->token->nelem, 1);
+    el = array_first(rsp->token);
+    ck_assert_int_eq(el->type, ELEM_STR);
+    ck_assert_int_eq(cc_bcmp(el->bstr.data, OK, sizeof(OK) - 1), 0);
+#undef SERIALIZED
+#undef OK
+}
+END_TEST
+
+START_TEST(test_array_reply)
+{
+#define SERIALIZED "*5\r\n:-10\r\n$-1\r\n-ERR invalid arg\r\n+foo\r\n$5\r\nHELLO\r\n"
+    size_t len = sizeof(SERIALIZED) - 1;
+    struct element *el;
+
+    test_reset();
+
+    buf_write(buf, SERIALIZED, len);
+    ck_assert_int_eq(parse_rsp(rsp, buf), PARSE_OK);
+    ck_assert_int_eq(rsp->type, ELEM_ARRAY);
+    ck_assert_int_eq(rsp->token->nelem, 5);
+    el = array_first(rsp->token);
+    ck_assert_int_eq(el->type, ELEM_INT);
+    el = array_get(rsp->token, 1);
+    ck_assert_int_eq(el->type, ELEM_NIL);
+    el = array_get(rsp->token, 2);
+    ck_assert_int_eq(el->type, ELEM_ERR);
+    el = array_get(rsp->token, 3);
+    ck_assert_int_eq(el->type, ELEM_STR);
+    el = array_get(rsp->token, 4);
+    ck_assert_int_eq(el->type, ELEM_BULK);
+    ck_assert_int_eq(el->bstr.len, 5);
+    ck_assert_int_eq(cc_bcmp(el->bstr.data, "HELLO", 5), 0);
+
+    ck_assert_int_eq(compose_rsp(&buf, rsp), len);
+    ck_assert_int_eq(buf_rsize(buf), len);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, len), 0);
+#undef SERIALIZED
+}
+END_TEST
+
+/*
  * request/response pool
  */
 
@@ -389,6 +478,7 @@ redis_suite(void)
     tcase_add_test(tc_token, test_integer);
     tcase_add_test(tc_token, test_bulk_string);
     tcase_add_test(tc_token, test_array);
+    tcase_add_test(tc_token, test_nil_bulk);
 
     /* basic requests */
     TCase *tc_request = tcase_create("request");
@@ -396,6 +486,13 @@ redis_suite(void)
 
     tcase_add_test(tc_request, test_quit);
     tcase_add_test(tc_request, test_ping);
+
+    /* basic response */
+    TCase *tc_response = tcase_create("response");
+    suite_add_tcase(s, tc_response);
+
+    tcase_add_test(tc_response, test_ok);
+    tcase_add_test(tc_response, test_array_reply);
 
     /* basic responses */
 

@@ -64,3 +64,29 @@ compose_req(struct buf **buf, struct request *req)
 
     return n;
 }
+
+int
+compose_rsp(struct buf **buf, struct response *rsp)
+{
+    int n = 0;
+
+    if (rsp->type == ELEM_ARRAY) {
+        n = compose_array_header(buf, rsp->token->nelem);
+        if (n < 0) {
+            return n;
+        }
+    }
+
+    for (int i = 0; i < rsp->token->nelem; i++) {
+        int ret;
+
+        ret = compose_element(buf, array_get(rsp->token, i));
+        if (ret < 0) {
+            return ret;
+        } else {
+            n += ret;
+        }
+    }
+
+    return n;
+}
