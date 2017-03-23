@@ -173,6 +173,7 @@ START_TEST(test_bulk_string)
 {
 #define SERIALIZED "$9\r\nfoo bar\r\n\r\n"
 #define BULK "foo bar\r\n"
+#define EMPTY "$0\r\n\r\n"
 
     struct element el;
     int ret;
@@ -188,13 +189,23 @@ START_TEST(test_bulk_string)
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
     /* parse */
-    ret = parse_element(&el, buf);
-    ck_assert_int_eq(ret, PARSE_OK);
+    ck_assert_int_eq(parse_element(&el, buf), PARSE_OK);
     ck_assert(buf->rpos == buf->wpos);
     ck_assert(el.type == ELEM_BULK);
     ck_assert(el.bstr.len == sizeof(BULK) - 1);
     ck_assert(el.bstr.data + el.bstr.len == buf->rpos - CRLF_LEN);
 
+    /* empty string */
+    len = sizeof(EMPTY) - 1;
+    el.bstr = null_bstring;
+    ret = compose_element(&buf, &el);
+    ck_assert_msg(ret == len, "bytes expected: %d, returned: %d", len, ret);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, EMPTY, ret), 0);
+    ck_assert_int_eq(parse_element(&el, buf), PARSE_OK);
+    ck_assert(el.bstr.len == 0);
+
+
+#undef EMPTY
 #undef BULK
 #undef SERIALIZED
 }

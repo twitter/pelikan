@@ -28,7 +28,7 @@ _check_buf_size(struct buf **buf, uint32_t n)
         }
     }
 
-    return CC_OK;
+    return COMPOSE_OK;
 }
 
 
@@ -210,7 +210,7 @@ parse_element(struct element *el, struct buf *buf)
     p = buf->rpos++;
     switch (*p) {
     case '+':
-        /* imple string */
+        /* simple string */
         el->type = ELEM_STR;
         status = _read_str(&el->bstr, buf);
         break;
@@ -255,7 +255,7 @@ compose_array_header(struct buf **buf, int nelem)
     struct buf *b;
     size_t n = 1 + CRLF_LEN + CC_INT64_MAXLEN;
 
-    if (_check_buf_size(buf, n) != CC_OK) {
+    if (_check_buf_size(buf, n) != COMPOSE_OK) {
         return COMPOSE_ENOMEM;
     }
 
