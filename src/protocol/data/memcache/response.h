@@ -56,11 +56,6 @@ typedef enum response_type {
 } response_type_t;
 #undef GET_TYPE
 
-typedef enum response_flag {
-    RSP_FLAG_DEFAULT,
-    RSP_FLAG_HOTKEY,
-} response_flag_t;
-
 extern struct bstring rsp_strings[RSP_SENTINEL];
 
 typedef enum response_state {

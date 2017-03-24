@@ -74,18 +74,13 @@ _get_key(struct response *rsp, struct bstring *key)
     if (it != NULL) {
         rsp->type = RSP_VALUE;
         rsp->key = *key;
+        rsp->flag = item_flag(it);
         rsp->vcas = item_get_cas(it);
         rsp->vstr.len = it->vlen;
         rsp->vstr.data = item_data(it);
 
-        if (hotkey_enabled) {
-            if (hotkey_sample(key)) {
-                rsp->flag = RSP_FLAG_HOTKEY;
-            } else {
-                rsp->flag = RSP_FLAG_DEFAULT;
-            }
-        } else {
-            rsp->flag = item_flag(it);
+        if (hotkey_enabled && hotkey_sample(key)) {
+            log_debug("hotkey detected: %.*s", key->len, key->data);
         }
 
         log_verb("found key at %p, location %p", key, it);
