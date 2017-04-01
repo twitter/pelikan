@@ -233,3 +233,6 @@ bool item_delete(const struct bstring *key);
 
 /* flush the cache */
 void item_flush(void);
+
+void item_count(size_t *nkey, size_t *ksize, size_t *vsize, struct bstring *prefix);
+bool item_dump(void);

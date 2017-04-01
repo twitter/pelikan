@@ -25,6 +25,8 @@
     ACTION( REQ_UNKNOWN,       ""          )\
     ACTION( REQ_STATS,         "stats"     )\
     ACTION( REQ_VERSION,       "version"   )\
+    ACTION( REQ_COUNT,         "count"     )\
+    ACTION( REQ_DUMP,          "dump"      )\
     ACTION( REQ_QUIT,          "quit"      )
 
 #define GET_TYPE(_name, _str) _name,
@@ -41,8 +43,8 @@ typedef enum request_state {
 } request_state_t;
 
 struct request {
-    request_state_t      state; /* request state */
-    request_type_t       type;
+    request_state_t state; /* request state */
+    request_type_t  type;
     struct bstring  arg;
 };
 

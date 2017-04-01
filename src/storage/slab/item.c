@@ -1,7 +1,9 @@
 #include "slab.h"
 
 #include <cc_debug.h>
+#include <cc_log.h>
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -378,4 +380,77 @@ item_flush(void)
     time_update();
     flush_at = time_proc_sec();
     log_info("all keys flushed at %"PRIu32, flush_at);
+}
+
+void
+item_count(size_t *nkey, size_t *ksize, size_t *vsize, struct bstring *prefix)
+{
+    uint32_t nbucket = HASHSIZE(hash_table->hash_power);
+
+    log_info("start scanning all %"PRIu32" keys", hash_table->nhash_item);
+
+    *nkey = 0;
+    *ksize = 0;
+    *vsize = 0;
+    for (uint32_t i = 0; i < nbucket; i++) {
+        struct item_slh *entry = &hash_table->table[i];
+        struct item *it;
+
+        SLIST_FOREACH(it, entry, i_sle) {
+            if (it->klen >= prefix->len &&
+                    cc_bcmp(prefix->data, item_key(it), prefix->len) == 0) {
+                *nkey += 1;
+                *ksize += it->klen;
+                *vsize += it->vlen;
+            }
+        }
+
+        if (i % 1000000 == 0) {
+            log_info("... %"PRIu32" out of %"PRIu32" buckets scanned ...", i,
+                    nbucket);
+        }
+    }
+
+    log_info("finish scanning all keys");
+}
+
+bool
+item_dump(void)
+{
+    int fd;
+    uint32_t nbucket = HASHSIZE(hash_table->hash_power);
+
+    log_info("start scanning all %"PRIu32" keys", hash_table->nhash_item);
+
+    fd = open("key.dump", O_WRONLY | O_TRUNC | O_CREAT, 0644);
+    if (fd < 0) {
+        log_stderr("Could not create key dump - cannot open file");
+        return false;
+    }
+
+    for (uint32_t i = 0; i < nbucket; i++) {
+        struct item_slh *entry = &hash_table->table[i];
+        struct item *it;
+
+        SLIST_FOREACH(it, entry, i_sle) {
+            if (write(fd, item_key(it), it->klen) < it->klen) {
+                log_error("write error, aborting at hash bucket %"PRIu32, i);
+                return false;
+            }
+            if  (write(fd, CRLF, CRLF_LEN) < CRLF_LEN) {
+                log_error("write error, aborting at hash bucket %"PRIu32, i);
+                return false;
+            }
+        }
+
+        if (i % 1000000 == 0) {
+            log_info("... %"PRIu32" out of %"PRIu32" buckets scanned ...", i,
+                    nbucket);
+        }
+    }
+    close(fd);
+
+    log_info("finish scanning all keys");
+
+    return true;
 }

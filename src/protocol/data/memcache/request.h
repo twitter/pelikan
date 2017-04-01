@@ -48,7 +48,7 @@ typedef struct {
     ACTION( REQ_INCR,           "incr "            )\
     ACTION( REQ_DECR,           "decr "            )\
     ACTION( REQ_FLUSH,          "flush_all\r\n"    )\
-    ACTION( REQ_QUIT,           "quit\r\n"         )\
+    ACTION( REQ_QUIT,           "quit\r\n"         )
 
 #define GET_TYPE(_name, _str) _name,
 typedef enum request_type {

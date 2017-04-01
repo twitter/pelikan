@@ -26,10 +26,16 @@ _get_req_type(struct request *req, struct bstring *type)
 {
     ASSERT(req->type == REQ_UNKNOWN);
 
+    /* use loop + bcmp() to simplify this function, perf doesn't matter */
     switch (type->len) {
     case 4:
         if (str4cmp(type->data, 'q', 'u', 'i', 't')) {
             req->type = REQ_QUIT;
+            break;
+        }
+
+        if (str4cmp(type->data, 'd', 'u', 'm', 'p')) {
+            req->type = REQ_DUMP;
             break;
         }
 
@@ -38,6 +44,11 @@ _get_req_type(struct request *req, struct bstring *type)
     case 5:
         if (str5cmp(type->data, 's', 't', 'a', 't', 's')) {
             req->type = REQ_STATS;
+            break;
+        }
+
+        if (str5cmp(type->data, 'c', 'o', 'u', 'n', 't')) {
+            req->type = REQ_COUNT;
             break;
         }
 

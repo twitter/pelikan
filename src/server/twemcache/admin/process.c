@@ -96,6 +96,42 @@ _admin_stats(struct response *rsp, struct request *req)
     }
 }
 
+static void
+_key_dump(struct response *rsp, struct request *req)
+{
+    if (item_dump() == true) {
+        rsp->type = RSP_OK;
+    } else {
+        rsp->type = RSP_GENERIC;
+        rsp->data = str2bstr("ERROR: key dump unsuccesful");
+    }
+
+    log_info("dump request %p processed");
+}
+
+static void
+_key_count(struct response *rsp, struct request *req)
+{
+    size_t nkey, ksize, vsize;
+    int ret = 0;
+
+    if (req->arg.len > 0) { /* skip initial space */
+        req->arg.len--;
+        req->arg.data++;
+    }
+    log_info("count keys with prefix %.*s", req->arg.len, req->arg.data);
+
+    item_count(&nkey, &ksize, &vsize, &req->arg);
+    rsp->type = RSP_GENERIC;
+    ret = cc_scnprintf(buf, cap, KEYCOUNT_FMT, nkey, ksize, vsize);
+    if (ret < 0) {
+        rsp->data = str2bstr("ERROR: cannot format key count");
+    } else {
+        rsp->data.len = ret;
+        rsp->data.data = buf;
+    }
+}
+
 void
 admin_process_request(struct response *rsp, struct request *req)
 {
@@ -105,9 +141,19 @@ admin_process_request(struct response *rsp, struct request *req)
     case REQ_STATS:
         _admin_stats(rsp, req);
         break;
+
     case REQ_VERSION:
         rsp->data = str2bstr(VERSION_PRINTED);
         break;
+
+    case REQ_DUMP:
+        _key_dump(rsp, req);
+        break;
+
+    case REQ_COUNT:
+        _key_count(rsp, req);
+        break;
+
     default:
         rsp->type = RSP_INVALID;
         break;
