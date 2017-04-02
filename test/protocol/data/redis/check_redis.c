@@ -120,49 +120,41 @@ END_TEST
 
 START_TEST(test_integer)
 {
-#define SERIALIZED_1 ":-1\r\n"
-#define SERIALIZED_2 ":9223372036854775807\r\n"
-#define SERIALIZED_3 ":128\r\n"
-#define INT_1 -1
-#define INT_2 9223372036854775807LL
-#define INT_3 128
 #define OVERSIZE ":19223372036854775807\r\n"
-#define INVALID ":123lOl456\r\n"
+#define INVALID1 ":123lOl456\r\n"
+#define INVALID2 ":\r\n"
 
     struct element el_c, el_p;
     int ret;
 
+    struct int_pair {
+        char *serialized;
+        uint64_t num;
+    } pairs[3] = {
+        {":-1\r\n", -1},
+        {":9223372036854775807\r\n", 9223372036854775807},
+        {":128\r\n", 128}
+    };
+
+
     test_reset();
-    el_c.type = ELEM_INT;
+    for (int i = 0; i < 3; i++) {
+        size_t len = strlen(pairs[i].serialized);
 
-    el_c.num = INT_1;
-    ret = compose_element(&buf, &el_c);
-    ck_assert(ret == sizeof(SERIALIZED_1) - 1);
-    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED_1, ret), 0);
-    ret = parse_element(&el_p, buf);
-    ck_assert_int_eq(ret, PARSE_OK);
-    ck_assert(buf->rpos == buf->wpos);
-    ck_assert(el_p.type == ELEM_INT);
-    ck_assert(el_p.num == INT_1);
+        buf_reset(buf);
+        el_c.type = ELEM_INT;
+        el_c.num = pairs[i].num;
+        ret = compose_element(&buf, &el_c);
+        ck_assert(ret == len);
+        ck_assert_int_eq(cc_bcmp(buf->rpos, pairs[i].serialized, len), 0);
 
-    buf_reset(buf);
-    el_c.num = INT_2;
-    ret = compose_element(&buf, &el_c);
-    ck_assert(ret == sizeof(SERIALIZED_2) - 1);
-    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED_2, ret), 0);
-    ret = parse_element(&el_p, buf);
-    ck_assert_int_eq(ret, PARSE_OK);
-    ck_assert(el_p.type == ELEM_INT);
-    ck_assert(el_p.num == INT_2);
-
-    buf_reset(buf);
-    el_c.num = INT_3;
-    ret = compose_element(&buf, &el_c);
-    ck_assert(ret == sizeof(SERIALIZED_3) - 1);
-    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED_3, ret), 0);
-    ret = parse_element(&el_p, buf);
-    ck_assert_int_eq(ret, PARSE_OK);
-    ck_assert(el_p.num == INT_3);
+        el_p.type = ELEM_UNKNOWN;
+        ret = parse_element(&el_p, buf);
+        ck_assert_int_eq(ret, PARSE_OK);
+        ck_assert(buf->rpos == buf->wpos);
+        ck_assert(el_p.type == ELEM_INT);
+        ck_assert(el_p.num == pairs[i].num);
+    }
 
     buf_reset(buf);
     buf_write(buf, OVERSIZE, sizeof(OVERSIZE) - 1);
@@ -170,18 +162,18 @@ START_TEST(test_integer)
     ck_assert_int_eq(ret, PARSE_EOVERSIZE);
 
     buf_reset(buf);
-    buf_write(buf, INVALID, sizeof(INVALID) - 1);
+    buf_write(buf, INVALID1, sizeof(INVALID1) - 1);
     ret = parse_element(&el_p, buf);
     ck_assert_int_eq(ret, PARSE_EINVALID);
 
-#undef INT_3
-#undef INT_2
-#undef INT_1
-#undef INVALID
+    buf_reset(buf);
+    buf_write(buf, INVALID2, sizeof(INVALID2) - 1);
+    ret = parse_element(&el_p, buf);
+    ck_assert_int_eq(ret, PARSE_EINVALID);
+
+#undef INVALID2
+#undef INVALID1
 #undef OVERSIZE
-#undef SERIALIZED_3
-#undef SERIALIZED_2
-#undef SERIALIZED_1
 }
 END_TEST
 

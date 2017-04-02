@@ -93,19 +93,18 @@ _read_int(int64_t *num, struct buf *buf, int64_t min, int64_t max)
             len++;
             *num = *num * 10ULL + sign * (*buf->rpos - '0');
         } else {
-            if (len > 0 && line_end(buf)) {
+            if (len == 0 || *buf->rpos != CR) {
+                log_warn("invalid character encountered: %c", *buf->rpos);
+
+                return PARSE_EINVALID;
+            }
+            if (line_end(buf)) {
                 buf->rpos += CRLF_LEN;
                 log_vverb("parsed integer, value %"PRIi64, *num);
 
                 return PARSE_OK;
             } else {
-                if (*buf->rpos == CR) {
-                    return PARSE_EUNFIN;
-                }
-
-                log_warn("invalid character encountered: %c", *buf->rpos);
-
-                return PARSE_EINVALID;
+                return PARSE_EUNFIN;
             }
         }
     }
@@ -299,7 +298,7 @@ compose_element(struct buf **buf, struct element *el)
         return COMPOSE_EINVALID;
     }
 
-    if (_check_buf_size(buf, n) != CC_OK) {
+    if (_check_buf_size(buf, n) != COMPOSE_OK) {
         return COMPOSE_ENOMEM;
     }
 
@@ -308,19 +307,23 @@ compose_element(struct buf **buf, struct element *el)
 
     switch (el->type) {
     case ELEM_STR:
-        n = buf_write(b, "+", 1) + _write_bstr(b, &el->bstr);
+        n = buf_write(b, "+", 1);
+        n += _write_bstr(b, &el->bstr);
         break;
 
     case ELEM_ERR:
-        n = buf_write(b, "-", 1) + _write_bstr(b, &el->bstr);
+        n = buf_write(b, "-", 1);
+        n += _write_bstr(b, &el->bstr);
         break;
 
     case ELEM_INT:
-        n = buf_write(b, ":", 1) + _write_int(b, el->num);
+        n = buf_write(b, ":", 1);
+        n += _write_int(b, el->num);
         break;
 
     case ELEM_BULK:
-        n = buf_write(b, "$", 1) + _write_int(b, el->bstr.len);
+        n = buf_write(b, "$", 1);
+        n += _write_int(b, el->bstr.len);
         n += _write_bstr(b, &el->bstr);
         break;
 
