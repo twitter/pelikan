@@ -4,7 +4,7 @@
 
 #include <cc_bstring.h>
 #include <cc_debug.h>
-#include <cc_hash.h>
+#include <hash/cc_lookup3.h>
 #include <cc_mm.h>
 #include <cc_pool.h>
 
@@ -180,7 +180,7 @@ kc_map_teardown(void)
 static inline struct kcme_slh *
 _get_bucket(const struct bstring *key)
 {
-    return &(table[hash(key->data, key->len, 0) % table_size]);
+    return &(table[hash_lookup3(key->data, key->len, 0) % table_size]);
 }
 
 uint32_t

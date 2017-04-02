@@ -1,6 +1,6 @@
 #include "hashtable.h"
 
-#include <cc_hash.h>
+#include <hash/cc_lookup3.h>
 #include <cc_mm.h>
 
 /*
@@ -65,7 +65,7 @@ hashtable_destroy(struct hash_table *ht)
 static struct item_slh *
 _get_bucket(const char *key, size_t klen, struct hash_table *ht)
 {
-    return &(ht->table[hash(key, klen, 0) & HASHMASK(ht->hash_power)]);
+    return &(ht->table[hash_lookup3(key, klen, 0) & HASHMASK(ht->hash_power)]);
 }
 
 void

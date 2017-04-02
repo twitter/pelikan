@@ -2,7 +2,7 @@
 
 #include <cc_debug.h>
 #include <cc_define.h>
-#include <cc_lookup3.h>
+#include <hash/cc_murmur3.h>
 #include <cc_mm.h>
 
 /* TODO(yao): make D and iv[] configurable */
@@ -82,9 +82,11 @@ static void
 cuckoo_hash(uint32_t offset[], struct bstring *key)
 {
     int i;
+    uint32_t hv;
 
     for (i = 0; i < D; ++i) {
-        offset[i] = hashlittle(key->data, key->len, iv[i]) % max_nitem;
+        hash_murmur3_32(key->data, key->len, iv[i], &hv);
+        offset[i] = hv % max_nitem;
     }
 
     return;
