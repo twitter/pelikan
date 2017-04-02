@@ -154,17 +154,12 @@ _write_int(struct buf *buf, int64_t val)
 {
     size_t n = 0;
 
-    /* TODO: use cc_print_int64_unsafe when it's checked in */
-    if (val < 0) {
-        *buf->wpos++ = '-';
-    }
-
-    n = cc_print_uint64_unsafe(buf->wpos, llabs(val));
+    n = cc_print_int64_unsafe(buf->wpos, val);
     buf->wpos += n;
 
     buf_write(buf, CRLF, CRLF_LEN);
 
-    return (n + CRLF_LEN + (val < 0));
+    return (n + CRLF_LEN);
 }
 
 static inline int
@@ -273,7 +268,7 @@ compose_element(struct buf **buf, struct element *el)
 
     ASSERT(el->type > 0);
 
-    /* first estimate size (overestimate for integers) */
+    /* estimate size (overestimate space needed for integers (int, bulk)) */
     switch (el->type) {
     case ELEM_STR:
     case ELEM_ERR:
@@ -303,26 +298,21 @@ compose_element(struct buf **buf, struct element *el)
     b = *buf;
     log_verb("write element %p in buf %p", el, b);
 
-    n = 1;
     switch (el->type) {
     case ELEM_STR:
-        *b->wpos++ = '+';
-        n += _write_bstr(b, &el->bstr);
+        n = buf_write(b, "+", 1) + _write_bstr(b, &el->bstr);
         break;
 
     case ELEM_ERR:
-        *b->wpos++ = '-';
-        n += _write_bstr(b, &el->bstr);
+        n = buf_write(b, "-", 1) + _write_bstr(b, &el->bstr);
         break;
 
     case ELEM_INT:
-        *b->wpos++ = ':';
-        n += _write_int(b, el->num);
+        n = buf_write(b, ":", 1) + _write_int(b, el->num);
         break;
 
     case ELEM_BULK:
-        *b->wpos++ = '$';
-        n += _write_int(b, el->bstr.len);
+        n = buf_write(b, "$", 1) + _write_int(b, el->bstr.len);
         n += _write_bstr(b, &el->bstr);
         break;
 

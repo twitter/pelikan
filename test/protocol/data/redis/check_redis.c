@@ -54,10 +54,10 @@ test_teardown(void)
  */
 START_TEST(test_simple_string)
 {
-#define SERIALIZED "+foobar\r\n"
 #define STR "foobar"
+#define SERIALIZED "+" STR "\r\n"
 
-    struct element el;
+    struct element el_c, el_p;
     int ret;
     int len = sizeof(SERIALIZED) - 1;
     char *pos;
@@ -65,32 +65,32 @@ START_TEST(test_simple_string)
     test_reset();
 
     /* compose */
-    el.type = ELEM_STR;
-    el.bstr = str2bstr(STR);
-    ret = compose_element(&buf, &el);
+    el_c.type = ELEM_STR;
+    el_c.bstr = str2bstr(STR);
+    ret = compose_element(&buf, &el_c);
     ck_assert_msg(ret == len, "bytes expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
     /* parse */
     pos = buf->rpos + 1;
-    ret = parse_element(&el, buf);
+    ret = parse_element(&el_p, buf);
     ck_assert_int_eq(ret, PARSE_OK);
     ck_assert(buf->rpos == buf->wpos);
-    ck_assert(el.type == ELEM_STR);
-    ck_assert(el.bstr.len == sizeof(STR) - 1);
-    ck_assert(el.bstr.data == pos);
+    ck_assert(el_p.type == ELEM_STR);
+    ck_assert(el_p.bstr.len == sizeof(STR) - 1);
+    ck_assert(el_p.bstr.data == pos);
 
-#undef STR
 #undef SERIALIZED
+#undef STR
 }
 END_TEST
 
 START_TEST(test_error)
 {
-#define SERIALIZED "-something is wrong\r\n"
 #define ERR "something is wrong"
+#define SERIALIZED "-" ERR "\r\n"
 
-    struct element el;
+    struct element el_c, el_p;
     int ret;
     int len = sizeof(SERIALIZED) - 1;
     char *pos;
@@ -98,23 +98,23 @@ START_TEST(test_error)
     test_reset();
 
     /* compose */
-    el.type = ELEM_ERR;
-    el.bstr = str2bstr(ERR);
-    ret = compose_element(&buf, &el);
+    el_c.type = ELEM_ERR;
+    el_c.bstr = str2bstr(ERR);
+    ret = compose_element(&buf, &el_c);
     ck_assert_msg(ret == len, "bytes expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
     /* parse */
     pos = buf->rpos + 1;
-    ret = parse_element(&el, buf);
+    ret = parse_element(&el_p, buf);
     ck_assert_int_eq(ret, PARSE_OK);
     ck_assert(buf->rpos == buf->wpos);
-    ck_assert(el.type == ELEM_ERR);
-    ck_assert(el.bstr.len == sizeof(ERR) - 1);
-    ck_assert(el.bstr.data == pos);
+    ck_assert(el_p.type == ELEM_ERR);
+    ck_assert(el_p.bstr.len == sizeof(ERR) - 1);
+    ck_assert(el_p.bstr.data == pos);
 
-#undef ERR
 #undef SERIALIZED
+#undef ERR
 }
 END_TEST
 
@@ -126,43 +126,59 @@ START_TEST(test_integer)
 #define INT_1 -1
 #define INT_2 9223372036854775807LL
 #define INT_3 128
+#define OVERSIZE ":19223372036854775807\r\n"
+#define INVALID ":123lOl456\r\n"
 
-    struct element el;
+    struct element el_c, el_p;
     int ret;
 
     test_reset();
-    el.type = ELEM_INT;
+    el_c.type = ELEM_INT;
 
-    el.num = INT_1;
-    ret = compose_element(&buf, &el);
+    el_c.num = INT_1;
+    ret = compose_element(&buf, &el_c);
     ck_assert(ret == sizeof(SERIALIZED_1) - 1);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED_1, ret), 0);
-    ret = parse_element(&el, buf);
+    ret = parse_element(&el_p, buf);
     ck_assert_int_eq(ret, PARSE_OK);
     ck_assert(buf->rpos == buf->wpos);
-    ck_assert(el.type == ELEM_INT);
-    ck_assert(el.num == INT_1);
+    ck_assert(el_p.type == ELEM_INT);
+    ck_assert(el_p.num == INT_1);
 
-    el.num = INT_2;
-    ret = compose_element(&buf, &el);
+    buf_reset(buf);
+    el_c.num = INT_2;
+    ret = compose_element(&buf, &el_c);
     ck_assert(ret == sizeof(SERIALIZED_2) - 1);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED_2, ret), 0);
-    ret = parse_element(&el, buf);
+    ret = parse_element(&el_p, buf);
     ck_assert_int_eq(ret, PARSE_OK);
-    ck_assert(el.type == ELEM_INT);
-    ck_assert(el.num == INT_2);
+    ck_assert(el_p.type == ELEM_INT);
+    ck_assert(el_p.num == INT_2);
 
-    el.num = INT_3;
-    ret = compose_element(&buf, &el);
+    buf_reset(buf);
+    el_c.num = INT_3;
+    ret = compose_element(&buf, &el_c);
     ck_assert(ret == sizeof(SERIALIZED_3) - 1);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED_3, ret), 0);
-    ret = parse_element(&el, buf);
+    ret = parse_element(&el_p, buf);
     ck_assert_int_eq(ret, PARSE_OK);
-    ck_assert(el.num == INT_3);
+    ck_assert(el_p.num == INT_3);
+
+    buf_reset(buf);
+    buf_write(buf, OVERSIZE, sizeof(OVERSIZE) - 1);
+    ret = parse_element(&el_p, buf);
+    ck_assert_int_eq(ret, PARSE_EOVERSIZE);
+
+    buf_reset(buf);
+    buf_write(buf, INVALID, sizeof(INVALID) - 1);
+    ret = parse_element(&el_p, buf);
+    ck_assert_int_eq(ret, PARSE_EINVALID);
 
 #undef INT_3
 #undef INT_2
 #undef INT_1
+#undef INVALID
+#undef OVERSIZE
 #undef SERIALIZED_3
 #undef SERIALIZED_2
 #undef SERIALIZED_1
@@ -171,43 +187,45 @@ END_TEST
 
 START_TEST(test_bulk_string)
 {
-#define SERIALIZED "$9\r\nfoo bar\r\n\r\n"
 #define BULK "foo bar\r\n"
+#define SERIALIZED "$9\r\n" BULK "\r\n"
 #define EMPTY "$0\r\n\r\n"
 
-    struct element el;
+    struct element el_c, el_p;
     int ret;
     int len = sizeof(SERIALIZED) - 1;
 
     test_reset();
 
     /* compose */
-    el.type = ELEM_BULK;
-    el.bstr = str2bstr(BULK);
-    ret = compose_element(&buf, &el);
+    el_c.type = ELEM_BULK;
+    el_c.bstr = str2bstr(BULK);
+    ret = compose_element(&buf, &el_c);
     ck_assert_msg(ret == len, "bytes expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
     /* parse */
-    ck_assert_int_eq(parse_element(&el, buf), PARSE_OK);
+    ck_assert_int_eq(parse_element(&el_p, buf), PARSE_OK);
     ck_assert(buf->rpos == buf->wpos);
-    ck_assert(el.type == ELEM_BULK);
-    ck_assert(el.bstr.len == sizeof(BULK) - 1);
-    ck_assert(el.bstr.data + el.bstr.len == buf->rpos - CRLF_LEN);
+    ck_assert(el_p.type == ELEM_BULK);
+    ck_assert(el_p.bstr.len == sizeof(BULK) - 1);
+    ck_assert(el_p.bstr.data + el_p.bstr.len == buf->rpos - CRLF_LEN);
+    ck_assert(buf->rpos == buf->wpos);
 
     /* empty string */
+    buf_reset(buf);
     len = sizeof(EMPTY) - 1;
-    el.bstr = null_bstring;
-    ret = compose_element(&buf, &el);
+    el_c.bstr = null_bstring;
+    ret = compose_element(&buf, &el_c);
     ck_assert_msg(ret == len, "bytes expected: %d, returned: %d", len, ret);
     ck_assert_int_eq(cc_bcmp(buf->rpos, EMPTY, ret), 0);
-    ck_assert_int_eq(parse_element(&el, buf), PARSE_OK);
-    ck_assert(el.bstr.len == 0);
+    ck_assert_int_eq(parse_element(&el_p, buf), PARSE_OK);
+    ck_assert(el_p.bstr.len == 0);
 
 
 #undef EMPTY
-#undef BULK
 #undef SERIALIZED
+#undef BULK
 }
 END_TEST
 
@@ -236,18 +254,18 @@ START_TEST(test_nil_bulk)
 #define NIL_BULK "$-1\r\n"
 
     size_t len = sizeof(NIL_BULK) - 1;
-    struct element el;
+    struct element el_c, el_p;
 
     test_reset();
 
-    el.type = ELEM_NIL;
-    ck_assert_int_eq(compose_element(&buf, &el), len);
+    el_c.type = ELEM_NIL;
+    ck_assert_int_eq(compose_element(&buf, &el_c), len);
     ck_assert_int_eq(buf_rsize(buf), len);
     ck_assert_int_eq(cc_bcmp(buf->rpos, NIL_BULK, len), 0);
 
-    el.type = ELEM_UNKNOWN;
-    ck_assert_int_eq(parse_element(&el, buf), PARSE_OK);
-    ck_assert_int_eq(el.type, ELEM_NIL);
+    el_p.type = ELEM_UNKNOWN;
+    ck_assert_int_eq(parse_element(&el_p, buf), PARSE_OK);
+    ck_assert_int_eq(el_p.type, ELEM_NIL);
 
 #undef NIL_BULK
 }
@@ -261,8 +279,8 @@ END_TEST
 START_TEST(test_quit)
 {
 #define QUIT "quit"
-#define SERIALIZED "*1\r\n$4\r\nquit\r\n"
-#define INVALID "*2\r\n$4\r\nquit\r\n$3\r\nnow\r\n"
+#define SERIALIZED "*1\r\n$4\r\n" QUIT "\r\n"
+#define INVALID "*2\r\n$4\r\n" QUIT "\r\n$3\r\nnow\r\n"
     int ret;
     struct element *el;
 
@@ -276,7 +294,7 @@ START_TEST(test_quit)
     ck_assert_int_eq(ret, sizeof(SERIALIZED) - 1);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
-    el->type = ELEM_UNKNOWN;
+    el->type = ELEM_UNKNOWN; /* this effectively resets *el */
     request_reset(req);
     ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
     ck_assert_int_eq(req->type, REQ_QUIT);
@@ -300,9 +318,9 @@ START_TEST(test_ping)
 {
 #define PING "ping"
 #define VAL "hello"
-#define S_PING "*1\r\n$4\r\nping\r\n"
-#define S_ECHO "*2\r\n$4\r\nping\r\n$5\r\nhello\r\n"
-#define S_ECHO2 "*3\r\n$4\r\nping\r\n$5\r\nhello\r\n$5\r\nworld\r\n"
+#define S_PING "*1\r\n$4\r\n" PING "\r\n"
+#define S_ECHO "*2\r\n$4\r\n" PING "\r\n$5\r\nhello\r\n"
+#define S_ECHO2 "*3\r\n$4\r\n" PING "\r\n$5\r\nhello\r\n$5\r\nworld\r\n"
     int ret;
     struct element *el;
 
@@ -326,7 +344,7 @@ START_TEST(test_ping)
     ck_assert_int_eq(ret, sizeof(S_ECHO) - 1);
     ck_assert_int_eq(cc_bcmp(buf->rpos, S_ECHO, ret), 0);
 
-    el->type = ELEM_UNKNOWN;
+    el->type = ELEM_UNKNOWN; /* resets *el */
     request_reset(req);
     ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
     ck_assert_int_eq(req->type, REQ_PING);
@@ -357,7 +375,7 @@ END_TEST
 START_TEST(test_ok)
 {
 #define OK "OK"
-#define SERIALIZED "+OK\r\n"
+#define SERIALIZED "+" OK "\r\n"
     int ret;
     struct element *el;
 
@@ -371,7 +389,7 @@ START_TEST(test_ok)
     ck_assert_int_eq(ret, sizeof(SERIALIZED) - 1);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
 
-    el->type = ELEM_UNKNOWN;
+    el->type = ELEM_UNKNOWN; /* resets *el */
     response_reset(rsp);
     ck_assert_int_eq(parse_rsp(rsp, buf), PARSE_OK);
     ck_assert_int_eq(rsp->type, ELEM_STR);
@@ -408,6 +426,7 @@ START_TEST(test_array_reply)
     ck_assert_int_eq(el->type, ELEM_BULK);
     ck_assert_int_eq(el->bstr.len, 5);
     ck_assert_int_eq(cc_bcmp(el->bstr.data, "HELLO", 5), 0);
+    ck_assert_int_eq(buf_rsize(buf), 0);
 
     ck_assert_int_eq(compose_rsp(&buf, rsp), len);
     ck_assert_int_eq(buf_rsize(buf), len);

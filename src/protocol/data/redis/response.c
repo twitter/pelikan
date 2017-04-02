@@ -6,7 +6,7 @@
 #include <cc_mm.h>
 #include <cc_pool.h>
 
-#define RESPONSE_MODULE_NAME "protocol::memcache::response"
+#define RESPONSE_MODULE_NAME "protocol::redis::response"
 
 static bool response_init = false;
 static response_metrics_st *response_metrics = NULL;
@@ -41,6 +41,7 @@ response_create(void)
 
     status = array_create(&rsp->token, ntoken, sizeof(struct element));
     if (status != CC_OK) {
+        cc_free(rsp);
         return NULL;
     }
     response_reset(rsp);

@@ -123,6 +123,7 @@ parse_req(struct request *req, struct buf *buf)
 
     status = _parse_cmd(req);
     if (status != PARSE_OK) {
+        buf->rpos = old_rpos;
         return status;
     }
 

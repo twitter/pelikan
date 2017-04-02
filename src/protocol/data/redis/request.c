@@ -55,6 +55,7 @@ request_create(void)
 
     status = array_create(&req->token, ntoken, sizeof(struct element));
     if (status != CC_OK) {
+        cc_free(req);
         return NULL;
     }
     request_reset(req);
