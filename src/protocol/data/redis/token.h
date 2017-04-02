@@ -1,5 +1,12 @@
 #pragma once
 
+/*
+ * this file handles the serialization / desrialization formats used by Redis:
+ *  - RESP (REdis Serialization Protocol)
+ *  - Simple format (not implemented yet)
+ *  - Cap'n'proto (not implemented yet)
+ */
+
 /**
  * functions that deal with tokens in RESP (REdis Serialization Protocol).
  * RESP is text-based protocol that uses special characters and prefixed-length
