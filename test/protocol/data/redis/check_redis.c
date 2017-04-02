@@ -271,6 +271,35 @@ START_TEST(test_nil_bulk)
 }
 END_TEST
 
+START_TEST(test_unfin)
+{
+    char *token[10] = {
+        "+hello ",
+        "-err",
+        "-err\r",
+        ":5",
+        ":5\r",
+        "$5",
+        "$5\r",
+        "$5\r\n",
+        "$5\r\nabc",
+        "$5\r\nabcde\r",
+    };
+
+    for (int i = 0; i < 10; i++) {
+        size_t len = strlen(token[i]);
+        struct element el;
+        char *pos;
+
+        buf_reset(buf);
+        buf_write(buf, token[i], len);
+        pos = buf->rpos;
+        ck_assert_int_eq(parse_element(&el, buf), PARSE_EUNFIN);
+        ck_assert(buf->rpos == pos);
+    }
+}
+END_TEST
+
 
 /*
  * request
@@ -329,6 +358,7 @@ START_TEST(test_ping)
     /* simple ping */
     buf_write(buf, S_PING, sizeof(S_PING) - 1);
     ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
+    ck_assert_int_eq(req->type, REQ_PING);
 
     /* ping as echo */
     test_reset();
@@ -509,6 +539,7 @@ redis_suite(void)
     tcase_add_test(tc_token, test_bulk_string);
     tcase_add_test(tc_token, test_array);
     tcase_add_test(tc_token, test_nil_bulk);
+    tcase_add_test(tc_token, test_unfin);
 
     /* basic requests */
     TCase *tc_request = tcase_create("request");

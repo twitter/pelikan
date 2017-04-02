@@ -81,7 +81,7 @@ _read_int(int64_t *num, struct buf *buf, int64_t min, int64_t max)
     }
 
     *num = 0;
-    for (; buf->rpos < buf->wpos; buf->rpos++) {
+    for (; buf_rsize(buf) > 0; buf->rpos++) {
         if (isdigit(*buf->rpos)) {
             if (*num < min / 10 || *num > max / 10) {
                 /* TODO(yao): catch the few numbers that will still overflow */
@@ -99,6 +99,10 @@ _read_int(int64_t *num, struct buf *buf, int64_t min, int64_t max)
 
                 return PARSE_OK;
             } else {
+                if (*buf->rpos == CR) {
+                    return PARSE_EUNFIN;
+                }
+
                 log_warn("invalid character encountered: %c", *buf->rpos);
 
                 return PARSE_EINVALID;
@@ -126,7 +130,7 @@ _read_bulk(struct bstring *str, struct buf *buf)
         return PARSE_EEMPTY;
     }
 
-    if (buf_rsize(buf) >= str->len + CRLF_LEN) {
+    if (buf_rsize(buf) >= len + CRLF_LEN) {
         /* have enough bytes for the whole payload plus CRLF */
         str->len = len;
         str->data = buf->rpos;
@@ -139,6 +143,10 @@ _read_bulk(struct bstring *str, struct buf *buf)
 
             return PARSE_OK;
         } else {
+            if (*buf->rpos == CR) {
+                return PARSE_EUNFIN;
+            }
+
             log_warn("invalid character encountered, expecting CRLF: %c%c",
                     *buf->rpos, *(buf->rpos + 1));
 
