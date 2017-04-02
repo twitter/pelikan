@@ -21,17 +21,12 @@
 extern "C" {
 #endif
 
-/*
-Excerpt and modified from lookup3.c (http://burtleburtle.net/bob/c/lookup3.c),
-originally by Bob Jenkins, May 2006, Public Domain.
-*/
-
 #include <cc_define.h>
 
-#include <stdint.h>     /* defines uint32_t etc */
+#include <stdint.h>
 #include <stdlib.h>
 
-uint32_t hashlittle( const void *key, size_t length, uint32_t initval);
+uint32_t hash_lookup3(const void *key, size_t length, const uint32_t initval);
 
 #ifdef __cplusplus
 }

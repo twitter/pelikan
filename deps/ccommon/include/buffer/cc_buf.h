@@ -169,6 +169,10 @@ buf_read(char *dst, struct buf *src, uint32_t count)
 static inline uint32_t
 buf_write(struct buf *dst, char *src, uint32_t count)
 {
+    if (count == 0) {
+        return 0;
+    }
+
     ASSERT(dst != NULL && src != NULL);
 
     uint32_t len = MIN(buf_wsize(dst), count);
