@@ -2,6 +2,7 @@
 
 #include "cmd_hash.h"
 #include "cmd_misc.h"
+#include "cmd_pubsub.h"
 #include "cmd_zset.h"
 
 #include <cc_array.h>
@@ -44,6 +45,7 @@ typedef enum cmd_type {
     REQ_HASH(GET_TYPE)
     REQ_ZSET(GET_TYPE)
     REQ_MISC(GET_TYPE)
+    REQ_PUBSUB(GET_TYPE)
     REQ_SENTINEL
 } cmd_type_e;
 #undef GET_TYPE
