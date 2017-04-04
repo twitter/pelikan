@@ -70,7 +70,7 @@ _write_uint64(struct buf **buf, uint64_t val)
     struct buf *b;
 
 
-    /* NOTE(yao): here we are being conservative on how many bytes wee need
+    /* NOTE(yao): here we are being conservative on how many bytes we need
      * to print a (64-bit) integer. The actual number might be smaller.
      * But since it is 21 bytes at most (including \0' while buffers usually
      * are KBs in size, it is unlikely to cause many extra expansions.

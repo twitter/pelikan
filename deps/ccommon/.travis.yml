@@ -75,6 +75,11 @@ matrix:
       osx_image: xcode7.1
       env: C_COMPILER=clang
 
+          #    # clang 4.2 on osx
+          #    - os: osx
+          #      osx_image: xcode8.2
+          #      env: C_COMPILER=clang
+
 
 before_install:
   # for osx: 0. update brew; 1. install cmake if missing; 2. (gcc) unlink pre-installed gcc; 3. (gcc) install desired version of gcc
@@ -93,3 +98,4 @@ script:
   - cmake ..
   - make -j
   - make check
+  - egrep -r ":F:|:E:" . || true

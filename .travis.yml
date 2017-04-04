@@ -72,8 +72,13 @@ matrix:
 
     # clang 3.7 on osx
     - os: osx
-      osx_image: xcode7.1
+      osx_image: xcode7.3
       env: C_COMPILER=clang
+
+          #    # clang 4.2 on osx
+          #    - os: osx
+          #      osx_image: xcode8.2
+          #      env: C_COMPILER=clang
 
 
 before_install:
@@ -93,4 +98,5 @@ script:
   - cmake ..
   - make -j
   - make check
+  - egrep -r ":F:|:E:" . || true
   - cd ../test/integration && python test_twemcache.py
