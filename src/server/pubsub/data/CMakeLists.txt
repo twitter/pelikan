@@ -1,0 +1,5 @@
+set(SOURCE
+    ${SOURCE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/process.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/pubsub.c
+    PARENT_SCOPE)

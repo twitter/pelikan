@@ -33,9 +33,10 @@ option(HAVE_ASSERT_LOG "assert_log enabled by default" ON)
 option(HAVE_ASSERT_PANIC "assert_panic disabled by default" OFF)
 option(HAVE_LOGGING "logging enabled by default" ON)
 option(HAVE_STATS "stats enabled by default" ON)
-option(TARGET_PINGSERVER "build pingserver binary" ON)
-option(TARGET_SLIMCACHE "build slimcache binary" ON)
-option(TARGET_TWEMCACHE "build twemcache binary" ON)
+option(TARGET_PINGSERVER "build pingserver binary" OFF)
+option(TARGET_PUBSUB "build pubsub binary" ON)
+option(TARGET_SLIMCACHE "build slimcache binary" OFF)
+option(TARGET_TWEMCACHE "build twemcache binary" OFF)
 option(COVERAGE "code coverage" OFF)
 
 # Note: duplicate custom targets only works with Makefile generators, will break XCode & VS

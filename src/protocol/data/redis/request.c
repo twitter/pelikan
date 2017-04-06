@@ -19,6 +19,7 @@ struct command command_table[REQ_SENTINEL] = {
     REQ_HASH(CMD_INIT)
     REQ_ZSET(CMD_INIT)
     REQ_MISC(CMD_INIT)
+    REQ_PUBSUB(CMD_INIT)
 };
 #undef CMD_INIT
 

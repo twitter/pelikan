@@ -291,7 +291,7 @@ _worker_evwait(void)
 void *
 core_worker_evloop(void *arg)
 {
-    processor = arg;
+    post_processor = arg;
 
     for(;;) {
         if (_worker_evwait() != CC_OK) {
