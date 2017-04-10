@@ -38,7 +38,7 @@ typedef struct {
  * - a dummy entry RSP_UNKNOWN so we can use it as the initial type value;
  * - a RSP_NUMERIC type that doesn't have a corresponding message body.
  */
-#define RSP_STR_OK "+OK\r\n"
+#define RSP_STR_OK "OK"
 
 /*
  * NOTE(yao): we store fields as location in rbuf, this assumes the data will
