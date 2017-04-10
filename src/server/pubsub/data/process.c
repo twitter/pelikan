@@ -105,6 +105,7 @@ pubsub_process_read(struct buf_sock *s)
         process_request_sock(rsp, req, s);
 
         /* stage 3: write response(s) if necessary */
+        compose_rsp(&s->wbuf, rsp);
 
         /* noreply means no need to write to buffers */
 
