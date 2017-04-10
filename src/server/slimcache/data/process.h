@@ -3,6 +3,7 @@
 #include <buffer/cc_buf.h>
 #include <cc_metric.h>
 #include <cc_option.h>
+#include <stream/cc_sockio.h>
 
 #define ALLOW_FLUSH false
 
@@ -64,5 +65,5 @@ typedef struct {
 void process_setup(process_options_st *options, process_metrics_st *metrics);
 void process_teardown(void);
 
-int slimcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data);
-int slimcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data);
+int slimcache_process_read(struct buf_sock *s);
+int slimcache_process_write(struct buf_sock *s);

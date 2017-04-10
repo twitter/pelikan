@@ -446,7 +446,7 @@ _cleanup(struct request **req, struct response **rsp)
 }
 
 int
-slimcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
+slimcache_process_read(struct buf_sock *s)
 {
     parse_rstatus_t status;
     struct request *req;
@@ -464,14 +464,14 @@ slimcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
     }
 
     /* keep parse-process-compose until running out of data in rbuf */
-    while (buf_rsize(*rbuf) > 0) {
+    while (buf_rsize(s->rbuf) > 0) {
         struct response *nr;
         int i, card;
 
         /* stage 1: parsing */
-        log_verb("%"PRIu32" bytes left", buf_rsize(*rbuf));
+        log_verb("%"PRIu32" bytes left", buf_rsize(s->rbuf));
 
-        status = parse_req(req, *rbuf);
+        status = parse_req(req, s->rbuf);
         if (status == PARSE_EUNFIN) {
             goto done;
         }
@@ -528,7 +528,7 @@ slimcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
             card = req->nfound + 1;
         } /* no need to update for other req types- card remains 1 */
         for (i = 0; i < card; nr = STAILQ_NEXT(nr, next), ++i) {
-            if (compose_rsp(wbuf, nr) < 0) {
+            if (compose_rsp(&s->wbuf, nr) < 0) {
                 log_error("composing rsp erred");
                 INCR(process_metrics, process_ex);
                 goto error;
@@ -546,12 +546,12 @@ error:
 }
 
 int
-slimcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
+slimcache_process_write(struct buf_sock *s)
 {
     log_verb("post-write processing");
 
-    dbuf_shrink(rbuf);
-    dbuf_shrink(wbuf);
+    dbuf_shrink(&s->rbuf);
+    dbuf_shrink(&s->wbuf);
 
     return 0;
 }

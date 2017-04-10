@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
-struct post_processor worker_processor = {
+struct processor worker_processor = {
     slimcache_process_read,
     slimcache_process_write
 };
