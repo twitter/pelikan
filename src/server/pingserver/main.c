@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
-struct post_processor worker_processor = {
+struct processor worker_processor = {
     pingserver_process_read,
     pingserver_process_write
 };

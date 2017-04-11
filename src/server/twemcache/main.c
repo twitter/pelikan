@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
-struct post_processor worker_processor = {
+struct processor worker_processor = {
     twemcache_process_read,
     twemcache_process_write,
     twemcache_process_error,

@@ -33,17 +33,17 @@ extern worker_metrics_st *worker_metrics;
 /*
  * To allow the use application-specific logic in the handling of read/write
  * events, each application is expected to implement their own versions of
- * post_processing functions called after the channel-level read/write is done.
+ * (post) processing functions called after the channel-level read/write is done.
  *
- * Applications should set and pass their instance of post_processor as argument
+ * Applications should set and pass their instance of processor as argument
  * to core_worker_evloop().
  */
-struct buf;
-typedef int (*post_process_fn)(struct buf **, struct buf **, void **);
-struct post_processor {
-    post_process_fn post_read;
-    post_process_fn post_write;
-    post_process_fn post_error;
+struct buf_sock;
+typedef int (*process_fn)(struct buf_sock *);
+struct processor {
+    process_fn read;
+    process_fn write;
+    process_fn error;
 };
 
 void core_worker_setup(worker_options_st *options, worker_metrics_st *metrics);
