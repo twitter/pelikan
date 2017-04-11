@@ -263,9 +263,9 @@ START_TEST(test_nil_bulk)
 }
 END_TEST
 
-START_TEST(test_unfin)
+START_TEST(test_unfin_token)
 {
-    char *token[10] = {
+    char *token[13] = {
         "+hello ",
         "-err",
         "-err\r",
@@ -276,17 +276,31 @@ START_TEST(test_unfin)
         "$5\r\n",
         "$5\r\nabc",
         "$5\r\nabcde\r",
+        "*5",
+        "*5\r",
     };
+    char *pos;
+    size_t len;
 
     for (int i = 0; i < 10; i++) {
-        size_t len = strlen(token[i]);
         struct element el;
-        char *pos;
 
+        len = strlen(token[i]);
         buf_reset(buf);
         buf_write(buf, token[i], len);
         pos = buf->rpos;
         ck_assert_int_eq(parse_element(&el, buf), PARSE_EUNFIN);
+        ck_assert(buf->rpos == pos);
+    }
+
+    for (int i = 10; i < 12; i++) {
+        int64_t nelem;
+
+        len = strlen(token[i]);
+        buf_reset(buf);
+        buf_write(buf, token[i], len);
+        pos = buf->rpos;
+        ck_assert_int_eq(token_array_nelem(&nelem, buf), PARSE_EUNFIN);
         ck_assert(buf->rpos == pos);
     }
 }
@@ -388,6 +402,29 @@ START_TEST(test_ping)
 #undef ECHO
 #undef S_PING
 #undef QUIT
+}
+END_TEST
+
+START_TEST(test_unfin_req)
+{
+    char *token[4] = {
+        "*2\r\n",
+        "*2\r\n$3\r\n",
+        "*2\r\n$3\r\nfoo\r\n",
+        "*2\r\n$3\r\nfoo\r\n$3\r\n",
+    };
+
+    for (int i = 0; i < 4; i++) {
+        char *pos;
+        size_t len;
+
+        len = strlen(token[i]);
+        buf_reset(buf);
+        buf_write(buf, token[i], len);
+        pos = buf->rpos;
+        ck_assert_int_eq(parse_req(req, buf), PARSE_EUNFIN);
+        ck_assert(buf->rpos == pos);
+    }
 }
 END_TEST
 
@@ -531,7 +568,7 @@ redis_suite(void)
     tcase_add_test(tc_token, test_bulk_string);
     tcase_add_test(tc_token, test_array);
     tcase_add_test(tc_token, test_nil_bulk);
-    tcase_add_test(tc_token, test_unfin);
+    tcase_add_test(tc_token, test_unfin_token);
 
     /* basic requests */
     TCase *tc_request = tcase_create("request");
@@ -539,6 +576,7 @@ redis_suite(void)
 
     tcase_add_test(tc_request, test_quit);
     tcase_add_test(tc_request, test_ping);
+    tcase_add_test(tc_request, test_unfin_req);
 
     /* basic response */
     TCase *tc_response = tcase_create("response");
