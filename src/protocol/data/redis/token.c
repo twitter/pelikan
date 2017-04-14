@@ -190,11 +190,19 @@ token_is_array(struct buf *buf)
 parse_rstatus_t
 token_array_nelem(int64_t *nelem, struct buf *buf)
 {
+    parse_rstatus_t status;
+    char *pos;
+
     ASSERT(nelem != NULL && buf != NULL);
     ASSERT(token_is_array(buf));
 
-    buf->rpos++;
-    return _read_int(nelem, buf, -1, ARRAY_MAXLEN);
+    pos = buf->rpos++;
+    status = _read_int(nelem, buf, -1, ARRAY_MAXLEN);
+    if (status == PARSE_EUNFIN) {
+        buf->rpos = pos;
+    }
+
+    return status;
 }
 
 

@@ -99,17 +99,26 @@ parse_req(struct request *req, struct buf *buf)
     }
     status = token_array_nelem(&nelem, buf);
     if (status != PARSE_OK) {
+        log_verb("getting array size returns status %d", status);
         buf->rpos = old_rpos;
         return status;
+    } else {
+        log_verb("array size is %"PRId64, nelem);
     }
+
     if (nelem < 1 || nelem > req->token->nalloc) {
         log_debug("parse req: invalid array size, %d not in [1, %"PRIu32"]",
                 nelem, req->token->nalloc);
         return PARSE_EINVALID;
     }
 
+
     /* parse elements */
     while (nelem > 0) {
+        if (buf_rsize(buf) == 0) {
+            buf->rpos = old_rpos;
+            return PARSE_EUNFIN;
+        }
         el = array_push(req->token);
         status = parse_element(el, buf);
         if (status != PARSE_OK) {
