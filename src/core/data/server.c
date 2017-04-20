@@ -20,6 +20,8 @@
 
 #define SERVER_MODULE_NAME "core::server"
 
+#define SLEEP_CONN_USEC 10000 /* sleep for 10ms on out-of-stream-object error */
+
 static bool server_init = false;
 static server_metrics_st *server_metrics = NULL;
 
@@ -71,10 +73,45 @@ _tcp_accept(struct buf_sock *ss)
 
     s = buf_sock_borrow();
     if (s == NULL) {
+        /*
+         * TODO: what's the best way to respond to DDoS?
+         *
+         * If the DDoS is intentional, the best response is probably to do as
+         * little work as possible, and hope OS can handle/shed the load.
+         *
+         * If DDoS is caused by synchronized client connect attempts with
+         * a reasonable backoff policy, we probably can close the connections
+         * right away to trigger the client-side policy.
+         *
+         * If the client-side policy is for timeout only but not for other
+         * errors, we probably want to wait (sleep()), so the client-side
+         * backoff can be triggered.
+         *
+         * If the client-side logic does not have any backoff, we are pretty
+         * much in the same situation as an intentional DDoS.
+         */
+        /*
+         * Aside from properly handle the connections, another issue is what
+         * server should do with its CPU time. There are three options:
+         *   - keep handling incoming events (mostly rejecting connections)
+         *   - sleep for a while and then wake up, hoping things change by then
+         *   - stop handling incoming events until a connection is freed
+         *
+         * Delayed response saves CPU resources and generally makes more sense
+         * for the server, knowing that client probably will retry and succeed
+         * eventually. However at this point it is not clear to me whether it's
+         * better to do a timed sleep or a conditional sleep.
+         * Timed sleep is easy to implement but a little inflexible; conditional
+         * sleep is the smartest option but requires cross-thread communication.
+         *
+         * Twemcache enables/disables event on the listening port dinamically,
+         * but the handling is not really thread-safe.
+         */
         log_error("establish connection failed: cannot allocate buf_sock, "
                 "reject connection request");
         ss->hdl->reject(sc); /* server rejects connection by closing it */
-        return true;
+        usleep(SLEEP_CONN_USEC);
+        return false;
     }
 
     if (!ss->hdl->accept(sc, s->ch)) {
