@@ -42,3 +42,17 @@ pingserver_process_write(struct buf_sock *s)
 
     return 0;
 }
+
+int
+pingserver_process_error(struct buf_sock *s)
+{
+    log_verb("post-error processing");
+
+    /* normalize buffer size */
+    buf_reset(s->rbuf);
+    dbuf_shrink(&s->rbuf);
+    buf_reset(s->wbuf);
+    dbuf_shrink(&s->wbuf);
+
+    return 0;
+}

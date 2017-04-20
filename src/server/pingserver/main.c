@@ -15,7 +15,8 @@
 
 struct processor worker_processor = {
     pingserver_process_read,
-    pingserver_process_write
+    pingserver_process_write,
+    pingserver_process_error,
 };
 
 static void
