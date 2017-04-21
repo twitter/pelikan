@@ -46,8 +46,7 @@ parse_req(struct buf *buf)
         return PARSE_EUNFIN;
     }
 
-    if (cc_memcmp(buf->rpos, REQUEST_UPPER, REQ_LEN) == 0 ||
-            cc_memcmp(buf->rpos, REQUEST_LOWER, REQ_LEN) == 0) {
+    if (strncasecmp(buf->rpos, REQUEST, REQ_LEN) == 0) {
         buf->rpos += REQ_LEN;
         INCR(parse_req_metrics, request_parse);
         return PARSE_OK;
