@@ -42,7 +42,7 @@ compose_req(struct buf **buf)
 {
     log_verb("composing request to buf %p", buf);
 
-    if (buf_wsize(*buf) < sizeof(REQUEST) && dbuf_double(buf) != CC_OK) {
+    if (buf_wsize(*buf) < REQ_LEN && dbuf_double(buf) != CC_OK) {
         log_debug("failed to double buf %p");
         INCR(compose_req_metrics, request_compose_ex);
 
