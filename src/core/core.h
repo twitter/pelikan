@@ -5,14 +5,8 @@
  */
 
 #include "admin/admin.h"
-#include "context.h"
+#include "data/shared.h"
 #include "data/server.h"
 #include "data/worker.h"
 
-#include <cc_define.h>
-
-void core_setup(admin_options_st *opt_admin,
-                server_options_st *opt_server, worker_options_st *opt_worker,
-                server_metrics_st *smetrics, worker_metrics_st *wmetrics);
-void core_teardown(void);
 void core_run(void *arg_worker);

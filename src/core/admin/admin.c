@@ -22,10 +22,7 @@
 
 #define ADMIN_MODULE_NAME "core::admin"
 
-bool admin_running = false;
 struct timing_wheel *tw;
-
-static bool admin_init = false;
 
 static struct context context;
 static struct context *ctx = &context;
