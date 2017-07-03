@@ -22,10 +22,7 @@
 
 #define ADMIN_MODULE_NAME "core::admin"
 
-bool admin_running = false;
 struct timing_wheel *tw;
-
-static bool admin_init = false;
 
 static struct context context;
 static struct context *ctx = &context;
@@ -307,7 +304,6 @@ core_admin_register(uint64_t intvl_ms, timeout_cb_fn cb, void *arg)
 {
     struct timeout delay;
 
-    ASSERT(!__atomic_load_n(&admin_running, __ATOMIC_RELAXED));
     ASSERT(admin_init);
 
     timeout_set_ms(&delay, intvl_ms);
@@ -327,8 +323,8 @@ _admin_evwait(void)
     return CC_OK;
 }
 
-void *
-core_admin_evloop(void *arg)
+void
+core_admin_evloop(void)
 {
     for(;;) {
         if (_admin_evwait() != CC_OK) {
@@ -338,8 +334,6 @@ core_admin_evloop(void *arg)
 
         timing_wheel_execute(tw);
     }
-
-    __atomic_store_n(&admin_running, false, __ATOMIC_RELAXED);
 
     exit(1);
 }

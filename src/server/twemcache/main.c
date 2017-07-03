@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
-struct processor worker_processor = {
+struct data_processor worker_processor = {
     twemcache_process_read,
     twemcache_process_write,
     twemcache_process_error,
@@ -50,7 +50,9 @@ show_usage(void)
 static void
 teardown(void)
 {
-    core_teardown();
+    core_worker_teardown();
+    core_server_teardown();
+    core_admin_teardown();
     admin_process_teardown();
     process_teardown();
     slab_teardown();
@@ -120,8 +122,9 @@ setup(void)
     slab_setup(&setting.slab, &stats.slab);
     process_setup(&setting.process, &stats.process);
     admin_process_setup();
-    core_setup(&setting.admin, &setting.server, &setting.worker,
-            &stats.server, &stats.worker);
+    core_admin_setup(&setting.admin);
+    core_server_setup(&setting.server, &stats.server);
+    core_worker_setup(&setting.worker, &stats.worker);
 
     /* adding recurring events to maintenance/admin thread */
     intvl = option_uint(&setting.twemcache.dlog_intvl);
@@ -203,7 +206,7 @@ main(int argc, char **argv)
     setup();
     option_print_all((struct option *)&setting, nopt);
 
-    core_run(NULL, &worker_processor);
+    core_run(&worker_processor);
 
     exit(EX_OK);
 }

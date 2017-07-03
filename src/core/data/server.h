@@ -36,4 +36,4 @@ struct addrinfo;
 
 void core_server_setup(server_options_st *options, server_metrics_st *metrics);
 void core_server_teardown(void);
-void core_server_evloop(void);
+void *core_server_evloop(void *arg); /* arg is ignored, signature for pthread_create compatibility */

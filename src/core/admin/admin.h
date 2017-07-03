@@ -33,8 +33,6 @@ typedef struct {
     ADMIN_OPTION(OPTION_DECLARE)
 } admin_options_st;
 
-extern bool admin_running;
-
 void core_admin_setup(admin_options_st *options);
 void core_admin_teardown(void);
 
@@ -42,4 +40,4 @@ void core_admin_teardown(void);
 struct timeout_event *
 core_admin_register(uint64_t intvl_ms, timeout_cb_fn cb, void *arg);
 
-void *core_admin_evloop(void *arg);
+void core_admin_evloop(void);

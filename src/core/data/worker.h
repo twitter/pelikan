@@ -28,8 +28,6 @@ typedef struct {
     CORE_WORKER_METRIC(METRIC_DECLARE)
 } worker_metrics_st;
 
-extern worker_metrics_st *worker_metrics;
-
 /*
  * To allow the use application-specific logic in the handling of read/write
  * events, each application is expected to implement their own versions of
@@ -38,12 +36,12 @@ extern worker_metrics_st *worker_metrics;
  * Applications should set and pass their instance of processor as argument
  * to core_worker_evloop().
  */
-struct buf_sock;
-typedef int (*process_fn)(struct buf_sock *);
-struct processor {
-    process_fn read;
-    process_fn write;
-    process_fn error;
+struct buf;
+typedef int (*data_fn)(struct buf **, struct buf **, void **);
+struct data_processor {
+    data_fn read;
+    data_fn write;
+    data_fn error;
 };
 
 void core_worker_setup(worker_options_st *options, worker_metrics_st *metrics);

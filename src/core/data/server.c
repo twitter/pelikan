@@ -22,7 +22,9 @@
 
 #define SLEEP_CONN_USEC 10000 /* sleep for 10ms on out-of-stream-object error */
 
-static bool server_init = false;
+struct pipe_conn *pipe_c = NULL;
+struct ring_array *conn_arr = NULL;
+
 static server_metrics_st *server_metrics = NULL;
 
 static struct context context;
@@ -193,6 +195,26 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
         nevent = option_uint(&options->server_nevent);
     }
 
+    /* setup shared data structures between server and worker */
+    pipe_c = pipe_conn_create();
+    if (pipe_c == NULL) {
+        log_error("Could not create connection for pipe, abort");
+        goto error;
+    }
+
+    if (!pipe_open(NULL, pipe_c)) {
+        log_error("Could not open pipe connection: %s", strerror(pipe_c->err));
+        goto error;
+    }
+
+    pipe_set_nonblocking(pipe_c);
+
+    conn_arr = ring_array_create(sizeof(struct buf_sock *), RING_ARRAY_DEFAULT_CAP);
+    if (conn_arr == NULL) {
+        log_error("core setup failed: could not allocate conn array");
+        goto error;
+    }
+
     ctx->timeout = timeout;
     ctx->evb = event_base_create(nevent, _server_event);
     if (ctx->evb == NULL) {
@@ -243,7 +265,6 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
     return;
 
 error:
-    core_server_teardown();
     exit(EX_CONFIG);
 }
 
@@ -259,6 +280,8 @@ core_server_teardown(void)
         freeaddrinfo(server_ai);
         buf_sock_return(&server_sock);
     }
+    ring_array_destroy(conn_arr);
+    pipe_conn_destroy(&pipe_c);
     server_metrics = NULL;
     server_init = false;
 }
@@ -280,8 +303,8 @@ _server_evwait(void)
     return CC_OK;
 }
 
-void
-core_server_evloop(void)
+void *
+core_server_evloop(void *arg)
 {
     for(;;) {
         if (_server_evwait() != CC_OK) {
@@ -289,4 +312,6 @@ core_server_evloop(void)
             break;
         }
     }
+
+    exit(1);
 }
