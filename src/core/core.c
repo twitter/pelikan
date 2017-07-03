@@ -78,7 +78,7 @@ core_teardown(void)
 void
 core_run(void *arg_worker)
 {
-    pthread_t worker, admin;
+    pthread_t worker, server;
     int ret;
 
     if (!core_init) {
@@ -92,14 +92,13 @@ core_run(void *arg_worker)
         goto error;
     }
 
-    __atomic_store_n(&admin_running, true, __ATOMIC_RELAXED);
-    ret = pthread_create(&admin, NULL, core_admin_evloop, NULL);
+    ret = pthread_create(&server, NULL, core_server_evloop, NULL);
     if (ret != 0) {
-        log_crit("pthread create failed for admin thread: %s", strerror(ret));
+        log_crit("pthread create failed for server thread: %s", strerror(ret));
         goto error;
     }
 
-    core_server_evloop();
+    core_admin_evloop();
 
 error:
     core_teardown();

@@ -280,8 +280,8 @@ _server_evwait(void)
     return CC_OK;
 }
 
-void
-core_server_evloop(void)
+void *
+core_server_evloop(void *arg)
 {
     for(;;) {
         if (_server_evwait() != CC_OK) {
@@ -289,4 +289,6 @@ core_server_evloop(void)
             break;
         }
     }
+
+    exit(1);
 }
