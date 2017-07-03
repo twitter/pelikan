@@ -15,4 +15,4 @@ void core_setup(admin_options_st *opt_admin,
                 server_options_st *opt_server, worker_options_st *opt_worker,
                 server_metrics_st *smetrics, worker_metrics_st *wmetrics);
 void core_teardown(void);
-void core_run(void *arg_admin, void *arg_worker);
+void core_run(void *arg_worker);

@@ -207,7 +207,7 @@ main(int argc, char **argv)
     setup();
     option_print_all((struct option *)&setting, nopt);
 
-    core_run(NULL, &worker_processor);
+    core_run(&worker_processor);
 
     exit(EX_OK);
 }
