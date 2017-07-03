@@ -438,7 +438,7 @@ process_request(struct response *rsp, struct request *req)
     }
 }
 
-static void
+static inline void
 _cleanup(struct request **req, struct response **rsp)
 {
     request_return(req);
@@ -473,7 +473,8 @@ slimcache_process_read(struct buf_sock *s)
 
         status = parse_req(req, s->rbuf);
         if (status == PARSE_EUNFIN) {
-            goto done;
+            buf_lshift(s->rbuf);
+            return 0;
         }
         if (status != PARSE_OK) {
             /* parsing errors are all client errors, since we don't know
@@ -483,6 +484,10 @@ slimcache_process_read(struct buf_sock *s)
              */
             log_warn("illegal request received, status: %d", status);
             goto error;
+        }
+
+        if (req->swallow) { /* skip to the end of current request */
+            continue;
         }
 
         /* stage 2: processing- check for quit, allocate response(s), process */
@@ -512,32 +517,30 @@ slimcache_process_read(struct buf_sock *s)
 
         /* actual processing & command logging */
         process_request(rsp, req);
-        klog_write(req, rsp);
 
         /* stage 3: write response(s) */
 
         /* noreply means no need to write to buffers */
-        if (req->noreply) {
-            request_reset(req);
-            continue;
-        }
-
-        /* write to wbuf */
-        nr = rsp;
-        if (req->type == REQ_GET || req->type == REQ_GETS) {
-            card = req->nfound + 1;
-        } /* no need to update for other req types- card remains 1 */
-        for (i = 0; i < card; nr = STAILQ_NEXT(nr, next), ++i) {
-            if (compose_rsp(&s->wbuf, nr) < 0) {
-                log_error("composing rsp erred");
-                INCR(process_metrics, process_ex);
-                goto error;
+        if (!req->noreply) {
+            nr = rsp;
+            if (req->type == REQ_GET || req->type == REQ_GETS) {
+                /* for get/gets, card is determined by number of values */
+                card = req->nfound + 1;
+            }
+            for (i = 0; i < card; nr = STAILQ_NEXT(nr, next), ++i) {
+                if (compose_rsp(&s->wbuf, nr) < 0) {
+                    log_error("composing rsp erred");
+                    INCR(process_metrics, process_ex);
+                    goto error;
+                }
             }
         }
+
+        /* logging, clean-up */
+        klog_write(req, rsp);
+        _cleanup(&req, &rsp);
     }
 
-done:
-    _cleanup(&req, &rsp);
     return 0;
 
 error:
@@ -550,7 +553,23 @@ slimcache_process_write(struct buf_sock *s)
 {
     log_verb("post-write processing");
 
+    buf_lshift(s->rbuf);
     dbuf_shrink(&s->rbuf);
+    buf_lshift(s->wbuf);
+    dbuf_shrink(&s->wbuf);
+
+    return 0;
+}
+
+int
+slimcache_process_error(struct buf_sock *s)
+{
+    log_verb("post-error processing");
+
+    /* normalize buffer size */
+    buf_reset(s->rbuf);
+    dbuf_shrink(&s->rbuf);
+    buf_reset(s->wbuf);
     dbuf_shrink(&s->wbuf);
 
     return 0;

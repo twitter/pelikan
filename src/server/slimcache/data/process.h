@@ -67,3 +67,4 @@ void process_teardown(void);
 
 int slimcache_process_read(struct buf_sock *s);
 int slimcache_process_write(struct buf_sock *s);
+int slimcache_process_error(struct buf_sock *s);
