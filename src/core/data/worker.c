@@ -28,7 +28,7 @@ static struct context *ctx = &context;
 static channel_handler_st handlers;
 static channel_handler_st *hdl = &handlers;
 
-struct processor *post_processor;
+struct data_processor *processor;
 
 static inline rstatus_i
 _worker_write(struct buf_sock *s)
@@ -71,7 +71,7 @@ _worker_event_write(struct buf_sock *s)
         c->state = CHANNEL_TERM;
     }
 
-    if (post_processor->write(s) < 0) {
+    if (processor->write(&s->rbuf, &s->wbuf, &s->data) < 0) {
         log_debug("handler signals channel termination");
         s->ch->state = CHANNEL_TERM;
         return CC_ERROR;
@@ -98,7 +98,7 @@ worker_close(struct buf_sock *s)
 {
     log_info("worker core close on buf_sock %p", s);
 
-    post_processor->error(s);
+    processor->error(&s->rbuf, &s->wbuf, &s->data);
     event_del(ctx->evb, hdl->rid(s->ch));
     hdl->term(s->ch);
     buf_sock_return(&s);
@@ -111,7 +111,7 @@ _worker_event_read(struct buf_sock *s)
     ASSERT(s != NULL);
 
     _worker_read(s);
-    if (post_processor->read(s) < 0) {
+    if (processor->read(&s->rbuf, &s->wbuf, &s->data) < 0) {
         log_debug("handler signals channel termination");
         s->ch->state = CHANNEL_TERM;
         return;
@@ -291,7 +291,7 @@ _worker_evwait(void)
 void *
 core_worker_evloop(void *arg)
 {
-    post_processor = arg;
+    processor = arg;
 
     for(;;) {
         if (_worker_evwait() != CC_OK) {

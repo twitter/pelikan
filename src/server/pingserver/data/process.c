@@ -6,17 +6,17 @@
 #include <cc_debug.h>
 
 int
-pingserver_process_read(struct buf_sock *s)
+pingserver_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     parse_rstatus_t status;
 
     log_verb("post-read processing");
 
     /* keep parse-process-compose until running out of data in rbuf */
-    while (buf_rsize(s->rbuf) > 0) {
-        log_verb("%"PRIu32" bytes left", buf_rsize(s->rbuf));
+    while (buf_rsize(*rbuf) > 0) {
+        log_verb("%"PRIu32" bytes left", buf_rsize(*rbuf));
 
-        status = parse_req(s->rbuf);
+        status = parse_req(*rbuf);
         if (status == PARSE_EUNFIN) {
             return 0;
         }
@@ -24,7 +24,7 @@ pingserver_process_read(struct buf_sock *s)
             return -1;
         }
 
-        if (compose_rsp(&s->wbuf) != COMPOSE_OK) {
+        if (compose_rsp(wbuf) != COMPOSE_OK) {
             return -1;
         }
     }
@@ -33,26 +33,26 @@ pingserver_process_read(struct buf_sock *s)
 }
 
 int
-pingserver_process_write(struct buf_sock *s)
+pingserver_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     log_verb("post-write processing");
 
-    dbuf_shrink(&s->rbuf);
-    dbuf_shrink(&s->wbuf);
+    dbuf_shrink(rbuf);
+    dbuf_shrink(wbuf);
 
     return 0;
 }
 
 int
-pingserver_process_error(struct buf_sock *s)
+pingserver_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     log_verb("post-error processing");
 
     /* normalize buffer size */
-    buf_reset(s->rbuf);
-    dbuf_shrink(&s->rbuf);
-    buf_reset(s->wbuf);
-    dbuf_shrink(&s->wbuf);
+    buf_reset(*rbuf);
+    dbuf_shrink(rbuf);
+    buf_reset(*wbuf);
+    dbuf_shrink(wbuf);
 
     return 0;
 }
