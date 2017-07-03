@@ -465,14 +465,17 @@ slimcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 
     /* keep parse-process-compose until running out of data in rbuf */
     while (buf_rsize(*rbuf) > 0) {
+        char *old_rpos;
         struct response *nr;
         int i, card;
 
         /* stage 1: parsing */
         log_verb("%"PRIu32" bytes left", buf_rsize(*rbuf));
 
+        old_rpos = (*rbuf)->rpos;
         status = parse_req(req, *rbuf);
-        if (status == PARSE_EUNFIN) {
+        if (status == PARSE_EUNFIN || req->partial) { /* ignore partial */
+            (*rbuf)->rpos = old_rpos;
             buf_lshift(*rbuf);
             return 0;
         }
