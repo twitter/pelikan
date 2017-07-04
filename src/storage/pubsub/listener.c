@@ -5,78 +5,37 @@
 #include <cc_queue.h>
 #include <hash/cc_lookup3.h>
 
-static struct listener_slh *
-_ht_alloc(uint32_t nentry)
-{
+#include <sysexits.h>
+
+SLIST_HEAD(listener_slh, listener);
+
+struct listener_ht {
     struct listener_slh *table;
-    uint32_t i;
+    uint32_t nlistener;
+    uint32_t hash_power;
+};
 
-    table = cc_alloc(sizeof(*table) * nentry);
-
-    if (table != NULL) {
-        for (i = 0; i < nentry; ++i) {
-            SLIST_INIT(&table[i]);
-        }
-    }
-
-    return table;
-}
-
-struct listener_ht *
-listener_ht_create(uint32_t hash_power)
-{
-    struct listener_ht *ht;
-    uint32_t nentry;
-
-    ASSERT(hash_power > 0);
-
-    ht = cc_alloc(sizeof(struct listener_ht));
-    if (ht == NULL) {
-        return NULL;
-    }
-
-    ht->hash_power = hash_power;
-    ht->nlistener = 0;
-    nentry = HASHSIZE(ht->hash_power);
-    ht->table = _ht_alloc(nentry);
-    if (ht->table == NULL) {
-        cc_free(ht);
-        return NULL;
-    }
-
-    return ht;
-}
-
-void listener_ht_destroy(struct listener_ht **ht)
-{
-    ASSERT(ht != NULL);
-
-    if (*ht != NULL && (*ht)->table != NULL) {
-        cc_free((*ht)->table);
-    }
-
-    cc_free(*ht);
-    *ht = NULL;
-}
+static struct listener_ht hashtable;
+static struct listener_ht *ht = &hashtable;
 
 
 static struct listener_slh *
-_get_bucket(const channel_p ch, struct listener_ht *ht)
+_get_bucket(const struct buf_sock *s)
 {
     /* use the _address_ of the channel to hash */
-    uint32_t hval = hash_lookup3((char *)&ch, sizeof(channel_p), 0);
+    uint32_t hval = hash_lookup3((char *)s, sizeof(struct buf_sock *), 0);
     return &(ht->table[hval & HASHMASK(ht->hash_power)]);
 }
 
 struct listener *
-listener_ht_get(const channel_p ch, struct listener_ht *ht)
+listener_get(const struct buf_sock *s)
 {
     struct listener_slh *bucket;
     struct listener *l;
 
-    bucket = _get_bucket(ch, ht);
+    bucket = _get_bucket(s);
     for (l = SLIST_FIRST(bucket); l != NULL; l = SLIST_NEXT(l, l_sle)) {
-        if (l->ch == ch) {
+        if (l->s == s) {
             return l;
         }
     }
@@ -85,28 +44,28 @@ listener_ht_get(const channel_p ch, struct listener_ht *ht)
 }
 
 void
-listener_ht_put(const struct listener *l, struct listener_ht *ht)
+listener_put(const struct listener *l)
 {
     struct listener_slh *bucket;
 
-    ASSERT(listener_ht_get(l->ch, ht) == NULL);
+    ASSERT(listener_get(l->s) == NULL);
 
-    bucket = _get_bucket(l->ch, ht);
+    bucket = _get_bucket(l->s);
     SLIST_INSERT_HEAD(bucket, (struct listener *)l, l_sle);
 
     ht->nlistener++;
 }
 
 void
-listener_ht_delete(const channel_p ch, struct listener_ht *ht)
+listener_delete(const struct buf_sock *s)
 {
     struct listener_slh *bucket;
     struct listener *l, *prev;
 
-    bucket = _get_bucket(ch, ht);
+    bucket = _get_bucket(s);
     for (prev = NULL, l = SLIST_FIRST(bucket); l != NULL;
         prev = l, l = SLIST_NEXT(l, l_sle)) {
-        if (l->ch == ch) {
+        if (l->s == s) {
             break;
         }
     }
@@ -122,7 +81,7 @@ listener_ht_delete(const channel_p ch, struct listener_ht *ht)
 
 
 struct listener *
-listener_create(channel_p ch, channel_handler_st *handler)
+listener_create(struct buf_sock *s)
 {
     struct listener *l;
 
@@ -138,8 +97,7 @@ listener_create(channel_p ch, channel_handler_st *handler)
     }
 
     listener_reset(l);
-    l->ch = ch;
-    l->handler = handler;
+    l->s = s;
 
     return l;
 }
@@ -166,8 +124,7 @@ listener_destroy(struct listener **l)
 void
 listener_reset(struct listener *l)
 {
-    l->ch = NULL;
-    l->handler = NULL;
+    l->s = NULL;
     l->ntopic = 0;
     TAILQ_INIT(l->idx);
 }
@@ -188,6 +145,7 @@ listener_add_topic(struct listener *l, const struct topic *t)
 
     node = cc_alloc(sizeof(struct index_node));
     if (node == NULL) {
+        log_error("cannot add topic: out of memory");
         return false;
     }
     node->obj = (struct topic *)t;
@@ -215,4 +173,35 @@ listener_del_topic(struct listener *l, const struct topic *t)
 
     TAILQ_REMOVE(l->idx, node, i_tqe);
     l->ntopic--;
+}
+
+void
+listener_setup(uint32_t hash_power)
+{
+    uint32_t i, nentry;
+    struct listener_slh *table;
+
+    ASSERT(hash_power > 0);
+
+    ht->hash_power = hash_power;
+    ht->nlistener = 0;
+    nentry = HASHSIZE(ht->hash_power);
+
+    table = cc_alloc(sizeof(*table) * nentry);
+    if (table == NULL) {
+        log_crit("listener setup failed: OOM");
+        exit(EX_CONFIG);
+    }
+    ht->table = table;
+
+    for (i = 0; i < nentry; ++i) {
+        SLIST_INIT(&table[i]);
+    }
+}
+
+void listener_teardown(void)
+{
+    if (ht->table != NULL) {
+        cc_free(ht->table);
+    }
 }

@@ -19,9 +19,6 @@ typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)
 } process_metrics_st;
 
-typedef void (* command_fn)(struct response *, struct request *, struct buf_sock *);
-extern command_fn command_registry[REQ_SENTINEL];
-
 void process_setup(process_metrics_st *metrics);
 void process_teardown(void);
 

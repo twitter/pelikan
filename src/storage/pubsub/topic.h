@@ -16,22 +16,14 @@ struct topic {
     struct index_tqh    *idx; /* index of all listeners */
 };
 
-SLIST_HEAD(topic_slh, topic);
-
-struct topic_ht {
-    struct topic_slh *table;
-    uint32_t ntopic;
-    uint32_t hash_power;
-};
-
 struct listener;
 
-struct topic_ht *topic_ht_create(uint32_t hash_power);
-void topic_ht_destroy(struct topic_ht **ht);
+void topic_setup(uint32_t hash_power);
+void topic_teardown(void);
 
-struct topic *topic_ht_get(const struct bstring *name, struct topic_ht *ht);
-void topic_ht_put(const struct topic *t, struct topic_ht *ht);
-void topic_ht_delete(const struct bstring *name, struct topic_ht *ht);
+struct topic *topic_get(const struct bstring *name);
+void topic_put(const struct topic *t);
+void topic_delete(const struct bstring *name);
 
 struct topic *topic_create(const struct bstring *name);
 void topic_destroy(struct topic **t);

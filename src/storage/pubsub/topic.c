@@ -5,64 +5,22 @@
 #include <cc_queue.h>
 #include <hash/cc_lookup3.h>
 
-static struct topic_slh *
-_ht_alloc(uint32_t nentry)
-{
+#include <sysexits.h>
+
+SLIST_HEAD(topic_slh, topic);
+
+struct topic_ht {
     struct topic_slh *table;
-    uint32_t i;
+    uint32_t ntopic;
+    uint32_t hash_power;
+};
 
-    table = cc_alloc(sizeof(*table) * nentry);
-
-    if (table != NULL) {
-        for (i = 0; i < nentry; ++i) {
-            SLIST_INIT(&table[i]);
-        }
-    }
-
-    return table;
-}
-
-struct topic_ht *
-topic_ht_create(uint32_t hash_power)
-{
-    struct topic_ht *ht;
-    uint32_t nentry;
-
-    ASSERT(hash_power > 0);
-
-    ht = cc_alloc(sizeof(struct topic_ht));
-    if (ht == NULL) {
-        return NULL;
-    }
-
-    ht->hash_power = hash_power;
-    ht->ntopic = 0;
-    nentry = HASHSIZE(ht->hash_power);
-    ht->table = _ht_alloc(nentry);
-    if (ht->table == NULL) {
-        cc_free(ht);
-        return NULL;
-    }
-
-    return ht;
-}
-
-void
-topic_ht_destroy(struct topic_ht **ht)
-{
-    ASSERT(ht != NULL);
-
-    if (*ht != NULL && (*ht)->table != NULL) {
-        cc_free((*ht)->table);
-    }
-
-    cc_free(*ht);
-    *ht = NULL;
-}
+static struct topic_ht hashtable;
+static struct topic_ht *ht = &hashtable;
 
 
 static struct topic_slh *
-_get_bucket(const struct bstring *name, struct topic_ht *ht)
+_get_bucket(const struct bstring *name)
 {
     /* use the _address_ of the channel to hash */
     uint32_t hval = hash_lookup3(name->data, name->len, 0);
@@ -70,13 +28,14 @@ _get_bucket(const struct bstring *name, struct topic_ht *ht)
 }
 
 struct topic *
-topic_ht_get(const struct bstring *name, struct topic_ht *ht)
+topic_get(const struct bstring *name)
 {
     struct topic_slh *bucket;
     struct topic *t;
 
-    bucket = _get_bucket(name, ht);
+    bucket = _get_bucket(name);
     for (t = SLIST_FIRST(bucket); t != NULL; t = SLIST_NEXT(t, t_sle)) {
+        log_verb("current topic name (len %d) is: %.*s", t->name.len, t->name.len, t->name.data);
         if (bstring_compare(&t->name, name) == 0) {
             return t;
         }
@@ -86,25 +45,25 @@ topic_ht_get(const struct bstring *name, struct topic_ht *ht)
 }
 
 void
-topic_ht_put(const struct topic *t, struct topic_ht *ht)
+topic_put(const struct topic *t)
 {
     struct topic_slh *bucket;
 
-    ASSERT(topic_ht_get(&t->name, ht) == NULL);
+    ASSERT(topic_get(&t->name) == NULL);
 
-    bucket = _get_bucket(&t->name, ht);
+    bucket = _get_bucket(&t->name);
     SLIST_INSERT_HEAD(bucket, (struct topic *)t, t_sle);
 
     ht->ntopic++;
 }
 
 void
-topic_ht_delete(const struct bstring *name, struct topic_ht *ht)
+topic_delete(const struct bstring *name)
 {
     struct topic_slh *bucket;
     struct topic *t, *prev;
 
-    bucket = _get_bucket(name, ht);
+    bucket = _get_bucket(name);
     for (prev = NULL, t = SLIST_FIRST(bucket); t != NULL;
         prev = t, t = SLIST_NEXT(t, t_sle)) {
         if (bstring_compare(&t->name, name) == 0) {
@@ -139,7 +98,13 @@ topic_create(const struct bstring *name)
     }
 
     topic_reset(t);
-    t->name = *name;
+    t->name.len = name->len;
+    t->name.data = cc_alloc(t->name.len);
+    if (t->name.data == NULL) {
+        cc_free(t);
+        return NULL;
+    }
+    cc_memcpy(t->name.data, name->data, name->len);
 
     return t;
 }
@@ -158,6 +123,7 @@ topic_destroy(struct topic **t)
         cc_free(curr);
     }
     cc_free(idx);
+    cc_free((*t)->name.data);
 
     cc_free(*t);
     *t = NULL;
@@ -215,4 +181,35 @@ topic_del_listener(struct topic *t, const struct listener *l)
     TAILQ_REMOVE(t->idx, node, i_tqe);
     t->nsub--;
     cc_free(node);
+}
+
+void
+topic_setup(uint32_t hash_power)
+{
+    uint32_t i, nentry;
+    struct topic_slh *table;
+
+    ASSERT(hash_power > 0);
+
+    ht->hash_power = hash_power;
+    ht->ntopic = 0;
+    nentry = HASHSIZE(ht->hash_power);
+
+    table = cc_alloc(sizeof(*table) * nentry);
+    if (table == NULL) {
+        log_crit("topic setup failed: OOM");
+        exit(EX_CONFIG);
+    }
+    ht->table = table;
+
+    for (i = 0; i < nentry; ++i) {
+        SLIST_INIT(&table[i]);
+    }
+}
+
+void topic_teardown(void)
+{
+    if (ht->table != NULL) {
+        cc_free(ht->table);
+    }
 }
