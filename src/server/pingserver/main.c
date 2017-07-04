@@ -93,10 +93,10 @@ setup(void)
     }
 
     /* setup top-level application options */
-    if (option_bool(&setting.pingserver.daemonize)) {
+    if (option_bool(&setting.main.daemonize)) {
         daemonize();
     }
-    fname = option_str(&setting.pingserver.pid_filename);
+    fname = option_str(&setting.main.pid_filename);
     if (fname != NULL) {
         /* to get the correct pid, call create_pidfile after daemonize */
         create_pidfile(fname);
@@ -121,7 +121,7 @@ setup(void)
     core_worker_setup(&setting.worker, &stats.worker);
 
     /* adding recurring events to maintenance/admin thread */
-    intvl = option_uint(&setting.pingserver.dlog_intvl);
+    intvl = option_uint(&setting.main.dlog_intvl);
     if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
         log_stderr("Could not register timed event to flush debug log");
         goto error;

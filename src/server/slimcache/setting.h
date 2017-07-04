@@ -19,19 +19,19 @@
 
 /* option related */
 /*          name            type                default description */
-#define SLIMCACHE_OPTION(ACTION)                                                        \
+#define MAIN_OPTION(ACTION)                                                             \
     ACTION( daemonize,      OPTION_TYPE_BOOL,   false,  "daemonize the process"        )\
     ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,   "file storing the pid"         )\
     ACTION( dlog_intvl,     OPTION_TYPE_UINT,   500,    "debug log flush interval(ms)" )\
     ACTION( klog_intvl,     OPTION_TYPE_UINT,   100,    "cmd log flush interval(ms)"   )
 
 typedef struct {
-    SLIMCACHE_OPTION(OPTION_DECLARE)
-} slimcache_options_st;
+    MAIN_OPTION(OPTION_DECLARE)
+} main_options_st;
 
 struct setting {
     /* top-level */
-    slimcache_options_st    slimcache;
+    main_options_st         main;
     /* application modules */
     admin_options_st        admin;
     server_options_st       server;
