@@ -1,10 +1,12 @@
 #include "process.h"
 
 #include "protocol/data/redis_include.h"
-#include "pubsub.h"
+#include "storage/pubsub/listener.h"
+#include "storage/pubsub/topic.h"
 
 #include <buffer/cc_dbuf.h>
-#include <cc_debug.h>
+#include <cc_array.h>
+#include <stream/cc_sockio.h>
 
 #define PUBSUB_PROCESS_MODULE_NAME "pubsub::process"
 
@@ -13,6 +15,43 @@ command_fn command_registry[REQ_SENTINEL];
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
 
+static struct listener_ht *lht;
+static struct topic_ht *tht;
+
+
+/* "subscribe topic [topic ...]" */
+static void
+command_subscribe(struct response *rsp, struct request *req, struct buf_sock *s)
+{
+    struct element *el;
+    struct listener *l;
+    struct topic *t;
+    uint32_t ntopic = req->token->nelem - 1;
+
+    l = listener_ht_get(s->ch, lht);
+    if (l == NULL) {
+        l = listener_create(s->ch, s->hdl);
+        listener_ht_put(l, lht);
+    }
+
+    for (int i = 1; i < ntopic; i++) {
+        el = array_get(req->token, i);
+        if (el->type != ELEM_BULK) {
+            /* handle client error */
+        };
+
+        t = topic_ht_get(&el->bstr, tht);
+        if (t == NULL) {
+            t = topic_create(&el->bstr);
+        }
+        listener_add_topic(l, t);
+    }
+
+    rsp->type = ELEM_STR;
+    el = array_push(rsp->token);
+    el->type = ELEM_STR;
+    el->bstr = str2bstr(RSP_STR_OK);
+}
 
 void
 process_setup(process_metrics_st *metrics)
@@ -24,7 +63,8 @@ process_setup(process_metrics_st *metrics)
                  PUBSUB_PROCESS_MODULE_NAME);
     }
 
-    pubsub_setup();
+    lht = listener_ht_create(16);
+    tht = topic_ht_create(16);
 
     command_registry[REQ_SUBSCRIBE] = command_subscribe;
 
@@ -40,7 +80,8 @@ process_teardown(void)
         log_warn("%s has never been setup", PUBSUB_PROCESS_MODULE_NAME);
     }
 
-    pubsub_teardown();
+    listener_ht_destroy(&lht);
+    topic_ht_destroy(&tht);
 
     command_registry[REQ_SUBSCRIBE] = NULL;
 

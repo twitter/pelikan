@@ -8,7 +8,7 @@ struct stats stats = {
     { REQUEST_METRIC(METRIC_INIT)       },
     { RESPONSE_METRIC(METRIC_INIT)      },
     { CORE_SERVER_METRIC(METRIC_INIT)   },
-    { CORE_WORKER_METRIC(METRIC_INIT)   },
+    { CORE_PUBSUB_METRIC(METRIC_INIT)   },
     { BUF_METRIC(METRIC_INIT)           },
     { DBUF_METRIC(METRIC_INIT)          },
     { EVENT_METRIC(METRIC_INIT)         },

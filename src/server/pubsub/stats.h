@@ -23,7 +23,7 @@ struct stats {
     request_metrics_st          request;
     response_metrics_st         response;
     server_metrics_st           server;
-    worker_metrics_st           worker;
+    pubsub_metrics_st           pubsub;
     /* ccommon libraries */
     buf_metrics_st              buf;
     dbuf_metrics_st             dbuf;

@@ -1,10 +1,10 @@
 #include "setting.h"
 
 struct setting setting = {
-    { PUBSUB_OPTION(OPTION_INIT)    },
+    { MAIN_OPTION(OPTION_INIT)      },
     { ADMIN_OPTION(OPTION_INIT)     },
     { SERVER_OPTION(OPTION_INIT)    },
-    { WORKER_OPTION(OPTION_INIT)    },
+    { PUBSUB_OPTION(OPTION_INIT)    },
     { REQUEST_OPTION(OPTION_INIT)   },
     { RESPONSE_OPTION(OPTION_INIT)  },
     { ARRAY_OPTION(OPTION_INIT)     },

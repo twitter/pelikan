@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
-struct processor worker_processor = {
+struct pubsub_processor pubsub_processor = {
     pubsub_process_read,
     pubsub_process_write,
     pubsub_process_error,
@@ -50,7 +50,9 @@ show_usage(void)
 static void
 teardown(void)
 {
-    core_teardown();
+    core_pubsub_teardown();
+    core_server_teardown();
+    core_admin_teardown();
     admin_process_teardown();
     compose_teardown();
     parse_teardown();
@@ -87,10 +89,10 @@ setup(void)
     }
 
     /* setup top-level application options */
-    if (option_bool(&setting.pubsub.daemonize)) {
+    if (option_bool(&setting.main.daemonize)) {
         daemonize();
     }
-    fname = option_str(&setting.pubsub.pid_filename);
+    fname = option_str(&setting.main.pid_filename);
     if (fname != NULL) {
         /* to get the correct pid, call create_pidfile after daemonize */
         create_pidfile(fname);
@@ -113,11 +115,12 @@ setup(void)
     compose_setup(NULL, &stats.compose_rsp);
     process_setup(&stats.process);
     admin_process_setup();
-    core_setup(&setting.admin, &setting.server, &setting.worker,
-            &stats.server, &stats.worker);
+    core_admin_setup(&setting.admin);
+    core_server_setup(&setting.server, &stats.server);
+    core_pubsub_setup(&setting.pubsub, &stats.pubsub);
 
     /* adding recurring events to maintenance/admin thread */
-    intvl = option_uint(&setting.pubsub.dlog_intvl);
+    intvl = option_uint(&setting.main.dlog_intvl);
     if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
         log_stderr("Could not register timed event to flush debug log");
         goto error;
@@ -191,7 +194,7 @@ main(int argc, char **argv)
     setup();
     option_print_all((struct option *)&setting, nopt);
 
-    core_run(NULL, &worker_processor);
+    pubsub_run(&pubsub_processor);
 
     exit(EX_OK);
 }
