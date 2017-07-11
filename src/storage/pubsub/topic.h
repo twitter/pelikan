@@ -22,12 +22,8 @@ void topic_setup(uint32_t hash_power);
 void topic_teardown(void);
 
 struct topic *topic_get(const struct bstring *name);
-void topic_put(const struct topic *t);
+struct topic *topic_add(const struct bstring *name);
 void topic_delete(const struct bstring *name);
-
-struct topic *topic_create(const struct bstring *name);
-void topic_destroy(struct topic **t);
-void topic_reset(struct topic *t);
 
 bool topic_add_listener(struct topic *t, const struct listener *l);
 void topic_del_listener(struct topic *t, const struct listener *l);

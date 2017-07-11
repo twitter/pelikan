@@ -21,12 +21,8 @@ void listener_setup(uint32_t hash_power);
 void listener_teardown(void);
 
 struct listener *listener_get(const struct buf_sock *s);
-void listener_put(const struct listener *l);
+struct listener *listener_add(const struct buf_sock *s);
 void listener_delete(const struct buf_sock *s);
-
-struct listener *listener_create(struct buf_sock *s);
-void listener_destroy(struct listener **l);
-void listener_reset(struct listener *l);
 
 bool listener_add_topic(struct listener *l, const struct topic *t);
 void listener_del_topic(struct listener *l, const struct topic *t);

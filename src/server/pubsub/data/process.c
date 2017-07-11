@@ -99,9 +99,7 @@ command_subscribe(struct response *rsp, struct request *req, struct buf_sock *s)
 
     l = listener_get(s);
     if (l == NULL) {
-        log_verb("create new listener for %p", s);
-        l = listener_create(s);
-        listener_put(l);
+        l = listener_add(s);
     }
 
     for (int i = 1; i <= ntopic; i++) {
@@ -112,10 +110,8 @@ command_subscribe(struct response *rsp, struct request *req, struct buf_sock *s)
 
         t = topic_get(&el->bstr);
         if (t == NULL) {
-            log_verb("creating topic %.*s", el->bstr.len, el->bstr.data);
-            t = topic_create(&el->bstr);
+            t = topic_add(&el->bstr);
             /* handle error */
-            topic_put(t);
         }
 
         log_verb("subscribing to topic %.*s", el->bstr.len, el->bstr.data);
@@ -172,9 +168,7 @@ command_unsubscribe(struct response *rsp, struct request *req, struct buf_sock *
         topic_del_listener(t, l);
 
         if (t->nsub == 0) { /* remove topic that nobody listens to */
-            log_verb("deleting topic %.*s", el->bstr.len, el->bstr.data);
             topic_delete(&t->name);
-            topic_destroy(&t);
         }
 
         el_s.num = l->ntopic;
@@ -314,16 +308,10 @@ pubsub_process_write(struct buf_sock *s)
 int
 pubsub_process_error(struct buf_sock *s)
 {
-    struct listener *l;
-
     log_verb("post-error processing");
 
-    l = listener_get(s);
-    if (l != NULL) {
-        listener_delete(s);
-        /* TODO: unsubscribe automatically from all */
-        listener_destroy(&l);
-    }
+    listener_delete(s);
+    /* TODO: unsubscribe automatically from all */
 
     /* normalize buffer size */
     buf_reset(s->rbuf);

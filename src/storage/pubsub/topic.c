@@ -27,6 +27,64 @@ _get_bucket(const struct bstring *name)
     return &(ht->table[hval & HASHMASK(ht->hash_power)]);
 }
 
+static void
+_topic_reset(struct topic *t)
+{
+    t->name = null_bstring;
+    t->nsub = 0;
+    TAILQ_INIT(t->idx);
+}
+
+static struct topic *
+_topic_create(const struct bstring *name)
+{
+    struct topic *t;
+
+    t = cc_alloc(sizeof(struct topic));
+    if (t == NULL) {
+        return NULL;
+    }
+
+    t->idx = cc_alloc(sizeof(struct index_tqh));
+    if (t->idx == NULL) {
+        cc_free(t);
+        return NULL;
+    }
+
+    _topic_reset(t);
+    t->name.len = name->len;
+    t->name.data = cc_alloc(t->name.len);
+    if (t->name.data == NULL) {
+        cc_free(t->idx);
+        cc_free(t);
+        return NULL;
+    }
+    cc_memcpy(t->name.data, name->data, name->len);
+
+    return t;
+}
+
+static void
+_topic_destroy(struct topic **t)
+{
+    ASSERT(t != NULL && *t != NULL);
+
+    struct index_node *curr, *next;
+    struct index_tqh *idx = (*t)->idx;
+
+    /* delete all elements of the index */
+    TAILQ_FOREACH_SAFE(curr, idx, i_tqe, next) {
+        TAILQ_REMOVE(idx, curr, i_tqe);
+        cc_free(curr);
+    }
+    cc_free(idx);
+    cc_free((*t)->name.data);
+
+    cc_free(*t);
+    *t = NULL;
+}
+
+
 struct topic *
 topic_get(const struct bstring *name)
 {
@@ -35,26 +93,32 @@ topic_get(const struct bstring *name)
 
     bucket = _get_bucket(name);
     for (t = SLIST_FIRST(bucket); t != NULL; t = SLIST_NEXT(t, t_sle)) {
-        log_verb("current topic name (len %d) is: %.*s", t->name.len, t->name.len, t->name.data);
         if (bstring_compare(&t->name, name) == 0) {
             return t;
         }
     }
 
+    log_verb("topic not found name %.*s", t->name.len, t->name.data);
     return NULL;
 }
 
-void
-topic_put(const struct topic *t)
+struct topic *
+topic_add(const struct bstring *name)
 {
-    struct topic_slh *bucket;
+    ASSERT(topic_get(name) == NULL);
 
-    ASSERT(topic_get(&t->name) == NULL);
+    struct topic_slh *bucket;
+    struct topic *t = _topic_create(name);
+
+    log_verb("add topic %p for name %.*s", t, name->len, name->data);
 
     bucket = _get_bucket(&t->name);
-    SLIST_INSERT_HEAD(bucket, (struct topic *)t, t_sle);
+    SLIST_INSERT_HEAD(bucket, t, t_sle);
 
     ht->ntopic++;
+    log_verb("total topics: %"PRIu32, ht->ntopic);
+
+    return t;
 }
 
 void
@@ -81,65 +145,9 @@ topic_delete(const struct bstring *name)
         SLIST_REMOVE_AFTER(prev, t_sle);
     }
 
+    _topic_destroy(&t);
     --(ht->ntopic);
-}
-
-
-struct topic *
-topic_create(const struct bstring *name)
-{
-    struct topic *t;
-
-    t = cc_alloc(sizeof(struct topic));
-    if (t == NULL) {
-        return NULL;
-    }
-
-    t->idx = cc_alloc(sizeof(struct index_tqh));
-    if (t->idx == NULL) {
-        cc_free(t);
-        return NULL;
-    }
-
-    topic_reset(t);
-    t->name.len = name->len;
-    t->name.data = cc_alloc(t->name.len);
-    if (t->name.data == NULL) {
-        cc_free(t->idx);
-        cc_free(t);
-        return NULL;
-    }
-    cc_memcpy(t->name.data, name->data, name->len);
-
-    return t;
-}
-
-void
-topic_destroy(struct topic **t)
-{
-    ASSERT(t != NULL && *t != NULL);
-
-    struct index_node *curr, *next;
-    struct index_tqh *idx = (*t)->idx;
-
-    /* delete all elements of the index */
-    TAILQ_FOREACH_SAFE(curr, idx, i_tqe, next) {
-        TAILQ_REMOVE(idx, curr, i_tqe);
-        cc_free(curr);
-    }
-    cc_free(idx);
-    cc_free((*t)->name.data);
-
-    cc_free(*t);
-    *t = NULL;
-}
-
-void
-topic_reset(struct topic *t)
-{
-    t->name = null_bstring;
-    t->nsub = 0;
-    TAILQ_INIT(t->idx);
+    log_verb("total topics: %"PRIu32, ht->ntopic);
 }
 
 bool
@@ -152,18 +160,22 @@ topic_add_listener(struct topic *t, const struct listener *l)
     /* do nothing if already subscribed */
     TAILQ_FOREACH(node, t->idx, i_tqe) {
         if (node->obj == l) {
+            log_debug("topic %p already subscribed by listener %p", t, l);
             return false;
         }
     }
 
     node = cc_alloc(sizeof(struct index_node));
     if (node == NULL) {
+        log_error("cannot add listener: out of memory");
         return false;
     }
     node->obj = (struct listener *)l;
 
     TAILQ_INSERT_TAIL(t->idx, node, i_tqe);
     t->nsub++;
+    log_verb("topic %p subscribed by listener %p, total listeners: %"PRIu32,
+            t, l, t->nsub);
 
     return true;
 }
@@ -180,12 +192,16 @@ topic_del_listener(struct topic *t, const struct listener *l)
         }
     }
     if (node == NULL) {
+        log_debug("topic %p not subscribed by listener %p", t, l);
         return;
     }
 
     TAILQ_REMOVE(t->idx, node, i_tqe);
     t->nsub--;
     cc_free(node);
+    log_verb("topic %p subscribed by listener %p, total listeners: %"PRIu32,
+            t, l, t->nsub);
+
 }
 
 void
