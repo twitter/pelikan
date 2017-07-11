@@ -38,6 +38,8 @@ admin_process_teardown(void)
         log_warn("%s has never been setup", PUBSUB_ADMIN_MODULE_NAME);
     }
 
+    cc_free(buf);
+
     admin_init = false;
 }
 

@@ -39,7 +39,6 @@ static void
 command_publish(struct response *rsp, struct request *req, struct buf_sock *s)
 {
     struct element *el_t, *el_m; /* topic & message */
-    struct element el_r = {.type = ELEM_INT}; /* reply, an integer */
     struct listener *l;
     struct topic *t;
     uint32_t nsub = 0;
@@ -81,8 +80,7 @@ command_publish(struct response *rsp, struct request *req, struct buf_sock *s)
         }
     }
 
-    el_r.num = nsub;
-    compose_element(&s->wbuf, &el_r);
+    compose_element(&s->wbuf, &(struct element){.type = ELEM_INT, .num = nsub});
 }
 
 /* "subscribe topic [topic ...]"

@@ -65,10 +65,15 @@ listener_delete(const struct buf_sock *s)
     bucket = _get_bucket(s);
     for (prev = NULL, l = SLIST_FIRST(bucket); l != NULL;
         prev = l, l = SLIST_NEXT(l, l_sle)) {
+        if (l == NULL) {
+            log_debug("listener not found for buf_sock %p", s);
+            return;
+        }
         if (l->s == s) {
             break;
         }
     }
+
 
     if (prev == NULL) {
         SLIST_REMOVE_HEAD(bucket, l_sle);

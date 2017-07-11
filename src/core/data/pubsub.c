@@ -72,7 +72,7 @@ _pubsub_event_write(struct buf_sock *s)
 
     if (processor->write(s) < 0) {
         log_debug("handler signals channel termination");
-        s->ch->state = CHANNEL_TERM;
+        c->state = CHANNEL_TERM;
         return CC_ERROR;
     }
 

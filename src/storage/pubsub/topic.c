@@ -66,6 +66,10 @@ topic_delete(const struct bstring *name)
     bucket = _get_bucket(name);
     for (prev = NULL, t = SLIST_FIRST(bucket); t != NULL;
         prev = t, t = SLIST_NEXT(t, t_sle)) {
+        if (t == NULL) {
+            log_debug("topic not found for %.*s", name->len, name->data);
+            return;
+        }
         if (bstring_compare(&t->name, name) == 0) {
             break;
         }
@@ -101,6 +105,7 @@ topic_create(const struct bstring *name)
     t->name.len = name->len;
     t->name.data = cc_alloc(t->name.len);
     if (t->name.data == NULL) {
+        cc_free(t->idx);
         cc_free(t);
         return NULL;
     }
