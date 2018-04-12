@@ -41,6 +41,7 @@ request_reset(struct request *req)
 
     req->nremain = 0;
     req->reserved = NULL;
+    req->rsp = NULL;
 
     req->partial = 0;
     req->first = 0;
