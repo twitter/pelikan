@@ -4,7 +4,11 @@ import subprocess
 
 
 class PelikanServer(object):
-    SUPPORTED_SERVER = ['pelikan_twemcache', 'pelikan_slimcache', 'pelikan_pingserver']
+    SUPPORTED_SERVER = [
+        'pelikan_pingserver',
+        'pelikan_redis',
+        'pelikan_slimcache',
+        'pelikan_twemcache' ]
 
     @staticmethod
     def default_path():
