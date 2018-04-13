@@ -253,7 +253,7 @@ pubsub_process_read(struct buf_sock *s)
         status = parse_req(req, s->rbuf);
         if (status == PARSE_EUNFIN) {
             buf_lshift(s->rbuf);
-            return 0;
+            goto done;
         }
         if (status != PARSE_OK) {
             /* parsing errors are all client errors, since we don't know
@@ -262,7 +262,9 @@ pubsub_process_read(struct buf_sock *s)
              * ends), we should close the connection
              */
             log_warn("illegal request received, status: %d", status);
-            return -1;
+            INCR(process_metrics, process_ex);
+            INCR(process_metrics, process_client_ex);
+            goto error;
         }
 
         /* stage 2: processing- check for quit, allocate response(s), process */
@@ -270,24 +272,37 @@ pubsub_process_read(struct buf_sock *s)
         /* quit is special, no processing/resposne expected */
         if (req->type == REQ_QUIT) {
             log_info("peer called quit");
-            return -1;
+            goto error;
         }
 
         /* actual processing */
         process_request_sock(rsp, req, s);
 
         /* stage 3: write response(s) if necessary */
-        compose_rsp(&s->wbuf, rsp);
+        status = compose_rsp(&s->wbuf, rsp);
+        if (status != PARSE_OK) {
+            log_error("composing rsp erred");
+            INCR(process_metrics, process_ex);
+            INCR(process_metrics, process_server_ex);
+            goto error;
+        }
 
         /* noreply means no need to write to buffers */
 
         /* logging, clean-up */
     }
 
+done:
     request_return(&req);
     response_return(&rsp);
 
     return 0;
+
+error:
+    request_return(&req);
+    response_return(&rsp);
+
+    return -1;
 }
 
 

@@ -11,6 +11,8 @@
 #define PROCESS_METRIC(ACTION)                                          \
     ACTION( process_req,       METRIC_COUNTER, "# requests processed"  )\
     ACTION( process_ex,        METRIC_COUNTER, "# processing error"    )\
+    ACTION( process_client_ex, METRIC_COUNTER, "# client error"        )\
+    ACTION( process_server_ex, METRIC_COUNTER, "# server error"        )\
     ACTION( publish,           METRIC_COUNTER, "# publish requests"    )\
     ACTION( subscribe,         METRIC_COUNTER, "# subscribe requests"  )\
     ACTION( unsubscribe,       METRIC_COUNTER, "# unsubscribe requests")
