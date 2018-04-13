@@ -12,5 +12,6 @@ struct context {
 };
 
 bool admin_init;
+bool pubsub_init;
 bool server_init;
 bool worker_init;

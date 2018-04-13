@@ -94,10 +94,10 @@ setup(void)
     }
 
     /* setup top-level application options */
-    if (option_bool(&setting.twemcache.daemonize)) {
+    if (option_bool(&setting.main.daemonize)) {
         daemonize();
     }
-    fname = option_str(&setting.twemcache.pid_filename);
+    fname = option_str(&setting.main.pid_filename);
     if (fname != NULL) {
         /* to get the correct pid, call create_pidfile after daemonize */
         create_pidfile(fname);
@@ -127,13 +127,13 @@ setup(void)
     core_worker_setup(&setting.worker, &stats.worker);
 
     /* adding recurring events to maintenance/admin thread */
-    intvl = option_uint(&setting.twemcache.dlog_intvl);
+    intvl = option_uint(&setting.main.dlog_intvl);
     if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
         log_stderr("Could not register timed event to flush debug log");
         goto error;
     }
 
-    intvl = option_uint(&setting.twemcache.klog_intvl);
+    intvl = option_uint(&setting.main.klog_intvl);
     if (core_admin_register(intvl, klog_flush, NULL) == NULL) {
         log_error("Could not register timed event to flush command log");
         goto error;
@@ -206,7 +206,7 @@ main(int argc, char **argv)
     setup();
     option_print_all((struct option *)&setting, nopt);
 
-    core_run(&worker_processor);
+    worker_run(&worker_processor);
 
     exit(EX_OK);
 }

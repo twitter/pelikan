@@ -1,0 +1,5 @@
+Mapping #1: client -> channel, to clean-up when client quits
+Mapping #2: channel -> client, to handle subscription, fanout
+
+a channel with no subscriber should be deleted.
+a client with no channel subscription is kept.

@@ -5,8 +5,10 @@
  */
 
 #include "admin/admin.h"
+#include "data/pubsub.h"
 #include "data/shared.h"
 #include "data/server.h"
 #include "data/worker.h"
 
-void core_run(void *arg_worker);
+void worker_run(void *arg_worker);
+void pubsub_run(void *arg_pubsub);

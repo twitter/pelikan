@@ -4,10 +4,10 @@
 #include "data/process.h"
 
 #include "core/core.h"
-#include "storage/cuckoo/cuckoo.h"
-#include "protocol/data/memcache_include.h"
+#include "protocol/data/redis_include.h"
 
 #include <buffer/cc_buf.h>
+#include <buffer/cc_dbuf.h>
 #include <cc_array.h>
 #include <cc_debug.h>
 #include <cc_metric.h>
@@ -19,11 +19,10 @@
 
 /* option related */
 /*          name            type                default description */
-#define MAIN_OPTION(ACTION)                                                             \
+#define MAIN_OPTION(ACTION)                                                        \
     ACTION( daemonize,      OPTION_TYPE_BOOL,   false,  "daemonize the process"        )\
     ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,   "file storing the pid"         )\
-    ACTION( dlog_intvl,     OPTION_TYPE_UINT,   500,    "debug log flush interval(ms)" )\
-    ACTION( klog_intvl,     OPTION_TYPE_UINT,   100,    "cmd log flush interval(ms)"   )
+    ACTION( dlog_intvl,     OPTION_TYPE_UINT,   500,    "debug log flush interval(ms)" )
 
 typedef struct {
     MAIN_OPTION(OPTION_DECLARE)
@@ -35,12 +34,9 @@ struct setting {
     /* application modules */
     admin_options_st        admin;
     server_options_st       server;
-    worker_options_st       worker;
-    process_options_st      process;
-    klog_options_st         klog;
+    pubsub_options_st       pubsub;
     request_options_st      request;
     response_options_st     response;
-    cuckoo_options_st       cuckoo;
     /* ccommon libraries */
     array_options_st        array;
     buf_options_st          buf;

@@ -13,10 +13,10 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 
-struct data_processor worker_processor = {
-    slimcache_process_read,
-    slimcache_process_write,
-    slimcache_process_error
+struct pubsub_processor pubsub_processor = {
+    pubsub_process_read,
+    pubsub_process_write,
+    pubsub_process_error,
 };
 
 static void
@@ -24,18 +24,14 @@ show_usage(void)
 {
     log_stdout(
             "Usage:" CRLF
-            "  pelikan_slimcache [option|config]" CRLF
+            "  pelikan_pubsub [option|config]" CRLF
             );
     log_stdout(
             "Description:" CRLF
-            "  pelikan_slimcache is one of the unified cache backends. " CRLF
-            "  It uses cuckoo hashing to efficiently store small key/val " CRLF
-            "  pairs. It speaks the memcached ASCII protocol and supports " CRLF
-            "  most ASCII memcached commands, except prepend/append. " CRLF
+            "  pelikan_pubsub is an in-memory pub/sub server." CRLF
             CRLF
-            "  The storage in slimcache is preallocated as a hash table. " CRLF
-            "  Therefore, maximum key+val size has to be specified when " CRLF
-            "  starting the service, and cannot be updated dynamically." CRLF
+            "  It supports basic Redis pub/sub commands:" CRLF
+            "    subscribe, unsubscribe, publish,... " CRLF
             );
     log_stdout(
             "Command-line options:" CRLF
@@ -46,7 +42,7 @@ show_usage(void)
             );
     log_stdout(
             "Example:" CRLF
-            "  pelikan_slimcache slimcache.conf" CRLF CRLF
+            "  pelikan_pubsub pubsub.conf" CRLF CRLF
             "Sample config files can be found under the config dir." CRLF
             );
 }
@@ -54,17 +50,12 @@ show_usage(void)
 static void
 teardown(void)
 {
-    core_worker_teardown();
+    core_pubsub_teardown();
     core_server_teardown();
     core_admin_teardown();
     admin_process_teardown();
-    process_teardown();
-    cuckoo_teardown();
-    klog_teardown();
     compose_teardown();
     parse_teardown();
-    response_teardown();
-    request_teardown();
     procinfo_teardown();
     time_teardown();
 
@@ -122,24 +113,16 @@ setup(void)
     response_setup(&setting.response, &stats.response);
     parse_setup(&stats.parse_req, NULL);
     compose_setup(NULL, &stats.compose_rsp);
-    klog_setup(&setting.klog, &stats.klog);
-    cuckoo_setup(&setting.cuckoo, &stats.cuckoo);
-    process_setup(&setting.process, &stats.process);
+    process_setup(&stats.process);
     admin_process_setup();
     core_admin_setup(&setting.admin);
     core_server_setup(&setting.server, &stats.server);
-    core_worker_setup(&setting.worker, &stats.worker);
+    core_pubsub_setup(&setting.pubsub, &stats.pubsub);
 
     /* adding recurring events to maintenance/admin thread */
     intvl = option_uint(&setting.main.dlog_intvl);
     if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
         log_stderr("Could not register timed event to flush debug log");
-        goto error;
-    }
-
-    intvl = option_uint(&setting.main.klog_intvl);
-    if (core_admin_register(intvl, klog_flush, NULL) == NULL) {
-        log_error("Could not register timed event to flush command log");
         goto error;
     }
 
@@ -211,7 +194,7 @@ main(int argc, char **argv)
     setup();
     option_print_all((struct option *)&setting, nopt);
 
-    worker_run(&worker_processor);
+    pubsub_run(&pubsub_processor);
 
     exit(EX_OK);
 }
