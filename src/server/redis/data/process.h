@@ -1,9 +1,10 @@
 #pragma once
 
+#include "cmd_misc.h"
+
 #include <buffer/cc_buf.h>
 #include <cc_metric.h>
 #include <cc_option.h>
-#include <stream/cc_sockio.h>
 
 #define ALLOW_FLUSH false
 
@@ -19,10 +20,12 @@ typedef struct {
 #define PROCESS_METRIC(ACTION)                                          \
     ACTION( process_req,       METRIC_COUNTER, "# requests processed"  )\
     ACTION( process_ex,        METRIC_COUNTER, "# processing error"    )\
+    ACTION( process_client_ex, METRIC_COUNTER, "# internal error"      )\
     ACTION( process_server_ex, METRIC_COUNTER, "# internal error"      )
 
 typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)
+    PROCESS_MISC_METRIC(METRIC_DECLARE)
 } process_metrics_st;
 
 void process_setup(process_options_st *options, process_metrics_st *metrics);
