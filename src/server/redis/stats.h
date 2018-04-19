@@ -4,10 +4,9 @@
 
 #include "core/core.h"
 #include "protocol/data/redis_include.h"
-#include "storage/slab/item.h"
-#include "storage/slab/slab.h"
 #include "util/procinfo.h"
 
+#include <buffer/cc_dbuf.h>
 #include <cc_event.h>
 #include <cc_log.h>
 #include <channel/cc_tcp.h>
@@ -23,7 +22,6 @@ struct stats {
     compose_rsp_metrics_st      compose_rsp;
     request_metrics_st          request;
     response_metrics_st         response;
-    slab_metrics_st             slab;
     server_metrics_st           server;
     worker_metrics_st           worker;
     /* ccommon libraries */

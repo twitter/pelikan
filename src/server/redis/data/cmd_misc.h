@@ -1,11 +1,13 @@
 #pragma once
 
-#include "protocol/data/redis_include.h"
+/*          name        type            description */
+#define PROCESS_MISC_METRIC(ACTION)                             \
+    ACTION( flushall,   METRIC_COUNTER, "# flushall requests"  )\
+    ACTION( ping,       METRIC_COUNTER, "# ping requests"      )
 
-#include <buffer/cc_buf.h>
-#include <cc_metric.h>
+struct request;
+struct response;
+struct command;
 
-/*          name            type            description */
-#define PROCESS_MISC_METRIC(ACTION)                               \
-    ACTION( ping,           METRIC_COUNTER, "# ping requests"    )\
-    ACTION( quit,           METRIC_COUNTER, "# quit requests"    )
+/* cmd_* functions must be command_fn (process.c) compatible */
+void cmd_ping(struct response *rsp, struct request *req, struct command *cmd);

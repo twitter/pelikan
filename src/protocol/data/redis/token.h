@@ -47,12 +47,26 @@
  * last element.
  */
 
-#include "parse.h"
-#include "compose.h"
-
 #include <buffer/cc_buf.h>
 #include <cc_bstring.h>
 #include <cc_util.h>
+
+typedef enum parse_rstatus {
+    PARSE_OK        = 0,
+    PARSE_EUNFIN    = -1,
+    PARSE_EEMPTY    = -2,
+    PARSE_EOVERSIZE = -3,
+    PARSE_EINVALID  = -4,
+    PARSE_EOTHER    = -5,
+} parse_rstatus_t;
+
+typedef enum compose_rstatus {
+    COMPOSE_OK          = 0,
+    COMPOSE_EUNFIN      = -1,
+    COMPOSE_ENOMEM      = -2,
+    COMPOSE_EINVALID    = -3,
+    COMPOSE_EOTHER      = -4,
+} compose_rstatus_t;
 
 /* array is not a basic element type */
 typedef enum element_type {

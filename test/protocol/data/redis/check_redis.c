@@ -355,7 +355,6 @@ START_TEST(test_ping)
 #define VAL "hello"
 #define S_PING "*1\r\n$4\r\n" PING "\r\n"
 #define S_ECHO "*2\r\n$4\r\n" PING "\r\n$5\r\nhello\r\n"
-#define S_ECHO2 "*3\r\n$4\r\n" PING "\r\n$5\r\nhello\r\n$5\r\nworld\r\n"
     int ret;
     struct element *el;
 
@@ -391,13 +390,6 @@ START_TEST(test_ping)
     el = array_get(req->token, 1);
     ck_assert_int_eq(el->type, ELEM_BULK);
     ck_assert_int_eq(cc_bcmp(el->bstr.data, VAL, sizeof(VAL) - 1), 0);
-
-    /* more arguments */
-    test_reset();
-    buf_write(buf, S_ECHO2, sizeof(S_ECHO2) - 1);
-    ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
-    ck_assert_int_eq(req->token->nelem, 3);
-#undef S_ECHO2
 #undef S_ECHO
 #undef ECHO
 #undef S_PING

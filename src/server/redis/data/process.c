@@ -1,9 +1,8 @@
 #include "process.h"
 
 #include "protocol/data/redis_include.h"
-#include "storage/slab/slab.h"
 
-#include <cc_array.h>
+#include <buffer/cc_dbuf.h>
 #include <cc_debug.h>
 #include <cc_print.h>
 
@@ -14,16 +13,12 @@
 #define CMD_ERR_MSG         "command not supported"
 #define OTHER_ERR_MSG       "unknown server error"
 
-typedef enum put_rstatus {
-    PUT_OK,
-    PUT_PARTIAL,
-    PUT_ERROR,
-} put_rstatus_t;
 
+typedef void (* command_fn)(struct response *, struct request *, struct command *cmd);
+static command_fn command_registry[REQ_SENTINEL];
 
 static bool process_init = false;
-static process_metrics_st *process_metrics = NULL;
-static bool allow_flush = ALLOW_FLUSH;
+process_metrics_st *process_metrics = NULL;
 
 void
 process_setup(process_options_st *options, process_metrics_st *metrics)
@@ -41,6 +36,8 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
         allow_flush = option_bool(&options->allow_flush);
     }
 
+    command_registry[REQ_PING] = cmd_ping;
+
     process_init = true;
 }
 
@@ -52,7 +49,9 @@ process_teardown(void)
         log_warn("%s has never been setup", REDIS_PROCESS_MODULE_NAME);
     }
 
-    allow_flush = false;
+    command_registry[REQ_PING] = cmd_ping;
+
+    allow_flush = ALLOW_FLUSH;
     process_metrics = NULL;
     process_init = false;
 }
@@ -61,6 +60,10 @@ process_teardown(void)
 void
 process_request(struct response *rsp, struct request *req)
 {
+    struct command cmd;
+
+    cmd = command_table[req->type];
+    cmd.narg = req->token->nelem;
 }
 
 int

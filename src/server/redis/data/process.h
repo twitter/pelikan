@@ -28,6 +28,9 @@ typedef struct {
     PROCESS_MISC_METRIC(METRIC_DECLARE)
 } process_metrics_st;
 
+extern process_metrics_st *process_metrics;
+extern bool allow_flush;
+
 void process_setup(process_options_st *options, process_metrics_st *metrics);
 void process_teardown(void);
 

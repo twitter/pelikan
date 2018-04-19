@@ -72,9 +72,9 @@ _parse_cmd(struct request *req)
     /* check narg */
     cmd = command_table[type];
     narg = req->token->nelem;
-    if ((cmd.narg >= 0 && cmd.narg != narg) || narg + cmd.narg < 0) {
-        log_warn("wrong number of arguments for '%.*s': %d expected, %d given",
-                cmd.bstr.len, cmd.bstr.data, cmd.narg, narg);
+    if (narg < cmd.narg || narg > (cmd.narg + cmd.nopt)) {
+        log_warn("wrong # of arguments for '%.*s': %d+[%d] expected, %d given",
+                cmd.bstr.len, cmd.bstr.data, cmd.narg, cmd.nopt, narg);
         return PARSE_EINVALID;
     }
 

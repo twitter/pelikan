@@ -1,6 +1,7 @@
 #pragma once
 
-#include <buffer/cc_dbuf.h>
+#include "token.h"
+
 #include <cc_define.h>
 #include <cc_metric.h>
 
@@ -24,13 +25,6 @@ typedef struct {
     COMPOSE_RSP_METRIC(METRIC_DECLARE)
 } compose_rsp_metrics_st;
 
-typedef enum compose_rstatus {
-    COMPOSE_OK          = 0,
-    COMPOSE_EUNFIN      = -1,
-    COMPOSE_ENOMEM      = -2,
-    COMPOSE_EINVALID    = -3,
-    COMPOSE_EOTHER      = -4,
-} compose_rstatus_t;
 
 struct request;
 struct response;

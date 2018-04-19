@@ -29,7 +29,7 @@ show_usage(void)
     log_stdout(
             "Description:" CRLF
             "  pelikan_redis is one of the unified cache backends. " CRLF
-            "  It uses a slab-based storage to cache key/val pairs. " CRLF
+            "  It uses managed storage backends to cache key/val pairs. " CRLF
             "  It speaks the memcached ASCII protocol and supports almost " CRLF
             "  all ASCII memcached commands." CRLF
             );
@@ -55,7 +55,6 @@ teardown(void)
     core_admin_teardown();
     admin_process_teardown();
     process_teardown();
-    slab_teardown();
     compose_teardown();
     parse_teardown();
     response_teardown();
@@ -117,7 +116,6 @@ setup(void)
     response_setup(&setting.response, &stats.response);
     parse_setup(&stats.parse_req, NULL);
     compose_setup(NULL, &stats.compose_rsp);
-    slab_setup(&setting.slab, &stats.slab);
     process_setup(&setting.process, &stats.process);
     admin_process_setup();
     core_admin_setup(&setting.admin);

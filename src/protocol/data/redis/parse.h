@@ -2,8 +2,8 @@
 
 #include "request.h"
 #include "response.h"
+#include "token.h"
 
-#include <buffer/cc_buf.h>
 #include <cc_define.h>
 #include <cc_metric.h>
 
@@ -33,14 +33,6 @@ typedef struct {
     PARSE_RSP_METRIC(METRIC_DECLARE)
 } parse_rsp_metrics_st;
 
-typedef enum parse_rstatus {
-    PARSE_OK        = 0,
-    PARSE_EUNFIN    = -1,
-    PARSE_EEMPTY    = -2,
-    PARSE_EOVERSIZE = -3,
-    PARSE_EINVALID  = -4,
-    PARSE_EOTHER    = -5,
-} parse_rstatus_t;
 
 void parse_setup(parse_req_metrics_st *req, parse_rsp_metrics_st *rsp);
 void parse_teardown(void);
