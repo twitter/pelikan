@@ -61,9 +61,12 @@ void
 process_request(struct response *rsp, struct request *req)
 {
     struct command cmd;
+    command_fn func = command_registry[req->type];
 
     cmd = command_table[req->type];
-    cmd.narg = req->token->nelem;
+    cmd.nopt = req->token->nelem - cmd.narg;
+
+    func(rsp, req, &cmd);
 }
 
 int

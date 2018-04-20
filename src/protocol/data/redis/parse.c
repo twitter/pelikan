@@ -121,8 +121,8 @@ parse_req(struct request *req, struct buf *buf)
         }
         el = array_push(req->token);
         status = parse_element(el, buf);
+        log_verb("parse element returned status %d", status);
         if (status != PARSE_OK) {
-            log_verb("parse element returned status %d", status);
             request_reset(req);
             buf->rpos = old_rpos;
             return status;
@@ -131,6 +131,7 @@ parse_req(struct request *req, struct buf *buf)
     }
 
     status = _parse_cmd(req);
+    log_verb("parse command returned status %d", status);
     if (status != PARSE_OK) {
         buf->rpos = old_rpos;
         return status;

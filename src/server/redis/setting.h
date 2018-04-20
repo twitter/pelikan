@@ -4,8 +4,6 @@
 
 #include "core/core.h"
 #include "protocol/data/redis_include.h"
-#include "storage/slab/item.h"
-#include "storage/slab/slab.h"
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
@@ -36,7 +34,6 @@ struct setting {
     process_options_st      process;
     request_options_st      request;
     response_options_st     response;
-    slab_options_st         slab;
     /* ccommon libraries */
     array_options_st        array;
     buf_options_st          buf;
