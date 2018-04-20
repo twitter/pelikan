@@ -19,7 +19,7 @@
 
 /*          name                type                default         description */
 #define REQUEST_OPTION(ACTION)                                                          \
-    ACTION( request_ntoken,     OPTION_TYPE_UINT,   REQ_NTOKEN,     "# tokens in request")\
+    ACTION( request_ntoken,     OPTION_TYPE_UINT,   REQ_NTOKEN,     "# tokens in req"  )\
     ACTION( request_poolsize,   OPTION_TYPE_UINT,   REQ_POOLSIZE,   "request pool size")
 
 typedef struct {

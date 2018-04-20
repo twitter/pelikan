@@ -66,6 +66,8 @@ process_request(struct response *rsp, struct request *req)
     cmd = command_table[req->type];
     cmd.nopt = req->token->nelem - cmd.narg;
 
+    log_verb("processing command '%.*s' with %d optional arguments",
+            cmd.bstr.len, cmd.bstr.data, cmd.nopt);
     func(rsp, req, &cmd);
 }
 

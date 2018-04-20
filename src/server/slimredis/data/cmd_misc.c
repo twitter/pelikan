@@ -15,7 +15,7 @@ cmd_ping(struct response *rsp, struct request *req, struct command *cmd)
     el = array_push(rsp->token);
     ASSERT(el != NULL); /* cannot fail because we preallocate tokens */
 
-    if (cmd->narg == 1) { /* no additional argument, respond pong */
+    if (cmd->nopt == 0) { /* no additional argument, respond pong */
         rsp->type = ELEM_STR;
         el->type = ELEM_STR;
         el->bstr = str2bstr(RSP_PONG);
