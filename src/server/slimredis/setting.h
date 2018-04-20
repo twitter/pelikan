@@ -15,18 +15,18 @@
 
 /* option related */
 /*          name            type                default description */
-#define REDIS_OPTION(ACTION)                                                        \
+#define SLIMREDIS_OPTION(ACTION)                                                        \
     ACTION( daemonize,      OPTION_TYPE_BOOL,   false,  "daemonize the process"        )\
     ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,   "file storing the pid"         )\
     ACTION( dlog_intvl,     OPTION_TYPE_UINT,   500,    "debug log flush interval(ms)" )
 
 typedef struct {
-    REDIS_OPTION(OPTION_DECLARE)
-} redis_options_st;
+    SLIMREDIS_OPTION(OPTION_DECLARE)
+} slimredis_options_st;
 
 struct setting {
     /* top-level */
-    redis_options_st        redis;
+    slimredis_options_st    slimredis;
     /* application modules */
     admin_options_st        admin;
     server_options_st       server;

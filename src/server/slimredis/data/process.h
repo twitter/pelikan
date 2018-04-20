@@ -34,6 +34,6 @@ extern bool allow_flush;
 void process_setup(process_options_st *options, process_metrics_st *metrics);
 void process_teardown(void);
 
-int redis_process_read(struct buf **rbuf, struct buf **wbuf, void **data);
-int redis_process_write(struct buf **rbuf, struct buf **wbuf, void **data);
-int redis_process_error(struct buf **rbuf, struct buf **wbuf, void **data);
+int slimredis_process_read(struct buf **rbuf, struct buf **wbuf, void **data);
+int slimredis_process_write(struct buf **rbuf, struct buf **wbuf, void **data);
+int slimredis_process_error(struct buf **rbuf, struct buf **wbuf, void **data);

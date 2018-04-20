@@ -20,7 +20,7 @@ set(LIBS
     ${CMAKE_THREAD_LIBS_INIT})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/_bin)
-set(TARGET_NAME ${PROJECT_NAME}_redis)
+set(TARGET_NAME ${PROJECT_NAME}_slimredis)
 
 add_executable(${TARGET_NAME} ${SOURCE})
 target_link_libraries(${TARGET_NAME} ${MODULES} ${LIBS})

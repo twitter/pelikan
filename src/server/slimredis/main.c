@@ -14,9 +14,9 @@
 #include <sysexits.h>
 
 struct data_processor worker_processor = {
-    redis_process_read,
-    redis_process_write,
-    redis_process_error,
+    slimredis_process_read,
+    slimredis_process_write,
+    slimredis_process_error,
 };
 
 static void
@@ -24,11 +24,11 @@ show_usage(void)
 {
     log_stdout(
             "Usage:" CRLF
-            "  pelikan_redis [option|config]" CRLF
+            "  pelikan_slimredis [option|config]" CRLF
             );
     log_stdout(
             "Description:" CRLF
-            "  pelikan_redis is one of the unified cache backends. " CRLF
+            "  pelikan_slimredis is one of the unified cache backends. " CRLF
             "  It uses managed storage backends to cache key/val pairs. " CRLF
             "  It speaks the memcached ASCII protocol and supports almost " CRLF
             "  all ASCII memcached commands." CRLF
@@ -42,7 +42,7 @@ show_usage(void)
             );
     log_stdout(
             "Example:" CRLF
-            "  pelikan_redis redis.conf" CRLF CRLF
+            "  pelikan_slimredis slimredis.conf" CRLF CRLF
             "Sample config files can be found under the config dir." CRLF
             );
 }
@@ -92,10 +92,10 @@ setup(void)
     }
 
     /* setup top-level application options */
-    if (option_bool(&setting.redis.daemonize)) {
+    if (option_bool(&setting.slimredis.daemonize)) {
         daemonize();
     }
-    fname = option_str(&setting.redis.pid_filename);
+    fname = option_str(&setting.slimredis.pid_filename);
     if (fname != NULL) {
         /* to get the correct pid, call create_pidfile after daemonize */
         create_pidfile(fname);
@@ -123,7 +123,7 @@ setup(void)
     core_worker_setup(&setting.worker, &stats.worker);
 
     /* adding recurring events to maintenance/admin thread */
-    intvl = option_uint(&setting.redis.dlog_intvl);
+    intvl = option_uint(&setting.slimredis.dlog_intvl);
     if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
         log_stderr("Could not register timed event to flush debug log");
         goto error;

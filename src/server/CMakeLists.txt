@@ -3,7 +3,7 @@ if(TARGET_PINGSERVER)
 endif()
 
 if(TARGET_REDIS)
-    add_subdirectory(redis)
+    add_subdirectory(slimredis)
 endif()
 
 if(TARGET_SLIMCACHE)

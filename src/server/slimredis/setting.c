@@ -1,7 +1,7 @@
 #include "setting.h"
 
 struct setting setting = {
-    { REDIS_OPTION(OPTION_INIT)     },
+    { SLIMREDIS_OPTION(OPTION_INIT) },
     { ADMIN_OPTION(OPTION_INIT)     },
     { SERVER_OPTION(OPTION_INIT)    },
     { WORKER_OPTION(OPTION_INIT)    },
