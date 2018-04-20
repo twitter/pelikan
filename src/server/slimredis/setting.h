@@ -3,6 +3,7 @@
 #include "data/process.h"
 
 #include "core/core.h"
+#include "storage/cuckoo/cuckoo.h"
 #include "protocol/data/redis_include.h"
 
 #include <buffer/cc_buf.h>
@@ -34,6 +35,7 @@ struct setting {
     process_options_st      process;
     request_options_st      request;
     response_options_st     response;
+    cuckoo_options_st       cuckoo;
     /* ccommon libraries */
     array_options_st        array;
     buf_options_st          buf;

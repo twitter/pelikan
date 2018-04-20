@@ -4,6 +4,7 @@
 
 #include "core/core.h"
 #include "protocol/data/redis_include.h"
+#include "storage/cuckoo/cuckoo.h"
 #include "util/procinfo.h"
 
 #include <buffer/cc_dbuf.h>
@@ -22,6 +23,7 @@ struct stats {
     compose_rsp_metrics_st      compose_rsp;
     request_metrics_st          request;
     response_metrics_st         response;
+    cuckoo_metrics_st           cuckoo;
     server_metrics_st           server;
     worker_metrics_st           worker;
     /* ccommon libraries */

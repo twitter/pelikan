@@ -2,7 +2,7 @@
 
 
 /*          type                string          # of args */
-#define REQ_HASH(ACTION)                            \
+#define REQ_HASH(ACTION)                                \
     ACTION( REQ_HDEL,           "hdel",         3,  -1 )\
     ACTION( REQ_HDELALL,        "hdelall",      2,   0 )\
     ACTION( REQ_HEXISTS,        "hexists",      3,   0 )\

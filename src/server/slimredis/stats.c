@@ -7,6 +7,7 @@ struct stats stats = {
     { COMPOSE_RSP_METRIC(METRIC_INIT)   },
     { REQUEST_METRIC(METRIC_INIT)       },
     { RESPONSE_METRIC(METRIC_INIT)      },
+    { CUCKOO_METRIC(METRIC_INIT)        },
     { CORE_SERVER_METRIC(METRIC_INIT)   },
     { CORE_WORKER_METRIC(METRIC_INIT)   },
     { BUF_METRIC(METRIC_INIT)           },

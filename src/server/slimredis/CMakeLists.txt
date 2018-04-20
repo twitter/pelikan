@@ -9,6 +9,7 @@ set(SOURCE
 
 set(MODULES
     core
+    cuckoo
     protocol_admin
     protocol_redis
     slab
