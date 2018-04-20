@@ -1,5 +1,7 @@
 #pragma once
 
+#include "token.h"
+
 #include <cc_array.h>
 #include <cc_bstring.h>
 #include <cc_define.h>
@@ -8,7 +10,7 @@
 #include <cc_queue.h>
 #include <cc_util.h>
 
-#define RSP_NTOKEN 255 /* # tokens in a command */
+#define RSP_NTOKEN 127 /* # tokens in a response */
 #define RSP_POOLSIZE 0
 
 /*          name                type                default         description */
@@ -39,6 +41,7 @@ typedef struct {
  * - a RSP_NUMERIC type that doesn't have a corresponding message body.
  */
 #define RSP_STR_OK "OK"
+#define RSP_PONG "pong"
 
 /*
  * NOTE(yao): we store fields as location in rbuf, this assumes the data will
@@ -50,9 +53,11 @@ struct response {
     STAILQ_ENTRY(response)  next;       /* allow response pooling/chaining */
     bool                    free;
 
-    int                     type;
-    bool                    nil;
-    struct array            *token;     /* array elements are tokens */
+    bool                    serror;     /* server error */
+
+    element_type_e          type;       /* only array can have >1 token */
+    bool                    nil;        /* null array or null bulk string */
+    struct array            *token;     /* member type: `struct element' */
 };
 
 void response_setup(response_options_st *options, response_metrics_st *metrics);

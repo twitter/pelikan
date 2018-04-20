@@ -72,9 +72,9 @@ _parse_cmd(struct request *req)
     /* check narg */
     cmd = command_table[type];
     narg = req->token->nelem;
-    if ((cmd.narg >= 0 && cmd.narg != narg) || narg + cmd.narg < 0) {
-        log_warn("wrong number of arguments for '%.*s': %d expected, %d given",
-                cmd.bstr.len, cmd.bstr.data, cmd.narg, narg);
+    if (narg < cmd.narg || narg > (cmd.narg + cmd.nopt)) {
+        log_warn("wrong # of arguments for '%.*s': %d+[%d] expected, %d given",
+                cmd.bstr.len, cmd.bstr.data, cmd.narg, cmd.nopt, narg);
         return PARSE_EINVALID;
     }
 
@@ -121,8 +121,8 @@ parse_req(struct request *req, struct buf *buf)
         }
         el = array_push(req->token);
         status = parse_element(el, buf);
+        log_verb("parse element returned status %d", status);
         if (status != PARSE_OK) {
-            log_verb("parse element returned status %d", status);
             request_reset(req);
             buf->rpos = old_rpos;
             return status;
@@ -131,6 +131,7 @@ parse_req(struct request *req, struct buf *buf)
     }
 
     status = _parse_cmd(req);
+    log_verb("parse command returned status %d", status);
     if (status != PARSE_OK) {
         buf->rpos = old_rpos;
         return status;

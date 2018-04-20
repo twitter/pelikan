@@ -3,6 +3,8 @@
 #include "request.h"
 #include "response.h"
 
+#include <buffer/cc_buf.h>
+#include <buffer/cc_dbuf.h>
 #include <cc_define.h>
 #include <cc_print.h>
 #include <cc_util.h>

@@ -3,6 +3,7 @@
 #include "cmd_hash.h"
 #include "cmd_misc.h"
 #include "cmd_zset.h"
+#include "token.h"
 
 #include <cc_array.h>
 #include <cc_define.h>
@@ -18,7 +19,7 @@
 
 /*          name                type                default         description */
 #define REQUEST_OPTION(ACTION)                                                          \
-    ACTION( request_ntoken,     OPTION_TYPE_UINT,   REQ_NTOKEN,     "# tokens in request")\
+    ACTION( request_ntoken,     OPTION_TYPE_UINT,   REQ_NTOKEN,     "# tokens in req"  )\
     ACTION( request_poolsize,   OPTION_TYPE_UINT,   REQ_POOLSIZE,   "request pool size")
 
 typedef struct {
@@ -38,7 +39,7 @@ typedef struct {
     REQUEST_METRIC(METRIC_DECLARE)
 } request_metrics_st;
 
-#define GET_TYPE(_type, _str, narg) _type,
+#define GET_TYPE(_type, _str, narg, nopt) _type,
 typedef enum cmd_type {
     REQ_UNKNOWN,
     REQ_HASH(GET_TYPE)
@@ -48,10 +49,19 @@ typedef enum cmd_type {
 } cmd_type_e;
 #undef GET_TYPE
 
+/*
+ * Note: though redis supports unboudned number of variables in some commands,
+ * implementation cannot operate with performance guarantee when this number
+ * gets too big. It also introduces uncertainty around resources. Therefore, we
+ * are limiting it to REQ_NTOKEN minus the # required args. For each command, if
+ * the # of optional arguments is declared as -1, (req_ntoken - narg) will be
+ * used to enforce argument limits.
+ */
 struct command {
     cmd_type_e      type;
     struct bstring  bstr;
-    int32_t         narg;
+    int32_t         narg; /* number of required arguments, including verb */
+    int32_t         nopt; /* number of optional arguments */
 };
 
 extern struct command command_table[REQ_SENTINEL];
@@ -65,7 +75,7 @@ struct request {
     bool                    cerror;   /* client error */
 
     cmd_type_e              type;
-    struct array            *token;    /* array elements are tokens */
+    struct array            *token;    /* member type: `struct element' */
 };
 
 void request_setup(request_options_st *options, request_metrics_st *metrics);

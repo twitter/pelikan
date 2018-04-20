@@ -11,11 +11,13 @@
 static bool request_init = false;
 static request_metrics_st *request_metrics = NULL;
 
-struct command command_table[REQ_SENTINEL];
-#define CMD_INIT(_type, _str, _narg) \
-    { .type = _type, .bstr = { sizeof(_str) - 1, (_str) }, .narg = _narg },
+#define CMD_INIT(_type, _str, _narg, _nopt) {\
+    .type = _type,                           \
+    .bstr = { sizeof(_str) - 1, (_str) },    \
+    .narg = _narg,                           \
+    .nopt = _nopt },
 struct command command_table[REQ_SENTINEL] = {
-    { .type = REQ_UNKNOWN, .bstr = { 0, NULL }, .narg = 0 },
+    { .type = REQ_UNKNOWN, .bstr = { 0, NULL }, .narg = 0, .nopt = 0 },
     REQ_HASH(CMD_INIT)
     REQ_ZSET(CMD_INIT)
     REQ_MISC(CMD_INIT)
@@ -189,7 +191,13 @@ request_setup(request_options_st *options, request_metrics_st *metrics)
     request_metrics = metrics;
 
     if (options != NULL) {
+        int i;
         ntoken = option_uint(&options->request_ntoken);
+        for (i = 1; i < REQ_SENTINEL; i++) { /* update nopt based on ntoken */
+            if (command_table[i].nopt == -1) {
+                command_table[i].nopt = ntoken - command_table[i].narg;
+            }
+        }
         max = option_uint(&options->request_poolsize);
     }
     request_pool_create(max);
