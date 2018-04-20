@@ -38,6 +38,8 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
 
     command_registry[REQ_PING] = cmd_ping;
 
+    command_registry[REQ_BITMAP_DELETE] = cmd_bitmap_delete;
+
     process_init = true;
 }
 

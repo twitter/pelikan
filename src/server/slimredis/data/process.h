@@ -1,5 +1,6 @@
 #pragma once
 
+#include "cmd_bitmap.h"
 #include "cmd_misc.h"
 
 #include <buffer/cc_buf.h>
@@ -25,6 +26,7 @@ typedef struct {
 
 typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)
+    PROCESS_BITMAP_METRIC(METRIC_DECLARE)
     PROCESS_MISC_METRIC(METRIC_DECLARE)
 } process_metrics_st;
 

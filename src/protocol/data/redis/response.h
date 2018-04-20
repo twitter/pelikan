@@ -41,6 +41,8 @@ typedef struct {
  * - a RSP_NUMERIC type that doesn't have a corresponding message body.
  */
 #define RSP_STR_OK "OK"
+#define RSP_DELETED "DELETED"
+#define RSP_NOT_FOUND "NOT_FOUND"
 #define RSP_PONG "pong"
 
 /*
