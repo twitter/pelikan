@@ -66,6 +66,8 @@ typedef enum request_state {
     REQ_DONE
 } request_state_t;
 
+struct response;
+
 /*
  * NOTE(yao): we store key and value as location in rbuf, this assumes the data
  * will not be overwritten before the current request is completed.
@@ -91,6 +93,7 @@ struct request {
 
     uint32_t                nremain;
     void                    *reserved;  /* storage reserved for partial value */
+    struct response         *rsp;       /* response object(s) reserved */
 
     unsigned                partial:1;  /* partial value received? */
     unsigned                first:1;    /* first segment? */

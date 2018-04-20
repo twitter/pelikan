@@ -1,5 +1,2 @@
 >>> get foo
 <<< END
-
->>> quit
-+++ request_free +1
