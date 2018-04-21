@@ -6,6 +6,8 @@
  *
  * create: create a bitmap of certain size, all bits reset unless value given
  * BitMap.create KEY size [value]
+ * Note: if size is not a multiple of the internal allocation unit (e.g. byte),
+ * it will be rounded up internally
  * TODO: how to transfer value w/o being misrepresented due to endianness?
  * until we figure that out we shouldn't allow user to initialize w/ value
  *
