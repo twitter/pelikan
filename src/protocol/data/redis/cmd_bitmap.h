@@ -2,7 +2,7 @@
 
 /**
  * create: create a bitmap of certain size, all bits reset unless value given
- * BitMap.create KEY size [value]
+ * BitMap.create KEY size
  * Note: if size is not a multiple of the internal allocation unit (e.g. byte),
  * it will be rounded up internally
  * TODO: how to transfer value w/o being misrepresented due to endianness?
@@ -12,10 +12,10 @@
  * BitMap.delete KEY
  *
  * get: get value of a column in a bitmap
- * BitMap.get KEY [columnId]
+ * BitMap.get KEY columnId
  *
- * set: set value of a column in a bitmap, val optional (defaults to 1)
- * BitMap.set KEY columnId [val]
+ * set: set value of a column in a bitmap
+ * BitMap.set KEY columnId val
  */
 
 /* TODO:
@@ -28,7 +28,7 @@
 
 /*          type                string              #arg    #opt */
 #define REQ_BITMAP(ACTION)                                      \
-    ACTION( REQ_BITMAP_CREATE,  "BitMap.create",    3,      1  )\
+    ACTION( REQ_BITMAP_CREATE,  "BitMap.create",    3,      0  )\
     ACTION( REQ_BITMAP_DELETE,  "BitMap.delete",    2,      0  )\
-    ACTION( REQ_BITMAP_GET,     "BitMap.get",       2,      1  )\
-    ACTION( REQ_BITMAP_SET,     "BitMap.set",       3,      1  )
+    ACTION( REQ_BITMAP_GET,     "BitMap.get",       3,      0  )\
+    ACTION( REQ_BITMAP_SET,     "BitMap.set",       4,      0  )

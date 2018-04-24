@@ -10,7 +10,13 @@
     ACTION( bitmap_delete_deleted,  METRIC_COUNTER, "# bitmap delete success"  )\
     ACTION( bitmap_delete_notfound, METRIC_COUNTER, "# bitmap delete notfound" )\
     ACTION( bitmap_get,             METRIC_COUNTER, "# bitmap get requests"    )\
-    ACTION( bitmap_set,             METRIC_COUNTER, "# bitmap set requests"    )
+    ACTION( bitmap_get_found,       METRIC_COUNTER, "# bitmap get found"       )\
+    ACTION( bitmap_get_notfound,    METRIC_COUNTER, "# bitmap get notfound"    )\
+    ACTION( bitmap_get_ex,          METRIC_COUNTER, "# bitmap get exception"   )\
+    ACTION( bitmap_set,             METRIC_COUNTER, "# bitmap set requests"    )\
+    ACTION( bitmap_set_stored,      METRIC_COUNTER, "# bitmap set value set"   )\
+    ACTION( bitmap_set_notfound,    METRIC_COUNTER, "# bitmap set notfound"    )\
+    ACTION( bitmap_set_ex,          METRIC_COUNTER, "# bitmap set exception"   )
 
 struct request;
 struct response;
