@@ -10,6 +10,7 @@ set(SOURCE
 set(MODULES
     core
     cuckoo
+    ds_bitmap
     protocol_admin
     protocol_redis
     slab

@@ -1,1 +1,1 @@
-add_library(bitmap bitset.c)
+add_library(ds_bitmap bitset.c)

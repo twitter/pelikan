@@ -7,7 +7,8 @@
  * https://stackoverflow.com/questions/47981/how-do-you-set-clear-and-toggle-a-single-bit
  */
 
-#define BITSET_COL_MAX (255 * 32)
+/* fit in a 255-byte cuckoo cell with cuckoo header (6) and cas (8), bitset header (4) */
+#define BITSET_COL_MAX (250 * 32)
 
 /* NOTE: bitset must be allocated as 32-bit aligned */
 struct bitset {

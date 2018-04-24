@@ -1,9 +1,6 @@
 #pragma once
 
 /**
- * clear: reset the bit
- * BitMap.clear KEY columnId
- *
  * create: create a bitmap of certain size, all bits reset unless value given
  * BitMap.create KEY size [value]
  * Note: if size is not a multiple of the internal allocation unit (e.g. byte),
@@ -31,7 +28,6 @@
 
 /*          type                string              #arg    #opt */
 #define REQ_BITMAP(ACTION)                                      \
-    ACTION( REQ_BITMAP_CLEAR,   "BitMap.clear",     2,      1  )\
     ACTION( REQ_BITMAP_CREATE,  "BitMap.create",    3,      1  )\
     ACTION( REQ_BITMAP_DELETE,  "BitMap.delete",    2,      0  )\
     ACTION( REQ_BITMAP_GET,     "BitMap.get",       2,      1  )\

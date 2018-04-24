@@ -40,10 +40,14 @@ typedef struct {
  * - a dummy entry RSP_UNKNOWN so we can use it as the initial type value;
  * - a RSP_NUMERIC type that doesn't have a corresponding message body.
  */
-#define RSP_STR_OK "OK"
-#define RSP_DELETED "DELETED"
+#define RSP_OK "OK"
 #define RSP_NOT_FOUND "NOT_FOUND"
-#define RSP_PONG "pong"
+#define RSP_PONG "PONG"
+#define RSP_EXIST "EXIST" /* key already exists and op is non-overwriting */
+
+#define RSP_ERR_ARG "Err invalid argument"
+#define RSP_ERR_STORAGE "Err storage failure"
+#define RSP_ERR_TYPE "Err type mismatch"
 
 /*
  * NOTE(yao): we store fields as location in rbuf, this assumes the data will
