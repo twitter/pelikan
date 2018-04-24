@@ -195,10 +195,10 @@ _process_set(struct response *rsp, struct request *req)
     if (it != NULL) {
         status = cuckoo_update(it, &val, expire);
     } else {
-        status = cuckoo_insert(key, &val, expire);
+        it = cuckoo_insert(key, &val, expire);
     }
 
-    if (status == CC_OK) {
+    if (it != NULL) {
         rsp->type = RSP_STORED;
         INCR(process_metrics, set_stored);
     } else {
@@ -224,7 +224,7 @@ _process_add(struct response *rsp, struct request *req)
         INCR(process_metrics, add_notstored);
     } else {
         _get_value(&val, &req->vstr);
-        if (cuckoo_insert(key, &val, time_reltime(req->expiry)) == CC_OK) {
+        if (cuckoo_insert(key, &val, time_reltime(req->expiry)) != NULL) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, add_stored);
         } else {
