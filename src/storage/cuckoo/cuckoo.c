@@ -336,7 +336,7 @@ cuckoo_get(struct bstring *key)
 }
 
 /* insert applies to a key that doesn't exist validly in our array */
-rstatus_i
+struct item *
 cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
 {
     struct item *it;
@@ -354,7 +354,7 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
                 ITEM_OVERHEAD);
         INCR(cuckoo_metrics, cuckoo_insert_ex);
 
-        return CC_ERROR;
+        return NULL;
     }
 
     cuckoo_hash(offset, key);
@@ -384,7 +384,7 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
     INCR(cuckoo_metrics, item_insert);
     ITEM_METRICS_INCR(it);
 
-    return CC_OK;
+    return it;
 }
 
 rstatus_i
