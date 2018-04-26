@@ -198,7 +198,7 @@ _process_set(struct response *rsp, struct request *req)
         it = cuckoo_insert(key, &val, expire);
     }
 
-    if (it != NULL) {
+    if (it != NULL && status == CC_OK) {
         rsp->type = RSP_STORED;
         INCR(process_metrics, set_stored);
     } else {

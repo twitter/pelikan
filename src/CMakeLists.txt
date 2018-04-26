@@ -8,4 +8,5 @@ add_subdirectory(util ${PROJECT_BINARY_DIR}/util)
 
 # executables
 add_custom_target(service)
+add_subdirectory(client ${PROJECT_BINARY_DIR}/client)
 add_subdirectory(server ${PROJECT_BINARY_DIR}/server)

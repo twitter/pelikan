@@ -33,10 +33,14 @@ option(HAVE_ASSERT_LOG "assert_log enabled by default" ON)
 option(HAVE_ASSERT_PANIC "assert_panic disabled by default" OFF)
 option(HAVE_LOGGING "logging enabled by default" ON)
 option(HAVE_STATS "stats enabled by default" ON)
+
 option(TARGET_PINGSERVER "build pingserver binary" ON)
 option(TARGET_SLIMREDIS "build slimredis binary" ON)
 option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
+
+option(TARGET_REDISCLI "build redis-cli binary" ON)
+
 option(COVERAGE "code coverage" OFF)
 
 # Note: duplicate custom targets only works with Makefile generators, will break XCode & VS
@@ -113,7 +117,7 @@ include_directories(${include_directories}
     "${CCOMMON_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/src")
 
-# server
+# server & (cli) client
 add_subdirectory(src)
 
 # tests: always build last
