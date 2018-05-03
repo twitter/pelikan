@@ -186,7 +186,7 @@ token_is_array(struct buf *buf)
 {
     ASSERT(buf != NULL);
 
-    return *(buf->rpos) == '*';
+    return (buf_rsize(buf) > 0 && *(buf->rpos) == '*');
 }
 
 parse_rstatus_t
@@ -215,9 +215,11 @@ parse_element(struct element *el, struct buf *buf)
     char *p;
     parse_rstatus_t status;
 
-    ASSERT(buf_rsize(buf) > 0);
-
     log_verb("detecting the next element %p in buf %p", el, buf);
+
+    if (buf_rsize(buf) == 0) {
+        return PARSE_EUNFIN;
+    }
 
     p = buf->rpos++;
     switch (*p) {
