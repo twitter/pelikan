@@ -1,5 +1,8 @@
 #include "setting.h"
 
+#include "cli.h"
+#include "util/util.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/socket.h>
@@ -36,6 +39,8 @@ show_usage(void)
 static void
 teardown(void)
 {
+    cli_teardown();
+
     compose_teardown();
     parse_teardown();
     response_teardown();
@@ -70,6 +75,8 @@ setup(void)
     parse_setup(NULL, NULL);
     compose_setup(NULL, NULL);
 
+    cli_setup(&setting.rediscli);
+
     return;
 }
 
@@ -84,9 +91,7 @@ main(int argc, char **argv)
         exit(EX_USAGE);
     }
 
-    if (argc == 1) {
-        log_stderr("launching server with default values.");
-    } else {
+    if (argc > 1) {
         /* argc == 2 */
         if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
             show_usage();
@@ -117,6 +122,8 @@ main(int argc, char **argv)
     }
 
     setup();
+
+    cli_run();
 
     exit(EX_OK);
 }

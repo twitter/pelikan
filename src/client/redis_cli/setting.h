@@ -1,3 +1,5 @@
+#pragma once
+
 #include "core/data/server.h"
 
 #include "protocol/data/redis_include.h"

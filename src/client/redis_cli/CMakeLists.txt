@@ -1,9 +1,11 @@
 set(SOURCE
     ${SOURCE}
+    cli.c
     main.c
     setting.c)
 
 set(MODULES
+    client-network
     protocol_redis
     util)
 

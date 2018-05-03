@@ -9,9 +9,11 @@
  *  - network IO should block
  */
 
+#include <stream/cc_sockio.h>
+
 #include <stdbool.h>
 #include <stdint.h>
 
 /* if host is NULL, loopback address will be used */
-bool cli_connect(char *host, uint16_t port);
-void cli_disconnect(void);
+bool cli_connect(struct buf_sock *client, char *host, char *port);
+void cli_disconnect(struct buf_sock *client);
