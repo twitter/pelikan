@@ -9,6 +9,7 @@
 #include <channel/cc_channel.h>
 #include <stream/cc_sockio.h>
 
+#include <ctype.h>
 #include <sys/param.h>
 
 #define PROTOCOL "resp"
@@ -124,8 +125,12 @@ _cli_parse_req(void)
     char *p, *token;
     struct element *el;
 
+    p = buf.input;
     /* do  not parse fully, just breaking down fields/tokens by delimiter */
-    while ((token = strsep(&p, " \t")) != NULL) {
+    while ((token = strsep(&p, " \t\r\n")) != NULL) {
+        if (isspace(*token) || *token == '\0') {
+            continue;
+        }
         el = array_push(req->token);
         el->type = ELEM_BULK;
         el->bstr.len = strlen(token);
@@ -178,5 +183,7 @@ cli_run(void)
         /* reset buffers and go to the top */
         buf_reset(client->rbuf);
         buf_reset(client->wbuf);
+        request_reset(req);
+        response_reset(rsp);
     }
 }
