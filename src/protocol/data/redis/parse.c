@@ -92,6 +92,10 @@ parse_req(struct request *req, struct buf *buf)
 
     log_verb("parsing buf %p into req %p", buf, req);
 
+    if (buf_rsize(buf) == 0) {
+        return PARSE_EUNFIN;
+    }
+
     /* get number of elements in the array */
     if (!token_is_array(buf)) {
         log_debug("parse req failed: not an array");
@@ -151,6 +155,10 @@ parse_rsp(struct response *rsp, struct buf *buf)
     ASSERT(rsp->type == ELEM_UNKNOWN);
 
     log_verb("parsing buf %p into rsp %p", buf, rsp);
+
+    if (buf_rsize(buf) == 0) {
+        return PARSE_EUNFIN;
+    }
 
     if (token_is_array(buf)) {
         status = token_array_nelem(&nelem, buf);

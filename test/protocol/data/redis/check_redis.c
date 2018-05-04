@@ -487,6 +487,21 @@ START_TEST(test_array_reply)
 END_TEST
 
 /*
+ * edge cases
+ */
+START_TEST(test_empty_buf)
+{
+    struct element el;
+    test_reset();
+
+    ck_assert(!token_is_array(buf));
+    ck_assert_int_eq(parse_element(&el, buf), PARSE_EUNFIN);
+    ck_assert_int_eq(parse_rsp(rsp, buf), PARSE_EUNFIN);
+    ck_assert_int_eq(parse_req(req, buf), PARSE_EUNFIN);
+}
+END_TEST
+
+/*
  * request/response pool
  */
 
@@ -570,14 +585,17 @@ redis_suite(void)
     tcase_add_test(tc_request, test_ping);
     tcase_add_test(tc_request, test_unfin_req);
 
-    /* basic response */
+    /* basic responses */
     TCase *tc_response = tcase_create("response");
     suite_add_tcase(s, tc_response);
 
     tcase_add_test(tc_response, test_ok);
     tcase_add_test(tc_response, test_array_reply);
 
-    /* basic responses */
+    /* edge cases */
+    TCase *tc_edge = tcase_create("edge cases");
+    suite_add_tcase(s, tc_edge);
+    tcase_add_test(tc_edge, test_empty_buf);
 
     /* req/rsp objects, pooling */
     TCase *tc_pool = tcase_create("request/response pool");
