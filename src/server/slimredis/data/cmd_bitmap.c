@@ -14,7 +14,7 @@
 static inline struct bstring *
 _get_key(struct request *req)
 {
-    struct element *key = (struct element *)array_get(req->token, 1);
+    struct element *key = (struct element *)array_get(req->token, BITMAP_KEY);
 
     return &key->bstr;
 }
@@ -24,8 +24,8 @@ _get_col(struct response *rsp, struct request *req, uint16_t max)
 {
     uint64_t col = 0;
     rstatus_i status;
-    struct element *reply = (struct element *)array_get(rsp->token, 0);
-    struct element *arg = (struct element *)array_get(req->token, 2);
+    struct element *reply = (struct element *)array_get(rsp->token, BITMAP_VERB);
+    struct element *arg = (struct element *)array_get(req->token, BITMAP_COL);
 
     status = bstring_atou64(&col, &arg->bstr);
     if (status != CC_OK || col > max) {
@@ -45,8 +45,8 @@ _get_bitval(struct response *rsp, struct request *req, uint8_t max)
 {
     uint64_t val = 0;
     rstatus_i status;
-    struct element *reply = (struct element *)array_get(rsp->token, 0);
-    struct element *arg = (struct element *)array_get(req->token, 3);
+    struct element *reply = (struct element *)array_get(rsp->token, BITMAP_VERB);
+    struct element *arg = (struct element *)array_get(req->token, BITMAP_VAL);
 
     status = bstring_atou64(&val, &arg->bstr);
     if (status != CC_OK || val > max) {
@@ -64,7 +64,7 @@ _get_bitval(struct response *rsp, struct request *req, uint8_t max)
 static inline struct item *
 _add_key(struct response *rsp, struct bstring *key)
 {
-    struct element *reply = (struct element *)array_get(rsp->token, 0);
+    struct element *reply = (struct element *)array_get(rsp->token, BITMAP_VERB);
     struct val val = {VAL_TYPE_STR, {null_bstring}};
     struct item *it;
 

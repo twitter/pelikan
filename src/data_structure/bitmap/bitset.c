@@ -1,6 +1,7 @@
 #include "bitset.h"
 
 #include <stddef.h>
+#include <string.h>
 
 
 #define DATA_OFFSET(_bs) ((uint8_t *)(_bs) + offsetof(struct bitset, data))
@@ -13,15 +14,12 @@
 void
 bitset_init(struct bitset *bs, uint16_t ncol)
 {
-    int i;
-    uint32_t *d = (uint32_t *)DATA_OFFSET(bs);
+    uint8_t *d = (uint8_t *)DATA_OFFSET(bs);
 
     bs->size = (uint8_t)bit2long(ncol);
     bs->col_w = 1;
     bs->count = 0;
-    for (i = 0; i < bs->size; i++, d++) {
-       *d = 0;
-    }
+    memset(d, 0, bs->size << 2);
 }
 
 uint8_t
