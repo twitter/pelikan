@@ -29,9 +29,8 @@ show_usage(void)
     log_stdout(
             "Description:" CRLF
             "  pelikan_slimredis is one of the unified cache backends. " CRLF
-            "  It uses managed storage backends to cache key/val pairs. " CRLF
-            "  It speaks the memcached ASCII protocol and supports almost " CRLF
-            "  all ASCII memcached commands." CRLF
+            "  It uses cuckoo hashing as storage for various data types. " CRLF
+            "  It speaks the RESP protocol." CRLF
             );
     log_stdout(
             "Command-line options:" CRLF
@@ -59,6 +58,7 @@ teardown(void)
     parse_teardown();
     response_teardown();
     request_teardown();
+    cuckoo_teardown();
     procinfo_teardown();
     time_teardown();
 
@@ -116,6 +116,7 @@ setup(void)
     response_setup(&setting.response, &stats.response);
     parse_setup(&stats.parse_req, NULL);
     compose_setup(NULL, &stats.compose_rsp);
+    cuckoo_setup(&setting.cuckoo, &stats.cuckoo);
     process_setup(&setting.process, &stats.process);
     admin_process_setup();
     core_admin_setup(&setting.admin);

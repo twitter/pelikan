@@ -38,6 +38,11 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
 
     command_registry[REQ_PING] = cmd_ping;
 
+    command_registry[REQ_BITMAP_DELETE] = cmd_bitmap_delete;
+    command_registry[REQ_BITMAP_CREATE] = cmd_bitmap_create;
+    command_registry[REQ_BITMAP_SET] = cmd_bitmap_set;
+    command_registry[REQ_BITMAP_GET] = cmd_bitmap_get;
+
     process_init = true;
 }
 
@@ -62,6 +67,17 @@ process_request(struct response *rsp, struct request *req)
 {
     struct command cmd;
     command_fn func = command_registry[req->type];
+
+    if (func == NULL) {
+        struct element *reply = (struct element *)array_push(rsp->token);
+        log_warn("command is recognized but not implemented");
+
+        rsp->type = reply->type = ELEM_ERR;
+        reply->bstr = str2bstr(RSP_ERR_NOSUPPORT);
+        INCR(process_metrics, process_ex);
+
+        return;
+    }
 
     cmd = command_table[req->type];
     cmd.nopt = req->token->nelem - cmd.narg;

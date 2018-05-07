@@ -8,6 +8,7 @@ struct setting setting = {
     { PROCESS_OPTION(OPTION_INIT)   },
     { REQUEST_OPTION(OPTION_INIT)   },
     { RESPONSE_OPTION(OPTION_INIT)  },
+    { CUCKOO_OPTION(OPTION_INIT)    },
     { ARRAY_OPTION(OPTION_INIT)     },
     { BUF_OPTION(OPTION_INIT)       },
     { DBUF_OPTION(OPTION_INIT)      },
