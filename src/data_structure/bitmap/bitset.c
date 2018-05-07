@@ -19,7 +19,7 @@ bitset_init(struct bitset *bs, uint16_t ncol)
     bs->size = (uint8_t)bit2long(ncol);
     bs->col_w = 1;
     bs->count = 0;
-    memset(d, 0, bs->size << 2);
+    memset(d, 0, size2byte(bs->size));
 }
 
 uint8_t

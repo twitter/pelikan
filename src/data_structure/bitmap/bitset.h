@@ -21,6 +21,7 @@ struct bitset {
 #define bit2byte(_col) ((((_col) - 1) >> 3) + 1)
 #define bit2long(_col) ((((_col) - 1) >> 5) + 1)
 #define size2bit(_sz) ((_sz) << 5)
+#define size2byte(_sz) ((_sz) << 2)
 
 void bitset_init(struct bitset *bs, uint16_t ncol);
 
