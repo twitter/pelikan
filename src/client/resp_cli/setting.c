@@ -1,7 +1,7 @@
 #include "setting.h"
 
 struct setting setting = {
-    { REDISCLI_OPTION(OPTION_INIT)  },
+    { RESPCLI_OPTION(OPTION_INIT)   },
     { REQUEST_OPTION(OPTION_INIT)   },
     { RESPONSE_OPTION(OPTION_INIT)  },
     { BUF_OPTION(OPTION_INIT)       },

@@ -39,7 +39,7 @@ option(TARGET_SLIMREDIS "build slimredis binary" ON)
 option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
 
-option(TARGET_REDISCLI "build redis-cli binary" ON)
+option(TARGET_RESPCLI "build resp-cli binary" ON)
 
 option(COVERAGE "code coverage" OFF)
 

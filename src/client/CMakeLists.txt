@@ -1,7 +1,7 @@
 add_subdirectory(network)
 
-if(TARGET_REDISCLI)
-    add_subdirectory(redis_cli)
+if(TARGET_RESPCLI)
+    add_subdirectory(resp_cli)
 endif()
 
 if(TARGET_MEMCACHECLI)

@@ -13,17 +13,17 @@
 #include <stream/cc_sockio.h>
 
 /*          name            type                default description */
-#define REDISCLI_OPTION(ACTION)                                                            \
+#define RESPCLI_OPTION(ACTION)                                                            \
     ACTION( server_host,    OPTION_TYPE_STR,    NULL,           "server, NULL is loopback" )\
     ACTION( data_port,      OPTION_TYPE_STR,    SERVER_PORT,    "data plane server port"   )
 
 typedef struct {
-    REDISCLI_OPTION(OPTION_DECLARE)
-} rediscli_options_st;
+    RESPCLI_OPTION(OPTION_DECLARE)
+} respcli_options_st;
 
 struct setting {
     /* top-level */
-    rediscli_options_st     rediscli;
+    respcli_options_st      respcli;
     /* application modules */
     request_options_st      request;
     response_options_st     response;

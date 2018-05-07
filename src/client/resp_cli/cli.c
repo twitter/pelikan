@@ -56,7 +56,7 @@ struct response *rsp;
 struct buf_sock *client;
 
 void
-cli_setup(rediscli_options_st *options)
+cli_setup(respcli_options_st *options)
 {
     if (options != NULL) {
         config.host = options->server_host.val.vstr;

@@ -14,7 +14,7 @@ set(LIBS
     ${CMAKE_THREAD_LIBS_INIT})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/_bin)
-set(TARGET_NAME ${PROJECT_NAME}_redis-cli)
+set(TARGET_NAME ${PROJECT_NAME}_resp-cli)
 
 add_executable(${TARGET_NAME} ${SOURCE})
 target_link_libraries(${TARGET_NAME} ${MODULES} ${LIBS})

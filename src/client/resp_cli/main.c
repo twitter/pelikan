@@ -14,14 +14,13 @@ show_usage(void)
 {
     log_stdout(
             "Usage:" CRLF
-            "  pelikan_slimredis [option|config]" CRLF
+            "  pelikan_resp-cli [option|config]" CRLF
             );
     log_stdout(
             "Description:" CRLF
-            "  pelikan_slimredis is one of the unified cache backends. " CRLF
-            "  It uses managed storage backends to cache key/val pairs. " CRLF
-            "  It speaks the memcached ASCII protocol and supports almost " CRLF
-            "  all ASCII memcached commands." CRLF
+            "  pelikan_resp-cli is a CLI for talking to RESP-supporting" CRLF
+            "  backends. It understands the RESP protocol only, not the" CRLF
+            "  reportoire of Redis commands." CRLF
             );
     log_stdout(
             "Command-line options:" CRLF
@@ -31,7 +30,7 @@ show_usage(void)
             );
     log_stdout(
             "Example:" CRLF
-            "  pelikan_slimredis slimredis.conf" CRLF CRLF
+            "  pelikan_resp-cli resp-cli.conf" CRLF CRLF
             "Sample config files can be found under the config dir." CRLF
             );
 }
@@ -75,7 +74,7 @@ setup(void)
     parse_setup(NULL, NULL);
     compose_setup(NULL, NULL);
 
-    cli_setup(&setting.rediscli);
+    cli_setup(&setting.respcli);
 
     return;
 }
