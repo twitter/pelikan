@@ -62,6 +62,12 @@ setup(void)
         exit(EX_OSERR); /* only failure comes from NOMEM */
     }
 
+    log_setup(NULL);
+    if (debug_setup(&setting.debug) != CC_OK) {
+        log_stderr("debug log setup failed");
+        exit(EX_CONFIG);
+    }
+
     /* setup library modules */
     buf_setup(&setting.buf, NULL);
     dbuf_setup(&setting.dbuf, NULL);
@@ -106,6 +112,8 @@ main(int argc, char **argv)
         log_stderr("failed to load default option values");
         exit(EX_CONFIG);
     }
+    /* update default log level for CLI to hide most debug logging */
+    setting.debug.debug_log_level.val.vuint = LOG_ERROR;
 
     /* TODO(yao): modify option module in ccommon to allow ignore unmatched
      * option, this will allow us to reuse server config files with cli

@@ -1,35 +1,16 @@
 #include "cli.h"
 
-
 #include "../network/cli_network.h"
 
 #include <cc_debug.h>
 #include <cc_mm.h>
 #include <cc_print.h>
-#include <channel/cc_channel.h>
-#include <stream/cc_sockio.h>
 
 #include <ctype.h>
 #include <sys/param.h>
 
 #define PROTOCOL "resp"
-#define PROMPT_FMT_OFFLINE PROTOCOL " %s:%s (not connected) > "
-#define PROMPT_FMT_LOCAL PROTOCOL " :%s > " /* use port */
-#define PROMPT_FMT_REMOTE PROTOCOL " %s: > " /* use host */
-
 #define IO_BUF_MAX 1024
-
-typedef enum cli_mode {
-    LOCAL = 0,
-    REMOTE = 1,
-    OFFLINE = 2,
-} cli_mode_e;
-
-struct config {
-    cli_mode_e  mode;
-    char *      host;
-    char *      port;
-};
 
 struct iobuf {
     char        *input;
@@ -38,17 +19,7 @@ struct iobuf {
     size_t      olen;
 };
 
-struct config config = {LOCAL, NULL, SERVER_PORT};
-channel_handler_st tcp_handler = {
-    .accept = NULL,
-    .reject = NULL,
-    .open = (channel_open_fn)tcp_connect,
-    .term = (channel_term_fn)tcp_close,
-    .recv = (channel_recv_fn)tcp_recv,
-    .send = (channel_send_fn)tcp_send,
-    .rid = (channel_id_fn)tcp_read_id,
-    .wid = (channel_id_fn)tcp_write_id
-};
+bool quit = false;
 struct iobuf buf;
 
 struct request *req;
@@ -59,12 +30,12 @@ void
 cli_setup(respcli_options_st *options)
 {
     if (options != NULL) {
-        config.host = options->server_host.val.vstr;
-        config.port = options->data_port.val.vstr;
-        if (config.host == NULL) { /* if host is not provided it's local */
-            config.mode = LOCAL;
+        network_config.host = options->server_host.val.vstr;
+        network_config.port = options->data_port.val.vstr;
+        if (network_config.host == NULL) { /* if host is not provided it's local */
+            network_config.mode = LOCAL;
         } else {
-            config.mode = REMOTE;
+            network_config.mode = REMOTE;
         }
     }
 
@@ -93,23 +64,23 @@ _cli_prompt(void)
         buf.output = cc_alloc(IO_BUF_MAX);
     }
 
-    switch (config.mode) {
+    switch (network_config.mode) {
         case LOCAL:
             len = cc_snprintf(buf.output, IO_BUF_MAX, PROMPT_FMT_LOCAL,
-                    config.port);
+                    PROTOCOL, network_config.port);
             buf.olen = MIN(len, IO_BUF_MAX - 1);
             break;
 
         case REMOTE:
             len = cc_snprintf(buf.output, IO_BUF_MAX, PROMPT_FMT_REMOTE,
-                    config.host);
+                    PROTOCOL, network_config.host);
             buf.olen = MIN(len, IO_BUF_MAX - 1);
             break;
 
         case OFFLINE:
             len = cc_snprintf(buf.output, IO_BUF_MAX, PROMPT_FMT_OFFLINE,
-                    (config.host == NULL) ? "localhost" : config.host,
-                    config.port);
+                    PROTOCOL, (network_config.host == NULL) ? "localhost" :
+                    network_config.host, network_config.port);
             buf.olen = MIN(len, IO_BUF_MAX - 1);
             break;
 
@@ -138,52 +109,75 @@ _cli_parse_req(void)
     }
 }
 
+static bool
+_cli_onerun(void)
+{
+    int status;
+
+    buf_reset(client->rbuf);
+    buf_reset(client->wbuf);
+    request_reset(req);
+    response_reset(rsp);
+
+    /* print prompt */
+    _cli_prompt();
+    fwrite(buf.output, buf.olen, 1, stdout);
+
+    /* wait for input, quit to exit the loop */
+    getline(&buf.input, &buf.ilen, stdin);
+    if (cc_strncmp(buf.input, "quit", 4) == 0) {
+        quit = true;
+        return true;
+    }
+
+    /* parse input buffer into request object, translate */
+    _cli_parse_req();
+    status = compose_req(&client->wbuf, req);
+    if (status < 0) {
+        /* TODO: handle OOM error */
+    }
+
+    /* issue command */
+    do {
+        status = buf_tcp_write(client);
+    } while (status == CC_ERETRY || status == CC_EAGAIN); /* retry write */
+    if (status != CC_OK) {
+        fwrite(SEND_ERROR, sizeof(SEND_ERROR), 1, stdout);
+        return false;
+    }
+
+    /* wait for complete response */
+    do {
+        status = buf_tcp_read(client);
+        if (status != CC_OK && status != CC_ERETRY) {
+            if (status == CC_ERDHUP) {
+                fwrite(RECV_HUP, sizeof(RECV_HUP), 1, stdout);
+            } else {
+                fwrite(RECV_ERROR, sizeof(RECV_ERROR), 1, stdout);
+            }
+            return false;
+        }
+        status = parse_rsp(rsp, client->rbuf);
+    } while (status == PARSE_EUNFIN);
+    client->rbuf->rpos = client->rbuf->begin;
+    fwrite(client->rbuf->begin, buf_rsize(client->rbuf), 1, stdout);
+
+    return true;
+}
+
 
 void
 cli_run(void)
 {
-    bool quit = false;
-    int status;
-
-    if (!cli_connect(client, config.host, config.port)) {
-        config.mode = OFFLINE;
+    if (!cli_connect(client)) {
+        network_config.mode = OFFLINE;
     }
 
     while (!quit) {
-        /* print prompt */
-        _cli_prompt();
-        fwrite(buf.output, buf.olen, 1, stdout);
-
-        /* wait for input */
-        getline(&buf.input, &buf.ilen, stdin);
-
-        /* parse input buffer into request object, translate */
-        _cli_parse_req();
-        status = compose_req(&client->wbuf, req);
-        if (status < 0) {
-            /* TODO: handle error */
+        if (!_cli_onerun() && !cli_reconnect(client)) {
+            /* should reconnect but it failed */
+            quit = true;
         }
-
-        /* issue command */
-        do {
-            status = buf_tcp_write(client);
-        } while (status == CC_ERETRY || status == CC_EAGAIN); /* retry write */
-        if (status != CC_OK) {
-            /* TODO: reset connection */
-        }
-
-        /* wait for complete response */
-        do {
-            buf_tcp_read(client);
-            status = parse_rsp(rsp, client->rbuf);
-        } while (status == PARSE_EUNFIN);
-        client->rbuf->rpos = client->rbuf->begin;
-        fwrite(client->rbuf->begin, buf_rsize(client->rbuf), 1, stdout);
-
-        /* reset buffers and go to the top */
-        buf_reset(client->rbuf);
-        buf_reset(client->wbuf);
-        request_reset(req);
-        response_reset(rsp);
     }
+
 }
