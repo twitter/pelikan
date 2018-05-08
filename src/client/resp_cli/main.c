@@ -106,14 +106,21 @@ main(int argc, char **argv)
             show_version();
             exit(EX_OK);
         }
+        if (strcmp(argv[1], "-c") == 0 || strcmp(argv[1], "--config") == 0) {
+            option_describe_all((struct option *)&setting, nopt);
+            exit(EX_OK);
+        }
+        fp = fopen(argv[1], "r");
+        if (fp == NULL) {
+            log_stderr("cannot open config: incorrect path or doesn't exist");
+            exit(EX_DATAERR);
+        }
     }
 
     if (option_load_default((struct option *)&setting, nopt) != CC_OK) {
         log_stderr("failed to load default option values");
         exit(EX_CONFIG);
     }
-    /* update default log level for CLI to hide most debug logging */
-    setting.debug.debug_log_level.val.vuint = LOG_ERROR;
 
     /* TODO(yao): modify option module in ccommon to allow ignore unmatched
      * option, this will allow us to reuse server config files with cli
