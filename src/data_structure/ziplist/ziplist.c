@@ -141,31 +141,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define ZIPLIST_HEADER_SIZE 8
-
-#define ZE_ZELEN_LEN  1
-#define ZE_U8_MAX     250
-#define ZE_U8_LEN     1
-#define ZE_U16_MAX    UINT16_MAX
-#define ZE_U16        251
-#define ZE_U16_LEN    3
-#define ZE_U24_MAX    ((2ULL << 24) - 1)
-#define ZE_U24        252
-#define ZE_U24_LEN    4
-#define ZE_U56_MAX    ((2ULL << 56) - 1)
-#define ZE_U56        253
-#define ZE_U56_LEN    8
-#define ZE_U64_MAX    UINT64_MAX
-#define ZE_U64        254
-#define ZE_U64_LEN    9
-#define ZE_STR        255
-#define ZE_STR_HEADER 2
-#define ZE_STR_MAXLEN (UINT8_MAX - ZE_STR_HEADER - ZE_ZELEN_LEN)
 
 static inline uint8_t *
 _ziplist_end(ziplist_p zl)
 {
-    return zl + *((uint32_t *)zl);
+    return zl + *((uint32_t *)zl + 1);
 }
 
 /* zipentry size required for a value */
@@ -209,7 +189,7 @@ _zipentry_len(zipentry_p ze)
 
 static inline uint64_t
 _zipentry_int(zipentry_p ze) {
-    if (*ze < ZE_U8_MAX) {
+    if (*ze <= ZE_U8_MAX) {
         return *((uint8_t*)ze);
     } else if (*ze == ZE_U16) {
         return *((uint16_t*)(ze + 1));
@@ -240,10 +220,23 @@ _cmp_int(uint64_t a, uint64_t b)
     return -(a <= b) + (a >= b);
 }
 
+
+ziplist_rstatus_e
+zipentry_size(uint8_t *sz, struct blob *val)
+{
+    if (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN) {
+        return ZIPLIST_EINVALID;
+    }
+
+    *sz = _encode_size(val);
+
+    return ZIPLIST_OK;
+}
+
 int
 zipentry_compare(const zipentry_p ze, const struct blob *val)
 {
-    ASSERT(ze != NULL);
+    ASSERT(ze != NULL && val != NULL);
 
     size_t len;
     int ret;
@@ -253,7 +246,7 @@ zipentry_compare(const zipentry_p ze, const struct blob *val)
             return 1;
         } else {
             len = MIN(*(ze + 1), val->vstr.len);
-            ret = cc_strncmp(ze + 2, val->vstr.data, len);
+            ret = memcmp(ze + 2, val->vstr.data, len);
             if (ret == 0) {
                 ret = _cmp_int(*(ze + 1), val->vstr.len);
             }
@@ -290,13 +283,17 @@ zipentry_get(struct blob *val, const zipentry_p ze)
 ziplist_rstatus_e
 zipentry_set(zipentry_p ze, const struct blob *val)
 {
-    uint8_t len = _encode_size(val);
+    uint8_t len;
 
-    if (ze == NULL) {
+    if (ze == NULL || val == NULL) {
         return ZIPLIST_ERROR;
     }
 
+    len = _encode_size(val);
     if (val->type == BLOB_TYPE_STR) {
+        if (val->vstr.len > ZE_STR_MAXLEN) {
+            return ZIPLIST_EINVALID;
+        }
         *ze = ZE_STR;
         *(ze + 1) = val->vstr.len;
         cc_memcpy(ze + 2, val->vstr.data, val->vstr.len);
@@ -343,8 +340,8 @@ ziplist_reset(ziplist_p zl)
         return ZIPLIST_ERROR;
     }
 
-    /* nentry = 0, tail = 0 */
-    *((uint64_t *)zl) = 0;
+    *((uint32_t *)zl) = 0;
+    *((uint32_t *)zl + 1) = 7;
 
     return ZIPLIST_OK;
 }
@@ -353,7 +350,7 @@ ziplist_reset(ziplist_p zl)
 static inline zipentry_p
 _ziplist_prev(zipentry_p ze)
 {
-    return ze - *(ze - 1) + 1; /* *(ze - 1) : length of the previous entry */
+    return ze - *(ze - 1); /* *(ze - 1) : length of the previous entry */
 }
 
 /* do NOT call this function on the last zip entry, use ziplist_prev */
@@ -361,26 +358,6 @@ static inline zipentry_p
 _ziplist_next(zipentry_p ze)
 {
     return ze + _zipentry_len(ze);
-}
-
-static inline zipentry_p
-_ziplist_fromleft(const ziplist_p zl, uint32_t idx)
-{
-    zipentry_p ze = _ziplist_head(zl);
-
-    for (; idx > 0; idx--, ze += _zipentry_len(ze));
-
-    return ze;
-}
-
-static inline zipentry_p
-_ziplist_fromright(const ziplist_p zl, uint32_t idx)
-{
-    uint8_t *p = _ziplist_end(zl);
-
-    for (; idx > 0; idx--, p -= *p);
-
-    return p - *p + 1;
 }
 
 ziplist_rstatus_e
@@ -405,10 +382,36 @@ ziplist_next(zipentry_p *ze, ziplist_p zl, const zipentry_p curr)
     }
 }
 
+static inline zipentry_p
+_ziplist_fromleft(const ziplist_p zl, uint32_t idx)
+{
+    zipentry_p ze = _ziplist_head(zl);
+
+    for (; idx > 0; idx--, ze += _zipentry_len(ze));
+
+    return ze;
+}
+
+static inline zipentry_p
+_ziplist_fromright(const ziplist_p zl, uint32_t idx)
+{
+    uint8_t *p = _ziplist_end(zl);
+
+    for (; idx > 0; idx--, p -= *p);
+
+    return p - *p + 1;
+}
+
 ziplist_rstatus_e
 ziplist_locate(zipentry_p *ze, const ziplist_p zl, const uint32_t idx)
 {
-    uint32_t nentry = ziplist_nentry(zl);
+    uint32_t nentry;
+
+    if (zl == NULL || ze == NULL) {
+        return ZIPLIST_ERROR;
+    }
+
+    nentry = ziplist_nentry(zl);
     if (nentry <= idx) {
         *ze = NULL;
         return ZIPLIST_EOOB;
@@ -430,13 +433,17 @@ ziplist_locate(zipentry_p *ze, const ziplist_p zl, const uint32_t idx)
 ziplist_rstatus_e
 ziplist_find(zipentry_p *ze, const ziplist_p zl, const struct blob *val)
 {
-    int i = ziplist_nentry(zl);
+    int i;
 
+    if (ze == NULL || zl == NULL || val == NULL) {
+        return ZIPLIST_ERROR;
+    }
     if (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN) {
         return ZIPLIST_EINVALID;
     }
 
-    for (*ze = _ziplist_head(zl);  i > 0; i--, *ze += _zipentry_len(*ze)) {
+    for (i = ziplist_nentry(zl), *ze = _ziplist_head(zl);  i > 0; i--,
+            *ze += _zipentry_len(*ze)) {
         if (zipentry_compare(*ze, val) == 0) { /* found */
             return ZIPLIST_OK;
         }
@@ -472,25 +479,67 @@ ziplist_remove(const ziplist_p zl, uint32_t idx, uint32_t count)
     return ZIPLIST_OK;
 }
 
-ziplist_rstatus_e
-ziplist_insert(ziplist_p zl, struct blob *val, uint32_t idx)
+static inline void
+_ziplist_add(ziplist_p zl, zipentry_p ze, struct blob *val, uint8_t sz)
 {
-    uint32_t nentry = ziplist_nentry(zl);
+    zipentry_set(ze, val);
+
+    *((uint32_t *)zl) += 1;
+    *((uint32_t *)zl + 1) += sz;
+}
+
+ziplist_rstatus_e
+ziplist_insert(ziplist_p zl, struct blob *val, int64_t idx)
+{
+    uint32_t nentry;
+    uint8_t sz;
     zipentry_p ze;
 
-    if (idx > nentry + 1) {
+    if (zl == NULL || val == NULL) {
+        return ZIPLIST_ERROR;
+    }
+
+    if (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN) {
         return ZIPLIST_EINVALID;
     }
 
-    if (idx == nentry + 1) {
+    nentry = ziplist_nentry(zl);
+    idx += (idx < 0) * nentry;
+    if (idx < 0 || idx > nentry) {
+        return ZIPLIST_EOOB;
+    }
+
+    sz = _encode_size(val);
+    if (idx == nentry) {
         ze = _ziplist_end(zl) + 1;
     } else {
         ziplist_locate(&ze, zl, idx);
         /* right shift */
-        cc_memmove(ze + _encode_size(val), ze, _ziplist_end(zl) - ze + 1);
+        cc_memmove(ze + sz, ze, _ziplist_end(zl) - ze + 1);
     }
 
-    zipentry_set(ze, val);
+    _ziplist_add(zl, ze, val, sz);
+
+    return ZIPLIST_OK;
+}
+
+ziplist_rstatus_e
+ziplist_push(ziplist_p zl, struct blob *val)
+{
+    zipentry_p ze;
+    uint8_t sz;
+
+    if (zl == NULL || val == NULL) {
+        return ZIPLIST_ERROR;
+    }
+
+    if (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN) {
+        return ZIPLIST_EINVALID;
+    }
+
+    ze = _ziplist_end(zl) + 1;
+    sz = _encode_size(val);
+    _ziplist_add(zl, ze, val, sz);
 
     return ZIPLIST_OK;
 }

@@ -70,7 +70,6 @@ bitmap_suite(void)
 {
     Suite *s = suite_create(SUITE_NAME);
 
-    /* basic requests */
     TCase *tc_bitset = tcase_create("bitset");
     suite_add_tcase(s, tc_bitset);
 

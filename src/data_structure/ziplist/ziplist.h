@@ -21,6 +21,27 @@
 
 #include <stdint.h>
 
+#define ZIPLIST_HEADER_SIZE 8
+
+#define ZE_ZELEN_LEN  1
+#define ZE_U8_MAX     250
+#define ZE_U8_LEN     1
+#define ZE_U16_MAX    UINT16_MAX
+#define ZE_U16        251
+#define ZE_U16_LEN    3
+#define ZE_U24_MAX    ((1ULL << 24) - 1)
+#define ZE_U24        252
+#define ZE_U24_LEN    4
+#define ZE_U56_MAX    ((1ULL << 56) - 1)
+#define ZE_U56        253
+#define ZE_U56_LEN    8
+#define ZE_U64_MAX    UINT64_MAX
+#define ZE_U64        254
+#define ZE_U64_LEN    9
+#define ZE_STR        255
+#define ZE_STR_HEADER 2
+#define ZE_STR_MAXLEN (UINT8_MAX - ZE_STR_HEADER - ZE_ZELEN_LEN)
+
 typedef uint8_t * ziplist_p;
 typedef uint8_t * zipentry_p;
 
@@ -33,6 +54,7 @@ typedef enum {
 } ziplist_rstatus_e;
 
 /* zipentry APIs */
+ziplist_rstatus_e zipentry_size(uint8_t *sz, struct blob *val);
 ziplist_rstatus_e zipentry_get(struct blob *val, const zipentry_p ze);
 ziplist_rstatus_e zipentry_set(zipentry_p ze, const struct blob *val);
 /* normal string or int comparison if both are of the same type, comparing an int
@@ -52,7 +74,8 @@ ziplist_rstatus_e ziplist_remove(const ziplist_p zl, uint32_t idx, uint32_t coun
  * otherwise, existing entry is right shifted
  * CALLER MUST MAKE SURE THERE IS ENOUGH MEMORY!!!
  */
-ziplist_rstatus_e ziplist_insert(ziplist_p zl, struct blob *val, uint32_t idx);
+ziplist_rstatus_e ziplist_insert(ziplist_p zl, struct blob *val, int64_t idx);
+ziplist_rstatus_e ziplist_push(ziplist_p zl, struct blob *val); /* a shorthand for insert at idx == nentry */
 
 static inline uint32_t
 ziplist_nentry(const ziplist_p zl)
