@@ -9,12 +9,9 @@
 
 
 /* The ziplist is a specially encoded dually linked list that is designed
- * to be very memory efficient. It stores both strings and integer values,
- * where integers are encoded as actual integers instead of a series of
- * characters. It allows push and pop operations on either side of the list
- * in O(1) time. However, because every operation requires a reallocation of
- * the memory used by the ziplist, the actual complexity is related to the
- * amount of memory used by the ziplist.
+ * to be very memory efficient. It stores both strings and integer values. In
+ * the current implementation, insertion and removal gets slower as the entry
+ * gets closer to the center of the list.
  *
  * ----------------------------------------------------------------------------
  *
@@ -40,12 +37,13 @@
  * ZIPLIST ENTRIES
  * ===============
  *
- * Every entry in the ziplist is prefixed by metadata that contains two pieces
- * of information. First, the length of the previous entry is stored to be
- * able to traverse the list from back to front. Second, the entry encoding is
- * provided. It represents the entry type, integer or string, and in the case
- * of strings it also represents the length of the string payload.
- * So a complete entry is stored like this:
+ * Every entry in the ziplist contains the encoding, which indicates type and
+ * length, value of the entry, followed by length of the entry as at the end.
+ * When scanning forward, the encoding provides the length of the entry, while
+ * the same information can be obtained by reading the last byte of the entry
+ * if traversing backward.
+ *
+ * A complete entry is stored like this:
  *
  * <encoding> <data> <len>
  *
@@ -80,7 +78,9 @@
  * We also don't attempt to accommodate large values as ziplist entries, because
  * the operations on large values generally have very different considerations
  * from small ones. For example, it is much more important to make sure memory
- * operations are efficient (such as resizing and copying) when updating large * values, and the overhead of encoding becomes encoding. They also will have * very different runtime characteristics. So instead of supporting all value
+ * operations are efficient (such as resizing and copying) when updating large
+ * values, and the overhead of encoding becomes encoding. They also will have
+ * very different runtime characteristics. So instead of supporting all value
  * sizes in theory and running into operational issues later, it is better,
  * at least operationally, to make such limitations explicit and deal with
  * different use cases separately.
