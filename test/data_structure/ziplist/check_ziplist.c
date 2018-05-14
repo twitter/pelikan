@@ -1,6 +1,7 @@
 #include <data_structure/ziplist/ziplist.h>
 
 #include <cc_mm.h>
+#include <stdio.h>
 
 #include <check.h>
 
@@ -64,13 +65,7 @@ START_TEST(test_zipentry_get)
         ck_assert_int_eq(zipentry_size(&sz, &val), ZIPLIST_OK);
         ck_assert_int_eq(sz, ze_examples[i].nbyte);
         ck_assert_int_eq(val.type, ze_examples[i].decoded.type);
-        if (val.type == BLOB_TYPE_INT) {
-            ck_assert_int_eq(val.vint, ze_examples[i].decoded.vint);
-        } else {
-            ck_assert_int_eq(val.vstr.len, ze_examples[i].decoded.vstr.len);
-            ck_assert(memcmp(val.vstr.data, ze_examples[i].decoded.vstr.data,
-                        val.vstr.len) == 0);
-        }
+        ck_assert(blob_compare(&val, &ze_examples[i].decoded) == 0);
     }
 
     ck_assert_int_eq(zipentry_get(&val, NULL), ZIPLIST_ERROR);
@@ -117,7 +112,7 @@ END_TEST
  * ziplist tests
  */
 
-START_TEST(test_ziplist_seek)
+START_TEST(test_ziplist_seeklocation)
 {
     int i;
     zipentry_p ze;
@@ -140,36 +135,54 @@ START_TEST(test_ziplist_seek)
         ck_assert(ziplist_locate(&ze, (ziplist_p)ref, i) == ZIPLIST_OK);
         ck_assert(ze == ze_index[i]);
     }
+    for (i = 0; i < n_ze; ++i) {
+        ck_assert(ziplist_locate(&ze, (ziplist_p)ref, -1 - i) == ZIPLIST_OK);
+        ck_assert(ze == ze_index[n_ze - 1 - i]);
+    }
 
     ck_assert(ziplist_locate(&ze, (ziplist_p)ref, n_ze) == ZIPLIST_EOOB);
     ck_assert(ziplist_locate(NULL, (ziplist_p)ref, 0) == ZIPLIST_ERROR);
     ck_assert(ziplist_locate(&ze, NULL, 0) == ZIPLIST_ERROR);
+}
+END_TEST
+
+START_TEST(test_ziplist_seekvalue)
+{
+    int i;
+    int64_t idx;
+    zipentry_p ze;
 
     /* find */
     for (i = 0; i < n_ze; ++i) {
-        ck_assert(ziplist_find(&ze, (ziplist_p)ref, &ze_examples[i].decoded) ==
-                ZIPLIST_OK);
+        ck_assert(ziplist_find(&ze, &idx, (ziplist_p)ref,
+                &ze_examples[i].decoded) == ZIPLIST_OK);
+        ck_assert(idx == i);
         ck_assert(ze == ze_index[i]);
     }
     val = (struct blob){.type=BLOB_TYPE_INT, .vint=42};
-    ck_assert(ziplist_find(&ze, (ziplist_p)ref, &val) == ZIPLIST_OK);
+    ck_assert(ziplist_find(&ze, &idx, (ziplist_p)ref, &val) == ZIPLIST_OK);
     ck_assert(ze == NULL);
+    ck_assert(idx == -1);
     val = (struct blob){.type=BLOB_TYPE_STR, .vstr=(struct bstring){2, "pi"}};
-    ck_assert(ziplist_find(&ze, (ziplist_p)ref, &val) == ZIPLIST_OK);
+    ck_assert(ziplist_find(&ze, &idx, (ziplist_p)ref, &val) == ZIPLIST_OK);
     ck_assert(ze == NULL);
+    ck_assert(idx == -1);
+    ck_assert(ziplist_find(&ze, NULL, (ziplist_p)ref, &val) == ZIPLIST_OK);
+    ck_assert(ziplist_find(NULL, &idx, (ziplist_p)ref, &val) == ZIPLIST_OK);
 
-    ck_assert(ziplist_find(NULL, (ziplist_p)ref, &val) == ZIPLIST_ERROR);
-    ck_assert(ziplist_find(&ze, NULL, &val) == ZIPLIST_ERROR);
-    ck_assert(ziplist_find(&ze, (ziplist_p)ref, NULL) == ZIPLIST_ERROR);
+    ck_assert(ziplist_find(NULL, NULL, (ziplist_p)ref, &val) == ZIPLIST_ERROR);
+    ck_assert(ziplist_find(&ze, &idx, NULL, &val) == ZIPLIST_ERROR);
+    ck_assert(ziplist_find(&ze, &idx, (ziplist_p)ref, NULL) == ZIPLIST_ERROR);
+    val.type = BLOB_TYPE_STR;
+    val.vstr.len = ZE_STR_MAXLEN + 1;
+    ck_assert(ziplist_find(&ze, &idx, (ziplist_p)ref, &val) == ZIPLIST_EINVALID);
 
 }
 END_TEST
 
-START_TEST(test_ziplist_modify)
+START_TEST(test_ziplist_resetpushpop)
 {
     int i;
-    int64_t idx[NENTRY];
-    uint32_t offset[NENTRY];
 
     /* reset */
     for (i = 0; i < ZIPLIST_HEADER_SIZE; ++i) {
@@ -193,6 +206,27 @@ START_TEST(test_ziplist_modify)
     val.vstr.len = ZE_STR_MAXLEN + 1;
     ck_assert(ziplist_push((ziplist_p)buf, &val) == ZIPLIST_EINVALID);
 
+    /* pop */
+    for (i = n_ze - 1; i >= 0; --i) {
+        ck_assert(ziplist_pop(&val, (ziplist_p)buf) == ZIPLIST_OK);
+        ck_assert_int_eq(val.type, ze_examples[i].decoded.type);
+        ck_assert(blob_compare(&val, &ze_examples[i].decoded) == 0);
+    }
+
+    ziplist_push((ziplist_p)buf, &ze_examples[i].decoded);
+    ck_assert(ziplist_pop(NULL, (ziplist_p)buf) == ZIPLIST_OK);
+
+    ck_assert(ziplist_pop(&val, NULL) == ZIPLIST_ERROR);
+    ck_assert(ziplist_pop(&val, (ziplist_p)buf) == ZIPLIST_EOOB);
+}
+END_TEST
+
+START_TEST(test_ziplist_insertremove)
+{
+    int i;
+    int64_t idx[NENTRY], d;
+    uint32_t offset[NENTRY];
+
     /* insert */
     /* going from ends to middle,
      * insert position: 0, 1, 1, 2, 2, ...
@@ -213,6 +247,15 @@ START_TEST(test_ziplist_modify)
                 &ze_examples[offset[i]].decoded, idx[i]) == ZIPLIST_OK);
     }
     ck_assert(memcmp(ref, buf, ziplist_len((ziplist_p)ref)) == 0);
+    /* using negative index, but we need to fill out the ends first */
+    ziplist_reset((ziplist_p)buf);
+    ziplist_insert((ziplist_p)buf, &ze_examples[0].decoded, 0);
+    ziplist_insert((ziplist_p)buf, &ze_examples[n_ze - 1].decoded, 1);
+    for (i = 2; i < n_ze; ++i) {
+        ck_assert(ziplist_insert((ziplist_p)buf,
+                &ze_examples[offset[i]].decoded, -idx[i - 1]) == ZIPLIST_OK);
+    }
+    ck_assert(memcmp(ref, buf, ziplist_len((ziplist_p)ref)) == 0);
 
     ck_assert(ziplist_insert(NULL, &val, 0) == ZIPLIST_ERROR);
     ck_assert(ziplist_insert((ziplist_p)buf, NULL, 0) == ZIPLIST_ERROR);
@@ -221,6 +264,28 @@ START_TEST(test_ziplist_modify)
     ck_assert(ziplist_insert((ziplist_p)buf, &val, 0) == ZIPLIST_EINVALID);
     val.vstr.len = 1;
     ck_assert(ziplist_insert((ziplist_p)buf, &val, n_ze + 1) == ZIPLIST_EOOB);
+
+    /* remove: reverse insertion order, from middle to ends  */
+    for (i = n_ze - 1; i >= 0; --i) {
+        ziplist_find(NULL, &d, (ziplist_p)buf, &ze_examples[offset[i]].decoded);
+        ck_assert_int_eq(d, idx[i]);
+        ck_assert(ziplist_remove((ziplist_p)buf, d, 1) == ZIPLIST_OK);
+        ziplist_find(NULL, &d, (ziplist_p)buf, &ze_examples[offset[i]].decoded);
+        ck_assert_int_eq(d, -1);
+    }
+    ck_assert_int_eq(ziplist_nentry((ziplist_p)buf), 0);
+
+    ziplist_insert((ziplist_p)buf, &ze_examples[0].decoded, 0);
+    ck_assert(ziplist_remove((ziplist_p)buf, -1, 1) == ZIPLIST_OK);
+    ck_assert_int_eq(ziplist_nentry((ziplist_p)buf), 0);
+
+    ck_assert(ziplist_remove(NULL, 0, 1) == ZIPLIST_ERROR);
+    ck_assert(ziplist_remove((ziplist_p)buf, 0, 0) == ZIPLIST_EINVALID);
+    ziplist_insert((ziplist_p)buf, &ze_examples[0].decoded, 0);
+    ck_assert(ziplist_remove((ziplist_p)buf, 0, 3) == ZIPLIST_EOOB);
+    ck_assert(ziplist_remove((ziplist_p)buf, 1, 1) == ZIPLIST_EOOB);
+
+
 }
 END_TEST
 
@@ -254,8 +319,10 @@ zipmap_suite(void)
 
     TCase *tc_ziplist = tcase_create("ziplist");
     suite_add_tcase(s, tc_ziplist);
-    tcase_add_test(tc_ziplist, test_ziplist_seek);
-    tcase_add_test(tc_ziplist, test_ziplist_modify);
+    tcase_add_test(tc_ziplist, test_ziplist_seeklocation);
+    tcase_add_test(tc_ziplist, test_ziplist_seekvalue);
+    tcase_add_test(tc_ziplist, test_ziplist_resetpushpop);
+    tcase_add_test(tc_ziplist, test_ziplist_insertremove);
 
     return s;
 }

@@ -19,8 +19,6 @@
 
 #include "../shared.h"
 
-#include <stdint.h>
-
 #define ZIPLIST_HEADER_SIZE 8
 
 #define ZE_ZELEN_LEN  1
@@ -42,6 +40,9 @@
 #define ZE_STR_HEADER 2
 #define ZE_STR_MAXLEN (UINT8_MAX - ZE_STR_HEADER - ZE_ZELEN_LEN)
 
+#define ZL_NENTRY(_zl)  (*((uint32_t *)(_zl)))
+#define ZL_NEND(_zl)  (*((uint32_t *)(_zl) + 1)) /* offset of last byte in zl */
+
 typedef uint8_t * ziplist_p;
 typedef uint8_t * zipentry_p;
 
@@ -57,35 +58,38 @@ typedef enum {
 ziplist_rstatus_e zipentry_size(uint8_t *sz, struct blob *val);
 ziplist_rstatus_e zipentry_get(struct blob *val, const zipentry_p ze);
 ziplist_rstatus_e zipentry_set(zipentry_p ze, const struct blob *val);
-/* normal string or int comparison if both are of the same type, comparing an int
- * to an str will always return -1, and 1 vice versa */
+/* normal string or int comparison if both are of the same type, comparing an
+ * int to an str will always return -1, and 1 vice versa */
 int zipentry_compare(const zipentry_p ze, const struct blob *val);
 
 /* ziplist APIs: seek */
 ziplist_rstatus_e ziplist_prev(zipentry_p *ze, const ziplist_p zl, const zipentry_p curr);
 ziplist_rstatus_e ziplist_next(zipentry_p *ze, const ziplist_p zl, const zipentry_p curr);
-ziplist_rstatus_e ziplist_locate(zipentry_p *ze, const ziplist_p zl, uint32_t idx);
-ziplist_rstatus_e ziplist_find(zipentry_p *ze, const ziplist_p zl, const struct blob *val); /* first match */
+ziplist_rstatus_e ziplist_locate(zipentry_p *ze, const ziplist_p zl, int64_t idx);
+/* return first match, entry & index, ze & idx can't both be NULL, idx is set to
+ * -1 and ze is set to NULL if a match is not found */
+ziplist_rstatus_e ziplist_find(zipentry_p *ze, int64_t *idx, const ziplist_p zl, const struct blob *val);
 
 /* ziplist APIs: modify */
 ziplist_rstatus_e ziplist_reset(ziplist_p zl);
-ziplist_rstatus_e ziplist_remove(const ziplist_p zl, uint32_t idx, uint32_t count); /* count entries starting from index idx */
+ziplist_rstatus_e ziplist_remove(ziplist_p zl, int64_t idx, uint32_t count); /* count entries starting from index idx */
 /* if idx == nentry, value will be right pushed;
  * otherwise, existing entry is right shifted
  * CALLER MUST MAKE SURE THERE IS ENOUGH MEMORY!!!
  */
 ziplist_rstatus_e ziplist_insert(ziplist_p zl, struct blob *val, int64_t idx);
 ziplist_rstatus_e ziplist_push(ziplist_p zl, struct blob *val); /* a shorthand for insert at idx == nentry */
+/* remove tail & return, if val is NULL it is equivalent to remove at idx -1 */
+ziplist_rstatus_e ziplist_pop(struct blob *val, ziplist_p zl);
 
 static inline uint32_t
 ziplist_nentry(const ziplist_p zl)
 {
-    return *((uint32_t *)zl);
+    return ZL_NENTRY(zl);
 }
 
 static inline uint32_t
 ziplist_len(const ziplist_p zl)
 {
-    return *((uint32_t *)zl + 1) + 1;
+    return ZL_NEND(zl) + 1;
 }
-

@@ -2,6 +2,12 @@
 
 #include <cc_bstring.h>
 
+#include <stdint.h>
+
+
+/* return -1, 0, 1 for <, =, > */
+#define COMPARE(_a, _b) (-((_a) <= (_b)) + ((_a) >= (_b)))
+
 typedef enum blob_type {
     BLOB_TYPE_INT=1,
     BLOB_TYPE_STR=2,
@@ -15,3 +21,26 @@ struct blob {
         uint64_t vint;
     };
 };
+
+static inline int
+blob_compare(const struct blob *first, const struct blob *second)
+{
+    size_t len;
+    int ret;
+
+    if (first->type != second->type) {
+        return COMPARE(first->type, second->type);
+    } else {
+        if (first->type == BLOB_TYPE_INT) {
+            return COMPARE(first->vint, second->vint);
+        } else { /* str */
+            len = MIN(first->vstr.len, second->vstr.len);
+            ret = memcmp(first->vstr.data, second->vstr.data, len);
+            if (ret == 0) {
+                return COMPARE(first->vstr.len, second->vstr.len);
+            }
+
+            return ret;
+        }
+    }
+}
