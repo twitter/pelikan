@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cc_bstring.h>
+#include <cc_debug.h>
 
 #include <stdint.h>
 
@@ -9,6 +10,7 @@
 #define COMPARE(_a, _b) (-((_a) <= (_b)) + ((_a) >= (_b)))
 
 typedef enum blob_type {
+    BLOB_TYPE_UNKNOWN=0,
     BLOB_TYPE_INT=1,
     BLOB_TYPE_STR=2,
     BLOB_TYPE_SENTINEL
@@ -27,6 +29,9 @@ blob_compare(const struct blob *first, const struct blob *second)
 {
     size_t len;
     int ret;
+
+    ASSERT(first->type > BLOB_TYPE_UNKNOWN && first->type < BLOB_TYPE_SENTINEL);
+    ASSERT(second->type > BLOB_TYPE_UNKNOWN && second->type < BLOB_TYPE_SENTINEL);
 
     if (first->type != second->type) {
         return COMPARE(first->type, second->type);

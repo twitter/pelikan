@@ -2,145 +2,6 @@
 
 #include <cc_debug.h>
 
-/* The description of the ziplist is adapted from the redis project with heavy
- * modification. License is included for comments only.
- * The binary does not contain any source code from Redis.
- */
-
-
-/* The ziplist is a specially encoded dually linked list that is designed
- * to be very memory efficient. It stores both strings and integer values. In
- * the current implementation, insertion and removal gets slower as the entry
- * gets closer to the center of the list.
- *
- * ----------------------------------------------------------------------------
- *
- * ZIPLIST OVERALL LAYOUT
- * ======================
- *
- * The general layout of the ziplist is as follows:
- *
- * <nentry> <zlend> <entry> <entry> ... <entry>
- * ╰--------------╯ ╰-------------------------╯
- *       header                 body
- *
- * Overhead: 8 bytes
- *
- * <uint32_t nentry> is the number of entries.
- *
- * <uint32_t zlend> is the offset to end of the last entry in the list. This
- * allows a pop operation on the far side of the list without the need for full
- * traversal. Note 0 starts from the beginning of the header, and the smallest
- * entry is 2 bytes, so zlend less than 9 indicate an empty list.
- *
- *
- * ZIPLIST ENTRIES
- * ===============
- *
- * Every entry in the ziplist contains the encoding, which indicates type and
- * length, value of the entry, followed by length of the entry as at the end.
- * When scanning forward, the encoding provides the length of the entry, while
- * the same information can be obtained by reading the last byte of the entry
- * if traversing backward.
- *
- * A complete entry is stored like this:
- *
- * <encoding> <data> <len>
- *
- * Sometimes the encoding represents the entry itself, like for small integers
- * as we'll see later. In such a case the <entry-data> part is missing, and we
- * could have just:
- *
- * <encoding/data> <len>
- *
- * len takes exactly 1 byte, as we only cater to smaller entries for now.
- *
- * The encoding and value of the entry are content-dependent.
- * <= 250 : 1 byte, no memory overhead
- *      unsigned integer up to 250
- * == 251 : 3 (1+2) bytes, 50.0% overhead
- *      unsigned integer up to (2^16 - 1)
- * == 252 : 4 (1+3) bytes, 33.3% overhead
- *      unsigned integer up to (2^24 - 1)
- * == 253 : 8 (1+7) bytes, 14.3% overhead
- *      unsigned integer up to (2^56 - 1)
- * == 254 : 9 (1+8) bytes, 12.5% overhead
- *      unsigned integer up to (2^64 - 1)
- * == 255 : (1 + 1 + N) bytes, upto 200% overhead for 1-byte strings, but that
-*           can be stored as integer to avoid this overhead
- *      string up to 252 bytes (yields a 255 byte zipentry)
- *
- * This encoding is different from ziplist in Redis, which optimizes for small
- * strings (1 byte overhead instead of 2) instead of small integers. We do it
- * differently because in practice it seems values small in size tend to be
- * numerical in nature, so we decide to optimize for storing small integers
- * efficiently instead.
- * We also don't attempt to accommodate large values as ziplist entries, because
- * the operations on large values generally have very different considerations
- * from small ones. For example, it is much more important to make sure memory
- * operations are efficient (such as resizing and copying) when updating large
- * values, and the overhead of encoding becomes encoding. They also will have
- * very different runtime characteristics. So instead of supporting all value
- * sizes in theory and running into operational issues later, it is better,
- * at least operationally, to make such limitations explicit and deal with
- * different use cases separately.
- *
- * TODO: optimization if all list members are of the same size, then we can
- * remove the entry header all together and seeking will be extremely easy.
- *
- *
- * EXAMPLE
- * =======
- *
- * The following is a ziplist containing the two elements representing
- * the integer 2 and string "pi". It is composed of 15 bytes, that we visually
- * split into sections:
- *
- *  [02 00 00 00] [0e 00 00 00] [03 02] [ff 02 70 69 05]
- *  ╰-----------╯ ╰-----------╯ ╰-----╯ ╰--------------╯
- *        2             14         3          "pi"
- *
- * The first 4 bytes represent the number 2, that is the number of entries
- * the whole ziplist is composed of. The second 4 bytes are the offset
- * at which the end of ziplist entries is found.
- *
- * Next is the body, "03 02" as the first entry representing the number 2. It
- * starts with the byte 0x03 which corresponds to the encoding of the small
- * integer, the 0x02 is the length of the current entry. The next entry, "pi",
- * has an encoding byte of value 0xff (255), and a length of 5 bytes, the
- * content "pi" is stored between these two values, whose hex form is 0x70 0x69.
- *
- * ----------------------------------------------------------------------------
- *
- * Copyright (c) 2009-2012, Pieter Noordhuis <pcnoordhuis at gmail dot com>
- * Copyright (c) 2009-2017, Salvatore Sanfilippo <antirez at gmail dot com>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- *   * Redistributions of source code must retain the above copyright notice,
- *     this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution.
- *   * Neither the name of Redis nor the names of its contributors may be used
- *     to endorse or promote products derived from this software without
- *     specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
-
 static uint8_t ze_buf[UINT8_MAX];
 
 
@@ -218,7 +79,8 @@ _zipentry_str(zipentry_p ze) {
 ziplist_rstatus_e
 zipentry_size(uint8_t *sz, struct blob *val)
 {
-    if (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN) {
+    if (val->type == BLOB_TYPE_UNKNOWN || val->type >= BLOB_TYPE_SENTINEL ||
+            (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN)) {
         return ZIPLIST_EINVALID;
     }
 
@@ -294,7 +156,8 @@ zipentry_set(zipentry_p ze, const struct blob *val)
         return ZIPLIST_ERROR;
     }
 
-    if (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN) {
+    if (val->type == BLOB_TYPE_UNKNOWN || val->type >= BLOB_TYPE_SENTINEL ||
+            (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN)) {
         return ZIPLIST_EINVALID;
     }
 
@@ -326,7 +189,7 @@ ziplist_reset(ziplist_p zl)
     }
 
     ZL_NENTRY(zl) = 0;
-    ZL_NEND(zl) = 7;
+    ZL_NEND(zl) = ZIPLIST_HEADER_SIZE - 1;
 
     return ZIPLIST_OK;
 }
@@ -398,7 +261,7 @@ ziplist_locate(zipentry_p *ze, const ziplist_p zl, int64_t idx)
 
     nentry = ziplist_nentry(zl);
     idx += (idx < 0) * nentry;
-    if (nentry <= idx) {
+    if (idx < 0 || idx >= nentry) {
         *ze = NULL;
         return ZIPLIST_EOOB;
     }
@@ -431,7 +294,8 @@ ziplist_find(zipentry_p *ze, int64_t *idx, const ziplist_p zl, const struct blob
         return ZIPLIST_ERROR;
     }
 
-    if (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN) {
+    if (val->type == BLOB_TYPE_UNKNOWN || val->type >= BLOB_TYPE_SENTINEL ||
+            (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN)) {
         return ZIPLIST_EINVALID;
     }
 
@@ -461,7 +325,7 @@ ziplist_find(zipentry_p *ze, int64_t *idx, const ziplist_p zl, const struct blob
     if (ze != NULL) {
         *ze = NULL;
     }
-    return ZIPLIST_OK;
+    return ZIPLIST_ENOTFOUND;
 }
 
 ziplist_rstatus_e
@@ -517,7 +381,8 @@ ziplist_insert(ziplist_p zl, struct blob *val, int64_t idx)
         return ZIPLIST_ERROR;
     }
 
-    if (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN) {
+    if (val->type == BLOB_TYPE_UNKNOWN || val->type >= BLOB_TYPE_SENTINEL ||
+            (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN)) {
         return ZIPLIST_EINVALID;
     }
 
@@ -550,7 +415,8 @@ ziplist_push(ziplist_p zl, struct blob *val)
         return ZIPLIST_ERROR;
     }
 
-    if (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN) {
+    if (val->type == BLOB_TYPE_UNKNOWN || val->type >= BLOB_TYPE_SENTINEL ||
+            (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN)) {
         return ZIPLIST_EINVALID;
     }
 
