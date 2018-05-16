@@ -203,7 +203,7 @@ START_TEST(test_ziplist_resetpushpop)
         ck_assert(ziplist_push((ziplist_p)buf, &ze_examples[i].decoded) ==
                 ZIPLIST_OK);
     }
-    ck_assert(memcmp(ref, buf, ziplist_len((ziplist_p)ref)) == 0);
+    ck_assert(memcmp(ref, buf, ziplist_size((ziplist_p)ref)) == 0);
 
     ck_assert(ziplist_push(NULL, &val) == ZIPLIST_ERROR);
     ck_assert(ziplist_push((ziplist_p)buf, NULL) == ZIPLIST_ERROR);
@@ -251,7 +251,7 @@ START_TEST(test_ziplist_insertremove)
         ck_assert(ziplist_insert((ziplist_p)buf,
                 &ze_examples[offset[i]].decoded, idx[i]) == ZIPLIST_OK);
     }
-    ck_assert(memcmp(ref, buf, ziplist_len((ziplist_p)ref)) == 0);
+    ck_assert(memcmp(ref, buf, ziplist_size((ziplist_p)ref)) == 0);
     /* using negative index, but we need to fill out the ends first */
     ziplist_reset((ziplist_p)buf);
     ziplist_insert((ziplist_p)buf, &ze_examples[0].decoded, 0);
@@ -260,7 +260,7 @@ START_TEST(test_ziplist_insertremove)
         ck_assert(ziplist_insert((ziplist_p)buf,
                 &ze_examples[offset[i]].decoded, -idx[i - 1]) == ZIPLIST_OK);
     }
-    ck_assert(memcmp(ref, buf, ziplist_len((ziplist_p)ref)) == 0);
+    ck_assert(memcmp(ref, buf, ziplist_size((ziplist_p)ref)) == 0);
 
     ck_assert(ziplist_insert(NULL, &val, 0) == ZIPLIST_ERROR);
     ck_assert(ziplist_insert((ziplist_p)buf, NULL, 0) == ZIPLIST_ERROR);
@@ -287,9 +287,13 @@ START_TEST(test_ziplist_insertremove)
     ck_assert(ziplist_remove(NULL, 0, 1) == ZIPLIST_ERROR);
     ck_assert(ziplist_remove((ziplist_p)buf, 0, 0) == ZIPLIST_EINVALID);
     ziplist_insert((ziplist_p)buf, &ze_examples[0].decoded, 0);
-    ck_assert(ziplist_remove((ziplist_p)buf, 0, 3) == ZIPLIST_EOOB);
     ck_assert(ziplist_remove((ziplist_p)buf, 1, 1) == ZIPLIST_EOOB);
+    ck_assert(ziplist_remove((ziplist_p)buf, 0, 3) == ZIPLIST_EOOB);
+    ck_assert(ziplist_remove((ziplist_p)buf, 0, -2) == ZIPLIST_EOOB);
 
+    /* remove: multiple entry, negative count */
+    cc_memcpy(buf, ref, ziplist_size((ziplist_p)ref));
+    ck_assert(ziplist_remove((ziplist_p)buf, -1, -n_ze) == ZIPLIST_OK);
 
 }
 END_TEST

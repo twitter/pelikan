@@ -329,7 +329,7 @@ ziplist_find(zipentry_p *ze, int64_t *idx, const ziplist_p zl, const struct blob
 }
 
 ziplist_rstatus_e
-ziplist_remove(ziplist_p zl, int64_t idx, uint32_t count)
+ziplist_remove(ziplist_p zl, int64_t idx, int64_t count)
 {
     uint32_t nentry, i = 0;
     zipentry_p begin, end;
@@ -344,7 +344,11 @@ ziplist_remove(ziplist_p zl, int64_t idx, uint32_t count)
 
     nentry = ziplist_nentry(zl);
     idx += (idx < 0) * nentry;
-    if (idx < 0 || idx > nentry || nentry <= idx + count - 1) {
+    if (count < 0) { /* counting backward, move idx back */
+        count = -count;
+        idx = idx - count + 1;
+    }
+    if (idx < 0 || idx > nentry || idx + count - 1 >= nentry) {
         return ZIPLIST_EOOB;
     }
 
