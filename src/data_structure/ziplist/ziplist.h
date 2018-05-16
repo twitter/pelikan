@@ -24,9 +24,7 @@
 
 
 /* The ziplist is a specially encoded dually linked list that is designed
- * to be very memory efficient. It stores both strings and integer values. In
- * the current implementation, insertion and removal gets slower as the entry
- * gets closer to the center of the list.
+ * to be very memory efficient. It stores both strings and integer values.
  *
  * ----------------------------------------------------------------------------
  *
@@ -90,18 +88,39 @@
  * differently because in practice it seems values small in size tend to be
  * numerical in nature, so we decide to optimize for storing small integers
  * efficiently instead.
- * We also don't attempt to accommodate large values as ziplist entries, because
- * the operations on large values generally have very different considerations
- * from small ones. For example, it is much more important to make sure memory
+ * We also don't attempt to embed large values as ziplist entries, because the
+ * operations on large values generally have very different considerations from
+ * small ones. For example, it is much more important to make sure memory
  * operations are efficient (such as resizing and copying) when updating large
- * values, and the overhead of encoding becomes encoding. They also will have
+ * values, and the overhead of encoding becomes negligible. They also will have
  * very different runtime characteristics. So instead of supporting all value
  * sizes in theory and running into operational issues later, it is better,
  * at least operationally, to make such limitations explicit and deal with
  * different use cases separately.
  *
+ * RUNTIME
+ * =======
+ * All lookups generally gets more expensive as the number of entries increases,
+ * roughly linearlly (not considering various cache size cutoffs). For the same
+ * list, looking up entries at the beginning are generally cheaper than entries
+ * in the middle; for index-based lookup, both ends are cheaper than somewhere
+ * in the middle, but for value-based lookup (where a match is performed), it
+ * is more expensive if a match is found toward the end.
+ *
+ * Insertion and removal of entries involve index-based lookup, as well as
+ * shifting data. So in additional to the considerations above, the amount of
+ * data being moved for updates will affect performance. Updates near the "fixed
+ * end" of the ziplist (currently the beginning) require moving more data and
+ * therefore will be slower. Overall, it is cheapest to perform updates at the
+ * end of the list due to minimal lookup cost and zero data movement.
+ *
  * TODO: optimization if all list members are of the same size, then we can
  * remove the entry header all together and seeking will be extremely easy.
+ *
+ * TODO: if it is common to insert data at the beginning (e.g. a FIFO queue),
+ * create additional heuristics or switches, similar to the ones used for
+ * append/prepend in Twemcache (pelikan-twemcache), to reduce the amount of
+ * data that need to be moved during insertion.
  *
  *
  * EXAMPLE
