@@ -51,7 +51,7 @@ typedef uint32_t rel_time_t;
  * Time when process was started expressed as absolute unix timestamp
  * with a time_t type
  */
-time_t time_start;
+extern time_t time_start;
 
 /*
  * We keep a cache of the current time of day in a global variable now
@@ -66,7 +66,8 @@ time_t time_start;
  *
  * So, now actually holds 32-bit seconds since the server start time.
  */
-rel_time_t now;
+extern rel_time_t now;
+extern rel_time_t now_usec;
 
 /* Get the time the process started */
 static inline time_t
@@ -87,6 +88,13 @@ static inline rel_time_t
 time_now(void)
 {
     return now;
+}
+
+/* Get the current subsecond time in usec */
+static inline rel_time_t
+time_now_usec(void)
+{
+    return now_usec;
 }
 
 /* Get time relative to process start given absolute time */

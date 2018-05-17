@@ -6,20 +6,33 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/time.h>
+
+time_t time_start;
+rel_time_t now;
+rel_time_t now_usec;
 
 void
 time_update(void)
 {
-    time_t t;
+    int status;
 
-    t = time(NULL);
-    if (t < 0) {
-	log_warn("get current time failed: %s", strerror(errno));
-        return;
-    }
+#if defined OS_LINUX
+    struct timespec timer;
+    status = clock_gettime(CLOCK_REALTIME_COARSE, &timer);
+    now_usec = (rel_time_t)(timer.tv_nsec / 1000);
+#else
+    struct timeval timer;
+    status = gettimeofday(&timer, NULL);
+    now_usec = (rel_time_t)(timer.tv_usec);
+#endif
 
     /* we assume service is online for less than 2^32 seconds */
-    now = (rel_time_t) (t - time_start);
+    now = (rel_time_t)(timer.tv_sec - time_start);
+
+    if (status < 0) {
+	log_warn("get current time failed: %s", strerror(errno));
+    }
 
     log_vverb("internal timer updated to %u", now);
 }
