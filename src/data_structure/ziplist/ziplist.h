@@ -240,7 +240,7 @@ ziplist_rstatus_e ziplist_remove(ziplist_p zl, int64_t idx, int64_t count);
 /* remove val (up to `count' occurrences), 0 for all, a negative count means
  * starting from the end
  */
-ziplist_rstatus_e ziplist_remove_val(ziplist_p zl, struct blob *val, int64_t count);
+ziplist_rstatus_e ziplist_remove_val(uint32_t *removed, ziplist_p zl, const struct blob *val, int64_t count);
 /* if idx == nentry, value will be right pushed;
  * otherwise, existing entry is right shifted
  * CALLER MUST MAKE SURE THERE IS ENOUGH MEMORY!!!
