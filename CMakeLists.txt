@@ -35,6 +35,7 @@ option(HAVE_LOGGING "logging enabled by default" ON)
 option(HAVE_STATS "stats enabled by default" ON)
 
 option(TARGET_PINGSERVER "build pingserver binary" ON)
+option(TARGET_REDIS "build redis binary" ON)
 option(TARGET_SLIMREDIS "build slimredis binary" ON)
 option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)

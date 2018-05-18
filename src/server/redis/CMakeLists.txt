@@ -9,10 +9,10 @@ set(SOURCE
 
 set(MODULES
     core
-    cuckoo
     ds_bitmap
     protocol_admin
     protocol_redis
+    slab
     time
     util)
 
@@ -21,7 +21,7 @@ set(LIBS
     ${CMAKE_THREAD_LIBS_INIT})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/_bin)
-set(TARGET_NAME ${PROJECT_NAME}_slimredis)
+set(TARGET_NAME ${PROJECT_NAME}_redis)
 
 add_executable(${TARGET_NAME} ${SOURCE})
 target_link_libraries(${TARGET_NAME} ${MODULES} ${LIBS})
