@@ -338,7 +338,7 @@ ziplist_rstatus_e
 ziplist_remove_val(uint32_t *removed, ziplist_p zl, const struct blob *val,
         int64_t count)
 {
-    uint32_t nentry, len, atmost;
+    uint32_t len, atmost;
     int64_t i = 0;
     zipentry_p z;
     uint8_t *end;
@@ -353,10 +353,11 @@ ziplist_remove_val(uint32_t *removed, ziplist_p zl, const struct blob *val,
         return ZIPLIST_EINVALID;
     }
 
-    /* count == 0 means remove all, get the absolute value of count otherwise */
-    nentry = ziplist_nentry(zl);
+    if (count == 0) {
+        return ZIPLIST_EINVALID;
+    }
+
     atmost = forward ? count : -count;
-    atmost = (atmost == 0) ? nentry : atmost;
     *removed = 0;
 
     /* Encoding one struct blob and follow up with many simple memcmp should be

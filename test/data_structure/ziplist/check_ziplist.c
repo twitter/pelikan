@@ -312,7 +312,7 @@ START_TEST(test_ziplist_removeval)
 
     /* remove both occurrences */
     ck_assert(ziplist_remove_val(&removed, (ziplist_p)buf,
-                &ze_examples[0].decoded, 0) == ZIPLIST_OK);
+                &ze_examples[0].decoded, n_ze) == ZIPLIST_OK);
     ck_assert_int_eq(removed, 2);
     ck_assert(ziplist_find(NULL, NULL, (ziplist_p)buf, &ze_examples[0].decoded)
             == ZIPLIST_ENOTFOUND);
@@ -332,6 +332,13 @@ START_TEST(test_ziplist_removeval)
     ck_assert(ziplist_find(NULL, &idx, (ziplist_p)buf, &ze_examples[2].decoded)
             == ZIPLIST_OK);
     ck_assert_int_eq(idx, 0);
+
+    ck_assert(ziplist_remove_val(&removed, (ziplist_p)buf,
+                &ze_examples[3].decoded, -n_ze) == ZIPLIST_OK);
+    ck_assert_int_eq(removed, 2);
+    ck_assert(ziplist_find(NULL, NULL, (ziplist_p)buf, &ze_examples[3].decoded)
+            == ZIPLIST_ENOTFOUND);
+
 }
 END_TEST
 
