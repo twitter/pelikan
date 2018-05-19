@@ -21,6 +21,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <cc_metric.h>
 
 #include <stdint.h>
@@ -86,3 +90,7 @@ size_t rbuf_wcap(struct rbuf *buf);
 size_t rbuf_read(void *dst, struct rbuf *src, size_t n);
 /* write from a buffer in memory to the rbuf */
 size_t rbuf_write(struct rbuf *dst, void *src, size_t n);
+
+#ifdef __cplusplus
+}
+#endif

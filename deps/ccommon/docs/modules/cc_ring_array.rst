@@ -92,7 +92,7 @@ Hello World! with ccommon ``ring_array``:
 
            if (status != CC_OK) {
                printf("Could not pop entire message!");
-               exit(1)
+               exit(1);
            }
 
            printf("%c", c);

@@ -17,6 +17,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <cc_define.h>
 
 #include <stddef.h>
@@ -70,3 +74,7 @@ void * _cc_realloc_move(void *ptr, size_t size, const char *name, int line);
 void _cc_free(void *ptr, const char *name, int line);
 void * _cc_mmap(size_t size, const char *name, int line);
 int _cc_munmap(void *p, size_t size, const char *name, int line);
+
+#ifdef __cplusplus
+}
+#endif
