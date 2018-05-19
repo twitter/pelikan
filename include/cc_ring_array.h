@@ -26,6 +26,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <cc_define.h>
 
 #include <stddef.h>
@@ -53,4 +57,9 @@ rstatus_i ring_array_pop(void *elem, struct ring_array *arr);
 
 /* creation/destruction */
 struct ring_array *ring_array_create(size_t elem_size, uint32_t cap);
+
 void ring_array_destroy(struct ring_array *arr);
+
+#ifdef __cplusplus
+}
+#endif

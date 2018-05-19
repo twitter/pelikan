@@ -8,6 +8,8 @@
 #include <signal.h>
 #include <string.h>
 
+struct signal signals[SIGNAL_MAX];
+
 #ifndef CC_HAVE_SIGNAME
 const char* sys_signame[SIGNAL_MAX + 1] = {
     "UNDEFINED",
