@@ -174,7 +174,7 @@ START_TEST(test_ziplist_seekvalue)
     ck_assert(ze == NULL);
     ck_assert(idx == -1);
 
-    ck_assert(ziplist_find(NULL, NULL, (ziplist_p)ref, &val) == ZIPLIST_ERROR);
+    ck_assert(ziplist_find(NULL, NULL, (ziplist_p)ref, &val) == ZIPLIST_ENOTFOUND);
     ck_assert(ziplist_find(&ze, &idx, NULL, &val) == ZIPLIST_ERROR);
     ck_assert(ziplist_find(&ze, &idx, (ziplist_p)ref, NULL) == ZIPLIST_ERROR);
     val.type = BLOB_TYPE_STR;
@@ -298,6 +298,50 @@ START_TEST(test_ziplist_insertremove)
 }
 END_TEST
 
+START_TEST(test_ziplist_removeval)
+{
+    uint32_t removed;
+    int64_t idx;
+
+    /* make buf a double copy of entries in ref */
+    cc_memcpy(buf, ref, ziplist_size((ziplist_p)ref));
+    cc_memcpy(buf + ziplist_size((ziplist_p)ref), ref + ZIPLIST_HEADER_SIZE,
+                ziplist_size((ziplist_p)ref) - ZIPLIST_HEADER_SIZE);
+    ZL_NENTRY(buf) = ZL_NENTRY(ref) * 2;
+    ZL_NEND(buf) = ZL_NEND(ref) * 2 - ZIPLIST_HEADER_SIZE + 1;
+
+    /* remove both occurrences */
+    ck_assert(ziplist_remove_val(&removed, (ziplist_p)buf,
+                &ze_examples[0].decoded, n_ze) == ZIPLIST_OK);
+    ck_assert_int_eq(removed, 2);
+    ck_assert(ziplist_find(NULL, NULL, (ziplist_p)buf, &ze_examples[0].decoded)
+            == ZIPLIST_ENOTFOUND);
+
+    /* remove first occurrence */
+    ck_assert(ziplist_remove_val(&removed, (ziplist_p)buf,
+                &ze_examples[1].decoded, 1) == ZIPLIST_OK);
+    ck_assert_int_eq(removed, 1);
+    ck_assert(ziplist_find(NULL, &idx, (ziplist_p)buf, &ze_examples[1].decoded)
+            == ZIPLIST_OK);
+    ck_assert_int_eq(idx, n_ze - 2);
+
+    /* remove last occurrence */
+    ck_assert(ziplist_remove_val(&removed, (ziplist_p)buf,
+                &ze_examples[2].decoded, -1) == ZIPLIST_OK);
+    ck_assert_int_eq(removed, 1);
+    ck_assert(ziplist_find(NULL, &idx, (ziplist_p)buf, &ze_examples[2].decoded)
+            == ZIPLIST_OK);
+    ck_assert_int_eq(idx, 0);
+
+    ck_assert(ziplist_remove_val(&removed, (ziplist_p)buf,
+                &ze_examples[3].decoded, -n_ze) == ZIPLIST_OK);
+    ck_assert_int_eq(removed, 2);
+    ck_assert(ziplist_find(NULL, NULL, (ziplist_p)buf, &ze_examples[3].decoded)
+            == ZIPLIST_ENOTFOUND);
+
+}
+END_TEST
+
 
 /*
  * test suite
@@ -332,6 +376,7 @@ zipmap_suite(void)
     tcase_add_test(tc_ziplist, test_ziplist_seekvalue);
     tcase_add_test(tc_ziplist, test_ziplist_resetpushpop);
     tcase_add_test(tc_ziplist, test_ziplist_insertremove);
+    tcase_add_test(tc_ziplist, test_ziplist_removeval);
 
     return s;
 }

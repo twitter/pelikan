@@ -290,9 +290,6 @@ ziplist_find(zipentry_p *ze, int64_t *idx, const ziplist_p zl, const struct blob
     if (zl == NULL || val == NULL) {
         return ZIPLIST_ERROR;
     }
-    if (ze == NULL && idx == NULL) {
-        return ZIPLIST_ERROR;
-    }
 
     if (val->type == BLOB_TYPE_UNKNOWN || val->type >= BLOB_TYPE_SENTINEL ||
             (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN)) {
@@ -328,6 +325,72 @@ ziplist_find(zipentry_p *ze, int64_t *idx, const ziplist_p zl, const struct blob
     return ZIPLIST_ENOTFOUND;
 }
 
+static inline void
+_ziplist_remove(ziplist_p zl, zipentry_p begin, zipentry_p end, uint32_t count)
+{
+    cc_memmove(begin, end, _ziplist_end(zl) + 1 - end);
+
+    ZL_NENTRY(zl) -= count;
+    ZL_NEND(zl) -= (uint32_t)(end - begin);
+}
+
+ziplist_rstatus_e
+ziplist_remove_val(uint32_t *removed, ziplist_p zl, const struct blob *val,
+        int64_t count)
+{
+    uint32_t len, atmost;
+    int64_t i = 0;
+    zipentry_p z;
+    uint8_t *end;
+    bool forward = (count > 0);
+
+    if (zl == NULL || val == NULL) {
+        return ZIPLIST_ERROR;
+    }
+
+    if (val->type == BLOB_TYPE_UNKNOWN || val->type >= BLOB_TYPE_SENTINEL ||
+            (val->type == BLOB_TYPE_STR && val->vstr.len > ZE_STR_MAXLEN)) {
+        return ZIPLIST_EINVALID;
+    }
+
+    if (count == 0) {
+        return ZIPLIST_EINVALID;
+    }
+
+    atmost = forward ? count : -count;
+    *removed = 0;
+
+    /* Encoding one struct blob and follow up with many simple memcmp should be
+     * faster than decoding each of the zentries being compared.
+     */
+    len = _zipentry_encode(ze_buf, val);
+
+    z = forward ? _ziplist_head(zl) : _ziplist_tail(zl);
+    for (; i < atmost; ++i) {
+        /* find next */
+        end = _ziplist_end(zl);
+        while (memcmp(z, ze_buf, MIN(end - z + 1, len)) != 0) {
+            if (forward) {
+                if (z == _ziplist_tail(zl)) {
+                    return ZIPLIST_OK;
+                }
+                z = _ziplist_next(z);
+            } else {
+                if (z == _ziplist_head(zl)) {
+                    return ZIPLIST_OK;
+                }
+                z = _ziplist_prev(z);
+            }
+        }
+
+        _ziplist_remove(zl, z, _ziplist_next(z), 1);
+        *removed += 1;
+    }
+
+    return ZIPLIST_OK;
+}
+
+
 ziplist_rstatus_e
 ziplist_remove(ziplist_p zl, int64_t idx, int64_t count)
 {
@@ -353,12 +416,9 @@ ziplist_remove(ziplist_p zl, int64_t idx, int64_t count)
     }
 
     ziplist_locate(&begin, zl, idx);
-
     for (end = begin; i < count; ++i, end += _zipentry_len(end));
-    cc_memmove(begin, end, _ziplist_end(zl) + 1 - end);
 
-    ZL_NENTRY(zl) -= count;
-    ZL_NEND(zl) -= (end - begin);
+    _ziplist_remove(zl, begin, end, (uint32_t)count);
 
     return ZIPLIST_OK;
 }
