@@ -61,13 +61,13 @@ process_teardown(void)
 static inline uint32_t
 _get_dataflag(struct item *it)
 {
-    return *((uint32_t *)item_metadata(it));
+    return *((uint32_t *)item_optional(it));
 }
 
 static inline void
 _set_dataflag(struct item *it, uint32_t flag)
 {
-    *((uint32_t *)item_metadata(it)) = flag;
+    *((uint32_t *)item_optional(it)) = flag;
 }
 
 static bool
@@ -417,7 +417,7 @@ _process_delta(struct response *rsp, struct item *it, struct request *req,
     rsp->vint = vint;
     nval.len = cc_print_uint64_unsafe(buf, vint);
     nval.data = buf;
-    if (item_slabid(it->klen, nval.len, it->mlen) == it->id) {
+    if (item_slabid(it->klen, nval.len, it->olen) == it->id) {
         item_update(it, &nval);
         return ITEM_OK;
     }

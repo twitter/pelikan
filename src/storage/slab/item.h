@@ -57,15 +57,18 @@ struct item {
     uint32_t          is_linked:1;   /* item in hash */
     uint32_t          in_freeq:1;    /* item in free queue */
     uint32_t          is_raligned:1; /* item data (payload) is right-aligned */
-    uint32_t          vlen:29;       /* data size (29 bits since uint32_t is 32 bits and we have 3 flags)
-                                        NOTE: need at least enough bits to support the largest value size allowed
-                                        by the implementation, i.e. SLAB_MAX_SIZE */
+    uint32_t          vlen:29;       /* data size (29 bits since uint32_t is 32
+                                      * bits and we have 3 flags)
+                                      * NOTE: need at least enough bits to
+                                      * support the largest value size allowed
+                                      * by the implementation, i.e. SLAB_MAX_SIZE
+                                      */
 
     uint32_t          offset;        /* offset of item in slab */
     uint8_t           id;            /* slab class id */
     uint8_t           klen;          /* key length */
-    uint8_t           mlen;          /* metadata length (located right after cas) */
-    uint8_t           padding;       /* keep end 64-bit aligned, it may be a cas */
+    uint8_t           olen;          /* optional length (right after cas) */
+    uint8_t           padding;       /* keep end 64-bit aligned */
     char              end[1];        /* item data */
 };
 
@@ -117,13 +120,13 @@ item_cas_size(void)
 static inline char *
 item_key(struct item *it)
 {
-    return it->end + item_cas_size() + it->mlen;
+    return it->end + item_cas_size() + it->olen;
 }
 
 static inline size_t
-item_ntotal(uint8_t klen, uint32_t vlen, uint8_t mlen)
+item_ntotal(uint8_t klen, uint32_t vlen, uint8_t olen)
 {
-    return ITEM_HDR_SIZE + item_cas_size() + mlen + klen + vlen;
+    return ITEM_HDR_SIZE + item_cas_size() + olen + klen + vlen;
 }
 
 static inline size_t
@@ -131,11 +134,11 @@ item_size(struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
 
-    return item_ntotal(it->klen, it->vlen, it->mlen);
+    return item_ntotal(it->klen, it->vlen, it->olen);
 }
 
 static inline char *
-item_metadata(struct item *it)
+item_optional(struct item *it)
 {
     return it->end + item_cas_size();
 }
@@ -151,7 +154,7 @@ item_data(struct item *it)
     if (it->is_raligned) {
         data = (char *)it + slabclass[it->id].size - it->vlen;
     } else {
-        data = it->end + item_cas_size() + it->mlen + it->klen;
+        data = it->end + item_cas_size() + it->olen + it->klen;
     }
 
     return data;
@@ -186,17 +189,19 @@ void item_insert(struct item *it, const struct bstring *key);
 
 /* reserve an item, this does not link it or remove existing item with the same
  * key.
- * mlen- metadata length, this can be used to reserve metadata storage (e.g.
- * flags in Memcached protocol) at the beginning of the payload but after cas.
+ * olen- optional data length, this can be used to reserve space for optional
+ * data, e.g. flag in Memcached protocol) in payload, after cas.
  * */
-item_rstatus_t item_reserve(struct item **it_p, const struct bstring *key, const struct bstring *val, uint32_t vlen, uint8_t mlen, rel_time_t expire_at);
+item_rstatus_t item_reserve(struct item **it_p, const struct bstring *key, const
+        struct bstring *val, uint32_t vlen, uint8_t olen, rel_time_t expire_at);
 /* item_release is used for reserved item only (not linked) */
 void item_release(struct item **it_p);
 
 void item_backfill(struct item *it, const struct bstring *val);
 
 /* Append/prepend */
-item_rstatus_t item_annex(struct item *it, const struct bstring *key, const struct bstring *val, bool append);
+item_rstatus_t item_annex(struct item *it, const struct bstring *key, const
+        struct bstring *val, bool append);
 
 
 /* In place item update (replace item value) */
