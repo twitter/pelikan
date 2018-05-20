@@ -185,9 +185,9 @@ uint8_t slab_id(size_t size);
 
 /* Calculate slab id that will accommodate item with given key/val lengths */
 static inline uint8_t
-item_slabid(uint8_t klen, uint32_t vlen)
+item_slabid(uint8_t klen, uint32_t vlen, uint8_t mlen)
 {
-    return slab_id(item_ntotal(klen, vlen));
+    return slab_id(item_ntotal(klen, vlen, mlen));
 }
 
 void slab_setup(slab_options_st *options, slab_metrics_st *metrics);
