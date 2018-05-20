@@ -39,7 +39,7 @@
  *   |               |       \
  *   \               |       item_key()
  *   item            \
- *                   item->end, (if enabled) item_get_cas()
+ *                   item->end, (if enabled) item_get_cas(), metadata
  *
  * item->end is followed by:
  * - 8-byte cas, if ITEM_CAS flag is set
@@ -62,13 +62,12 @@ struct item {
                                         by the implementation, i.e. SLAB_MAX_SIZE */
 
     uint32_t          offset;        /* offset of item in slab */
-    uint32_t          dataflag;      /* data flags opaque to the server */
     uint8_t           id;            /* slab class id */
     uint8_t           klen;          /* key length */
-    uint16_t          padding;       /* keep end 64-bit aligned, it may be a cas */
+    uint8_t           mlen;          /* metadata length (located right after cas) */
+    uint8_t           padding;       /* keep end 64-bit aligned, it may be a cas */
     char              end[1];        /* item data */
 };
-/* TODO(yao): dataflag is memcached-specific, can we abstract it out of storage? */
 
 #define ITEM_MAGIC      0xfeedface
 #define ITEM_HDR_SIZE   offsetof(struct item, end)
@@ -88,12 +87,6 @@ typedef enum item_rstatus {
 
 extern bool use_cas;
 extern uint64_t cas_id;
-
-static inline uint32_t
-item_flag(struct item *it)
-{
-    return it->dataflag;
-}
 
 static inline uint64_t
 item_get_cas(struct item *it)
@@ -124,13 +117,13 @@ item_cas_size(void)
 static inline char *
 item_key(struct item *it)
 {
-    return it->end + item_cas_size();
+    return it->end + item_cas_size() + it->mlen;
 }
 
 static inline size_t
-item_ntotal(uint8_t klen, uint32_t vlen)
+item_ntotal(uint8_t klen, uint32_t vlen, uint8_t mlen)
 {
-    return ITEM_HDR_SIZE + item_cas_size() + klen + vlen;
+    return ITEM_HDR_SIZE + item_cas_size() + mlen + klen + vlen;
 }
 
 static inline size_t
@@ -138,7 +131,13 @@ item_size(struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
 
-    return item_ntotal(it->klen, it->vlen);
+    return item_ntotal(it->klen, it->vlen, it->mlen);
+}
+
+static inline char *
+item_metadata(struct item *it)
+{
+    return it->end + item_cas_size();
 }
 
 /*
@@ -152,7 +151,7 @@ item_data(struct item *it)
     if (it->is_raligned) {
         data = (char *)it + slabclass[it->id].size - it->vlen;
     } else {
-        data = it->end + item_cas_size() + it->klen;
+        data = it->end + item_cas_size() + it->mlen + it->klen;
     }
 
     return data;
@@ -185,8 +184,12 @@ struct item *item_get(const struct bstring *key);
 /* insert an item, removes existing item of the same key (if applicable) */
 void item_insert(struct item *it, const struct bstring *key);
 
-/* reserve an item, this does not link it or remove existing item with the same key */
-item_rstatus_t item_reserve(struct item **it_p, const struct bstring *key, const struct bstring *val, uint32_t vlen, uint32_t dataflag, rel_time_t expire_at);
+/* reserve an item, this does not link it or remove existing item with the same
+ * key.
+ * mlen- metadata length, this can be used to reserve metadata storage (e.g.
+ * flags in Memcached protocol) at the beginning of the payload but after cas.
+ * */
+item_rstatus_t item_reserve(struct item **it_p, const struct bstring *key, const struct bstring *val, uint32_t vlen, uint8_t mlen, rel_time_t expire_at);
 /* item_release is used for reserved item only (not linked) */
 void item_release(struct item **it_p);
 

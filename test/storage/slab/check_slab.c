@@ -46,28 +46,35 @@ START_TEST(test_insert_basic)
 {
 #define KEY "key"
 #define VAL "val"
+#define MLEN 8
     struct bstring key, val;
     item_rstatus_t status;
     struct item *it;
-    uint32_t dataflag = 12345;
 
     key = str2bstr(KEY);
     val = str2bstr(VAL);
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
-    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
-    ck_assert_msg(!it->is_linked, "item with key %.*s not linked", key.len, key.data);
-    ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
-    ck_assert_msg(!it->in_freeq, "linked item with key %.*s in freeq", key.len, key.data);
-    ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
+    status = item_reserve(&it, &key, &val, val.len, MLEN, 0);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
+            status);
+    ck_assert_msg(!it->is_linked, "item with key %.*s not linked", key.len,
+            key.data);
+    ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len,
+            key.data);
+    ck_assert_msg(!it->in_freeq, "linked item with key %.*s in freeq", key.len,
+            key.data);
+    ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len,
+            key.data);
     ck_assert_int_eq(it->vlen, sizeof(VAL) - 1);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
-    ck_assert_int_eq(it->dataflag, dataflag);
+    ck_assert_int_eq(item_data(it) - (char *)it, offsetof(struct item, end) +
+            item_cas_size() + MLEN + sizeof(KEY) - 1);
     ck_assert_int_eq(cc_memcmp(item_data(it), VAL, val.len), 0);
 
     item_insert(it, &key);
     ck_assert_msg(it->is_linked, "item with key %.*s not linked", key.len, key.data);
+#undef MLEN
 #undef KEY
 #undef VAL
 }
@@ -85,7 +92,6 @@ START_TEST(test_insert_large)
     struct bstring key, val;
     item_rstatus_t status;
     struct item *it;
-    uint32_t dataflag = 12345;
     size_t len;
     char *p;
 
@@ -98,7 +104,7 @@ START_TEST(test_insert_large)
     val.len = VLEN;
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, 0);
     free(val.data);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
@@ -110,7 +116,6 @@ START_TEST(test_insert_large)
     ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
     ck_assert_int_eq(it->vlen, VLEN);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
-    ck_assert_int_eq(it->dataflag, dataflag);
 
     for (p = item_data(it), len = it->vlen; len > 0 && *p == 'A'; p++, len--);
     ck_assert_msg(len == 0, "item_data contains wrong value %.*s", VLEN, item_data(it));
@@ -131,7 +136,7 @@ START_TEST(test_reserve_backfill_release)
     struct bstring key, val;
     item_rstatus_t status;
     struct item *it;
-    uint32_t vlen, dataflag = 12345;
+    uint32_t vlen;
     size_t len;
     char *p;
 
@@ -145,7 +150,7 @@ START_TEST(test_reserve_backfill_release)
     cc_memset(val.data, 'A', val.len);
 
     /* reserve */
-    status = item_reserve(&it, &key, &val, vlen, dataflag, 0);
+    status = item_reserve(&it, &key, &val, vlen, 0, 0);
     free(val.data);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
             status);
@@ -157,7 +162,6 @@ START_TEST(test_reserve_backfill_release)
     ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len,
             key.data);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
-    ck_assert_int_eq(it->dataflag, dataflag);
     ck_assert_int_eq(it->vlen, val.len);
     for (p = item_data(it), len = it->vlen; len > 0 && *p == 'A'; p++, len--);
     ck_assert_msg(len == 0, "item_data contains wrong value %.*s", it->vlen,
@@ -191,7 +195,6 @@ START_TEST(test_reserve_backfill_link)
     struct bstring key, val;
     item_rstatus_t status;
     struct item *it;
-    uint32_t dataflag = 12345;
     size_t len;
     char *p;
 
@@ -205,7 +208,7 @@ START_TEST(test_reserve_backfill_link)
 
     /* reserve */
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, 0);
     free(val.data);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
 
@@ -235,7 +238,6 @@ START_TEST(test_append_basic)
     struct bstring key, val, append;
     item_rstatus_t status;
     struct item *it;
-    uint32_t dataflag = 12345;
 
     test_reset();
 
@@ -244,7 +246,7 @@ START_TEST(test_append_basic)
     append = str2bstr(APPEND);
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, 0);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
 
@@ -261,7 +263,6 @@ START_TEST(test_append_basic)
     ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
     ck_assert_int_eq(it->vlen, val.len + append.len);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
-    ck_assert_int_eq(it->dataflag, dataflag);
     ck_assert_int_eq(cc_memcmp(item_data(it), VAL APPEND, val.len + append.len), 0);
 #undef KEY
 #undef VAL
@@ -280,7 +281,6 @@ START_TEST(test_prepend_basic)
     struct bstring key, val, prepend;
     item_rstatus_t status;
     struct item *it;
-    uint32_t dataflag = 12345;
 
     test_reset();
 
@@ -289,7 +289,7 @@ START_TEST(test_prepend_basic)
     prepend = str2bstr(PREPEND);
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, 0);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
 
@@ -306,7 +306,6 @@ START_TEST(test_prepend_basic)
     ck_assert_msg(it->is_raligned, "item with key %.*s is not raligned", key.len, key.data);
     ck_assert_int_eq(it->vlen, val.len + prepend.len);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
-    ck_assert_int_eq(it->dataflag, dataflag);
     ck_assert_int_eq(cc_memcmp(item_data(it), PREPEND VAL, val.len + prepend.len), 0);
 #undef KEY
 #undef VAL
@@ -327,7 +326,6 @@ START_TEST(test_annex_sequence)
     struct bstring key, val, prepend, append1, append2;
     item_rstatus_t status;
     struct item *it;
-    uint32_t dataflag = 12345;
 
     test_reset();
 
@@ -339,7 +337,7 @@ START_TEST(test_annex_sequence)
     append2 = str2bstr(APPEND2);
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, 0);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
 
@@ -356,7 +354,6 @@ START_TEST(test_annex_sequence)
     ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
     ck_assert_int_eq(it->vlen, val.len + append1.len);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
-    ck_assert_int_eq(it->dataflag, dataflag);
     ck_assert_int_eq(cc_memcmp(item_data(it), VAL APPEND1, val.len + append1.len), 0);
 
     status = item_annex(it, &key, &prepend, false);
@@ -369,7 +366,6 @@ START_TEST(test_annex_sequence)
     ck_assert_msg(it->is_raligned, "item with key %.*s is not raligned", key.len, key.data);
     ck_assert_int_eq(it->vlen, val.len + append1.len + prepend.len);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
-    ck_assert_int_eq(it->dataflag, dataflag);
     ck_assert_int_eq(cc_memcmp(item_data(it), PREPEND VAL APPEND1, val.len + append1.len + prepend.len), 0);
 
     status = item_annex(it, &key, &append2, true);
@@ -382,7 +378,6 @@ START_TEST(test_annex_sequence)
     ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
     ck_assert_int_eq(it->vlen, val.len + append1.len + prepend.len + append2.len);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
-    ck_assert_int_eq(it->dataflag, dataflag);
     ck_assert_int_eq(cc_memcmp(item_data(it), PREPEND VAL APPEND1 APPEND2, val.len + append1.len + prepend.len + append2.len), 0);
 #undef KEY
 #undef VAL
@@ -403,7 +398,6 @@ START_TEST(test_update_basic)
     struct bstring key, old_val, new_val;
     item_rstatus_t status;
     struct item *it;
-    uint32_t dataflag = 12345;
 
     test_reset();
 
@@ -412,7 +406,7 @@ START_TEST(test_update_basic)
     new_val = str2bstr(NEW_VAL);
 
     time_update();
-    status = item_reserve(&it, &key, &old_val, old_val.len, dataflag, 0);
+    status = item_reserve(&it, &key, &old_val, old_val.len, 0, 0);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
 
@@ -428,7 +422,6 @@ START_TEST(test_update_basic)
     ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
     ck_assert_int_eq(it->vlen, new_val.len);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
-    ck_assert_int_eq(it->dataflag, dataflag);
     ck_assert_int_eq(cc_memcmp(item_data(it), NEW_VAL, new_val.len), 0);
 #undef KEY
 #undef OLD_VAL
@@ -446,7 +439,6 @@ START_TEST(test_delete_basic)
     struct bstring key, val;
     item_rstatus_t status;
     struct item *it;
-    uint32_t dataflag = 12345;
 
     test_reset();
 
@@ -454,7 +446,7 @@ START_TEST(test_delete_basic)
     val = str2bstr(VAL);
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, 0);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
 
@@ -586,7 +578,6 @@ START_TEST(test_refcount)
     item_rstatus_t status;
     struct item *it;
     struct slab * s;
-    uint32_t dataflag = 12345;
 
     test_reset();
 
@@ -594,7 +585,7 @@ START_TEST(test_refcount)
     val = str2bstr(VAL);
 
     /* reserve & release */
-    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, 0);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     s = item_to_slab(it);
     ck_assert_msg(s->refcount == 1, "slab refcount %"PRIu32"; 1 expected", s->refcount);
@@ -602,7 +593,7 @@ START_TEST(test_refcount)
     ck_assert_msg(s->refcount == 0, "slab refcount %"PRIu32"; 0 expected", s->refcount);
 
     /* reserve & backfill (& link) */
-    status = item_reserve(&it, &key, &val, val.len, dataflag, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, 0);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     s = item_to_slab(it);
     ck_assert_msg(s->refcount == 1, "slab refcount %"PRIu32"; 1 expected", s->refcount);

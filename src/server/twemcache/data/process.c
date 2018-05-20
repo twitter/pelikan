@@ -15,6 +15,7 @@
 #define CMD_ERR_MSG         "command not supported"
 #define OTHER_ERR_MSG       "unknown server error"
 
+
 typedef enum put_rstatus {
     PUT_OK,
     PUT_PARTIAL,
@@ -57,6 +58,17 @@ process_teardown(void)
     process_init = false;
 }
 
+static inline uint32_t
+_get_dataflag(struct item *it)
+{
+    return *((uint32_t *)item_metadata(it));
+}
+
+static inline void
+_set_dataflag(struct item *it, uint32_t flag)
+{
+    *((uint32_t *)item_metadata(it)) = flag;
+}
 
 static bool
 _get_key(struct response *rsp, struct bstring *key)
@@ -67,7 +79,7 @@ _get_key(struct response *rsp, struct bstring *key)
     if (it != NULL) {
         rsp->type = RSP_VALUE;
         rsp->key = *key;
-        rsp->flag = item_flag(it);
+        rsp->flag = _get_dataflag(it);
         rsp->vcas = item_get_cas(it);
         rsp->vstr.len = it->vlen;
         rsp->vstr.data = item_data(it);
@@ -200,7 +212,7 @@ _put(item_rstatus_t *istatus, struct request *req)
     *istatus = ITEM_OK;
     if (req->first) { /* self-contained req */
         struct bstring *key = array_first(req->keys);
-        *istatus = item_reserve(&it, key, &req->vstr, req->vlen, req->flag,
+        *istatus = item_reserve(&it, key, &req->vstr, req->vlen, DATAFLAG_SIZE,
                 time_reltime(req->expiry));
         req->first = false;
         req->reserved = it;
@@ -217,6 +229,8 @@ _put(item_rstatus_t *istatus, struct request *req)
     if (status == PUT_ERROR) {
         req->swallow = true;
         req->serror = true;
+    } else {
+        _set_dataflag(it, req->flag);
     }
 
     return status;
@@ -403,15 +417,16 @@ _process_delta(struct response *rsp, struct item *it, struct request *req,
     rsp->vint = vint;
     nval.len = cc_print_uint64_unsafe(buf, vint);
     nval.data = buf;
-    if (item_slabid(it->klen, nval.len) == it->id) {
+    if (item_slabid(it->klen, nval.len, it->mlen) == it->id) {
         item_update(it, &nval);
         return ITEM_OK;
     }
 
-    dataflag = it->dataflag;
-    status = item_reserve(&it, key, &nval, nval.len, dataflag,
+    dataflag = _get_dataflag(it);
+    status = item_reserve(&it, key, &nval, nval.len, DATAFLAG_SIZE,
             it->expire_at);
     if (status == ITEM_OK) {
+        _set_dataflag(it, dataflag);
         item_insert(it, key);
     }
 
