@@ -4,22 +4,26 @@
 #include <string.h>
 
 
-#define DATA_OFFSET(_bs) ((uint8_t *)(_bs) + offsetof(struct bitset, data))
+#define DATA_POS(_bs) ((uint8_t *)(_bs) + offsetof(struct bitset, data))
 #define SEGMENT_OFFSET(_col) ((uint8_t)(_col) >> 5) /* uint32_t, 2^5 bits per segment */
 #define BIT_OFFSET(_col) ((uint8_t)(_col) & 0x1f)
 #define GET_SEGMENT(_bs, _col)  \
-        ((uint32_t *)DATA_OFFSET(_bs) + SEGMENT_OFFSET(_col))
+        ((uint32_t *)DATA_POS(_bs) + SEGMENT_OFFSET(_col))
 #define GET_COL(_v, _offset) (((uint32_t)(_v) >> (_offset)) & 1UL)
 
-void
+uint8_t
 bitset_init(struct bitset *bs, uint16_t ncol)
 {
-    uint8_t *d = (uint8_t *)DATA_OFFSET(bs);
+    uint8_t *d = (uint8_t *)DATA_POS(bs);
+    uint8_t sz;
 
     bs->size = (uint8_t)bit2long(ncol);
     bs->col_w = 1;
     bs->count = 0;
-    memset(d, 0, size2byte(bs->size));
+    sz = size2byte(bs->size);
+    memset(d, 0, sz);
+
+    return sz + sizeof(*bs);
 }
 
 uint8_t

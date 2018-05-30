@@ -37,6 +37,7 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
     }
 
     command_registry[REQ_PING] = cmd_ping;
+    command_registry[REQ_LIST_CREATE] = cmd_list_create;
 
     process_init = true;
 }

@@ -23,7 +23,8 @@ struct bitset {
 #define size2bit(_sz) ((_sz) << 5)
 #define size2byte(_sz) ((_sz) << 2)
 
-void bitset_init(struct bitset *bs, uint16_t ncol);
+/* return size of the bitset after initialization, in bytes */
+uint8_t bitset_init(struct bitset *bs, uint16_t ncol);
 
 uint8_t bitset_get(struct bitset *bs, uint16_t col);
 /* Note: the interface is written as a generic set function with a val parameter

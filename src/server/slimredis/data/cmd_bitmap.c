@@ -24,7 +24,7 @@ _get_col(struct response *rsp, struct request *req, uint16_t max)
 {
     uint64_t col = 0;
     rstatus_i status;
-    struct element *reply = (struct element *)array_get(rsp->token, BITMAP_VERB);
+    struct element *reply = (struct element *)array_get(rsp->token, 0);
     struct element *arg = (struct element *)array_get(req->token, BITMAP_COL);
 
     status = bstring_atou64(&col, &arg->bstr);
@@ -45,7 +45,7 @@ _get_bitval(struct response *rsp, struct request *req, uint8_t max)
 {
     uint64_t val = 0;
     rstatus_i status;
-    struct element *reply = (struct element *)array_get(rsp->token, BITMAP_VERB);
+    struct element *reply = (struct element *)array_get(rsp->token, 0);
     struct element *arg = (struct element *)array_get(req->token, BITMAP_VAL);
 
     status = bstring_atou64(&val, &arg->bstr);
@@ -64,8 +64,7 @@ _get_bitval(struct response *rsp, struct request *req, uint8_t max)
 static inline struct item *
 _add_key(struct response *rsp, struct bstring *key)
 {
-    struct element *reply = (struct element *)array_get(rsp->token, BITMAP_VERB);
-    struct val val = {VAL_TYPE_STR, {null_bstring}};
+    struct element *reply = (struct element *)array_get(rsp->token, 0);
     struct item *it;
 
     it = cuckoo_get(key);
@@ -76,7 +75,7 @@ _add_key(struct response *rsp, struct bstring *key)
 
         return NULL;
     } else { /* cuckoo insert current won't fail as long as size is valid */
-        it = cuckoo_insert(key, &val, time_reltime(0));
+        it = cuckoo_insert(key, NULL, time_reltime(0));
         if (it == NULL) {
             rsp->type = reply->type = ELEM_ERR;
             reply->bstr = str2bstr(RSP_ERR_STORAGE);
@@ -117,7 +116,7 @@ cmd_bitmap_create(struct response *rsp, struct request *req, struct command *cmd
     }
 
     /* initialize data structure */
-    bitset_init((struct bitset *)ITEM_VAL_POS(it), (uint16_t)ncol);
+    it->vlen = bitset_init((struct bitset *)ITEM_VAL_POS(it), (uint16_t)ncol);
 
     rsp->type = reply->type = ELEM_STR;
     reply->bstr = str2bstr(RSP_OK);

@@ -204,8 +204,10 @@ _item_define(struct item *it, const struct bstring *key, const struct bstring
     it->olen = olen;
     cc_memcpy(item_key(it), key->data, key->len);
     it->klen = key->len;
-    cc_memcpy(item_data(it), val->data, val->len);
-    it->vlen = val->len;
+    if (val != NULL) {
+        cc_memcpy(item_data(it), val->data, val->len);
+    }
+    it->vlen = (val == NULL) ? 0 : val->len;
 }
 
 item_rstatus_t
