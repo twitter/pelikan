@@ -69,9 +69,34 @@ cmd_list_create(struct response *rsp, struct request *req, struct command *cmd)
     ziplist_reset((ziplist_p)item_data(it));
     it->vlen = ZIPLIST_HEADER_SIZE;
 
+    /* link into index */
+    item_insert(it, key);
+
     rsp->type = reply->type = ELEM_STR;
     reply->bstr = str2bstr(RSP_OK);
 
     log_verb("command '%.*s' '%.*s' succeeded", cmd->bstr.len, cmd->bstr.data,
             key->len, key->data);
+}
+
+void
+cmd_list_delete(struct response *rsp, struct request *req, struct command *cmd)
+{
+    struct bstring *key = _get_key(req);
+    struct element *reply = (struct element *)array_push(rsp->token);
+
+    INCR(process_metrics, list_delete);
+
+    if (item_delete(key)) {
+        reply->bstr = str2bstr(RSP_OK);
+        INCR(process_metrics, list_delete_deleted);
+        log_verb("command '%.*s' '%.*s' succeeded", cmd->bstr.len,
+                cmd->bstr.data, key->len, key->data);
+    } else {
+        reply->bstr = str2bstr(RSP_NOTFOUND);
+        INCR(process_metrics, list_delete_notfound);
+        log_verb("command '%.*s' '%.*s' completed as no-op, key not found",
+                cmd->bstr.len, cmd->bstr.data, key->len, key->data);
+    }
+
 }

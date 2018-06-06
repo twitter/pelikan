@@ -38,6 +38,7 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
 
     command_registry[REQ_PING] = cmd_ping;
     command_registry[REQ_LIST_CREATE] = cmd_list_create;
+    command_registry[REQ_LIST_DELETE] = cmd_list_delete;
 
     process_init = true;
 }
