@@ -118,6 +118,8 @@ include_directories(${include_directories}
     "${CCOMMON_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/src")
 
+add_subdirectory("cdb.rs")
+
 # server & (cli) client
 add_subdirectory(src)
 

@@ -40,3 +40,5 @@ lcov
 
 # python compiled files
 *.pyc
+
+cdb.rs
