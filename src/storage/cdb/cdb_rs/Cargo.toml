@@ -1,0 +1,22 @@
+[package]
+name = "cdb_rs"
+version = "0.1.0"
+authors = ["Jonathan D. Simms <jsimms@twitter.com>"]
+publish = false
+
+[dependencies]
+bytes = "~0.4"
+rand = "~0.5"
+memmap = "~0.6.2"
+log = "~0.4"
+env_logger = "~0.5.10"
+clap = "~2.31.0"
+
+[dev-dependencies]
+tempfile = "~3"
+proptest = "~0.7.1"
+tinycdb = "~0.0.7"
+
+[lib]
+name = "cdb_rs"
+crate-type = ["rlib", "dylib"]

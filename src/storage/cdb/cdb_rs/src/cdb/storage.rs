@@ -1,6 +1,4 @@
 use bytes::{Buf, Bytes, BytesMut};
-use crypto::digest::Digest;
-use crypto::md5::Md5;
 use memmap::{Mmap, MmapOptions};
 use std::cell::RefCell;
 use std::fs::File;
@@ -10,10 +8,49 @@ use std::os::unix::fs::FileExt;
 use std::sync::Arc;
 use super::Result;
 
+#[derive(Debug)]
+#[repr(C, u8)]
 pub enum SliceFactory {
-    HeapStorage(Bytes),
+    HeapStorage(HeapWrap),
     MmapStorage(MMapWrap),
     StdioStorage(FileWrap),
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct HeapWrap(Bytes);
+
+impl HeapWrap {
+    pub fn load(path: &str) -> Result<HeapWrap> {
+        let mut f = File::open(path)?;
+        let mut buffer = Vec::new();
+        f.read_to_end(&mut buffer)?;
+        Ok(HeapWrap(Bytes::from(buffer)))
+    }
+
+    pub fn slice(&self, start: usize, end: usize) -> Result<Bytes> {
+        assert!(end >= start);
+
+        if end == start {
+            return Ok(Bytes::new());
+        }
+
+        Ok(Bytes::from(&self.0[start..end]))
+    }
+}
+
+impl Deref for HeapWrap {
+    type Target = Bytes;
+
+    fn deref(&self) -> &<Self as Deref>::Target {
+        &self.0
+    }
+}
+
+impl Clone for HeapWrap {
+    fn clone(&self) -> Self {
+        HeapWrap(self.0.clone())
+    }
 }
 
 const BUF_LEN: usize = 8192;
@@ -29,7 +66,7 @@ impl SliceFactory {
         let mut f = File::open(path)?;
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer)?;
-        Ok(SliceFactory::HeapStorage(Bytes::from(buffer)))
+        Ok(SliceFactory::HeapStorage(HeapWrap(Bytes::from(buffer))))
     }
 
     pub fn make_map(path: &str) -> Result<SliceFactory> {
@@ -38,7 +75,6 @@ impl SliceFactory {
 
         let mut buf = [0u8; BUF_LEN];
         let mut count = 0;
-        let mut md5 = Md5::new();
 
         debug!("begin pretouch pages");
         {
@@ -49,20 +85,14 @@ impl SliceFactory {
                     let mut buf = readybuf(remain);
                     cur.copy_to_slice(&mut buf[..]);
                     count += buf.len();
-                    md5.input(&buf);
                     break;
                 } else {
                     cur.copy_to_slice(&mut buf);
                     count += BUF_LEN;
-                    md5.input(&buf);
                 }
             }
         }
-        debug!(
-            "end pretouch pages: {} bytes, md5: {}",
-            count,
-            md5.result_str()
-        );
+        debug!("end pretouch pages: {} bytes", count);
 
         Ok(SliceFactory::MmapStorage(MMapWrap::new(mmap)))
     }
@@ -102,6 +132,8 @@ impl Clone for SliceFactory {
     }
 }
 
+#[derive(Debug)]
+#[repr(C)]
 pub struct MMapWrap {
     inner: Arc<Mmap>
 }
@@ -126,6 +158,8 @@ impl Clone for MMapWrap {
     }
 }
 
+#[derive(Debug)]
+#[repr(C)]
 pub struct FileWrap {
     inner: RefCell<File>,
     path: String,
@@ -170,6 +204,7 @@ impl Clone for FileWrap {
     }
 }
 
+#[repr(C)]
 struct BMString(BytesMut);
 
 impl ToString for BMString {
@@ -231,5 +266,3 @@ mod tests {
         })
     }
 }
-
-

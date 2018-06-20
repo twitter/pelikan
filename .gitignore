@@ -42,3 +42,8 @@ lcov
 *.pyc
 
 cdb.rs
+*.cdb
+compile_commands.json
+
+*.cmd
+core

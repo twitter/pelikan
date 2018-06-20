@@ -1,18 +1,13 @@
 use bytes::{Buf, Bytes, IntoBuf};
 use std::fmt;
 use std::io;
-use std::io::Write;
+use std::io::{Write, Read};
 use std::result;
+use std::fs::File;
 
-pub mod randoread;
 pub mod errors;
 pub mod input;
-pub mod writer;
 pub mod storage;
-
-pub mod cdb_c;
-
-use self::storage::SliceFactory;
 
 pub use self::errors::CDBError;
 
@@ -26,6 +21,7 @@ pub type Result<T> = result::Result<T, CDBError>;
 
 // idea from https://raw.githubusercontent.com/jothan/cordoba/master/src/lib.rs
 #[derive(Copy, Clone, Eq, PartialEq)]
+#[repr(C)]
 struct CDBHash(u32);
 
 impl CDBHash {
@@ -73,6 +69,7 @@ impl<'a> From<&'a CDBHash> for u32 {
 }
 
 #[derive(Copy, Clone)]
+#[repr(C)]
 struct Bucket {
     ptr: usize,
     num_ents: usize,
@@ -98,6 +95,7 @@ impl Bucket {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
 struct IndexEntryPos(usize);
 
 impl From<IndexEntryPos> for usize {
@@ -107,9 +105,10 @@ impl From<IndexEntryPos> for usize {
 }
 
 #[derive(Clone, Debug)]
+#[repr(C)]
 pub struct KV {
-    k: Bytes,
-    v: Bytes,
+    pub k: Bytes,
+    pub v: Bytes,
 }
 
 impl KV {
@@ -129,88 +128,24 @@ struct IndexEntry {
     ptr: usize,    // pointer to the absolute position of the data in the db
 }
 
-pub struct KVIter {
-    cdb: Box<CDB>,
-    bkt_idx: usize,
-    entry_n: usize,
-    bkt: Bucket,
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct CDB<'a> {
+    data: &'a [u8],
 }
 
-impl KVIter {
-    fn new(cdb: Box<CDB>) -> Result<Self> {
-        let bkt = cdb.bucket_at(0)?;
-        Ok(KVIter{cdb, bkt_idx: 0, entry_n: 0, bkt})
-    }
+
+pub fn load_bytes_at_path(path: &str) -> Result<Box<[u8]>> {
+    let mut f = File::open(path)?;
+    let mut buffer = Vec::with_capacity(f.metadata()?.len() as usize);
+    f.read_to_end(&mut buffer)?;
+    Ok(buffer.into_boxed_slice())
 }
 
-impl Iterator for KVIter {
-    type Item = Result<KV>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if self.bkt_idx >= MAIN_TABLE_SIZE {
-                return None
-            }
-
-            if self.entry_n >= self.bkt.num_ents {
-                self.bkt_idx += 1;
-                self.entry_n = 0;
-                if self.bkt_idx < MAIN_TABLE_SIZE {
-                    match self.cdb.bucket_at(self.bkt_idx) {
-                        Ok(bkt) => self.bkt = bkt,
-                        Err(err) => return Some(Err(err)),
-                    }
-                }
-                continue
-            }
-
-            let idx_ent =
-                match self.cdb.index_entry_at(self.bkt.entry_n_pos(self.entry_n)) {
-                    Ok(index_entry) => index_entry,
-                    Err(err) => return Some(Err(err)),
-                };
-
-            self.entry_n += 1;
-            
-            if idx_ent.ptr == 0 {
-                continue
-            } else {
-                return match self.cdb.get_kv(idx_ent) {
-                    Ok(kv) => Some(Ok(kv)),
-                    Err(err) => Some(Err(err)),
-                }
-            }
-        }
-    }
-}
-
-pub struct CDB {
-    data: SliceFactory,
-}
-
-impl Clone for CDB {
-    fn clone(&self) -> Self {
-        CDB{data: self.data.clone()}
-    }
-}
-
-impl CDB {
-    pub fn new(sf: SliceFactory) -> CDB { CDB{data: sf} }
-
-    pub fn stdio(path: &str) -> Result<CDB> {
-        Ok(CDB::new(SliceFactory::make_filewrap(path)?))
-    }
-
-    pub fn mmap(path: &str) -> Result<CDB> {
-        Ok(CDB::new(SliceFactory::make_map(path)?))
-    }
-
-    pub fn load(path: &str) -> Result<CDB> {
-        Ok(CDB::new(SliceFactory::load(path)?))
-    }
-
-    pub fn kvs_iter(&self) -> Result<KVIter> {
-        Ok(KVIter::new(Box::new(self.clone()))?)
+impl<'a> CDB<'a> {
+    pub fn new<'b>(b: &'b [u8]) -> CDB<'b> {
+        CDB{data: b}
     }
 
     #[inline]
@@ -219,8 +154,9 @@ impl CDB {
 
         let off = 8 * idx;
 
-        let b = self.data.slice(off, off + 8)?;
-        assert_eq!(b.len(), 8);
+        let slice = self.data[off..(off + 8)].as_ref();
+        let b = slice.into_buf();
+        assert_eq!(slice.len(), 8);
         trace!("bucket_at idx: {}, got buf: {:?}", idx, b);
 
         let mut buf = b.into_buf();
@@ -231,8 +167,6 @@ impl CDB {
         Ok(Bucket{ptr, num_ents})
     }
 
-
-
     // returns the index entry at absolute position 'pos' in the db
     #[inline]
     fn index_entry_at(&self, pos: IndexEntryPos) -> Result<IndexEntry> {
@@ -242,7 +176,7 @@ impl CDB {
             panic!("position {:?} was in the main table!", pos)
         }
 
-        let mut b = self.data.slice(pos, pos + 8)?.into_buf();
+        let mut b = self.data[pos..(pos + 8)].into_buf();
         let hash = CDBHash(b.get_u32_le());
         let ptr = b.get_u32_le() as usize;
 
@@ -251,21 +185,21 @@ impl CDB {
 
     #[inline]
     fn get_kv(&self, ie: IndexEntry) -> Result<KV> {
-        let b = self.data.slice(ie.ptr, ie.ptr + DATA_HEADER_SIZE)?;
+        let b = self.data[ie.ptr..(ie.ptr + DATA_HEADER_SIZE)].as_ref();
 
-        let ksize = b.slice_to(4).into_buf().get_u32_le() as usize;
-        let vsize = b.slice_from(4).into_buf().get_u32_le() as usize;
+        let ksize = b[..4].into_buf().get_u32_le() as usize;
+        let vsize = b[4..].into_buf().get_u32_le() as usize;
 
         let kstart = ie.ptr + DATA_HEADER_SIZE;
         let vstart = kstart + ksize;
 
-        let k = self.data.slice(kstart, kstart + ksize)?;
-        let v = self.data.slice(vstart, vstart + vsize)?;
+        let k = &self.data[kstart..(kstart + ksize)];
+        let v = &self.data[vstart..(vstart + vsize)];
 
         Ok(KV{k: Bytes::from(k), v: Bytes::from(v)})
     }
 
-    pub fn get(&self, key: &[u8], buf: &mut Vec<u8>) -> Result<Option<usize>> {
+    pub fn get<'b>(&self, key: &[u8], mut buf: &'b mut [u8]) -> Result<Option<usize>> {
         let key = key.into();
         let hash = CDBHash::new(key);
         let bucket = self.bucket_at(hash.table())?;
@@ -323,7 +257,7 @@ mod tests {
     struct QueryResult(String, Option<String>);
 
     #[allow(dead_code)]
-    fn create_temp_cdb<'a>(kvs: &Vec<(String, String)>) -> Result<SliceFactory> {
+    fn create_temp_cdb<'a>(kvs: &Vec<(String, String)>) -> Result<Box<[u8]>> {
         let path: PathBuf;
 
         {
@@ -347,15 +281,14 @@ mod tests {
             }
         }).unwrap();
 
-        let sf = self::storage::SliceFactory::load(path.to_str().unwrap())?;
-
-        Ok(sf)
+        load_bytes_at_path(path.to_str().unwrap())
     }
 
     proptest! {
         #[test]
         fn qc_key_and_value_retrieval(ref xs in arb_string_slice()) {
-            let cdb = CDB::new(make_temp_cdb_single_vals(&xs));
+            let slc = make_temp_cdb_single_vals(&xs);
+            let cdb = CDB::new(&slc);
 
             for QueryResult(q, r) in read_keys(&cdb, &xs) {
                 prop_assert_eq!(
@@ -380,7 +313,7 @@ mod tests {
     }
 
     #[allow(dead_code)]
-    fn make_temp_cdb_single_vals(xs: &Vec<String>) -> SliceFactory {
+    fn make_temp_cdb_single_vals(xs: &Vec<String>) -> Box<[u8]> {
         let kvs: Vec<(String, String)> =
             xs.iter().map(|k| (k.to_owned(), k.to_owned())).collect();
         create_temp_cdb(&kvs).unwrap()
@@ -405,8 +338,8 @@ mod tests {
         ];
         let arg = strings.iter().map(|s| (*s).to_owned()).collect();
 
-        let sf = make_temp_cdb_single_vals(&arg);
-        let cdb = CDB::new(sf);
+        let hw = make_temp_cdb_single_vals(&arg);
+        let cdb = CDB{data: &hw};
 
         for QueryResult(q, r) in read_keys(&cdb, &arg) {
             assert_eq!(Some(q), r);
@@ -427,7 +360,7 @@ mod tests {
             }
         }
 
-        let cdb = CDB::new(make_temp_cdb_single_vals(&args));
+        let cdb = CDB{data: &make_temp_cdb_single_vals(&args)};
 
         for QueryResult(q, r) in read_keys(&cdb, &args) {
             assert_eq!(Some(q), r);
