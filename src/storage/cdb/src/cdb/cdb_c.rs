@@ -5,12 +5,18 @@ use std::os::raw::c_char;
 use super::{CDB, Result};
 
 #[repr(C)]
+pub struct BString {
+    u32 len;
+
+}
+
+#[repr(C)]
 pub struct CDBHandle {
     inner: Box<CDB>
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_rs_create(path: *const c_char) -> Option<*mut CDBHandle> {
+pub extern "C" fn cdb_create(path: *const c_char) -> Option<*mut CDBHandle> {
     assert!(!path.is_null());
 
     let f = || -> Result<Box<CDBHandle>> {
@@ -33,7 +39,12 @@ pub extern "C" fn cdb_rs_create(path: *const c_char) -> Option<*mut CDBHandle> {
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_rs_destroy(handle: *mut CDBHandle) {
+pub extern "C" fn cdb_get(handle: *mut CDBHandle, key: *const u8) -> Option<*mut u8> {
+    None
+}
+
+#[no_mangle]
+pub extern "C" fn cdb_destroy(handle: *mut CDBHandle) {
     unsafe {
         drop(Box::from_raw(handle));
     }

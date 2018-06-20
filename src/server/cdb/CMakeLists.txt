@@ -11,7 +11,7 @@ set(MODULES
     core
     protocol_admin
     protocol_memcache
-    slab
+	cdb
     time
     util)
 
@@ -20,7 +20,7 @@ set(LIBS
     ${CMAKE_THREAD_LIBS_INIT})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/_bin)
-set(TARGET_NAME ${PROJECT_NAME}_twemcache)
+set(TARGET_NAME ${PROJECT_NAME}_cdb)
 
 add_executable(${TARGET_NAME} ${SOURCE})
 target_link_libraries(${TARGET_NAME} ${MODULES} ${LIBS})
