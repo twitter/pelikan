@@ -6,7 +6,8 @@ else ()
     set(TARGET_DIR "release")
 endif ()
 
-set(CDB_RS_SO "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_DIR}/libcdb_rs.so")
+
+set(CDB_RS_SO "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_DIR}/libcdb_rs${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
 add_custom_target(cdb_rs ALL
     COMMENT "Compiling cdb module"

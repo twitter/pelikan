@@ -10,8 +10,6 @@ pub mod input;
 pub mod writer;
 pub mod storage;
 
-pub mod cdb_c;
-
 use self::storage::SliceFactory;
 
 pub use self::errors::CDBError;

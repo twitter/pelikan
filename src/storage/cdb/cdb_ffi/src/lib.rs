@@ -1,10 +1,13 @@
+extern crate cdb_rs;
+#[macro_use] extern crate log;
+extern crate env_logger;
 
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::ops::Deref;
 use std::slice;
 
-use super::{CDB, Result};
+use cdb_rs::{CDB, Result};
 
 #[repr(C)]
 pub struct CDBBString {

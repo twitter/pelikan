@@ -3,7 +3,6 @@ extern crate cdb_rs;
 extern crate log;
 extern crate env_logger;
 #[macro_use] extern crate clap;
-extern crate memmap;
 
 use std::time::Duration;
 

@@ -1,29 +1,10 @@
-[package]
-name = "cdb_rs"
-version = "0.1.0"
-authors = ["Jonathan D. Simms <jsimms@twitter.com>"]
-publish = false
+[workspace]
 
-[lib]
-name = "cdb_rs"
-crate-type = ["rlib","dylib"]
-
-[dependencies]
-bytes = "~0.4"
-rand = "~0.5"
-memmap = "~0.6.2"
-itertools = "~0.6"
-log = "~0.4"
-env_logger = "~0.5.10"
-tempfile = "~3"
-proptest = "~0.7.1"
-clap = "~2.31.0"
-rust-crypto = "~0.2.36"
-libc = "~0.2.42"
-tinycdb = "~0.0.7"
-
-# [dependencies.tinycdb]
-# git = "https://github.com/andrew-d/tinycdb-rs"
+members = [
+    "cdb_rs",
+    "cdb_ffi",
+    "cdb_utils",
+]
 
 [profile.release]
 opt-level = 3
@@ -36,4 +17,3 @@ codegen-units = 1
 [profile.dev]
 debug = true
 opt-level = 0
-lto = false

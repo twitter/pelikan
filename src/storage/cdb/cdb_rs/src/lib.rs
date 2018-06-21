@@ -1,7 +1,7 @@
 extern crate bytes;
-extern crate rand;
 extern crate memmap;
 extern crate itertools;
+extern crate rand;
 
 #[macro_use] extern crate log;
 extern crate env_logger;
@@ -16,10 +16,6 @@ extern crate libc;
 
 pub mod cdb;
 
-pub use cdb::cdb_c::{
-    cdb_create,
-    cdb_get,
-    cdb_destroy,
-    CDBHandle,
-    CDBBString,
-};
+pub use cdb::{CDB, Result, CDBError};
+
+
