@@ -1,8 +1,6 @@
 add_subdirectory(admin)
 add_subdirectory(data)
 
-get_target_property(CDB_RS_DIR cdb_rs LOCATION)
-
 set(SOURCE
     ${SOURCE}
     main.c
