@@ -1,6 +1,7 @@
-extern crate cdb_rs;
 #[macro_use] extern crate log;
 extern crate env_logger;
+extern crate libc;
+extern crate cdb_rs;
 
 use std::ffi::CStr;
 use std::os::raw::c_char;

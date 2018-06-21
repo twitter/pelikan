@@ -8,15 +8,14 @@ publish = false
 bytes = "~0.4"
 rand = "~0.5"
 memmap = "~0.6.2"
-itertools = "~0.6"
 log = "~0.4"
 env_logger = "~0.5.10"
+clap = "~2.31.0"
+
+[dev-dependencies]
 tempfile = "~3"
 proptest = "~0.7.1"
-rust-crypto = "~0.2.36"
-libc = "~0.2.42"
 tinycdb = "~0.0.7"
-clap = "~2.31.0"
 
 [lib]
 name = "cdb_rs"

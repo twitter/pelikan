@@ -1,6 +1,4 @@
 use bytes::{Buf, Bytes, BytesMut};
-use crypto::digest::Digest;
-use crypto::md5::Md5;
 use memmap::{Mmap, MmapOptions};
 use std::cell::RefCell;
 use std::fs::File;
@@ -38,7 +36,6 @@ impl SliceFactory {
 
         let mut buf = [0u8; BUF_LEN];
         let mut count = 0;
-        let mut md5 = Md5::new();
 
         debug!("begin pretouch pages");
         {
@@ -49,20 +46,14 @@ impl SliceFactory {
                     let mut buf = readybuf(remain);
                     cur.copy_to_slice(&mut buf[..]);
                     count += buf.len();
-                    md5.input(&buf);
                     break;
                 } else {
                     cur.copy_to_slice(&mut buf);
                     count += BUF_LEN;
-                    md5.input(&buf);
                 }
             }
         }
-        debug!(
-            "end pretouch pages: {} bytes, md5: {}",
-            count,
-            md5.result_str()
-        );
+        debug!("end pretouch pages: {} bytes", count);
 
         Ok(SliceFactory::MmapStorage(MMapWrap::new(mmap)))
     }

@@ -13,6 +13,7 @@ set(MODULES
     core
     protocol_admin
     protocol_memcache
+    slab
     time
     util)
 

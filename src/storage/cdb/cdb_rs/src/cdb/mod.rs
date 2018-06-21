@@ -4,7 +4,6 @@ use std::io;
 use std::io::Write;
 use std::result;
 
-pub mod randoread;
 pub mod errors;
 pub mod input;
 pub mod writer;
@@ -106,8 +105,8 @@ impl From<IndexEntryPos> for usize {
 
 #[derive(Clone, Debug)]
 pub struct KV {
-    k: Bytes,
-    v: Bytes,
+    pub k: Bytes,
+    pub v: Bytes,
 }
 
 impl KV {

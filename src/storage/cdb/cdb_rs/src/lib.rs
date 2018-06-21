@@ -1,21 +1,16 @@
 extern crate bytes;
 extern crate memmap;
-extern crate itertools;
-extern crate rand;
 
 #[macro_use] extern crate log;
 extern crate env_logger;
-extern crate tempfile;
-
-#[macro_use] extern crate proptest;
-
-extern crate tinycdb;
 extern crate clap;
-extern crate crypto;
-extern crate libc;
+
+// dev dependencies
+#[cfg(test)] extern crate tempfile;
+#[cfg(test)] #[macro_use] extern crate proptest;
+#[cfg(test)] extern crate tinycdb;
 
 pub mod cdb;
-
 pub use cdb::{CDB, Result, CDBError};
 
 
