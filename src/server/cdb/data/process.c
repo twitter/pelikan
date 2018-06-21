@@ -8,7 +8,7 @@
 #include <cc_debug.h>
 #include <cc_print.h>
 
-#define TWEMCACHE_PROCESS_MODULE_NAME "twemcache::process"
+#define CDB_PROCESS_MODULE_NAME "cdb::process"
 
 #define OVERSIZE_ERR_MSG    "oversized value, cannot be stored"
 #define DELTA_ERR_MSG       "value is not a number"
@@ -30,14 +30,12 @@ static bool allow_flush = ALLOW_FLUSH;
 void
 process_setup(process_options_st *options, process_metrics_st *metrics)
 {
-    log_info("set up the %s module", TWEMCACHE_PROCESS_MODULE_NAME);
+    log_info("set up the %s module", CDB_PROCESS_MODULE_NAME);
 
-    cdb_setup();
-    log_debug("called cdb_setup()");
 
     if (process_init) {
         log_warn("%s has already been setup, overwrite",
-                 TWEMCACHE_PROCESS_MODULE_NAME);
+                 CDB_PROCESS_MODULE_NAME);
     }
 
     process_metrics = metrics;
@@ -52,9 +50,9 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
 void
 process_teardown(void)
 {
-    log_info("tear down the %s module", TWEMCACHE_PROCESS_MODULE_NAME);
+    log_info("tear down the %s module", CDB_PROCESS_MODULE_NAME);
     if (!process_init) {
-        log_warn("%s has never been setup", TWEMCACHE_PROCESS_MODULE_NAME);
+        log_warn("%s has never been setup", CDB_PROCESS_MODULE_NAME);
     }
 
     allow_flush = false;
@@ -66,12 +64,6 @@ static inline uint32_t
 _get_dataflag(struct item *it)
 {
     return *((uint32_t *)item_optional(it));
-}
-
-static inline void
-_set_dataflag(struct item *it, uint32_t flag)
-{
-    *((uint32_t *)item_optional(it)) = flag;
 }
 
 static bool
@@ -161,83 +153,9 @@ static void
 _process_delete(struct response *rsp, struct request *req)
 {
     INCR(process_metrics, delete);
-    if (item_delete(array_first(req->keys))) {
-        rsp->type = RSP_DELETED;
-        INCR(process_metrics, delete_deleted);
-    } else {
-        rsp->type = RSP_NOT_FOUND;
-        INCR(process_metrics, delete_notfound);
-    }
-
+    rsp->type = RSP_CLIENT_ERROR;
+    rsp->vstr = str2bstr(CMD_ERR_MSG);
     log_verb("delete req %p processed, rsp type %d", req, rsp->type);
-}
-
-
-static void
-_error_rsp(struct response *rsp, item_rstatus_t status)
-{
-    INCR(process_metrics, process_ex);
-
-    if (status == ITEM_EOVERSIZED) {
-        rsp->type = RSP_CLIENT_ERROR;
-        rsp->vstr = str2bstr(OVERSIZE_ERR_MSG);
-    } else if (status == ITEM_ENAN) {
-        rsp->type = RSP_CLIENT_ERROR;
-        rsp->vstr = str2bstr(DELTA_ERR_MSG);
-    } else if (status == ITEM_ENOMEM) {
-        rsp->type = RSP_SERVER_ERROR;
-        rsp->vstr = str2bstr(OOM_ERR_MSG);
-        INCR(process_metrics, process_server_ex);
-    } else {
-        NOT_REACHED();
-        rsp->type = RSP_SERVER_ERROR;
-        rsp->vstr = str2bstr(OTHER_ERR_MSG);
-        INCR(process_metrics, process_server_ex);
-    }
-}
-
-
-/*
- * for the first segment three return values are possible:
- *   - PUT_OK
- *   - PUT_PARTIAL
- *   - PUT_ERROR (error code given in *istatus)
- *
- * for the following segment(s) two return values are possible:
- *   - PUT_OK
- *   - PUT_PARTIAL
- */
-static put_rstatus_t
-_put(item_rstatus_t *istatus, struct request *req)
-{
-    put_rstatus_t status;
-    struct item *it = NULL;
-
-    *istatus = ITEM_OK;
-    if (req->first) { /* self-contained req */
-        struct bstring *key = array_first(req->keys);
-        *istatus = item_reserve(&it, key, &req->vstr, req->vlen, DATAFLAG_SIZE,
-                time_reltime(req->expiry));
-        req->first = false;
-        req->reserved = it;
-    } else { /* backfill reserved item */
-        item_backfill(req->reserved, &req->vstr);
-    }
-
-    if (!req->partial) {
-        status = (*istatus == ITEM_OK) ? PUT_OK : PUT_ERROR;
-    } else { /* should not update hash */
-        status = (*istatus == ITEM_OK) ? PUT_PARTIAL : PUT_ERROR;
-    }
-
-    if (status == PUT_ERROR) {
-        req->swallow = true;
-        req->serror = true;
-    } else {
-        _set_dataflag(it, req->flag);
-    }
-
-    return status;
 }
 
 /*
@@ -249,321 +167,85 @@ _put(item_rstatus_t *istatus, struct request *req)
 static void
 _process_set(struct response *rsp, struct request *req)
 {
-    put_rstatus_t status;
-    item_rstatus_t istatus;
-    struct item *it;
-    struct bstring key;
-
-    status = _put(&istatus, req);
-    if (status == PUT_PARTIAL) {
-        return;
-    }
-    if (status == PUT_ERROR) {
-        _error_rsp(rsp, istatus);
-        INCR(process_metrics, set_ex);
-
-        return;
-    }
-
-    /* PUT_OK, meaning we have an item reserved, i.e. req->reserved != NULL */
     INCR(process_metrics, set);
-    it = (struct item *)req->reserved;
-    key = (struct bstring){it->klen, item_key(it)};
-    item_insert(it, &key);
-    rsp->type = RSP_STORED;
-    INCR(process_metrics, set_stored);
-
+    INCR(process_metrics, set_ex);
+    rsp->type = RSP_CLIENT_ERROR;
+    rsp->vstr = str2bstr(CMD_ERR_MSG);
     log_verb("set req %p processed, rsp type %d", req, rsp->type);
 }
 
 static void
 _process_add(struct response *rsp, struct request *req)
 {
-    put_rstatus_t status;
-    item_rstatus_t istatus;
-    struct item *it;
-    struct bstring key;
-
-    status = _put(&istatus, req);
-    if (status == PUT_PARTIAL) {
-        return;
-    }
-    if (status == PUT_ERROR) {
-        _error_rsp(rsp, istatus);
-        INCR(process_metrics, add_ex);
-
-        return;
-    }
-
-    /* PUT_OK, meaning we have an item reserved, i.e. req->reserved != NULL */
-    INCR(process_metrics, add);
-    it = (struct item *)req->reserved;
-    key = (struct bstring){it->klen, item_key(it)};
-    if (item_get(&key) != NULL) {
-        item_release((struct item **)&req->reserved);
-        rsp->type = RSP_NOT_STORED;
-        INCR(process_metrics, add_notstored);
-    } else {
-        item_insert(it, &key);
-        rsp->type = RSP_STORED;
-        INCR(process_metrics, add_stored);
-    }
-
+    INCR(process_metrics, add_ex);
+    rsp->type = RSP_CLIENT_ERROR;
+    rsp->vstr = str2bstr(CMD_ERR_MSG);
     log_verb("add req %p processed, rsp type %d", req, rsp->type);
 }
 
 static void
 _process_replace(struct response *rsp, struct request *req)
 {
-    put_rstatus_t status;
-    item_rstatus_t istatus;
-    struct item *it = NULL;
-    struct bstring key;
-
-    status = _put(&istatus, req);
-    if (status == PUT_PARTIAL) {
-        return;
-    }
-    if (status == PUT_ERROR) {
-        _error_rsp(rsp, istatus);
-        INCR(process_metrics, replace_ex);
-
-        return;
-    }
-
-    /* PUT_OK, meaning we have an item reserved, i.e. req->reserved != NULL */
-    INCR(process_metrics, replace);
-    it = (struct item *)req->reserved;
-    key = (struct bstring){it->klen, item_key(it)};
-    if (item_get(&key) != NULL) {
-        item_insert(it, &key);
-        rsp->type = RSP_STORED;
-        INCR(process_metrics, replace_stored);
-    } else {
-        item_release((struct item **)&req->reserved);
-        rsp->type = RSP_NOT_STORED;
-        INCR(process_metrics, replace_notstored);
-    }
-
+    INCR(process_metrics, replace_ex);
+    rsp->type = RSP_CLIENT_ERROR;
+    rsp->vstr = str2bstr(CMD_ERR_MSG);
     log_verb("replace req %p processed, rsp type %d", req, rsp->type);
 }
 
 static void
 _process_cas(struct response *rsp, struct request *req)
 {
-    put_rstatus_t status;
-    item_rstatus_t istatus;
-    struct item *it, *oit;
-    struct bstring key;
-
-    status = _put(&istatus, req);
-    if (status == PUT_PARTIAL) {
-        return;
-    }
-    if (status == PUT_ERROR) {
-        _error_rsp(rsp, istatus);
-        INCR(process_metrics, cas_ex);
-
-        return;
-    }
-
-    /* PUT_OK, meaning we have an item reserved, i.e. req->reserved != NULL */
-    it = (struct item *)req->reserved;
-    key = (struct bstring){it->klen, item_key(it)};
-    oit = item_get(&key);
-    if (oit == NULL) {
-        item_release((struct item **)&req->reserved);
-        rsp->type = RSP_NOT_FOUND;
-        INCR(process_metrics, cas_notfound);
-    } else {
-        if (item_get_cas(oit) != req->vcas) {
-            item_release((struct item **)&req->reserved);
-            rsp->type = RSP_EXISTS;
-            INCR(process_metrics, cas_exists);
-        } else {
-            item_insert(it, &key);
-            rsp->type = RSP_STORED;
-            INCR(process_metrics, cas_stored);
-        }
-    }
-
+    INCR(process_metrics, cas_ex);
+    rsp->type = RSP_CLIENT_ERROR;
+    rsp->vstr = str2bstr(CMD_ERR_MSG);
     log_verb("cas req %p processed, rsp type %d", req, rsp->type);
-}
-
-/* get integer value of it */
-
-/* update item with integer value */
-static item_rstatus_t
-_process_delta(struct response *rsp, struct item *it, struct request *req,
-        struct bstring *key, bool incr)
-{
-    item_rstatus_t status;
-    uint32_t dataflag;
-    uint64_t vint;
-    struct bstring nval;
-    char buf[CC_UINT64_MAXLEN];
-
-    status = item_atou64(&vint, it);
-    if (status != ITEM_OK) {
-        return status;
-    }
-
-    if (incr) {
-        vint += req->delta;
-    } else {
-        if (vint < req->delta) {
-            vint = 0;
-        } else {
-            vint -= req->delta;
-        }
-    }
-
-    rsp->vint = vint;
-    nval.len = cc_print_uint64_unsafe(buf, vint);
-    nval.data = buf;
-    if (item_slabid(it->klen, nval.len, it->olen) == it->id) {
-        item_update(it, &nval);
-        return ITEM_OK;
-    }
-
-    dataflag = _get_dataflag(it);
-    status = item_reserve(&it, key, &nval, nval.len, DATAFLAG_SIZE,
-            it->expire_at);
-    if (status == ITEM_OK) {
-        _set_dataflag(it, dataflag);
-        item_insert(it, key);
-    }
-
-    return status;
 }
 
 static void
 _process_incr(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
-    struct bstring *key;
-    struct item *it;
-
     INCR(process_metrics, incr);
-    key = array_first(req->keys);
-    it = item_get(key);
-    if (it != NULL) {
-        status = _process_delta(rsp, it, req, key, true);
-        if (status == ITEM_OK) {
-            rsp->type = RSP_NUMERIC;
-            INCR(process_metrics, incr_stored);
-        } else {
-            _error_rsp(rsp, status);
-            INCR(process_metrics, incr_ex);
-        }
-    } else {
-        rsp->type = RSP_NOT_FOUND;
-        INCR(process_metrics, incr_notfound);
-    }
-
+    INCR(process_metrics, incr_ex);
+    rsp->type = RSP_CLIENT_ERROR;
+    rsp->vstr = str2bstr(CMD_ERR_MSG);
     log_verb("incr req %p processed, rsp type %d", req, rsp->type);
 }
 
 static void
 _process_decr(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
-    struct bstring *key;
-    struct item *it;
-
     INCR(process_metrics, decr);
-    key = array_first(req->keys);
-    it = item_get(key);
-    if (it != NULL) {
-        status = _process_delta(rsp, it, req, key, false);
-        if (status == ITEM_OK) {
-            rsp->type = RSP_NUMERIC;
-            INCR(process_metrics, decr_stored);
-        } else {
-            _error_rsp(rsp, status);
-            INCR(process_metrics, decr_ex);
-        }
-    } else {
-        rsp->type = RSP_NOT_FOUND;
-        INCR(process_metrics, decr_notfound);
-    }
-
+    INCR(process_metrics, decr_ex);
+    rsp->type = RSP_CLIENT_ERROR;
+    rsp->vstr = str2bstr(CMD_ERR_MSG);
     log_verb("decr req %p processed, rsp type %d", req, rsp->type);
 }
 
 static void
 _process_append(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
-    struct bstring *key;
-    struct item *it;
-
-    key = array_first(req->keys);
-    it = item_get(key);
-    if (it == NULL) {
-        rsp->type = RSP_NOT_STORED;
-        INCR(process_metrics, append_notstored);
-    } else {
-        if (req->partial) { /* reject incomplete append requests */
-            status = ITEM_EOVERSIZED;
-        } else {
-            status = item_annex(it, key, &(req->vstr), true);
-        }
-        if (status == ITEM_OK) {
-            rsp->type = RSP_STORED;
-            INCR(process_metrics, append_stored);
-        } else {
-            _error_rsp(rsp, status);
-            INCR(process_metrics, append_ex);
-        }
-    }
-
+    INCR(process_metrics, append_ex);
+    rsp->type = RSP_CLIENT_ERROR;
+    rsp->vstr = str2bstr(CMD_ERR_MSG);
     log_verb("append req %p processed, rsp type %d", req, rsp->type);
 }
 
 static void
 _process_prepend(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
-    struct bstring *key;
-    struct item *it;
-
-    key = array_first(req->keys);
-    it = item_get(key);
-    if (it == NULL) {
-        rsp->type = RSP_NOT_STORED;
-        INCR(process_metrics, prepend_notstored);
-    } else {
-        if (req->partial) { /* reject incomplete prepend requests */
-            status = ITEM_EOVERSIZED;
-        } else {
-            status = item_annex(it, key, &(req->vstr), false);
-        }
-        if (status == ITEM_OK) {
-            rsp->type = RSP_STORED;
-            INCR(process_metrics, prepend_stored);
-        } else {
-            _error_rsp(rsp, status);
-            INCR(process_metrics, prepend_ex);
-        }
-    }
-
+    INCR(process_metrics, prepend_ex);
+    rsp->type = RSP_CLIENT_ERROR;
+    rsp->vstr = str2bstr(CMD_ERR_MSG);
     log_verb("prepend req %p processed, rsp type %d", req, rsp->type);
 }
 
 static void
 _process_flush(struct response *rsp, struct request *req)
 {
-    if (allow_flush) {
-        INCR(process_metrics, flush);
-        item_flush();
-        rsp->type = RSP_OK;
-
-        log_info("flush req %p processed, rsp type %d", req, rsp->type);
-    } else {
-        rsp->type = RSP_CLIENT_ERROR;
-        rsp->vstr = str2bstr(CMD_ERR_MSG);
-    }
+    INCR(process_metrics, flush);
+    rsp->type = RSP_CLIENT_ERROR;
+    rsp->vstr = str2bstr(CMD_ERR_MSG);
+    log_info("flush req %p processed, rsp type %d", req, rsp->type);
 }
 
 void
@@ -643,7 +325,7 @@ _cleanup(struct request *req, struct response *rsp)
 }
 
 int
-twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
+cdb_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     parse_rstatus_t status;
     struct request *req; /* data should be NULL or hold a req pointer */
@@ -761,7 +443,7 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 
 
 int
-twemcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
+cdb_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     log_verb("post-write processing");
 
@@ -775,7 +457,7 @@ twemcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
 
 
 int
-twemcache_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
+cdb_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     struct request *req = *data;
     struct response *rsp;

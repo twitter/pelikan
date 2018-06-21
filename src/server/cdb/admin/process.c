@@ -7,7 +7,7 @@
 #include <cc_mm.h>
 #include <cc_print.h>
 
-#define TWEMCACHE_ADMIN_MODULE_NAME "twemcache::admin"
+#define CDB_ADMIN_MODULE_NAME "cdb::admin"
 
 #define PERSLAB_PREFIX_FMT "CLASS %u:"
 #define PERSLAB_METRIC_FMT " %s %s"
@@ -23,10 +23,10 @@ static size_t cap;
 void
 admin_process_setup(void)
 {
-    log_info("set up the %s module", TWEMCACHE_ADMIN_MODULE_NAME);
+    log_info("set up the %s module", CDB_ADMIN_MODULE_NAME);
     if (admin_init) {
         log_warn("%s has already been setup, overwrite",
-                 TWEMCACHE_ADMIN_MODULE_NAME);
+                 CDB_ADMIN_MODULE_NAME);
     }
 
     nmetric_perslab = METRIC_CARDINALITY(perslab[0]);
@@ -41,9 +41,9 @@ admin_process_setup(void)
 void
 admin_process_teardown(void)
 {
-    log_info("tear down the %s module", TWEMCACHE_ADMIN_MODULE_NAME);
+    log_info("tear down the %s module", CDB_ADMIN_MODULE_NAME);
     if (!admin_init) {
-        log_warn("%s has never been setup", TWEMCACHE_ADMIN_MODULE_NAME);
+        log_warn("%s has never been setup", CDB_ADMIN_MODULE_NAME);
     }
 
     admin_init = false;

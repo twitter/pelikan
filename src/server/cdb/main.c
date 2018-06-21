@@ -1,6 +1,7 @@
 #include "admin/process.h"
 #include "setting.h"
 #include "stats.h"
+#include "storage/cdb/cdb.h"
 
 #include "time/time.h"
 #include "util/util.h"
@@ -14,9 +15,9 @@
 #include <sysexits.h>
 
 struct data_processor worker_processor = {
-    twemcache_process_read,
-    twemcache_process_write,
-    twemcache_process_error,
+    cdb_process_read,
+    cdb_process_write,
+    cdb_process_error,
 };
 
 static void
@@ -24,11 +25,11 @@ show_usage(void)
 {
     log_stdout(
             "Usage:" CRLF
-            "  pelikan_twemcache [option|config]" CRLF
+            "  pelikan_cdb [option|config]" CRLF
             );
     log_stdout(
             "Description:" CRLF
-            "  pelikan_twemcache is one of the unified cache backends. " CRLF
+            "  pelikan_cdb is one of the unified cache backends. " CRLF
             "  It uses a slab-based storage to cache key/val pairs. " CRLF
             "  It speaks the memcached ASCII protocol and supports almost " CRLF
             "  all ASCII memcached commands." CRLF
@@ -42,7 +43,7 @@ show_usage(void)
             );
     log_stdout(
             "Example:" CRLF
-            "  pelikan_twemcache twemcache.conf" CRLF CRLF
+            "  pelikan_cdb cdb.conf" CRLF CRLF
             "Sample config files can be found under the config dir." CRLF
             );
 }
@@ -55,7 +56,8 @@ teardown(void)
     core_admin_teardown();
     admin_process_teardown();
     process_teardown();
-    slab_teardown();
+    //slab_teardown();
+    cdb_teardown();
     klog_teardown();
     compose_teardown();
     parse_teardown();
@@ -94,10 +96,10 @@ setup(void)
     }
 
     /* setup top-level application options */
-    if (option_bool(&setting.twemcache.daemonize)) {
+    if (option_bool(&setting.cdb.daemonize)) {
         daemonize();
     }
-    fname = option_str(&setting.twemcache.pid_filename);
+    fname = option_str(&setting.cdb.pid_filename);
     if (fname != NULL) {
         /* to get the correct pid, call create_pidfile after daemonize */
         create_pidfile(fname);
@@ -119,7 +121,8 @@ setup(void)
     parse_setup(&stats.parse_req, NULL);
     compose_setup(NULL, &stats.compose_rsp);
     klog_setup(&setting.klog, &stats.klog);
-    slab_setup(&setting.slab, &stats.slab);
+    cdb_setup(option_str(&setting.cdb.cdb_file_path));
+    //slab_setup(&setting.slab, &stats.slab);
     process_setup(&setting.process, &stats.process);
     admin_process_setup();
     core_admin_setup(&setting.admin);
@@ -127,13 +130,13 @@ setup(void)
     core_worker_setup(&setting.worker, &stats.worker);
 
     /* adding recurring events to maintenance/admin thread */
-    intvl = option_uint(&setting.twemcache.dlog_intvl);
+    intvl = option_uint(&setting.cdb.dlog_intvl);
     if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
         log_stderr("Could not register timed event to flush debug log");
         goto error;
     }
 
-    intvl = option_uint(&setting.twemcache.klog_intvl);
+    intvl = option_uint(&setting.cdb.klog_intvl);
     if (core_admin_register(intvl, klog_flush, NULL) == NULL) {
         log_error("Could not register timed event to flush command log");
         goto error;

@@ -74,6 +74,6 @@ typedef struct {
 void process_setup(process_options_st *options, process_metrics_st *metrics);
 void process_teardown(void);
 
-int twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data);
-int twemcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data);
-int twemcache_process_error(struct buf **rbuf, struct buf **wbuf, void **data);
+int cdb_process_read(struct buf **rbuf, struct buf **wbuf, void **data);
+int cdb_process_write(struct buf **rbuf, struct buf **wbuf, void **data);
+int cdb_process_error(struct buf **rbuf, struct buf **wbuf, void **data);
