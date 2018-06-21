@@ -7,3 +7,7 @@ authors = ["Jonathan D. Simms <jsimms@twitter.com>"]
 cdb_rs = { path = "../cdb_rs" }
 log = "~0.4"
 env_logger = "~0.5.10"
+
+[lib]
+name = "cdb_ffi"
+crate-type = ["dylib"]

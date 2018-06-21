@@ -113,6 +113,10 @@ endif(CHECK_FOUND)
 
 find_package(Threads)
 
+enable_language(Rust)
+include(CMakeCargo)
+
+
 #set(CMAKE_INCLUDE_CURRENT_DIR)
 include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"

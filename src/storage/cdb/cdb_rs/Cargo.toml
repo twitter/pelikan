@@ -4,10 +4,6 @@ version = "0.1.0"
 authors = ["Jonathan D. Simms <jsimms@twitter.com>"]
 publish = false
 
-[lib]
-name = "cdb_rs"
-crate-type = ["rlib","dylib"]
-
 [dependencies]
 bytes = "~0.4"
 rand = "~0.5"
@@ -22,4 +18,6 @@ libc = "~0.2.42"
 tinycdb = "~0.0.7"
 clap = "~2.31.0"
 
-
+[lib]
+name = "cdb_rs"
+crate-type = ["dylib"]

@@ -14,7 +14,7 @@ set(MODULES
     protocol_admin
     protocol_memcache
     time
-    cdb_rs
+    cdb_ffi
     util)
 
 set(LIBS
@@ -27,8 +27,7 @@ set(TARGET_NAME ${PROJECT_NAME}_cdb)
 
 add_executable(${TARGET_NAME} ${SOURCE})
 target_link_libraries(${TARGET_NAME} ${MODULES} ${LIBS})
-target_link_libraries(${TARGET_NAME} "${CDB_RS_DIR}/libcdb_rs${CMAKE_SHARED_LIBRARY_SUFFIX}")
-add_dependencies(${TARGET_NAME} cdb_rs)
+add_dependencies(${TARGET_NAME} cdb_ffi)
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 add_dependencies(service ${TARGET_NAME})
