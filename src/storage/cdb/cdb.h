@@ -6,6 +6,7 @@ struct CDBBString {
 };
 
 
-CDBHandle* cdb_create(const char *path);
-void cdb_destroy(CDBHandle *h);
-uint8_t* cdb_get(CDBHandle *h, const uint8_t *key);
+struct CDBHandle* cdb_create(const char *path);
+void cdb_destroy(struct CDBHandle *h);
+uint8_t* cdb_get(struct CDBHandle *h, const struct CDBBString *key);
+void cdb_setup(void);

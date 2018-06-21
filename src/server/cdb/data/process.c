@@ -2,6 +2,7 @@
 
 #include "protocol/data/memcache_include.h"
 #include "storage/slab/slab.h"
+#include "storage/cdb/cdb.h"
 
 #include <cc_array.h>
 #include <cc_debug.h>
@@ -30,6 +31,9 @@ void
 process_setup(process_options_st *options, process_metrics_st *metrics)
 {
     log_info("set up the %s module", TWEMCACHE_PROCESS_MODULE_NAME);
+
+    cdb_setup();
+    log_debug("called cdb_setup()");
 
     if (process_init) {
         log_warn("%s has already been setup, overwrite",

@@ -81,3 +81,9 @@ pub extern "C" fn cdb_destroy(handle: *mut CDBHandle) {
         drop(Box::from_raw(handle));
     }
 }
+
+#[no_mangle]
+pub extern "C" fn cdb_setup() {
+    env_logger::init();
+    debug!("setup cdb");
+}
