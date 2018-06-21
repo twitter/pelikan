@@ -40,8 +40,9 @@ option(TARGET_SLIMREDIS "build slimredis binary" ON)
 option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
 option(TARGET_CDB "build cdb binary" ON)
-
 option(TARGET_RESPCLI "build resp-cli binary" ON)
+
+option(RUST_USE_MUSL "build rust deps against musl" ON)
 
 option(COVERAGE "code coverage" OFF)
 
@@ -115,7 +116,6 @@ find_package(Threads)
 
 enable_language(Rust)
 include(CMakeCargo)
-
 
 #set(CMAKE_INCLUDE_CURRENT_DIR)
 include_directories(${include_directories}
