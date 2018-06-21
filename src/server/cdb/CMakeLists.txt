@@ -1,6 +1,8 @@
 add_subdirectory(admin)
 add_subdirectory(data)
 
+get_target_property(CDB_RS_DIR cdb_rs LOCATION)
+
 set(SOURCE
     ${SOURCE}
     main.c
@@ -25,6 +27,8 @@ set(TARGET_NAME ${PROJECT_NAME}_cdb)
 
 add_executable(${TARGET_NAME} ${SOURCE})
 target_link_libraries(${TARGET_NAME} ${MODULES} ${LIBS})
+target_link_libraries(${TARGET_NAME} "${CDB_RS_DIR}/libcdb_rs${CMAKE_SHARED_LIBRARY_SUFFIX}")
+add_dependencies(${TARGET_NAME} cdb_rs)
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 add_dependencies(service ${TARGET_NAME})
