@@ -10,4 +10,4 @@ env_logger = "~0.5.10"
 
 [lib]
 name = "cdb_ffi"
-crate-type = ["dylib"]
+crate-type = ["staticlib", "dylib"]

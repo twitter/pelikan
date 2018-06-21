@@ -14,12 +14,12 @@ set(MODULES
     protocol_admin
     protocol_memcache
     time
-    cdb_ffi
     util)
 
 set(LIBS
     ccommon-static
     ${CMAKE_THREAD_LIBS_INIT}
+    cdb_ffi
     )
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/_bin)
