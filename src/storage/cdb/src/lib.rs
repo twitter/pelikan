@@ -16,4 +16,10 @@ extern crate libc;
 
 pub mod cdb;
 
-pub use cdb::cdb_c::{cdb_rs_create, cdb_rs_destroy, CDBHandle};
+pub use cdb::cdb_c::{
+    cdb_create,
+    cdb_get,
+    cdb_destroy,
+    CDBHandle,
+    CDBBString,
+};

@@ -36,3 +36,4 @@ codegen-units = 1
 [profile.dev]
 debug = true
 opt-level = 0
+lto = false
