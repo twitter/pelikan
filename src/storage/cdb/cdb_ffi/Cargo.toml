@@ -11,4 +11,4 @@ libc = "~0.2.42"
 
 [lib]
 name = "cdb_ffi"
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["cdylib"]

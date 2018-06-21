@@ -20,6 +20,8 @@ struct data_processor worker_processor = {
     cdb_process_error,
 };
 
+struct CDBHandle *cdb_handle = NULL;
+
 static void
 show_usage(void)
 {
@@ -105,6 +107,12 @@ setup(void)
         create_pidfile(fname);
     }
 
+    cdb_handle = cdb_handle_create(option_str(&setting.cdb.cdb_file_path));
+    if (cdb_handle == NULL) {
+        log_stderr("failed to set up cdb");
+        goto error;
+    }
+
     /* setup library modules */
     buf_setup(&setting.buf, &stats.buf);
     dbuf_setup(&setting.dbuf, &stats.dbuf);
@@ -121,7 +129,7 @@ setup(void)
     parse_setup(&stats.parse_req, NULL);
     compose_setup(NULL, &stats.compose_rsp);
     klog_setup(&setting.klog, &stats.klog);
-    cdb_setup(option_str(&setting.cdb.cdb_file_path));
+
     //slab_setup(&setting.slab, &stats.slab);
     process_setup(&setting.process, &stats.process);
     admin_process_setup();

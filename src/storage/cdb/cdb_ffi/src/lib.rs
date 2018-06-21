@@ -8,11 +8,8 @@ use std::ffi::CStr;
 use std::ops::Deref;
 use std::os::raw::c_char;
 use std::slice;
-use std::cell::RefCell;
 
 use cdb_rs::{Result, CDB};
-
-static mut HANDLE: Option<RefCell<CDBHandle>> = None;
 
 #[repr(C)]
 pub struct CDBBString {
@@ -68,7 +65,7 @@ pub extern "C" fn cdb_handle_create(path: *const c_char) -> Option<*mut CDBHandl
 //
 // this _h variant means that you pass an explicit handle in, rather than using the HANDLE
 #[no_mangle]
-pub extern "C" fn cdb_get_h(h: *mut CDBHandle, k: *const CDBBString) -> Option<*const CDBBString> {
+pub extern "C" fn cdb_get(h: *mut CDBHandle, k: *const CDBBString) -> Option<*const CDBBString> {
     assert!(!h.is_null());
     assert!(!k.is_null());
 
@@ -96,20 +93,6 @@ pub extern "C" fn cdb_get_h(h: *mut CDBHandle, k: *const CDBBString) -> Option<*
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_get(k: *const CDBBString) -> Option<*const CDBBString> {
-    let h = unsafe {
-        match HANDLE {
-            Some(ref cell) => cell.as_ptr(),
-            None =>
-                panic!("HANDLE was not initialized, you must call cdb_setup() before calling any methods"),
-        }
-    };
-
-    cdb_get_h(h, k)
-}
-
-
-#[no_mangle]
 pub extern "C" fn cdb_bstring_destroy(v: *mut CDBBString) {
     unsafe {
         drop(Box::from_raw(v));
@@ -124,21 +107,12 @@ pub extern "C" fn cdb_handle_destroy(handle: *mut CDBHandle) {
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_setup(path: *const c_char) {
-    assert!(!path.is_null());
+pub extern "C" fn cdb_setup() {
     env_logger::init();
-
-    let handle = mk_cdb_handler(cstr_to_string(path).unwrap()).unwrap();
-
-    unsafe { HANDLE = Some(RefCell::new(handle)) }
-
     debug!("setup cdb");
 }
 
 #[no_mangle]
 pub extern "C" fn cdb_teardown() {
-
-    // TODO: free up static mut handle!!
-
     debug!("teardown cdb");
 }
