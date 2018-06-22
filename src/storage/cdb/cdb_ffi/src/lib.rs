@@ -31,6 +31,8 @@ impl Deref for CDBHandle {
 }
 
 fn mk_cdb_handler(path: String) -> Result<CDBHandle> {
+    assert!(!path.is_empty(), "cdb file path was empty, misconfiguration?");
+
     let inner = Box::new(CDB::stdio(&path)?);
     let handle = CDBHandle { inner };
     Ok(handle)
@@ -44,11 +46,12 @@ fn cstr_to_string(s: *const c_char) -> Result<String> {
 #[no_mangle]
 pub extern "C" fn cdb_handle_create(path: *const c_char) -> Option<*mut CDBHandle> {
     assert!(!path.is_null());
+    debug!("");
 
     let f = || -> Result<Box<CDBHandle>> {
-        cstr_to_string(path)
-            .and_then(|s| mk_cdb_handler(s) )
-            .map(|h| Box::new(h) )
+        let s = cstr_to_string(path)?;
+        let h = mk_cdb_handler(s)?;
+        Ok(Box::new(h))
     };
 
     match f() {

@@ -7,12 +7,16 @@
 #include "util/util.h"
 
 #include <cc_debug.h>
+#include <cc_util.h>
+#include <cc_bstring.h>
 
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sysexits.h>
+#include <stdbool.h>
+#include <unistd.h>
 
 struct data_processor worker_processor = {
     cdb_process_read,
@@ -79,6 +83,28 @@ teardown(void)
     log_teardown();
 }
 
+static bool
+setup_cdb_handle(void)
+{
+//    char *cdb_file_path = option_str(&setting.cdb.cdb_file_path);
+//    if (cdb_file_path == NULL) {
+//        log_stderr("cdb_file_path was not set!");
+//        return false;
+//    }
+//    struct bstring fpath;
+//    size_t fpath_len = 0;
+//    bstring_init(&fpath);
+//    fpath_len = cc_strlen(cdb_file_path);
+//
+//    fpath.data = cc_strndup(cdb_file_path, fpath_len);
+
+    char *cdb_file_path = "/Users/jsimms/git/tub/cdb.rs/dict.cdb";
+
+    cdb_handle = cdb_handle_create(cdb_file_path);
+
+    return (cdb_handle == NULL);
+}
+
 static void
 setup(void)
 {
@@ -107,8 +133,7 @@ setup(void)
         create_pidfile(fname);
     }
 
-    cdb_handle = cdb_handle_create(option_str(&setting.cdb.cdb_file_path));
-    if (cdb_handle == NULL) {
+    if (!setup_cdb_handle()) {
         log_stderr("failed to set up cdb");
         goto error;
     }
