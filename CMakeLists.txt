@@ -42,7 +42,7 @@ option(TARGET_TWEMCACHE "build twemcache binary" ON)
 option(TARGET_CDB "build cdb binary" ON)
 option(TARGET_RESPCLI "build resp-cli binary" ON)
 
-option(RUST_USE_MUSL "build rust deps against musl" ON)
+option(RUST_USE_MUSL "build rust deps against musl" OFF)
 
 option(COVERAGE "code coverage" OFF)
 
