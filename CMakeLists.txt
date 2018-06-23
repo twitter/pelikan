@@ -144,5 +144,12 @@ message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
 message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})
 
+if(DUMP_ALL)
+    get_cmake_property(_variableNames VARIABLES)
+    foreach (_variableName ${_variableNames})
+        message(STATUS "${_variableName}=${${_variableName}}")
+    endforeach()
+endif()
+
 # Note: to uninstall targets, run:
 #  xargs rm < install_manifest.txt
