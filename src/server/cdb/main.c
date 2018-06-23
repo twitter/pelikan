@@ -16,6 +16,7 @@
 #include <sys/socket.h>
 #include <sysexits.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 struct data_processor worker_processor = {
@@ -98,9 +99,23 @@ setup_cdb_handle(void)
 //
 //    fpath.data = cc_strndup(cdb_file_path, fpath_len);
 
-    char *cdb_file_path = "/Users/jsimms/git/tub/cdb.rs/dict.cdb";
+    cdb_setup();
 
-    cdb_handle = cdb_handle_create(cdb_file_path);
+    char *cdb_file_path = "/Users/jsimms/git/tub/cdb.rs/dict.cdb";
+    size_t len = strlen(cdb_file_path);
+
+    void *ptr;
+    if (posix_memalign(&ptr, 64, 64) != 0) {
+        log_stderr("failed to memalign");
+        return false;
+    }
+
+    memcpy(ptr, cdb_file_path, len+1); // +1 to ensure we copy the null
+
+    cdb_handle = cdb_handle_create((char *)ptr);
+
+    free(ptr);
+    free(cdb_file_path);
 
     return (cdb_handle == NULL);
 }
@@ -110,6 +125,11 @@ setup(void)
 {
     char *fname = NULL;
     uint64_t intvl;
+
+    if (!setup_cdb_handle()) {
+        log_stderr("failed to set up cdb");
+        goto error;
+    }
 
     if (atexit(teardown) != 0) {
         log_stderr("cannot register teardown procedure with atexit()");
@@ -133,10 +153,6 @@ setup(void)
         create_pidfile(fname);
     }
 
-    if (!setup_cdb_handle()) {
-        log_stderr("failed to set up cdb");
-        goto error;
-    }
 
     /* setup library modules */
     buf_setup(&setting.buf, &stats.buf);

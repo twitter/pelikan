@@ -71,11 +71,12 @@ configure_file(
 # string concat is easier in 3.0, but older versions don't have the concat subcommand
 # so we are using list as input until we move to new version
 # TODO once we add build types, we should also set flags such as "-O2 "
-add_definitions(-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
+#add_definitions(-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
+add_definitions(-D_GNU_SOURCE )
 add_definitions()
 set(CFLAGS_LIST
     "-std=c11 "
-    "-ggdb3 -O2 "
+    "-ggdb3 -O0 "
     "-Wall -Wshadow -Winline "
     "-Wstrict-prototypes -Wmissing-prototypes "
     "-Wmissing-declarations -Wredundant-decls "

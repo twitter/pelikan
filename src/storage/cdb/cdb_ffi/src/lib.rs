@@ -46,10 +46,10 @@ fn cstr_to_string(s: *const c_char) -> Result<String> {
 #[no_mangle]
 pub extern "C" fn cdb_handle_create(path: *const c_char) -> Option<*mut CDBHandle> {
     assert!(!path.is_null());
-    debug!("");
 
     let f = || -> Result<Box<CDBHandle>> {
         let s = cstr_to_string(path)?;
+        debug!("cdb_handle_create got path string {:?}", s);
         let h = mk_cdb_handler(s)?;
         Ok(Box::new(h))
     };
