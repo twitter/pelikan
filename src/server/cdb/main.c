@@ -102,20 +102,8 @@ setup_cdb_handle(void)
     cdb_setup();
 
     char *cdb_file_path = "/Users/jsimms/git/tub/cdb.rs/dict.cdb";
-    size_t len = strlen(cdb_file_path);
 
-    void *ptr;
-    if (posix_memalign(&ptr, 64, 64) != 0) {
-        log_stderr("failed to memalign");
-        return false;
-    }
-
-    memcpy(ptr, cdb_file_path, len+1); // +1 to ensure we copy the null
-
-    cdb_handle = cdb_handle_create((char *)ptr);
-
-    free(ptr);
-    free(cdb_file_path);
+    cdb_handle = cdb_handle_create(cdb_file_path);
 
     return (cdb_handle == NULL);
 }
