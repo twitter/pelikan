@@ -101,9 +101,8 @@ setup_cdb_handle(void)
 
     cdb_setup();
 
-    // char *cdb_file_path = strdup("/Users/jsimms/git/tub/cdb.rs/dict.cdb");
-    unsigned char b[] = {'@', 0};
-    cdb_handle = cdb_handle_create(b);
+    char *cdb_file_path = strdup("/Users/jsimms/git/tub/cdb.rs/dict.cdb");
+    cdb_handle = cdb_handle_create(cdb_file_path);
 
     return (cdb_handle == NULL);
 }
