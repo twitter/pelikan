@@ -81,7 +81,7 @@ set(CFLAGS_LIST
     "-Wstrict-prototypes -Wmissing-prototypes "
     "-Wmissing-declarations -Wredundant-decls "
     "-Wunused-function -Wunused-value -Wunused-variable "
-    "-fno-strict-aliasing ")
+    "-fno-strict-aliasing -fPIC ")
 
 if(${OS_PLATFORM} MATCHES "OS_LINUX")
   set(CFLAGS_LIST "${CFLAGS_LIST} -lrt")
