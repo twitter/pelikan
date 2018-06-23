@@ -56,8 +56,8 @@ function(cargo_build)
 
     set(LIB_BASE_DIR "${CARGO_TARGET_DIR}/${LIB_TARGET}/${LIB_BUILD_TYPE}")
 
-    set(SHARED_LIB_FILE "${LIB_BASE_DIR}/${SHARED_LIB_FNAME}")
-    set(STATIC_LIB_FILE "${LIB_BASE_DIR}/${STATIC_LIB_FNAME}")
+    get_filename_component(SHARED_LIB_FILE "${LIB_BASE_DIR}/${SHARED_LIB_FNAME}" ABSOLUTE)
+    get_filename_component(STATIC_LIB_FILE "${LIB_BASE_DIR}/${STATIC_LIB_FNAME}" ABSOLUTE)
 
 	if(IOS)
 		set(CARGO_ARGS "lipo")
