@@ -8,7 +8,7 @@ set(SOURCE
     stats.c)
 
 set(MODULES
-    cdb_ffi_shared
+    cdb_ffi_static
     core
     protocol_admin
     protocol_memcache
@@ -18,6 +18,7 @@ set(MODULES
 
 set(LIBS
     ccommon-static
+    dl
     ${CMAKE_THREAD_LIBS_INIT}
     )
 
@@ -26,7 +27,7 @@ set(TARGET_NAME ${PROJECT_NAME}_cdb)
 
 add_executable(${TARGET_NAME} ${SOURCE})
 target_link_libraries(${TARGET_NAME} ${MODULES} ${LIBS})
-add_dependencies(${TARGET_NAME} cdb_ffi_shared)
+add_dependencies(${TARGET_NAME} cdb_ffi_static)
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 add_dependencies(service ${TARGET_NAME})
