@@ -163,6 +163,10 @@ response_return_all(struct response **response)
 
     struct response *nr, *rsp = *response;
 
+    if (rsp == NULL) {
+        return;
+    }
+
     nr = STAILQ_NEXT(rsp, next);
     while (rsp != NULL) {
         nr = STAILQ_NEXT(rsp, next);
