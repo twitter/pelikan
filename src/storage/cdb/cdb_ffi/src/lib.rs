@@ -44,9 +44,10 @@ fn cstr_to_string(s: *const c_char) -> Result<String> {
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_handle_create(path: *const c_char) -> Option<*mut CDBHandle> {
+pub extern "system" fn cdb_handle_create(path: *const c_char) -> Option<*mut CDBHandle> {
     assert!(!path.is_null());
-
+    eprintln!("cstr_to_string: '{:?}'", cstr_to_string(path).unwrap());
+    return None;
     let f = || -> Result<Box<CDBHandle>> {
         let s = cstr_to_string(path)?;
         debug!("cdb_handle_create got path string {:?}", s);
@@ -68,7 +69,7 @@ pub extern "C" fn cdb_handle_create(path: *const c_char) -> Option<*mut CDBHandl
 //
 // this _h variant means that you pass an explicit handle in, rather than using the HANDLE
 #[no_mangle]
-pub extern "C" fn cdb_get(h: *mut CDBHandle, k: *const CDBBString) -> Option<*const CDBBString> {
+pub extern "system" fn cdb_get(h: *mut CDBHandle, k: *const CDBBString) -> Option<*const CDBBString> {
     assert!(!h.is_null());
     assert!(!k.is_null());
 
@@ -96,26 +97,26 @@ pub extern "C" fn cdb_get(h: *mut CDBHandle, k: *const CDBBString) -> Option<*co
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_bstring_destroy(v: *mut CDBBString) {
+pub extern "system" fn cdb_bstring_destroy(v: *mut CDBBString) {
     unsafe {
         drop(Box::from_raw(v));
     }
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_handle_destroy(handle: *mut CDBHandle) {
+pub extern "system" fn cdb_handle_destroy(handle: *mut CDBHandle) {
     unsafe {
         drop(Box::from_raw(handle));
     }
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_setup() {
+pub extern "system" fn cdb_setup() {
     env_logger::init();
     debug!("setup cdb");
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_teardown() {
+pub extern "system" fn cdb_teardown() {
     debug!("teardown cdb");
 }
