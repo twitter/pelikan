@@ -15,8 +15,8 @@
     ACTION( ru_ixrss,       METRIC_GAUGE,   "text memory size"         )\
     ACTION( ru_idrss,       METRIC_GAUGE,   "data memory size"         )\
     ACTION( ru_isrss,       METRIC_GAUGE,   "stack memory size"        )\
-    ACTION( ru_minflt,      METRIC_COUNTER, "pagefalut w/o I/O"        )\
-    ACTION( ru_majflt,      METRIC_COUNTER, "pagefalut w/ I/O"         )\
+    ACTION( ru_minflt,      METRIC_COUNTER, "pagefault w/o I/O"        )\
+    ACTION( ru_majflt,      METRIC_COUNTER, "pagefault w/ I/O"         )\
     ACTION( ru_nswap,       METRIC_COUNTER, "# times swapped"          )\
     ACTION( ru_inblock,     METRIC_COUNTER, "real FS input"            )\
     ACTION( ru_oublock,     METRIC_COUNTER, "real FS output"           )\
