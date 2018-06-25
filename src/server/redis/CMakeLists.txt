@@ -9,7 +9,7 @@ set(SOURCE
 
 set(MODULES
     core
-    ds_bitmap
+    ds_ziplist
     protocol_admin
     protocol_redis
     slab

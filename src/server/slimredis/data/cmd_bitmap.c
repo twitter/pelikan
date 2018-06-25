@@ -65,7 +65,6 @@ static inline struct item *
 _add_key(struct response *rsp, struct bstring *key)
 {
     struct element *reply = (struct element *)array_get(rsp->token, BITMAP_VERB);
-    struct val val = {VAL_TYPE_STR, {null_bstring}};
     struct item *it;
 
     it = cuckoo_get(key);
@@ -76,7 +75,7 @@ _add_key(struct response *rsp, struct bstring *key)
 
         return NULL;
     } else { /* cuckoo insert current won't fail as long as size is valid */
-        it = cuckoo_insert(key, &val, time_reltime(0));
+        it = cuckoo_insert(key, NULL, time_reltime(0));
         if (it == NULL) {
             rsp->type = reply->type = ELEM_ERR;
             reply->bstr = str2bstr(RSP_ERR_STORAGE);
@@ -117,7 +116,7 @@ cmd_bitmap_create(struct response *rsp, struct request *req, struct command *cmd
     }
 
     /* initialize data structure */
-    bitset_init((struct bitset *)ITEM_VAL_POS(it), (uint16_t)ncol);
+    it->vlen = bitset_init((struct bitset *)ITEM_VAL_POS(it), (uint16_t)ncol);
 
     rsp->type = reply->type = ELEM_STR;
     reply->bstr = str2bstr(RSP_OK);
