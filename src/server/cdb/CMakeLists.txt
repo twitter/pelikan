@@ -8,6 +8,7 @@ set(SOURCE
     stats.c)
 
 set(MODULES
+    cdb_ffi_shared
     core
     protocol_admin
     protocol_memcache
@@ -18,7 +19,6 @@ set(MODULES
 set(LIBS
     ccommon-static
     ${CMAKE_THREAD_LIBS_INIT}
-    cdb_ffi_shared
     )
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/_bin)
