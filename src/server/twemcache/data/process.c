@@ -217,7 +217,8 @@ _put(item_rstatus_t *istatus, struct request *req)
         req->first = false;
         req->reserved = it;
     } else { /* backfill reserved item */
-        item_backfill(req->reserved, &req->vstr);
+        it = req->reserved;
+        item_backfill(it, &req->vstr);
     }
 
     if (!req->partial) {
@@ -229,7 +230,8 @@ _put(item_rstatus_t *istatus, struct request *req)
     if (status == PUT_ERROR) {
         req->swallow = true;
         req->serror = true;
-    } else {
+    }
+    if (status == PUT_OK) { /* set flag when put is complete */
         _set_dataflag(it, req->flag);
     }
 
@@ -648,13 +650,16 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
     log_verb("post-read processing");
 
     /* deal with the stateful part: request and response */
-    req = (*data != NULL) ? *data : request_borrow();
-    if (req  == NULL) {
-        /* TODO(yao): simply return for now, better to respond with OOM */
-        log_error("cannot process request: OOM");
-        INCR(process_metrics, process_ex);
+    req = *data;
+    if (req == NULL) {
+        req = *data = request_borrow();
+        if (req == NULL) {
+            /* TODO(yao): simply return for now, better to respond with OOM */
+            log_error("cannot process request: OOM");
+            INCR(process_metrics, process_ex);
 
-        return -1;
+            return -1;
+        }
     }
     rsp = (req->rsp != NULL) ? req->rsp : response_borrow();
     if (rsp  == NULL) {
