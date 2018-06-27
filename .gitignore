@@ -43,3 +43,4 @@ lcov
 
 cdb.rs
 *.cdb
+compile_commands.json
