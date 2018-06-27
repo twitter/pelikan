@@ -84,7 +84,7 @@ teardown(void)
     log_teardown();
 }
 
-static bool
+static void
 setup_cdb_handle(void)
 {
     cdb_setup();
@@ -92,7 +92,7 @@ setup_cdb_handle(void)
     char *cdb_file_path = strdup("/home/slyphon/pelikan/dict.cdb");
     cdb_handle = cdb_handle_create(cdb_file_path);
 
-    return (cdb_handle == NULL);
+    return;
 }
 
 static void
@@ -101,7 +101,8 @@ setup(void)
     char *fname = NULL;
     uint64_t intvl;
 
-    if (!setup_cdb_handle()) {
+    setup_cdb_handle();
+    if (cdb_handle == NULL) {
         log_stderr("failed to set up cdb");
         goto error;
     }

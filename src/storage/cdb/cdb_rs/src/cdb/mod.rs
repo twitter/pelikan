@@ -229,8 +229,6 @@ impl CDB {
         Ok(Bucket{ptr, num_ents})
     }
 
-
-
     // returns the index entry at absolute position 'pos' in the db
     #[inline]
     fn index_entry_at(&self, pos: IndexEntryPos) -> Result<IndexEntry> {
