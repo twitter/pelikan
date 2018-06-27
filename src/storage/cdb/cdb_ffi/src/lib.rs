@@ -32,8 +32,11 @@ impl Deref for CDBHandle {
 
 fn mk_cdb_handler(path: String) -> Result<CDBHandle> {
     assert!(!path.is_empty(), "cdb file path was empty, misconfiguration?");
+    debug!("mk_cdb_handler, path: {:?}", path);
+    let cdbr = CDB::stdio(&path)?;
+    debug!("cdbr: {:?}", cdbr);
 
-    let inner = Box::new(CDB::stdio(&path)?);
+    let inner = Box::new(cdbr);
     let handle = CDBHandle { inner };
     Ok(handle)
 }

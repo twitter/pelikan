@@ -8,6 +8,7 @@ use std::os::unix::fs::FileExt;
 use std::sync::Arc;
 use super::Result;
 
+#[derive(Debug)]
 pub enum SliceFactory {
     HeapStorage(Bytes),
     MmapStorage(MMapWrap),
@@ -93,6 +94,7 @@ impl Clone for SliceFactory {
     }
 }
 
+#[derive(Debug)]
 pub struct MMapWrap {
     inner: Arc<Mmap>
 }
@@ -117,6 +119,7 @@ impl Clone for MMapWrap {
     }
 }
 
+#[derive(Debug)]
 pub struct FileWrap {
     inner: RefCell<File>,
     path: String,

@@ -181,6 +181,7 @@ impl Iterator for KVIter {
     }
 }
 
+#[derive(Debug)]
 pub struct CDB {
     data: SliceFactory,
 }
