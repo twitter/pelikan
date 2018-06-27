@@ -87,18 +87,6 @@ teardown(void)
 static bool
 setup_cdb_handle(void)
 {
-//    char *cdb_file_path = option_str(&setting.cdb.cdb_file_path);
-//    if (cdb_file_path == NULL) {
-//        log_stderr("cdb_file_path was not set!");
-//        return false;
-//    }
-//    struct bstring fpath;
-//    size_t fpath_len = 0;
-//    bstring_init(&fpath);
-//    fpath_len = cc_strlen(cdb_file_path);
-//
-//    fpath.data = cc_strndup(cdb_file_path, fpath_len);
-
     cdb_setup();
 
     char *cdb_file_path = strdup("/home/slyphon/pelikan/dict.cdb");

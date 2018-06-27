@@ -40,23 +40,20 @@ fn mk_cdb_handler(path: String) -> Result<CDBHandle> {
 
 fn cstr_to_string(s: *const c_char) -> Result<String> {
     let ps = unsafe { CStr::from_ptr(s) }.to_str()?;
-    Ok(String::from(ps))
+    let rv = String::from(ps);
+    eprintln!("cstr_to_string: {:?}", rv);
+
+    Ok(rv)
 }
 
 #[no_mangle]
 pub extern "C" fn cdb_handle_create(path: *const c_char) -> Option<*mut CDBHandle> {
     assert!(!path.is_null());
-    eprintln!("cstr_to_string: '{:?}'", cstr_to_string(path).unwrap());
 
-    let f = || -> Result<Box<CDBHandle>> {
-        let s = cstr_to_string(path)?;
-        debug!("cdb_handle_create got path string {:?}", s);
-        let h = mk_cdb_handler(s)?;
-        Ok(Box::new(h))
-    };
-
-    match f() {
-        Ok(bhandle) => Some(Box::into_raw(bhandle)),
+    match cstr_to_string(path).and_then(|s| mk_cdb_handler(s)) {
+        Ok(bhandle) => {
+            Some(Box::into_raw(Box::new(bhandle)))
+        }
         Err(err) => {
             error!("failed to create CDBHandle: {:?}", err);
             None
