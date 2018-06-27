@@ -1,15 +1,19 @@
-use super::Result;
 use bytes::{Buf, Bytes, BytesMut};
 use memmap::{Mmap, MmapOptions};
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::{Cursor, Read};
-use std::ops::{Deref, Range};
+use std::ops::Deref;
 use std::os::unix::fs::FileExt;
 use std::sync::Arc;
+use super::Result;
 
-pub trait Sliceable {
-    fn slice(&self, r: Range<usize>) -> Result<Bytes>;
+#[derive(Debug)]
+#[repr(C)]
+pub enum SliceFactory {
+    HeapStorage(Bytes),
+    MmapStorage(MMapWrap),
+    StdioStorage(FileWrap),
 }
 
 const BUF_LEN: usize = 8192;
@@ -20,15 +24,15 @@ pub fn readybuf(size: usize) -> BytesMut {
     b
 }
 
-impl Sliceable {
-    pub fn load(path: &str) -> Result<HeapWrap> {
+impl SliceFactory {
+    pub fn load(path: &str) -> Result<SliceFactory> {
         let mut f = File::open(path)?;
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer)?;
-        Ok(HeapWrap(Bytes::from(buffer)))
+        Ok(SliceFactory::HeapStorage(Bytes::from(buffer)))
     }
 
-    pub fn make_map(path: &str) -> Result<MMapWrap> {
+    pub fn make_map(path: &str) -> Result<SliceFactory> {
         let f = File::open(path)?;
         let mmap: Mmap = unsafe { MmapOptions::new().map(&f)? };
 
@@ -53,43 +57,53 @@ impl Sliceable {
         }
         debug!("end pretouch pages: {} bytes", count);
 
-        Ok(MMapWrap::new(mmap))
+        Ok(SliceFactory::MmapStorage(MMapWrap::new(mmap)))
     }
 
-    pub fn make_filewrap(path: &str) -> Result<FileWrap> {
-        Ok(FileWrap::open(path)?)
+    pub fn make_filewrap(path: &str) -> Result<SliceFactory> {
+        Ok(SliceFactory::StdioStorage(FileWrap::open(path)?))
     }
-}
 
-#[derive(Debug)]
-#[repr(C)]
-pub struct HeapWrap(Bytes);
+    pub fn slice(&self, start: usize, end: usize) -> Result<Bytes> {
+        assert!(end >= start);
 
-impl Sliceable for HeapWrap {
-    fn slice(&self, r: Range<usize>) -> Result<Bytes> {
-        let Range { start, end } = r;
-
-        if (end - 1) == start {
+        if end == start {
             return Ok(Bytes::new());
         }
 
-        // TODO(simms): yes this is a heap copy. change to zero-copy once we understand how to
-        // integrate that
-        let mut v = Vec::with_capacity(end - start);
-        v.extend_from_slice(&self.0[start..end]);
-        Ok(Bytes::from(v))
+        let range_len = end - start;
+
+        match self {
+            SliceFactory::HeapStorage(bytes) => Ok(Bytes::from(&bytes[start..end])),
+            SliceFactory::MmapStorage(mmap) => {
+                let mut v = Vec::with_capacity(range_len);
+                v.extend_from_slice(&mmap[start..end]);
+                Ok(Bytes::from(v))
+            }
+            SliceFactory::StdioStorage(filewrap) => filewrap.slice(start, end),
+        }
+    }
+}
+
+impl Clone for SliceFactory {
+    fn clone(&self) -> Self {
+        match self {
+            SliceFactory::HeapStorage(bytes) => SliceFactory::HeapStorage(bytes.clone()),
+            SliceFactory::MmapStorage(mmap) => SliceFactory::MmapStorage(mmap.clone()),
+            SliceFactory::StdioStorage(fw) => SliceFactory::StdioStorage(fw.clone()),
+        }
     }
 }
 
 #[derive(Debug)]
 #[repr(C)]
 pub struct MMapWrap {
-    inner: Arc<Mmap>,
+    inner: Arc<Mmap>
 }
 
 impl MMapWrap {
     fn new(m: Mmap) -> MMapWrap {
-        MMapWrap { inner: Arc::new(m) }
+        MMapWrap{inner: Arc::new(m)}
     }
 }
 
@@ -103,9 +117,7 @@ impl Deref for MMapWrap {
 
 impl Clone for MMapWrap {
     fn clone(&self) -> Self {
-        MMapWrap {
-            inner: self.inner.clone(),
-        }
+        MMapWrap{inner: self.inner.clone()}
     }
 }
 
@@ -114,18 +126,6 @@ impl Clone for MMapWrap {
 pub struct FileWrap {
     inner: RefCell<File>,
     path: String,
-}
-
-impl Sliceable for FileWrap {
-    fn slice(&self, r: Range<usize>) -> Result<Bytes> {
-        let Range { start, end } = r;
-
-        if (end - 1) == start {
-            return Ok(Bytes::new());
-        }
-
-        self.slice(start, end)
-    }
 }
 
 impl FileWrap {
@@ -172,7 +172,7 @@ struct BMString(BytesMut);
 
 impl ToString for BMString {
     fn to_string(&self) -> String {
-        String::from(self)
+       String::from(self)
     }
 }
 
@@ -184,9 +184,9 @@ impl<'a> From<&'a BMString> for String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs::File;
     use std::io::prelude::*;
+    use super::*;
     use tempfile;
 
     fn assert_ok<T>(f: T)
@@ -215,7 +215,7 @@ mod tests {
 
     #[test]
     fn file_wrap_slice_test() {
-        assert_ok(|| {
+        assert_ok(||{
             let fw = FileWrap::temp()?;
 
             {
