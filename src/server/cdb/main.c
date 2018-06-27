@@ -91,8 +91,6 @@ setup_cdb_handle(void)
 
     char *cdb_file_path = strdup("/home/slyphon/pelikan/dict.cdb");
     cdb_handle = cdb_handle_create(cdb_file_path);
-
-    return;
 }
 
 static void
