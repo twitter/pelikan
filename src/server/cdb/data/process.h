@@ -1,5 +1,7 @@
 #pragma once
 
+#include "storage/cdb/cdb.h"
+
 #include <buffer/cc_buf.h>
 #include <cc_metric.h>
 #include <cc_option.h>
@@ -71,7 +73,7 @@ typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)
 } process_metrics_st;
 
-void process_setup(process_options_st *options, process_metrics_st *metrics);
+void process_setup(process_options_st *options, process_metrics_st *metrics, struct CDBHandle *cdb_handle);
 void process_teardown(void);
 
 int cdb_process_read(struct buf **rbuf, struct buf **wbuf, void **data);

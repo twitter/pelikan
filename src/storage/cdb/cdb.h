@@ -1,3 +1,7 @@
+#pragma once
+
+#include <stdint.h>
+
 struct CDBHandle;
 
 struct CDBBString {

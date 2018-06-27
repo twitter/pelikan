@@ -25,8 +25,6 @@ struct data_processor worker_processor = {
     cdb_process_error,
 };
 
-struct CDBHandle *cdb_handle = NULL;
-
 static void
 show_usage(void)
 {
@@ -63,7 +61,6 @@ teardown(void)
     core_admin_teardown();
     admin_process_teardown();
     process_teardown();
-    //slab_teardown();
     cdb_teardown();
     klog_teardown();
     compose_teardown();
@@ -84,13 +81,13 @@ teardown(void)
     log_teardown();
 }
 
-static void
+static struct CDBHandle*
 setup_cdb_handle(void)
 {
     cdb_setup();
 
     char *cdb_file_path = strdup("/home/slyphon/pelikan/dict.cdb");
-    cdb_handle = cdb_handle_create(cdb_file_path);
+    return cdb_handle_create(cdb_file_path);
 }
 
 static void
@@ -99,11 +96,6 @@ setup(void)
     char *fname = NULL;
     uint64_t intvl;
 
-    setup_cdb_handle();
-    if (cdb_handle == NULL) {
-        log_stderr("failed to set up cdb");
-        goto error;
-    }
 
     if (atexit(teardown) != 0) {
         log_stderr("cannot register teardown procedure with atexit()");
@@ -145,8 +137,13 @@ setup(void)
     compose_setup(NULL, &stats.compose_rsp);
     klog_setup(&setting.klog, &stats.klog);
 
-    //slab_setup(&setting.slab, &stats.slab);
-    process_setup(&setting.process, &stats.process);
+    struct CDBHandle* cdb_handle = setup_cdb_handle();
+    if (cdb_handle == NULL) {
+        log_stderr("failed to set up cdb");
+        goto error;
+    }
+
+    process_setup(&setting.process, &stats.process, cdb_handle);
     admin_process_setup();
     core_admin_setup(&setting.admin);
     core_server_setup(&setting.server, &stats.server);

@@ -27,11 +27,12 @@ static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
 static bool allow_flush = ALLOW_FLUSH;
 
+static struct CDBHandle *cdb_handle = NULL;
+
 void
-process_setup(process_options_st *options, process_metrics_st *metrics)
+process_setup(process_options_st *options, process_metrics_st *metrics, struct CDBHandle *handle)
 {
     log_info("set up the %s module", CDB_PROCESS_MODULE_NAME);
-
 
     if (process_init) {
         log_warn("%s has already been setup, overwrite",
@@ -44,6 +45,12 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
         allow_flush = option_bool(&options->allow_flush);
     }
 
+    if (handle == NULL) {
+        log_crit("handle argument was null! wth?!");
+        // TODO(simms): how do i die here?
+    }
+    cdb_handle = handle;
+
     process_init = true;
 }
 
@@ -55,30 +62,31 @@ process_teardown(void)
         log_warn("%s has never been setup", CDB_PROCESS_MODULE_NAME);
     }
 
+    if (cdb_handle != NULL) {
+        struct CDBHandle *p = cdb_handle;
+        cdb_handle = NULL;
+        cdb_handle_destroy(p);
+    }
+
     allow_flush = false;
     process_metrics = NULL;
     process_init = false;
 }
 
-static inline uint32_t
-_get_dataflag(struct item *it)
-{
-    return *((uint32_t *)item_optional(it));
-}
-
 static bool
 _get_key(struct response *rsp, struct bstring *key)
 {
-    struct item *it;
+    struct CDBBString *it;
 
-    it = item_get(key);
+    it = cdb_get(cdb_handle, (const struct CDBBString *)key);
+
     if (it != NULL) {
         rsp->type = RSP_VALUE;
         rsp->key = *key;
-        rsp->flag = _get_dataflag(it);
-        rsp->vcas = item_get_cas(it);
-        rsp->vstr.len = it->vlen;
-        rsp->vstr.data = item_data(it);
+        rsp->flag = 0; // TODO(simms) FIXME
+        rsp->vcas = 0; // TODO(simms) FIXME
+        rsp->vstr.len = it->len;
+        rsp->vstr.data = it->data; // TODO(simms) alignment here?
 
         log_verb("found key at %p, location %p", key, it);
         return true;
@@ -319,6 +327,15 @@ _cleanup(struct request *req, struct response *rsp)
     /* return all but the first response */
     if (nr != NULL) {
         response_return_all(&nr);
+    }
+
+    /* (simms) If we don't have a raw_val here, it means we need to free the response data bstring.
+     * We take care of that by calling back into the cdb module with the pointer, reset
+     * the raw_val flag to indicate we've freed the memory here, and continue on as normal.
+     */
+    if (!rsp->raw_val) {
+        cdb_bstring_destroy((struct CDBBString *)&rsp->vstr);
+        rsp->raw_val = true;
     }
     response_reset(rsp);
     req->rsp = rsp;

@@ -91,6 +91,10 @@ struct response {
     unsigned                num:1;      /* is the value a number? */
     unsigned                val:1;      /* value needed? */
     unsigned                error:1;    /* error */
+
+    bool                    raw_val:true;  /* if true, vstr is a raw ptr and does not need to be freed (it can just
+                                            * be re-inited.
+                                            * if false then something must free the memory before the next request. */
 };
 
 void response_setup(response_options_st *options, response_metrics_st *metrics);
