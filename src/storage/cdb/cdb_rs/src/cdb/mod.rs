@@ -23,6 +23,7 @@ pub type Result<T> = result::Result<T, CDBError>;
 
 // idea from https://raw.githubusercontent.com/jothan/cordoba/master/src/lib.rs
 #[derive(Copy, Clone, Eq, PartialEq)]
+#[repr(C)]
 struct CDBHash(u32);
 
 impl CDBHash {
@@ -70,6 +71,7 @@ impl<'a> From<&'a CDBHash> for u32 {
 }
 
 #[derive(Copy, Clone)]
+#[repr(C)]
 struct Bucket {
     ptr: usize,
     num_ents: usize,
@@ -95,6 +97,7 @@ impl Bucket {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(C)]
 struct IndexEntryPos(usize);
 
 impl From<IndexEntryPos> for usize {
@@ -104,6 +107,7 @@ impl From<IndexEntryPos> for usize {
 }
 
 #[derive(Clone, Debug)]
+#[repr(C)]
 pub struct KV {
     pub k: Bytes,
     pub v: Bytes,
@@ -126,6 +130,7 @@ struct IndexEntry {
     ptr: usize,    // pointer to the absolute position of the data in the db
 }
 
+#[repr(C)]
 pub struct KVIter {
     cdb: Box<CDB>,
     bkt_idx: usize,
@@ -168,7 +173,7 @@ impl Iterator for KVIter {
                 };
 
             self.entry_n += 1;
-            
+
             if idx_ent.ptr == 0 {
                 continue
             } else {
@@ -182,6 +187,7 @@ impl Iterator for KVIter {
 }
 
 #[derive(Debug)]
+#[repr(C)]
 pub struct CDB {
     data: SliceFactory,
 }

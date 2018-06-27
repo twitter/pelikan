@@ -9,6 +9,7 @@ use std::sync::Arc;
 use super::Result;
 
 #[derive(Debug)]
+#[repr(C)]
 pub enum SliceFactory {
     HeapStorage(Bytes),
     MmapStorage(MMapWrap),
@@ -95,6 +96,7 @@ impl Clone for SliceFactory {
 }
 
 #[derive(Debug)]
+#[repr(C)]
 pub struct MMapWrap {
     inner: Arc<Mmap>
 }
@@ -120,6 +122,7 @@ impl Clone for MMapWrap {
 }
 
 #[derive(Debug)]
+#[repr(C)]
 pub struct FileWrap {
     inner: RefCell<File>,
     path: String,
@@ -164,6 +167,7 @@ impl Clone for FileWrap {
     }
 }
 
+#[repr(C)]
 struct BMString(BytesMut);
 
 impl ToString for BMString {
@@ -225,5 +229,3 @@ mod tests {
         })
     }
 }
-
-
