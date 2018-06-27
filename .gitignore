@@ -42,3 +42,4 @@ lcov
 *.pyc
 
 cdb.rs
+*.cdb
