@@ -87,6 +87,7 @@ _get_key(struct response *rsp, struct bstring *key)
         rsp->vcas = 0; // TODO(simms) FIXME
         rsp->vstr.len = it->len;
         rsp->vstr.data = it->data; // TODO(simms) alignment here?
+        rsp->raw_val = false;
 
         log_verb("found key at %p, location %p", key, it);
         return true;
