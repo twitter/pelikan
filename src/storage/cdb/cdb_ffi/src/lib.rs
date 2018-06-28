@@ -1,3 +1,9 @@
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
+
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
 #[macro_use]
 extern crate log;
 extern crate cdb_rs;
@@ -24,7 +30,7 @@ pub struct CDBHandle {
 fn mk_cdb_handler(path: String) -> Result<CDBHandle> {
     assert!(!path.is_empty(), "cdb file path was empty, misconfiguration?");
     debug!("mk_cdb_handler, path: {:?}", path);
-    let cdbr = CDB::stdio(&path)?;
+    let cdbr = CDB::load(&path)?;
     debug!("cdbr: {:?}", cdbr);
 
     let inner = Box::new(cdbr);
@@ -71,7 +77,7 @@ pub extern "C" fn cdb_get(h: *mut CDBHandle, k: *const CDBBString) -> Option<*co
 
     let key = unsafe { slice::from_raw_parts(k_bstr.data, k_bstr.len as usize) };
 
-    match handle.get(&key[..], &mut buf) {
+    match handle.inner.get(&key[..], &mut buf) {
         Err(err) => {
             error!("get failed with error: {:?}", err);
             None

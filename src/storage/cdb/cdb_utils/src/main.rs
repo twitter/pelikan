@@ -13,7 +13,6 @@ use bytes::Bytes;
 use std::time::{Duration, Instant};
 
 use cdb_rs::cdb;
-use cdb_rs::cdb::storage::SliceFactory;
 use cdb_rs::cdb::{Result, CDB};
 
 
@@ -130,21 +129,7 @@ fn dur2sec(d: &Duration) -> f64  {
 }
 
 fn randoread(filename: &str, config: &RandoConfig) -> Result<()> {
-    let sf: SliceFactory;
-
-    let db =
-        if config.use_mmap {
-            cdb::CDB::new(SliceFactory::make_map(filename)?)
-        } else {
-            {
-                if config.use_stdio {
-                    sf = SliceFactory::make_filewrap(filename)?;
-                } else {
-                    sf = SliceFactory::load(filename)?;
-                }
-            }
-            cdb::CDB::new(sf)
-        };
+    let db = cdb::CDB::load(filename)?;
 
     let d = run_rando_read(&db, &config)?;
     let d2f = dur2sec(&d);

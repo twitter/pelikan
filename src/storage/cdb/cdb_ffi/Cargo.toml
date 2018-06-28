@@ -12,3 +12,6 @@ libc = "~0.2.42"
 [lib]
 name = "cdb_ffi"
 crate-type = ["cdylib", "staticlib"]
+
+[build-dependencies]
+bindgen = "0.37.0"

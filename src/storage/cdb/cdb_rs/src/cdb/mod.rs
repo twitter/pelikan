@@ -9,7 +9,7 @@ pub mod input;
 pub mod writer;
 pub mod storage;
 
-use self::storage::SliceFactory;
+use self::storage::HeapWrap;
 
 pub use self::errors::CDBError;
 
@@ -189,7 +189,7 @@ impl Iterator for KVIter {
 #[derive(Debug)]
 #[repr(C)]
 pub struct CDB {
-    data: SliceFactory,
+    data: HeapWrap,
 }
 
 impl Clone for CDB {
@@ -199,18 +199,9 @@ impl Clone for CDB {
 }
 
 impl CDB {
-    pub fn new(sf: SliceFactory) -> CDB { CDB{data: sf} }
-
-    pub fn stdio(path: &str) -> Result<CDB> {
-        Ok(CDB::new(SliceFactory::make_filewrap(path)?))
-    }
-
-    pub fn mmap(path: &str) -> Result<CDB> {
-        Ok(CDB::new(SliceFactory::make_map(path)?))
-    }
 
     pub fn load(path: &str) -> Result<CDB> {
-        Ok(CDB::new(SliceFactory::load(path)?))
+        Ok(CDB{data: HeapWrap::load(path)?})
     }
 
     pub fn kvs_iter(&self) -> Result<KVIter> {
@@ -325,7 +316,7 @@ mod tests {
     struct QueryResult(String, Option<String>);
 
     #[allow(dead_code)]
-    fn create_temp_cdb<'a>(kvs: &Vec<(String, String)>) -> Result<SliceFactory> {
+    fn create_temp_cdb<'a>(kvs: &Vec<(String, String)>) -> Result<HeapWrap> {
         let path: PathBuf;
 
         {
@@ -349,15 +340,15 @@ mod tests {
             }
         }).unwrap();
 
-        let sf = self::storage::SliceFactory::load(path.to_str().unwrap())?;
+        let hw = HeapWrap::load(path.to_str().unwrap())?;
 
-        Ok(sf)
+        Ok(hw)
     }
 
     proptest! {
         #[test]
         fn qc_key_and_value_retrieval(ref xs in arb_string_slice()) {
-            let cdb = CDB::new(make_temp_cdb_single_vals(&xs));
+            let cdb = CDB{data: make_temp_cdb_single_vals(&xs)};
 
             for QueryResult(q, r) in read_keys(&cdb, &xs) {
                 prop_assert_eq!(
@@ -382,7 +373,7 @@ mod tests {
     }
 
     #[allow(dead_code)]
-    fn make_temp_cdb_single_vals(xs: &Vec<String>) -> SliceFactory {
+    fn make_temp_cdb_single_vals(xs: &Vec<String>) -> HeapWrap {
         let kvs: Vec<(String, String)> =
             xs.iter().map(|k| (k.to_owned(), k.to_owned())).collect();
         create_temp_cdb(&kvs).unwrap()
@@ -407,8 +398,8 @@ mod tests {
         ];
         let arg = strings.iter().map(|s| (*s).to_owned()).collect();
 
-        let sf = make_temp_cdb_single_vals(&arg);
-        let cdb = CDB::new(sf);
+        let hw = make_temp_cdb_single_vals(&arg);
+        let cdb = CDB{data: hw};
 
         for QueryResult(q, r) in read_keys(&cdb, &arg) {
             assert_eq!(Some(q), r);
@@ -429,7 +420,7 @@ mod tests {
             }
         }
 
-        let cdb = CDB::new(make_temp_cdb_single_vals(&args));
+        let cdb = CDB{data: make_temp_cdb_single_vals(&args)};
 
         for QueryResult(q, r) in read_keys(&cdb, &args) {
             assert_eq!(Some(q), r);

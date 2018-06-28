@@ -20,6 +20,25 @@ pub enum SliceFactory {
 #[repr(C)]
 pub struct HeapWrap(Bytes);
 
+impl HeapWrap {
+    pub fn load(path: &str) -> Result<HeapWrap> {
+        let mut f = File::open(path)?;
+        let mut buffer = Vec::new();
+        f.read_to_end(&mut buffer)?;
+        Ok(HeapWrap(Bytes::from(buffer)))
+    }
+
+    pub fn slice(&self, start: usize, end: usize) -> Result<Bytes> {
+        assert!(end >= start);
+
+        if end == start {
+            return Ok(Bytes::new());
+        }
+
+        Ok(Bytes::from(&self.0[start..end]))
+    }
+}
+
 impl Deref for HeapWrap {
     type Target = Bytes;
 
@@ -33,7 +52,6 @@ impl Clone for HeapWrap {
         HeapWrap(self.0.clone())
     }
 }
-
 
 const BUF_LEN: usize = 8192;
 
