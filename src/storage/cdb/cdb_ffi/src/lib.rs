@@ -5,9 +5,8 @@ extern crate env_logger;
 extern crate libc;
 
 use std::ffi::CStr;
-use std::ops::Deref;
 use std::os::raw::c_char;
-use std::slice;
+use std::{slice, ptr};
 
 use cdb_rs::{Result, CDB};
 
@@ -20,14 +19,6 @@ pub struct CDBBString {
 #[repr(C)]
 pub struct CDBHandle {
     inner: Box<CDB>,
-}
-
-impl Deref for CDBHandle {
-    type Target = CDB;
-
-    fn deref(&self) -> &<Self as Deref>::Target {
-        &*self.inner
-    }
 }
 
 fn mk_cdb_handler(path: String) -> Result<CDBHandle> {
@@ -50,16 +41,16 @@ fn cstr_to_string(s: *const c_char) -> Result<String> {
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_handle_create(path: *const c_char) -> Option<*mut CDBHandle> {
+pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut CDBHandle {
     assert!(!path.is_null());
 
     match cstr_to_string(path).and_then(|s| mk_cdb_handler(s)) {
         Ok(bhandle) => {
-            Some(Box::into_raw(Box::new(bhandle)))
+            Box::into_raw(Box::new(bhandle))
         }
         Err(err) => {
             error!("failed to create CDBHandle: {:?}", err);
-            None
+            ptr::null_mut()
         }
     }
 }

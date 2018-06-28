@@ -78,7 +78,7 @@ _get_key(struct response *rsp, struct bstring *key)
 {
     struct CDBBString *it;
 
-    it = cdb_get(cdb_handle, (const struct CDBBString *)key);
+    it = cdb_get(cdb_handle, (struct CDBBString *)key);
 
     if (it != NULL) {
         rsp->type = RSP_VALUE;

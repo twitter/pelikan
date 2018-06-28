@@ -9,12 +9,31 @@ use std::sync::Arc;
 use super::Result;
 
 #[derive(Debug)]
-#[repr(C)]
+#[repr(C, u8)]
 pub enum SliceFactory {
-    HeapStorage(Bytes),
+    HeapStorage(HeapWrap),
     MmapStorage(MMapWrap),
     StdioStorage(FileWrap),
 }
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct HeapWrap(Bytes);
+
+impl Deref for HeapWrap {
+    type Target = Bytes;
+
+    fn deref(&self) -> &<Self as Deref>::Target {
+        &self.0
+    }
+}
+
+impl Clone for HeapWrap {
+    fn clone(&self) -> Self {
+        HeapWrap(self.0.clone())
+    }
+}
+
 
 const BUF_LEN: usize = 8192;
 
@@ -29,7 +48,7 @@ impl SliceFactory {
         let mut f = File::open(path)?;
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer)?;
-        Ok(SliceFactory::HeapStorage(Bytes::from(buffer)))
+        Ok(SliceFactory::HeapStorage(HeapWrap(Bytes::from(buffer))))
     }
 
     pub fn make_map(path: &str) -> Result<SliceFactory> {
