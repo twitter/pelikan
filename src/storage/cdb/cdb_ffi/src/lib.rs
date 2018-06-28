@@ -1,8 +1,10 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
-
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+#![allow(dead_code)]
+mod bind {
+    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+}
 
 #[macro_use]
 extern crate log;
@@ -44,6 +46,12 @@ fn cstr_to_string(s: *const c_char) -> Result<String> {
     eprintln!("cstr_to_string: {:?}", rv);
 
     Ok(rv)
+}
+
+#[no_mangle]
+pub extern "C" fn xyz(bs: *const bind::bstring) {
+    let bbs = unsafe { &*bs };
+    println!("len: {}", bbs.len);
 }
 
 #[no_mangle]

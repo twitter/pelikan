@@ -5,11 +5,13 @@ use std::fs;
 use std::path::PathBuf;
 
 fn main() {
-    println!("cargo:rustc-link-lib=ccommon");
+    println!("cargo:rustc-link-lib-static=ccommon");
 
     let include_path = fs::canonicalize("./../../../../deps/ccommon/include").unwrap();
     let config_h_dir = fs::canonicalize("./../../../../_build/ccommon").unwrap();
     let lib_dir = fs::canonicalize("./../../../../_build/ccommon/lib").unwrap();
+
+    println!("cargo:rustc-link-search-native={}", lib_dir.to_str().unwrap());
 
     // XXX: assume _build dir at pelikan top level
 
