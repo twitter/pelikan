@@ -66,6 +66,9 @@ pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut CDBHandle {
     }
 }
 
+const BUF_SIZE: usize = 1024 * 1024;
+
+
 // the caller must call cdb_bstring_destroy with the returned (non-NULL) pointer when finished
 // to ensure memory is freed.
 //
@@ -93,16 +96,18 @@ pub extern "C" fn cdb_get(
         )
     };
 
-
     let cdb = CDB::from(handle);
 
-    let mut vec = vec![0u8; 1024];
+    // allocate a buffer on the stack to fill, we'll copy this into the bstring
+    // we were given
+    let mut vec = [0u8; BUF_SIZE];
 
     match cdb.get(key, &mut vec)  {
         Ok(Some(n)) => {
             vptr.len = n as u32;
             unsafe {
-                vec.as_mut_ptr().copy_to_nonoverlapping(vptr.data as *mut _ as *mut u8, n);
+                vec.as_mut_ptr()
+                    .copy_to_nonoverlapping(vptr.data as *mut _ as *mut u8, n);
             }
             vptr
         },
