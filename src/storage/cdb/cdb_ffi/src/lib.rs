@@ -52,11 +52,6 @@ fn cstr_to_string(s: *const c_char) -> Result<String> {
     Ok(rv)
 }
 
-#[no_mangle]
-pub extern "C" fn xyz(bs: *const bind::bstring) {
-    let bbs = unsafe { &*bs };
-    println!("len: {}", bbs.len);
-}
 
 #[no_mangle]
 pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut CDBHandle {
@@ -101,7 +96,7 @@ pub extern "C" fn cdb_get(
 
     let cdb = CDB::from(handle);
 
-    let mut vec = Vec::with_capacity(1024);
+    let mut vec = vec![0u8; 1024];
 
     match cdb.get(key, &mut vec)  {
         Ok(Some(n)) => {
