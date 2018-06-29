@@ -90,10 +90,10 @@ _get_key(struct response *rsp, struct bstring *key)
     if (vstr != NULL) {
         rsp->type = RSP_VALUE;
         rsp->key = *key;
-        rsp->flag = 0;                  // TODO(simms) FIXME
-        rsp->vcas = 0;                  // TODO(simms) FIXME
+        rsp->flag = 0;
+        rsp->vcas = 0;
         rsp->vstr.len = vstr->len;
-        rsp->vstr.data = vstr->data;    // TODO(simms) alignment here?
+        rsp->vstr.data = vstr->data;
 
         log_verb("found key at %p, location %p", key, vstr);
         return true;

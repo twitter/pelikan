@@ -6,6 +6,8 @@ extern crate libc;
 
 extern crate cdb_ccommon;
 
+mod ccommon;
+
 use std::convert::From;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -14,7 +16,8 @@ use std::{ptr, slice};
 use cdb_rs::cdb;
 use cdb_rs::{Result, CDB};
 
-use cdb_ccommon as bind;
+use cdb_ccommon::bindings as bind;
+use ccommon::bstring::{BStringRef, BStringRefMut};
 
 #[repr(C)]
 pub struct CDBHandle {
@@ -61,6 +64,7 @@ pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut CDBHandle {
     }
 }
 
+
 #[no_mangle]
 pub extern "C" fn cdb_get(
     h: *mut CDBHandle,
@@ -74,27 +78,16 @@ pub extern "C" fn cdb_get(
     // TODO: don't do unwrap, be safe
     let handle = unsafe { h.as_ref() }.unwrap();
 
-    let kptr: &bind::bstring = unsafe { &*k };
-    let vptr: &mut bind::bstring = unsafe { &mut *v };
+    let key = BStringRef::from_raw(k);
+    let mut val = BStringRefMut::from_raw(v);
 
-    let key = unsafe {
-        slice::from_raw_parts(
-            kptr.data as *const _ as *const u8,  // cast *const i8 -> *const u8
-            kptr.len as usize
-        )
-    };
-
-    let mut val = unsafe {
-        slice::from_raw_parts_mut(
-            vptr.data as *mut _ as *mut u8,
-            vptr.len as usize
-        )
-    };
-
-    match CDB::from(handle).get(key, &mut val)  {
+    match CDB::from(handle).get(&key, &mut val)  {
         Ok(Some(n)) => {
-            vptr.len = n as u32;
-            vptr
+            {
+                let mut vstr = val.as_mut();
+                vstr.len = n as u32;
+            }
+            val.into_raw()
         },
         Ok(None) => ptr::null_mut(),
         Err(err) => {
