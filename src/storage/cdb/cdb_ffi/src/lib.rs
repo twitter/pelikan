@@ -25,9 +25,7 @@ pub struct CDBHandle {
 }
 
 impl CDBHandle {
-    pub unsafe fn from_raw<'a>(ptr: *mut CDBHandle) -> &'a CDBHandle {
-        &*ptr
-    }
+    pub unsafe fn from_raw<'a>(ptr: *mut CDBHandle) -> &'a CDBHandle { &*ptr }
 }
 
 impl<'a> From<&'a CDBHandle> for CDB<'a> {
@@ -56,7 +54,6 @@ fn cstr_to_string(s: *const c_char) -> Result<String> {
     Ok(rv)
 }
 
-
 #[no_mangle]
 pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut CDBHandle {
     assert!(!path.is_null());
@@ -83,9 +80,8 @@ pub extern "C" fn cdb_get(
 
     // TODO: don't do unwrap, be safe
     let handle = unsafe { CDBHandle::from_raw(h) };
-
-    let key = BStringRef::from_raw(k);
-    let mut val = BStringRefMut::from_raw(v);
+    let key = unsafe { BStringRef::from_raw(k) };
+    let mut val = unsafe { BStringRefMut::from_raw(v) };
 
     match CDB::from(handle).get(&key, &mut val)  {
         Ok(Some(n)) => {
