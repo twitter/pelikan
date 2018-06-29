@@ -78,7 +78,12 @@ process_teardown(void)
 static bool
 _get_key(struct response *rsp, struct bstring *key)
 {
+    /* this is a slight abuse of the bstring API. we're setting
+     * the data pointer to point to the vbuf that was allocated on the struct
+     * and we're setting the len of the buffer to the allocation size. This is
+     * so that we can create a rust slice from this information. */
     rsp->vstr.data = rsp->vbuf;
+    rsp->vstr.len = RSP_VAL_BUF_SIZE;
 
     struct bstring *vstr = cdb_get(cdb_handle, key, &(rsp->vstr));
 
