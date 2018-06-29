@@ -93,15 +93,13 @@ pub extern "C" fn cdb_get(
 
     let cdb = CDB::from(handle);
 
-    // allocate a buffer on the stack to fill, we'll copy this into the bstring
-    // we were given
-    let mut vec = [0u8; BUF_SIZE];
+    let mut buf = vec![0u8; BUF_SIZE];
 
-    match cdb.get(key, &mut vec)  {
+    match cdb.get(key, &mut buf)  {
         Ok(Some(n)) => {
             vptr.len = n as u32;
             unsafe {
-                vec.as_mut_ptr()
+                buf.as_mut_ptr()
                     .copy_to_nonoverlapping(vptr.data as *mut _ as *mut u8, n);
             }
             vptr

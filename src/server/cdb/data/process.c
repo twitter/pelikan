@@ -78,9 +78,8 @@ process_teardown(void)
 static bool
 _get_key(struct response *rsp, struct bstring *key)
 {
-    char *buf = malloc(sizeof(char) * 1048576);
+    rsp->vstr.data = rsp->vbuf;
 
-    rsp->vstr.data = buf;
     struct bstring *vstr = cdb_get(cdb_handle, key, &(rsp->vstr));
 
     if (vstr != NULL) {
