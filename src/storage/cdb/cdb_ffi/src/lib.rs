@@ -1,17 +1,10 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-#![allow(dead_code)]
-mod bind {
-    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-}
-
-#[macro_use]
-extern crate log;
+#[macro_use] extern crate log;
 extern crate bytes;
 extern crate cdb_rs;
 extern crate env_logger;
 extern crate libc;
+
+extern crate cdb_ccommon;
 
 use std::convert::From;
 use std::ffi::CStr;
@@ -20,6 +13,8 @@ use std::{ptr, slice};
 
 use cdb_rs::cdb;
 use cdb_rs::{Result, CDB};
+
+use cdb_ccommon as bind;
 
 #[repr(C)]
 pub struct CDBHandle {

@@ -1,0 +1,12 @@
+[package]
+name = "cdb_ccommon"
+version = "0.1.0"
+authors = ["Jonathan D. Simms <jsimms@twitter.com>"]
+
+
+[build-dependencies]
+bindgen = "0.37.0"
+
+[lib]
+name = "cdb_ccommon"
+crate-type = ["rlib"]
