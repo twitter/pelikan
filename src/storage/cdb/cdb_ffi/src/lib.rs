@@ -11,7 +11,7 @@ mod ccommon;
 use std::convert::From;
 use std::ffi::CStr;
 use std::os::raw::c_char;
-use std::{ptr, slice};
+use std::ptr;
 
 use cdb_rs::cdb;
 use cdb_rs::{Result, CDB};
@@ -22,6 +22,10 @@ use ccommon::bstring::{BStringRef, BStringRefMut};
 #[repr(C)]
 pub struct CDBHandle {
     inner: Box<[u8]>,
+}
+
+impl CDBHandle {
+    pub unsafe fn from_raw<'a>(ptr: *mut CDBHandle) -> &'a CDBHandle { &*ptr }
 }
 
 impl<'a> From<&'a CDBHandle> for CDB<'a> {
@@ -50,7 +54,6 @@ fn cstr_to_string(s: *const c_char) -> Result<String> {
     Ok(rv)
 }
 
-
 #[no_mangle]
 pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut CDBHandle {
     assert!(!path.is_null());
@@ -76,20 +79,22 @@ pub extern "C" fn cdb_get(
     assert!(!v.is_null());
 
     // TODO: don't do unwrap, be safe
-    let handle = unsafe { h.as_ref() }.unwrap();
-
-    let key = BStringRef::from_raw(k);
-    let mut val = BStringRefMut::from_raw(v);
+    let handle = unsafe { CDBHandle::from_raw(h) };
+    let key = unsafe { BStringRef::from_raw(k) };
+    let mut val = unsafe { BStringRefMut::from_raw(v) };
 
     match CDB::from(handle).get(&key, &mut val)  {
         Ok(Some(n)) => {
             {
+                // this provides access to the underlying struct fields
+                // so we can modify the .len to be the actual number of bytes
+                // in the value.
                 let mut vstr = val.as_mut();
                 vstr.len = n as u32;
             }
-            val.into_raw()
+            val.into_raw()  // consume BufStringRefMut and return the underlying raw pointer
         },
-        Ok(None) => ptr::null_mut(),
+        Ok(None) => ptr::null_mut(), // not found, return a NULL
         Err(err) => {
             eprintln!("got error: {:?}", err);
             ptr::null_mut()
