@@ -22,6 +22,7 @@ fn main() {
             "-L", lib_dir.to_str().unwrap(),
         ])
         .header("wrapper.h")
+        .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
         .generate()
         .expect("Unable to generate bindings");
 
