@@ -199,7 +199,7 @@ impl<'a> CDB<'a> {
         Ok(KV{k: Bytes::from(k), v: Bytes::from(v)})
     }
 
-    pub fn get<'b>(&self, key: &[u8], buf: &'b mut Vec<u8>) -> Result<Option<usize>> {
+    pub fn get<'b>(&self, key: &[u8], mut buf: &'b mut [u8]) -> Result<Option<usize>> {
         let key = key.into();
         let hash = CDBHash::new(key);
         let bucket = self.bucket_at(hash.table())?;
