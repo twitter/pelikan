@@ -1,6 +1,5 @@
 use bytes::{Buf, Bytes, IntoBuf};
 use std::fmt;
-use std::io;
 use std::io::{Write, Read};
 use std::result;
 use std::fs::File;
@@ -111,30 +110,23 @@ pub struct KV {
     pub v: Bytes,
 }
 
-impl KV {
-    #[allow(dead_code)]
-    fn dump(&self, w: &mut impl io::Write) -> io::Result<()> {
-        write!(w, "+{},{}:", self.k.len(), self.v.len())?;
-        w.write(self.k.as_ref())?;
-        write!(w, "->")?;
-        w.write(self.v.as_ref())?;
-        write!(w, "\n")
-    }
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct KVRef<'a> {
+    pub k: &'a [u8],
+    pub v: &'a [u8],
 }
-
 
 struct IndexEntry {
     hash: CDBHash, // the hash of the stored key
     ptr: usize,    // pointer to the absolute position of the data in the db
 }
 
-
 #[derive(Debug)]
 #[repr(C)]
 pub struct CDB<'a> {
     data: &'a [u8],
 }
-
 
 pub fn load_bytes_at_path(path: &str) -> Result<Box<[u8]>> {
     let mut f = File::open(path)?;
@@ -184,7 +176,7 @@ impl<'a> CDB<'a> {
     }
 
     #[inline]
-    fn get_kv(&self, ie: IndexEntry) -> Result<KV> {
+    fn get_kv_ref(&self, ie: IndexEntry) -> Result<KVRef<'a>> {
         let b = self.data[ie.ptr..(ie.ptr + DATA_HEADER_SIZE)].as_ref();
 
         let ksize = b[..4].into_buf().get_u32_le() as usize;
@@ -196,7 +188,7 @@ impl<'a> CDB<'a> {
         let k = &self.data[kstart..(kstart + ksize)];
         let v = &self.data[vstart..(vstart + vsize)];
 
-        Ok(KV{k: Bytes::from(k), v: Bytes::from(v)})
+        Ok(KVRef{k, v})
     }
 
     pub fn get<'b>(&self, key: &[u8], mut buf: &'b mut [u8]) -> Result<Option<usize>> {
@@ -219,7 +211,7 @@ impl<'a> CDB<'a> {
             if idx_ent.ptr == 0 {
                 return Ok(None);
             } else if idx_ent.hash == hash {
-                let kv = self.get_kv(idx_ent)?;
+                let kv = self.get_kv_ref(idx_ent)?;
                 if &kv.k[..] == key {
                     buf.write_all(&kv.k[..]).unwrap();
                     return Ok(Some(kv.k.len()));
