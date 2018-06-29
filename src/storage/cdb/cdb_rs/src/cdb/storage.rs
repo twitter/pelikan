@@ -1,3 +1,4 @@
+use super::Result;
 use bytes::{Buf, Bytes, BytesMut};
 use memmap::{Mmap, MmapOptions};
 use std::cell::RefCell;
@@ -6,7 +7,6 @@ use std::io::{Cursor, Read};
 use std::ops::Deref;
 use std::os::unix::fs::FileExt;
 use std::sync::Arc;
-use super::Result;
 
 #[derive(Debug)]
 #[repr(C, u8)]
@@ -135,12 +135,12 @@ impl Clone for SliceFactory {
 #[derive(Debug)]
 #[repr(C)]
 pub struct MMapWrap {
-    inner: Arc<Mmap>
+    inner: Arc<Mmap>,
 }
 
 impl MMapWrap {
     fn new(m: Mmap) -> MMapWrap {
-        MMapWrap{inner: Arc::new(m)}
+        MMapWrap { inner: Arc::new(m) }
     }
 }
 
@@ -154,7 +154,9 @@ impl Deref for MMapWrap {
 
 impl Clone for MMapWrap {
     fn clone(&self) -> Self {
-        MMapWrap{inner: self.inner.clone()}
+        MMapWrap {
+            inner: self.inner.clone(),
+        }
     }
 }
 
@@ -209,7 +211,7 @@ struct BMString(BytesMut);
 
 impl ToString for BMString {
     fn to_string(&self) -> String {
-       String::from(self)
+        String::from(self)
     }
 }
 
@@ -221,9 +223,9 @@ impl<'a> From<&'a BMString> for String {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::fs::File;
     use std::io::prelude::*;
-    use super::*;
     use tempfile;
 
     fn assert_ok<T>(f: T)
@@ -252,7 +254,7 @@ mod tests {
 
     #[test]
     fn file_wrap_slice_test() {
-        assert_ok(||{
+        assert_ok(|| {
             let fw = FileWrap::temp()?;
 
             {

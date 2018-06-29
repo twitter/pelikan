@@ -1,9 +1,8 @@
 use bytes::{Buf, Bytes, IntoBuf};
 use std::fmt;
-use std::io;
-use std::io::{Write, Read};
-use std::result;
 use std::fs::File;
+use std::io::{Read, Write};
+use std::result;
 
 pub mod errors;
 pub mod input;
@@ -111,30 +110,24 @@ pub struct KV {
     pub v: Bytes,
 }
 
-impl KV {
-    #[allow(dead_code)]
-    fn dump(&self, w: &mut impl io::Write) -> io::Result<()> {
-        write!(w, "+{},{}:", self.k.len(), self.v.len())?;
-        w.write(self.k.as_ref())?;
-        write!(w, "->")?;
-        w.write(self.v.as_ref())?;
-        write!(w, "\n")
-    }
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct KVRef<'a> {
+    pub k: &'a [u8],
+    pub v: &'a [u8],
 }
 
-
+#[repr(C)]
 struct IndexEntry {
     hash: CDBHash, // the hash of the stored key
     ptr: usize,    // pointer to the absolute position of the data in the db
 }
-
 
 #[derive(Debug)]
 #[repr(C)]
 pub struct CDB<'a> {
     data: &'a [u8],
 }
-
 
 pub fn load_bytes_at_path(path: &str) -> Result<Box<[u8]>> {
     let mut f = File::open(path)?;
@@ -145,7 +138,7 @@ pub fn load_bytes_at_path(path: &str) -> Result<Box<[u8]>> {
 
 impl<'a> CDB<'a> {
     pub fn new<'b>(b: &'b [u8]) -> CDB<'b> {
-        CDB{data: b}
+        CDB { data: b }
     }
 
     #[inline]
@@ -164,7 +157,7 @@ impl<'a> CDB<'a> {
         let ptr = buf.get_u32_le() as usize;
         let num_ents = buf.get_u32_le() as usize;
 
-        Ok(Bucket{ptr, num_ents})
+        Ok(Bucket { ptr, num_ents })
     }
 
     // returns the index entry at absolute position 'pos' in the db
@@ -180,11 +173,11 @@ impl<'a> CDB<'a> {
         let hash = CDBHash(b.get_u32_le());
         let ptr = b.get_u32_le() as usize;
 
-        Ok(IndexEntry{hash, ptr})
+        Ok(IndexEntry { hash, ptr })
     }
 
     #[inline]
-    fn get_kv(&self, ie: IndexEntry) -> Result<KV> {
+    fn get_kv_ref(&self, ie: IndexEntry) -> Result<KVRef<'a>> {
         let b = self.data[ie.ptr..(ie.ptr + DATA_HEADER_SIZE)].as_ref();
 
         let ksize = b[..4].into_buf().get_u32_le() as usize;
@@ -196,10 +189,13 @@ impl<'a> CDB<'a> {
         let k = &self.data[kstart..(kstart + ksize)];
         let v = &self.data[vstart..(vstart + vsize)];
 
-        Ok(KV{k: Bytes::from(k), v: Bytes::from(v)})
+        Ok(KVRef { k, v })
     }
 
-    pub fn get<'b>(&self, key: &[u8], mut buf: &'b mut [u8]) -> Result<Option<usize>> {
+    pub fn get<'b, T>(&self, key: &[u8], mut buf: T) -> Result<Option<usize>>
+    where
+        T: Write,
+    {
         let key = key.into();
         let hash = CDBHash::new(key);
         let bucket = self.bucket_at(hash.table())?;
@@ -219,7 +215,7 @@ impl<'a> CDB<'a> {
             if idx_ent.ptr == 0 {
                 return Ok(None);
             } else if idx_ent.hash == hash {
-                let kv = self.get_kv(idx_ent)?;
+                let kv = self.get_kv_ref(idx_ent)?;
                 if &kv.k[..] == key {
                     buf.write_all(&kv.k[..]).unwrap();
                     return Ok(Some(kv.k.len()));
@@ -235,6 +231,7 @@ impl<'a> CDB<'a> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use env_logger;
     use proptest::collection::vec;
     use proptest::prelude::*;
@@ -245,7 +242,6 @@ mod tests {
     use std::io::{BufRead, BufReader};
     use std::path::Path;
     use std::path::PathBuf;
-    use super::*;
     use tempfile::NamedTempFile;
     use tinycdb::Cdb as TCDB;
 
@@ -305,17 +301,13 @@ mod tests {
         Box::new(xs.iter().map(move |x| {
             let mut buf = Vec::with_capacity(1024 * 1024);
             let res = cdb.get(x.as_ref(), &mut buf).unwrap();
-            QueryResult(
-                x.clone(),
-                res.map(|_| String::from_utf8(buf).unwrap()),
-            )
+            QueryResult(x.clone(), res.map(|_| String::from_utf8(buf).unwrap()))
         }))
     }
 
     #[allow(dead_code)]
     fn make_temp_cdb_single_vals(xs: &Vec<String>) -> Box<[u8]> {
-        let kvs: Vec<(String, String)> =
-            xs.iter().map(|k| (k.to_owned(), k.to_owned())).collect();
+        let kvs: Vec<(String, String)> = xs.iter().map(|k| (k.to_owned(), k.to_owned())).collect();
         create_temp_cdb(&kvs).unwrap()
     }
 
@@ -339,7 +331,7 @@ mod tests {
         let arg = strings.iter().map(|s| (*s).to_owned()).collect();
 
         let hw = make_temp_cdb_single_vals(&arg);
-        let cdb = CDB{data: &hw};
+        let cdb = CDB { data: &hw };
 
         for QueryResult(q, r) in read_keys(&cdb, &arg) {
             assert_eq!(Some(q), r);
@@ -360,7 +352,9 @@ mod tests {
             }
         }
 
-        let cdb = CDB{data: &make_temp_cdb_single_vals(&args)};
+        let cdb = CDB {
+            data: &make_temp_cdb_single_vals(&args),
+        };
 
         for QueryResult(q, r) in read_keys(&cdb, &args) {
             assert_eq!(Some(q), r);

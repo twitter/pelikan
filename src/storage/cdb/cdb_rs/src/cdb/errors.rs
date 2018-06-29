@@ -1,9 +1,9 @@
 use std::error;
+use std::ffi::NulError;
 use std::fmt;
 use std::io;
 use std::num::ParseIntError;
 use std::str::Utf8Error;
-use std::ffi::NulError;
 
 #[derive(Debug)]
 pub enum CDBError {
@@ -32,7 +32,9 @@ impl From<io::Error> for CDBError {
 }
 
 impl From<NulError> for CDBError {
-    fn from(err: NulError) -> CDBError { CDBError::NulError(err) }
+    fn from(err: NulError) -> CDBError {
+        CDBError::NulError(err)
+    }
 }
 
 impl error::Error for CDBError {

@@ -61,13 +61,6 @@ pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut CDBHandle {
     }
 }
 
-const BUF_SIZE: usize = 1024 * 1024;
-
-
-// the caller must call cdb_bstring_destroy with the returned (non-NULL) pointer when finished
-// to ensure memory is freed.
-//
-// this _h variant means that you pass an explicit handle in, rather than using the HANDLE
 #[no_mangle]
 pub extern "C" fn cdb_get(
     h: *mut CDBHandle,
@@ -91,19 +84,16 @@ pub extern "C" fn cdb_get(
         )
     };
 
-    let cdb = CDB::from(handle);
+    let mut val = unsafe {
+        slice::from_raw_parts_mut(
+            vptr.data as *mut _ as *mut u8,
+            vptr.len as usize
+        )
+    };
 
-    // allocate a buffer on the stack to fill, we'll copy this into the bstring
-    // we were given
-    let mut vec = [0u8; BUF_SIZE];
-
-    match cdb.get(key, &mut vec)  {
+    match CDB::from(handle).get(key, &mut val)  {
         Ok(Some(n)) => {
             vptr.len = n as u32;
-            unsafe {
-                vec.as_mut_ptr()
-                    .copy_to_nonoverlapping(vptr.data as *mut _ as *mut u8, n);
-            }
             vptr
         },
         Ok(None) => ptr::null_mut(),
