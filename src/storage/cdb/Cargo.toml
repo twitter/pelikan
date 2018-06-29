@@ -3,7 +3,6 @@
 members = [
     "cdb_rs",
     "cdb_ffi",
-    "cdb_utils",
 ]
 
 [profile.release]

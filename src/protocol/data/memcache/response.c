@@ -41,7 +41,6 @@ response_reset(struct response *rsp)
     rsp->num = 0;
     rsp->val = 0;
     rsp->error = 0;
-    rsp->raw_val = true;
 }
 
 struct response *

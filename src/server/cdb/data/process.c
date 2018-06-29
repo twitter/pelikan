@@ -76,20 +76,17 @@ process_teardown(void)
 static bool
 _get_key(struct response *rsp, struct bstring *key)
 {
-    struct CDBBString *it;
+    struct bstring *vstr = cdb_get(cdb_handle, key, &(rsp->vstr));
 
-    it = cdb_get(cdb_handle, (struct CDBBString *)key);
-
-    if (it != NULL) {
+    if (vstr != NULL) {
         rsp->type = RSP_VALUE;
         rsp->key = *key;
         rsp->flag = 0; // TODO(simms) FIXME
         rsp->vcas = 0; // TODO(simms) FIXME
-        rsp->vstr.len = it->len;
-        rsp->vstr.data = it->data; // TODO(simms) alignment here?
-        rsp->raw_val = false;
+        rsp->vstr.len = vstr->len;
+        rsp->vstr.data = vstr->data; // TODO(simms) alignment here?
 
-        log_verb("found key at %p, location %p", key, it);
+        log_verb("found key at %p, location %p", key, vstr);
         return true;
     } else {
         log_verb("key at %p not found", key);
@@ -330,14 +327,6 @@ _cleanup(struct request *req, struct response *rsp)
         response_return_all(&nr);
     }
 
-    /* (simms) If we don't have a raw_val here, it means we need to free the response data bstring.
-     * We take care of that by calling back into the cdb module with the pointer, reset
-     * the raw_val flag to indicate we've freed the memory here, and continue on as normal.
-     */
-    if (!rsp->raw_val) {
-        cdb_bstring_destroy((struct CDBBString *)&rsp->vstr);
-        rsp->raw_val = true;
-    }
     response_reset(rsp);
     req->rsp = rsp;
 }
