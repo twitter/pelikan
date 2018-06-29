@@ -73,18 +73,23 @@ process_teardown(void)
     process_init = false;
 }
 
+
+
 static bool
 _get_key(struct response *rsp, struct bstring *key)
 {
+    char *buf = malloc(sizeof(char) * 1048576);
+
+    rsp->vstr.data = buf;
     struct bstring *vstr = cdb_get(cdb_handle, key, &(rsp->vstr));
 
     if (vstr != NULL) {
         rsp->type = RSP_VALUE;
         rsp->key = *key;
-        rsp->flag = 0; // TODO(simms) FIXME
-        rsp->vcas = 0; // TODO(simms) FIXME
+        rsp->flag = 0;                  // TODO(simms) FIXME
+        rsp->vcas = 0;                  // TODO(simms) FIXME
         rsp->vstr.len = vstr->len;
-        rsp->vstr.data = vstr->data; // TODO(simms) alignment here?
+        rsp->vstr.data = vstr->data;    // TODO(simms) alignment here?
 
         log_verb("found key at %p, location %p", key, vstr);
         return true;
