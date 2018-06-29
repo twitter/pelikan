@@ -22,6 +22,7 @@ impl BStringRef {
         BStringRef{ptr}
     }
 
+    #[allow(dead_code)]
     pub fn into_raw(self) -> *const bind::bstring {
         self.ptr
     }
@@ -42,8 +43,10 @@ impl Deref for BStringRef {
     }
 }
 
+#[allow(dead_code)]
 struct BStringStr<'a>(&'a str);
 
+#[allow(dead_code)]
 impl<'a> BStringStr<'a> {
     fn into_raw(self) -> *mut bind::bstring {
         let bs = bind::bstring{
@@ -68,7 +71,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn bstring_ref_borrow() {
+    fn bstring_ref() {
         let s = "sea change";
         let bsp = BStringStr(s).into_raw();
 
