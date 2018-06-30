@@ -2,14 +2,35 @@ extern crate bindgen;
 
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::io;
+use std::path::{Path, PathBuf};
+use std::fs::File;
+use std::io::prelude::*;
+
+fn get_cmake_binary_dir() -> io::Result<String> {
+    // this file is written by cmake on each run, updated with the location of
+    // the build directory.
+    let mut fp = fs::File::open("CMAKE_BINARY_DIR")?;
+    let mut buf = String::new();
+    let n = fp.read_to_string(&mut buf)?;
+    assert!(n > 0, "file was empty");
+    Ok(buf.trim_right().to_owned())
+}
 
 fn main() {
     println!("cargo:rustc-link-lib-static=ccommon");
 
     let include_path = fs::canonicalize("./../../../../deps/ccommon/include").unwrap();
-    let config_h_dir = fs::canonicalize("./../../../../_build/ccommon").unwrap();
-    let lib_dir = fs::canonicalize("./../../../../_build/ccommon/lib").unwrap();
+
+    let cmake_binary_dir = get_cmake_binary_dir().unwrap();
+
+    let cbd = PathBuf::from(cmake_binary_dir);
+
+    let mut config_h_dir = cbd.clone();
+    config_h_dir.push("ccommon");
+
+    let mut lib_dir = cbd.clone();
+    lib_dir.push("lib");
 
     println!("cargo:rustc-link-search-native={}", lib_dir.to_str().unwrap());
 
