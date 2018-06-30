@@ -17,10 +17,10 @@
 
 /* option related */
 /*          name            type                default description */
-#define CDB_OPTION(ACTION)                                                              \
+#define CDB_OPTION(ACTION)                                                                  \
     ACTION( daemonize,      OPTION_TYPE_BOOL,   false,      "daemonize the process"        )\
     ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,       "file storing the pid"         )\
-    ACTION( cdb_file_path,  OPTION_TYPE_STR,    "cdb.cdb",  "location of the .cdb file"    )\
+    ACTION( cdb_file_path,  OPTION_TYPE_STR,    "db.cdb",   "location of the .cdb file"    )\
     ACTION( dlog_intvl,     OPTION_TYPE_UINT,   500,        "debug log flush interval(ms)" )\
     ACTION( klog_intvl,     OPTION_TYPE_UINT,   100,        "cmd log flush interval(ms)"   )
 

@@ -82,11 +82,15 @@ teardown(void)
 }
 
 static struct CDBHandle*
-setup_cdb_handle(void)
+setup_cdb_handle(cdb_options_st *opt)
 {
     cdb_setup();
 
-    char *cdb_file_path = strdup("/Users/jsimms/pelikan/dict.cdb");
+    char *cdb_file_path = opt->cdb_file_path.val.vstr;
+    if (cdb_file_path == NULL) {
+        log_stderr("cdb_file_path option not set, cannot continue");
+        exit(EX_CONFIG);
+    }
     return cdb_handle_create(cdb_file_path);
 }
 
@@ -137,7 +141,7 @@ setup(void)
     compose_setup(NULL, &stats.compose_rsp);
     klog_setup(&setting.klog, &stats.klog);
 
-    struct CDBHandle* cdb_handle = setup_cdb_handle();
+    struct CDBHandle* cdb_handle = setup_cdb_handle(&setting.cdb);
     if (cdb_handle == NULL) {
         log_stderr("failed to set up cdb");
         goto error;
