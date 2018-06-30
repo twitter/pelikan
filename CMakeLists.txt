@@ -145,10 +145,12 @@ message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
 message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})
 
 if(DUMP_ALL)
+    message(STATUS "<<++=====------------------\\/------------------=====++>>")
     get_cmake_property(_variableNames VARIABLES)
     foreach (_variableName ${_variableNames})
         message(STATUS "${_variableName}=${${_variableName}}")
     endforeach()
+    message(STATUS "<<++=====------------------/\\------------------=====++>>")
 endif()
 
 # Note: to uninstall targets, run:
