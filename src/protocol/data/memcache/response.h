@@ -105,3 +105,5 @@ void response_reset(struct response *rsp);
 struct response *response_borrow(void);
 void response_return(struct response **rsp);
 void response_return_all(struct response **rsp); /* return all responses in chain */
+
+size_t response_max_val_size(void);

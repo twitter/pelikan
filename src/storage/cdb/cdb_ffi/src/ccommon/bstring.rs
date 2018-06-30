@@ -1,10 +1,10 @@
 use cdb_ccommon::bindings as bind;
 
-use std::slice;
+use std::convert::AsMut;
 use std::io;
 use std::ops::{Deref, DerefMut};
 use std::os::raw::c_char;
-use std::convert::AsMut;
+use std::slice;
 
 /// BStringRef provides a wrapper around a raw pointer to a cc_bstring. It's important to note that
 /// this struct does not take ownership of the underlying pointer, nor does it free it when it's
@@ -19,7 +19,7 @@ impl<'a> BStringRef<'a> {
     pub unsafe fn from_raw(ptr: *const bind::bstring) -> Self {
         assert!(!ptr.is_null());
         let inner = &*ptr;
-        BStringRef{inner}
+        BStringRef { inner }
     }
 
     #[allow(dead_code)]
@@ -34,13 +34,12 @@ impl<'a> Deref for BStringRef<'a> {
     fn deref(&self) -> &<Self as Deref>::Target {
         unsafe {
             slice::from_raw_parts(
-                self.inner.data as *const c_char as *const u8,  // cast *const i8 -> *const u8
-                self.inner.len as usize
+                self.inner.data as *const c_char as *const u8, // cast *const i8 -> *const u8
+                self.inner.len as usize,
             )
         }
     }
 }
-
 
 #[derive(Debug)]
 pub struct BStringRefMut<'a> {
@@ -50,7 +49,7 @@ pub struct BStringRefMut<'a> {
 impl<'a> BStringRefMut<'a> {
     pub unsafe fn from_raw(ptr: *mut bind::bstring) -> Self {
         assert!(!ptr.is_null());
-        BStringRefMut{inner: &mut *ptr}
+        BStringRefMut { inner: &mut *ptr }
     }
 
     pub fn into_raw(self) -> *mut bind::bstring {
@@ -65,7 +64,7 @@ impl<'a> Deref for BStringRefMut<'a> {
         unsafe {
             slice::from_raw_parts(
                 self.inner.data as *const c_char as *const u8,
-                self.inner.len as usize
+                self.inner.len as usize,
             )
         }
     }
@@ -73,12 +72,7 @@ impl<'a> Deref for BStringRefMut<'a> {
 
 impl<'a> DerefMut for BStringRefMut<'a> {
     fn deref_mut(&mut self) -> &mut <Self as Deref>::Target {
-        unsafe {
-            slice::from_raw_parts_mut(
-                self.inner.data as *mut u8,
-                self.inner.len as usize
-            )
-        }
+        unsafe { slice::from_raw_parts_mut(self.inner.data as *mut u8, self.inner.len as usize) }
     }
 }
 
@@ -98,19 +92,18 @@ impl<'a> AsMut<bind::bstring> for BStringRefMut<'a> {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::ffi::CString;
     use std::boxed::Box;
+    use std::ffi::CString;
     use std::io::Write;
 
     struct BStringStr<'a>(&'a str);
 
     impl<'a> BStringStr<'a> {
         fn into_raw(self) -> *mut bind::bstring {
-            let bs = bind::bstring{
+            let bs = bind::bstring {
                 len: self.0.len() as u32,
                 data: CString::new(self.0).unwrap().into_raw(),
             };
@@ -155,7 +148,6 @@ mod test {
             let n = buf.write(&d).unwrap();
             assert_eq!(n, 3);
         }
-        
 
         assert_eq!(&bsr[0..3], &d[0..3]);
 
