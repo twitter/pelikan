@@ -94,7 +94,7 @@ before_install:
   - cd check-0.11.0 && ./configure && make && sudo make install && cd ..
   - 'cd $HOME'
   - 'curl https://sh.rustup.rs -sSf | sh'
-  = 'export PATH=$HOME/.cargo/bin:$PATH'
+  - 'export PATH=$HOME/.cargo/bin:$PATH'
 
 script:
   - mkdir _build && cd _build
