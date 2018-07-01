@@ -92,6 +92,7 @@ before_install:
   - wget https://github.com/libcheck/check/releases/download/0.11.0/check-0.11.0.tar.gz
   - tar xvfz check-0.11.0.tar.gz
   - cd check-0.11.0 && ./configure && make && sudo make install && cd ..
+  - 'cd $HOME'
   - 'curl https://sh.rustup.rs -sSf | sh'
   = 'export PATH=$HOME/.cargo/bin:$PATH'
 
