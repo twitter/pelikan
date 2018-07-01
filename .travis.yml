@@ -92,6 +92,8 @@ before_install:
   - wget https://github.com/libcheck/check/releases/download/0.11.0/check-0.11.0.tar.gz
   - tar xvfz check-0.11.0.tar.gz
   - cd check-0.11.0 && ./configure && make && sudo make install && cd ..
+  - 'curl https://sh.rustup.rs -sSf | sh'
+  = 'export PATH=$HOME/.cargo/bin:$PATH'
 
 script:
   - mkdir _build && cd _build
@@ -99,4 +101,6 @@ script:
   - make -j
   - make check
   - egrep -r ":F:|:E:" . || true
-  - cd ../test/integration && python test_twemcache.py
+  - cd ..
+  - '(cd test/integration && python test_twemcache.py)'
+  - '(cd src/storage/cdb && cargo test)'
