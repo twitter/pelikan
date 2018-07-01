@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 project(pelikan C)
 
 enable_testing()
@@ -82,6 +82,26 @@ set(CFLAGS_LIST
     "-Wunused-function -Wunused-value -Wunused-variable "
     "-fno-strict-aliasing ")
 
+# (simms) What follows is a crime against build systems as we run the build/install
+# for the check library up front, during the planning phase.
+
+set(LIBCHECK_PREFIX "${CMAKE_BINARY_DIR}/check")
+
+# check for a local install of check
+if(NOT EXISTS "${LIBCHECK_PREFIX}")
+    # (simms) This is terrible and I did it this way to ensure this gets built
+    # before the rest of the 'check' tests run. This should be rewritten so that
+    # the other dependencies know that there's a target that can build check
+    execute_process(
+        COMMAND "bash" "${PROJECT_SOURCE_DIR}/ci/install-check.sh" "${LIBCHECK_PREFIX}"
+        TIMEOUT 300  # if this doesn't build in 5 minutes something is hosed
+    )
+endif()
+
+set(CHECK_ROOT_DIR "${LIBCHECK_PREFIX}")
+set(CMAKE_REQUIRED_INCLUDES "${CHECK_ROOT_DIR}/include")    # these make check link correctly in ccommon and pelikan
+set(CMAKE_REQUIRED_LIBRARIES "${CHECK_ROOT_DIR}/lib")
+
 if(${OS_PLATFORM} MATCHES "OS_LINUX")
   set(CFLAGS_LIST "${CFLAGS_LIST} -lrt")
 endif()
@@ -98,6 +118,7 @@ endif(COVERAGE)
 # dependency: libccommon
 set(CCOMMON_SOURCE_DIR "${PROJECT_SOURCE_DIR}/deps/ccommon" CACHE PATH "Path to the ccommon")
 add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
+
 # other dependencies
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
@@ -155,3 +176,4 @@ endif()
 
 # Note: to uninstall targets, run:
 #  xargs rm < install_manifest.txt
+# vim:ts=4:sw=4:et
