@@ -11,7 +11,7 @@ trap cleanup EXIT
 
 export PATH=$HOME/.cargo/bin:$PATH
 
-mkdir -p _build && ( cd _build && cmake .. && make -j && make check ) || die 'make failed'
+mkdir -p _build && ( cd _build && cmake -D BUILD_AND_INSTALL_CHECK=yes .. && make -j && make check ) || die 'make failed'
 
 egrep -r ":F:|:E:" . |grep -v 'Binary file' || true
 

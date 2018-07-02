@@ -43,6 +43,7 @@ option(TARGET_CDB "build cdb binary" ON)
 option(TARGET_RESPCLI "build resp-cli binary" ON)
 
 option(RUST_USE_MUSL "build rust deps against musl" OFF)
+option(BUILD_AND_INSTALL_CHECK "build our own version of check and link against it" OFF)
 
 option(COVERAGE "code coverage" OFF)
 
@@ -82,25 +83,27 @@ set(CFLAGS_LIST
     "-Wunused-function -Wunused-value -Wunused-variable "
     "-fno-strict-aliasing ")
 
-# (simms) What follows is a crime against build systems as we run the build/install
-# for the check library up front, during the planning phase.
+if(BUILD_AND_INSTALL_CHECK)
+    # (simms) What follows is a crime against build systems as we run the build/install
+    # for the check library up front, during the planning phase.
 
-set(LIBCHECK_PREFIX "${CMAKE_BINARY_DIR}/check")
+    set(LIBCHECK_PREFIX "${CMAKE_BINARY_DIR}/check")
 
-# check for a local install of check
-if(NOT EXISTS "${LIBCHECK_PREFIX}")
-    # (simms) This is terrible and I did it this way to ensure this gets built
-    # before the rest of the 'check' tests run. This should be rewritten so that
-    # the other dependencies know that there's a target that can build check
-    execute_process(
-        COMMAND "bash" "${PROJECT_SOURCE_DIR}/ci/install-check.sh" "${LIBCHECK_PREFIX}"
-        TIMEOUT 300  # if this doesn't build in 5 minutes something is hosed
-    )
+    # check for a local install of check
+    if(NOT EXISTS "${LIBCHECK_PREFIX}")
+        # (simms) This is terrible and I did it this way to ensure this gets built
+        # before the rest of the 'check' tests run. This should be rewritten so that
+        # the other dependencies know that there's a target that can build check
+        execute_process(
+            COMMAND "bash" "${PROJECT_SOURCE_DIR}/ci/install-check.sh" "${LIBCHECK_PREFIX}"
+            TIMEOUT 300  # if this doesn't build in 5 minutes something is hosed
+        )
+    endif()
+
+    set(CHECK_ROOT_DIR "${LIBCHECK_PREFIX}")
+    set(CMAKE_REQUIRED_INCLUDES "${CHECK_ROOT_DIR}/include")    # these make check link correctly in ccommon and pelikan
+    set(CMAKE_REQUIRED_LIBRARIES "${CHECK_ROOT_DIR}/lib")
 endif()
-
-set(CHECK_ROOT_DIR "${LIBCHECK_PREFIX}")
-set(CMAKE_REQUIRED_INCLUDES "${CHECK_ROOT_DIR}/include")    # these make check link correctly in ccommon and pelikan
-set(CMAKE_REQUIRED_LIBRARIES "${CHECK_ROOT_DIR}/lib")
 
 if(${OS_PLATFORM} MATCHES "OS_LINUX")
   set(CFLAGS_LIST "${CFLAGS_LIST} -lrt")
