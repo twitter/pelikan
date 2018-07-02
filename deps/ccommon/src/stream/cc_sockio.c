@@ -57,8 +57,9 @@ buf_tcp_read(struct buf_sock *s)
     rstatus_i status = CC_OK;
     ssize_t cap, n;
 
-    ASSERT(c != NULL && h != NULL && buf != NULL);
-    ASSERT(h->recv != NULL);
+    ASSERT(c != NULL);
+    ASSERT(buf != NULL);
+    ASSERT(h != NULL && h->recv != NULL);
 
     cap = buf_wsize(buf);
 
