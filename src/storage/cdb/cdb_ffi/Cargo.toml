@@ -1,0 +1,20 @@
+[package]
+name = "cdb_ffi"
+version = "0.1.0"
+authors = ["Jonathan D. Simms <jsimms@twitter.com>"]
+
+[dependencies]
+cdb_ccommon = { path = "../cdb_ccommon" }
+cdb_rs = { path = "../cdb_rs" }
+
+log = "~0.4"
+env_logger = "~0.5.10"
+libc = "~0.2.42"
+bytes = "~0.4"
+
+[lib]
+name = "cdb_ffi"
+crate-type = ["cdylib", "staticlib"]
+
+[build-dependencies]
+bindgen = "0.37.0"

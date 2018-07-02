@@ -39,8 +39,10 @@ option(TARGET_REDIS "build redis binary" ON)
 option(TARGET_SLIMREDIS "build slimredis binary" ON)
 option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
-
+option(TARGET_CDB "build cdb binary" ON)
 option(TARGET_RESPCLI "build resp-cli binary" ON)
+
+option(RUST_USE_MUSL "build rust deps against musl" OFF)
 
 option(COVERAGE "code coverage" OFF)
 
@@ -99,6 +101,7 @@ add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
 # other dependencies
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
+
 find_package(Check)
 if(NOT CHECK_FOUND)
     message(WARNING "Check is required to build and run tests")
@@ -111,6 +114,9 @@ if(CHECK_FOUND)
 endif(CHECK_FOUND)
 
 find_package(Threads)
+
+enable_language(Rust)
+include(CMakeCargo)
 
 #set(CMAKE_INCLUDE_CURRENT_DIR)
 include_directories(${include_directories}
@@ -137,6 +143,15 @@ message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
 
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
 message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})
+
+if(DUMP_ALL)
+    message(STATUS "<<++=====------------------\\/------------------=====++>>")
+    get_cmake_property(_variableNames VARIABLES)
+    foreach (_variableName ${_variableNames})
+        message(STATUS "${_variableName}=${${_variableName}}")
+    endforeach()
+    message(STATUS "<<++=====------------------/\\------------------=====++>>")
+endif()
 
 # Note: to uninstall targets, run:
 #  xargs rm < install_manifest.txt
