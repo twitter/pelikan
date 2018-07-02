@@ -30,21 +30,6 @@ static channel_handler_st *hdl = &handlers;
 
 struct data_processor *processor;
 
-static inline rstatus_i
-_worker_write(struct buf_sock *s)
-{
-    rstatus_i status;
-
-    log_verb("writing on buf_sock %p", s);
-
-    ASSERT(s != NULL);
-    ASSERT(s->wbuf != NULL && s->rbuf != NULL);
-
-    status = buf_tcp_write(s);
-
-    return status;
-}
-
 /* the caller only needs to check the return status of this function if
  * it previously received a write event and wants to re-register the
  * read event upon full, successful write.
@@ -52,10 +37,13 @@ _worker_write(struct buf_sock *s)
 static inline rstatus_i
 _worker_event_write(struct buf_sock *s)
 {
+    ASSERT(s != NULL);
+
     rstatus_i status;
     struct tcp_conn *c = s->ch;
 
-    status = _worker_write(s);
+    log_verb("writing on buf_sock %p", s);
+    status = buf_tcp_write(s);
     if (status == CC_ERETRY || status == CC_EAGAIN) { /* retry write */
         /* by removing current masks and only listen to write event(s), we are
          * effectively stopping processing incoming data until we can write
@@ -81,19 +69,6 @@ _worker_event_write(struct buf_sock *s)
 }
 
 static inline void
-_worker_read(struct buf_sock *s)
-{
-    log_verb("reading on buf_sock %p", s);
-
-    ASSERT(s != NULL);
-    ASSERT(s->wbuf != NULL && s->rbuf != NULL);
-
-    /* TODO(kyang): consider refactoring dbuf_tcp_read and buf_tcp_read to have no return status
-       at all, since the return status is already given by the connection state */
-    buf_tcp_read(s);
-}
-
-static inline void
 worker_close(struct buf_sock *s)
 {
     log_info("worker core close on buf_sock %p", s);
@@ -110,7 +85,10 @@ _worker_event_read(struct buf_sock *s)
 {
     ASSERT(s != NULL);
 
-    _worker_read(s);
+    log_verb("reading on buf_sock %p", s);
+    /* TODO(kyang): consider refactoring dbuf_tcp_read and buf_tcp_read to have no return status
+       at all, since the return status is already given by the connection state */
+    buf_tcp_read(s);
     if (processor->read(&s->rbuf, &s->wbuf, &s->data) < 0) {
         log_debug("handler signals channel termination");
         s->ch->state = CHANNEL_TERM;
