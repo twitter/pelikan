@@ -89,6 +89,8 @@ struct timeout {
 
 /* update duration */
 void duration_reset(struct duration *d);
+/* get a reading of duration and copy it without stopping the original timer */
+void duration_snapshot(struct duration *s, const struct duration *d);
 void duration_start(struct duration *d);
 void duration_stop(struct duration *d);
 /* read duration */

@@ -16,11 +16,13 @@
   <stdint.h>. However, when interfacing with system calls and libraries
   you cannot get away from using int and char.
 - Use bool for boolean variables. You have to include <stdbool.h>
-- Avoid using a bool as type for struct member names. Instead use unsigned
-  1-bit bit field. Eg:
+- If memory usage or alignment is a concern, avoid using a bool as type for
+  struct member names. Instead use unsigned 1-bit bit field. e.g.
   struct foo {
       unsigned is_bar:1;
   };
+  However, if neither memory usage or alignment will be significantly impacted
+  by the struct, opt for using bool for the sake of readability.
 - Always use size_t type when dealing with sizes of objects or memory ranges.
 - Your code should be 64-bit and 32-bit friendly. Bear in mind problems
   of printing, comparisons, and structure alignment. You have to include

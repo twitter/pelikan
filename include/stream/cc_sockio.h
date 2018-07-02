@@ -48,6 +48,7 @@ extern "C" {
 #include <cc_stream.h>
 
 #include <cc_define.h>
+#include <cc_metric.h>
 
 #include <inttypes.h>
 #include <stdlib.h>
@@ -61,6 +62,21 @@ extern "C" {
 typedef struct {
     SOCKIO_OPTION(OPTION_DECLARE)
 } sockio_options_st;
+
+/*          name                type            description */
+#define SOCKIO_METRIC(ACTION)                                                   \
+    ACTION( buf_sock_create,    METRIC_COUNTER, "# buf sock created"           )\
+    ACTION( buf_sock_create_ex, METRIC_COUNTER, "# buf sock create exceptions" )\
+    ACTION( buf_sock_destroy,   METRIC_COUNTER, "# buf sock destroyed"         )\
+    ACTION( buf_sock_curr,      METRIC_GAUGE,   "# buf sock allocated"         )\
+    ACTION( buf_sock_borrow,    METRIC_COUNTER, "# buf sock borrowed"          )\
+    ACTION( buf_sock_borrow_ex, METRIC_COUNTER, "# buf sock borrow exceptions" )\
+    ACTION( buf_sock_return,    METRIC_COUNTER, "# buf sock returned"          )\
+    ACTION( buf_sock_active,    METRIC_GAUGE,   "# buf sock being borrowed"    )
+
+typedef struct {
+    SOCKIO_METRIC(METRIC_DECLARE)
+} sockio_metrics_st;
 
 struct buf_sock {
     /* these fields are useful for resource managmenet */
@@ -79,7 +95,7 @@ struct buf_sock {
 
 STAILQ_HEAD(buf_sock_sqh, buf_sock); /* corresponding header type for the STAILQ */
 
-void sockio_setup(sockio_options_st *options);
+void sockio_setup(sockio_options_st *options, sockio_metrics_st *metrics);
 void sockio_teardown(void);
 
 struct buf_sock *buf_sock_create(void);     /* stream_get_fn */

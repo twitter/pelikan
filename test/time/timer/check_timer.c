@@ -31,18 +31,25 @@ START_TEST(test_duration)
 {
 #define DURATION_NS 100000
 
-    struct duration d;
-    double d_ns, d_us, d_ms, d_sec;
+    struct duration d, s;
+    double d_ns, d_us, d_ms, d_sec, s_ns;
     struct timespec ts = (struct timespec){0, DURATION_NS};
 
     duration_reset(&d);
     duration_start(&d);
     nanosleep(&ts, NULL);
+    duration_snapshot(&s, &d);
+
+    /* snapshot is as expected */
+    s_ns = duration_ns(&s);
+    ck_assert_uint_ge((unsigned int)s_ns, DURATION_NS);
+
+    nanosleep(&ts, NULL);
     duration_stop(&d);
 
-    /* duration is as expected */
+    /* final duration is as expected */
     d_ns = duration_ns(&d);
-    ck_assert_uint_ge((unsigned int)d_ns, DURATION_NS);
+    ck_assert_uint_ge((unsigned int)d_ns, 2 * DURATION_NS);
 
     /* readings of different units are consistent */
     d_us = duration_us(&d);
