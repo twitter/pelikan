@@ -1,7 +1,6 @@
 #include "process.h"
 
 #include "protocol/data/memcache_include.h"
-#include "storage/slab/slab.h"
 #include "storage/cdb/cdb.h"
 
 #include <cc_array.h>
@@ -39,17 +38,16 @@ process_setup(process_options_st *options, process_metrics_st *metrics, struct C
                  CDB_PROCESS_MODULE_NAME);
     }
 
+    if (handle == NULL) {
+        log_panic("cdb_handle was null, cannot continue");
+    }
+    cdb_handle = handle;
+
     process_metrics = metrics;
 
     if (options != NULL) {
         allow_flush = option_bool(&options->allow_flush);
     }
-
-    if (handle == NULL) {
-        log_crit("handle argument was null! wth?!");
-        // TODO(simms): how do i die here?
-    }
-    cdb_handle = handle;
 
     process_init = true;
 }
@@ -72,8 +70,6 @@ process_teardown(void)
     process_metrics = NULL;
     process_init = false;
 }
-
-
 
 static bool
 _get_key(struct response *rsp, struct bstring *key)
@@ -489,9 +485,6 @@ cdb_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
     /* release request data & associated reserved data */
     if (req != NULL) {
         rsp = req->rsp;
-        if (req->reserved != NULL) {
-            item_release((struct item **)&req->reserved);
-        }
         request_return(&req);
         response_return_all(&rsp);
     }

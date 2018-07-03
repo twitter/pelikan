@@ -35,9 +35,8 @@ show_usage(void)
     log_stdout(
             "Description:" CRLF
             "  pelikan_cdb is one of the unified cache backends. " CRLF
-            "  It uses a slab-based storage to cache key/val pairs. " CRLF
-            "  It speaks the memcached ASCII protocol and supports almost " CRLF
-            "  all ASCII memcached commands." CRLF
+            "  It uses djb's CDB format (a read-only data store) to cache key/val pairs. " CRLF
+            "  It speaks the memcached ASCII protocol and supports the get command. " CRLF
             );
     log_stdout(
             "Command-line options:" CRLF

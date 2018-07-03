@@ -39,7 +39,6 @@ struct setting {
     klog_options_st         klog;
     request_options_st      request;
     response_options_st     response;
-    slab_options_st         slab;
     /* ccommon libraries */
     array_options_st        array;
     buf_options_st          buf;

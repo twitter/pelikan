@@ -39,7 +39,7 @@ option(TARGET_REDIS "build redis binary" ON)
 option(TARGET_SLIMREDIS "build slimredis binary" ON)
 option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
-option(TARGET_CDB "build cdb binary" ON)
+option(TARGET_CDB "build cdb binary" OFF)
 option(TARGET_RESPCLI "build resp-cli binary" ON)
 
 option(RUST_USE_MUSL "build rust deps against musl" OFF)

@@ -8,7 +8,6 @@ struct stats stats = {
     { KLOG_METRIC(METRIC_INIT)          },
     { REQUEST_METRIC(METRIC_INIT)       },
     { RESPONSE_METRIC(METRIC_INIT)      },
-    { SLAB_METRIC(METRIC_INIT)          },
     { CORE_SERVER_METRIC(METRIC_INIT)   },
     { CORE_WORKER_METRIC(METRIC_INIT)   },
     { BUF_METRIC(METRIC_INIT)           },
@@ -20,4 +19,4 @@ struct stats stats = {
     { TIMING_WHEEL_METRIC(METRIC_INIT)  },
 };
 
-unsigned int nmetric = METRIC_CARDINALITY(stats);
+unsigned int nmetric = METRIC_CARDINALITY(struct stats);
