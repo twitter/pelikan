@@ -15,13 +15,6 @@
 #define CMD_ERR_MSG         "command not supported"
 #define OTHER_ERR_MSG       "unknown server error"
 
-
-typedef enum put_rstatus {
-    PUT_OK,
-    PUT_PARTIAL,
-    PUT_ERROR,
-} put_rstatus_t;
-
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
 static bool allow_flush = ALLOW_FLUSH;
@@ -161,93 +154,12 @@ _process_gets(struct response *rsp, struct request *req)
 }
 
 static void
-_process_delete(struct response *rsp, struct request *req)
+_process_invalid(struct response *rsp, struct request *req)
 {
-    INCR(process_metrics, delete);
+    INCR(process_metrics, invalid);
     rsp->type = RSP_CLIENT_ERROR;
     rsp->vstr = str2bstr(CMD_ERR_MSG);
-    log_verb("delete req %p processed, rsp type %d", req, rsp->type);
-}
-
-/*
- * for set/add/replace/cas, we have to recover key from the reserved item,
- * because the keys field in the request are only valid for the first segment
- * of the request buffer. Once we move to later segments, the areas pointed to
- * by these pointers will be overwritten.
- */
-static void
-_process_set(struct response *rsp, struct request *req)
-{
-    INCR(process_metrics, set);
-    INCR(process_metrics, set_ex);
-    rsp->type = RSP_CLIENT_ERROR;
-    rsp->vstr = str2bstr(CMD_ERR_MSG);
-    log_verb("set req %p processed, rsp type %d", req, rsp->type);
-}
-
-static void
-_process_add(struct response *rsp, struct request *req)
-{
-    INCR(process_metrics, add_ex);
-    rsp->type = RSP_CLIENT_ERROR;
-    rsp->vstr = str2bstr(CMD_ERR_MSG);
-    log_verb("add req %p processed, rsp type %d", req, rsp->type);
-}
-
-static void
-_process_replace(struct response *rsp, struct request *req)
-{
-    INCR(process_metrics, replace_ex);
-    rsp->type = RSP_CLIENT_ERROR;
-    rsp->vstr = str2bstr(CMD_ERR_MSG);
-    log_verb("replace req %p processed, rsp type %d", req, rsp->type);
-}
-
-static void
-_process_cas(struct response *rsp, struct request *req)
-{
-    INCR(process_metrics, cas_ex);
-    rsp->type = RSP_CLIENT_ERROR;
-    rsp->vstr = str2bstr(CMD_ERR_MSG);
-    log_verb("cas req %p processed, rsp type %d", req, rsp->type);
-}
-
-static void
-_process_incr(struct response *rsp, struct request *req)
-{
-    INCR(process_metrics, incr);
-    INCR(process_metrics, incr_ex);
-    rsp->type = RSP_CLIENT_ERROR;
-    rsp->vstr = str2bstr(CMD_ERR_MSG);
-    log_verb("incr req %p processed, rsp type %d", req, rsp->type);
-}
-
-static void
-_process_decr(struct response *rsp, struct request *req)
-{
-    INCR(process_metrics, decr);
-    INCR(process_metrics, decr_ex);
-    rsp->type = RSP_CLIENT_ERROR;
-    rsp->vstr = str2bstr(CMD_ERR_MSG);
-    log_verb("decr req %p processed, rsp type %d", req, rsp->type);
-}
-
-static void
-_process_append(struct response *rsp, struct request *req)
-{
-    INCR(process_metrics, append_ex);
-    rsp->type = RSP_CLIENT_ERROR;
-    rsp->vstr = str2bstr(CMD_ERR_MSG);
-    log_verb("append req %p processed, rsp type %d", req, rsp->type);
-}
-
-static void
-_process_prepend(struct response *rsp, struct request *req)
-{
-    INCR(process_metrics, prepend_ex);
-    rsp->type = RSP_CLIENT_ERROR;
-    rsp->vstr = str2bstr(CMD_ERR_MSG);
-    log_verb("prepend req %p processed, rsp type %d", req, rsp->type);
+    log_verb("req %p processed, rsp type %d", req, rsp->type);
 }
 
 static void
@@ -274,49 +186,12 @@ process_request(struct response *rsp, struct request *req)
         _process_gets(rsp, req);
         break;
 
-    case REQ_DELETE:
-        _process_delete(rsp, req);
-        break;
-
-    case REQ_SET:
-        _process_set(rsp, req);
-        break;
-
-    case REQ_ADD:
-        _process_add(rsp, req);
-        break;
-
-    case REQ_REPLACE:
-        _process_replace(rsp, req);
-        break;
-
-    case REQ_CAS:
-        _process_cas(rsp, req);
-        break;
-
-    case REQ_INCR:
-        _process_incr(rsp, req);
-        break;
-
-    case REQ_DECR:
-        _process_decr(rsp, req);
-        break;
-
-    case REQ_APPEND:
-        _process_append(rsp, req);
-        break;
-
-    case REQ_PREPEND:
-        _process_prepend(rsp, req);
-        break;
-
     case REQ_FLUSH:
         _process_flush(rsp, req);
         break;
 
     default:
-        rsp->type = RSP_CLIENT_ERROR;
-        rsp->vstr = str2bstr(CMD_ERR_MSG);
+        _process_invalid(rsp, req);
         break;
     }
 }
