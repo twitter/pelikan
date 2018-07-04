@@ -22,8 +22,9 @@
 
 #define SLEEP_CONN_USEC 10000 /* sleep for 10ms on out-of-stream-object error */
 
-struct pipe_conn *pipe_c = NULL;
-struct ring_array *conn_arr = NULL;
+struct pipe_conn *pipe_c = NULL;     /* bidirectional */
+struct ring_array *conn_new = NULL;  /* server(w) -> worker(r) */
+struct ring_array *conn_term = NULL; /* worker(w) -> server(r) */
 
 static server_metrics_st *server_metrics = NULL;
 
@@ -59,11 +60,39 @@ _server_pipe_write(void)
         log_verb("server core: retry send on pipe");
         event_add_write(ctx->evb, pipe_write_id(pipe_c), NULL);
     } else if (status == CC_ERROR) {
-        /* other reasn write can't be done */
         log_error("could not write to pipe - %s", strerror(pipe_c->err));
     }
+}
 
-    /* else, pipe write succeeded and no action needs to be taken */
+/* pipe_read recycles returned streams from worker thread */
+static inline void
+_server_pipe_read(void)
+{
+    struct buf_sock *s;
+    char buf[RING_ARRAY_DEFAULT_CAP]; /* buffer for discarding pipe data */
+    int i;
+    rstatus_i status;
+
+    ASSERT(pipe_c != NULL);
+
+    i = pipe_recv(pipe_c, buf, RING_ARRAY_DEFAULT_CAP);
+    if (i < 0) { /* errors, do not read from ring array */
+        log_warn("not reclaiming connections due to pipe error");
+        return;
+    }
+
+    /* each byte in the pipe corresponds to a connection in the array */
+    for (; i > 0; --i) {
+        status = ring_array_pop(&s, conn_term);
+        if (status != CC_OK) {
+            log_warn("event number does not match conn queue: missing %d conns",
+                    i);
+            return;
+        }
+        log_verb("Recycling buf_sock %p from worker thread", s);
+        hdl->term(s->ch);
+        buf_sock_return(&s);
+    }
 }
 
 /* returns true if a connection is present, false if no more pending */
@@ -122,8 +151,8 @@ _tcp_accept(struct buf_sock *ss)
     }
 
     /* push buf_sock to queue */
-    ring_array_push(&s, conn_arr);
-
+    ring_array_push(&s, conn_new);
+    /* notify worker, note this may fail and will be retried via write event */
     _server_pipe_write();
 
     return true;
@@ -143,30 +172,33 @@ static void
 _server_event(void *arg, uint32_t events)
 {
     struct buf_sock *s = arg;
+    log_verb("server event %06"PRIX32" with data %p", events, s);
 
-    log_verb("server event %06"PRIX32" on buf_sock %p", events, s);
-
-    if (events & EVENT_ERR) {
-        INCR(server_metrics, server_event_error);
-        _server_close(s);
-
-        return;
-    }
-
-    if (events & EVENT_READ) {
-        log_verb("processing server read event on buf_sock %p", s);
-
-        INCR(server_metrics, server_event_read);
-        _server_event_read(s);
-    }
-
-    if (events & EVENT_WRITE) {
-        /* the only server write event is write on pipe */
-
-        log_verb("processing server write event");
-        _server_pipe_write();
-
-        INCR(server_metrics, server_event_write);
+    if (s == NULL) { /* event on pipe_c */
+        if (events & EVENT_READ) { /* terminating connection from worker */
+            log_verb("processing server read event on pipe");
+            INCR(server_metrics, server_event_read);
+            _server_pipe_read();
+        } else if (events & EVENT_WRITE) { /* retrying worker notification */
+            log_verb("processing server write event on pipe");
+            INCR(server_metrics, server_event_write);
+            _server_pipe_write();
+        } else { /* EVENT_ERR */
+            log_debug("processing server error event on pipe");
+            INCR(server_metrics, server_event_error);
+        }
+    } else { /* event on listening socket */
+        if (events & EVENT_READ) {
+            log_verb("processing server read event on buf_sock %p", s);
+            INCR(server_metrics, server_event_read);
+            _server_event_read(s);
+        } else if (events & EVENT_ERR) { /* effectively refusing new conn */
+            /* TODO: shall we retry bind and listen ? */
+            log_debug("processing server error event on listening socket");
+            _server_close(s);
+        } else {
+            NOT_REACHED();
+        }
     }
 }
 
@@ -209,9 +241,10 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
 
     pipe_set_nonblocking(pipe_c);
 
-    conn_arr = ring_array_create(sizeof(struct buf_sock *), RING_ARRAY_DEFAULT_CAP);
-    if (conn_arr == NULL) {
-        log_error("core setup failed: could not allocate conn array");
+    conn_new = ring_array_create(sizeof(struct buf_sock *), RING_ARRAY_DEFAULT_CAP);
+    conn_term = ring_array_create(sizeof(struct buf_sock *), RING_ARRAY_DEFAULT_CAP);
+    if (conn_new == NULL || conn_term == NULL) {
+        log_error("core setup failed: could not allocate conn array(s)");
         goto error;
     }
 
@@ -223,7 +256,7 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
     }
 
     hdl->accept = (channel_accept_fn)tcp_accept;
-    hdl->reject = (channel_reject_fn)tcp_reject;
+    hdl->reject = (channel_reject_fn)tcp_reject_all;
     hdl->open = (channel_open_fn)tcp_listen;
     hdl->term = (channel_term_fn)tcp_close;
     hdl->recv = (channel_recv_fn)tcp_recv;
@@ -280,7 +313,8 @@ core_server_teardown(void)
         freeaddrinfo(server_ai);
         buf_sock_return(&server_sock);
     }
-    ring_array_destroy(conn_arr);
+    ring_array_destroy(conn_new);
+    ring_array_destroy(conn_term);
     pipe_conn_destroy(&pipe_c);
     server_metrics = NULL;
     server_init = false;
