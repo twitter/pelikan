@@ -44,7 +44,10 @@ extern "C" {
 
 /* behavior undefined if there isn't enough space in buf */
 size_t cc_print_uint64_unsafe(char *buf, uint64_t n);
+size_t cc_print_int64_unsafe(char *buf, int64_t n);
+
 size_t cc_print_uint64(char *buf, size_t size, uint64_t n);
+size_t cc_print_int64(char *buf, size_t size, int64_t n);
 
 size_t _scnprintf(char *buf, size_t size, const char *fmt, ...);
 size_t _vscnprintf(char *buf, size_t size, const char *fmt, va_list args);

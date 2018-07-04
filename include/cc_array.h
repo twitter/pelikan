@@ -46,7 +46,7 @@ struct array {
     uint32_t nalloc;    /* # allocated element */
     size_t   size;      /* element size */
     uint32_t nelem;     /* # element */
-    void     *data;     /* elements */
+    uint8_t  *data;     /* elements */
 };
 
 
@@ -93,7 +93,7 @@ array_data_assign(struct array *arr, uint32_t nalloc, size_t size, void *data)
  * element is out of bounds, return -1.
  */
 static inline int
-array_locate(struct array *arr, void *elem) {
+array_locate(struct array *arr, uint8_t *elem) {
     int idx;
 
     idx = (elem - arr->data) / arr->size;

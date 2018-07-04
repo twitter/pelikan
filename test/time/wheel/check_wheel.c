@@ -116,7 +116,7 @@ END_TEST
 
 START_TEST(test_timing_wheel_recur)
 {
-#define TICK_NS 10000000
+#define TICK_NS 50000000
 #define NSLOT 3
 #define NTICK 2
 
@@ -136,11 +136,13 @@ START_TEST(test_timing_wheel_recur)
 
     timing_wheel_insert(tw, &delay, true, _incr_cb, &i);
 
-    nanosleep(&ts, NULL);
+    /* tick unchanged */
     timing_wheel_execute(tw);
     ck_assert_int_eq(tw->nprocess, 0);
     ck_assert_int_eq(tw->nevent, 1);
 
+    /* next 2 tick */
+    nanosleep(&ts, NULL);
     nanosleep(&ts, NULL);
     timing_wheel_execute(tw);
     ck_assert_int_eq(tw->nevent, 1);
@@ -152,6 +154,7 @@ START_TEST(test_timing_wheel_recur)
     ck_assert_int_eq(tw->nprocess, 2);
     ck_assert_int_eq(i, 2);
 
+    /* flush events */
     timing_wheel_stop(tw);
     timing_wheel_flush(tw);
     ck_assert_int_eq(tw->nevent, 0);

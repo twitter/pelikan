@@ -128,7 +128,8 @@ ssize_t tcp_recvv(struct tcp_conn *c, struct array *bufv, size_t nbyte);
 ssize_t tcp_sendv(struct tcp_conn *c, struct array *bufv, size_t nbyte);
 
 bool tcp_accept(struct tcp_conn *sc, struct tcp_conn *c);   /* channel_accept_fn */
-void tcp_reject(struct tcp_conn *sc);                   /* channel_reject_fn */
+void tcp_reject(struct tcp_conn *sc);                       /* channel_reject_fn */
+void tcp_reject_all(struct tcp_conn *sc);                   /* channel_reject_fn */
 
 /* functions getting/setting connection attribute */
 int tcp_set_blocking(int sd);
