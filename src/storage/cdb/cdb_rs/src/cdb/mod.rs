@@ -1,14 +1,15 @@
+pub use self::errors::CDBError;
+
 use bytes::{Buf, Bytes, IntoBuf};
+use std::cmp;
 use std::fmt;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::result;
 
 pub mod errors;
 pub mod input;
 pub mod storage;
-
-pub use self::errors::CDBError;
 
 pub const STARTING_HASH: u32 = 5381;
 const MAIN_TABLE_SIZE: usize = 256;
@@ -192,9 +193,7 @@ impl<'a> CDB<'a> {
         Ok(KVRef { k, v })
     }
 
-    pub fn get<'b, T>(&self, key: &[u8], mut buf: T) -> Result<Option<usize>>
-    where
-        T: Write,
+    pub fn get(&self, key: &[u8], buf: &mut[u8]) -> Result<Option<usize>>
     {
         let key = key.into();
         let hash = CDBHash::new(key);
@@ -216,9 +215,9 @@ impl<'a> CDB<'a> {
                 return Ok(None);
             } else if idx_ent.hash == hash {
                 let kv = self.get_kv_ref(idx_ent)?;
+                // TODO: this is incorrect handling of the buffer! shit!
                 if &kv.k[..] == key {
-                    buf.write_all(&kv.k[..]).unwrap();
-                    return Ok(Some(kv.k.len()));
+                    return Ok(Some(copy_slice(buf, kv.v)));
                 } else {
                     continue;
                 }
@@ -229,37 +228,29 @@ impl<'a> CDB<'a> {
     }
 }
 
+#[inline]
+fn copy_slice(dst: &mut [u8], src: &[u8]) -> usize {
+    let n = cmp::min(dst.len(), src.len());
+    dst[0..n].copy_from_slice(&src[0..n]);
+    n
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use env_logger;
-    use proptest::collection::vec;
-    use proptest::prelude::*;
-    use proptest::string;
     use std::collections::hash_set;
-    use std::fs::File;
     use std::fs::remove_file;
-    use std::io::{BufRead, BufReader};
-    use std::path::Path;
     use std::path::PathBuf;
+    use super::*;
     use tempfile::NamedTempFile;
     use tinycdb::Cdb as TCDB;
 
-    fn arb_string_slice<'a>() -> BoxedStrategy<Vec<String>> {
-        let st = string::string_regex("[a-z]+").unwrap();
-        vec(st, 10..1000).boxed()
-    }
-
-    struct QueryResult(String, Option<String>);
-
-    #[allow(dead_code)]
     fn create_temp_cdb<'a>(kvs: &Vec<(String, String)>) -> Result<Box<[u8]>> {
         let path: PathBuf;
 
         {
             let ntf = NamedTempFile::new()?;
             remove_file(ntf.path())?;
-            path = ntf.path().to_owned();
+            path = ntf.path().to_path_buf();
         }
 
         let mut dupcheck = hash_set::HashSet::new();
@@ -280,84 +271,35 @@ mod tests {
         load_bytes_at_path(path.to_str().unwrap())
     }
 
-    proptest! {
-        #[test]
-        fn qc_key_and_value_retrieval(ref xs in arb_string_slice()) {
-            let slc = make_temp_cdb_single_vals(&xs);
-            let cdb = CDB::new(&slc);
-
-            for QueryResult(q, r) in read_keys(&cdb, &xs) {
-                prop_assert_eq!(
-                    Some(q),
-                    r
-                );
-            }
-        }
-    }
-
-    type QueryResultIter<'a> = Box<Iterator<Item = QueryResult> + 'a>;
-
-    fn read_keys<'a>(cdb: &'a CDB, xs: &'a Vec<String>) -> QueryResultIter<'a> {
-        Box::new(xs.iter().map(move |x| {
-            let mut buf = Vec::with_capacity(1024 * 1024);
-            let res = cdb.get(x.as_ref(), &mut buf).unwrap();
-            QueryResult(x.clone(), res.map(|_| String::from_utf8(buf).unwrap()))
-        }))
-    }
-
-    #[allow(dead_code)]
-    fn make_temp_cdb_single_vals(xs: &Vec<String>) -> Box<[u8]> {
-        let kvs: Vec<(String, String)> = xs.iter().map(|k| (k.to_owned(), k.to_owned())).collect();
-        create_temp_cdb(&kvs).unwrap()
-    }
 
     #[test]
-    fn read_small_list() {
-        env_logger::try_init().unwrap();
+    fn round_trip_test() {
+        let kvs: Vec<(String, String)> = vec![
+            ("abc", "def"),
+            ("pink", "red"),
+            ("apple", "grape"),
+            ("q", "burp"),
+        ].iter()
+            .map(|(k,v)| (k.to_string(), v.to_string()))
+            .collect();
 
-        let strings = vec![
-            "shngcmfkqjtvhnbgfcvbm",
-            "qjflpsvacyhsgxykbvarbvmxapufmdt",
-            "a",
-            "a",
-            "a",
-            "a",
-            "a",
-            "a",
-            "xfjhaqjkcjiepmcbhopgpxwwth",
-            "a",
-            "a",
-        ];
-        let arg = strings.iter().map(|s| (*s).to_owned()).collect();
+        let data = create_temp_cdb(&kvs).unwrap();
 
-        let hw = make_temp_cdb_single_vals(&arg);
-        let cdb = CDB { data: &hw };
+        let cdb = CDB { data: &data };
 
-        for QueryResult(q, r) in read_keys(&cdb, &arg) {
-            assert_eq!(Some(q), r);
-        }
-    }
-
-    #[test]
-    fn test_with_dictionary() {
-        let mut args: Vec<String> = Vec::new();
-
-        {
-            let f = File::open(Path::new("/usr/share/dict/words")).unwrap();
-            let bufr = BufReader::new(&f);
-
-            for line in bufr.lines() {
-                let word = line.unwrap();
-                args.push(word.to_owned());
-            }
+        for (k, v) in kvs {
+            let mut buf = Vec::new();
+            buf.resize(10, 0u8);
+            
+            let n = cdb.get(k.as_bytes(), &mut buf[..]).unwrap().unwrap();
+            assert_eq!(n, v.len());
+            assert_eq!(&buf[0..n], v.as_bytes())
         }
 
-        let cdb = CDB {
-            data: &make_temp_cdb_single_vals(&args),
-        };
+        let mut buf = Vec::new();
+        buf.resize(10, 0u8);
 
-        for QueryResult(q, r) in read_keys(&cdb, &args) {
-            assert_eq!(Some(q), r);
-        }
+        let r = cdb.get("1233".as_bytes(), &mut buf[..]).unwrap();
+        assert!(r.is_none());
     }
 }

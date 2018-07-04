@@ -7,7 +7,6 @@ extern crate clap;
 
 // dev dependencies
 #[cfg(test)] extern crate tempfile;
-#[cfg(test)] #[macro_use] extern crate proptest;
 #[cfg(test)] extern crate tinycdb;
 
 pub mod cdb;
