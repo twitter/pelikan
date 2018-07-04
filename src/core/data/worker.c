@@ -106,7 +106,7 @@ worker_add_stream(void)
      * for the next read event in that case.
      */
 
-    i = pipe_recv(pipe_c, buf, RING_ARRAY_DEFAULT_CAP);
+    i = pipe_recv(pipe_new, buf, RING_ARRAY_DEFAULT_CAP);
     if (i < 0) { /* errors, do not read from ring array */
         log_warn("not adding new connections due to pipe error");
         return;
@@ -132,16 +132,16 @@ worker_add_stream(void)
 static inline void
 _worker_pipe_write(void)
 {
-    ASSERT(pipe_c != NULL);
+    ASSERT(pipe_term != NULL);
 
-    ssize_t status = pipe_send(pipe_c, "", 1);
+    ssize_t status = pipe_send(pipe_term, "", 1);
 
     if (status == 0 || status == CC_EAGAIN) {
         /* retry write */
         log_verb("server core: retry send on pipe");
-        event_add_write(ctx->evb, pipe_write_id(pipe_c), NULL);
+        event_add_write(ctx->evb, pipe_write_id(pipe_term), NULL);
     } else if (status == CC_ERROR) {
-        log_error("could not write to pipe - %s", strerror(pipe_c->err));
+        log_error("could not write to pipe - %s", strerror(pipe_term->err));
     }
 }
 
@@ -168,7 +168,7 @@ _worker_event(void *arg, uint32_t events)
     struct buf_sock *s = arg;
     log_verb("worker event %06"PRIX32" with data %p", events, s);
 
-    if (s == NULL) { /* event on pipe_c */
+    if (s == NULL) { /* event on pipe */
         if (events & EVENT_READ) { /* new connection from server */
             INCR(worker_metrics, worker_event_read);
             worker_add_stream();
@@ -254,7 +254,7 @@ core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
     hdl->rid = (channel_id_fn)tcp_read_id;
     hdl->wid = (channel_id_fn)tcp_write_id;
 
-    event_add_read(ctx->evb, pipe_read_id(pipe_c), NULL);
+    event_add_read(ctx->evb, pipe_read_id(pipe_new), NULL);
 
     worker_init = true;
 }

@@ -22,7 +22,8 @@
 
 #define SLEEP_CONN_USEC 10000 /* sleep for 10ms on out-of-stream-object error */
 
-struct pipe_conn *pipe_c = NULL;     /* bidirectional */
+struct pipe_conn *pipe_new = NULL;   /* server(w) -> worker(r) */
+struct pipe_conn *pipe_term = NULL;  /* worker(w) -> server(r) */
 struct ring_array *conn_new = NULL;  /* server(w) -> worker(r) */
 struct ring_array *conn_term = NULL; /* worker(w) -> server(r) */
 
@@ -51,16 +52,16 @@ _server_close(struct buf_sock *s)
 static inline void
 _server_pipe_write(void)
 {
-    ASSERT(pipe_c != NULL);
+    ASSERT(pipe_new != NULL);
 
-    ssize_t status = pipe_send(pipe_c, "", 1);
+    ssize_t status = pipe_send(pipe_new, "", 1);
 
     if (status == 0 || status == CC_EAGAIN) {
         /* retry write */
         log_verb("server core: retry send on pipe");
-        event_add_write(ctx->evb, pipe_write_id(pipe_c), NULL);
+        event_add_write(ctx->evb, pipe_write_id(pipe_new), NULL);
     } else if (status == CC_ERROR) {
-        log_error("could not write to pipe - %s", strerror(pipe_c->err));
+        log_error("could not write to pipe - %s", strerror(pipe_new->err));
     }
 }
 
@@ -73,9 +74,9 @@ _server_pipe_read(void)
     int i;
     rstatus_i status;
 
-    ASSERT(pipe_c != NULL);
+    ASSERT(pipe_term != NULL);
 
-    i = pipe_recv(pipe_c, buf, RING_ARRAY_DEFAULT_CAP);
+    i = pipe_recv(pipe_term, buf, RING_ARRAY_DEFAULT_CAP);
     if (i < 0) { /* errors, do not read from ring array */
         log_warn("not reclaiming connections due to pipe error");
         return;
@@ -174,7 +175,7 @@ _server_event(void *arg, uint32_t events)
     struct buf_sock *s = arg;
     log_verb("server event %06"PRIX32" with data %p", events, s);
 
-    if (s == NULL) { /* event on pipe_c */
+    if (s == NULL) { /* event on pipe */
         if (events & EVENT_READ) { /* terminating connection from worker */
             log_verb("processing server read event on pipe");
             INCR(server_metrics, server_event_read);
@@ -228,21 +229,32 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
     }
 
     /* setup shared data structures between server and worker */
-    pipe_c = pipe_conn_create();
-    if (pipe_c == NULL) {
+    pipe_new = pipe_conn_create();
+    pipe_term = pipe_conn_create();
+    if (pipe_new == NULL || pipe_term == NULL) {
         log_error("Could not create connection for pipe, abort");
         goto error;
     }
 
-    if (!pipe_open(NULL, pipe_c)) {
-        log_error("Could not open pipe connection: %s", strerror(pipe_c->err));
+    if (!pipe_open(NULL, pipe_new)) {
+        log_error("Could not open pipe for new connection: %s",
+                strerror(pipe_new->err));
+        goto error;
+    }
+    if (!pipe_open(NULL, pipe_term)) {
+        log_error("Could not open pipe for terminated connection: %s",
+                strerror(pipe_term->err));
         goto error;
     }
 
-    pipe_set_nonblocking(pipe_c);
 
-    conn_new = ring_array_create(sizeof(struct buf_sock *), RING_ARRAY_DEFAULT_CAP);
-    conn_term = ring_array_create(sizeof(struct buf_sock *), RING_ARRAY_DEFAULT_CAP);
+    pipe_set_nonblocking(pipe_new);
+    pipe_set_nonblocking(pipe_term);
+
+    conn_new = ring_array_create(sizeof(struct buf_sock *),
+            RING_ARRAY_DEFAULT_CAP);
+    conn_term = ring_array_create(sizeof(struct buf_sock *),
+            RING_ARRAY_DEFAULT_CAP);
     if (conn_new == NULL || conn_term == NULL) {
         log_error("core setup failed: could not allocate conn array(s)");
         goto error;
@@ -292,6 +304,7 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
     c->level = CHANNEL_META;
 
     event_add_read(ctx->evb, hdl->rid(c), server_sock);
+    event_add_read(ctx->evb, pipe_read_id(pipe_term), NULL);
 
     server_init = true;
 
@@ -313,9 +326,10 @@ core_server_teardown(void)
         freeaddrinfo(server_ai);
         buf_sock_return(&server_sock);
     }
-    ring_array_destroy(conn_new);
     ring_array_destroy(conn_term);
-    pipe_conn_destroy(&pipe_c);
+    ring_array_destroy(conn_new);
+    pipe_conn_destroy(&pipe_term);
+    pipe_conn_destroy(&pipe_new);
     server_metrics = NULL;
     server_init = false;
 }
