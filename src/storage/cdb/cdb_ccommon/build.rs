@@ -3,8 +3,7 @@ extern crate bindgen;
 use std::env;
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
-use std::fs::File;
+use std::path::PathBuf;
 use std::io::prelude::*;
 
 fn get_cmake_binary_dir() -> io::Result<String> {
@@ -33,8 +32,6 @@ fn main() {
     lib_dir.push("lib");
 
     println!("cargo:rustc-link-search-native={}", lib_dir.to_str().unwrap());
-
-    // XXX: assume _build dir at pelikan top level
 
     let bindings = bindgen::Builder::default()
         .clang_args(vec![
