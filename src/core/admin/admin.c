@@ -50,7 +50,7 @@ _tcp_accept(struct buf_sock *ss)
     struct buf_sock *s;
     struct tcp_conn *sc = ss->ch;
 
-    s = buf_sock_create();
+    s = buf_sock_create(); /* admin thread: always directly create not borrow */
     if (s == NULL) {
         log_error("establish connection failed: cannot allocate buf_sock, "
                 "reject connection request");

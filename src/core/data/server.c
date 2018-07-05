@@ -36,6 +36,13 @@ static channel_handler_st *hdl = &handlers;
 static struct addrinfo *server_ai;
 static struct buf_sock *server_sock; /* server buf_sock */
 
+/* Note: server thread currently owns the stream (buf_sock) pool. Other threads
+ * either need to get the connection from server (the case for worker thread) or
+ * have to directly create their own, instead of borrowing (the case for admin
+ * thread), to avoid concurrency issues around pooling operations, which are not
+ * thread-safe.
+ */
+
 static inline void
 _server_close(struct buf_sock *s)
 {
