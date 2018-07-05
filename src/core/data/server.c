@@ -20,8 +20,6 @@
 
 #define SERVER_MODULE_NAME "core::server"
 
-#define SLEEP_CONN_USEC 10000 /* sleep for 10ms on out-of-stream-object error */
-
 struct pipe_conn *pipe_new = NULL;   /* server(w) -> worker(r) */
 struct pipe_conn *pipe_term = NULL;  /* worker(w) -> server(r) */
 struct ring_array *conn_new = NULL;  /* server(w) -> worker(r) */
@@ -142,7 +140,6 @@ _tcp_accept(struct buf_sock *ss)
         log_error("establish connection failed: cannot allocate buf_sock, "
                 "reject connection request");
         ss->hdl->reject(sc); /* server rejects connection by closing it */
-        usleep(SLEEP_CONN_USEC);
         return false;
     }
 

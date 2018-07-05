@@ -41,7 +41,7 @@ _admin_close(struct buf_sock *s)
 {
     event_del(ctx->evb, hdl->rid(s->ch));
     hdl->term(s->ch);
-    buf_sock_return(&s);
+    buf_sock_destroy(&s);
 }
 
 static inline void
@@ -50,7 +50,7 @@ _tcp_accept(struct buf_sock *ss)
     struct buf_sock *s;
     struct tcp_conn *sc = ss->ch;
 
-    s = buf_sock_borrow();
+    s = buf_sock_create();
     if (s == NULL) {
         log_error("establish connection failed: cannot allocate buf_sock, "
                 "reject connection request");
@@ -245,7 +245,7 @@ core_admin_setup(admin_options_st *options)
     hdl->rid = (channel_id_fn)tcp_read_id;
     hdl->wid = (channel_id_fn)tcp_write_id;
 
-    admin_sock = buf_sock_borrow();
+    admin_sock = buf_sock_create();
     if (admin_sock == NULL) {
         log_crit("failed to set up admin thread; could not get buf_sock");
         goto error;
@@ -294,7 +294,7 @@ core_admin_teardown(void)
         timing_wheel_destroy(&tw);
         event_base_destroy(&(ctx->evb));
         freeaddrinfo(admin_ai);
-        buf_sock_return(&admin_sock);
+        buf_sock_destroy(&admin_sock);
     }
     admin_init = false;
 }
