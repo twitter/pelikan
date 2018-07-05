@@ -65,7 +65,6 @@ typedef enum response_state {
     RSP_DONE
 } response_state_t;
 
-#define RSP_VAL_BUF_SIZE 1048576
 
 /*
  * NOTE(yao): we store fields as location in rbuf, this assumes the data will
@@ -82,9 +81,6 @@ struct response {
 
     struct bstring          key;        /* key string */
     struct bstring          vstr;       /* value string */
-    char                    *vbuf;      /* vbuf is a buffer of RSP_VAL_BUF_SIZE that processors can use by
-                                         * rsp->vstr.data = rsp->vbuf. vstr.data is nulled out in response_reset
-                                         * so the link is broken after each response */
 
     uint64_t                vint;       /* return value for incr/decr, or integer get value */
     uint64_t                vcas;       /* value for cas */

@@ -7,11 +7,11 @@
 #include <cc_option.h>
 #include <stream/cc_sockio.h>
 
-#define ALLOW_FLUSH false
+#define RSP_VAL_BUF_SIZE 1048576
 
 /*          name         type              default      description */
-#define PROCESS_OPTION(ACTION)                                                              \
-    ACTION( allow_flush, OPTION_TYPE_BOOL, ALLOW_FLUSH, "allow flushing on the data port"  )
+#define PROCESS_OPTION(ACTION)                                                                          \
+ACTION( vbuf_size,   OPTION_TYPE_UINT, RSP_VAL_BUF_SIZE, "size in bytes of the value response buffer" )
 
 typedef struct {
     PROCESS_OPTION(OPTION_DECLARE)
@@ -27,13 +27,7 @@ typedef struct {
     ACTION( get_key_hit,       METRIC_COUNTER, "# key hits by get"     )\
     ACTION( get_key_miss,      METRIC_COUNTER, "# key misses by get"   )\
     ACTION( get_ex,            METRIC_COUNTER, "# get errors"          )\
-    ACTION( gets,              METRIC_COUNTER, "# gets requests"       )\
-    ACTION( gets_key,          METRIC_COUNTER, "# keys by gets"        )\
-    ACTION( gets_key_hit,      METRIC_COUNTER, "# key hits by gets"    )\
-    ACTION( gets_key_miss,     METRIC_COUNTER, "# key misses by gets"  )\
-    ACTION( gets_ex,           METRIC_COUNTER, "# gets errors"         )\
-    ACTION( invalid,           METRIC_COUNTER, "# invalid command"     )\
-    ACTION( flush,             METRIC_COUNTER, "# flush_all requests"  )
+    ACTION( invalid,           METRIC_COUNTER, "# invalid command"     )
 
 typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)

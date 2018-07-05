@@ -18,8 +18,6 @@ struct bstring rsp_strings[] = {
 FREEPOOL(rsp_pool, rspq, response);
 static struct rsp_pool rspp;
 static bool rspp_init = false;
-/* TODO(simms): this should probably be readable from rust */
-static size_t rsp_val_buf_size = RSP_VAL_BUF_SIZE;
 
 void
 response_reset(struct response *rsp)
@@ -54,13 +52,6 @@ response_create(void)
         return NULL;
     }
 
-    rsp->vbuf = cc_alloc(rsp_val_buf_size);
-
-    if (rsp->vbuf == NULL) {
-        cc_free(rsp); /* release the base struct */
-        return NULL;
-    }
-
     response_reset(rsp);
 
     INCR(response_metrics, response_create);
@@ -76,7 +67,6 @@ response_destroy(struct response **response)
     ASSERT(rsp != NULL);
 
     INCR(response_metrics, response_destroy);
-    cc_free(rsp->vbuf);
     cc_free(rsp);
     *response = NULL;
 }

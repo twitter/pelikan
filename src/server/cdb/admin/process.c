@@ -46,34 +46,13 @@ admin_process_teardown(void)
 }
 
 static void
-_admin_stats_slab(struct response *rsp, struct request *req)
-{
-    size_t offset = 0;
-
-    offset += cc_scnprintf(buf + offset, cap - offset, METRIC_END);
-
-    rsp->type = RSP_GENERIC;
-    rsp->data.data = buf;
-    rsp->data.len = offset;
-}
-
-static void
-_admin_stats_default(struct response *rsp, struct request *req)
-{
-    procinfo_update();
-    rsp->data.data = buf;
-    rsp->data.len = print_stats(buf, cap, (struct metric *)&stats, nmetric);
-}
-
-static void
 _admin_stats(struct response *rsp, struct request *req)
 {
     if (bstring_empty(&req->arg)) {
-        _admin_stats_default(rsp, req);
+        procinfo_update();
+        rsp->data.data = buf;
+        rsp->data.len = (uint32_t)print_stats(buf, cap, (struct metric *)&stats, nmetric);
         return;
-    }
-    if (req->arg.len == 5 && str5cmp(req->arg.data, ' ', 's', 'l', 'a', 'b')) {
-        _admin_stats_slab(rsp, req);
     } else {
         rsp->type = RSP_INVALID;
     }

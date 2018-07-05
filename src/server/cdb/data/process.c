@@ -1,3 +1,5 @@
+#include <limits.h>
+
 #include "process.h"
 
 #include "protocol/data/memcache_include.h"
@@ -6,6 +8,7 @@
 #include <cc_array.h>
 #include <cc_debug.h>
 #include <cc_print.h>
+#include <cc_bstring.h>
 
 #define CDB_PROCESS_MODULE_NAME "cdb::process"
 
@@ -15,9 +18,13 @@
 #define CMD_ERR_MSG         "command not supported"
 #define OTHER_ERR_MSG       "unknown server error"
 
+/* value_buf is a buffer of configurable size that processors can use by
+ * rsp->vstr.data = value_buf.data. vstr.data is nulled out in response_reset
+ * so the link is broken after each response */
+static struct bstring value_buf;
+
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
-static bool allow_flush = ALLOW_FLUSH;
 
 static struct CDBHandle *cdb_handle = NULL;
 
@@ -36,11 +43,18 @@ process_setup(process_options_st *options, process_metrics_st *metrics, struct C
     }
     cdb_handle = handle;
 
-    process_metrics = metrics;
-
-    if (options != NULL) {
-        allow_flush = option_bool(&options->allow_flush);
+    if (options->vbuf_size.val.vuint > UINT_MAX) {
+        log_panic("Value for vbuf_size was too large. Must be < %ld", UINT_MAX);
     }
+
+    value_buf.len = (uint32_t)options->vbuf_size.val.vuint;
+    value_buf.data = (char *)cc_alloc(value_buf.len);
+
+    if (value_buf.data == NULL) {
+        log_panic("failed to allocate value buffer, cannot continue");
+    }
+
+    process_metrics = metrics;
 
     process_init = true;
 }
@@ -59,7 +73,13 @@ process_teardown(void)
         cdb_handle_destroy(p);
     }
 
-    allow_flush = false;
+    if (value_buf.data != NULL) {
+        char *p = value_buf.data;
+        value_buf.data = NULL;
+        value_buf.len = 0;
+        cc_free(p);
+    }
+
     process_metrics = NULL;
     process_init = false;
 }
@@ -68,11 +88,11 @@ static bool
 _get_key(struct response *rsp, struct bstring *key)
 {
     /* this is a slight abuse of the bstring API. we're setting
-     * the data pointer to point to the vbuf that was allocated on the struct
+     * the data pointer to point to the vbuf that was staticly allocated
      * and we're setting the len of the buffer to the allocation size. This is
      * so that we can create a rust slice from this information. */
-    rsp->vstr.data = rsp->vbuf;
-    rsp->vstr.len = RSP_VAL_BUF_SIZE;
+    rsp->vstr.data = value_buf.data;
+    rsp->vstr.len = value_buf.len;
 
     struct bstring *vstr = cdb_get(cdb_handle, key, &(rsp->vstr));
 
@@ -124,51 +144,12 @@ _process_get(struct response *rsp, struct request *req)
 }
 
 static void
-_process_gets(struct response *rsp, struct request *req)
-{
-    struct bstring *key;
-    struct response *r = rsp;
-    uint32_t i;
-
-    INCR(process_metrics, gets);
-    /* use chained responses, move to the next response if key is found. */
-    for (i = 0; i < array_nelem(req->keys); ++i) {
-        INCR(process_metrics, gets_key);
-        key = array_get(req->keys, i);
-        if (_get_key(r, key)) {
-            r->cas = true;
-            r = STAILQ_NEXT(r, next);
-            if (r == NULL) {
-                INCR(process_metrics, gets_ex);
-                log_warn("gets response incomplete due to lack of rsp objects");
-            }
-            req->nfound++;
-            INCR(process_metrics, gets_key_hit);
-        } else {
-            INCR(process_metrics, gets_key_miss);
-        }
-    }
-    r->type = RSP_END;
-
-    log_verb("gets req %p processed, %d out of %d keys found", req, req->nfound, i);
-}
-
-static void
 _process_invalid(struct response *rsp, struct request *req)
 {
     INCR(process_metrics, invalid);
     rsp->type = RSP_CLIENT_ERROR;
     rsp->vstr = str2bstr(CMD_ERR_MSG);
     log_verb("req %p processed, rsp type %d", req, rsp->type);
-}
-
-static void
-_process_flush(struct response *rsp, struct request *req)
-{
-    INCR(process_metrics, flush);
-    rsp->type = RSP_CLIENT_ERROR;
-    rsp->vstr = str2bstr(CMD_ERR_MSG);
-    log_info("flush req %p processed, rsp type %d", req, rsp->type);
 }
 
 void
@@ -180,14 +161,6 @@ process_request(struct response *rsp, struct request *req)
     switch (req->type) {
     case REQ_GET:
         _process_get(rsp, req);
-        break;
-
-    case REQ_GETS:
-        _process_gets(rsp, req);
-        break;
-
-    case REQ_FLUSH:
-        _process_flush(rsp, req);
         break;
 
     default:
