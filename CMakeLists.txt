@@ -139,8 +139,10 @@ endif(CHECK_FOUND)
 
 find_package(Threads)
 
-enable_language(Rust)
-include(CMakeCargo)
+if(TARGET_CDB)
+    enable_language(Rust)
+    include(CMakeCargo)
+endif(TARGET_CDB)
 
 #set(CMAKE_INCLUDE_CURRENT_DIR)
 include_directories(${include_directories}
