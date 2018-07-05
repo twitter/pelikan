@@ -68,17 +68,6 @@ _worker_event_write(struct buf_sock *s)
     return status;
 }
 
-static inline void
-worker_close(struct buf_sock *s)
-{
-    log_info("worker core close on buf_sock %p", s);
-
-    processor->error(&s->rbuf, &s->wbuf, &s->data);
-    event_del(ctx->evb, hdl->rid(s->ch));
-    hdl->term(s->ch);
-    buf_sock_return(&s);
-}
-
 /* read event over an existing connection */
 static inline void
 _worker_event_read(struct buf_sock *s)
@@ -101,7 +90,7 @@ _worker_event_read(struct buf_sock *s)
 }
 
 static void
-worker_add_conn(void)
+worker_add_stream(void)
 {
     struct buf_sock *s;
     char buf[RING_ARRAY_DEFAULT_CAP]; /* buffer for discarding pipe data */
@@ -117,7 +106,7 @@ worker_add_conn(void)
      * for the next read event in that case.
      */
 
-    i = pipe_recv(pipe_c, buf, RING_ARRAY_DEFAULT_CAP);
+    i = pipe_recv(pipe_new, buf, RING_ARRAY_DEFAULT_CAP);
     if (i < 0) { /* errors, do not read from ring array */
         log_warn("not adding new connections due to pipe error");
         return;
@@ -127,7 +116,7 @@ worker_add_conn(void)
      * now get from the ring array
      */
     for (; i > 0; --i) {
-        status = ring_array_pop(&s, conn_arr);
+        status = ring_array_pop(&s, conn_new);
         if (status != CC_OK) {
             log_warn("event number does not match conn queue: missing %d conns",
                     i);
@@ -136,25 +125,59 @@ worker_add_conn(void)
         log_verb("Adding new buf_sock %p to worker thread", s);
         s->owner = ctx;
         s->hdl = hdl;
-        event_add_read(ctx->evb, hdl->rid(s->ch), s);
+        event_add_read(ctx->evb, hdl->rid(s->ch), s); /* event activated */
     }
+}
+
+static inline void
+_worker_pipe_write(void)
+{
+    ASSERT(pipe_term != NULL);
+
+    ssize_t status = pipe_send(pipe_term, "", 1);
+
+    if (status == 0 || status == CC_EAGAIN) {
+        /* retry write */
+        log_verb("server core: retry send on pipe");
+        event_add_write(ctx->evb, pipe_write_id(pipe_term), NULL);
+    } else if (status == CC_ERROR) {
+        log_error("could not write to pipe - %s", strerror(pipe_term->err));
+    }
+}
+
+static void
+worker_ret_stream(struct buf_sock *s)
+{
+    log_info("worker core marking buf_sock %p for return", s);
+
+    /* first clean up states that only worker thread understands,
+     * and stop receiving event updates. then it's safe to return to server
+     */
+    processor->error(&s->rbuf, &s->wbuf, &s->data);
+    event_del(ctx->evb, hdl->rid(s->ch));
+
+    /* push buf_sock to queue */
+    ring_array_push(&s, conn_term);
+    /* conn_term */
+    _worker_pipe_write();
 }
 
 static void
 _worker_event(void *arg, uint32_t events)
 {
     struct buf_sock *s = arg;
-    log_verb("worker event %06"PRIX32" on buf_sock %p", events, s);
+    log_verb("worker event %06"PRIX32" with data %p", events, s);
 
-    if (s == NULL) {
-        /* event on pipe_c, new connection */
-        if (events & EVENT_READ) {
-            worker_add_conn();
-        } else if (events & EVENT_ERR) {
-            log_error("error event received on conn_fds pipe");
-        } else {
-            /* there should never be any write events on the pipe from worker */
-            NOT_REACHED();
+    if (s == NULL) { /* event on pipe */
+        if (events & EVENT_READ) { /* new connection from server */
+            INCR(worker_metrics, worker_event_read);
+            worker_add_stream();
+        } else if (events & EVENT_WRITE) { /* retry return notification */
+            INCR(worker_metrics, worker_event_write);
+            _worker_pipe_write();
+        } else { /* EVENT_ERR */
+            INCR(worker_metrics, worker_event_error);
+            log_error("error event received on pipe");
         }
     } else {
         /* event on one of the connections */
@@ -189,7 +212,7 @@ _worker_event(void *arg, uint32_t events)
          * but simpler to implement and probably fine initially.
          */
         if (s->ch->state == CHANNEL_TERM || s->ch->state == CHANNEL_ERROR) {
-            worker_close(s);
+            worker_ret_stream(s);
         }
     }
 }
@@ -221,16 +244,17 @@ core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
         exit(EX_CONFIG);
     }
 
-    hdl->accept = (channel_accept_fn)tcp_accept;
-    hdl->reject = (channel_reject_fn)tcp_reject;
-    hdl->open = (channel_open_fn)tcp_listen;
-    hdl->term = (channel_term_fn)tcp_close;
+    /* worker thread does not handle accept/reject/open/term directly */
+    hdl->accept = NULL;
+    hdl->reject = NULL;
+    hdl->open = NULL;
+    hdl->term = NULL;
     hdl->recv = (channel_recv_fn)tcp_recv;
     hdl->send = (channel_send_fn)tcp_send;
     hdl->rid = (channel_id_fn)tcp_read_id;
     hdl->wid = (channel_id_fn)tcp_write_id;
 
-    event_add_read(ctx->evb, pipe_read_id(pipe_c), NULL);
+    event_add_read(ctx->evb, pipe_read_id(pipe_new), NULL);
 
     worker_init = true;
 }

@@ -31,7 +31,8 @@ admin_process_setup(void)
 
     nmetric_perslab = METRIC_CARDINALITY(perslab[0]);
     /* perslab metric size <(32 + 20)B, prefix/suffix 12B, total < 64 */
-    cap = MAX(nmetric, nmetric_perslab * SLABCLASS_MAX_ID) * METRIC_PRINT_LEN;
+    cap = MAX(nmetric, nmetric_perslab * SLABCLASS_MAX_ID) * METRIC_PRINT_LEN +
+        METRIC_END_LEN;
     buf = cc_alloc(cap);
     /* TODO: check return status of cc_alloc */
 
