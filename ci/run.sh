@@ -11,7 +11,16 @@ trap cleanup EXIT
 
 export PATH=$HOME/.cargo/bin:$PATH
 
-mkdir -p _build && ( cd _build && cmake -D BUILD_AND_INSTALL_CHECK=yes .. && make -j && make check ) || die 'make failed'
+# build CDB in CI or else stuff breaks
+
+CMAKE_ARGS=(
+  -DBUILD_AND_INSTALL_CHECK=yes
+  -DTARGET_CDB=yes
+)
+
+# TODO: run cmake3 on centos hosts
+
+mkdir -p _build && ( cd _build && cmake ${CMAKE_ARGS[@]} .. && make -j && make check ) || die 'make failed'
 
 egrep -r ":F:|:E:" . |grep -v 'Binary file' || true
 
