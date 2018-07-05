@@ -194,13 +194,16 @@ cdb_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
     log_verb("post-read processing");
 
     /* deal with the stateful part: request and response */
-    req = (*data != NULL) ? *data : request_borrow();
-    if (req  == NULL) {
-        /* TODO(yao): simply return for now, better to respond with OOM */
-        log_error("cannot process request: OOM");
-        INCR(process_metrics, process_ex);
+    req = *data;
+    if (req == NULL) {
+        req = *data = request_borrow();
+        if (req == NULL) {
+            /* TODO(yao): simply return for now, better to respond with OOM */
+            log_error("cannot process request: OOM");
+            INCR(process_metrics, process_ex);
 
-        return -1;
+            return -1;
+        }
     }
     rsp = (req->rsp != NULL) ? req->rsp : response_borrow();
     if (rsp  == NULL) {
