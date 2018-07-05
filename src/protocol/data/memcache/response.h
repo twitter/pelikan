@@ -65,6 +65,7 @@ typedef enum response_state {
     RSP_DONE
 } response_state_t;
 
+
 /*
  * NOTE(yao): we store fields as location in rbuf, this assumes the data will
  * not be overwritten prematurely.
@@ -80,6 +81,7 @@ struct response {
 
     struct bstring          key;        /* key string */
     struct bstring          vstr;       /* value string */
+
     uint64_t                vint;       /* return value for incr/decr, or integer get value */
     uint64_t                vcas;       /* value for cas */
     struct metric           *met;       /* metric, for reporting stats */

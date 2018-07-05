@@ -40,3 +40,10 @@ lcov
 
 # python compiled files
 *.pyc
+
+cdb.rs
+*.cdb
+compile_commands.json
+
+*.cmd
+core

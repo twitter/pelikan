@@ -39,8 +39,11 @@ option(TARGET_REDIS "build redis binary" ON)
 option(TARGET_SLIMREDIS "build slimredis binary" ON)
 option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
-
+option(TARGET_CDB "build cdb binary" OFF)
 option(TARGET_RESPCLI "build resp-cli binary" ON)
+
+option(RUST_USE_MUSL "build rust deps against musl" OFF)
+option(BUILD_AND_INSTALL_CHECK "build our own version of check and link against it" OFF)
 
 option(COVERAGE "code coverage" OFF)
 
@@ -80,6 +83,28 @@ set(CFLAGS_LIST
     "-Wunused-function -Wunused-value -Wunused-variable "
     "-fno-strict-aliasing ")
 
+if(BUILD_AND_INSTALL_CHECK)
+    # (simms) What follows is a crime against build systems as we run the build/install
+    # for the check library up front, during the planning phase.
+
+    set(LIBCHECK_PREFIX "${CMAKE_BINARY_DIR}/check")
+
+    # check for a local install of check
+    if(NOT EXISTS "${LIBCHECK_PREFIX}")
+        # (simms) This is terrible and I did it this way to ensure this gets built
+        # before the rest of the 'check' tests run. This should be rewritten so that
+        # the other dependencies know that there's a target that can build check
+        execute_process(
+            COMMAND "bash" "${PROJECT_SOURCE_DIR}/ci/install-check.sh" "${LIBCHECK_PREFIX}"
+            TIMEOUT 300  # if this doesn't build in 5 minutes something is hosed
+        )
+    endif()
+
+    set(CHECK_ROOT_DIR "${LIBCHECK_PREFIX}")
+    set(CMAKE_REQUIRED_INCLUDES "${CHECK_ROOT_DIR}/include")    # these make check link correctly in ccommon and pelikan
+    set(CMAKE_REQUIRED_LIBRARIES "${CHECK_ROOT_DIR}/lib")
+endif()
+
 if(${OS_PLATFORM} MATCHES "OS_LINUX")
   set(CFLAGS_LIST "${CFLAGS_LIST} -lrt")
 endif()
@@ -96,9 +121,11 @@ endif(COVERAGE)
 # dependency: libccommon
 set(CCOMMON_SOURCE_DIR "${PROJECT_SOURCE_DIR}/deps/ccommon" CACHE PATH "Path to the ccommon")
 add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
+
 # other dependencies
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
+
 find_package(Check)
 if(NOT CHECK_FOUND)
     message(WARNING "Check is required to build and run tests")
@@ -111,6 +138,9 @@ if(CHECK_FOUND)
 endif(CHECK_FOUND)
 
 find_package(Threads)
+
+enable_language(Rust)
+include(CMakeCargo)
 
 #set(CMAKE_INCLUDE_CURRENT_DIR)
 include_directories(${include_directories}
@@ -138,5 +168,15 @@ message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
 message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})
 
+if(DUMP_ALL)
+    message(STATUS "<<++=====------------------\\/------------------=====++>>")
+    get_cmake_property(_variableNames VARIABLES)
+    foreach (_variableName ${_variableNames})
+        message(STATUS "${_variableName}=${${_variableName}}")
+    endforeach()
+    message(STATUS "<<++=====------------------/\\------------------=====++>>")
+endif()
+
 # Note: to uninstall targets, run:
 #  xargs rm < install_manifest.txt
+# vim:ts=4:sw=4:et
