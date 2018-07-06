@@ -7,8 +7,8 @@
 struct CDBHandle;
 
 enum CDBStoreMethod {
-  CDB_HEAP = 1,
-  CDB_MMAP = 2,
+	CDB_HEAP = 1,
+	CDB_MMAP = 2,
 };
 
 struct CDBHandle* cdb_handle_create(const char *path, enum CDBStoreMethod meth);
