@@ -48,8 +48,8 @@ procinfo_update(void)
     struct rusage usage;
 
     UPDATE_VAL(procinfo_metrics, pid, getpid());
-    UPDATE_VAL(procinfo_metrics, time, time_now_abs());
-    UPDATE_VAL(procinfo_metrics, uptime, time_now());
+    UPDATE_VAL(procinfo_metrics, time, time_unix_sec());
+    UPDATE_VAL(procinfo_metrics, uptime, time_proc_sec());
 
     /* "%02d%02d%02d" % (major, minor, patch) */
     UPDATE_VAL(procinfo_metrics, version, VERSION_MAJOR * 10000 +

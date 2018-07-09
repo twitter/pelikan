@@ -213,7 +213,7 @@ _put(item_rstatus_t *istatus, struct request *req)
     if (req->first) { /* self-contained req */
         struct bstring *key = array_first(req->keys);
         *istatus = item_reserve(&it, key, &req->vstr, req->vlen, DATAFLAG_SIZE,
-                time_reltime(req->expiry));
+                time_convert_proc_sec((time_i)req->expiry));
         req->first = false;
         req->reserved = it;
     } else { /* backfill reserved item */

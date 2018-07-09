@@ -263,7 +263,7 @@ _klog_write(struct request *req, struct response *rsp)
 
     errno_save = errno;
 
-    t = time_now_abs();
+    t = time_unix_sec();
     len = cc_scnprintf(buf, KLOG_MAX_LEN, "%s - ", peer);
     time_len = strftime(buf + len, KLOG_MAX_LEN - len, KLOG_TIME_FMT, localtime(&t));
     if (time_len == 0) {

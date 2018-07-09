@@ -5,13 +5,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static rel_time_t flush_at = 0;
+static proc_time_i flush_at = -1;
 
 static inline bool
 _item_expired(struct item *it)
 {
-    return ((it->expire_at > 0 && it->expire_at < time_now())
-            || (it->create_at <= flush_at));
+    return (it->expire_at < time_proc_sec() || it->create_at <= flush_at);
 }
 
 static inline void
@@ -196,9 +195,9 @@ item_get(const struct bstring *key)
 /* TODO(yao): move this to memcache-specific location */
 static void
 _item_define(struct item *it, const struct bstring *key, const struct bstring
-        *val, uint8_t olen, rel_time_t expire_at)
+        *val, uint8_t olen, proc_time_i expire_at)
 {
-    it->create_at = time_now();
+    it->create_at = time_proc_sec();
     it->expire_at = expire_at;
     item_set_cas(it);
     it->olen = olen;
@@ -212,7 +211,7 @@ _item_define(struct item *it, const struct bstring *key, const struct bstring
 
 item_rstatus_t
 item_reserve(struct item **it_p, const struct bstring *key, const struct bstring
-        *val, uint32_t vlen, uint8_t olen, rel_time_t expire_at)
+        *val, uint32_t vlen, uint8_t olen, proc_time_i expire_at)
 {
     item_rstatus_t status;
     struct item *it;
@@ -289,7 +288,7 @@ item_annex(struct item *oit, const struct bstring *key, const struct bstring
             }
             _copy_key_item(nit, oit);
             nit->expire_at = oit->expire_at;
-            nit->create_at = time_now();
+            nit->create_at = time_proc_sec();
             item_set_cas(nit);
             /* value is left-aligned */
             cc_memcpy(item_data(nit), item_data(oit), oit->vlen);
@@ -317,7 +316,7 @@ item_annex(struct item *oit, const struct bstring *key, const struct bstring
             }
             _copy_key_item(nit, oit);
             nit->expire_at = oit->expire_at;
-            nit->create_at = time_now();
+            nit->create_at = time_proc_sec();
             item_set_cas(nit);
             /* value is right-aligned */
             nit->is_raligned = 1;
@@ -374,6 +373,6 @@ void
 item_flush(void)
 {
     time_update();
-    flush_at = time_now();
+    flush_at = time_proc_sec();
     log_info("all keys flushed at %"PRIu32, flush_at);
 }

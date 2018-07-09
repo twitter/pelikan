@@ -51,8 +51,8 @@ struct item {
     uint32_t          magic;         /* item magic (const) */
 #endif
     SLIST_ENTRY(item) i_sle;         /* link in hash/freeq */
-    rel_time_t        expire_at;     /* expiry time in secs */
-    rel_time_t        create_at;     /* time when this item was last linked */
+    proc_time_i       expire_at;     /* expiry time in secs */
+    proc_time_i       create_at;     /* time when this item was last linked */
 
     uint32_t          is_linked:1;   /* item in hash */
     uint32_t          in_freeq:1;    /* item in free queue */
@@ -193,7 +193,7 @@ void item_insert(struct item *it, const struct bstring *key);
  * data, e.g. flag in Memcached protocol) in payload, after cas.
  * */
 item_rstatus_t item_reserve(struct item **it_p, const struct bstring *key, const
-        struct bstring *val, uint32_t vlen, uint8_t olen, rel_time_t expire_at);
+        struct bstring *val, uint32_t vlen, uint8_t olen, proc_time_i expire_at);
 /* item_release is used for reserved item only (not linked) */
 void item_release(struct item **it_p);
 

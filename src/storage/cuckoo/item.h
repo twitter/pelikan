@@ -64,10 +64,10 @@ struct val {
  */
 
 struct item {
-  rel_time_t expire;
-  uint8_t    klen;
-  uint8_t    vlen;
-  char       data[1];
+  proc_time_i expire;
+  uint8_t     klen;
+  uint8_t     vlen;
+  char        data[1];
 };
 
 #define KEY_MAXLEN 255
@@ -120,7 +120,7 @@ item_matched(struct item *it, struct bstring *key)
     return (cc_bcmp(ITEM_KEY_POS(it), key->data, key->len) == 0);
 }
 
-static inline rel_time_t
+static inline proc_time_i
 item_expire(struct item *it)
 {
     return it->expire;
@@ -130,7 +130,7 @@ item_expire(struct item *it)
 static inline bool
 item_valid(struct item *it)
 {
-    return (it->expire >= time_now());
+    return (it->expire >= time_proc_sec());
 }
 
 static inline bool
@@ -142,7 +142,7 @@ item_empty(struct item *it)
 static inline bool
 item_expired(struct item *it)
 {
-    if (it->expire < time_now() && it->expire > 0) {
+    if (it->expire < time_proc_sec() && it->expire > 0) {
         return true;
     } else {
         return false;
@@ -230,14 +230,14 @@ item_value_update(struct item *it, struct val *val)
 }
 
 static inline void
-item_update(struct item *it, struct val *val, rel_time_t expire)
+item_update(struct item *it, struct val *val, proc_time_i expire)
 {
     it->expire = expire;
     item_value_update(it, val);
 }
 
 static inline void
-item_set(struct item *it, struct bstring *key, struct val *val, rel_time_t expire)
+item_set(struct item *it, struct bstring *key, struct val *val, proc_time_i expire)
 {
     it->klen = (uint8_t)key->len;
     cc_memcpy(ITEM_KEY_POS(it), key->data, key->len);

@@ -3,6 +3,7 @@
 #include "data_structure/bitmap/bitset.h"
 #include "protocol/data/redis_include.h"
 #include "storage/cuckoo/cuckoo.h"
+#include "time/time.h"
 
 #include <cc_array.h>
 #include <cc_bstring.h>
@@ -75,7 +76,9 @@ _add_key(struct response *rsp, struct bstring *key)
 
         return NULL;
     } else { /* cuckoo insert current won't fail as long as size is valid */
-        it = cuckoo_insert(key, NULL, time_reltime(0));
+        /* Set expire to be a large number, since redis protocol sets expiry
+           in a separate command. */
+        it = cuckoo_insert(key, NULL, INT32_MAX - 1);
         if (it == NULL) {
             rsp->type = reply->type = ELEM_ERR;
             reply->bstr = str2bstr(RSP_ERR_STORAGE);

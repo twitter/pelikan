@@ -181,14 +181,14 @@ static void
 _process_set(struct response *rsp, struct request *req)
 {
     rstatus_i status = CC_OK;
-    rel_time_t expire;
+    proc_time_i expire;
     struct bstring *key;
     struct item *it;
     struct val val;
 
     INCR(process_metrics, set);
     key = array_first(req->keys);
-    expire = time_reltime(req->expiry);
+    expire = time_convert_proc_sec((time_i)req->expiry);
     _get_value(&val, &req->vstr);
 
     it = cuckoo_get(key);
@@ -224,7 +224,8 @@ _process_add(struct response *rsp, struct request *req)
         INCR(process_metrics, add_notstored);
     } else {
         _get_value(&val, &req->vstr);
-        if (cuckoo_insert(key, &val, time_reltime(req->expiry)) != NULL) {
+        if (cuckoo_insert(key, &val, time_convert_proc_sec((time_i)req->expiry))
+                != NULL) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, add_stored);
         } else {
@@ -248,7 +249,8 @@ _process_replace(struct response *rsp, struct request *req)
     it = cuckoo_get(key);
     if (it != NULL) {
         _get_value(&val, &req->vstr);
-        if (cuckoo_update(it, &val, time_reltime(req->expiry)) == CC_OK) {
+        if (cuckoo_update(it, &val, time_convert_proc_sec((time_i)req->expiry))
+                == CC_OK) {
             rsp->type = RSP_STORED;
             INCR(process_metrics, replace_stored);
         } else {
@@ -277,7 +279,8 @@ _process_cas(struct response *rsp, struct request *req)
 
         if (item_cas_valid(it, req->vcas)) {
             _get_value(&val, &req->vstr);
-            if (cuckoo_update(it, &val, time_reltime(req->expiry)) == CC_OK) {
+            if (cuckoo_update(it, &val, time_convert_proc_sec((time_i)req->expiry))
+                    == CC_OK) {
                 rsp->type = RSP_STORED;
                 INCR(process_metrics, cas_stored);
             } else {

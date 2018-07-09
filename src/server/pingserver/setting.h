@@ -5,6 +5,7 @@
 
 #include "core/core.h"
 #include "protocol/data/ping_include.h"
+#include "time/time.h"
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
@@ -35,6 +36,7 @@ struct setting {
     admin_options_st        admin;
     server_options_st       server;
     worker_options_st       worker;
+    time_options_st         time;
     /* ccommon libraries */
     array_options_st        array;
     buf_options_st          buf;

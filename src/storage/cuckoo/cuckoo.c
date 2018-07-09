@@ -100,7 +100,7 @@ _select_candidate(const uint32_t offset[])
     if (cuckoo_policy == CUCKOO_POLICY_RANDOM) {
         selected = offset[RANDOM(D)];
     } else if (cuckoo_policy == CUCKOO_POLICY_EXPIRE) {
-        rel_time_t expire, min = UINT32_MAX; /* legal ts should < UINT32_MAX */
+        proc_time_i expire, min = UINT32_MAX; /* legal ts should < UINT32_MAX */
         uint32_t i;
 
         for (i = 0; i < D; ++i) {
@@ -134,11 +134,11 @@ _sort_candidate(uint32_t ordered[], const uint32_t offset[])
             ordered[i] = offset[j];
         }
     } else if (cuckoo_policy == CUCKOO_POLICY_EXPIRE) {
-        rel_time_t expire[D];
+        proc_time_i expire[D];
 
         for (i = 0; i < D; ++i) {
             uint32_t j = i;
-            rel_time_t te;
+            proc_time_i te;
             uint32_t to;
 
             /* basically an insert sort */
@@ -337,7 +337,7 @@ cuckoo_get(struct bstring *key)
 
 /* insert applies to a key that doesn't exist validly in our array */
 struct item *
-cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
+cuckoo_insert(struct bstring *key, struct val *val, proc_time_i expire)
 {
     struct item *it;
     uint32_t offset[D];
@@ -388,7 +388,7 @@ cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire)
 }
 
 rstatus_i
-cuckoo_update(struct item *it, struct val *val, rel_time_t expire)
+cuckoo_update(struct item *it, struct val *val, proc_time_i expire)
 {
     ASSERT(it != NULL && val != NULL);
 

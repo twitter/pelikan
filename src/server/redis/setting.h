@@ -6,6 +6,7 @@
 #include "storage/slab/item.h"
 #include "storage/slab/slab.h"
 #include "protocol/data/redis_include.h"
+#include "time/time.h"
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
@@ -37,6 +38,7 @@ struct setting {
     request_options_st      request;
     response_options_st     response;
     slab_options_st         slab;
+    time_options_st         time;
     /* ccommon libraries */
     array_options_st        array;
     buf_options_st          buf;

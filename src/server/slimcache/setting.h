@@ -6,6 +6,7 @@
 #include "core/core.h"
 #include "storage/cuckoo/cuckoo.h"
 #include "protocol/data/memcache_include.h"
+#include "time/time.h"
 
 #include <buffer/cc_buf.h>
 #include <cc_array.h>
@@ -41,6 +42,7 @@ struct setting {
     request_options_st      request;
     response_options_st     response;
     cuckoo_options_st       cuckoo;
+    time_options_st         time;
     /* ccommon libraries */
     array_options_st        array;
     buf_options_st          buf;

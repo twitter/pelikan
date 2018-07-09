@@ -4,10 +4,9 @@
 #include "hashtable.h"
 #include "slabclass.h"
 
-#include "time/time.h"
-
 #include <cc_define.h>
 #include <cc_metric.h>
+#include <cc_option.h>
 #include <cc_util.h>
 
 #include <stdbool.h>
@@ -124,7 +123,6 @@ struct slab {
 #endif
     TAILQ_ENTRY(slab) s_tqe;        /* link in slab lruq */
 
-    rel_time_t        utime;        /* last update time in secs */
     uint8_t           id;           /* slabclass id */
     uint32_t          padding:24;   /* unused */
     uint32_t          refcount;     /* # items that can't be evicted */
