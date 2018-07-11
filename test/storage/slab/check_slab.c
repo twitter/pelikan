@@ -1,6 +1,8 @@
 #include <storage/slab/item.h>
 #include <storage/slab/slab.h>
 
+#include <time/time.h>
+
 #include <cc_bstring.h>
 #include <cc_mm.h>
 
@@ -55,7 +57,7 @@ START_TEST(test_insert_basic)
     val = str2bstr(VAL);
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, MLEN, 0);
+    status = item_reserve(&it, &key, &val, val.len, MLEN, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
             status);
     ck_assert_msg(!it->is_linked, "item with key %.*s not linked", key.len,
@@ -104,7 +106,7 @@ START_TEST(test_insert_large)
     val.len = VLEN;
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, 0, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX - 1);
     free(val.data);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
@@ -150,7 +152,7 @@ START_TEST(test_reserve_backfill_release)
     cc_memset(val.data, 'A', val.len);
 
     /* reserve */
-    status = item_reserve(&it, &key, &val, vlen, 0, 0);
+    status = item_reserve(&it, &key, &val, vlen, 0, INT32_MAX - 1);
     free(val.data);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
             status);
@@ -208,7 +210,7 @@ START_TEST(test_reserve_backfill_link)
 
     /* reserve */
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, 0, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX - 1);
     free(val.data);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
 
@@ -246,7 +248,7 @@ START_TEST(test_append_basic)
     append = str2bstr(APPEND);
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, 0, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
 
@@ -289,7 +291,7 @@ START_TEST(test_prepend_basic)
     prepend = str2bstr(PREPEND);
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, 0, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
 
@@ -337,7 +339,7 @@ START_TEST(test_annex_sequence)
     append2 = str2bstr(APPEND2);
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, 0, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
 
@@ -406,7 +408,7 @@ START_TEST(test_update_basic)
     new_val = str2bstr(NEW_VAL);
 
     time_update();
-    status = item_reserve(&it, &key, &old_val, old_val.len, 0, 0);
+    status = item_reserve(&it, &key, &old_val, old_val.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
 
@@ -446,7 +448,7 @@ START_TEST(test_delete_basic)
     val = str2bstr(VAL);
 
     time_update();
-    status = item_reserve(&it, &key, &val, val.len, 0, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key);
 
@@ -483,12 +485,12 @@ START_TEST(test_flush_basic)
     val2 = str2bstr(VAL2);
 
     time_update();
-    status = item_reserve(&it, &key1, &val1, val1.len, 0, 0);
+    status = item_reserve(&it, &key1, &val1, val1.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key1);
 
     time_update();
-    status = item_reserve(&it, &key2, &val2, val2.len, 0, 0);
+    status = item_reserve(&it, &key2, &val2, val2.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     item_insert(it, &key2);
 
@@ -549,7 +551,7 @@ START_TEST(test_evict_lru_basic)
 
     for (i = 0; i < NUM_ITEMS + 1; i++) {
         time_update();
-        status = item_reserve(&it, &key[i], &val[i], val[i].len, 0, 0);
+        status = item_reserve(&it, &key[i], &val[i], val[i].len, 0, INT32_MAX - 1);
         ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
         item_insert(it, &key[i]);
         ck_assert_msg(item_get(&key[i]) != NULL, "item %lu not found", i);
@@ -585,7 +587,7 @@ START_TEST(test_refcount)
     val = str2bstr(VAL);
 
     /* reserve & release */
-    status = item_reserve(&it, &key, &val, val.len, 0, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     s = item_to_slab(it);
     ck_assert_msg(s->refcount == 1, "slab refcount %"PRIu32"; 1 expected", s->refcount);
@@ -593,7 +595,7 @@ START_TEST(test_refcount)
     ck_assert_msg(s->refcount == 0, "slab refcount %"PRIu32"; 0 expected", s->refcount);
 
     /* reserve & backfill (& link) */
-    status = item_reserve(&it, &key, &val, val.len, 0, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
     s = item_to_slab(it);
     ck_assert_msg(s->refcount == 1, "slab refcount %"PRIu32"; 1 expected", s->refcount);
@@ -633,13 +635,13 @@ START_TEST(test_evict_refcount)
     key = str2bstr(KEY);
     val = str2bstr(VAL);
 
-    status = item_reserve(&it, &key, &val, val.len, 0, 0);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
-    status = item_reserve(&nit, &key, &val, val.len, 0, 0);
+    status = item_reserve(&nit, &key, &val, val.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_ENOMEM, "item_reserve should fail - return status %d", status);
 
     item_insert(it, &key); /* clears slab refcount, can be evicted */
-    status = item_reserve(&nit, &key, &val, val.len, 0, 0);
+    status = item_reserve(&nit, &key, &val, val.len, 0, INT32_MAX - 1);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
 
 #undef KEY

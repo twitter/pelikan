@@ -110,7 +110,7 @@ setup(void)
     timing_wheel_setup(&stats.timing_wheel);
 
     /* setup pelikan modules */
-    time_setup();
+    time_setup(&setting.time);
     procinfo_setup(&stats.procinfo);
     request_setup(&setting.request, &stats.request);
     response_setup(&setting.response, &stats.response);

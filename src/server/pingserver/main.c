@@ -111,7 +111,7 @@ setup(void)
     timing_wheel_setup(&stats.timing_wheel);
 
     /* setup pelikan modules */
-    time_setup();
+    time_setup(&setting.time);
     procinfo_setup(&stats.procinfo);
     parse_setup(&stats.parse_req, NULL);
     compose_setup(NULL, &stats.compose_rsp);

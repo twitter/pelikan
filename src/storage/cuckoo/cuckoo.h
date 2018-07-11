@@ -60,6 +60,6 @@ void cuckoo_teardown(void);
 void cuckoo_reset(void);
 
 struct item * cuckoo_get(struct bstring *key);
-struct item * cuckoo_insert(struct bstring *key, struct val *val, rel_time_t expire);
-rstatus_i cuckoo_update(struct item *it, struct val *val, rel_time_t expire);
+struct item * cuckoo_insert(struct bstring *key, struct val *val, proc_time_i expire);
+rstatus_i cuckoo_update(struct item *it, struct val *val, proc_time_i expire);
 bool cuckoo_delete(struct bstring *key);

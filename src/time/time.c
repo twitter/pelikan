@@ -1,46 +1,59 @@
-#include "time.h"
+#include "time/time.h"
 
 #include <cc_debug.h>
-#include <cc_event.h>
+#include <time/cc_timer.h>
 
-#include <errno.h>
-#include <stdbool.h>
-#include <string.h>
+#include <sysexits.h>
+
+time_t time_start;
+proc_time_i proc_sec;
+proc_time_fine_i proc_ms;
+proc_time_fine_i proc_us;
+proc_time_fine_i proc_ns;
+
+static struct duration start;
+static struct duration proc_snapshot;
+
+uint8_t time_type = TIME_UNIX;
 
 void
 time_update(void)
 {
-    time_t t;
+    duration_snapshot(&proc_snapshot, &start);
 
-    t = time(NULL);
-    if (t < 0) {
-	log_warn("get current time failed: %s", strerror(errno));
-        return;
-    }
-
-    /* we assume service is online for less than 2^32 seconds */
-    now = (rel_time_t) (t - time_start);
-
-    log_vverb("internal timer updated to %u", now);
+    __atomic_store_n(&proc_sec, (proc_time_i)duration_sec(&proc_snapshot),
+            __ATOMIC_RELAXED);
+    __atomic_store_n(&proc_ms, (proc_time_fine_i)duration_ms(&proc_snapshot),
+            __ATOMIC_RELAXED);
+    __atomic_store_n(&proc_us, (proc_time_fine_i)duration_us(&proc_snapshot),
+            __ATOMIC_RELAXED);
+    __atomic_store_n(&proc_ns, (proc_time_fine_i)duration_ns(&proc_snapshot),
+            __ATOMIC_RELAXED);
 }
 
 void
-time_setup(void)
+time_setup(time_options_st *options)
 {
-    /*
-     * Make the time we started always be 2 seconds before we really
-     * did, so time_now(0) - time.started is never zero. If so, things
-     * like 'settings.oldest_live' which act as booleans as well as
-     * values are now false in boolean context.
-     */
-    time_start = time(NULL) - 2;
+    if (options != NULL) {
+        time_type = option_uint(&options->time_type);
+    }
 
-    log_info("timer started at %"PRIu64"(2 sec setback)",
-            (uint64_t)time_start);
+    time_start = time(NULL);
+    duration_start(&start);
+    time_update();
+
+    log_info("timer started at %"PRIu64, (uint64_t)time_start);
+
+    if (time_type >= TIME_SENTINEL) {
+        exit(EX_CONFIG);
+    }
 }
 
 void
 time_teardown(void)
 {
+    duration_reset(&start);
+    duration_reset(&proc_snapshot);
+
     log_info("timer ended at %"PRIu64, (uint64_t)time(NULL));
 }

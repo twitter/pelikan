@@ -3,8 +3,7 @@
 #include "core/context.h"
 #include "shared.h"
 
-#include <time/time.h>
-#include <util/util.h>
+#include "util/util.h"
 
 #include <cc_debug.h>
 #include <cc_event.h>
@@ -350,7 +349,6 @@ _server_evwait(void)
 
     INCR(server_metrics, server_event_loop);
     INCR_N(server_metrics, server_event_total, n);
-    time_update();
 
     return CC_OK;
 }
