@@ -11,3 +11,4 @@ extern crate clap;
 
 pub mod cdb;
 pub use cdb::{CDB, Result, CDBError};
+pub use memmap::Mmap;

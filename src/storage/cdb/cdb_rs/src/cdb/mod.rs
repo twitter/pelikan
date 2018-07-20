@@ -6,6 +6,8 @@ use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::result;
+use memmap::Mmap;
+use std::path::Path;
 
 pub mod errors;
 pub mod input;
@@ -127,19 +129,25 @@ struct IndexEntry {
 #[derive(Debug)]
 #[repr(C)]
 pub struct CDB<'a> {
-    data: &'a [u8],
+    data: &'a [u8]
 }
 
-pub fn load_bytes_at_path(path: &str) -> Result<Box<[u8]>> {
+
+pub fn load_bytes_at_path(path: &Path) -> Result<Box<[u8]>> {
     let mut f = File::open(path)?;
     let mut buffer = Vec::with_capacity(f.metadata()?.len() as usize);
     f.read_to_end(&mut buffer)?;
     Ok(buffer.into_boxed_slice())
 }
 
+pub fn mmap_bytes_at_path(path: &Path) -> Result<Mmap> {
+    let f = File::open(path)?;
+    unsafe { Mmap::map(&f) }.map_err(|e| e.into())
+}
+
 impl<'a> CDB<'a> {
-    pub fn new<'b>(b: &'b [u8]) -> CDB<'b> {
-        CDB { data: b }
+    pub fn new<'b, T: AsRef<[u8]>>(r: &'b T) -> CDB<'b> {
+        CDB { data: r.as_ref() }
     }
 
     #[inline]
@@ -215,7 +223,6 @@ impl<'a> CDB<'a> {
                 return Ok(None);
             } else if idx_ent.hash == hash {
                 let kv = self.get_kv_ref(idx_ent)?;
-                // TODO: this is incorrect handling of the buffer! shit!
                 if &kv.k[..] == key {
                     return Ok(Some(copy_slice(buf, kv.v)));
                 } else {
@@ -268,7 +275,7 @@ mod tests {
             }
         }).unwrap();
 
-        load_bytes_at_path(path.to_str().unwrap())
+        load_bytes_at_path(&path)
     }
 
 
@@ -290,7 +297,7 @@ mod tests {
         for (k, v) in kvs {
             let mut buf = Vec::new();
             buf.resize(10, 0u8);
-            
+
             let n = cdb.get(k.as_bytes(), &mut buf[..]).unwrap().unwrap();
             assert_eq!(n, v.len());
             assert_eq!(&buf[0..n], v.as_bytes())
