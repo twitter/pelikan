@@ -1,23 +1,20 @@
-#[macro_use] extern crate log;
 extern crate bytes;
+extern crate cc_binding;
+extern crate ccommon_rs;
 extern crate cdb_rs;
 extern crate env_logger;
 extern crate libc;
+#[macro_use] extern crate log;
 
-extern crate cdb_ccommon;
-
-mod ccommon;
-
+use cc_binding as bind;
+use ccommon_rs::bstring::BStr;
+use cdb_rs::{CDB, Result};
+use cdb_rs::cdb;
 use std::convert::From;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::ptr;
 
-use cdb_rs::cdb;
-use cdb_rs::{Result, CDB};
-
-use cdb_ccommon::bindings as bind;
-use ccommon::bstring::{BStringRef, BStringRefMut};
 
 #[repr(C)]
 pub struct CDBHandle {
@@ -80,8 +77,8 @@ pub extern "C" fn cdb_get(
 
     // TODO: don't do unwrap, be safe
     let handle = unsafe { CDBHandle::from_raw(h) };
-    let key = unsafe { BStringRef::from_raw(k) };
-    let mut val = unsafe { BStringRefMut::from_raw(v) };
+    let key = unsafe { BStr::from_ptr(k as *mut _) };
+    let mut val = unsafe { BStr::from_ptr_mut(v) };
 
     match CDB::from(handle).get(&key, &mut val)  {
         Ok(Some(n)) => {
@@ -92,7 +89,7 @@ pub extern "C" fn cdb_get(
                 let mut vstr = val.as_mut();
                 vstr.len = n as u32;
             }
-            val.into_raw()  // consume BufStringRefMut and return the underlying raw pointer
+            val.as_ptr()
         },
         Ok(None) => ptr::null_mut(), // not found, return a NULL
         Err(err) => {

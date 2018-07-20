@@ -329,8 +329,8 @@ core_server_teardown(void)
         freeaddrinfo(server_ai);
         buf_sock_return(&server_sock);
     }
-    ring_array_destroy(conn_term);
-    ring_array_destroy(conn_new);
+    ring_array_destroy(&conn_term);
+    ring_array_destroy(&conn_new);
     pipe_conn_destroy(&pipe_term);
     pipe_conn_destroy(&pipe_new);
     server_metrics = NULL;

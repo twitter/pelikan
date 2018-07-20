@@ -1,10 +1,12 @@
 [package]
 name = "cdb_ffi"
-version = "0.1.0"
-authors = ["Jonathan D. Simms <jsimms@twitter.com>"]
+version = "0.2.0"
+authors = ["Jonathan Simms <jsimms@twitter.com>"]
 
 [dependencies]
-cdb_ccommon = { path = "../cdb_ccommon" }
+ccommon_rs = { path = "../../../../deps/ccommon/rust/ccommon_rs" }
+cc_binding = { path = "../../../../deps/ccommon/rust/cc_binding" }
+
 cdb_rs = { path = "../cdb_rs" }
 
 log = "~0.4"

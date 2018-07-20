@@ -47,8 +47,19 @@ fn get_cmake_cache_value(binary_dir: &Path, key: &str) -> Result<Option<String>>
     Ok(None)
 }
 
+fn dump_env() {
+    let mut kvs: Vec<(String, String)> = ::std::env::vars().collect();
+    kvs.sort();
+    eprintln!("-----<( ENVIRONMENT )>-----");
+    for (k, v) in kvs {
+        eprintln!("{}: {}", k, v);
+    }
+}
+
 fn main() {
     println!("cargo:rustc-link-lib=static=ccommon-1.2.0");
+
+    dump_env();
 
     let include_path = fs::canonicalize("./../../include").unwrap();
 
