@@ -90,8 +90,7 @@ setup_cdb_handle(cdb_options_st *opt)
         log_stderr("cdb_file_path option not set, cannot continue");
         exit(EX_CONFIG);
     }
-
-    return cdb_handle_create(cdb_file_path, CDB_MMAP);
+    return cdb_handle_create(cdb_file_path);
 }
 
 static void

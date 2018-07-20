@@ -1,5 +1,4 @@
-#[macro_use]
-extern crate log;
+#[macro_use] extern crate log;
 extern crate bytes;
 extern crate cdb_rs;
 extern crate env_logger;
@@ -12,101 +11,62 @@ mod ccommon;
 use std::convert::From;
 use std::ffi::CStr;
 use std::os::raw::c_char;
-use std::path::PathBuf;
 use std::ptr;
 
 use cdb_rs::cdb;
-use cdb_rs::{Mmap, Result, CDB};
+use cdb_rs::{Result, CDB};
 
-use ccommon::bstring::{BStringRef, BStringRefMut};
 use cdb_ccommon::bindings as bind;
-
-#[repr(C)]
-pub enum CDBData {
-    Boxed(Box<[u8]>),
-    Mmapped(Mmap),
-}
+use ccommon::bstring::{BStringRef, BStringRefMut};
 
 #[repr(C)]
 pub struct CDBHandle {
-    data: CDBData,
-}
-
-#[repr(C)]
-pub enum CDBStoreMethod {
-    HEAP = 1,
-    MMAP = 2,
+    inner: Box<[u8]>,
 }
 
 impl CDBHandle {
-    pub unsafe fn from_raw<'a>(ptr: *mut CDBHandle) -> &'a CDBHandle {
-        &*ptr
-    }
-
-    pub fn new(data: CDBData) -> CDBHandle {
-        CDBHandle { data }
-    }
+    pub unsafe fn from_raw<'a>(ptr: *mut CDBHandle) -> &'a CDBHandle { &*ptr }
 }
 
-impl AsRef<[u8]> for CDBHandle {
-    #[inline]
-    fn as_ref(&self) -> &[u8] {
-        match self.data {
-            CDBData::Boxed(ref bx) => bx.as_ref(),
-            CDBData::Mmapped(ref mm) => mm.as_ref(),
-        }
+impl<'a> From<&'a CDBHandle> for CDB<'a> {
+    fn from(h: &'a CDBHandle) -> Self {
+        CDB::new(&h.inner)
     }
 }
 
-enum LoadOption {
-    Heap(PathBuf),
-    Mmap(PathBuf),
+fn mk_cdb_handler(path: String) -> Result<CDBHandle> {
+    assert!(
+        !path.is_empty(),
+        "cdb file path was empty, misconfiguration?"
+    );
+    debug!("mk_cdb_handler, path: {:?}", path);
+    let inner = cdb::load_bytes_at_path(path.as_ref())?;
+    debug!("inner: {:?}", inner);
+
+    Ok(CDBHandle { inner })
 }
 
-#[inline]
-fn mk_cdb_handler(lo: LoadOption) -> Result<CDBHandle> {
-    match lo {
-        LoadOption::Heap(pb) => cdb::mmap_bytes_at_path(&pb)
-            .map(|mm| CDBHandle::new(CDBData::Mmapped(mm))),
-        LoadOption::Mmap(pb) => cdb::load_bytes_at_path(&pb)
-            .map(|b| CDBHandle::new(CDBData::Boxed(b))),
-    }
-}
-
-#[inline]
-fn cstr_to_path_buf(s: *const c_char) -> Result<PathBuf> {
+fn cstr_to_string(s: *const c_char) -> Result<String> {
     let ps = unsafe { CStr::from_ptr(s) }.to_str()?;
-
-    assert!(!ps.is_empty(), "cdb file path was empty, misconfiguration?");
-
-    let rv = PathBuf::from(ps);
+    let rv = String::from(ps);
     eprintln!("cstr_to_string: {:?}", rv);
 
     Ok(rv)
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_handle_create(
-    path: *const c_char,
-    opt: CDBStoreMethod
-) -> *mut CDBHandle {
+pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut CDBHandle {
     assert!(!path.is_null());
 
-    cstr_to_path_buf(path)
-        .and_then(|pathbuf| {
-            mk_cdb_handler(
-                match opt {
-                    CDBStoreMethod::HEAP => LoadOption::Heap(pathbuf),
-                    CDBStoreMethod::MMAP => LoadOption::Mmap(pathbuf),
-                }
-            )
-        })
-        .map(|h| Box::into_raw(Box::new(h)))
-        .unwrap_or_else(|err| {
-            error!("failed to create cdb_handle {:?}", err);
+    match cstr_to_string(path).and_then(|s| mk_cdb_handler(s)) {
+        Ok(bhandle) => Box::into_raw(Box::new(bhandle)),
+        Err(err) => {
+            error!("failed to create CDBHandle: {:?}", err);
             ptr::null_mut()
-        })
+        }
+    }
 }
+
 
 #[no_mangle]
 pub extern "C" fn cdb_get(
@@ -123,7 +83,7 @@ pub extern "C" fn cdb_get(
     let key = unsafe { BStringRef::from_raw(k) };
     let mut val = unsafe { BStringRefMut::from_raw(v) };
 
-    match CDB::new(handle).get(&key, &mut val) {
+    match CDB::from(handle).get(&key, &mut val)  {
         Ok(Some(n)) => {
             {
                 // this provides access to the underlying struct fields
@@ -132,8 +92,8 @@ pub extern "C" fn cdb_get(
                 let mut vstr = val.as_mut();
                 vstr.len = n as u32;
             }
-            val.into_raw() // consume BufStringRefMut and return the underlying raw pointer
-        }
+            val.into_raw()  // consume BufStringRefMut and return the underlying raw pointer
+        },
         Ok(None) => ptr::null_mut(), // not found, return a NULL
         Err(err) => {
             eprintln!("got error: {:?}", err);
@@ -141,6 +101,7 @@ pub extern "C" fn cdb_get(
         }
     }
 }
+
 
 #[no_mangle]
 pub extern "C" fn cdb_handle_destroy(handle: *mut CDBHandle) {
