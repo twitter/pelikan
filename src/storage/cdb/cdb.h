@@ -6,13 +6,14 @@
 
 struct CDBHandle;
 
-enum CDBStoreMethod {
-	CDB_HEAP = 1,
-	CDB_MMAP = 2,
+struct CDBBString {
+    uint32_t len;   /* string length */
+    char     *data; /* string data */
 };
 
-struct CDBHandle* cdb_handle_create(const char *path, enum CDBStoreMethod meth);
+struct CDBData;
 
+struct CDBHandle* cdb_handle_create(const char *path);
 void cdb_handle_destroy(struct CDBHandle *h);
 
 void cdb_setup(void);
