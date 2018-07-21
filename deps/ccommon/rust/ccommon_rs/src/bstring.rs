@@ -24,7 +24,6 @@
 
 use cc_binding as bind;
 use std::borrow::Borrow;
-use std::boxed::Box;
 use std::cell::UnsafeCell;
 use std::fmt;
 use std::fmt::Debug;
@@ -59,6 +58,12 @@ unsafe fn raw_ptr_to_bytes_mut<'a>(ptr: *mut CCbstring) -> &'a mut [u8] {
 
 
 // this pattern lifted from https://docs.rs/foreign-types-shared/0.1.1/src/foreign_types_shared/lib.rs.html
+//
+// according to the author (Steven Fackler) who is a rust stdlib maintainer:
+//   > Opaque is just there to be some arbitrary non-constructable type.
+//   > the unsafecell inside is a hedge against something that I can't
+//   > quite remember but eddyb claims is important
+//
 struct Opaque(UnsafeCell<()>);
 
 /// A reference to a BString. String is to &str as BString is to &BStr.
@@ -69,6 +74,7 @@ struct Opaque(UnsafeCell<()>);
 /// data field and expects it to be filled (as opposed to in BString where
 /// *we* own that memory).
 ///
+#[repr(C)]
 pub struct BStr(Opaque);
 
 impl BStr {
@@ -76,7 +82,7 @@ impl BStr {
     /// reference only conversion, and is zero cost.
     #[inline]
     pub unsafe fn from_ptr<'a>(ptr: *mut CCbstring) -> &'a Self {
-        &*(ptr as *mut _)
+        &*(ptr as *mut _)   // This is more or less equivalent to a transmute
     }
 
     /// Wraps a raw pointer to a cc_bstring struct with a BStr, and returns
@@ -87,9 +93,13 @@ impl BStr {
         &mut *(ptr as *mut _)
     }
 
+    // it's ok to ignore the cast_ptr_alignment lint because we're going
+    // *mut CCbstring -> &BStr -> *mut CCbstring
+    #[allow(cast_ptr_alignment)]
+    #[allow(unknown_lints)]
     #[inline]
     pub fn as_ptr(&self) -> *mut CCbstring {
-        self as *const _ as *mut _
+        (&*self) as *const _ as *mut _
     }
 }
 
@@ -105,7 +115,7 @@ impl Deref for BStr {
 impl DerefMut for BStr {
     #[inline]
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe { raw_ptr_to_bytes_mut(self.as_ptr()) }
+        unsafe { raw_ptr_to_bytes_mut(self.as_ptr() as *mut _) }
     }
 }
 
@@ -138,7 +148,7 @@ impl ToOwned for BStr {
 
     #[inline]
     fn to_owned(&self) -> BString {
-        unsafe { BString::from_raw(self.as_ptr()).clone() }
+        unsafe { BString::from_raw(self.as_ptr() as *mut _).clone() }
     }
 }
 
@@ -234,6 +244,8 @@ impl BString {
     }
 
     #[inline]
+    #[allow(unknown_lints)]
+    #[allow(wrong_self_convention)]  // nb(jsimms): what about Box.into_raw?
     pub fn into_raw(bs: BString) -> *mut CCbstring {
         let unique = bs.0;
         mem::forget(bs);
@@ -369,9 +381,9 @@ impl From<BString> for Vec<u8> {
     }
 }
 
-impl From<Box<[u8]>> for BString {
+impl<'a> From<&'a [u8]> for BString {
     #[inline]
-    fn from(b: Box<[u8]>) -> Self {
+    fn from(b: &'a [u8]) -> Self {
         BString::from_bytes(&b[..])
     }
 }

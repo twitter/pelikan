@@ -31,13 +31,13 @@ impl<'a> From<&'a CDBHandle> for CDB<'a> {
     }
 }
 
-fn mk_cdb_handler(path: String) -> Result<CDBHandle> {
+fn mk_cdb_handler(path: &str) -> Result<CDBHandle> {
     assert!(
         !path.is_empty(),
         "cdb file path was empty, misconfiguration?"
     );
     debug!("mk_cdb_handler, path: {:?}", path);
-    let inner = cdb::load_bytes_at_path(path.as_ref())?;
+    let inner = cdb::load_bytes_at_path(path)?;
     debug!("inner: {:?}", inner);
 
     Ok(CDBHandle { inner })
@@ -55,7 +55,7 @@ fn cstr_to_string(s: *const c_char) -> Result<String> {
 pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut CDBHandle {
     assert!(!path.is_null());
 
-    match cstr_to_string(path).and_then(|s| mk_cdb_handler(s)) {
+    match cstr_to_string(path).and_then(|s| mk_cdb_handler(&s)) {
         Ok(bhandle) => Box::into_raw(Box::new(bhandle)),
         Err(err) => {
             error!("failed to create CDBHandle: {:?}", err);
@@ -66,7 +66,7 @@ pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut CDBHandle {
 
 
 #[no_mangle]
-pub extern "C" fn cdb_get(
+pub unsafe extern "C" fn cdb_get(
     h: *mut CDBHandle,
     k: *const bind::bstring,
     v: *mut bind::bstring,
@@ -76,9 +76,9 @@ pub extern "C" fn cdb_get(
     assert!(!v.is_null());
 
     // TODO: don't do unwrap, be safe
-    let handle = unsafe { CDBHandle::from_raw(h) };
-    let key = unsafe { BStr::from_ptr(k as *mut _) };
-    let mut val = unsafe { BStr::from_ptr_mut(v) };
+    let handle = CDBHandle::from_raw(h);
+    let key = BStr::from_ptr(k as *mut _);
+    let mut val = BStr::from_ptr_mut(v);
 
     match CDB::from(handle).get(&key, &mut val)  {
         Ok(Some(n)) => {
@@ -101,10 +101,8 @@ pub extern "C" fn cdb_get(
 
 
 #[no_mangle]
-pub extern "C" fn cdb_handle_destroy(handle: *mut CDBHandle) {
-    unsafe {
-        drop(Box::from_raw(handle));
-    }
+pub unsafe extern "C" fn cdb_handle_destroy(handle: *mut CDBHandle) {
+    drop(Box::from_raw(handle));
 }
 
 #[no_mangle]

@@ -36,16 +36,16 @@ impl CDBHash {
             //   While most arithmetic falls into this category, some code explicitly expects
             //   and relies upon modular arithmetic (e.g., hashing)
             //
-            h = h.wrapping_shl(5).wrapping_add(h) ^ (*b as u32)
+            h = h.wrapping_shl(5).wrapping_add(h) ^ u32::from(*b)
         }
         CDBHash(h)
     }
 
-    fn table(&self) -> usize {
+    fn table(self) -> usize {
         self.0 as usize % MAIN_TABLE_SIZE
     }
 
-    fn slot(&self, num_ents: usize) -> usize {
+    fn slot(self, num_ents: usize) -> usize {
         (self.0 as usize >> 8) % num_ents
     }
 }
@@ -88,7 +88,7 @@ impl fmt::Debug for Bucket {
 impl Bucket {
     // returns the offset into the db of entry n of this bucket.
     // panics if n >= num_ents
-    fn entry_n_pos<'a>(&'a self, n: usize) -> IndexEntryPos {
+    fn entry_n_pos(&self, n: usize) -> IndexEntryPos {
         assert!(n < self.num_ents);
         IndexEntryPos(self.ptr + (n * END_TABLE_ENTRY_SIZE))
     }
@@ -138,7 +138,7 @@ pub fn load_bytes_at_path(path: &str) -> Result<Box<[u8]>> {
 }
 
 impl<'a> CDB<'a> {
-    pub fn new<'b>(b: &'b [u8]) -> CDB<'b> {
+    pub fn new(b: &[u8]) -> CDB {
         CDB { data: b }
     }
 
@@ -178,7 +178,7 @@ impl<'a> CDB<'a> {
     }
 
     #[inline]
-    fn get_kv_ref(&self, ie: IndexEntry) -> Result<KVRef<'a>> {
+    fn get_kv_ref(&self, ie: &IndexEntry) -> Result<KVRef<'a>> {
         let b = self.data[ie.ptr..(ie.ptr + DATA_HEADER_SIZE)].as_ref();
 
         let ksize = b[..4].into_buf().get_u32_le() as usize;
@@ -193,9 +193,7 @@ impl<'a> CDB<'a> {
         Ok(KVRef { k, v })
     }
 
-    pub fn get(&self, key: &[u8], buf: &mut[u8]) -> Result<Option<usize>>
-    {
-        let key = key.into();
+    pub fn get(&self, key: &[u8], buf: &mut[u8]) -> Result<Option<usize>> {
         let hash = CDBHash::new(key);
         let bucket = self.bucket_at(hash.table())?;
 
@@ -214,7 +212,7 @@ impl<'a> CDB<'a> {
             if idx_ent.ptr == 0 {
                 return Ok(None);
             } else if idx_ent.hash == hash {
-                let kv = self.get_kv_ref(idx_ent)?;
+                let kv = self.get_kv_ref(&idx_ent)?;
                 // TODO: this is incorrect handling of the buffer! shit!
                 if &kv.k[..] == key {
                     return Ok(Some(copy_slice(buf, kv.v)));

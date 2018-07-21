@@ -14,10 +14,10 @@ const NL: u8 = 0x0a; // ASCII '\n'
 
 fn parse_digits(buf: &[u8]) -> Result<usize, CDBError> {
     str::from_utf8(&buf)
-        .map_err(|err| CDBError::UTF8Error(err))
+        .map_err(CDBError::UTF8Error)
         .and_then(|str| {
             str.parse::<usize>()
-                .map_err(|err| CDBError::ParseError(err))
+                .map_err(CDBError::ParseError)
         })
 }
 
@@ -93,7 +93,7 @@ fn read_one_record<T: Read>(input: &mut BufReader<T>) -> Result<Option<KV>, CDBE
         None => Ok(None),
         Some(_) => read_sizes(input)
             .and_then(|sizes| read_kv(input, &sizes))
-            .map(|kv| Some(kv)),
+            .map(Some),
     }
 }
 
