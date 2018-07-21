@@ -26,8 +26,13 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <cc_define.h>
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -35,7 +40,7 @@
 
 struct ring_array {
     size_t      elem_size;         /* element size */
-    uint32_t    cap;               /* total capacity (# items stored + 1) */
+    uint32_t    cap;               /* total capacity */
     uint32_t    rpos;              /* read offset */
     uint32_t    wpos;              /* write offset */
     union {
@@ -45,12 +50,37 @@ struct ring_array {
     };
 };
 
+/***********************
+ * Producer thread API *
+ ***********************/
+
 /* push an element into the array */
 rstatus_i ring_array_push(const void *elem, struct ring_array *arr);
+
+/* check if array is full */
+bool ring_array_full(const struct ring_array *arr);
+
+
+/***********************
+ * Consumer thread API *
+ ***********************/
 
 /* pop an element from the array */
 rstatus_i ring_array_pop(void *elem, struct ring_array *arr);
 
-/* creation/destruction */
+/* check if array is empty */
+bool ring_array_empty(const struct ring_array *arr);
+
+/* flush contents of ring array */
+void ring_array_flush(struct ring_array *arr);
+
+
+/*****************
+ * Create/Delete *
+ *****************/
 struct ring_array *ring_array_create(size_t elem_size, uint32_t cap);
-void ring_array_destroy(struct ring_array *arr);
+void ring_array_destroy(struct ring_array **arr);
+
+#ifdef __cplusplus
+}
+#endif

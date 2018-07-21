@@ -1,0 +1,21 @@
+[workspace]
+
+members = [
+    "cc_binding",
+    "ccommon_rs",
+]
+
+[profile.release]
+opt-level = 3
+debug = true
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+
+[profile.dev]
+debug = true
+opt-level = 0
+
+[term]
+verbose = true

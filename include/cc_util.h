@@ -57,12 +57,16 @@ extern "C" {
  * # define UINT16_MAX  (65535)
  * # define UINT32_MAX  (4294967295U)
  * # define UINT64_MAX  (__UINT64_C(18446744073709551615))
+ *
+ * # define INT64_MIN   -9223372036854775808LL
  */
 #define CC_UINT8_MAXLEN     (3 + 1)
 #define CC_UINT16_MAXLEN    (5 + 1)
 #define CC_UINT32_MAXLEN    (10 + 1)
 #define CC_UINT64_MAXLEN    (20 + 1)
 #define CC_UINTMAX_MAXLEN   CC_UINT64_MAXLEN
+
+#define CC_INT64_MAXLEN    (1 + 19 + 1)
 
 /* alignment */
 /* Make data 'd' or pointer 'p', n-byte aligned, where n is a power of 2 */

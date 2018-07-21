@@ -81,6 +81,17 @@ duration_start(struct duration *d)
 }
 
 void
+duration_snapshot(struct duration *s, const struct duration *d)
+{
+    ASSERT(s != 0 && d != NULL);
+
+    s->started = true;
+    s->start = d->start;
+    s->stopped = true;
+    _gettime(&s->stop);
+}
+
+void
 duration_stop(struct duration *d)
 {
     ASSERT(d != NULL);

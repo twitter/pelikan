@@ -72,7 +72,7 @@ find_port_listen(struct tcp_conn **_conn_listen, struct addrinfo **_ai, uint16_t
         freeaddrinfo(ai);
     }
     /* for some reason this line is needed, I would appreciate some insight */
-    ck_assert_int_eq(tcp_connect(ai, conn_client), true);
+    ck_assert(tcp_connect(ai, conn_client));
     tcp_reject(conn_listen);
 
     if (_conn_listen) {
@@ -157,7 +157,7 @@ START_TEST(test_client_send_server_recv)
     conn_server = tcp_conn_create();
     ck_assert_ptr_ne(conn_server, NULL);
 
-    ck_assert_int_eq(tcp_accept(conn_listen, conn_server), true);
+    ck_assert(tcp_accept(conn_listen, conn_server));
     ck_assert_int_eq(tcp_send(conn_client, send_data, LEN), LEN);
     while ((recv = tcp_recv(conn_server, recv_data, LEN + 1)) == CC_EAGAIN) {}
     ck_assert_int_eq(recv, LEN);
@@ -199,7 +199,7 @@ START_TEST(test_server_send_client_recv)
     conn_server = tcp_conn_create();
     ck_assert_ptr_ne(conn_server, NULL);
 
-    ck_assert_int_eq(tcp_accept(conn_listen, conn_server), true);
+    ck_assert(tcp_accept(conn_listen, conn_server));
     ck_assert_int_eq(tcp_send(conn_server, send_data, LEN), LEN);
     while ((recv = tcp_recv(conn_client, recv_data, LEN + 1)) == CC_EAGAIN) {}
     ck_assert_int_eq(recv, LEN);
@@ -252,7 +252,7 @@ START_TEST(test_client_sendv_server_recvv)
     conn_server = tcp_conn_create();
     ck_assert_ptr_ne(conn_server, NULL);
 
-    ck_assert_int_eq(tcp_accept(conn_listen, conn_server), true);
+    ck_assert(tcp_accept(conn_listen, conn_server));
     ck_assert_int_eq(tcp_sendv(conn_client, send_array, LEN), LEN);
     while ((recv = tcp_recvv(conn_server, recv_array, LEN + 1)) == CC_EAGAIN) {}
     ck_assert_int_eq(recv, LEN);
@@ -315,7 +315,7 @@ START_TEST(test_nonblocking)
     conn_server = tcp_conn_create();
     ck_assert_ptr_ne(conn_server, NULL);
 
-    ck_assert_int_eq(tcp_accept(conn_listen, conn_server), true);
+    ck_assert(tcp_accept(conn_listen, conn_server));
 
     task.usleep = SLEEP_TIME;
     task.c = conn_server;
