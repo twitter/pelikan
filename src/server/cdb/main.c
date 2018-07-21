@@ -1,7 +1,7 @@
 #include "admin/process.h"
 #include "setting.h"
 #include "stats.h"
-#include "storage/cdb/cdb.h"
+#include "storage/cdb/cdb_rs.h"
 
 #include "time/time.h"
 #include "util/util.h"
@@ -80,17 +80,24 @@ teardown(void)
     log_teardown();
 }
 
-static struct CDBHandle*
+static struct cdb_handle*
 setup_cdb_handle(cdb_options_st *opt)
 {
     cdb_setup();
 
-    char *cdb_file_path = opt->cdb_file_path.val.vstr;
-    if (cdb_file_path == NULL) {
+    struct cdb_handle_create_config cfg;
+    bstring_init(cfg.path);
+
+    cfg.load_method = (opt->use_mmap.val.vbool) ? CDB_MMAP : CDB_HEAP;
+
+    bstring_set_text(cfg.path, opt->cdb_file_path.val.vstr);
+
+    if (cfg.path == NULL) {
         log_stderr("cdb_file_path option not set, cannot continue");
         exit(EX_CONFIG);
     }
-    return cdb_handle_create(cdb_file_path);
+
+    return cdb_handle_create(&cfg);
 }
 
 static void
@@ -140,7 +147,7 @@ setup(void)
     compose_setup(NULL, &stats.compose_rsp);
     klog_setup(&setting.klog, &stats.klog);
 
-    struct CDBHandle* cdb_handle = setup_cdb_handle(&setting.cdb);
+    struct cdb_handle* cdb_handle = setup_cdb_handle(&setting.cdb);
     if (cdb_handle == NULL) {
         log_stderr("failed to set up cdb");
         goto error;

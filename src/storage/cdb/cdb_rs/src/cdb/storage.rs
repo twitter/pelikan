@@ -9,7 +9,6 @@ use std::os::unix::fs::FileExt;
 use std::sync::Arc;
 
 #[derive(Debug)]
-#[repr(C, u8)]
 pub enum SliceFactory {
     HeapStorage(HeapWrap),
     MmapStorage(MMapWrap),

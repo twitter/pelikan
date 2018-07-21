@@ -1,73 +1,48 @@
-extern crate bytes;
-extern crate cc_binding;
-extern crate ccommon_rs;
-extern crate cdb_rs;
-extern crate env_logger;
-extern crate libc;
-#[macro_use] extern crate log;
-
 use cc_binding as bind;
 use ccommon_rs::bstring::BStr;
-use cdb_rs::{CDB, Result};
-use cdb_rs::cdb;
+use cdb::{cdb_handle, Reader, Result};
+use cdb;
+use env_logger; // TODO: switch to cc_log_rs
 use std::convert::From;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::ptr;
 
+pub(in super) mod gen;
 
-#[repr(C)]
-pub struct CDBHandle {
-    inner: Box<[u8]>,
-}
 
-impl CDBHandle {
-    pub unsafe fn from_raw<'a>(ptr: *mut CDBHandle) -> &'a CDBHandle { &*ptr }
-}
-
-impl<'a> From<&'a CDBHandle> for CDB<'a> {
-    fn from(h: &'a CDBHandle) -> Self {
-        CDB::new(&h.inner)
-    }
-}
-
-fn mk_cdb_handler(path: &str) -> Result<CDBHandle> {
+fn mk_cdb_handler(path: &str) -> Result<cdb_handle> {
     assert!(
         !path.is_empty(),
         "cdb file path was empty, misconfiguration?"
     );
     debug!("mk_cdb_handler, path: {:?}", path);
     let inner = cdb::load_bytes_at_path(path)?;
-    debug!("inner: {:?}", inner);
 
-    Ok(CDBHandle { inner })
+    Ok(cdb_handle::new(inner))
 }
 
 fn cstr_to_string(s: *const c_char) -> Result<String> {
     let ps = unsafe { CStr::from_ptr(s) }.to_str()?;
-    let rv = String::from(ps);
-    eprintln!("cstr_to_string: {:?}", rv);
-
-    Ok(rv)
+    Ok(String::from(ps))
 }
 
 #[no_mangle]
-pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut CDBHandle {
+pub extern "C" fn cdb_handle_create(path: *const c_char) -> *mut cdb_handle {
     assert!(!path.is_null());
 
     match cstr_to_string(path).and_then(|s| mk_cdb_handler(&s)) {
         Ok(bhandle) => Box::into_raw(Box::new(bhandle)),
         Err(err) => {
-            error!("failed to create CDBHandle: {:?}", err);
+            error!("failed to create cdb_handle: {:?}", err);
             ptr::null_mut()
         }
     }
 }
 
-
 #[no_mangle]
 pub unsafe extern "C" fn cdb_get(
-    h: *mut CDBHandle,
+    h: *mut cdb_handle,
     k: *const bind::bstring,
     v: *mut bind::bstring,
 ) -> *mut bind::bstring {
@@ -76,11 +51,11 @@ pub unsafe extern "C" fn cdb_get(
     assert!(!v.is_null());
 
     // TODO: don't do unwrap, be safe
-    let handle = CDBHandle::from_raw(h);
+    let handle = cdb_handle::from_raw(h);
     let key = BStr::from_ptr(k as *mut _);
     let mut val = BStr::from_ptr_mut(v);
 
-    match CDB::from(handle).get(&key, &mut val)  {
+    match Reader::from(handle).get(&key, &mut val)  {
         Ok(Some(n)) => {
             {
                 // this provides access to the underlying struct fields
@@ -101,17 +76,17 @@ pub unsafe extern "C" fn cdb_get(
 
 
 #[no_mangle]
-pub unsafe extern "C" fn cdb_handle_destroy(handle: *mut CDBHandle) {
+pub unsafe extern "C" fn cdb_handle_destroy(handle: *mut cdb_handle) {
     drop(Box::from_raw(handle));
 }
 
 #[no_mangle]
 pub extern "C" fn cdb_setup() {
     env_logger::init();
-    debug!("setup cdb");
+    eprintln!("setup cdb");
 }
 
 #[no_mangle]
 pub extern "C" fn cdb_teardown() {
-    debug!("teardown cdb");
+    eprintln!("teardown cdb");
 }

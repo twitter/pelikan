@@ -3,7 +3,7 @@
 #include "process.h"
 
 #include "protocol/data/memcache_include.h"
-#include "storage/cdb/cdb.h"
+#include "storage/cdb/cdb_rs.h"
 
 #include <cc_array.h>
 #include <cc_debug.h>
@@ -26,10 +26,10 @@ static struct bstring value_buf;
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
 
-static struct CDBHandle *cdb_handle = NULL;
+static struct cdb_handle *cdb_handle = NULL;
 
 void
-process_setup(process_options_st *options, process_metrics_st *metrics, struct CDBHandle *handle)
+process_setup(process_options_st *options, process_metrics_st *metrics, struct cdb_handle *handle)
 {
     log_info("set up the %s module", CDB_PROCESS_MODULE_NAME);
 
@@ -68,7 +68,7 @@ process_teardown(void)
     }
 
     if (cdb_handle != NULL) {
-        struct CDBHandle *p = cdb_handle;
+        struct cdb_handle *p = cdb_handle;
         cdb_handle = NULL;
         cdb_handle_destroy(p);
     }

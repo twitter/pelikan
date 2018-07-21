@@ -2,7 +2,7 @@
 
 members = [
     "cdb_rs",
-    "cdb_ffi",
+    "cdbgen",
 ]
 
 [profile.release]
