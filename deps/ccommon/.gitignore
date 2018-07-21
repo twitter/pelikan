@@ -42,3 +42,5 @@ tags
 # cscope
 cscope.*
 lcov
+
+CMAKE_BINARY_DIR

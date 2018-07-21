@@ -130,6 +130,26 @@ START_TEST(test_atou64)
 }
 END_TEST
 
+START_TEST(test_bstring_alloc_and_free)
+{
+#define BSTRING_SIZE 9000
+
+    struct bstring *bs;
+
+    bs = bstring_alloc(BSTRING_SIZE);
+    ck_assert_uint_eq(bs->len, BSTRING_SIZE);
+    for (int i = 0; i < BSTRING_SIZE; i++) {
+        bs->data[i] = 'a';
+    }
+
+    /* great! we didn't segfault! */
+    bstring_free(&bs);
+    ck_assert_ptr_null(bs);
+
+#undef BSTRING_SIZE
+}
+END_TEST
+
 /*
  * test suite
  */
@@ -146,6 +166,7 @@ bstring_suite(void)
     tcase_add_test(tc_bstring, test_copy);
     tcase_add_test(tc_bstring, test_compare);
     tcase_add_test(tc_bstring, test_atou64);
+    tcase_add_test(tc_bstring, test_bstring_alloc_and_free);
 
     return s;
 }

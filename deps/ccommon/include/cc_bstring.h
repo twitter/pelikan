@@ -56,6 +56,9 @@ rstatus_i bstring_duplicate(struct bstring *dst, const struct bstring *src);
 rstatus_i bstring_copy(struct bstring *dst, const char *src, uint32_t srclen);
 int bstring_compare(const struct bstring *s1, const struct bstring *s2);
 
+struct bstring *bstring_alloc(uint32_t size);
+void bstring_free(struct bstring **bstring);
+
 /* TODO(yao): is this endian thing really useful? */
 /* efficient implementation of string comparion of short strings */
 #define str2cmp(m, c0, c1)                                                     \
