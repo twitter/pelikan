@@ -59,7 +59,9 @@ fn dump_env() {
 fn main() {
     println!("cargo:rustc-link-lib=static=ccommon-1.2.0");
 
-    dump_env();
+    if ::std::env::var_os("CC_BINDING_DUMP_ENV").is_some() {
+        dump_env();
+    }
 
     let include_path = fs::canonicalize("./../../include").unwrap();
 
