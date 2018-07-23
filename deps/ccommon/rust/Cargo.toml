@@ -1,8 +1,8 @@
 [workspace]
 
 members = [
-    "cdb_rs",
-    "cdb_ffi",
+    "cc_binding",
+    "ccommon_rs",
 ]
 
 [profile.release]

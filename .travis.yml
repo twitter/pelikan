@@ -12,7 +12,7 @@ addons:
 
 # important for allowed-to-fail matching
 # see https://docs.travis-ci.com/user/customizing-the-build#Rows-that-are-Allowed-to-Fail
-env:
+env: &env
   - ALLOWED_TO_FAIL=0
 
 # travis currently does not support directly setting gcc/clang with versions
@@ -26,6 +26,7 @@ matrix:
     # gcc 4.8 on linux
     - env:
         - C_COMPILER=gcc-4.8
+        - RUST_ENABLED=1
       addons:
         apt:
           <<: *apt
@@ -37,6 +38,7 @@ matrix:
     # gcc 4.9 on linux
     - env:
         - C_COMPILER=gcc-4.9
+        - RUST_ENABLED=1
       addons:
         apt:
           <<: *apt
@@ -47,6 +49,7 @@ matrix:
     # gcc 5 on linux
     - env:
         - C_COMPILER=gcc-5
+        - RUST_ENABLED=1
       addons:
         apt:
           <<: *apt
@@ -57,6 +60,7 @@ matrix:
     # clang 3.6 on linux
     - env:
         - C_COMPILER=clang-3.6
+        - RUST_ENABLED=1
       addons:
         apt:
           <<: *apt
@@ -67,6 +71,7 @@ matrix:
     # clang 3.7 on linux
     - env:
         - C_COMPILER=clang-3.7
+        - RUST_ENABLED=1
       addons:
         apt:
           <<: *apt
@@ -94,6 +99,7 @@ matrix:
       env:
         - C_COMPILER=clang
         - ALLOWED_TO_FAIL=1
+        - RUST_ENABLED=1
 
     # OSX 10.12
     # Apple LLVM version 9.0.0 (clang-900.0.39.2)
@@ -103,6 +109,7 @@ matrix:
       env:
         - C_COMPILER=clang
         - ALLOWED_TO_FAIL=1
+        - RUST_ENABLED=1
 
   allow_failures:
     - os: osx
@@ -110,12 +117,14 @@ matrix:
       env:
         - C_COMPILER=clang
         - ALLOWED_TO_FAIL=1
+        - RUST_ENABLED=1
 
     - os: osx
       osx_image: xcode9.2
       env:
         - C_COMPILER=clang
         - ALLOWED_TO_FAIL=1
+        - RUST_ENABLED=1
 
 before_install:
   - ./ci/before-install.sh

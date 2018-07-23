@@ -53,6 +53,33 @@ option(HAVE_LOGGING "logging enabled by default" ON)
 option(HAVE_STATS "stats enabled by default" ON)
 option(HAVE_DEBUG_MM "debugging oriented memory management disabled by default" OFF)
 option(COVERAGE "code coverage" OFF)
+option(HAVE_RUST "rust bindings not built by default" OFF)
+
+if(HAVE_RUST)
+    option(RUST_VERBOSE_BUILD "pass -vv to cargo compilation" OFF)
+endif()
+
+if(BUILD_AND_INSTALL_CHECK)
+    # (simms) What follows is a crime against build systems as we run the build/install
+    # for the check library up front, during the planning phase.
+
+    set(LIBCHECK_PREFIX "${CMAKE_BINARY_DIR}/check")
+
+    # check for a local install of check
+    if(NOT EXISTS "${LIBCHECK_PREFIX}")
+        # (simms) This is terrible and I did it this way to ensure this gets built
+        # before the rest of the 'check' tests run. This should be rewritten so that
+        # the other dependencies know that there's a target that can build check
+        execute_process(
+            COMMAND "bash" "${PROJECT_SOURCE_DIR}/ci/install-check.sh" "${LIBCHECK_PREFIX}"
+            TIMEOUT 300  # if this doesn't build in 5 minutes something is hosed
+        )
+    endif()
+
+    set(CHECK_ROOT_DIR "${LIBCHECK_PREFIX}")
+    set(CMAKE_REQUIRED_INCLUDES "${CHECK_ROOT_DIR}/include")    # these make check link correctly in ccommon and pelikan
+    set(CMAKE_REQUIRED_LIBRARIES "${CHECK_ROOT_DIR}/lib")
+endif()
 
 include(CheckIncludeFiles)
 if(OS_PLATFORM STREQUAL "OS_LINUX")
@@ -100,6 +127,10 @@ set(CFLAGS_LIST
 string(REPLACE "" "" CFLAGS ${CFLAGS_LIST})
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  ${CFLAGS}")
 
+if(CMAKE_COMPILER_IS_GNUCC)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--no-as-needed -ldl -pthread -fPIC")
+endif()
+
 if (COVERAGE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -Wall -W -fprofile-arcs -ftest-coverage")
 endif(COVERAGE)
@@ -107,6 +138,7 @@ endif(COVERAGE)
 # test dependencies
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
+
 find_package(Check)
 if(NOT CHECK_FOUND)
     message(WARNING "Check is required to build and run tests")
@@ -120,10 +152,20 @@ endif(CHECK_FOUND)
 
 find_package(Threads)
 
+
 # where to find include files
-include_directories(${include_directories}
+include_directories(
+    ${include_directories}
     "${PROJECT_BINARY_DIR}"
     "include")
+
+if(HAVE_RUST)
+    enable_language(Rust)
+    include(CMakeCargo)
+    add_subdirectory(rust)
+    set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -DHAVE_RUST=1")
+endif()
+
 
 ###################
 # things to build #

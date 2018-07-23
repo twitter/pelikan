@@ -70,7 +70,6 @@
  *
  */
 
-
 static inline uint32_t
 ring_array_nelem(uint32_t rpos, uint32_t wpos, uint32_t cap)
 {
@@ -81,31 +80,12 @@ ring_array_nelem(uint32_t rpos, uint32_t wpos, uint32_t cap)
     }
 }
 
-static inline bool
-ring_array_empty(uint32_t rpos, uint32_t wpos)
-{
-    return rpos == wpos;
-}
-
-static inline bool
-ring_array_full(uint32_t rpos, uint32_t wpos, uint32_t cap)
-{
-    return ring_array_nelem(rpos, wpos, cap) == cap;
-}
-
 rstatus_i
 ring_array_push(const void *elem, struct ring_array *arr)
 {
-    /**
-     * Take snapshot of rpos, since another thread might be popping. Note: other
-     * members of arr do not need to be saved because we assume the other thread
-     * only pops and does not push; in other words, only one thread updates
-     * either rpos or wpos.
-     */
     uint32_t new_wpos;
-    uint32_t rpos = __atomic_load_n(&(arr->rpos), __ATOMIC_RELAXED);
 
-    if (ring_array_full(rpos, arr->wpos, arr->cap)) {
+    if (ring_array_full(arr)) {
         log_debug("Could not push to ring array %p; array is full", arr);
         return CC_ERROR;
     }
@@ -119,14 +99,25 @@ ring_array_push(const void *elem, struct ring_array *arr)
     return CC_OK;
 }
 
+bool
+ring_array_full(const struct ring_array *arr)
+{
+    /*
+     * Take snapshot of rpos, since another thread might be popping. Note: other
+     * members of arr do not need to be saved because we assume the other thread
+     * only pops and does not push; in other words, only one thread updates
+     * either rpos or wpos.
+     */
+    uint32_t rpos = __atomic_load_n(&(arr->rpos), __ATOMIC_RELAXED);
+    return ring_array_nelem(rpos, arr->wpos, arr->cap) == arr->cap;
+}
+
 rstatus_i
 ring_array_pop(void *elem, struct ring_array *arr)
 {
-    /* take snapshot of wpos, since another thread might be pushing */
     uint32_t new_rpos;
-    uint32_t wpos = __atomic_load_n(&(arr->wpos), __ATOMIC_RELAXED);
 
-    if (ring_array_empty(arr->rpos, wpos)) {
+    if (ring_array_empty(arr)) {
         log_debug("Could not pop from ring array %p; array is empty", arr);
         return CC_ERROR;
     }
@@ -142,11 +133,28 @@ ring_array_pop(void *elem, struct ring_array *arr)
     return CC_OK;
 }
 
+bool
+ring_array_empty(const struct ring_array *arr)
+{
+    /* take snapshot of wpos, since another thread might be pushing */
+    uint32_t wpos = __atomic_load_n(&(arr->wpos), __ATOMIC_RELAXED);
+    return ring_array_nelem(arr->rpos, wpos, arr->cap) == 0;
+}
+
+void
+ring_array_flush(struct ring_array *arr)
+{
+    uint32_t wpos = __atomic_load_n(&(arr->wpos), __ATOMIC_RELAXED);
+    __atomic_store_n(&(arr->rpos), wpos, __ATOMIC_RELAXED);
+}
+
 struct ring_array *
 ring_array_create(size_t elem_size, uint32_t cap)
 {
     struct ring_array *arr;
 
+    /* underlying array has # items stored + 1, since full is when wpos is 1
+       element behind wpos */
     arr = cc_alloc(RING_ARRAY_HDR_SIZE + elem_size * (cap + 1));
 
     if (arr == NULL) {
@@ -162,8 +170,15 @@ ring_array_create(size_t elem_size, uint32_t cap)
 }
 
 void
-ring_array_destroy(struct ring_array *arr)
+ring_array_destroy(struct ring_array **arr)
 {
-    log_verb("destroying ring array %p and freeing memory");
-    cc_free(arr);
+    log_verb("destroying ring array %p and freeing memory", *arr);
+
+    if ((arr == NULL) || (*arr == NULL)) {
+        log_warn("destroying NULL ring_array pointer");
+        return;
+    }
+
+    cc_free(*arr);
+    *arr = NULL;
 }

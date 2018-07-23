@@ -1,2 +1,2 @@
-add_subdirectory(cdb_ccommon)
 add_subdirectory(cdb_ffi)
+add_dependencies(ccommon_rs_static_target ccommon-static)

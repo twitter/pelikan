@@ -16,6 +16,8 @@ export PATH=$HOME/.cargo/bin:$PATH
 CMAKE_ARGS=(
   -DBUILD_AND_INSTALL_CHECK=yes
   -DTARGET_CDB=yes
+  -DHAVE_RUST=yes
+  -DRUST_VERBOSE_BUILD=1
 )
 
 # TODO: run cmake3 on centos hosts
