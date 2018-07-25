@@ -38,7 +38,8 @@ function(cargo_build)
     cmake_parse_arguments(CARGO "" "NAME" "" ${ARGN})
     string(REPLACE "-" "_" LIB_NAME ${CARGO_NAME})
 
-    get_filename_component(CARGO_TARGET_DIR "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
+    get_filename_component(CARGO_TARGET_DIR "${CMAKE_BINARY_DIR}/target" ABSOLUTE)
+    message(STATUS "CARGO_TARGET_DIR ${CARGO_TARGET_DIR}")
 
     cargo_set_lib_target(LIB_NAME)
 
