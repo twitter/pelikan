@@ -72,7 +72,7 @@ test_insert_basic(uint32_t policy, bool cas)
     val.vstr.len = sizeof(VAL) - 1;
 
     time_update();
-    it = cuckoo_insert(&key, &val, INT32_MAX - 1);
+    it = cuckoo_insert(&key, &val, INT32_MAX);
     ck_assert_msg(it != NULL, "cuckoo_insert not OK");
 
     it = cuckoo_get(&key);
@@ -106,7 +106,7 @@ test_insert_collision(uint32_t policy, bool cas)
         val.type = VAL_TYPE_INT;
         val.vint = i;
 
-        it = cuckoo_insert(&key, &val, INT32_MAX - 1);
+        it = cuckoo_insert(&key, &val, INT32_MAX);
         ck_assert_msg(it != NULL, "cuckoo_insert not OK");
     }
 
@@ -150,7 +150,7 @@ test_cas(uint32_t policy)
     val.vstr.len = sizeof(VAL) - 1;
 
     time_update();
-    it = cuckoo_insert(&key, &val, INT32_MAX - 1);
+    it = cuckoo_insert(&key, &val, INT32_MAX);
     ck_assert_msg(it != NULL, "cuckoo_insert not OK");
 
     it = cuckoo_get(&key);
@@ -160,7 +160,7 @@ test_cas(uint32_t policy)
     val.vstr.data = VAL2;
     val.vstr.len = sizeof(VAL2) - 1;
 
-    status = cuckoo_update(it, &val, INT32_MAX - 1);
+    status = cuckoo_update(it, &val, INT32_MAX);
     ck_assert_msg(status == CC_OK, "cuckoo_update not OK - return status %d",
             status);
 
@@ -193,7 +193,7 @@ test_delete_basic(uint32_t policy, bool cas)
     val.vstr.len = sizeof(VAL) - 1;
 
     time_update();
-    it = cuckoo_insert(&key, &val, INT32_MAX - 1);
+    it = cuckoo_insert(&key, &val, INT32_MAX);
     ck_assert_msg(it != NULL, "cuckoo_insert not OK");
 
     it = cuckoo_get(&key);

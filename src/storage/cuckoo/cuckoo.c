@@ -100,7 +100,11 @@ _select_candidate(const uint32_t offset[])
     if (cuckoo_policy == CUCKOO_POLICY_RANDOM) {
         selected = offset[RANDOM(D)];
     } else if (cuckoo_policy == CUCKOO_POLICY_EXPIRE) {
-        proc_time_i expire, min = UINT32_MAX; /* legal ts should < UINT32_MAX */
+        /*
+         * Selection prefers the item expiring soonest, followed by the one
+         * with the smallest offset.
+         */
+        proc_time_i expire, min = INT32_MAX;
         uint32_t i;
 
         for (i = 0; i < D; ++i) {

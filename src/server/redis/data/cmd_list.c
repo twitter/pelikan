@@ -34,7 +34,7 @@ _add_key(struct response *rsp, struct bstring *key)
         return NULL;
     } else {
         /* TODO: figure out a TTL story here */
-        istatus = item_reserve(&it, key, NULL, ZIPLIST_HEADER_SIZE, 0, UINT32_MAX);
+        istatus = item_reserve(&it, key, NULL, ZIPLIST_HEADER_SIZE, 0, INT32_MAX);
         if (istatus != ITEM_OK) {
             rsp->type = reply->type = ELEM_ERR;
             reply->bstr = str2bstr(RSP_ERR_STORAGE);
