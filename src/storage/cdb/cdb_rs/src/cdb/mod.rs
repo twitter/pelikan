@@ -63,7 +63,7 @@ impl CDBHash {
     }
 
     #[inline]
-    fn inner(&self) -> u32 {
+    fn inner(self) -> u32 {
         self.0
     }
 }
@@ -108,7 +108,7 @@ impl Bucket {
     // returns the offset into the db of entry n of this bucket.
     // panics if n >= num_ents
     #[inline]
-    fn entry_n_pos(&self, n: u32) -> IndexEntryPos {
+    fn entry_n_pos(self, n: u32) -> IndexEntryPos {
         assert!(n < self.num_ents);
         IndexEntryPos(self.ptr + (n * END_TABLE_ENTRY_SIZE))
     }
@@ -190,12 +190,10 @@ impl CDBHandleConfig {
         match self.load_method {
             LoadMethod::HEAP => self.path()
                 .and_then(backend::Backend::load_path)
-                .map(cdb_handle::from)
-                .map_err(|e| e.into()),
+                .map(cdb_handle::from),
             LoadMethod::MMAP => self.path()
                 .and_then(backend::Backend::mmap_path)
-                .map(cdb_handle::from)
-                .map_err(|e| e.into()),
+                .map(cdb_handle::from),
         }
     }
 }
@@ -238,7 +236,7 @@ pub fn load_bytes_at_path(path: &str) -> Result<Box<[u8]>> {
 }
 
 impl<'a> Reader<'a> {
-    pub fn new<'b, T: AsRef<[u8]>>(r: &'b T) -> Reader<'b> {
+    pub fn new<T: AsRef<[u8]>>(r: &'a T) -> Reader<'a> {
         Reader(r.as_ref())
     }
 
@@ -282,7 +280,7 @@ impl<'a> Reader<'a> {
     }
 
     #[inline]
-    fn get_kv_ref(&'a self, ie: &IndexEntry) -> Result<KVRef<'a>> {
+    fn get_kv_ref(&'a self, ie: IndexEntry) -> Result<KVRef<'a>> {
         let p = ie.ptr as usize;
         let b = self[p..(p + DATA_HEADER_SIZE as usize)].as_ref();
 
@@ -317,7 +315,7 @@ impl<'a> Reader<'a> {
             if idx_ent.ptr == 0 {
                 return Ok(None);
             } else if idx_ent.hash == hash {
-                let kv = self.get_kv_ref(&idx_ent)?;
+                let kv = self.get_kv_ref(idx_ent)?;
                 if &kv.k[..] == key {
                     return Ok(Some(copy_slice(buf, kv.v)));
                 } else {
@@ -450,7 +448,7 @@ impl<'a, F> Writer<'a, F>
 {
     pub fn new(file: &'a mut F) -> Result<Writer<'a, F>> {
         file.seek(SeekFrom::Start(0))?;
-        file.write(&[0u8; MAIN_TABLE_SIZE_BYTES as usize])?;
+        file.write_all(&[0u8; MAIN_TABLE_SIZE_BYTES as usize])?;
 
         Ok(Writer {
             file,
@@ -492,7 +490,7 @@ impl<'a, F> Writer<'a, F>
                 for i in 0..length {
                     let j = (i + slot as u32) % length;
                     if ordered[j as usize].ptr == 0 {
-                        ordered[j as usize] = idx_ent.clone();
+                        ordered[j as usize] = idx_ent;
                         break;
                     }
                 }
