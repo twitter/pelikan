@@ -15,10 +15,11 @@ export PATH=$HOME/.cargo/bin:$PATH
 
 CMAKE_ARGS=(
   -DBUILD_AND_INSTALL_CHECK=yes
-  -DTARGET_CDB=yes
-  -DHAVE_RUST=yes
-  -DRUST_VERBOSE_BUILD=1
 )
+
+if [[ -n "${RUST_ENABLED:-}" ]]; then
+  CMAKE_ARGS+=( -DTARGET_CDB=yes -DHAVE_RUST=yes -DRUST_VERBOSE_BUILD=1 )
+fi
 
 # TODO: run cmake3 on centos hosts
 
@@ -30,17 +31,11 @@ egrep -r ":F:|:E:" . |grep -v 'Binary file' || true
 
 set +e
 
-( cd src/storage/cdb && env RUST_BACKTRACE=full cargo test )
+if [[ -n "${RUST_ENABLED:-}" ]]; then
+  ( cd src/storage/cdb && env RUST_BACKTRACE=full cargo test )
+fi
 
 RESULT=$?
-
-if [[ "$(uname -s)" == "Darwin" ]]; then
-  if [[ $RESULT -ne 0 ]]; then
-    echo "Rust test failed on OSX, but this does not fail the build" >&2
-  fi
-
-  exit 0
-fi
 
 if [[ $RESULT -ne 0 ]]; then
   echo "Build failure" >&2
