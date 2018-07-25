@@ -76,8 +76,9 @@ pub unsafe extern "C" fn cdb_get(
 
 
 #[no_mangle]
-pub unsafe extern "C" fn cdb_handle_destroy(handle: *mut cdb_handle) {
-    drop(Box::from_raw(handle));
+pub unsafe extern "C" fn cdb_handle_destroy(handle: *mut *mut cdb_handle) {
+    drop(Box::from_raw(*handle));
+    *handle = ptr::null_mut()
 }
 
 #[no_mangle]
@@ -89,4 +90,24 @@ pub extern "C" fn cdb_setup() {
 #[no_mangle]
 pub extern "C" fn cdb_teardown() {
     eprintln!("teardown cdb");
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use cdb::backend::Backend;
+    use cdb::cdb_handle;
+
+    #[test]
+    fn cdb_handle_destroy_should_null_out_the_passed_ptr() {
+        let be = Backend::noop().unwrap();
+
+        let handle = Box::new(cdb_handle::from(be));
+        let mut p = Box::into_raw(handle) as *mut cdb_handle;
+
+        let pp = (&mut p) as *mut *mut cdb_handle;
+        unsafe { cdb_handle_destroy(pp) };
+        assert!(p.is_null());
+    }
 }

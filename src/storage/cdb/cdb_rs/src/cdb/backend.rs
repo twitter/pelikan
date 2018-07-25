@@ -2,7 +2,7 @@ use memmap;
 use std::ops::Deref;
 use super::Result;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Cursor, Read};
 use std::path::Path;
 
 
@@ -27,6 +27,17 @@ impl AsRef<[u8]> for Backend {
 }
 
 impl Backend {
+    pub fn noop() -> Result<Backend> {
+        let v = {
+            let mut buf  = Vec::with_capacity(2048);
+            let mut cur = Cursor::new(buf);
+            super::Writer::new(&mut cur)?;
+            cur.into_inner()
+        };
+
+        Ok(Backend::Heap(v.into_boxed_slice()))
+    }
+
     pub fn load_path(p: &Path) -> Result<Backend> {
         let fp = File::open(p)?;
         Backend::load(&fp)

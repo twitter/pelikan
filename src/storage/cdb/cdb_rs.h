@@ -17,8 +17,8 @@ struct cdb_handle_create_config {
 };
 
 
-struct cdb_handle* cdb_handle_create(const struct cdb_handle_create_config *cfg);
-void cdb_handle_destroy(struct cdb_handle *h);
+struct cdb_handle *cdb_handle_create(const struct cdb_handle_create_config *cfg);
+void cdb_handle_destroy(struct cdb_handle **h);
 
 void cdb_setup(void);
 void cdb_teardown(void);

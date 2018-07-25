@@ -80,7 +80,7 @@ teardown(void)
     log_teardown();
 }
 
-static struct cdb_handle*
+static struct cdb_handle *
 setup_cdb_handle(cdb_options_st *opt)
 {
     cdb_setup();
@@ -147,7 +147,7 @@ setup(void)
     compose_setup(NULL, &stats.compose_rsp);
     klog_setup(&setting.klog, &stats.klog);
 
-    struct cdb_handle* cdb_handle = setup_cdb_handle(&setting.cdb);
+    struct cdb_handle *cdb_handle = setup_cdb_handle(&setting.cdb);
     if (cdb_handle == NULL) {
         log_stderr("failed to set up cdb");
         goto error;
