@@ -68,15 +68,12 @@ process_teardown(void)
     }
 
     if (cdb_handle != NULL) {
-        struct cdb_handle *p = cdb_handle;
-        cdb_handle = NULL;
-        cdb_handle_destroy(p);
+        cdb_handle_destroy(&cdb_handle);
     }
 
     if (value_buf.data != NULL) {
         char *p = value_buf.data;
-        value_buf.data = NULL;
-        value_buf.len = 0;
+        bstring_init(&value_buf);
         cc_free(p);
     }
 
@@ -101,8 +98,7 @@ _get_key(struct response *rsp, struct bstring *key)
         rsp->key = *key;
         rsp->flag = 0;
         rsp->vcas = 0;
-        rsp->vstr.len = vstr->len;
-        rsp->vstr.data = vstr->data;
+        rsp->vstr = *vstr;
 
         log_verb("found key at %p, location %p", key, vstr);
         return true;
