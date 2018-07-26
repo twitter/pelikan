@@ -4,6 +4,7 @@ use super::Result;
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::Path;
+use cdb::MAIN_TABLE_SIZE_BYTES;
 
 
 pub enum Backend {
@@ -29,7 +30,7 @@ impl AsRef<[u8]> for Backend {
 impl Backend {
     pub fn noop() -> Result<Backend> {
         let v = {
-            let mut buf  = Vec::with_capacity(2048);
+            let mut buf  = Vec::with_capacity(MAIN_TABLE_SIZE_BYTES as usize);
             let mut cur = Cursor::new(buf);
             super::Writer::new(&mut cur)?;
             cur.into_inner()
