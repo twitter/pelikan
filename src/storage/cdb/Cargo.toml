@@ -1,3 +1,6 @@
+##-- cdb Cargo.toml file --##
+# note: do not change the mark above #
+
 [workspace]
 
 members = [
