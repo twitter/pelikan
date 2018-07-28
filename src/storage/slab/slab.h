@@ -14,8 +14,8 @@
 
 #define SLAB_MAGIC      0xdeadbeef
 #define SLAB_HDR_SIZE   offsetof(struct slab, data)
-#define SLAB_SIZE_MIN   ((size_t) 512)
-#define SLAB_SIZE_MAX   ((size_t) (128 * MiB))
+#define SLAB_SIZE_MIN   ((size_t)512)
+#define SLAB_SIZE_MAX   ((size_t)(128 * MiB))
 #define SLAB_SIZE       MiB
 #define SLAB_MEM        (64 * MiB)
 #define SLAB_PREALLOC   true
@@ -27,6 +27,7 @@
 #define ITEM_SIZE_MIN   44      /* 40 bytes item overhead */
 #define ITEM_SIZE_MAX   (SLAB_SIZE - SLAB_HDR_SIZE)
 #define ITEM_FACTOR     1.25
+#define ITEM_MAX_TTL    (30 * 24 * 60 * 60) /* 30 days */
 #define HASH_POWER      16
 
 /* Eviction options */
@@ -36,6 +37,7 @@
 #define EVICT_INVALID 4 /* go no further! */
 
 /* The defaults here are placeholder values for now */
+/* TODO: consider moving item options to item.[h|c] */
 /*          name                type                default         description */
 #define SLAB_OPTION(ACTION)                                                                          \
     ACTION( slab_size,          OPTION_TYPE_UINT,   SLAB_SIZE,      "Slab size"                     )\
@@ -47,8 +49,9 @@
     ACTION( slab_item_min,      OPTION_TYPE_UINT,   ITEM_SIZE_MIN,  "Minimum item size"             )\
     ACTION( slab_item_max,      OPTION_TYPE_UINT,   ITEM_SIZE_MAX,  "Maximum item size"             )\
     ACTION( slab_item_growth,   OPTION_TYPE_FPN,    ITEM_FACTOR,    "Slab class growth factor"      )\
+    ACTION( slab_item_max_ttl,  OPTION_TYPE_UINT,   ITEM_MAX_TTL,   "Max ttl in seconds"            )\
     ACTION( slab_use_cas,       OPTION_TYPE_BOOL,   SLAB_USE_CAS,   "Store CAS value in item"       )\
-    ACTION( slab_hash_power,    OPTION_TYPE_UINT,   HASH_POWER,     "Power for lookup hash table"  )
+    ACTION( slab_hash_power,    OPTION_TYPE_UINT,   HASH_POWER,     "Power for lookup hash table"   )
 
 typedef struct {
     SLAB_OPTION(OPTION_DECLARE)

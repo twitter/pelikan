@@ -11,9 +11,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-
 extern bool cas_enabled;
 extern uint64_t cas_val; /* incr'ed before assignment, 0 is a special value */
+
+extern delta_time_i max_ttl;
 
 /**
  * val_type_t and struct val makes it easier to use one object to communicate
@@ -72,14 +73,15 @@ struct item {
 
 #define KEY_MAXLEN 255
 #define CAS_VAL_MIN 1
+#define CAS_LEN (cas_enabled * sizeof(cas_val))
 #define MIN_ITEM_CHUNK_SIZE CC_ALIGN(sizeof(struct item) + 2, CC_ALIGNMENT)
 #define ITEM_HDR_SIZE sizeof(struct item)
 
 #define ITEM_CAS_POS(it) ((it)->data)
-#define ITEM_KEY_POS(it) ((it)->data + cas_enabled * sizeof(uint64_t))
+#define ITEM_KEY_POS(it) ((it)->data + CAS_LEN)
 #define ITEM_VAL_POS(it) (ITEM_KEY_POS(it) + (it)->klen)
 
-#define ITEM_OVERHEAD offsetof(struct item, data) + cas_enabled * sizeof(uint64_t)
+#define ITEM_OVERHEAD (offsetof(struct item, data) + CAS_LEN)
 
 static inline uint8_t
 item_klen(struct item *it)
@@ -232,7 +234,8 @@ item_value_update(struct item *it, struct val *val)
 static inline void
 item_update(struct item *it, struct val *val, proc_time_i expire)
 {
-    it->expire = expire;
+    proc_time_i expire_cap = time_delta2proc_sec(max_ttl);
+    it->expire = expire < expire_cap ? expire : expire_cap;
     item_value_update(it, val);
 }
 

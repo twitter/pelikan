@@ -17,6 +17,7 @@
 uint64_t cas_val;
 bool cas_enabled = CUCKOO_ITEM_CAS;
 uint32_t cuckoo_policy = CUCKOO_POLICY;
+delta_time_i max_ttl = CUCKOO_MAX_TTL;
 
 cuckoo_metrics_st *cuckoo_metrics = NULL;
 static bool cuckoo_init; /* need to make sure memory has been pre-allocate */
@@ -270,6 +271,7 @@ cuckoo_setup(cuckoo_options_st *options, cuckoo_metrics_st *metrics)
         max_nitem = option_uint(&options->cuckoo_nitem);
         cuckoo_policy = option_uint(&options->cuckoo_policy);
         cas_enabled = option_bool(&options->cuckoo_item_cas);
+        max_ttl = option_uint(&options->cuckoo_max_ttl);
     }
 
     hash_size = item_size * max_nitem;
