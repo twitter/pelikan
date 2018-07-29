@@ -37,7 +37,7 @@ typedef enum parse_rstatus {
     PARSE_EOVERSIZE = -3,
     PARSE_EINVALID  = -4,
     PARSE_EOTHER    = -5,
-} parse_rstatus_t;
+} parse_rstatus_e;
 
 struct request;
 struct response;
@@ -45,6 +45,6 @@ struct response;
 void parse_setup(parse_req_metrics_st *req, parse_rsp_metrics_st *rsp);
 void parse_teardown(void);
 
-parse_rstatus_t parse_req(struct request *req, struct buf *buf);
+parse_rstatus_e parse_req(struct request *req, struct buf *buf);
 
-parse_rstatus_t parse_rsp(struct response *rsp, struct buf *buf);
+parse_rstatus_e parse_rsp(struct response *rsp, struct buf *buf);

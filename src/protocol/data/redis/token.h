@@ -58,7 +58,7 @@ typedef enum parse_rstatus {
     PARSE_EOVERSIZE = -3,
     PARSE_EINVALID  = -4,
     PARSE_EOTHER    = -5,
-} parse_rstatus_t;
+} parse_rstatus_e;
 
 typedef enum compose_rstatus {
     COMPOSE_OK          = 0,
@@ -66,7 +66,7 @@ typedef enum compose_rstatus {
     COMPOSE_ENOMEM      = -2,
     COMPOSE_EINVALID    = -3,
     COMPOSE_EOTHER      = -4,
-} compose_rstatus_t;
+} compose_rstatus_e;
 
 /* array is not a basic element type */
 typedef enum element_type {
@@ -103,8 +103,8 @@ line_end(struct buf *buf)
 }
 
 bool token_is_array(struct buf *buf);
-parse_rstatus_t token_array_nelem(int64_t *nelem, struct buf *buf);
-parse_rstatus_t parse_element(struct element *el, struct buf *buf);
+parse_rstatus_e token_array_nelem(int64_t *nelem, struct buf *buf);
+parse_rstatus_e parse_element(struct element *el, struct buf *buf);
 
 int compose_array_header(struct buf **buf, int nelem);
 int compose_element(struct buf **buf, struct element *el);

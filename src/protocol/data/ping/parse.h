@@ -34,10 +34,10 @@ typedef enum parse_rstatus {
     PARSE_OK        = 0,
     PARSE_EUNFIN    = -1,
     PARSE_EOTHER    = -2,
-} parse_rstatus_t;
+} parse_rstatus_e;
 
 void parse_setup(parse_req_metrics_st *req, parse_rsp_metrics_st *rsp);
 void parse_teardown(void);
 
-parse_rstatus_t parse_req(struct buf *buf);
-parse_rstatus_t parse_rsp(struct buf *buf);
+parse_rstatus_e parse_req(struct buf *buf);
+parse_rstatus_e parse_rsp(struct buf *buf);

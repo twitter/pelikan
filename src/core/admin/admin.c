@@ -118,7 +118,7 @@ _admin_read(struct buf_sock *s)
 static void
 _admin_post_read(struct buf_sock *s)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
 
     admin_request_reset(&req);
 
