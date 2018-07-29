@@ -48,7 +48,7 @@ compose_teardown(void)
  * common functions
  */
 
-static inline compose_rstatus_t
+static inline compose_rstatus_e
 _check_buf_size(struct buf **buf, uint32_t n)
 {
     while (n > buf_wsize(*buf)) {

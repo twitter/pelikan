@@ -21,7 +21,7 @@ _is_crlf(struct buf *buf, char *p)
     return false;
 }
 
-static inline parse_rstatus_t
+static inline parse_rstatus_e
 _get_req_type(struct request *req, struct bstring *type)
 {
     ASSERT(req->type == REQ_UNKNOWN);
@@ -60,7 +60,7 @@ _get_req_type(struct request *req, struct bstring *type)
     return PARSE_OK;
 }
 
-parse_rstatus_t
+parse_rstatus_e
 admin_parse_req(struct request *req, struct buf *buf)
 {
     char *p, *q;

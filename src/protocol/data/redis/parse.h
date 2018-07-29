@@ -43,6 +43,6 @@ key_valid(struct bstring *key)
     return (key->len > 0 && key->len <= KEY_MAXLEN);
 }
 
-parse_rstatus_t parse_req(struct request *req, struct buf *buf);
+parse_rstatus_e parse_req(struct request *req, struct buf *buf);
 
-parse_rstatus_t parse_rsp(struct response *rsp, struct buf *buf);
+parse_rstatus_e parse_rsp(struct response *rsp, struct buf *buf);

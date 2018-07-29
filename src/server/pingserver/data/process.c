@@ -8,7 +8,7 @@
 int
 pingserver_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
 
     log_verb("post-read processing");
 

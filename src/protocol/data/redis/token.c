@@ -18,7 +18,7 @@
 #define NIL_STR "$-1\r\n"
 
 
-static inline compose_rstatus_t
+static inline compose_rstatus_e
 _check_buf_size(struct buf **buf, uint32_t n)
 {
     while (n > buf_wsize(*buf)) {
@@ -34,7 +34,7 @@ _check_buf_size(struct buf **buf, uint32_t n)
 }
 
 
-static parse_rstatus_t
+static parse_rstatus_e
 _read_str(struct bstring *str, struct buf *buf)
 {
     /*
@@ -67,7 +67,7 @@ _read_str(struct bstring *str, struct buf *buf)
 }
 
 
-static parse_rstatus_t
+static parse_rstatus_e
 _read_int(int64_t *num, struct buf *buf, int64_t min, int64_t max)
 {
     /*
@@ -114,10 +114,10 @@ _read_int(int64_t *num, struct buf *buf, int64_t min, int64_t max)
     return PARSE_EUNFIN;
 }
 
-static parse_rstatus_t
+static parse_rstatus_e
 _read_bulk(struct bstring *str, struct buf *buf)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     int64_t len;
 
     bstring_init(str);
@@ -189,10 +189,10 @@ token_is_array(struct buf *buf)
     return (buf_rsize(buf) > 0 && *(buf->rpos) == '*');
 }
 
-parse_rstatus_t
+parse_rstatus_e
 token_array_nelem(int64_t *nelem, struct buf *buf)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     char *pos;
 
     ASSERT(nelem != NULL && buf != NULL);
@@ -209,11 +209,11 @@ token_array_nelem(int64_t *nelem, struct buf *buf)
 
 
 /* this function does not handle array, which is a composite type */
-parse_rstatus_t
+parse_rstatus_e
 parse_element(struct element *el, struct buf *buf)
 {
     char *p;
-    parse_rstatus_t status;
+    parse_rstatus_e status;
 
     log_verb("detecting the next element %p in buf %p", el, buf);
 
