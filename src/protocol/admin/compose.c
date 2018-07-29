@@ -18,7 +18,7 @@ static struct bstring rsp_strings[] = {
 };
 #undef GET_STRING
 
-static inline compose_rstatus_t
+static inline compose_rstatus_e
 _check_buf_size(struct buf **buf, uint32_t n)
 {
     while (n > buf_wsize(*buf)) {

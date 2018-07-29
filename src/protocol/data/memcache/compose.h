@@ -30,7 +30,7 @@ typedef enum compose_rstatus {
     COMPOSE_ENOMEM      = -2,
     COMPOSE_EINVALID    = -3,
     COMPOSE_EOTHER      = -4,
-} compose_rstatus_t;
+} compose_rstatus_e;
 
 struct request;
 struct response;

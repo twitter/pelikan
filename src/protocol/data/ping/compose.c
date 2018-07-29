@@ -37,7 +37,7 @@ compose_teardown(void)
     compose_init = false;
 }
 
-compose_rstatus_t
+compose_rstatus_e
 compose_req(struct buf **buf)
 {
     log_verb("composing request to buf %p", buf);
@@ -54,7 +54,7 @@ compose_req(struct buf **buf)
     return COMPOSE_OK;
 }
 
-compose_rstatus_t
+compose_rstatus_e
 compose_rsp(struct buf **buf)
 {
     log_verb("composing response to buf %p", buf);
