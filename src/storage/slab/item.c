@@ -54,7 +54,7 @@ _item_reset(struct item *it)
  *
  * On success we return the pointer to the allocated item.
  */
-static item_rstatus_i
+static item_rstatus_e
 _item_alloc(struct item **it_p, uint8_t klen, uint32_t vlen, uint8_t olen)
 {
     uint8_t id = slab_id(item_ntotal(klen, vlen, olen));
@@ -212,11 +212,11 @@ _item_define(struct item *it, const struct bstring *key, const struct bstring
     it->vlen = (val == NULL) ? 0 : val->len;
 }
 
-item_rstatus_i
+item_rstatus_e
 item_reserve(struct item **it_p, const struct bstring *key, const struct bstring
         *val, uint32_t vlen, uint8_t olen, proc_time_i expire_at)
 {
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
 
     if ((status = _item_alloc(it_p, key->len, vlen, olen)) != ITEM_OK) {
@@ -253,11 +253,11 @@ item_backfill(struct item *it, const struct bstring *val)
             it, val->len, it->vlen);
 }
 
-item_rstatus_i
+item_rstatus_e
 item_annex(struct item *oit, const struct bstring *key, const struct bstring
         *val, bool append)
 {
-    item_rstatus_i status = ITEM_OK;
+    item_rstatus_e status = ITEM_OK;
     struct item *nit = NULL;
     uint8_t id;
     uint32_t ntotal = oit->vlen + val->len;

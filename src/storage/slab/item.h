@@ -86,7 +86,7 @@ typedef enum item_rstatus {
     ITEM_ENOMEM,
     ITEM_ENAN, /* not a number */
     ITEM_EOTHER,
-} item_rstatus_i;
+} item_rstatus_e;
 
 extern bool use_cas;
 extern uint64_t cas_id;
@@ -160,7 +160,7 @@ item_data(struct item *it)
     return data;
 }
 
-static inline item_rstatus_i
+static inline item_rstatus_e
 item_atou64(uint64_t *vint, struct item *it)
 {
     rstatus_i status;
@@ -192,7 +192,7 @@ void item_insert(struct item *it, const struct bstring *key);
  * olen- optional data length, this can be used to reserve space for optional
  * data, e.g. flag in Memcached protocol) in payload, after cas.
  * */
-item_rstatus_i item_reserve(struct item **it_p, const struct bstring *key, const
+item_rstatus_e item_reserve(struct item **it_p, const struct bstring *key, const
         struct bstring *val, uint32_t vlen, uint8_t olen, proc_time_i expire_at);
 /* item_release is used for reserved item only (not linked) */
 void item_release(struct item **it_p);
@@ -200,7 +200,7 @@ void item_release(struct item **it_p);
 void item_backfill(struct item *it, const struct bstring *val);
 
 /* Append/prepend */
-item_rstatus_i item_annex(struct item *it, const struct bstring *key, const
+item_rstatus_e item_annex(struct item *it, const struct bstring *key, const
         struct bstring *val, bool append);
 
 

@@ -52,7 +52,7 @@ START_TEST(test_insert_basic)
 #define VAL "val"
 #define MLEN 8
     struct bstring key, val;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
 
     key = str2bstr(KEY);
@@ -102,7 +102,7 @@ START_TEST(test_insert_large)
 #define VLEN (1000 * KiB)
 
     struct bstring key, val;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
     size_t len;
     char *p;
@@ -147,7 +147,7 @@ START_TEST(test_reserve_backfill_release)
 #define VLEN (1000 * KiB)
 
     struct bstring key, val;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
     uint32_t vlen;
     size_t len;
@@ -206,7 +206,7 @@ START_TEST(test_reserve_backfill_link)
 #define VLEN (1000 * KiB)
 
     struct bstring key, val;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
     size_t len;
     char *p;
@@ -249,7 +249,7 @@ START_TEST(test_append_basic)
 #define VAL "val"
 #define APPEND "append"
     struct bstring key, val, append;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -292,7 +292,7 @@ START_TEST(test_prepend_basic)
 #define VAL "val"
 #define PREPEND "prepend"
     struct bstring key, val, prepend;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -337,7 +337,7 @@ START_TEST(test_annex_sequence)
 #define APPEND1 "append1"
 #define APPEND2 "append2"
     struct bstring key, val, prepend, append1, append2;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -409,7 +409,7 @@ START_TEST(test_update_basic)
 #define OLD_VAL "old_val"
 #define NEW_VAL "new_val"
     struct bstring key, old_val, new_val;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -450,7 +450,7 @@ START_TEST(test_delete_basic)
 #define KEY "key"
 #define VAL "val"
     struct bstring key, val;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -484,7 +484,7 @@ START_TEST(test_flush_basic)
 #define KEY2 "key2"
 #define VAL2 "val2"
     struct bstring key1, val1, key2, val2;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -523,7 +523,7 @@ START_TEST(test_expire_basic)
 #define VAL "val"
 #define TIME 12345678
     struct bstring key, val;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -556,7 +556,7 @@ START_TEST(test_expire_truncated)
 #define TTL_MAX 10
 #define TTL_LONG (TTL_MAX + 5)
     struct bstring key, val;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -613,7 +613,7 @@ START_TEST(test_evict_lru_basic)
         {VALUE_LENGTH, "bbbbbbbb"},
         {VALUE_LENGTH, "cccccccc"},
     };
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
@@ -653,7 +653,7 @@ START_TEST(test_refcount)
 #define KEY "key"
 #define VAL "val"
     struct bstring key, val;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it;
     struct slab * s;
 
@@ -696,7 +696,7 @@ START_TEST(test_evict_refcount)
      *
      **/
     struct bstring key, val;
-    item_rstatus_i status;
+    item_rstatus_e status;
     struct item *it, *nit;
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
