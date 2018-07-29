@@ -51,7 +51,7 @@ parse_teardown(void)
  * common functions
  */
 /* CRLF is special and we need to "peek into the future" */
-static inline parse_rstatus_t
+static inline parse_rstatus_e
 _try_crlf(struct buf *buf, char *p)
 {
     if (*p != CR) {
@@ -80,7 +80,7 @@ _token_begin(struct bstring *t, char *p)
 static inline bool
 _token_end(bool *end, struct buf *buf, char *p)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
 
     status = _try_crlf(buf, p);
     if (status == PARSE_OK) {
@@ -109,11 +109,11 @@ _token_oversize(struct buf *buf, char *p)
 }
 
 
-static parse_rstatus_t
+static parse_rstatus_e
 _chase_crlf(struct buf *buf)
 {
     char *p;
-    parse_rstatus_t status;
+    parse_rstatus_e status;
 
     for (p = buf->rpos; p < buf->wpos; p++) {
         if (_token_oversize(buf, p)) {
@@ -151,7 +151,7 @@ _chase_crlf(struct buf *buf)
     return PARSE_EUNFIN;
 }
 
-static inline parse_rstatus_t
+static inline parse_rstatus_e
 _check_key(struct buf *buf, bool *end, struct bstring *t, char *p)
 {
     bool complete;
@@ -181,11 +181,11 @@ _check_key(struct buf *buf, bool *end, struct bstring *t, char *p)
     return PARSE_EUNFIN;
 }
 
-static parse_rstatus_t
+static parse_rstatus_e
 _chase_key(struct buf *buf, bool *end, struct bstring *t)
 {
     char *p;
-    parse_rstatus_t status;
+    parse_rstatus_e status;
 
     for (p = buf->rpos; p < buf->wpos; p++) {
         if (_token_oversize(buf, p)) {
@@ -201,7 +201,7 @@ _chase_key(struct buf *buf, bool *end, struct bstring *t)
     return PARSE_EUNFIN;
 }
 
-static inline parse_rstatus_t
+static inline parse_rstatus_e
 _check_uint(uint64_t *num, struct buf *buf, bool *end, size_t *len,
         char *p, uint64_t max)
 {
@@ -250,11 +250,11 @@ _check_uint(uint64_t *num, struct buf *buf, bool *end, size_t *len,
     return PARSE_EUNFIN;
 }
 
-static parse_rstatus_t
+static parse_rstatus_e
 _chase_uint(uint64_t *num, struct buf *buf, bool *end, uint64_t max)
 {
     char *p;
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     size_t len = 0;
 
     *num = 0;
@@ -272,10 +272,10 @@ _chase_uint(uint64_t *num, struct buf *buf, bool *end, uint64_t max)
     return PARSE_EUNFIN;
 }
 
-static parse_rstatus_t
+static parse_rstatus_e
 _parse_val(struct bstring *val, struct buf *buf, uint32_t nbyte)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     uint32_t rsize = buf_rsize(buf);
 
     log_verb("parsing val (string) at %p", buf->rpos);
@@ -307,7 +307,7 @@ _parse_val(struct bstring *val, struct buf *buf, uint32_t nbyte)
  * request specific functions
  */
 
-static inline parse_rstatus_t
+static inline parse_rstatus_e
 _check_req_type(struct request *req, struct buf *buf, bool *end, struct bstring *t,
         char *p)
 {
@@ -430,11 +430,11 @@ _check_req_type(struct request *req, struct buf *buf, bool *end, struct bstring 
     return PARSE_EUNFIN;
 }
 
-static parse_rstatus_t
+static parse_rstatus_e
 _chase_req_type(struct request *req, struct buf *buf, bool *end)
 {
     char *p;
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     struct bstring t;
 
     bstring_init(&t);
@@ -452,7 +452,7 @@ _chase_req_type(struct request *req, struct buf *buf, bool *end)
     return PARSE_EUNFIN;
 }
 
-static inline parse_rstatus_t
+static inline parse_rstatus_e
 _push_key(struct request *req, struct bstring *t)
 {
     struct bstring *k;
@@ -471,7 +471,7 @@ _push_key(struct request *req, struct bstring *t)
 }
 
 
-static inline parse_rstatus_t
+static inline parse_rstatus_e
 _check_noreply(struct buf *buf, bool *end, struct bstring *t, char *p)
 {
     bool complete;
@@ -505,7 +505,7 @@ _check_noreply(struct buf *buf, bool *end, struct bstring *t, char *p)
     return PARSE_EUNFIN;
 }
 
-static parse_rstatus_t
+static parse_rstatus_e
 _chase_noreply(struct request *req, struct buf *buf, bool *end)
 {
     char *p;
@@ -538,10 +538,10 @@ _chase_noreply(struct request *req, struct buf *buf, bool *end)
 }
 
 
-static parse_rstatus_t
+static parse_rstatus_e
 _subrequest_delete(struct request *req, struct buf *buf, bool *end)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     struct bstring t;
 
     /* parsing order:
@@ -562,10 +562,10 @@ _subrequest_delete(struct request *req, struct buf *buf, bool *end)
     return _chase_noreply(req, buf, end);
 }
 
-static parse_rstatus_t
+static parse_rstatus_e
 _subrequest_arithmetic(struct request *req, struct buf *buf, bool *end)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     uint64_t delta;
     struct bstring t;
 
@@ -606,10 +606,10 @@ incomplete:
 }
 
 
-static parse_rstatus_t
+static parse_rstatus_e
 _subrequest_store(struct request *req, struct buf *buf, bool *end, bool cas)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     uint64_t n;
     struct bstring t;
 
@@ -687,10 +687,10 @@ incomplete:
 }
 
 
-static parse_rstatus_t
+static parse_rstatus_e
 _subrequest_retrieve(struct request *req, struct buf *buf, bool *end)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     struct bstring t;
 
     while (true) {
@@ -717,10 +717,10 @@ _subrequest_retrieve(struct request *req, struct buf *buf, bool *end)
 }
 
 /* parse the first line("header") according to memcache ASCII protocol */
-static parse_rstatus_t
+static parse_rstatus_e
 _parse_req_hdr(struct request *req, struct buf *buf)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     bool end = false;
 
     ASSERT(req != NULL);
@@ -784,10 +784,10 @@ _parse_req_hdr(struct request *req, struct buf *buf)
     return status;
 }
 
-parse_rstatus_t
+parse_rstatus_e
 parse_req(struct request *req, struct buf *buf)
 {
-    parse_rstatus_t status = PARSE_OK;
+    parse_rstatus_e status = PARSE_OK;
     char *old_rpos = buf->rpos;
     bool leftmost = (buf->rpos == buf->begin);
 
@@ -888,7 +888,7 @@ parse_req(struct request *req, struct buf *buf)
  * response specific functions
  */
 
-static inline parse_rstatus_t
+static inline parse_rstatus_e
 _check_rsp_type(struct response *rsp, struct buf *buf, bool *end, struct bstring *t,
         char *p)
 {
@@ -1008,11 +1008,11 @@ _check_rsp_type(struct response *rsp, struct buf *buf, bool *end, struct bstring
 }
 
 
-static parse_rstatus_t
+static parse_rstatus_e
 _chase_rsp_type(struct response *rsp, struct buf *buf, bool *end)
 {
     char *p;
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     uint64_t n = 0;
     struct bstring t;
 
@@ -1045,10 +1045,10 @@ _chase_rsp_type(struct response *rsp, struct buf *buf, bool *end)
     return PARSE_EUNFIN;
 }
 
-static parse_rstatus_t
+static parse_rstatus_e
 _subresponse_stat(struct response *rsp, struct buf *buf, bool *end)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     uint64_t n;
     struct bstring t;
 
@@ -1078,10 +1078,10 @@ _subresponse_stat(struct response *rsp, struct buf *buf, bool *end)
     return status;
 }
 
-static parse_rstatus_t
+static parse_rstatus_e
 _subresponse_value(struct response *rsp, struct buf *buf, bool *end)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     uint64_t n;
     struct bstring t;
 
@@ -1134,10 +1134,10 @@ incomplete:
     return PARSE_EOTHER;
 }
 
-static parse_rstatus_t
+static parse_rstatus_e
 _subresponse_error(struct response *rsp, struct buf *buf, bool *end)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     char *p;
     struct bstring t;
 
@@ -1181,10 +1181,10 @@ _subresponse_error(struct response *rsp, struct buf *buf, bool *end)
 }
 
 
-static parse_rstatus_t
+static parse_rstatus_e
 _parse_rsp_hdr(struct response *rsp, struct buf *buf)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     bool end = false;
 
     ASSERT(rsp != NULL);
@@ -1244,10 +1244,10 @@ _parse_rsp_hdr(struct response *rsp, struct buf *buf)
     return status;
 }
 
-parse_rstatus_t
+parse_rstatus_e
 parse_rsp(struct response *rsp, struct buf *buf)
 {
-    parse_rstatus_t status = PARSE_EUNFIN;
+    parse_rstatus_e status = PARSE_EUNFIN;
     char *old_rpos = buf->rpos;
 
     ASSERT(rsp->rstate == RSP_PARSING);

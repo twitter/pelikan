@@ -20,7 +20,7 @@ typedef enum put_rstatus {
     PUT_OK,
     PUT_PARTIAL,
     PUT_ERROR,
-} put_rstatus_t;
+} put_rstatus_e;
 
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
@@ -203,10 +203,10 @@ _error_rsp(struct response *rsp, item_rstatus_t status)
  *   - PUT_OK
  *   - PUT_PARTIAL
  */
-static put_rstatus_t
+static put_rstatus_e
 _put(item_rstatus_t *istatus, struct request *req)
 {
-    put_rstatus_t status;
+    put_rstatus_e status;
     struct item *it = NULL;
 
     *istatus = ITEM_OK;
@@ -247,7 +247,7 @@ _put(item_rstatus_t *istatus, struct request *req)
 static void
 _process_set(struct response *rsp, struct request *req)
 {
-    put_rstatus_t status;
+    put_rstatus_e status;
     item_rstatus_t istatus;
     struct item *it;
     struct bstring key;
@@ -277,7 +277,7 @@ _process_set(struct response *rsp, struct request *req)
 static void
 _process_add(struct response *rsp, struct request *req)
 {
-    put_rstatus_t status;
+    put_rstatus_e status;
     item_rstatus_t istatus;
     struct item *it;
     struct bstring key;
@@ -313,7 +313,7 @@ _process_add(struct response *rsp, struct request *req)
 static void
 _process_replace(struct response *rsp, struct request *req)
 {
-    put_rstatus_t status;
+    put_rstatus_e status;
     item_rstatus_t istatus;
     struct item *it = NULL;
     struct bstring key;
@@ -349,7 +349,7 @@ _process_replace(struct response *rsp, struct request *req)
 static void
 _process_cas(struct response *rsp, struct request *req)
 {
-    put_rstatus_t status;
+    put_rstatus_e status;
     item_rstatus_t istatus;
     struct item *it, *oit;
     struct bstring key;
@@ -643,7 +643,7 @@ _cleanup(struct request *req, struct response *rsp)
 int
 twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 {
-    parse_rstatus_t status;
+    parse_rstatus_e status;
     struct request *req; /* data should be NULL or hold a req pointer */
     struct response *rsp;
 

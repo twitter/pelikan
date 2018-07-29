@@ -45,7 +45,7 @@ parse_teardown(void)
     parse_init = false;
 }
 
-static parse_rstatus_t
+static parse_rstatus_e
 _parse_cmd(struct request *req)
 {
     cmd_type_e type;
@@ -82,10 +82,10 @@ _parse_cmd(struct request *req)
 }
 
 
-parse_rstatus_t
+parse_rstatus_e
 parse_req(struct request *req, struct buf *buf)
 {
-    parse_rstatus_t status = PARSE_OK;
+    parse_rstatus_e status = PARSE_OK;
     char *old_rpos = buf->rpos;
     int64_t nelem;
     struct element *el;
@@ -144,10 +144,10 @@ parse_req(struct request *req, struct buf *buf)
     return PARSE_OK;
 }
 
-parse_rstatus_t
+parse_rstatus_e
 parse_rsp(struct response *rsp, struct buf *buf)
 {
-    parse_rstatus_t status = PARSE_OK;
+    parse_rstatus_e status = PARSE_OK;
     char *old_rpos = buf->rpos;
     int64_t nelem = 1;
     struct element *el;

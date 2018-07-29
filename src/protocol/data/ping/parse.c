@@ -37,7 +37,7 @@ parse_teardown(void)
     parse_init = false;
 }
 
-parse_rstatus_t
+parse_rstatus_e
 parse_req(struct buf *buf)
 {
     log_verb("parsing buf %p", buf);
@@ -56,7 +56,7 @@ parse_req(struct buf *buf)
     }
 }
 
-parse_rstatus_t
+parse_rstatus_e
 parse_rsp(struct buf *buf)
 {
     log_verb("parsing buf %p", buf);
@@ -74,4 +74,3 @@ parse_rsp(struct buf *buf)
         return PARSE_EOTHER;
     }
 }
-
