@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+extern delta_time_i max_ttl;
 static proc_time_i flush_at = -1;
 
 static inline bool
@@ -53,7 +54,7 @@ _item_reset(struct item *it)
  *
  * On success we return the pointer to the allocated item.
  */
-static item_rstatus_t
+static item_rstatus_e
 _item_alloc(struct item **it_p, uint8_t klen, uint32_t vlen, uint8_t olen)
 {
     uint8_t id = slab_id(item_ntotal(klen, vlen, olen));
@@ -197,8 +198,10 @@ static void
 _item_define(struct item *it, const struct bstring *key, const struct bstring
         *val, uint8_t olen, proc_time_i expire_at)
 {
+    proc_time_i expire_cap = time_delta2proc_sec(max_ttl);
+
     it->create_at = time_proc_sec();
-    it->expire_at = expire_at;
+    it->expire_at = expire_at < expire_cap ? expire_at : expire_cap;
     item_set_cas(it);
     it->olen = olen;
     cc_memcpy(item_key(it), key->data, key->len);
@@ -209,11 +212,11 @@ _item_define(struct item *it, const struct bstring *key, const struct bstring
     it->vlen = (val == NULL) ? 0 : val->len;
 }
 
-item_rstatus_t
+item_rstatus_e
 item_reserve(struct item **it_p, const struct bstring *key, const struct bstring
         *val, uint32_t vlen, uint8_t olen, proc_time_i expire_at)
 {
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
 
     if ((status = _item_alloc(it_p, key->len, vlen, olen)) != ITEM_OK) {
@@ -250,11 +253,11 @@ item_backfill(struct item *it, const struct bstring *val)
             it, val->len, it->vlen);
 }
 
-item_rstatus_t
+item_rstatus_e
 item_annex(struct item *oit, const struct bstring *key, const struct bstring
         *val, bool append)
 {
-    item_rstatus_t status = ITEM_OK;
+    item_rstatus_e status = ITEM_OK;
     struct item *nit = NULL;
     uint8_t id;
     uint32_t ntotal = oit->vlen + val->len;

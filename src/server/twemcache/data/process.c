@@ -170,7 +170,7 @@ _process_delete(struct response *rsp, struct request *req)
 
 
 static void
-_error_rsp(struct response *rsp, item_rstatus_t status)
+_error_rsp(struct response *rsp, item_rstatus_e status)
 {
     INCR(process_metrics, process_ex);
 
@@ -204,7 +204,7 @@ _error_rsp(struct response *rsp, item_rstatus_t status)
  *   - PUT_PARTIAL
  */
 static put_rstatus_e
-_put(item_rstatus_t *istatus, struct request *req)
+_put(item_rstatus_e *istatus, struct request *req)
 {
     put_rstatus_e status;
     struct item *it = NULL;
@@ -248,7 +248,7 @@ static void
 _process_set(struct response *rsp, struct request *req)
 {
     put_rstatus_e status;
-    item_rstatus_t istatus;
+    item_rstatus_e istatus;
     struct item *it;
     struct bstring key;
 
@@ -278,7 +278,7 @@ static void
 _process_add(struct response *rsp, struct request *req)
 {
     put_rstatus_e status;
-    item_rstatus_t istatus;
+    item_rstatus_e istatus;
     struct item *it;
     struct bstring key;
 
@@ -314,7 +314,7 @@ static void
 _process_replace(struct response *rsp, struct request *req)
 {
     put_rstatus_e status;
-    item_rstatus_t istatus;
+    item_rstatus_e istatus;
     struct item *it = NULL;
     struct bstring key;
 
@@ -350,7 +350,7 @@ static void
 _process_cas(struct response *rsp, struct request *req)
 {
     put_rstatus_e status;
-    item_rstatus_t istatus;
+    item_rstatus_e istatus;
     struct item *it, *oit;
     struct bstring key;
 
@@ -391,11 +391,11 @@ _process_cas(struct response *rsp, struct request *req)
 /* get integer value of it */
 
 /* update item with integer value */
-static item_rstatus_t
+static item_rstatus_e
 _process_delta(struct response *rsp, struct item *it, struct request *req,
         struct bstring *key, bool incr)
 {
-    item_rstatus_t status;
+    item_rstatus_e status;
     uint32_t dataflag;
     uint64_t vint;
     struct bstring nval;
@@ -438,7 +438,7 @@ _process_delta(struct response *rsp, struct item *it, struct request *req,
 static void
 _process_incr(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct bstring *key;
     struct item *it;
 
@@ -465,7 +465,7 @@ _process_incr(struct response *rsp, struct request *req)
 static void
 _process_decr(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct bstring *key;
     struct item *it;
 
@@ -492,7 +492,7 @@ _process_decr(struct response *rsp, struct request *req)
 static void
 _process_append(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct bstring *key;
     struct item *it;
 
@@ -522,7 +522,7 @@ _process_append(struct response *rsp, struct request *req)
 static void
 _process_prepend(struct response *rsp, struct request *req)
 {
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct bstring *key;
     struct item *it;
 

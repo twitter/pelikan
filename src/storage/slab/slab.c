@@ -46,6 +46,8 @@ bool use_cas = SLAB_USE_CAS;
 struct hash_table *hash_table = NULL;
 uint64_t cas_id;
 
+delta_time_i max_ttl = ITEM_MAX_TTL;
+
 static bool slab_init = false;
 slab_metrics_st *slab_metrics = NULL;
 
@@ -420,6 +422,7 @@ slab_setup(slab_options_st *options, slab_metrics_st *metrics)
         item_min = option_uint(&options->slab_item_min);
         item_max = option_uint(&options->slab_item_max);
         item_growth = option_fpn(&options->slab_item_growth);
+        max_ttl = option_uint(&options->slab_item_max_ttl);
         use_cas = option_bool(&options->slab_use_cas);
         hash_power = option_uint(&options->slab_hash_power);
     }

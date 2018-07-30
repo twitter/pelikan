@@ -23,7 +23,7 @@ _add_key(struct response *rsp, struct bstring *key)
 {
     struct element *reply = (struct element *)array_get(rsp->token, 0);
     struct item *it;
-    item_rstatus_t istatus;
+    item_rstatus_e istatus;
 
     it = item_get(key);
     if (it != NULL) {

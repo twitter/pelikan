@@ -17,6 +17,8 @@
 slab_options_st options = { SLAB_OPTION(OPTION_INIT) };
 slab_metrics_st metrics = { SLAB_METRIC(METRIC_INIT) };
 
+extern delta_time_i max_ttl;
+
 /*
  * utilities
  */
@@ -41,7 +43,7 @@ test_reset(void)
 }
 
 /**
- * Tests basic functionality for item_insert and item_get with small key/val. Checks that the
+ * Tests basic functionality for item_insert with small key/val. Checks that the
  * commands succeed and that the item returned is well-formed.
  */
 START_TEST(test_insert_basic)
@@ -50,7 +52,7 @@ START_TEST(test_insert_basic)
 #define VAL "val"
 #define MLEN 8
     struct bstring key, val;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
 
     key = str2bstr(KEY);
@@ -60,9 +62,9 @@ START_TEST(test_insert_basic)
     status = item_reserve(&it, &key, &val, val.len, MLEN, INT32_MAX);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
             status);
+    ck_assert_msg(it != NULL, "item_reserve with key %.*s reserved NULL item",
+            key.len, key.data);
     ck_assert_msg(!it->is_linked, "item with key %.*s not linked", key.len,
-            key.data);
-    ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len,
             key.data);
     ck_assert_msg(!it->in_freeq, "linked item with key %.*s in freeq", key.len,
             key.data);
@@ -75,7 +77,15 @@ START_TEST(test_insert_basic)
     ck_assert_int_eq(cc_memcmp(item_data(it), VAL, val.len), 0);
 
     item_insert(it, &key);
+    it = item_get(&key);
+    ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
     ck_assert_msg(it->is_linked, "item with key %.*s not linked", key.len, key.data);
+    ck_assert_msg(!it->in_freeq, "linked item with key %.*s in freeq", key.len, key.data);
+    ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
+    ck_assert_int_eq(it->vlen, sizeof(VAL) - 1);
+    ck_assert_int_eq(cc_memcmp(VAL, item_data(it), sizeof(VAL) - 1), 0);
+    ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
+    ck_assert_int_eq(cc_memcmp(KEY, item_key(it), sizeof(KEY) - 1), 0);
 #undef MLEN
 #undef KEY
 #undef VAL
@@ -92,7 +102,7 @@ START_TEST(test_insert_large)
 #define VLEN (1000 * KiB)
 
     struct bstring key, val;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
     size_t len;
     char *p;
@@ -118,6 +128,7 @@ START_TEST(test_insert_large)
     ck_assert_msg(!it->is_raligned, "item with key %.*s is raligned", key.len, key.data);
     ck_assert_int_eq(it->vlen, VLEN);
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
+    ck_assert_int_eq(cc_memcmp(KEY, item_key(it), sizeof(KEY) - 1), 0);
 
     for (p = item_data(it), len = it->vlen; len > 0 && *p == 'A'; p++, len--);
     ck_assert_msg(len == 0, "item_data contains wrong value %.*s", VLEN, item_data(it));
@@ -136,7 +147,7 @@ START_TEST(test_reserve_backfill_release)
 #define VLEN (1000 * KiB)
 
     struct bstring key, val;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
     uint32_t vlen;
     size_t len;
@@ -195,7 +206,7 @@ START_TEST(test_reserve_backfill_link)
 #define VLEN (1000 * KiB)
 
     struct bstring key, val;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
     size_t len;
     char *p;
@@ -238,7 +249,7 @@ START_TEST(test_append_basic)
 #define VAL "val"
 #define APPEND "append"
     struct bstring key, val, append;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -281,7 +292,7 @@ START_TEST(test_prepend_basic)
 #define VAL "val"
 #define PREPEND "prepend"
     struct bstring key, val, prepend;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -326,7 +337,7 @@ START_TEST(test_annex_sequence)
 #define APPEND1 "append1"
 #define APPEND2 "append2"
     struct bstring key, val, prepend, append1, append2;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -398,7 +409,7 @@ START_TEST(test_update_basic)
 #define OLD_VAL "old_val"
 #define NEW_VAL "new_val"
     struct bstring key, old_val, new_val;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -439,7 +450,7 @@ START_TEST(test_delete_basic)
 #define KEY "key"
 #define VAL "val"
     struct bstring key, val;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -473,7 +484,7 @@ START_TEST(test_flush_basic)
 #define KEY2 "key2"
 #define VAL2 "val2"
     struct bstring key1, val1, key2, val2;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
 
     test_reset();
@@ -506,6 +517,71 @@ START_TEST(test_flush_basic)
 }
 END_TEST
 
+START_TEST(test_expire_basic)
+{
+#define KEY "key"
+#define VAL "val"
+#define TIME 12345678
+    struct bstring key, val;
+    item_rstatus_e status;
+    struct item *it;
+
+    test_reset();
+
+    key = str2bstr(KEY);
+    val = str2bstr(VAL);
+
+    proc_sec = TIME;
+    status = item_reserve(&it, &key, &val, val.len, 0, TIME + 1);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    item_insert(it, &key);
+
+    it = item_get(&key);
+    ck_assert_msg(it != NULL, "item_get on unexpired item not successful");
+
+    proc_sec += 2;
+    it = item_get(&key);
+    ck_assert_msg(it == NULL, "item_get returned not NULL after expiration");
+#undef KEY
+#undef VAL
+#undef TIME
+}
+END_TEST
+
+START_TEST(test_expire_truncated)
+{
+#define KEY "key"
+#define VAL "value"
+#define TIME 12345678
+#define TTL_MAX 10
+#define TTL_LONG (TTL_MAX + 5)
+    struct bstring key, val;
+    item_rstatus_e status;
+    struct item *it;
+
+    test_reset();
+    max_ttl = TTL_MAX;
+
+    key = str2bstr(KEY);
+    val = str2bstr(VAL);
+
+    proc_sec = TIME;
+    status = item_reserve(&it, &key, &val, val.len, 0, TIME + TTL_LONG);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
+    item_insert(it, &key);
+
+    it = item_get(&key);
+    ck_assert_msg(it != NULL, "item_get on unexpired item not successful");
+    proc_sec += (TTL_MAX + 2);
+    it = item_get(&key);
+    ck_assert_msg(it == NULL, "item_get returned not NULL after max ttl elapsed");
+#undef KEY
+#undef VAL
+#undef TIME
+#undef TTL_MAX
+#undef TTL_LONG
+}
+END_TEST
 
 START_TEST(test_evict_lru_basic)
 {
@@ -537,7 +613,7 @@ START_TEST(test_evict_lru_basic)
         {VALUE_LENGTH, "bbbbbbbb"},
         {VALUE_LENGTH, "cccccccc"},
     };
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
@@ -577,7 +653,7 @@ START_TEST(test_refcount)
 #define KEY "key"
 #define VAL "val"
     struct bstring key, val;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it;
     struct slab * s;
 
@@ -610,6 +686,8 @@ START_TEST(test_evict_refcount)
 {
 #define MY_SLAB_SIZE 96
 #define MY_SLAB_MAXBYTES 96
+#define KEY "key"
+#define VAL "val"
     /**
      * The slab will be created with these parameters:
      *   slab size 96, slab hdr size 36, item hdr size 40
@@ -617,11 +695,8 @@ START_TEST(test_evict_refcount)
      * we know: key + val < 12
      *
      **/
-#define KEY "key"
-#define VAL "val"
-
     struct bstring key, val;
-    item_rstatus_t status;
+    item_rstatus_e status;
     struct item *it, *nit;
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
@@ -643,14 +718,10 @@ START_TEST(test_evict_refcount)
     item_insert(it, &key); /* clears slab refcount, can be evicted */
     status = item_reserve(&nit, &key, &val, val.len, 0, INT32_MAX);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
-
 #undef KEY
 #undef VAL
 #undef MY_SLAB_SIZE
 #undef MY_SLAB_MAXBYTES
-    test_reset();
-
-    /* reserve & release */
 }
 END_TEST
 
@@ -676,6 +747,8 @@ slab_suite(void)
     tcase_add_test(tc_item, test_delete_basic);
     tcase_add_test(tc_item, test_update_basic);
     tcase_add_test(tc_item, test_flush_basic);
+    tcase_add_test(tc_item, test_expire_basic);
+    tcase_add_test(tc_item, test_expire_truncated);
 
     TCase *tc_slab = tcase_create("slab api");
     suite_add_tcase(s, tc_slab);
