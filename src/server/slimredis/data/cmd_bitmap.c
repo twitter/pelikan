@@ -78,7 +78,7 @@ _add_key(struct response *rsp, struct bstring *key)
     } else { /* cuckoo insert current won't fail as long as size is valid */
         /* Set expire to be a large number, since redis protocol sets expiry
            in a separate command. */
-        it = cuckoo_insert(key, NULL, INT32_MAX - 1);
+        it = cuckoo_insert(key, NULL, INT32_MAX);
         if (it == NULL) {
             rsp->type = reply->type = ELEM_ERR;
             reply->bstr = str2bstr(RSP_ERR_STORAGE);

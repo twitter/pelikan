@@ -239,7 +239,7 @@ static inline proc_time_i
 time_memcache2proc_sec(memcache_time_u t)
 {
     if (t == 0) {
-        return INT32_MAX - 1;
+        return INT32_MAX;
     }
 
     if (t > TIME_MEMCACHE_MAXDELTA_SEC) {
@@ -253,7 +253,7 @@ static inline proc_time_fine_i
 time_memcache2proc_ms(memcache_time_fine_u t)
 {
     if (t == 0) {
-        return INT64_MAX - 1;
+        return INT64_MAX;
     }
 
     if (t > TIME_MEMCACHE_MAXDELTA_MS) {
@@ -267,7 +267,7 @@ static inline proc_time_fine_i
 time_memcache2proc_us(memcache_time_fine_u t)
 {
     if (t == 0) {
-        return INT64_MAX - 1;
+        return INT64_MAX;
     }
 
     if (t > TIME_MEMCACHE_MAXDELTA_US) {
@@ -281,7 +281,7 @@ static inline proc_time_fine_i
 time_memcache2proc_ns(memcache_time_fine_u t)
 {
     if (t == 0) {
-        return INT64_MAX - 1;
+        return INT64_MAX;
     }
 
     if (t > TIME_MEMCACHE_MAXDELTA_NS) {
