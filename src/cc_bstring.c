@@ -33,9 +33,9 @@
  * raw sequence of character bytes - bstring_copy(). Such String's must be
  * freed using bstring_deinit()
  *
- * We can also create String as reference to raw string - bstring_set_raw()
- * or to string literal - bstring_set_text() or bstring(). Such bstrings don't
- * have to be freed.
+ * We can also create String as reference to C string - bstring_set_cstr()
+ * or to string literal - bstring_set_literal() or bstring(). Such bstrings
+ * don't have to be freed.
  */
 
 void

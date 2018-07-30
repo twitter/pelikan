@@ -96,6 +96,7 @@ check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
 
 include(CheckFunctionExists)
 check_function_exists(backtrace HAVE_BACKTRACE)
+check_function_exists(accept4 HAVE_ACCEPT4)
 
 include(TestBigEndian)
 test_big_endian(HAVE_BIG_ENDIAN)

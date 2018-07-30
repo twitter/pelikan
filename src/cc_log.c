@@ -18,6 +18,7 @@
 #include <cc_log.h>
 
 #include <cc_mm.h>
+#include <cc_pool.h>
 #include <cc_print.h>
 #include <cc_rbuf.h>
 #include <cc_util.h>
@@ -36,6 +37,30 @@
 
 static log_metrics_st *log_metrics = NULL;
 static bool log_init = false;
+
+/* this function is called from rust so that it can use log_setup */
+log_metrics_st *
+log_metrics_create()
+{
+    log_metrics_st *metrics = cc_alloc(sizeof(log_metrics_st));
+    if (metrics == NULL) {
+        log_panic("Failed to allocate log_metrics_st");
+    }
+    log_metrics_st mtr = (log_metrics_st) { LOG_METRIC(METRIC_INIT) };
+    memcpy(metrics, &mtr, sizeof(mtr));
+    return metrics;
+}
+
+void
+log_metrics_destroy(log_metrics_st **m)
+{
+    if (m == NULL) {
+        log_panic("pointer passed to log_destroy_metrics was null");
+    }
+
+    cc_free(*m);
+    *m = NULL;
+}
 
 void
 log_setup(log_metrics_st *metrics)
