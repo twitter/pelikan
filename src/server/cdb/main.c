@@ -90,7 +90,7 @@ setup_cdb_handle(cdb_options_st *opt)
 
     cfg.load_method = (opt->use_mmap.val.vbool) ? CDB_MMAP : CDB_HEAP;
 
-    bstring_set_text(cfg.path, opt->cdb_file_path.val.vstr);
+    bstring_set_cstr(cfg.path, opt->cdb_file_path.val.vstr);
 
     if (cfg.path == NULL) {
         log_stderr("cdb_file_path option not set, cannot continue");
