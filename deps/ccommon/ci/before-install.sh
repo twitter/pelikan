@@ -9,7 +9,7 @@ TEMP="$(mktemp -d -t TEMP.XXXXXXX)" || die "failed to make tmpdir"
 cleanup() { [[ -n "${TEMP:-}" ]] && rm -rf "${TEMP}"; }
 trap cleanup EXIT
 
-realpath() { python -c "import os,sys; print os.path.realpath(sys.argv[1])" "$1"; }
+realpath() { python -c "from __future__ import print_function; import os,sys; print(os.path.realpath(sys.argv[1]))" "$1"; }
 
 TOPLEVEL="$(cd "$(dirname "$(realpath "$0" >/dev/null || exit 1)")" && git rev-parse --show-toplevel)" || die 'failed to find TOPLEVEL'
 
