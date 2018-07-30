@@ -1,8 +1,11 @@
+##-- cdb Cargo.toml file --##
+# note: do not change the mark above #
+
 [workspace]
 
 members = [
     "cdb_rs",
-    "cdb_ffi",
+    "cdbgen",
 ]
 
 [profile.release]

@@ -46,7 +46,18 @@ matrix:
             - gcc-4.9
             - libsubunit-dev
 
-    # gcc 5 on linux
+    # gcc 5 on linux *without rust*
+    #
+    - env:
+        - C_COMPILER=gcc-5
+      addons:
+        apt:
+          <<: *apt
+          packages:
+            - gcc-5
+            - libsubunit-dev
+
+    # gcc 5 on linux *with* rust
     - env:
         - C_COMPILER=gcc-5
         - RUST_ENABLED=1

@@ -1,69 +1,22 @@
-use std::error;
-use std::ffi::NulError;
-use std::fmt;
-use std::io;
-use std::num::ParseIntError;
-use std::str::Utf8Error;
 
-#[derive(Debug)]
+// for docs on the 'failure' crate see https://boats.gitlab.io/failure/intro.html
+
+use std::ops::Range;
+
+#[derive(Debug, Fail)]
 pub enum CDBError {
-    IOError(io::Error),
-    UTF8Error(::std::str::Utf8Error),
-    ParseError(ParseIntError),
-    NulError(NulError),
+    #[fail(display = "Value too large, max_size: {}, val_size: {}", max_size, val_size)]
+    ValueTooLarge{max_size: usize, val_size: usize},
+
+    #[fail(
+        display = "pointer {:?} out of valid range {:?} for data segment",
+        ptr_val, valid_range
+    )]
+    IndexOutOfDataSegment{valid_range: Range<usize>, ptr_val: usize}
 }
 
-impl From<ParseIntError> for CDBError {
-    fn from(err: ParseIntError) -> CDBError {
-        CDBError::ParseError(err)
-    }
-}
-
-impl From<Utf8Error> for CDBError {
-    fn from(err: Utf8Error) -> CDBError {
-        CDBError::UTF8Error(err)
-    }
-}
-
-impl From<io::Error> for CDBError {
-    fn from(err: io::Error) -> CDBError {
-        CDBError::IOError(err)
-    }
-}
-
-impl From<NulError> for CDBError {
-    fn from(err: NulError) -> CDBError {
-        CDBError::NulError(err)
-    }
-}
-
-impl error::Error for CDBError {
-    fn description(&self) -> &str {
-        match *self {
-            CDBError::IOError(ref err) => err.description(),
-            CDBError::UTF8Error(ref err) => err.description(),
-            CDBError::ParseError(ref err) => err.description(),
-            CDBError::NulError(ref err) => err.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            CDBError::IOError(ref err) => Some(err),
-            CDBError::UTF8Error(ref err) => Some(err),
-            CDBError::ParseError(ref err) => Some(err),
-            CDBError::NulError(ref err) => Some(err),
-        }
-    }
-}
-
-impl fmt::Display for CDBError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            CDBError::IOError(ref err) => err.fmt(f),
-            CDBError::UTF8Error(ref err) => err.fmt(f),
-            CDBError::ParseError(ref err) => err.fmt(f),
-            CDBError::NulError(ref err) => err.fmt(f),
-        }
+impl CDBError {
+    pub fn value_too_large(max_size: usize, val_size: usize) -> CDBError {
+        CDBError::ValueTooLarge{max_size, val_size}
     }
 }

@@ -5,3 +5,5 @@
 *.cdb
 perf.data*
 *.cdb*
+.cargo/
+dist/

@@ -95,8 +95,8 @@ impl BStr {
 
     // it's ok to ignore the cast_ptr_alignment lint because we're going
     // *mut CCbstring -> &BStr -> *mut CCbstring
-    #[allow(cast_ptr_alignment)]
     #[allow(unknown_lints)]
+    #[allow(cast_ptr_alignment)]
     #[inline]
     pub fn as_ptr(&self) -> *mut CCbstring {
         (&*self) as *const _ as *mut _
