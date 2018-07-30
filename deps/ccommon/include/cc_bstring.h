@@ -38,15 +38,14 @@ struct bstring {
 #define str2bstr(_str)  (struct bstring){ sizeof(_str) - 1, (_str) }
 #define null_bstring    (struct bstring){ 0, NULL }
 
-#define bstring_set_text(_str, _text) do {       \
-    (_str)->len = (uint32_t)(sizeof(_text) - 1); \
-    (_str)->data = (_text);                      \
+#define bstring_set_literal(_str, _literal) do {    \
+    (_str)->len = (uint32_t)(sizeof(_literal) - 1); \
+    (_str)->data = (_literal);                      \
 } while (0);
 
-/* TODO(yao): rename this */
-#define bstring_set_raw(_str, _raw) do {         \
-    (_str)->len = (uint32_t)(cc_strlen(_raw));   \
-    (_str)->data = (char *)(_raw);               \
+#define bstring_set_cstr(_str, _cstr) do {       \
+    (_str)->len = (uint32_t)(cc_strlen(_cstr));  \
+    (_str)->data = (char *)(_cstr);              \
 } while (0);
 
 void bstring_init(struct bstring *str);

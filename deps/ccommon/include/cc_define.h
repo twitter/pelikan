@@ -54,6 +54,10 @@ extern "C" {
 # define CC_BACKTRACE 1
 #endif
 
+#ifdef HAVE_ACCEPT4
+# define CC_ACCEPT4 1
+#endif
+
 #ifdef HAVE_DEBUG_MM
 #define CC_DEBUG_MM 1
 #endif

@@ -58,6 +58,9 @@ fn dump_env() {
 
 fn main() {
     println!("cargo:rustc-link-lib=static=ccommon-1.2.0");
+    if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-lib=framework=Security");
+    }
 
     if ::std::env::var_os("CC_BINDING_DUMP_ENV").is_some() {
         dump_env();
@@ -88,6 +91,10 @@ fn main() {
     };
 
     println!("cargo:rustc-link-search=native={}", lib_dir);
+
+    if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-search=framework=/System/Library/Frameworks");
+    }
 
     let bindings = bindgen::Builder::default()
         .clang_args(vec![
