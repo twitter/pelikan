@@ -66,10 +66,10 @@ test_insert_basic(uint32_t policy, bool cas)
 
     test_reset(policy, cas, CUCKOO_MAX_TTL);
 
-    bstring_set_text(&key, KEY);
+    bstring_set_literal(&key, KEY);
 
     val.type = VAL_TYPE_STR;
-    bstring_set_text(&val.vstr, VAL);
+    bstring_set_literal(&val.vstr, VAL);
 
     time_update();
     it = cuckoo_insert(&key, &val, INT32_MAX);
@@ -142,10 +142,10 @@ test_cas(uint32_t policy)
 
     test_reset(policy, true, CUCKOO_MAX_TTL);
 
-    bstring_set_text(&key, KEY);
+    bstring_set_literal(&key, KEY);
 
     val.type = VAL_TYPE_STR;
-    bstring_set_text(&val.vstr, VAL);
+    bstring_set_literal(&val.vstr, VAL);
 
     time_update();
     it = cuckoo_insert(&key, &val, INT32_MAX);
@@ -155,7 +155,7 @@ test_cas(uint32_t policy)
     cas1 = item_cas(it);
     ck_assert_uint_ne(cas1, 0);
 
-    bstring_set_text(&val.vstr, VAL);
+    bstring_set_literal(&val.vstr, VAL);
 
     status = cuckoo_update(it, &val, INT32_MAX);
     ck_assert_msg(status == CC_OK, "cuckoo_update not OK - return status %d",
@@ -182,10 +182,10 @@ test_delete_basic(uint32_t policy, bool cas)
 
     test_reset(policy, cas, CUCKOO_MAX_TTL);
 
-    bstring_set_text(&key, KEY);
+    bstring_set_literal(&key, KEY);
 
     val.type = VAL_TYPE_STR;
-    bstring_set_text(&val.vstr, VAL);
+    bstring_set_literal(&val.vstr, VAL);
 
     time_update();
     it = cuckoo_insert(&key, &val, INT32_MAX);
@@ -218,10 +218,10 @@ test_expire_basic(uint32_t policy, bool cas)
 
     test_reset(policy, cas, CUCKOO_MAX_TTL);
 
-    bstring_set_text(&key, KEY);
+    bstring_set_literal(&key, KEY);
 
     val.type = VAL_TYPE_STR;
-    bstring_set_text(&val.vstr, VAL);
+    bstring_set_literal(&val.vstr, VAL);
 
     proc_sec = TIME;
     it = cuckoo_insert(&key, &val, TIME + 1);
@@ -253,10 +253,10 @@ test_expire_truncated(uint32_t policy, bool cas)
 
     test_reset(policy, cas, TTL_MAX);
 
-    bstring_set_text(&key, KEY);
+    bstring_set_literal(&key, KEY);
 
     val.type = VAL_TYPE_STR;
-    bstring_set_text(&val.vstr, VAL);
+    bstring_set_literal(&val.vstr, VAL);
 
     proc_sec = TIME;
     it = cuckoo_insert(&key, &val, TIME + TTL_LONG);
