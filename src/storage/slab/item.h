@@ -123,6 +123,20 @@ item_key(struct item *it)
     return it->end + item_cas_size() + it->olen;
 }
 
+/* get key length */
+static inline uint32_t
+item_nkey(const struct item *it)
+{
+    return it->klen;
+}
+
+/* get payload length */
+static inline uint32_t
+item_nval(const struct item *it)
+{
+    return it->vlen;
+}
+
 static inline size_t
 item_ntotal(uint8_t klen, uint32_t vlen, uint8_t olen)
 {
@@ -130,7 +144,7 @@ item_ntotal(uint8_t klen, uint32_t vlen, uint8_t olen)
 }
 
 static inline size_t
-item_size(struct item *it)
+item_size(const struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
 
@@ -184,6 +198,9 @@ struct item *item_get(const struct bstring *key);
 
 /* TODO: make the following APIs protocol agnostic */
 
+/* return true if item can fit len additional bytes in val in place, false otherwise */
+bool item_will_fit(const struct item *it, uint32_t len);
+
 /* insert an item, removes existing item of the same key (if applicable) */
 void item_insert(struct item *it, const struct bstring *key);
 
@@ -202,7 +219,6 @@ void item_backfill(struct item *it, const struct bstring *val);
 /* Append/prepend */
 item_rstatus_e item_annex(struct item *it, const struct bstring *key, const
         struct bstring *val, bool append);
-
 
 /* In place item update (replace item value) */
 void item_update(struct item *it, const struct bstring *val);

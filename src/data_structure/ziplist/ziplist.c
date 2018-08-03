@@ -201,7 +201,7 @@ _ziplist_prev(zipentry_p ze)
     return ze - *(ze - 1); /* *(ze - 1) : length of the previous entry */
 }
 
-/* do NOT call this function on the last zip entry, use ziplist_prev */
+/* do NOT call this function on the last zip entry, use ziplist_next */
 static inline zipentry_p
 _ziplist_next(zipentry_p ze)
 {
@@ -248,6 +248,42 @@ _ziplist_fromright(const ziplist_p zl, uint32_t idx)
     for (; idx > 0; idx--, p -= *p);
 
     return p - *p + 1;
+}
+
+/*
+ * starting at ze moving from left to right, get entry at offset.
+ * if overflow, returns end of ziplist tail.
+ * returns offset of returned entry from ze.
+ */
+static inline uint32_t
+_ziplist_entry_fromleft(zipentry_p *tgt, const ziplist_p zl, const zipentry_p ze, uint32_t offset)
+{
+    ASSERT(zl != NULL);
+    ASSERT(ze != NULL);
+    ASSERT(tgt != NULL);
+    uint32_t ret;
+    for (*tgt = ze, ret = 0;
+         offset > 0 && *tgt != zl + ziplist_size(zl);
+         --offset, ++ret, *tgt += _zipentry_len(*tgt));
+    return ret;
+}
+
+/*
+ * starting at ze moving from right to left, get entry at offset.
+ * if underflow, returns ziplist head.
+ * returns offset of returned entry from ze.
+ */
+static inline uint32_t
+_ziplist_entry_fromright(zipentry_p *tgt, const ziplist_p zl, const zipentry_p ze, uint32_t offset)
+{
+    ASSERT(zl != NULL);
+    ASSERT(ze != NULL);
+    ASSERT(tgt != NULL);
+    uint32_t ret;
+    for (*tgt = ze, ret = 0;
+         offset > 0 && *tgt != _ziplist_head(zl);
+         --offset, ++ret, *tgt -= *(*tgt - 1));
+    return ret;
 }
 
 ziplist_rstatus_e
@@ -342,7 +378,7 @@ ziplist_remove_val(uint32_t *removed, ziplist_p zl, const struct blob *val,
     int64_t i = 0;
     zipentry_p z;
     uint8_t *end;
-    bool forward = (count > 0);
+    bool forward = (count >= 0);
 
     if (zl == NULL || val == NULL) {
         return ZIPLIST_ERROR;
@@ -353,12 +389,11 @@ ziplist_remove_val(uint32_t *removed, ziplist_p zl, const struct blob *val,
         return ZIPLIST_EINVALID;
     }
 
-    if (count == 0) {
-        return ZIPLIST_EINVALID;
-    }
-
+    count = count == 0 ? INT64_MAX : count;
     atmost = forward ? count : -count;
-    *removed = 0;
+    if (removed != NULL) {
+        *removed = 0;
+    }
 
     /* Encoding one struct blob and follow up with many simple memcmp should be
      * faster than decoding each of the zentries being compared.
@@ -384,7 +419,9 @@ ziplist_remove_val(uint32_t *removed, ziplist_p zl, const struct blob *val,
         }
 
         _ziplist_remove(zl, z, _ziplist_next(z), 1);
-        *removed += 1;
+        if (removed != NULL) {
+            ++(*removed);
+        }
     }
 
     return ZIPLIST_OK;
@@ -466,6 +503,50 @@ ziplist_insert(ziplist_p zl, struct blob *val, int64_t idx)
     }
 
     _ziplist_add(zl, ze, val);
+
+    return ZIPLIST_OK;
+}
+
+ziplist_rstatus_e
+ziplist_trim(ziplist_p zl, int64_t idx, int64_t count)
+{
+    ziplist_rstatus_e status;
+    uint32_t nentry, zlen;
+    zipentry_p begin, end;
+
+    if (zl == NULL) {
+        return ZIPLIST_ERROR;
+    }
+
+    if (count > 0) {
+        /* counting forward from idx, so idx is begin idx */
+        status = ziplist_locate(&begin, zl, idx);
+
+        if (status != ZIPLIST_OK) {
+            return status;
+        }
+
+        /* get end */
+        nentry = _ziplist_entry_fromleft(&end, zl, begin, (uint32_t)count);
+    } else {
+        /* counting backward from idx, so idx is end idx */
+        status = ziplist_locate(&end, zl, idx);
+
+        if (status != ZIPLIST_OK) {
+            return status;
+        }
+
+        /* get begin */
+        nentry = _ziplist_entry_fromright(&begin, zl, end, (uint32_t)-count);
+    }
+
+    ASSERT(end >= begin);
+
+    /* clip ziplist to new range, and update header */
+    zlen = end - begin;
+    cc_memmove(_ziplist_head(zl), begin, zlen);
+    ZL_NENTRY(zl) = nentry;
+    ZL_NEND(zl) = ZIPLIST_HEADER_SIZE + zlen - 1;
 
     return ZIPLIST_OK;
 }
