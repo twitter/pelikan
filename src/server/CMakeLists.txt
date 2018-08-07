@@ -2,12 +2,12 @@ if(TARGET_PINGSERVER)
     add_subdirectory(pingserver)
 endif()
 
-if(TARGET_REDIS)
-    add_subdirectory(redis)
+if(TARGET_DS)
+    add_subdirectory(ds)
 endif()
 
-if(TARGET_SLIMREDIS)
-    add_subdirectory(slimredis)
+if(TARGET_SLIMDS)
+    add_subdirectory(slimds)
 endif()
 
 if(TARGET_SLIMCACHE)
