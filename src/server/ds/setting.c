@@ -1,14 +1,14 @@
 #include "setting.h"
 
 struct setting setting = {
-    { SLIMREDIS_OPTION(OPTION_INIT) },
+    { DS_OPTION(OPTION_INIT)        },
     { ADMIN_OPTION(OPTION_INIT)     },
     { SERVER_OPTION(OPTION_INIT)    },
     { WORKER_OPTION(OPTION_INIT)    },
     { PROCESS_OPTION(OPTION_INIT)   },
     { REQUEST_OPTION(OPTION_INIT)   },
     { RESPONSE_OPTION(OPTION_INIT)  },
-    { CUCKOO_OPTION(OPTION_INIT)    },
+    { SLAB_OPTION(OPTION_INIT)      },
     { TIME_OPTION(OPTION_INIT)      },
     { ARRAY_OPTION(OPTION_INIT)     },
     { BUF_OPTION(OPTION_INIT)       },

@@ -6,7 +6,7 @@
 #include <cc_debug.h>
 #include <cc_print.h>
 
-#define SLIMREDIS_PROCESS_MODULE_NAME "slimredis::process"
+#define SLIMDS_PROCESS_MODULE_NAME "slimds::process"
 
 #define OVERSIZE_ERR_MSG    "oversized value, cannot be stored"
 #define OOM_ERR_MSG         "server is out of memory"
@@ -23,11 +23,11 @@ process_metrics_st *process_metrics = NULL;
 void
 process_setup(process_options_st *options, process_metrics_st *metrics)
 {
-    log_info("set up the %s module", SLIMREDIS_PROCESS_MODULE_NAME);
+    log_info("set up the %s module", SLIMDS_PROCESS_MODULE_NAME);
 
     if (process_init) {
         log_warn("%s has already been setup, overwrite",
-                 SLIMREDIS_PROCESS_MODULE_NAME);
+                 SLIMDS_PROCESS_MODULE_NAME);
     }
 
     process_metrics = metrics;
@@ -49,9 +49,9 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
 void
 process_teardown(void)
 {
-    log_info("tear down the %s module", SLIMREDIS_PROCESS_MODULE_NAME);
+    log_info("tear down the %s module", SLIMDS_PROCESS_MODULE_NAME);
     if (!process_init) {
-        log_warn("%s has never been setup", SLIMREDIS_PROCESS_MODULE_NAME);
+        log_warn("%s has never been setup", SLIMDS_PROCESS_MODULE_NAME);
     }
 
     command_registry[REQ_PING] = cmd_ping;
@@ -88,7 +88,7 @@ process_request(struct response *rsp, struct request *req)
 }
 
 int
-slimredis_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
+slimds_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     parse_rstatus_e status;
     struct request *req; /* data should be NULL or hold a req pointer */
@@ -164,7 +164,7 @@ error:
 
 
 int
-slimredis_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
+slimds_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     log_verb("post-write processing");
 
@@ -178,7 +178,7 @@ slimredis_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
 
 
 int
-slimredis_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
+slimds_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     log_verb("post-error processing");
 

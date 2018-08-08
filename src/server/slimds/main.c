@@ -14,9 +14,9 @@
 #include <sysexits.h>
 
 struct data_processor worker_processor = {
-    slimredis_process_read,
-    slimredis_process_write,
-    slimredis_process_error,
+    slimds_process_read,
+    slimds_process_write,
+    slimds_process_error,
 };
 
 static void
@@ -24,11 +24,11 @@ show_usage(void)
 {
     log_stdout(
             "Usage:" CRLF
-            "  pelikan_slimredis [option|config]" CRLF
+            "  pelikan_slimds [option|config]" CRLF
             );
     log_stdout(
             "Description:" CRLF
-            "  pelikan_slimredis is one of the unified cache backends. " CRLF
+            "  pelikan_slimds is one of the unified cache backends. " CRLF
             "  It uses cuckoo hashing as storage for various data types. " CRLF
             "  It speaks the RESP protocol." CRLF
             );
@@ -41,7 +41,7 @@ show_usage(void)
             );
     log_stdout(
             "Example:" CRLF
-            "  pelikan_slimredis slimredis.conf" CRLF CRLF
+            "  pelikan_slimds slimds.conf" CRLF CRLF
             "Sample config files can be found under the config dir." CRLF
             );
 }
@@ -92,10 +92,10 @@ setup(void)
     }
 
     /* setup top-level application options */
-    if (option_bool(&setting.slimredis.daemonize)) {
+    if (option_bool(&setting.slimds.daemonize)) {
         daemonize();
     }
-    fname = option_str(&setting.slimredis.pid_filename);
+    fname = option_str(&setting.slimds.pid_filename);
     if (fname != NULL) {
         /* to get the correct pid, call create_pidfile after daemonize */
         create_pidfile(fname);
@@ -124,7 +124,7 @@ setup(void)
     core_worker_setup(&setting.worker, &stats.worker);
 
     /* adding recurring events to maintenance/admin thread */
-    intvl = option_uint(&setting.slimredis.dlog_intvl);
+    intvl = option_uint(&setting.slimds.dlog_intvl);
     if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
         log_stderr("Could not register timed event to flush debug log");
         goto error;

@@ -1,7 +1,7 @@
 #pragma once
 
+#include "cmd_bitmap.h"
 #include "cmd_misc.h"
-#include "cmd_list.h"
 
 #include <buffer/cc_buf.h>
 #include <cc_metric.h>
@@ -26,7 +26,7 @@ typedef struct {
 
 typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)
-    PROCESS_LIST_METRIC(METRIC_DECLARE)
+    PROCESS_BITMAP_METRIC(METRIC_DECLARE)
     PROCESS_MISC_METRIC(METRIC_DECLARE)
 } process_metrics_st;
 
@@ -36,6 +36,6 @@ extern bool allow_flush;
 void process_setup(process_options_st *options, process_metrics_st *metrics);
 void process_teardown(void);
 
-int redis_process_read(struct buf **rbuf, struct buf **wbuf, void **data);
-int redis_process_write(struct buf **rbuf, struct buf **wbuf, void **data);
-int redis_process_error(struct buf **rbuf, struct buf **wbuf, void **data);
+int slimds_process_read(struct buf **rbuf, struct buf **wbuf, void **data);
+int slimds_process_write(struct buf **rbuf, struct buf **wbuf, void **data);
+int slimds_process_error(struct buf **rbuf, struct buf **wbuf, void **data);

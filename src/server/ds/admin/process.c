@@ -6,7 +6,7 @@
 #include <cc_mm.h>
 #include <cc_print.h>
 
-#define SLIMREDIS_ADMIN_MODULE_NAME "slimredis::admin"
+#define DS_ADMIN_MODULE_NAME "ds::admin"
 
 extern struct stats stats;
 extern unsigned int nmetric;
@@ -18,10 +18,10 @@ static size_t cap;
 void
 admin_process_setup(void)
 {
-    log_info("set up the %s module", SLIMREDIS_ADMIN_MODULE_NAME);
+    log_info("set up the %s module", DS_ADMIN_MODULE_NAME);
     if (admin_init) {
         log_warn("%s has already been setup, overwrite",
-                 SLIMREDIS_ADMIN_MODULE_NAME);
+                 DS_ADMIN_MODULE_NAME);
     }
 
     cap = nmetric * METRIC_PRINT_LEN;
@@ -34,9 +34,9 @@ admin_process_setup(void)
 void
 admin_process_teardown(void)
 {
-    log_info("tear down the %s module", SLIMREDIS_ADMIN_MODULE_NAME);
+    log_info("tear down the %s module", DS_ADMIN_MODULE_NAME);
     if (!admin_init) {
-        log_warn("%s has never been setup", SLIMREDIS_ADMIN_MODULE_NAME);
+        log_warn("%s has never been setup", DS_ADMIN_MODULE_NAME);
     }
 
     admin_init = false;

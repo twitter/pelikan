@@ -6,7 +6,7 @@
 #include <cc_mm.h>
 #include <cc_print.h>
 
-#define REDIS_ADMIN_MODULE_NAME "redis::admin"
+#define SLIMDS_ADMIN_MODULE_NAME "slimds::admin"
 
 extern struct stats stats;
 extern unsigned int nmetric;
@@ -18,10 +18,10 @@ static size_t cap;
 void
 admin_process_setup(void)
 {
-    log_info("set up the %s module", REDIS_ADMIN_MODULE_NAME);
+    log_info("set up the %s module", SLIMDS_ADMIN_MODULE_NAME);
     if (admin_init) {
         log_warn("%s has already been setup, overwrite",
-                 REDIS_ADMIN_MODULE_NAME);
+                 SLIMDS_ADMIN_MODULE_NAME);
     }
 
     cap = nmetric * METRIC_PRINT_LEN;
@@ -34,9 +34,9 @@ admin_process_setup(void)
 void
 admin_process_teardown(void)
 {
-    log_info("tear down the %s module", REDIS_ADMIN_MODULE_NAME);
+    log_info("tear down the %s module", SLIMDS_ADMIN_MODULE_NAME);
     if (!admin_init) {
-        log_warn("%s has never been setup", REDIS_ADMIN_MODULE_NAME);
+        log_warn("%s has never been setup", SLIMDS_ADMIN_MODULE_NAME);
     }
 
     admin_init = false;
