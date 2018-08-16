@@ -6,7 +6,7 @@
 #include <cc_debug.h>
 #include <cc_print.h>
 
-#define SLIMREDIS_PROCESS_MODULE_NAME "slimredis::process"
+#define DS_PROCESS_MODULE_NAME "ds::process"
 
 #define OVERSIZE_ERR_MSG    "oversized value, cannot be stored"
 #define OOM_ERR_MSG         "server is out of memory"
@@ -23,11 +23,11 @@ process_metrics_st *process_metrics = NULL;
 void
 process_setup(process_options_st *options, process_metrics_st *metrics)
 {
-    log_info("set up the %s module", SLIMREDIS_PROCESS_MODULE_NAME);
+    log_info("set up the %s module", DS_PROCESS_MODULE_NAME);
 
     if (process_init) {
         log_warn("%s has already been setup, overwrite",
-                 SLIMREDIS_PROCESS_MODULE_NAME);
+                 DS_PROCESS_MODULE_NAME);
     }
 
     process_metrics = metrics;
@@ -37,11 +37,14 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
     }
 
     command_registry[REQ_PING] = cmd_ping;
-
-    command_registry[REQ_BITMAP_DELETE] = cmd_bitmap_delete;
-    command_registry[REQ_BITMAP_CREATE] = cmd_bitmap_create;
-    command_registry[REQ_BITMAP_SET] = cmd_bitmap_set;
-    command_registry[REQ_BITMAP_GET] = cmd_bitmap_get;
+    command_registry[REQ_LIST_CREATE] = cmd_list_create;
+    command_registry[REQ_LIST_DELETE] = cmd_list_delete;
+    command_registry[REQ_LIST_TRIM] = cmd_list_trim;
+    command_registry[REQ_LIST_LEN] = cmd_list_len;
+    command_registry[REQ_LIST_FIND] = cmd_list_find;
+    command_registry[REQ_LIST_GET] = cmd_list_get;
+    command_registry[REQ_LIST_INSERT] = cmd_list_insert;
+    command_registry[REQ_LIST_PUSH] = cmd_list_push;
 
     process_init = true;
 }
@@ -49,9 +52,9 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
 void
 process_teardown(void)
 {
-    log_info("tear down the %s module", SLIMREDIS_PROCESS_MODULE_NAME);
+    log_info("tear down the %s module", DS_PROCESS_MODULE_NAME);
     if (!process_init) {
-        log_warn("%s has never been setup", SLIMREDIS_PROCESS_MODULE_NAME);
+        log_warn("%s has never been setup", DS_PROCESS_MODULE_NAME);
     }
 
     command_registry[REQ_PING] = cmd_ping;
@@ -88,7 +91,7 @@ process_request(struct response *rsp, struct request *req)
 }
 
 int
-slimredis_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
+ds_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     parse_rstatus_e status;
     struct request *req; /* data should be NULL or hold a req pointer */
@@ -164,7 +167,7 @@ error:
 
 
 int
-slimredis_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
+ds_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     log_verb("post-write processing");
 
@@ -178,7 +181,7 @@ slimredis_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
 
 
 int
-slimredis_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
+ds_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     log_verb("post-error processing");
 
