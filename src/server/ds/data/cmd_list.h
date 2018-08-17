@@ -22,7 +22,9 @@
     ACTION( list_insert_notfound,   METRIC_COUNTER, "# list insert miss"           )\
     ACTION( list_insert_oob,        METRIC_COUNTER, "# list insert out of bound"   )\
     ACTION( list_insert_ex,         METRIC_COUNTER, "# list insert exceptions"     )\
-    ACTION( list_push,              METRIC_COUNTER, "# list push requests"         )
+    ACTION( list_push,              METRIC_COUNTER, "# list push requests"         )\
+    ACTION( list_push_notfound,     METRIC_COUNTER, "# list push miss"             )\
+    ACTION( list_push_ex,           METRIC_COUNTER, "# list push exceptions"       )
 
 struct request;
 struct response;

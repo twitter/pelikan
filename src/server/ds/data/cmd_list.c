@@ -109,6 +109,49 @@ _add_key(struct response *rsp, struct bstring *key)
     }
 }
 
+/**
+ * Attempt to make item large enough to extend list by delta bytes. This is
+ * accomplished by first checking if adding delta bytes to payload of it would
+ * require a larger item to fit.
+ *  - If no, then returns OK status without altering item.
+ *  - If yes, then attempts to reserve an item that would be large enough. If
+ *    this succeeds, then it and zl are updated to the new item and its payload
+ *    respectively. If this fails, then a failure status is returned, and it
+ *    and zl remain unchanged.
+ */
+static inline item_rstatus_e
+_realloc_list_item(struct item **it, ziplist_p *zl, const struct bstring *key,
+        uint32_t delta)
+{
+    ASSERT(it != NULL && *it != NULL);
+    ASSERT(zl != NULL && *zl != NULL);
+    ASSERT(key != NULL);
+
+    if (!item_will_fit(*it, delta)) {
+        /* must alloc new item, cannot fit in place */
+        struct item *nit;
+        struct bstring zl_str;
+        item_rstatus_e istatus;
+
+        zl_str.len = ziplist_size(*zl);
+        zl_str.data = (char *)*zl;
+
+        istatus = item_reserve(&nit, key, &zl_str, item_nval(*it) + delta,
+                0, INT32_MAX);
+
+        if (istatus != ITEM_OK) {
+            return istatus;
+        }
+
+        *it = nit;
+        *zl = (ziplist_p)item_data(nit);
+        item_insert(nit, key);
+    }
+
+    ASSERT(item_will_fit(*it, delta));
+    return ITEM_OK;
+}
+
 static bool
 _replace_list(const struct bstring *key, const ziplist_p zl)
 {
@@ -165,7 +208,19 @@ _rsp_client_err(struct response *rsp, struct element *reply,
 {
     rsp->type = reply->type = ELEM_ERR;
     reply->bstr = str2bstr(RSP_ERR_ARG);
+    INCR(process_metrics, process_client_ex);
     log_verb("command '%.*s' '%.*s' has invalid arg(s)",
+            cmd->bstr.len, cmd->bstr.data, key->len, key->data);
+}
+
+static inline void
+_rsp_storage_err(struct response *rsp, struct element *reply,
+        const struct command *cmd, const struct bstring *key)
+{
+    rsp->type = reply->type = ELEM_ERR;
+    reply->bstr = str2bstr(RSP_ERR_STORAGE);
+    INCR(process_metrics, process_server_ex);
+    log_verb("command '%.*s' '%.*s' failed, unable to allocate storage",
             cmd->bstr.len, cmd->bstr.data, key->len, key->data);
 }
 
@@ -225,6 +280,9 @@ _delete_list_vals(struct element *reply, struct response *rsp, const struct bstr
         return;
     }
 
+    /* count == 0 means remove all */
+    cnt = cnt == 0 ? INT64_MAX : cnt;
+
     zl = (ziplist_p)item_data(it);
     _elem2blob(&vblob, val);
     status = ziplist_remove_val(&removed, zl, &vblob, cnt);
@@ -279,7 +337,6 @@ cmd_list_delete(struct response *rsp, struct request *req, struct command *cmd)
     case LIST_CNT:
         if (!_get_cnt(&cnt, req)) {
             _rsp_client_err(rsp, reply, cmd, key);
-            INCR(process_metrics, process_client_ex);
             return;
         }
         _delete_list_vals(reply, rsp, key, _get_val(req), cmd, cnt);
@@ -315,13 +372,11 @@ cmd_list_trim(struct response *rsp, struct request *req, struct command *cmd)
 
     if (!_get_idx(&idx, req)) {
         _rsp_client_err(rsp, reply, cmd, key);
-        INCR(process_metrics, process_client_ex);
         return;
     }
 
     if (!_get_cnt(&cnt, req)) {
         _rsp_client_err(rsp, reply, cmd, key);
-        INCR(process_metrics, process_client_ex);
         return;
     }
 
@@ -373,8 +428,10 @@ cmd_list_len(struct response *rsp, struct request *req, struct command *cmd)
 void
 cmd_list_find(struct response *rsp, struct request *req, struct command *cmd)
 {
-    /* TODO: this command doesn't seem to have a counterpart in redis. is this
-             for getting index that matches the value? */
+    /* TODO: this command doesn't seem to have a counterpart in redis. let's
+             re-evaluate whether or not we want to support this functionality
+             at a later date. */
+    INCR(process_metrics, list_find);
     struct element *reply = (struct element *)array_push(rsp->token);
     rsp->type = reply->type = ELEM_ERR;
     reply->bstr = str2bstr(RSP_ERR_NOSUPPORT);
@@ -407,7 +464,6 @@ cmd_list_get(struct response *rsp, struct request *req, struct command *cmd)
 
     if (!_get_idx(&idx, req)) {
         _rsp_client_err(rsp, reply, cmd, key);
-        INCR(process_metrics, process_client_ex);
         return;
     }
 
@@ -471,7 +527,6 @@ cmd_list_insert(struct response *rsp, struct request *req, struct command *cmd)
 
     if (!_get_vidx(&idx, req)) {
         _rsp_client_err(rsp, reply, cmd, key);
-        INCR(process_metrics, process_client_ex);
         return;
     }
 
@@ -482,39 +537,19 @@ cmd_list_insert(struct response *rsp, struct request *req, struct command *cmd)
         return;
     }
 
-    status = zipentry_size(&ze_len, &vblob);
-
-    /* blob from _elem2blob() should be valid */
-    ASSERT(status == ZIPLIST_OK);
-
-    if (!item_will_fit(it, (int32_t)ze_len)) {
-        /* must alloc new item, cannot fit in place */
-        struct item *nit;
-        struct bstring zl_str;
-
-        zl_str.len = ziplist_size(zl);
-        zl_str.data = (char *)zl;
-
-        item_rstatus_e istatus = item_reserve(&nit, key, &zl_str,
-                item_nval(it) + ze_len, 0, INT32_MAX);
-
-        if (istatus != ITEM_OK) {
-            rsp->type = reply->type = ELEM_ERR;
-            reply->bstr = str2bstr(RSP_ERR_STORAGE);
-            INCR(process_metrics, list_insert_ex);
-            INCR(process_metrics, process_server_ex);
-            log_verb("command '%.*s' '%.*s' failed due to storage, no-op",
-                    cmd->bstr.len, cmd->bstr.data, key->len, key->data);
-            return;
-        }
-
-        /* set pointers for updating ziplist, overwrite old item */
-        it = nit;
-        zl = (ziplist_p)item_data(nit);
-        item_insert(nit, key);
+    if (zipentry_size(&ze_len, &vblob) != ZIPLIST_OK) {
+        /* val is invalid type or too long */
+        _rsp_client_err(rsp, reply, cmd, key);
+        return;
     }
 
-    ASSERT(item_will_fit(it, (int32_t)ze_len));
+    if (_realloc_list_item(&it, &zl, key, (uint32_t)ze_len) != ITEM_OK) {
+        _rsp_storage_err(rsp, reply, cmd, key);
+        INCR(process_metrics, list_insert_ex);
+        return;
+    }
+
+    ASSERT(item_will_fit(it, (uint32_t)ze_len));
 
     status = ziplist_insert(zl, &vblob, idx);
 
@@ -527,8 +562,57 @@ cmd_list_insert(struct response *rsp, struct request *req, struct command *cmd)
 void
 cmd_list_push(struct response *rsp, struct request *req, struct command *cmd)
 {
-    /* TODO: implement */
+    struct bstring *key = _get_key(req);
     struct element *reply = (struct element *)array_push(rsp->token);
-    rsp->type = reply->type = ELEM_ERR;
-    reply->bstr = str2bstr(RSP_ERR_NOSUPPORT);
+    struct item *it = item_get(key);
+    uint32_t i, delta = 0;
+    ziplist_p zl;
+    ziplist_rstatus_e status;
+
+    /* client error from wrong # args should be handled in parse phase */
+    ASSERT(array_nelem(req->token) >= cmd->narg);
+
+    INCR(process_metrics, list_push);
+
+    if (it == NULL) {
+        _rsp_notfound(rsp, reply, cmd, key);
+        INCR(process_metrics, list_push_notfound);
+        return;
+    }
+
+    zl = (ziplist_p)item_data(it);
+
+    /* calculate additional length of ziplist after pushing all vals */
+    for (i = LIST_VAL; i < array_nelem(req->token); ++i) {
+        struct blob vblob;
+        uint8_t ze_sz;
+        _elem2blob(&vblob, array_get(req->token, i));
+
+        if (zipentry_size(&ze_sz, &vblob) != ZIPLIST_OK) {
+            /* val is invalid for list types */
+            _rsp_client_err(rsp, reply, cmd, key);
+            return;
+        }
+
+        delta += ze_sz;
+    }
+
+    if (_realloc_list_item(&it, &zl, key, delta) != ITEM_OK) {
+        _rsp_storage_err(rsp, reply, cmd, key);
+        INCR(process_metrics, list_push_ex);
+        return;
+    }
+
+    ASSERT(item_will_fit(it, delta));
+
+    for (i = LIST_VAL; i < array_nelem(req->token); ++i) {
+        struct blob vblob;
+        _elem2blob(&vblob, array_get(req->token, i));
+        status = ziplist_push(zl, &vblob);
+
+        /* invalid val errs should have been taken care of above */
+        ASSERT(status == ZIPLIST_OK);
+    }
+
+    _rsp_ok(rsp, reply, cmd, key);
 }

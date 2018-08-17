@@ -257,6 +257,11 @@ ziplist_rstatus_e ziplist_insert(ziplist_p zl, struct blob *val, int64_t idx);
  * if there are fewer than count entries, all entries starting at idx are preserved
  */
 ziplist_rstatus_e ziplist_trim(ziplist_p zl, int64_t idx, int64_t count);
+/*
+ * if count is positive, remove count entries starting at the beginning
+ * if count is negative, remove -count entries starting at the end
+ */
+ziplist_rstatus_e ziplist_truncate(ziplist_p zl, int64_t count);
 ziplist_rstatus_e ziplist_push(ziplist_p zl, struct blob *val); /* a shorthand for insert at idx == nentry */
 /* remove tail & return, if val is NULL it is equivalent to remove at idx -1 */
 ziplist_rstatus_e ziplist_pop(struct blob *val, ziplist_p zl);

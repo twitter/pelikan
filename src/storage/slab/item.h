@@ -90,6 +90,7 @@ typedef enum item_rstatus {
 
 extern bool use_cas;
 extern uint64_t cas_id;
+extern size_t slab_profile[SLABCLASS_MAX_ID + 1];
 
 static inline uint64_t
 item_get_cas(struct item *it)
@@ -189,6 +190,13 @@ item_atou64(uint64_t *vint, struct item *it)
         return ITEM_ENAN;
     }
 }
+/* return true if item can fit len additional bytes in val in place, false otherwise */
+static inline bool
+item_will_fit(const struct item *it, uint32_t delta)
+{
+    return slab_profile[it->id] >= item_size(it) + delta;
+}
+
 
 /* Init header for given item */
 void item_hdr_init(struct item *it, uint32_t offset, uint8_t id);
@@ -197,9 +205,6 @@ void item_hdr_init(struct item *it, uint32_t offset, uint8_t id);
 struct item *item_get(const struct bstring *key);
 
 /* TODO: make the following APIs protocol agnostic */
-
-/* return true if item can fit len additional bytes in val in place, false otherwise */
-bool item_will_fit(const struct item *it, uint32_t len);
 
 /* insert an item, removes existing item of the same key (if applicable) */
 void item_insert(struct item *it, const struct bstring *key);

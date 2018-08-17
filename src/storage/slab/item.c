@@ -128,12 +128,6 @@ _item_link(struct item *it)
     PERSLAB_INCR_N(it->id, item_val_byte, it->vlen);
 }
 
-bool
-item_will_fit(const struct item *it, uint32_t len)
-{
-    return slab_id(item_size(it)) == item_slabid(it->klen, it->vlen + len, it->olen);
-}
-
 void
 item_insert(struct item *it, const struct bstring *key)
 {
