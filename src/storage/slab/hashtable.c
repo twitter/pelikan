@@ -1,7 +1,9 @@
 #include "hashtable.h"
 
-#include <hash/cc_lookup3.h>
+#include <hash/cc_murmur3.h>
 #include <cc_mm.h>
+
+static uint32_t murmur3_iv = 0x3ac5d673;
 
 /*
  * Allocate table given size
@@ -65,7 +67,11 @@ hashtable_destroy(struct hash_table *ht)
 static struct item_slh *
 _get_bucket(const char *key, size_t klen, struct hash_table *ht)
 {
-    return &(ht->table[hash_lookup3(key, klen, 0) & HASHMASK(ht->hash_power)]);
+    uint32_t hv;
+
+    hash_murmur3_32(key, klen, murmur3_iv, &hv);
+
+    return &(ht->table[hv & HASHMASK(ht->hash_power)]);
 }
 
 void

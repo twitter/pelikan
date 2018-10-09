@@ -4,7 +4,7 @@
 
 #include <cc_bstring.h>
 #include <cc_debug.h>
-#include <hash/cc_lookup3.h>
+#include <hash/cc_murmur3.h>
 #include <cc_mm.h>
 #include <cc_pool.h>
 
@@ -19,6 +19,8 @@ struct kc_map_entry {
 };
 
 STAILQ_HEAD(kcme_slh, kc_map_entry);
+
+static uint32_t murmur3_iv = 0x3ac5d673;
 
 static struct kcme_slh *table = NULL;
 static uint32_t table_size = 0; /* number of buckets in table */
@@ -180,7 +182,11 @@ kc_map_teardown(void)
 static inline struct kcme_slh *
 _get_bucket(const struct bstring *key)
 {
-    return &(table[hash_lookup3(key->data, key->len, 0) % table_size]);
+    uint32_t hv;
+
+    hash_murmur3_32(key->data, key->len, murmur3_iv, &hv);
+
+    return &(table[hv % table_size]);
 }
 
 uint32_t
