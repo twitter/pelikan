@@ -27,13 +27,6 @@ extern "C" {
 # define CC_HAVE_SIGNAME 1
 #endif
 
-
-#ifdef HAVE_BIG_ENDIAN
-# define CC_BIG_ENDIAN 1
-#else
-# define CC_LITTLE_ENDIAN 1
-#endif
-
 #ifdef HAVE_STATS
 # define CC_STATS 1
 #endif
@@ -52,6 +45,10 @@ extern "C" {
 
 #ifdef HAVE_BACKTRACE
 # define CC_BACKTRACE 1
+#endif
+
+#ifdef HAVE_ACCEPT4
+# define CC_ACCEPT4 1
 #endif
 
 #ifdef HAVE_DEBUG_MM

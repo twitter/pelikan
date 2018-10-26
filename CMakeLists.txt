@@ -36,8 +36,8 @@ endif()
 # config.h.in has to include entries set/tested here for them to have effect
 
 # version info
-set(${PROJECT_NAME}_VERSION_MAJOR 1)
-set(${PROJECT_NAME}_VERSION_MINOR 2)
+set(${PROJECT_NAME}_VERSION_MAJOR 2)
+set(${PROJECT_NAME}_VERSION_MINOR 0)
 set(${PROJECT_NAME}_VERSION_PATCH 0)
 set(${PROJECT_NAME}_VERSION
    ${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}.${${PROJECT_NAME}_VERSION_PATCH}
@@ -96,9 +96,7 @@ check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
 
 include(CheckFunctionExists)
 check_function_exists(backtrace HAVE_BACKTRACE)
-
-include(TestBigEndian)
-test_big_endian(HAVE_BIG_ENDIAN)
+check_function_exists(accept4 HAVE_ACCEPT4)
 
 # how to use config.h.in to generate config.h
 # this has to be set _after_ the above checks
@@ -189,6 +187,5 @@ message(STATUS "CFLAGS: " ${CMAKE_C_FLAGS})
 message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
 
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
-message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})
 
 message(STATUS "CHECK_WORKING: " ${CHECK_WORKING})

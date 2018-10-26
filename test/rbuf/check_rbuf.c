@@ -49,7 +49,6 @@ write_read_rbuf(struct rbuf *buffer, char *write_data, size_t w1_len, size_t w2_
     ck_assert_int_eq(rbuf_rcap(buffer), w1_len);
     ck_assert_int_eq(rbuf_wcap(buffer), w2_len);
 
-
     written = rbuf_write(buffer, &write_data[w1_len], w2_len);
     ck_assert_int_eq(written, w2_len);
 

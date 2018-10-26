@@ -13,20 +13,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This module contains the bindgen created classes.
-//! PRO-TIP: If you want to look at the generated code, you can find it with:
-//!
-//! ```ignore
-//! $ find . -name bindgen.rs
-//! ```
-//!
+use std::result;
+use std::ptr;
 
-#![allow(unknown_lints)]
-#![allow(clippy)]
-#![allow(clippy_pedantic)]
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-#![allow(dead_code)]
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+#[derive(Fail, Debug)]
+#[fail(display = "Null pointer exception")]
+pub struct NullPointerError;
+
+pub fn lift_to_option<T>(p: *mut T) -> Option<*mut T> {
+    if p.is_null() {
+        None
+    } else {
+        Some(p)
+    }
+}
+
+pub fn null_check<T>(p: *mut T) -> result::Result<*mut T, NullPointerError> {
+    lift_to_option(p).ok_or_else(|| NullPointerError)
+}
+
+pub fn opt_to_null_mut<T>(o: Option<*mut T>) -> *mut T {
+    match o {
+        Some(p) => p,
+        None => ptr::null_mut(),
+    }
+}
 
