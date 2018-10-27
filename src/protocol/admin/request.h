@@ -25,7 +25,7 @@
     ACTION( REQ_UNKNOWN,       ""          )\
     ACTION( REQ_STATS,         "stats"     )\
     ACTION( REQ_VERSION,       "version"   )\
-    ACTION( REQ_COUNT,         "count"     )\
+    ACTION( REQ_CENSUS,        "census"    )\
     ACTION( REQ_DUMP,          "dump"      )\
     ACTION( REQ_QUIT,          "quit"      )
 

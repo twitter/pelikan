@@ -39,10 +39,10 @@
  *   |               |       \
  *   \               |       item_key()
  *   item            \
- *                   item->end, (if enabled) item_get_cas(), metadata
+ *                   item->end, (if used) optional metadata
  *
  * item->end is followed by:
- * - 8-byte cas, if ITEM_CAS flag is set
+ * - optional metadata
  * - key
  * - data
  */
@@ -235,6 +235,6 @@ bool item_delete(const struct bstring *key);
 void item_flush(void);
 
 /* this surveys all keys (matching a prefix if given) regardless of expiry status */
-void item_count(size_t *nkey, size_t *ksize, size_t *vsize, struct bstring *prefix);
+void item_census(size_t *nkey, size_t *ktotal, size_t *kmin, size_t *kmax, size_t *vtotal, size_t *vmin, size_t *vmax, struct bstring *prefix);
 /* this dumps all keys (matching a prefix if given) regardless of expiry status */
 bool item_dump(struct bstring *prefix);

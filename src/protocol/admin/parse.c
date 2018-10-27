@@ -47,8 +47,8 @@ _get_req_type(struct request *req, struct bstring *type)
             break;
         }
 
-        if (str5cmp(type->data, 'c', 'o', 'u', 'n', 't')) {
-            req->type = REQ_COUNT;
+        if (str6cmp(type->data, 'c', 'e', 'n', 's', 'u', 's')) {
+            req->type = REQ_CENSUS;
             break;
         }
 

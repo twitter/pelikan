@@ -384,25 +384,37 @@ item_flush(void)
 
 /* this dumps all keys (matching a prefix if given) regardless of expiry status */
 void
-item_count(size_t *nkey, size_t *ksize, size_t *vsize, struct bstring *prefix)
+item_census(size_t *nkey, size_t *ktotal, size_t *kmin, size_t *kmax,
+        size_t *vtotal, size_t *vmin, size_t *vmax, struct bstring *prefix)
 {
     uint32_t nbucket = HASHSIZE(hash_table->hash_power);
+    size_t klen, vlen;
 
     log_info("start scanning all %"PRIu32" keys", hash_table->nhash_item);
 
     *nkey = 0;
-    *ksize = 0;
-    *vsize = 0;
+    *ktotal = 0;
+    *vtotal = 0;
+    *kmin = SIZE_MAX;
+    *kmax = 0;
+    *vmin = SIZE_MAX;
+    *vmax = 0;
     for (uint32_t i = 0; i < nbucket; i++) {
         struct item_slh *entry = &hash_table->table[i];
         struct item *it;
 
         SLIST_FOREACH(it, entry, i_sle) {
-            if (it->klen >= prefix->len &&
+            klen = it->klen;
+            vlen = it->vlen;
+            if (klen >= prefix->len &&
                     cc_bcmp(prefix->data, item_key(it), prefix->len) == 0) {
                 *nkey += 1;
-                *ksize += it->klen;
-                *vsize += it->vlen;
+                *ktotal += klen;
+                *vtotal += vlen;
+                *kmin = MIN(*kmin, klen);
+                *kmax = MAX(*kmax, klen);
+                *vmin = MIN(*vmin, vlen);
+                *vmax = MAX(*vmax, vlen);
             }
         }
 
@@ -410,6 +422,10 @@ item_count(size_t *nkey, size_t *ksize, size_t *vsize, struct bstring *prefix)
             log_info("... %"PRIu32" out of %"PRIu32" buckets scanned ...", i,
                     nbucket);
         }
+    }
+
+    if (*nkey == 0) { /* report 0 on all fields if no match has been found */
+        *kmin = *vmin = 0;
     }
 
     log_info("finish scanning all keys");

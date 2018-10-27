@@ -31,6 +31,7 @@ admin_process_setup(void)
     }
 
     nmetric_perslab = METRIC_CARDINALITY(perslab[0]);
+    /* so far the largest response comes from per-slab metrics */
     /* perslab metric size <(32 + 20)B, prefix/suffix 12B, total < 64 */
     cap = MAX(nmetric, nmetric_perslab * SLABCLASS_MAX_ID) * METRIC_PRINT_LEN +
         METRIC_END_LEN;
@@ -116,22 +117,23 @@ _key_dump(struct response *rsp, struct request *req)
 }
 
 static void
-_key_count(struct response *rsp, struct request *req)
+_key_census(struct response *rsp, struct request *req)
 {
-    size_t nkey, ksize, vsize;
+    size_t nkey, ktotal, vtotal, kmin, kmax, vmin, vmax;
     int ret = 0;
 
     if (req->arg.len > 0) { /* skip initial space */
         req->arg.len--;
         req->arg.data++;
     }
-    log_info("count keys with prefix %.*s", req->arg.len, req->arg.data);
+    log_info("census on keys with prefix %.*s", req->arg.len, req->arg.data);
 
-    item_count(&nkey, &ksize, &vsize, &req->arg);
+    item_census(&nkey, &ktotal, &kmin, &kmax, &vtotal, &vmin, &vmax, &req->arg);
     rsp->type = RSP_GENERIC;
-    ret = cc_scnprintf(buf, cap, KEYCOUNT_FMT, nkey, ksize, vsize);
+    ret = cc_scnprintf(buf, cap, CENSUS_FMT, nkey, ktotal, kmin, kmax, vtotal,
+            vmin, vmax);
     if (ret < 0) {
-        rsp->data = str2bstr("ERROR: cannot format key count");
+        rsp->data = str2bstr("ERROR: cannot format key census result");
     } else {
         rsp->data.len = ret;
         rsp->data.data = buf;
@@ -156,8 +158,8 @@ admin_process_request(struct response *rsp, struct request *req)
         _key_dump(rsp, req);
         break;
 
-    case REQ_COUNT:
-        _key_count(rsp, req);
+    case REQ_CENSUS:
+        _key_census(rsp, req);
         break;
 
     default:
