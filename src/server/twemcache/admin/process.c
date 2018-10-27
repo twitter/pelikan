@@ -99,7 +99,13 @@ _admin_stats(struct response *rsp, struct request *req)
 static void
 _key_dump(struct response *rsp, struct request *req)
 {
-    if (item_dump() == true) {
+    if (req->arg.len > 0) { /* skip initial space */
+        req->arg.len--;
+        req->arg.data++;
+    }
+    log_info("dump keys with prefix %.*s", req->arg.len, req->arg.data);
+
+    if (item_dump(&req->arg) == true) {
         rsp->type = RSP_OK;
     } else {
         rsp->type = RSP_GENERIC;

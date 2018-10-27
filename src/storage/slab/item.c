@@ -382,6 +382,7 @@ item_flush(void)
     log_info("all keys flushed at %"PRIu32, flush_at);
 }
 
+/* this dumps all keys (matching a prefix if given) regardless of expiry status */
 void
 item_count(size_t *nkey, size_t *ksize, size_t *vsize, struct bstring *prefix)
 {
@@ -415,7 +416,7 @@ item_count(size_t *nkey, size_t *ksize, size_t *vsize, struct bstring *prefix)
 }
 
 bool
-item_dump(void)
+item_dump(struct bstring *prefix)
 {
     int fd;
     uint32_t nbucket = HASHSIZE(hash_table->hash_power);
@@ -433,13 +434,16 @@ item_dump(void)
         struct item *it;
 
         SLIST_FOREACH(it, entry, i_sle) {
-            if (write(fd, item_key(it), it->klen) < it->klen) {
-                log_error("write error, aborting at hash bucket %"PRIu32, i);
-                return false;
-            }
-            if  (write(fd, CRLF, CRLF_LEN) < CRLF_LEN) {
-                log_error("write error, aborting at hash bucket %"PRIu32, i);
-                return false;
+            if (it->klen >= prefix->len &&
+                    cc_bcmp(prefix->data, item_key(it), prefix->len) == 0) {
+                if (write(fd, item_key(it), it->klen) < it->klen) {
+                    log_error("write error, aborting at hash bucket %"PRIu32, i);
+                    return false;
+                }
+                if  (write(fd, CRLF, CRLF_LEN) < CRLF_LEN) {
+                    log_error("write error, aborting at hash bucket %"PRIu32, i);
+                    return false;
+                }
             }
         }
 

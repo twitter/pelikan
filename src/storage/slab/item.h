@@ -234,5 +234,7 @@ bool item_delete(const struct bstring *key);
 /* flush the cache */
 void item_flush(void);
 
+/* this surveys all keys (matching a prefix if given) regardless of expiry status */
 void item_count(size_t *nkey, size_t *ksize, size_t *vsize, struct bstring *prefix);
-bool item_dump(void);
+/* this dumps all keys (matching a prefix if given) regardless of expiry status */
+bool item_dump(struct bstring *prefix);
