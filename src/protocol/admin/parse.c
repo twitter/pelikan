@@ -71,8 +71,8 @@ _get_req_type(struct request *req, struct bstring *type)
     return PARSE_OK;
 }
 
-parse_rstatus_e
-admin_parse_req(struct request *req, struct buf *buf)
+static parse_rstatus_e
+_parse_req(struct request *req, struct buf *buf)
 {
     char *p, *q;
     struct bstring type;
@@ -102,4 +102,25 @@ admin_parse_req(struct request *req, struct buf *buf)
     req->state = REQ_PARSED;
     buf->rpos = p + CRLF_LEN;
     return _get_req_type(req, &type);
+}
+
+parse_rstatus_e
+admin_parse_req(struct request *req, struct buf *buf)
+{
+    parse_rstatus_e status;
+
+    status = _parse_req(req, buf);
+
+    if (status == PARSE_OK &&
+            (req->type == REQ_CENSUS || req->type == REQ_DUMP)) {
+        return PARSE_EINVALID;
+    } else {
+        return status;
+    }
+}
+
+parse_rstatus_e
+debug_parse_req(struct request *req, struct buf *buf)
+{
+    return _parse_req(req, buf);
 }

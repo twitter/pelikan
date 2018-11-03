@@ -10,4 +10,6 @@ typedef enum parse_rstatus {
 struct buf;
 struct request;
 
+/* admin parser blocks "debug" commands which can block for a long time */
 parse_rstatus_e admin_parse_req(struct request *req, struct buf *buf);
+parse_rstatus_e debug_parse_req(struct request *req, struct buf *buf);
