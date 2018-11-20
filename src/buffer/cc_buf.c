@@ -157,8 +157,8 @@ buf_destroy(struct buf **buf)
         return;
     }
 
-    cap = buf_capacity(*buf);
-    log_verb("destroy buf %p capacity %"PRIu32, *buf, cap);
+    cap = buf_size(*buf);
+    log_verb("destroy buf %p size %"PRIu32, *buf, cap);
 
     cc_free(*buf);
     *buf = NULL;

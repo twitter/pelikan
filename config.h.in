@@ -12,7 +12,7 @@
 
 #cmakedefine HAVE_BACKTRACE
 
-#cmakedefine HAVE_BIG_ENDIAN
+#cmakedefine HAVE_ACCEPT4
 
 #cmakedefine HAVE_LOGGING
 
