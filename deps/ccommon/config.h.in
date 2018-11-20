@@ -14,8 +14,6 @@
 
 #cmakedefine HAVE_ACCEPT4
 
-#cmakedefine HAVE_BIG_ENDIAN
-
 #cmakedefine HAVE_LOGGING
 
 #cmakedefine HAVE_STATS

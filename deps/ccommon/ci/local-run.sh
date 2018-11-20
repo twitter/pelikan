@@ -48,7 +48,7 @@ BUILD_DIR="${BUILD_DIR:-$TEMP}"
 mkdir -p "$BUILD_DIR" && (
   cd "$BUILD_DIR" &&
   cmake "${CMAKEFLAGS[@]}" "$TOPLEVEL" &&
-  make -j all &&
+  make all &&
   make check &&
   cd rust &&
   cargo test
