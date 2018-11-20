@@ -1,4 +1,5 @@
 set(SOURCE
     ${SOURCE}
     ${CMAKE_CURRENT_SOURCE_DIR}/admin.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/debug.c
     PARENT_SCOPE)

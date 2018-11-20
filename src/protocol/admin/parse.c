@@ -47,6 +47,9 @@ _get_req_type(struct request *req, struct bstring *type)
             break;
         }
 
+        break;
+
+    case 6:
         if (str6cmp(type->data, 'c', 'e', 'n', 's', 'u', 's')) {
             req->type = REQ_CENSUS;
             break;

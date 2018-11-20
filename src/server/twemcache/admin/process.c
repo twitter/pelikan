@@ -126,12 +126,12 @@ _key_census(struct response *rsp, struct request *req)
         req->arg.len--;
         req->arg.data++;
     }
-    log_info("census on keys with prefix %.*s", req->arg.len, req->arg.data);
+    log_info("census on keys with prefix '%.*s'", req->arg.len, req->arg.data);
 
     item_census(&nkey, &ktotal, &kmin, &kmax, &vtotal, &vmin, &vmax, &req->arg);
     rsp->type = RSP_GENERIC;
-    ret = cc_scnprintf(buf, cap, CENSUS_FMT, nkey, ktotal, kmin, kmax, vtotal,
-            vmin, vmax);
+    ret = cc_scnprintf(buf, cap, CENSUS_FMT, nkey, ktotal + vtotal, kmin, kmax,
+            ktotal, vmin, vmax, vtotal);
     if (ret < 0) {
         rsp->data = str2bstr("ERROR: cannot format key census result");
     } else {

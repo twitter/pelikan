@@ -2,7 +2,7 @@
 
 #include "core/context.h"
 
-#include "protocol/debug/debug_include.h"
+#include "protocol/admin/admin_include.h"
 #include "util/util.h"
 
 #include <buffer/cc_buf.h>
@@ -116,7 +116,7 @@ _debug_post_read(struct buf_sock *s)
 {
     parse_rstatus_e status;
 
-    debug_request_reset(&req);
+    admin_request_reset(&req);
 
     while (buf_rsize(s->rbuf) > 0) {
         int n;
@@ -138,11 +138,11 @@ _debug_post_read(struct buf_sock *s)
             goto done;
         }
 
-        debug_response_reset(&rsp);
+        admin_response_reset(&rsp);
 
-        debug_process_request(&rsp, &req);
+        admin_process_request(&rsp, &req);
 
-        n = debug_compose_rsp(&s->wbuf, &rsp);
+        n = admin_compose_rsp(&s->wbuf, &rsp);
         if (n < 0) {
             log_error("compose response error");
             goto error;
@@ -195,17 +195,13 @@ _debug_event(void *arg, uint32_t events)
 }
 
 void
-core_debug_setup(debug_options_st *options)
+core_debug_setup(core_debug_options_st *options)
 {
     struct tcp_conn *c;
-    struct timeout tick;
     char *host = DEBUG_HOST;
     char *port = DEBUG_PORT;
     int timeout = DEBUG_TIMEOUT;
     int nevent = DEBUG_NEVENT;
-    uint64_t tick_ms = DEBUG_TW_TICK;
-    size_t cap = DEBUG_TW_CAP;
-    size_t ntick = DEBUG_TW_NTICK;
 
     log_info("set up the %s module", DEBUG_MODULE_NAME);
 
@@ -219,9 +215,6 @@ core_debug_setup(debug_options_st *options)
         port = option_str(&options->debug_port);
         timeout = option_uint(&options->debug_timeout);
         nevent = option_uint(&options->debug_nevent);
-        tick_ms = option_uint(&options->debug_tw_tick);
-        cap = option_uint(&options->debug_tw_cap);
-        ntick = option_uint(&options->debug_tw_ntick);
     }
 
     ctx->timeout = timeout;
@@ -261,14 +254,6 @@ core_debug_setup(debug_options_st *options)
     c->level = CHANNEL_META;
     event_add_read(ctx->evb, hdl->rid(c), debug_sock);
 
-    timeout_set_ms(&tick, tick_ms);
-    tw = timing_wheel_create(&tick, cap, ntick);
-    if (tw == NULL) {
-        log_crit("create timing wheel failed");
-        goto error;
-    }
-    timing_wheel_start(tw);
-
     debug_init = true;
 
     return;
@@ -286,24 +271,11 @@ core_debug_teardown(void)
     if (!debug_init) {
         log_warn("%s has never been setup", DEBUG_MODULE_NAME);
     } else {
-        timing_wheel_stop(tw);
-        timing_wheel_destroy(&tw);
         event_base_destroy(&(ctx->evb));
         freeaddrinfo(debug_ai);
         buf_sock_destroy(&debug_sock);
     }
     debug_init = false;
-}
-
-struct timeout_event *
-core_debug_register(uint64_t intvl_ms, timeout_cb_fn cb, void *arg)
-{
-    struct timeout delay;
-
-    ASSERT(debug_init);
-
-    timeout_set_ms(&delay, intvl_ms);
-    return timing_wheel_insert(tw, &delay, true, cb, arg);
 }
 
 static rstatus_i
@@ -319,16 +291,14 @@ _debug_evwait(void)
     return CC_OK;
 }
 
-void
-core_debug_evloop(void)
+void *
+core_debug_evloop(void *arg)
 {
     for(;;) {
         if (_debug_evwait() != CC_OK) {
             log_crit("debug loop exited due to failure");
             break;
         }
-
-        timing_wheel_execute(tw);
     }
 
     exit(1);

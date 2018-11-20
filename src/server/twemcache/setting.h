@@ -36,6 +36,7 @@ struct setting {
     twemcache_options_st    twemcache;
     /* application modules */
     admin_options_st        admin;
+    core_debug_options_st   core_debug;
     server_options_st       server;
     worker_options_st       worker;
     process_options_st      process;

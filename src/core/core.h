@@ -5,6 +5,7 @@
  */
 
 #include "admin/admin.h"
+#include "admin/debug.h"
 #include "data/shared.h"
 #include "data/server.h"
 #include "data/worker.h"

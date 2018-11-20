@@ -3,6 +3,7 @@
 struct setting setting = {
     { TWEMCACHE_OPTION(OPTION_INIT) },
     { ADMIN_OPTION(OPTION_INIT)     },
+    { CORE_DEBUG_OPTION(OPTION_INIT)},
     { SERVER_OPTION(OPTION_INIT)    },
     { WORKER_OPTION(OPTION_INIT)    },
     { PROCESS_OPTION(OPTION_INIT)   },
