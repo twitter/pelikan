@@ -61,7 +61,7 @@ slab_size: 1048756
 def generate_runscript(prefix, instances):
   config_path = os.path.join(prefix, 'config')
   # create bring-up.sh
-  with open('bring-up.sh','w') as the_file:
+  with open(os.path.join(prefix, 'bring-up.sh'),'w') as the_file:
     for i in range(instances):
       config_file = os.path.join(config_path, 'pelikan-{server_port}.config'.format(server_port=PELIKAN_SERVER_PORT+i))
       if BIND_TO_NODES:
