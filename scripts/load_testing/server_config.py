@@ -61,7 +61,8 @@ slab_size: 1048756
 def generate_runscript(prefix, instances):
   config_path = os.path.join(prefix, 'config')
   # create bring-up.sh
-  with open(os.path.join(prefix, 'bring-up.sh'),'w') as the_file:
+  fname = os.path.join(prefix, 'bring-up.sh')
+  with open(fname,'w') as the_file:
     for i in range(instances):
       config_file = os.path.join(config_path, 'pelikan-{server_port}.config'.format(server_port=PELIKAN_SERVER_PORT+i))
       if BIND_TO_NODES:
@@ -74,7 +75,7 @@ def generate_runscript(prefix, instances):
       the_file.write('{binary_file} {config_file}\n'.format(
           binary_file=PELIKAN_BINARY,
           config_file=config_file))
-  os.chmod('bring-up.sh', 0777)
+  os.chmod(fname, 0777)
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="""
@@ -85,6 +86,9 @@ if __name__ == "__main__":
   parser.add_argument('--slab_mem', dest='slab_mem', type=int, default=PELIKAN_SLAB_MEM, help='total capacity of slab memory, in bytes')
 
   args = parser.parse_args()
+
+  if not os.path.exists(args.prefix):
+    os.makedirs(args.prefix)
 
   generate_config(args.prefix, args.instances, args.slab_mem)
   generate_runscript(args.prefix, args.instances)
