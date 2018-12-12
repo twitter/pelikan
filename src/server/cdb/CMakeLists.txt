@@ -8,7 +8,7 @@ set(SOURCE
     stats.c)
 
 set(MODULES
-    cdb_rs_static
+    cdb_rs
     core
     protocol_admin
     protocol_memcache
@@ -25,7 +25,6 @@ set(TARGET_NAME ${PROJECT_NAME}_cdb)
 
 add_executable(${TARGET_NAME} ${SOURCE})
 target_link_libraries(${TARGET_NAME} ${MODULES} ${LIBS})
-add_dependencies(${TARGET_NAME} cdb_rs_static)
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 add_dependencies(service ${TARGET_NAME})
