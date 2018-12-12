@@ -1,18 +1,20 @@
-import os
 import argparse
+from math import ceil, floor, log
+import os
 
 INSTANCES = 3
 PREFIX = 'test'
 PELIKAN_ADMIN_PORT = 9900
 PELIKAN_SERVER_PORT = 12300
 PELIKAN_SERVER_IP = '10.25.2.45'
+PELIKAN_SIZE = 64
 PELIKAN_SLAB_MEM = 4294967296
 PELIKAN_BINARY = '/root/Twitter/pelikan/_build/_bin/pelikan_twemcache'
 THREAD_PER_SOCKET = 48
 BIND_TO_CORES = False
 BIND_TO_NODES = True
 
-def generate_config(prefix, instances, slab_mem):
+def generate_config(prefix, instances, hash_power, slab_mem):
   # create top-level folders under prefix
   config_path = os.path.join(prefix, 'config')
   os.makedirs(config_path)
@@ -47,10 +49,10 @@ response_poolsize: 32768
 
 slab_evict_opt: 1
 slab_prealloc: yes
-slab_hash_power: 26
+slab_hash_power: {hash_power}
 slab_mem: {slab_mem}
 slab_size: 1048756
-""".format(admin_port=admin_port, server_port=server_port, slab_mem=slab_mem)
+""".format(admin_port=admin_port, server_port=server_port, hash_power=hash_power, slab_mem=slab_mem)
     try:
       os.makedirs(os.path.join(log_path, str(server_port)))
     except:
@@ -83,12 +85,16 @@ if __name__ == "__main__":
     """)
   parser.add_argument('--prefix', dest='prefix', type=str, default=PREFIX, help='folder that contains all the other files to be generated')
   parser.add_argument('--instances', dest='instances', type=int, default=INSTANCES, help='number of instances')
+  parser.add_argument('--size', dest='size', type=int, default=PELIKAN_SIZE, help='key+val total size')
   parser.add_argument('--slab_mem', dest='slab_mem', type=int, default=PELIKAN_SLAB_MEM, help='total capacity of slab memory, in bytes')
 
   args = parser.parse_args()
 
+  nkey = 1.0 * args.slab_mem / args.size
+  hash_power = int(ceil(log(nkey, 2)))
+
   if not os.path.exists(args.prefix):
     os.makedirs(args.prefix)
 
-  generate_config(args.prefix, args.instances, args.slab_mem)
+  generate_config(args.prefix, args.instances, hash_power, args.slab_mem)
   generate_runscript(args.prefix, args.instances)
