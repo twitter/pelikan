@@ -24,7 +24,7 @@ proptest = "~0.7.1"
 
 [lib]
 name = "cdb_rs"
-crate-type = ["rlib", "dylib", "cdylib", "staticlib"]
+crate-type = ["rlib", "staticlib"]
 
 [build-dependencies]
 bindgen = "0.37.0"
