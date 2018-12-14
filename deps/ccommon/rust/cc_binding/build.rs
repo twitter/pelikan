@@ -16,44 +16,44 @@ use std::result;
 type Result<T> = result::Result<T, failure::Error>;
 
 fn get_cmake_binary_dir() -> io::Result<String> {
-    // this file is written by cmake on each run, updated with the location of
-    // the build directory.
-    let mut fp = fs::File::open("../CMAKE_BINARY_DIR")?;
-    let mut buf = String::new();
-    let n = fp.read_to_string(&mut buf)?;
-    assert!(n > 0, "file was empty");
-    Ok(String::from(buf.trim_right()))
+// this file is written by cmake on each run, updated with the location of
+// the build directory.
+let mut fp = fs::File::open("../CMAKE_BINARY_DIR")?;
+let mut buf = String::new();
+let n = fp.read_to_string(&mut buf)?;
+assert!(n > 0, "file was empty");
+Ok(String::from(buf.trim_right()))
 }
 
 const CMAKE_CACHE: &str = "CMakeCache.txt";
 const CCOMMON_BINARY_DIR_KEY: &str = "ccommon_BINARY_DIR:STATIC";
 
 fn get_cmake_cache_value(binary_dir: &Path, key: &str) -> Result<Option<String>> {
-    let cache_path = binary_dir.join(CMAKE_CACHE);
-    let fp = BufReader::new(fs::File::open(cache_path)?);
+let cache_path = binary_dir.join(CMAKE_CACHE);
+let fp = BufReader::new(fs::File::open(cache_path)?);
 
-    for x in fp.lines() {
-        let line = x?;
-        let needle = format!("{}=", key);
-        if line.starts_with(&needle[..]) {
-            if let Some(v) = line.rsplit("=").take(1).last() {
-                return Ok(Some(v.to_owned()))
-            } else {
-                bail!("bad line: {:#?}", line);
-            }
+for x in fp.lines() {
+    let line = x?;
+    let needle = format!("{}=", key);
+    if line.starts_with(&needle[..]) {
+        if let Some(v) = line.rsplit("=").take(1).last() {
+            return Ok(Some(v.to_owned()))
+        } else {
+            bail!("bad line: {:#?}", line);
         }
     }
+}
 
-    Ok(None)
+Ok(None)
 }
 
 fn dump_env() {
-    let mut kvs: Vec<(String, String)> = ::std::env::vars().collect();
-    kvs.sort();
-    eprintln!("-----<( ENVIRONMENT )>-----");
-    for (k, v) in kvs {
-        eprintln!("{}: {}", k, v);
-    }
+let mut kvs: Vec<(String, String)> = ::std::env::vars().collect();
+kvs.sort();
+eprintln!("-----<( ENVIRONMENT )>-----");
+for (k, v) in kvs {
+    eprintln!("{}: {}", k, v);
+}
 }
 
 fn main() {
