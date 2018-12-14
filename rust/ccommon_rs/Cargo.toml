@@ -5,7 +5,7 @@ authors = ["Jonathan Simms <jsimms@twitter.com>"]
 
 [lib]
 name = "ccommon_rs"
-crate-type = ["lib", "dylib", "rlib", "staticlib"]
+crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 

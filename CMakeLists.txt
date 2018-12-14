@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 2.6)
 project(ccommon C)
 
+# Uncomment the following to output dependency graph debugging messages
+# set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_DEBUG_MODE 1)
+
 enable_testing()
 
 ###################
@@ -157,6 +160,18 @@ include_directories(
     "${PROJECT_BINARY_DIR}"
     "include")
 
+###################
+# things to build #
+###################
+
+add_subdirectory(src)
+
+if(CHECK_WORKING)
+    include_directories(${include_directories} "${CHECK_INCLUDES}")
+    add_subdirectory(test)
+endif(CHECK_WORKING)
+
+
 if(HAVE_RUST)
     enable_language(Rust)
     include(CMakeCargo)
@@ -164,16 +179,6 @@ if(HAVE_RUST)
     set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -DHAVE_RUST=1")
 endif()
 
-
-###################
-# things to build #
-###################
-
-add_subdirectory(src)
-if(CHECK_WORKING)
-    include_directories(${include_directories} "${CHECK_INCLUDES}")
-    add_subdirectory(test)
-endif(CHECK_WORKING)
 
 ###################
 # print a summary #
