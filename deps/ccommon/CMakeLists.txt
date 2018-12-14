@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 2.6)
 project(ccommon C)
 
+# Uncomment the following to output dependency graph debugging messages
+# set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_DEBUG_MODE 1)
+
 enable_testing()
 
 ###################
@@ -36,8 +39,8 @@ endif()
 # config.h.in has to include entries set/tested here for them to have effect
 
 # version info
-set(${PROJECT_NAME}_VERSION_MAJOR 1)
-set(${PROJECT_NAME}_VERSION_MINOR 2)
+set(${PROJECT_NAME}_VERSION_MAJOR 2)
+set(${PROJECT_NAME}_VERSION_MINOR 0)
 set(${PROJECT_NAME}_VERSION_PATCH 0)
 set(${PROJECT_NAME}_VERSION
    ${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}.${${PROJECT_NAME}_VERSION_PATCH}
@@ -98,9 +101,6 @@ include(CheckFunctionExists)
 check_function_exists(backtrace HAVE_BACKTRACE)
 check_function_exists(accept4 HAVE_ACCEPT4)
 
-include(TestBigEndian)
-test_big_endian(HAVE_BIG_ENDIAN)
-
 # how to use config.h.in to generate config.h
 # this has to be set _after_ the above checks
 configure_file(
@@ -160,6 +160,18 @@ include_directories(
     "${PROJECT_BINARY_DIR}"
     "include")
 
+###################
+# things to build #
+###################
+
+add_subdirectory(src)
+
+if(CHECK_WORKING)
+    include_directories(${include_directories} "${CHECK_INCLUDES}")
+    add_subdirectory(test)
+endif(CHECK_WORKING)
+
+
 if(HAVE_RUST)
     enable_language(Rust)
     include(CMakeCargo)
@@ -167,16 +179,6 @@ if(HAVE_RUST)
     set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -DHAVE_RUST=1")
 endif()
 
-
-###################
-# things to build #
-###################
-
-add_subdirectory(src)
-if(CHECK_WORKING)
-    include_directories(${include_directories} "${CHECK_INCLUDES}")
-    add_subdirectory(test)
-endif(CHECK_WORKING)
 
 ###################
 # print a summary #
@@ -190,6 +192,5 @@ message(STATUS "CFLAGS: " ${CMAKE_C_FLAGS})
 message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
 
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
-message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})
 
 message(STATUS "CHECK_WORKING: " ${CHECK_WORKING})

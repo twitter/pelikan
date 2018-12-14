@@ -4,7 +4,7 @@ set(test_name check_${suite})
 set(source check_${suite}.c)
 
 if(HAVE_RUST)
-    set(CCOMMON_LIBS ccommon_rs_static) # common_rs_static staticly links common-static
+    set(CCOMMON_LIBS ccommon_rs) # common_rs_static staticly links common-static
 else()
     set(CCOMMON_LIBS ccommon-static)
 endif()

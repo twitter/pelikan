@@ -2,7 +2,7 @@
 <<< END
 +++ request_parse +1, get +1, get_key +1, get_key_miss +1
 
->>> set foo 0 0 3
+>>> set foo 0 2147483647 3
 >>> bar
 <<< STORED
 +++ request_parse +1, set +1, set_stored +1
