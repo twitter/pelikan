@@ -113,18 +113,6 @@ impl BStr {
     pub fn to_utf8_string(&self) -> super::Result<String> {
         self.to_utf8_str().map(|x| x.to_owned())
     }
-
-    pub fn from_ref<'a>(ccb: &'a CCbstring) -> &'a Self {
-        unsafe { Self::from_ptr(ccb as *const CCbstring as *mut _) }
-    }
-
-    pub fn to_utf8_str<'a>(&'a self) -> super::Result<&'a str> {
-        str::from_utf8(&self[..]).map_err(|e| e.into())
-    }
-
-    pub fn to_utf8_string(&self) -> super::Result<String> {
-        self.to_utf8_str().map(|x| x.to_owned())
-    }
 }
 
 
