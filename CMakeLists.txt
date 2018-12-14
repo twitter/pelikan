@@ -62,9 +62,6 @@ check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
 include(CheckFunctionExists)
 check_function_exists(backtrace HAVE_BACKTRACE)
 
-include(TestBigEndian)
-test_big_endian(HAVE_BIG_ENDIAN)
-
 # how to use config.h.in to generate config.h
 # this has to be set _after_ the above checks
 configure_file(
@@ -172,7 +169,6 @@ message(STATUS "CFLAGS: " ${CMAKE_C_FLAGS})
 message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
 
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
-message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})
 
 if(DUMP_ALL)
     message(STATUS "<<++=====------------------\\/------------------=====++>>")
