@@ -8,6 +8,7 @@ PELIKAN_ADMIN_PORT = 9900
 PELIKAN_SERVER_PORT = 12300
 PELIKAN_SERVER_IP = '10.25.2.45'
 PELIKAN_SLAB_MEM = 4294967296
+PELIKAN_ITEM_OVERHEAD = 48
 PELIKAN_BINARY = '/root/Twitter/pelikan/_build/_bin/pelikan_twemcache'
 SIZE = 64
 THREAD_PER_SOCKET = 48
@@ -52,6 +53,8 @@ slab_prealloc: yes
 slab_hash_power: {hash_power}
 slab_mem: {slab_mem}
 slab_size: 1048756
+
+time_type: 2
 """.format(admin_port=admin_port, server_port=server_port, hash_power=hash_power, slab_mem=slab_mem)
     try:
       os.makedirs(os.path.join(log_path, str(server_port)))
@@ -89,7 +92,7 @@ if __name__ == "__main__":
 
   args = parser.parse_args()
 
-  nkey = 1.0 * args.slab_mem / args.size
+  nkey = 1.0 * args.slab_mem / (args.size + PELIKAN_ITEM_OVERHEAD)
   hash_power = int(ceil(log(nkey, 2)))
 
   if not os.path.exists(args.prefix):
