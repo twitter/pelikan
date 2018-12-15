@@ -7,9 +7,9 @@ PREFIX = 'test'
 PELIKAN_ADMIN_PORT = 9900
 PELIKAN_SERVER_PORT = 12300
 PELIKAN_SERVER_IP = '10.25.2.45'
-PELIKAN_SIZE = 64
 PELIKAN_SLAB_MEM = 4294967296
 PELIKAN_BINARY = '/root/Twitter/pelikan/_build/_bin/pelikan_twemcache'
+SIZE = 64
 THREAD_PER_SOCKET = 48
 BIND_TO_CORES = False
 BIND_TO_NODES = True
@@ -61,12 +61,11 @@ slab_size: 1048756
       the_file.write(config_str)
 
 def generate_runscript(prefix, instances):
-  config_path = os.path.join(prefix, 'config')
   # create bring-up.sh
   fname = os.path.join(prefix, 'bring-up.sh')
   with open(fname,'w') as the_file:
     for i in range(instances):
-      config_file = os.path.join(config_path, 'pelikan-{server_port}.config'.format(server_port=PELIKAN_SERVER_PORT+i))
+      config_file = os.path.join('config', 'pelikan-{server_port}.config'.format(server_port=PELIKAN_SERVER_PORT+i))
       if BIND_TO_NODES:
         the_file.write('sudo numactl --cpunodebind={numa_node} --preferred={numa_node} '.format(
             numa_node=i%2))
@@ -85,7 +84,7 @@ if __name__ == "__main__":
     """)
   parser.add_argument('--prefix', dest='prefix', type=str, default=PREFIX, help='folder that contains all the other files to be generated')
   parser.add_argument('--instances', dest='instances', type=int, default=INSTANCES, help='number of instances')
-  parser.add_argument('--size', dest='size', type=int, default=PELIKAN_SIZE, help='key+val total size')
+  parser.add_argument('--size', dest='size', type=int, default=SIZE, help='key+val total size')
   parser.add_argument('--slab_mem', dest='slab_mem', type=int, default=PELIKAN_SLAB_MEM, help='total capacity of slab memory, in bytes')
 
   args = parser.parse_args()
