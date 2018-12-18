@@ -6,10 +6,30 @@
 #include <stream/cc_sockio.h>
 
 #define ALLOW_FLUSH false
+#define PREFILL false
+#define PREFILL_KSIZE 32
+#define PREFILL_VSIZE 32
+#define PREFILL_NKEY 400000000 /* 40M keys roughly fills up a 4GB heap with default slab & data sizes */
 
-/*          name         type              default      description */
-#define PROCESS_OPTION(ACTION)                                                              \
-    ACTION( allow_flush, OPTION_TYPE_BOOL, ALLOW_FLUSH, "allow flushing on the data port"  )
+/*          name           type              default        description */
+#define PROCESS_OPTION(ACTION)                                                         \
+    ACTION( allow_flush,   OPTION_TYPE_BOOL, ALLOW_FLUSH,   "allow flush_all"         )\
+    ACTION( prefill,       OPTION_TYPE_BOOL, PREFILL,       "prefill slabs with data" )\
+    ACTION( prefill_ksize, OPTION_TYPE_UINT, PREFILL_KSIZE, "prefill key size"        )\
+    ACTION( prefill_vsize, OPTION_TYPE_UINT, PREFILL_VSIZE, "prefill val size"        )\
+    ACTION( prefill_nkey,  OPTION_TYPE_UINT, PREFILL_NKEY,  "prefill keys inserted"   )
+/* prefilling can potentially follow a fairly complex config wrt key/value size
+ * distribution and schema. However, basic performance testing around IO and
+ * heap size can be greatly sped up without lengthy client-drive warm-up if we
+ * simply fill the slabs with data of the same size.
+ *
+ * For now, the prefill logic will populate the heap with keys and values of
+ * specified lengths, while the keys will be string representation of base-10
+ * numeric values padded to the right length, i.e. keys will look like
+ * "000000", "000001", ..., "123456", and prefilling logic will always start
+ * from 0 and trying to insert the exact number of keys specified (underfill
+ * and eviction are therefore possible) depending on how slab_mem is configured.
+ */
 
 typedef struct {
     PROCESS_OPTION(OPTION_DECLARE)
