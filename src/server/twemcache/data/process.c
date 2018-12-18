@@ -6,6 +6,7 @@
 #include <cc_array.h>
 #include <cc_debug.h>
 #include <cc_print.h>
+#include <time/cc_timer.h>
 
 #define TWEMCACHE_PROCESS_MODULE_NAME "twemcache::process"
 
@@ -25,6 +26,46 @@ typedef enum put_rstatus {
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
 static bool allow_flush = ALLOW_FLUSH;
+static bool prefill = PREFILL;
+static uint32_t prefill_ksize;
+static char prefill_kbuf[UINT8_MAX]; /* slab implementation has klen as unint8_t */
+static uint32_t prefill_vsize;
+/* val_buf size is arbitrary , update if want to warm up with larger objects */
+static char prefill_vbuf[ITEM_SIZE_MAX];
+static uint64_t prefill_nkey;
+
+static void
+_prefill_slab(void)
+{
+    struct duration d;
+    struct bstring key, val;
+    item_rstatus_e istatus;
+    struct item *it;
+
+    duration_reset(&d);
+    key.len = prefill_ksize;
+    key.data = prefill_kbuf;
+    val.len = prefill_vsize;
+    val.data = prefill_vbuf;
+
+    duration_start(&d);
+    for (uint32_t i = 0; i < prefill_nkey; ++i) {
+        /* print fixed-length key with leading 0's for padding */
+        cc_snprintf(&prefill_kbuf, key.len + 1, "%.*d", key.len, i);
+        /* fill val, use the same value as key for now */
+        cc_snprintf(&prefill_vbuf, val.len + 1, "%.*d", val.len, i);
+        /* insert into slab/heap */
+        istatus = item_reserve(&it, &key, &val, val.len, DATAFLAG_SIZE,
+                time_convert_proc_sec((time_i)INT32_MAX));
+        ASSERT(istatus == ITEM_OK);
+        item_insert(it, &key);
+    }
+    duration_stop(&d);
+
+    log_info("prefilling slab with %"PRIu64" keys, of key len %"PRIu32" & val "
+            "len %"PRIu32", in %.3f seconds", prefill_nkey, prefill_ksize,
+            prefill_vsize, duration_sec(&d));
+}
 
 void
 process_setup(process_options_st *options, process_metrics_st *metrics)
@@ -40,6 +81,14 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
 
     if (options != NULL) {
         allow_flush = option_bool(&options->allow_flush);
+        prefill = option_bool(&options->prefill);
+        prefill_ksize = (uint32_t)option_uint(&options->prefill_ksize);
+        prefill_vsize = (uint32_t)option_uint(&options->prefill_vsize);
+        prefill_nkey = (uint64_t)option_uint(&options->prefill_nkey);
+    }
+
+    if (prefill) {
+        _prefill_slab();
     }
 
     process_init = true;
