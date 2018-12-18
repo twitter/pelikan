@@ -6,6 +6,7 @@
 #include <cc_array.h>
 #include <cc_debug.h>
 #include <cc_print.h>
+#include <time/cc_timer.h>
 
 #define TWEMCACHE_PROCESS_MODULE_NAME "twemcache::process"
 
@@ -36,15 +37,18 @@ static uint64_t prefill_nkey;
 static void
 _prefill_slab(void)
 {
+    struct duration d;
     struct bstring key, val;
     item_rstatus_e istatus;
     struct item *it;
 
+    duration_reset(&d);
     key.len = prefill_ksize;
     key.data = prefill_kbuf;
     val.len = prefill_vsize;
     val.data = prefill_vbuf;
 
+    duration_start(&d);
     for (uint32_t i = 0; i < prefill_nkey; ++i) {
         /* print fixed-length key with leading 0's for padding */
         cc_snprintf(&prefill_kbuf, key.len + 1, "%.*d", key.len, i);
@@ -56,9 +60,11 @@ _prefill_slab(void)
         ASSERT(istatus == ITEM_OK);
         item_insert(it, &key);
     }
+    duration_stop(&d);
 
     log_info("prefilling slab with %"PRIu64" keys, of key len %"PRIu32" & val "
-            "len %"PRIu32);
+            "len %"PRIu32", in %.3f seconds", prefill_nkey, prefill_ksize,
+            prefill_vsize, duration_sec(&d));
 }
 
 void
