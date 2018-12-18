@@ -10,17 +10,22 @@ PELIKAN_SERVER_IP = '10.25.2.45'
 PELIKAN_SLAB_MEM = 4294967296
 PELIKAN_ITEM_OVERHEAD = 48
 PELIKAN_BINARY = '/root/Twitter/pelikan/_build/_bin/pelikan_twemcache'
-SIZE = 64
+KSIZE = 32
+VSIZE = 32
 THREAD_PER_SOCKET = 48
 BIND_TO_CORES = False
 BIND_TO_NODES = True
 
-def generate_config(prefix, instances, hash_power, slab_mem):
+def generate_config(prefix, instances, vsize, slab_mem):
   # create top-level folders under prefix
   config_path = os.path.join(prefix, 'config')
   os.makedirs(config_path)
   log_path = os.path.join(prefix, 'log')
   os.makedirs(log_path)
+
+
+  nkey = int(ceil(1.0 * slab_mem / (vsize + KSIZE + PELIKAN_ITEM_OVERHEAD)))
+  hash_power = int(ceil(log(nkey, 2)))
 
   # create twemcache config file(s)
   for i in range(instances):
@@ -45,6 +50,11 @@ klog_backup: log/{server_port}/twemcache.cmd.old
 klog_sample: 100
 klog_max: 1073741824
 
+prefill: yes
+prefill_ksize: 32
+prefill_vsize: {vsize}
+prefill_nkey: {nkey}
+
 request_poolsize: 16384
 response_poolsize: 32768
 
@@ -55,7 +65,7 @@ slab_mem: {slab_mem}
 slab_size: 1048756
 
 time_type: 2
-""".format(admin_port=admin_port, server_port=server_port, hash_power=hash_power, slab_mem=slab_mem)
+""".format(admin_port=admin_port, server_port=server_port, vsize=vsize, nkey=nkey, hash_power=hash_power, slab_mem=slab_mem)
     try:
       os.makedirs(os.path.join(log_path, str(server_port)))
     except:
@@ -87,16 +97,13 @@ if __name__ == "__main__":
     """)
   parser.add_argument('--prefix', dest='prefix', type=str, default=PREFIX, help='folder that contains all the other files to be generated')
   parser.add_argument('--instances', dest='instances', type=int, default=INSTANCES, help='number of instances')
-  parser.add_argument('--size', dest='size', type=int, default=SIZE, help='key+val total size')
+  parser.add_argument('--vsize', dest='vsize', type=int, default=VSIZE, help='value size')
   parser.add_argument('--slab_mem', dest='slab_mem', type=int, default=PELIKAN_SLAB_MEM, help='total capacity of slab memory, in bytes')
 
   args = parser.parse_args()
 
-  nkey = 1.0 * args.slab_mem / (args.size + PELIKAN_ITEM_OVERHEAD)
-  hash_power = int(ceil(log(nkey, 2)))
-
   if not os.path.exists(args.prefix):
     os.makedirs(args.prefix)
 
-  generate_config(args.prefix, args.instances, hash_power, args.slab_mem)
+  generate_config(args.prefix, args.instances, args.vsize, args.slab_mem)
   generate_runscript(args.prefix, args.instances)
