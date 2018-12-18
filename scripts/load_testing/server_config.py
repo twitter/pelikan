@@ -16,13 +16,10 @@ THREAD_PER_SOCKET = 48
 BIND_TO_CORES = False
 BIND_TO_NODES = True
 
-def generate_config(prefix, instances, vsize, slab_mem):
+def generate_config(instances, vsize, slab_mem):
   # create top-level folders under prefix
-  config_path = os.path.join(prefix, 'config')
-  os.makedirs(config_path)
-  log_path = os.path.join(prefix, 'log')
-  os.makedirs(log_path)
-
+  os.makedirs('config')
+  os.makedirs('log')
 
   nkey = int(ceil(1.0 * slab_mem / (vsize + KSIZE + PELIKAN_ITEM_OVERHEAD)))
   hash_power = int(ceil(log(nkey, 2)))
@@ -67,15 +64,15 @@ slab_size: 1048756
 time_type: 2
 """.format(admin_port=admin_port, server_port=server_port, vsize=vsize, nkey=nkey, hash_power=hash_power, slab_mem=slab_mem)
     try:
-      os.makedirs(os.path.join(log_path, str(server_port)))
+      os.makedirs(os.path.join('log', str(server_port)))
     except:
       pass
-    with open(os.path.join(config_path, config_file),'w') as the_file:
+    with open(os.path.join('config', config_file),'w') as the_file:
       the_file.write(config_str)
 
-def generate_runscript(prefix, instances):
+def generate_runscript(instances):
   # create bring-up.sh
-  fname = os.path.join(prefix, 'bring-up.sh')
+  fname = 'bring-up.sh'
   with open(fname,'w') as the_file:
     for i in range(instances):
       config_file = os.path.join('config', 'pelikan-{server_port}.config'.format(server_port=PELIKAN_SERVER_PORT+i))
@@ -104,6 +101,7 @@ if __name__ == "__main__":
 
   if not os.path.exists(args.prefix):
     os.makedirs(args.prefix)
+  os.chdir(args.prefix)
 
-  generate_config(args.prefix, args.instances, args.vsize, args.slab_mem)
-  generate_runscript(args.prefix, args.instances)
+  generate_config(args.instances, args.vsize, args.slab_mem)
+  generate_runscript(args.instances)
