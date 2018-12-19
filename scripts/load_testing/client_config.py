@@ -30,9 +30,10 @@ def generate_config(rate, connections, vsize, slab_mem, threads):
 [general]
 threads = {threads}
 tcp-nodelay = true
-connections = {connections}
-windows = 10
-duration = 60
+connections = {connections} # this specifies number of connection per thread
+# runtime ~= windows x duration
+windows = 1
+duration = 600
 request-timeout = 200
 connect-timeout = 250
 
@@ -50,12 +51,12 @@ rate = {rate_get}
 name = "set"
 method = "set"
 rate = {rate_set}
-  [[workload.parameter]]
+  [[workload.parameter]] # key generation parameters
   style = "random"
   size = 32
   num = {nkey}
   regenerate = true
-  [[workload.parameter]]
+  [[workload.parameter]] # value generation parameters
   style = "random"
   size = {vsize}
   regenerate = false
@@ -71,7 +72,11 @@ def generate_runscript(instances):
     for i in range(instances):
       server_port = PELIKAN_SERVER_PORT + i
       the_file.write('{binary_file} --config {config_file}'.format(binary_file=RPCPERF_BINARY, config_file='rpcperf.toml'))
-      the_file.write(' --server {server_ip}:{server_port} &\n'.format(server_ip=PELIKAN_SERVER_IP, server_port=server_port))
+      the_file.write(' --server {server_ip}:{server_port}'.format(server_ip=PELIKAN_SERVER_IP, server_port=server_port))
+      the_file.write(' --waterfall latency-waterfall-{server_port}.png'.format(server_port=server_port))
+      the_file.write(' 2>&1')
+      the_file.write(' > rpcperf_{server_port}.log'.format(server_port=server_port))
+      the_file.write(' &\n')
   os.chmod(fname, 0777)
 
 
