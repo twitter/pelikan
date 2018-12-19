@@ -31,10 +31,10 @@ def generate_config(rate, connections, vsize, slab_mem, threads):
 threads = {threads}
 tcp-nodelay = true
 connections = {connections}
-windows = 600
+windows = 10
 duration = 60
 request-timeout = 200
-connect-timeout = 50
+connect-timeout = 250
 
 [[workload]]
 name = "get"
