@@ -18,8 +18,14 @@ BIND_TO_NODES = True
 
 def generate_config(instances, vsize, slab_mem):
   # create top-level folders under prefix
-  os.makedirs('config')
-  os.makedirs('log')
+  try:
+    os.makedirs('config')
+  except:
+    pass
+  try:
+    os.makedirs('log')
+  except:
+    pass
 
   nkey = int(ceil(1.0 * slab_mem / (vsize + KSIZE + PELIKAN_ITEM_OVERHEAD)))
   hash_power = int(ceil(log(nkey, 2)))
@@ -28,7 +34,7 @@ def generate_config(instances, vsize, slab_mem):
   for i in range(instances):
     admin_port = PELIKAN_ADMIN_PORT + i
     server_port = PELIKAN_SERVER_PORT + i
-    config_file = 'pelikan-{server_port}.config'.format(server_port=server_port)
+    config_file = 'twemcache-{server_port}.config'.format(server_port=server_port)
     config_str = """\
 daemonize: yes
 admin_port: {admin_port}
@@ -39,11 +45,11 @@ buf_init_size: 4096
 buf_sock_poolsize: 16384
 
 debug_log_level: 5
-debug_log_file: log/{server_port}/twemcache.log
+debug_log_file: log/twemcache-{server_port}.log
 debug_log_nbuf: 1048576
 
-klog_file: log/{server_port}/twemcache.cmd
-klog_backup: log/{server_port}/twemcache.cmd.old
+klog_file: log/twemcache-{server_port}.cmd
+klog_backup: log/twemcache-{server_port}.cmd.old
 klog_sample: 100
 klog_max: 1073741824
 
@@ -63,10 +69,6 @@ slab_size: 1048756
 
 time_type: 2
 """.format(admin_port=admin_port, server_port=server_port, vsize=vsize, nkey=nkey, hash_power=hash_power, slab_mem=slab_mem)
-    try:
-      os.makedirs(os.path.join('log', str(server_port)))
-    except:
-      pass
     with open(os.path.join('config', config_file),'w') as the_file:
       the_file.write(config_str)
 
@@ -75,7 +77,7 @@ def generate_runscript(instances):
   fname = 'bring-up.sh'
   with open(fname,'w') as the_file:
     for i in range(instances):
-      config_file = os.path.join('config', 'pelikan-{server_port}.config'.format(server_port=PELIKAN_SERVER_PORT+i))
+      config_file = os.path.join('config', 'twemcache-{server_port}.config'.format(server_port=PELIKAN_SERVER_PORT+i))
       if BIND_TO_NODES:
         the_file.write('sudo numactl --cpunodebind={numa_node} --preferred={numa_node} '.format(
             numa_node=i%2))
