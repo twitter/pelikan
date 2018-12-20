@@ -66,5 +66,5 @@ wrap_up()
 
 get_args "${@}"
 server_launch
-#client_run
+client_run
 wrap_up
