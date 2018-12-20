@@ -3,24 +3,25 @@
 # NOTE(!!): the script only works when all config folders are freshly created,
 # i.e. no data from previous runs
 
-instances=30
-
 # Initialize our own variables:
 client_config=""
 server_config=""
+target=""
 
 show_help()
 {
-    echo "runtest.sh -c <client_config_path> -s <server_config_path>"
+    echo "runtest.sh -c <client_config_path> -s <server_config_path> -t <target: host where servers run>"
 }
 
 get_args()
 {
-    while getopts ":c:s:h" opt; do
+    while getopts ":c:s:t:h" opt; do
         case "$opt" in
         c)  client_config=$OPTARG
             ;;
         s)  server_config=$OPTARG
+            ;;
+        t)  target=$OPTARG
             ;;
         h)
             show_help
@@ -35,21 +36,9 @@ get_args()
     done
 }
 
-server_warmup()
+server_launch()
 {
-    cd "$server_config" || exit 1
-
-    ./bring-up.sh
-
-    local nready=0
-    while [ $nready -lt $instances ]
-    do
-        nready=$(grep -l "prefilling slab" log/twemcache-*.log | wc -l)
-        echo "$(date): $nready out of $instances servers are warmed up"
-        sleep 10
-    done
-
-    cd - > /dev/null || exit 1
+    ssh -C "$target" "cd $server_config && ./warm-up.sh"
 }
 
 
@@ -72,10 +61,10 @@ client_run()
 
 wrap_up()
 {
-    pkill -f pelikan_twemcache
+    ssh -C "$target" "pkill -f pelikan_twemcache"
 }
 
 get_args "${@}"
-server_warmup
-client_run
+server_launch
+#client_run
 wrap_up

@@ -74,9 +74,8 @@ def generate_runscript(instances):
       the_file.write('{binary_file} --config {config_file}'.format(binary_file=RPCPERF_BINARY, config_file='rpcperf.toml'))
       the_file.write(' --server {server_ip}:{server_port}'.format(server_ip=PELIKAN_SERVER_IP, server_port=server_port))
       the_file.write(' --waterfall latency-waterfall-{server_port}.png'.format(server_port=server_port))
-      the_file.write(' 2>&1')
       the_file.write(' > rpcperf_{server_port}.log'.format(server_port=server_port))
-      the_file.write(' &\n')
+      the_file.write(' 2>&1 &\n')
   os.chmod(fname, 0777)
 
 

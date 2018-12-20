@@ -75,7 +75,7 @@ time_type: 2
 def generate_runscript(instances):
   # create bring-up.sh
   fname = 'bring-up.sh'
-  with open(fname,'w') as the_file:
+  with open(fname, 'w') as the_file:
     for i in range(instances):
       config_file = os.path.join('config', 'twemcache-{server_port}.config'.format(server_port=PELIKAN_SERVER_PORT+i))
       if BIND_TO_NODES:
@@ -89,6 +89,23 @@ def generate_runscript(instances):
           binary_file=PELIKAN_BINARY,
           config_file=config_file))
   os.chmod(fname, 0777)
+
+  # create warm-up.sh
+  fname = 'warm-up.sh'
+  with open(fname, 'w') as the_file:
+    the_file.write("""
+./bring-up.sh
+
+nready=0
+while [ $nready -lt {instances} ]
+do
+    nready=$(grep -l "prefilling slab" log/twemcache-*.log | wc -l)
+    echo "$(date): $nready out of {instances} servers are warmed up"
+    sleep 10
+done
+""".format(instances=instances))
+  os.chmod(fname, 0777)
+
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="""
