@@ -12,7 +12,8 @@
 #define BUF_SIZE 32
 
 #define NCOL1 64
-static uint16_t cols[4] = { 0, 7, 29, 42 };
+#define COLS_SIZE 4
+static uint16_t cols[COLS_SIZE] = { 0, 7, 29, 42 };
 
 static uint8_t buf[BUF_SIZE];
 static struct bitset *bs = (struct bitset *)buf;
@@ -43,7 +44,7 @@ START_TEST(test_bitset_getset)
     int i, j;
 
     bitset_init(bs, NCOL1);
-    for (i = 0, j = 0; i < NCOL1; i++) {
+    for (i = 0, j = 0; i < NCOL1 && j < COLS_SIZE; i++) {
         if (i == cols[j]) {
             bitset_set(bs, i, 1);
             j++;
@@ -53,7 +54,7 @@ START_TEST(test_bitset_getset)
         }
     }
 
-    for (j=0; j < 4; j++) { /* set these bits back to 0 */
+    for (j = 0; j < COLS_SIZE; j++) { /* set these bits back to 0 */
         ck_assert_int_eq(bitset_get(bs, cols[j]), 1);
         bitset_set(bs, cols[j], 0);
         ck_assert_int_eq(bitset_get(bs, cols[j]), 0);
