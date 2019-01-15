@@ -19,46 +19,31 @@ PELIKAN_SERVER_PORT = 12300
 
 def generate_config(rate, connections, vsize, slab_mem, threads):
 # create rpcperf.toml
-  rate_get = int(rate * RPCPERF_GET_RATIO)
-  rate_set = int(rate * RPCPERF_SET_RATIO)
   nkey = int(ceil(1.0 * slab_mem / (vsize + KSIZE + PELIKAN_ITEM_OVERHEAD)))
   conn_per_thread = connections / threads
 
-  config_str = """\
+  config_str = '''
 [general]
-threads = {threads}
+clients = {threads}
 tcp-nodelay = true
-connections = {connections} # this specifies number of connection per thread
+poolsize = {connections} # this specifies number of connection per thread
 # runtime ~= windows x duration
-windows = 1
-duration = 600
-request-timeout = 200
-connect-timeout = 250
+windows = 2
+interval = 60
+request_ratelimit = {rate}
 
-[[workload]]
-name = "get"
-method = "get"
-rate = {rate_get}
-  [[workload.parameter]]
-  style = "random"
-  size = 32
-  num = {nkey}
-  regenerate = true
+[[keyspace]]
+length = 32
+count = {nkey}
+weight = 1
+commands = [
+    {{action = "get", weight = 9}},
+    {{action = "set", weight = 1}},
+]
+values = [
+    {{length = {vsize}, weight = 1}},
+]'''.format(threads=threads, connections=conn_per_thread, nkey=nkey, rate=rate, vsize=vsize)
 
-[[workload]]
-name = "set"
-method = "set"
-rate = {rate_set}
-  [[workload.parameter]] # key generation parameters
-  style = "random"
-  size = 32
-  num = {nkey}
-  regenerate = true
-  [[workload.parameter]] # value generation parameters
-  style = "random"
-  size = {vsize}
-  regenerate = false
-""".format(threads=threads, connections=conn_per_thread, nkey=nkey, rate_get=rate_get, rate_set=rate_set, vsize=vsize)
   with open('rpcperf.toml', 'w') as the_file:
     the_file.write(config_str)
 
@@ -71,7 +56,9 @@ def generate_runscript(binary, server_ip, instances):
       server_port = PELIKAN_SERVER_PORT + i
       the_file.write('{binary_file} --config {config_file}'.format(binary_file=binary, config_file='rpcperf.toml'))
       the_file.write(' --server {server_ip}:{server_port}'.format(server_ip=server_ip, server_port=server_port))
-      the_file.write(' --waterfall latency-waterfall-{server_port}.png'.format(server_port=server_port))
+      # Currently rpc-perf (prerelease) doesn't support waterfall,
+      # it will be added back soon at which point we can turn this back on
+      # the_file.write(' --waterfall latency-waterfall-{server_port}.png'.format(server_port=server_port))
       the_file.write(' > rpcperf_{server_port}.log'.format(server_port=server_port))
       the_file.write(' 2>&1 &\n')
   os.chmod(fname, 0777)
