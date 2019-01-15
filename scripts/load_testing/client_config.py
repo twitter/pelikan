@@ -15,7 +15,6 @@ PELIKAN_ITEM_OVERHEAD = 48
 KSIZE = 32
 VSIZE = 32
 PELIKAN_SERVER_PORT = 12300
-RPCPERF_BINARY = '/root/Twitter/rpc-perf/target/release/rpc-perf'
 
 
 def generate_config(rate, connections, vsize, slab_mem, threads):
@@ -64,13 +63,13 @@ rate = {rate_set}
     the_file.write(config_str)
 
 
-def generate_runscript(server_ip, instances):
+def generate_runscript(binary, server_ip, instances):
   # create test.sh
   fname = 'test.sh'
   with open(fname, 'w') as the_file:
     for i in range(instances):
       server_port = PELIKAN_SERVER_PORT + i
-      the_file.write('{binary_file} --config {config_file}'.format(binary_file=RPCPERF_BINARY, config_file='rpcperf.toml'))
+      the_file.write('{binary_file} --config {config_file}'.format(binary_file=binary, config_file='rpcperf.toml'))
       the_file.write(' --server {server_ip}:{server_port}'.format(server_ip=server_ip, server_port=server_port))
       the_file.write(' --waterfall latency-waterfall-{server_port}.png'.format(server_port=server_port))
       the_file.write(' > rpcperf_{server_port}.log'.format(server_port=server_port))
@@ -82,6 +81,7 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="""
     Generate all the client-side scripts/configs needed for a test run.
     """)
+  parser.add_argument('--binary', dest='binary', type=str, help='location of rpc-perf binary', required=True)
   parser.add_argument('--prefix', dest='prefix', type=str, default=PREFIX, help='folder that contains all the other files to be generated')
   parser.add_argument('--instances', dest='instances', type=int, default=INSTANCES, help='number of instances')
   parser.add_argument('--server_ip', dest='server_ip', type=str, help='server ip', required=True)
@@ -98,4 +98,4 @@ if __name__ == "__main__":
   os.chdir(args.prefix)
 
   generate_config(args.rate, args.connections, args.vsize, args.slab_mem, args.threads)
-  generate_runscript(args.server_ip, args.instances)
+  generate_runscript(args.binary, args.server_ip, args.instances)

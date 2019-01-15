@@ -11,23 +11,26 @@ threads=2
 # Initialize our own variables:
 client=false
 server=false
-binary="pelikan_twemcache"
+rpcperf="rpc-perf"
+pelikan="pelikan_twemcache"
 target="127.0.0.1"
 
 show_help()
 {
-    echo "generate.sh [-c [-t target/serverIP]] [-s [-b binary]]"
+    echo "generate.sh [-c [-r path/to/rpcperf] [-t target/serverIP]] [-s [-p path/to/pelikan]]"
 }
 
 get_args()
 {
-    while getopts ":b:t:csh" opt; do
+    while getopts ":p:r:t:csh" opt; do
         case "$opt" in
         c)  client=true
             ;;
         s)  server=true
             ;;
-        b)  binary=$OPTARG
+        p)  pelikan=$OPTARG
+            ;;
+        r)  rpcperf=$OPTARG
             ;;
         t)  target=$OPTARG
             ;;
@@ -54,7 +57,7 @@ gen_pelikan()
         do
             slab_mem=$((mem * 1024 * 1024 * 1024))
             prefix=pelikan_${size}_${mem}
-            python server_config.py --prefix="$prefix" --binary="$binary" --instances="$instances" --slab_mem "$slab_mem" --vsize "$vsize"
+            python server_config.py --prefix="$prefix" --binary="$pelikan" --instances="$instances" --slab_mem "$slab_mem" --vsize "$vsize"
         done
     done
 }
@@ -71,7 +74,7 @@ gen_rpcperf()
             do
                 slab_mem=$((mem * 1024 * 1024 * 1024))
                 prefix=rpcperf_${conn}_${size}_${mem}
-                python client_config.py --prefix="$prefix" --server_ip="$target" --instances="$instances" --rate="$rate" --connections="$conn" --vsize "$vsize" --slab_mem="$slab_mem" --threads="$threads"
+                python client_config.py --prefix="$prefix" --binary="$rpcperf" --server_ip="$target" --instances="$instances" --rate="$rate" --connections="$conn" --vsize "$vsize" --slab_mem="$slab_mem" --threads="$threads"
             done
         done
     done
