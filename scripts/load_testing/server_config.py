@@ -6,10 +6,8 @@ INSTANCES = 3
 PREFIX = 'test'
 PELIKAN_ADMIN_PORT = 9900
 PELIKAN_SERVER_PORT = 12300
-PELIKAN_SERVER_IP = '10.25.2.45'
 PELIKAN_SLAB_MEM = 4294967296
 PELIKAN_ITEM_OVERHEAD = 48
-PELIKAN_BINARY = '/root/Twitter/pelikan/_build/_bin/pelikan_twemcache'
 KSIZE = 32
 VSIZE = 32
 THREAD_PER_SOCKET = 48
@@ -72,7 +70,7 @@ time_type: 2
     with open(os.path.join('config', config_file),'w') as the_file:
       the_file.write(config_str)
 
-def generate_runscript(instances):
+def generate_runscript(binary, instances):
   # create bring-up.sh
   fname = 'bring-up.sh'
   with open(fname, 'w') as the_file:
@@ -86,7 +84,7 @@ def generate_runscript(instances):
             physical_thread=i,
             logical_thread=i+THREAD_PER_SOCKET))
       the_file.write('{binary_file} {config_file}\n'.format(
-          binary_file=PELIKAN_BINARY,
+          binary_file=binary,
           config_file=config_file))
   os.chmod(fname, 0777)
 
@@ -111,6 +109,7 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="""
     Generate all the server-side scripts/configs needed for a test run.
     """)
+  parser.add_argument('--binary', dest='binary', type=str, help='location of pelikan_twemcache binary', required=True)
   parser.add_argument('--prefix', dest='prefix', type=str, default=PREFIX, help='folder that contains all the other files to be generated')
   parser.add_argument('--instances', dest='instances', type=int, default=INSTANCES, help='number of instances')
   parser.add_argument('--vsize', dest='vsize', type=int, default=VSIZE, help='value size')
@@ -123,4 +122,4 @@ if __name__ == "__main__":
   os.chdir(args.prefix)
 
   generate_config(args.instances, args.vsize, args.slab_mem)
-  generate_runscript(args.instances)
+  generate_runscript(args.binary, args.instances)
