@@ -38,7 +38,7 @@ count = {nkey}
 weight = 1
 commands = [
     {{action = "get", weight = {get_weight}}},
-    {{action = "set", weight = {get_weight}}},
+    {{action = "set", weight = {set_weight}}},
 ]
 values = [
     {{length = {vsize}, weight = 1}},
