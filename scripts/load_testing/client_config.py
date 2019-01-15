@@ -8,8 +8,8 @@ PREFIX = 'loadgen'
 RPCPERF_THREADS = 1
 RPCPERF_CONNS = 100
 RPCPERF_RATE = 10000
-RPCPERF_GET_RATIO = 0.9
-RPCPERF_SET_RATIO = 1 - RPCPERF_GET_RATIO
+RPCPERF_GET_WEIGHT = 9
+RPCPERF_SET_WEIGHT = 1
 PELIKAN_SLAB_MEM = 4294967296
 PELIKAN_ITEM_OVERHEAD = 48
 KSIZE = 32
@@ -33,16 +33,17 @@ interval = 60
 request_ratelimit = {rate}
 
 [[keyspace]]
-length = 32
+length = {ksize}
 count = {nkey}
 weight = 1
 commands = [
-    {{action = "get", weight = 9}},
-    {{action = "set", weight = 1}},
+    {{action = "get", weight = {get_weight}}},
+    {{action = "set", weight = {get_weight}}},
 ]
 values = [
     {{length = {vsize}, weight = 1}},
-]'''.format(threads=threads, connections=conn_per_thread, nkey=nkey, rate=rate, vsize=vsize)
+]'''.format(threads=threads, connections=conn_per_thread, nkey=nkey, rate=rate,
+    ksize=KSIZE, vsize=vsize, get_weight=PELIKAN_GET_WEIGHT, set_weight=PELIKAN_SET_WEIGHT)
 
   with open('rpcperf.toml', 'w') as the_file:
     the_file.write(config_str)
