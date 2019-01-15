@@ -56,7 +56,7 @@ def generate_runscript(binary, server_ip, instances):
     for i in range(instances):
       server_port = PELIKAN_SERVER_PORT + i
       the_file.write('{binary_file} --config {config_file}'.format(binary_file=binary, config_file='rpcperf.toml'))
-      the_file.write(' --server {server_ip}:{server_port}'.format(server_ip=server_ip, server_port=server_port))
+      the_file.write(' --endpoint {server_ip}:{server_port}'.format(server_ip=server_ip, server_port=server_port))
       # Currently rpc-perf (prerelease) doesn't support waterfall,
       # it will be added back soon at which point we can turn this back on
       # the_file.write(' --waterfall latency-waterfall-{server_port}.png'.format(server_port=server_port))
