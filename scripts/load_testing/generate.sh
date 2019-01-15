@@ -27,7 +27,7 @@ get_args()
             ;;
         s)  server=true
             ;;
-        t)  binary=$OPTARG
+        b)  binary=$OPTARG
             ;;
         t)  target=$OPTARG
             ;;
