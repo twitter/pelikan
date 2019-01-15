@@ -43,7 +43,7 @@ commands = [
 values = [
     {{length = {vsize}, weight = 1}},
 ]'''.format(threads=threads, connections=conn_per_thread, nkey=nkey, rate=rate,
-    ksize=KSIZE, vsize=vsize, get_weight=PELIKAN_GET_WEIGHT, set_weight=PELIKAN_SET_WEIGHT)
+    ksize=KSIZE, vsize=vsize, get_weight=RPCPERF_GET_WEIGHT, set_weight=RPCPERF_SET_WEIGHT)
 
   with open('rpcperf.toml', 'w') as the_file:
     the_file.write(config_str)
