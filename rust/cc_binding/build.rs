@@ -48,7 +48,10 @@ fn get_cmake_cache_value(binary_dir: &Path, key: &str) -> Result<Option<String>>
 }
 
 fn main() {
-    println!("cargo:rustc-link-lib=static=ccommon-1.2.0");
+    println!("cargo:rustc-link-lib=static=ccommon-2.0.0");
+    if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-lib=framework=Security");
+    }
 
     let include_path = fs::canonicalize("./../../include").unwrap();
 
@@ -75,6 +78,10 @@ fn main() {
     };
 
     println!("cargo:rustc-link-search=native={}", lib_dir);
+
+    if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-search=framework=/System/Library/Frameworks");
+    }
 
     let bindings = bindgen::Builder::default()
         .clang_args(vec![
