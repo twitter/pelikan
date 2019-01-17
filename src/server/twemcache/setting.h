@@ -13,6 +13,7 @@
 #include <cc_debug.h>
 #include <cc_option.h>
 #include <cc_ring_array.h>
+#include <cc_stats_log.h>
 #include <channel/cc_tcp.h>
 #include <stream/cc_sockio.h>
 
@@ -22,7 +23,8 @@
     ACTION( daemonize,      OPTION_TYPE_BOOL,   false,  "daemonize the process"        )\
     ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,   "file storing the pid"         )\
     ACTION( dlog_intvl,     OPTION_TYPE_UINT,   500,    "debug log flush interval(ms)" )\
-    ACTION( klog_intvl,     OPTION_TYPE_UINT,   100,    "cmd log flush interval(ms)"   )
+    ACTION( klog_intvl,     OPTION_TYPE_UINT,   100,    "cmd log flush interval(ms)"   )\
+    ACTION( stats_intvl,    OPTION_TYPE_UINT,   100,    "stats dump interval(ms)"      )
 
 typedef struct {
     TWEMCACHE_OPTION(OPTION_DECLARE)
@@ -46,6 +48,7 @@ struct setting {
     buf_options_st          buf;
     dbuf_options_st         dbuf;
     debug_options_st        debug;
+    stats_log_options_st    stats_log;
     sockio_options_st       sockio;
     tcp_options_st          tcp;
 };

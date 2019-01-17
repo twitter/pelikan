@@ -15,6 +15,7 @@ struct setting setting = {
     { BUF_OPTION(OPTION_INIT)       },
     { DBUF_OPTION(OPTION_INIT)      },
     { DEBUG_OPTION(OPTION_INIT)     },
+    { STATS_LOG_OPTION(OPTION_INIT) },
     { SOCKIO_OPTION(OPTION_INIT)    },
     { TCP_OPTION(OPTION_INIT)       },
 };

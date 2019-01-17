@@ -49,7 +49,7 @@ procinfo_update(void)
 
     UPDATE_VAL(procinfo_metrics, pid, getpid());
     UPDATE_VAL(procinfo_metrics, time, time_unix_sec());
-    UPDATE_VAL(procinfo_metrics, uptime, time_proc_sec());
+    UPDATE_VAL(procinfo_metrics, uptime, time_proc_ms());
 
     /* "%02d%02d%02d" % (major, minor, patch) */
     UPDATE_VAL(procinfo_metrics, version, VERSION_MAJOR * 10000 +

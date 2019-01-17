@@ -70,6 +70,7 @@ teardown(void)
     event_teardown();
     dbuf_teardown();
     buf_teardown();
+    stats_log_teardown();
 
     debug_teardown();
     log_teardown();
@@ -104,6 +105,7 @@ setup(void)
     }
 
     /* setup library modules */
+    stats_log_setup(&setting.stats_log);
     buf_setup(&setting.buf, &stats.buf);
     dbuf_setup(&setting.dbuf, &stats.dbuf);
     event_setup(&stats.event);
@@ -136,6 +138,12 @@ setup(void)
     intvl = option_uint(&setting.twemcache.klog_intvl);
     if (core_admin_register(intvl, klog_flush, NULL) == NULL) {
         log_error("Could not register timed event to flush command log");
+        goto error;
+    }
+
+    intvl = option_uint(&setting.twemcache.stats_intvl);
+    if (core_admin_register(intvl, stats_dump, NULL) == NULL) {
+        log_error("Could not register timed event to dump stats");
         goto error;
     }
 

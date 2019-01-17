@@ -57,7 +57,7 @@ for (k, v) in kvs {
 }
 
 fn main() {
-    println!("cargo:rustc-link-lib=static=ccommon-2.0.0");
+    println!("cargo:rustc-link-lib=static=ccommon-2.1.0");
     if cfg!(target_os = "macos") {
         println!("cargo:rustc-link-lib=framework=Security");
     }
