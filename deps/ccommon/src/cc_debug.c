@@ -20,7 +20,6 @@
 #include <cc_log.h>
 #include <cc_mm.h>
 #include <cc_print.h>
-#include <time/cc_wheel.h>
 
 #include <ctype.h>
 #include <errno.h>
