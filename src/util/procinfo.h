@@ -7,7 +7,7 @@
 #define PROCINFO_METRIC(ACTION)                                         \
     ACTION( pid,            METRIC_GAUGE,   "pid of current process"   )\
     ACTION( time,           METRIC_COUNTER, "unix time in seconds"     )\
-    ACTION( uptime,         METRIC_COUNTER, "process uptime in seconds")\
+    ACTION( uptime,         METRIC_COUNTER, "process uptime in ms"     )\
     ACTION( version,        METRIC_COUNTER, "version as an int"        )\
     ACTION( ru_stime,       METRIC_FPN,     "system CPU time"          )\
     ACTION( ru_utime,       METRIC_FPN,     "user CPU time"            )\
