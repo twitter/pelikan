@@ -112,3 +112,11 @@ admin_process_request(struct response *rsp, struct request *req)
         break;
     }
 }
+
+void
+stats_dump(void *arg)
+{
+    procinfo_update();
+    stats_log((struct metric *)&stats, nmetric);
+    stats_log_flush();
+}
