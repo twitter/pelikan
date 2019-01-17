@@ -6,6 +6,7 @@
 
 #include <cc_mm.h>
 #include <cc_print.h>
+#include <cc_stats_log.h>
 
 #define TWEMCACHE_ADMIN_MODULE_NAME "twemcache::admin"
 
