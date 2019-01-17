@@ -75,6 +75,7 @@ stats_log(struct metric metrics[], unsigned int nmetric)
         len = metric_print(buf, PRINT_BUF_LEN, STATS_LOG_FMT, metrics);
         log_write(slog, buf, len);
     }
+    log_write(slog, CRLF, CRLF_LEN);
 }
 
 void
