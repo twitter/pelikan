@@ -12,12 +12,12 @@ extern "C" {
 #define STATS_LOG_NBUF  0       /* default log buf size */
 
 /*          name            type              default           description */
-#define STATSLOG_OPTION(ACTION)                                                         \
+#define STATS_LOG_OPTION(ACTION)                                                         \
     ACTION( stats_log_file, OPTION_TYPE_STR,  NULL,             "file storing stats"   )\
     ACTION( stats_log_nbuf, OPTION_TYPE_UINT, STATS_LOG_NBUF,   "stats log buf size"   )
 
 typedef struct {
-    STATSLOG_OPTION(OPTION_DECLARE)
+    STATS_LOG_OPTION(OPTION_DECLARE)
 } stats_log_options_st;
 
 
