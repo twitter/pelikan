@@ -65,6 +65,9 @@ slab_hash_power: {hash_power}
 slab_mem: {slab_mem}
 slab_size: 1048756
 
+stats_intvl: 10000
+stats_log_file: log/twemcache-{server_port}.stats
+
 time_type: 2
 """.format(admin_port=admin_port, server_port=server_port, vsize=vsize, nkey=nkey, hash_power=hash_power, slab_mem=slab_mem)
     with open(os.path.join('config', config_file),'w') as the_file:
