@@ -38,6 +38,8 @@ daemonize: yes
 admin_port: {admin_port}
 server_port: {server_port}
 
+admin_tw_cap: 2000
+
 buf_init_size: 4096
 
 buf_sock_poolsize: 16384
