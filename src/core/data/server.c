@@ -96,6 +96,7 @@ _server_pipe_read(void)
         }
         log_verb("Recycling buf_sock %p from worker thread", s);
         hdl->term(s->ch);
+        buf_sock_reset(s);
         buf_sock_return(&s);
     }
 }
