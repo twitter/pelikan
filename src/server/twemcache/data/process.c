@@ -844,9 +844,11 @@ twemcache_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
         if (req->reserved != NULL) {
             item_release((struct item **)&req->reserved);
         }
-        request_return(&req);
         response_return_all(&rsp);
+        request_return(&req);
     }
+
+    *data = NULL;
 
     return 0;
 }
