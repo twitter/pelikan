@@ -5,6 +5,8 @@
 #include <hash/cc_murmur3.h>
 #include <cc_mm.h>
 
+#include <datapool/datapool.h>
+
 /* TODO(yao): make D and iv[] configurable */
 #include <stdlib.h>
 #include <sysexits.h>
@@ -37,6 +39,7 @@ static uint32_t iv[D] = {
     0x4dd2be0a
 };
 
+static struct datapool *pool; /* data pool mapping for the hash table */
 static void* ds; /* data store is also the hash table */
 static size_t item_size = CUCKOO_ITEM_SIZE;
 static uint32_t max_nitem = CUCKOO_NITEM;
@@ -279,11 +282,13 @@ cuckoo_setup(cuckoo_options_st *options, cuckoo_metrics_st *metrics)
     }
 
     hash_size = item_size * max_nitem;
-    ds = cc_zalloc(hash_size);
-    if (ds == NULL) {
+    pool = datapool_open(option_str(&options->cuckoo_datapool),
+        hash_size, NULL);
+    if (pool == NULL) {
         log_crit("cuckoo data store allocation failed");
         exit(EX_CONFIG);
     }
+    ds = datapool_addr(pool);
 
     cuckoo_init = true;
 }
@@ -296,7 +301,7 @@ cuckoo_teardown(void)
     if (!cuckoo_init) {
         log_warn("%s has never been setup", CUCKOO_MODULE_NAME);
     } else {
-        cc_free(ds);
+        datapool_close(pool);
     }
 
     cuckoo_metrics = NULL;
