@@ -47,6 +47,7 @@ option(TARGET_RESPCLI "build resp-cli binary" ON)
 option(HAVE_RUST "build features written in rust" OFF)
 option(RUST_USE_MUSL "build rust deps against musl" OFF)
 option(BUILD_AND_INSTALL_CHECK "build our own version of check and link against it" OFF)
+option(USE_PMEM "build persistent memory features" OFF)
 
 option(COVERAGE "code coverage" OFF)
 
@@ -135,6 +136,15 @@ endif()
 if(NOT CHECK_FOUND)
     find_package(Check QUIET 0.10)
 endif()
+
+if (USE_PMEM)
+    if(PKG_CONFIG_FOUND)
+        pkg_check_modules(LIBPMEM REQUIRED libpmem>=1.0)
+    else()
+        find_package(LIBPMEM REQUIRED 1.0)
+    endif()
+    link_directories(${LIBPMEM_LIBRARY_DIRS})
+endif(USE_PMEM)
 
 find_package(Threads)
 
