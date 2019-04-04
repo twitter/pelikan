@@ -129,17 +129,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(PkgConfig QUIET)
 
-find_package(Check)
+if(PKG_CONFIG_FOUND)
+    pkg_check_modules(CHECK QUIET check>=0.10)
+endif()
 
 if(NOT CHECK_FOUND)
-    message(WARNING "Check is required to build and run tests")
-endif(NOT CHECK_FOUND)
-if(CHECK_FOUND)
-    check_symbol_exists(ck_assert_int_eq check.h CHECK_WORKING)
-    if(NOT CHECK_WORKING)
-        message(WARNING "Check version too old to build tests")
-    endif(NOT CHECK_WORKING)
-endif(CHECK_FOUND)
+    find_package(Check QUIET 0.10)
+endif()
 
 if (USE_PMEM)
     if(PKG_CONFIG_FOUND)
@@ -168,10 +164,10 @@ include_directories(${include_directories}
 add_subdirectory(src)
 
 # tests: always build last
-if(CHECK_WORKING)
-    include_directories(${include_directories} "${CHECK_INCLUDES}")
+if(CHECK_FOUND)
+    include_directories(${include_directories} ${CHECK_INCLUDES})
     add_subdirectory(test)
-endif(CHECK_WORKING)
+endif(CHECK_FOUND)
 
 # print a summary
 message(STATUS "PLATFORM: " ${OS_PLATFORM})
