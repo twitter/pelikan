@@ -169,6 +169,8 @@ if(CHECK_FOUND)
     add_subdirectory(test)
 endif(CHECK_FOUND)
 
+add_subdirectory(benchmarks)
+
 # print a summary
 message(STATUS "PLATFORM: " ${OS_PLATFORM})
 
