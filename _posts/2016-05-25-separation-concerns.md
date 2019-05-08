@@ -8,7 +8,7 @@ tags: design, performance, operations
 twitter_username: thinkingfish
 ---
 
-*This is the third post in our [blog series](http://twitter.github.io/pelikan/blog/)
+*This is the third post in our [blog series](http://pelikan.io/blog/)
 about the design, implementation and usage of caching in datacenters.*
 
 The most important design decision we adopted in building the server is to

@@ -8,7 +8,7 @@ tags: design, performance, operations
 twitter_username: thinkingfish
 ---
 
-*This is the first post in our [blog series](http://twitter.github.io/pelikan/blog/)
+*This is the first post in our [blog series](http://pelikan.io/blog/)
 about the design, implementation and usage of caching in datacenters.*
 
 There are many different definitions of caching. And indeed caching is
