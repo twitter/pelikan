@@ -47,7 +47,6 @@ option(TARGET_RESPCLI "build resp-cli binary" ON)
 option(HAVE_RUST "build features written in rust" OFF)
 option(RUST_USE_MUSL "build rust deps against musl" OFF)
 option(BUILD_AND_INSTALL_CHECK "build our own version of check and link against it" OFF)
-option(USE_PMEM "build persistent memory features" OFF)
 
 option(COVERAGE "code coverage" OFF)
 
@@ -127,24 +126,16 @@ add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
-find_package(PkgConfig QUIET)
-
-if(PKG_CONFIG_FOUND)
-    pkg_check_modules(CHECK QUIET check>=0.10)
-endif()
-
+find_package(Check)
 if(NOT CHECK_FOUND)
-    find_package(Check QUIET 0.10)
-endif()
-
-if (USE_PMEM)
-    if(PKG_CONFIG_FOUND)
-        pkg_check_modules(LIBPMEM REQUIRED libpmem>=1.0)
-    else()
-        find_package(LIBPMEM REQUIRED 1.0)
-    endif()
-    link_directories(${LIBPMEM_LIBRARY_DIRS})
-endif(USE_PMEM)
+    message(WARNING "Check is required to build and run tests")
+endif(NOT CHECK_FOUND)
+if(CHECK_FOUND)
+    check_symbol_exists(ck_assert_int_eq check.h CHECK_WORKING)
+    if(NOT CHECK_WORKING)
+        message(WARNING "Check version too old to build tests")
+    endif(NOT CHECK_WORKING)
+endif(CHECK_FOUND)
 
 find_package(Threads)
 
@@ -163,11 +154,11 @@ include_directories(${include_directories}
 # server & (cli) client
 add_subdirectory(src)
 
-# tests: always build last
-if(CHECK_FOUND)
-    include_directories(${include_directories} ${CHECK_INCLUDES})
-    add_subdirectory(test)
-endif(CHECK_FOUND)
+## tests: always build last
+#if(CHECK_WORKING)
+#    include_directories(${include_directories} "${CHECK_INCLUDES}")
+#    add_subdirectory(test)
+#endif(CHECK_WORKING)
 
 add_subdirectory(benchmarks)
 

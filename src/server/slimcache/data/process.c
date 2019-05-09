@@ -16,6 +16,45 @@
 static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
 static bool allow_flush = ALLOW_FLUSH;
+static bool prefill = PREFILL;
+static uint8_t prefill_ksize;
+static char prefill_kbuf[UINT8_MAX]; /* cuckoo storage has klen as uint8_t */
+static uint8_t prefill_vsize;
+static char prefill_vbuf[UINT8_MAX]; /* cuckoo storage has vlen as uint8_t */
+static uint64_t prefill_nkey;
+
+
+static void
+_prefill_cuckoo(void)
+{
+    struct duration d;
+    struct bstring key, val;
+    struct item *it;
+
+    duration_reset(&d);
+    key.len = prefill_ksize;
+    key.data = prefill_kbuf;
+    val.len = prefill_vsize;
+    val.data = prefill_vbuf;
+
+    duration_start(&d);
+    for (uint32_t i = 0; i < prefill_nkey; ++i) {
+        /* print fixed-length key with leading 0's for padding */
+        cc_snprintf(&prefill_kbuf, key.len + 1, "%.*d", key.len, i);
+        /* fill val, use the same value as key for now */
+        cc_snprintf(&prefill_vbuf, val.len + 1, "%.*d", val.len, i);
+        /* insert into cuckoo/heap */
+        it = cuckoo_insert(&key, &val, expire,
+                time_convert_proc_sec((time_i)INT32_MAX));
+        ASSERT(it != NULL);
+    }
+    duration_stop(&d);
+
+    log_info("prefilling cuckoo with %"PRIu64" keys, of key len %"PRIu8" & val "
+            "len %"PRIu8", in %.3f seconds", prefill_nkey, prefill_ksize,
+            prefill_vsize, duration_sec(&d));
+}
+
 
 void
 process_setup(process_options_st *options, process_metrics_st *metrics)
@@ -30,6 +69,14 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
 
     if (options != NULL) {
         allow_flush = option_bool(&options->allow_flush);
+        prefill = option_bool(&options->prefill);
+        prefill_ksize = (uint8_t)option_uint(&options->prefill_ksize);
+        prefill_vsize = (uint8_t)option_uint(&options->prefill_vsize);
+        prefill_nkey = (uint64_t)option_uint(&options->prefill_nkey);
+    }
+
+    if (prefill) {
+        _prefill_cuckoo();
     }
 
     process_init = true;

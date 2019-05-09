@@ -9,7 +9,19 @@
 
 /*          name         type              default      description */
 #define PROCESS_OPTION(ACTION)                                                              \
-    ACTION( allow_flush, OPTION_TYPE_BOOL, ALLOW_FLUSH, "allow flushing on the data port"  )
+    ACTION( allow_flush, OPTION_TYPE_BOOL, ALLOW_FLUSH, "allow flushing on the data port"  )\
+    ACTION( prefill,       OPTION_TYPE_BOOL, PREFILL,       "prefill data array"           )\
+    ACTION( prefill_ksize, OPTION_TYPE_UINT, PREFILL_KSIZE, "prefill key size"             )\
+    ACTION( prefill_vsize, OPTION_TYPE_UINT, PREFILL_VSIZE, "prefill val size"             )\
+    ACTION( prefill_nkey,  OPTION_TYPE_UINT, PREFILL_NKEY,  "prefill keys inserted"        )
+/* For now, the prefill logic will populate the heap with keys and values of
+ * specified lengths, while the keys will be string representation of base-10
+ * numeric values padded to the right length, i.e. keys will look like
+ * "000000", "000001", ..., "123456", and prefilling logic will always start
+ * from 0 and trying to insert the exact number of keys specified (underfill
+ * and eviction are therefore possible) depending on how cuckoo array is
+ * configured.
+ */
 
 typedef struct {
     PROCESS_OPTION(OPTION_DECLARE)
