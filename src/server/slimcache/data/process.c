@@ -6,6 +6,7 @@
 #include <cc_array.h>
 #include <cc_debug.h>
 #include <cc_print.h>
+#include <time/cc_timer.h>
 
 #define SLIMCACHE_PROCESS_MODULE_NAME "slimcache::process"
 
@@ -28,23 +29,26 @@ static void
 _prefill_cuckoo(void)
 {
     struct duration d;
-    struct bstring key, val;
+    struct bstring key, vstr;
+    struct val val;
     struct item *it;
 
     duration_reset(&d);
     key.len = prefill_ksize;
     key.data = prefill_kbuf;
-    val.len = prefill_vsize;
-    val.data = prefill_vbuf;
+    vstr.len = prefill_vsize;
+    vstr.data = prefill_vbuf;
+    val.type = VAL_TYPE_STR;
+    val.vstr = vstr;
 
     duration_start(&d);
     for (uint32_t i = 0; i < prefill_nkey; ++i) {
         /* print fixed-length key with leading 0's for padding */
         cc_snprintf(&prefill_kbuf, key.len + 1, "%.*d", key.len, i);
         /* fill val, use the same value as key for now */
-        cc_snprintf(&prefill_vbuf, val.len + 1, "%.*d", val.len, i);
+        cc_snprintf(&prefill_vbuf, vstr.len + 1, "%.*d", vstr.len, i);
         /* insert into cuckoo/heap */
-        it = cuckoo_insert(&key, &val, expire,
+        it = cuckoo_insert(&key, &val,
                 time_convert_proc_sec((time_i)INT32_MAX));
         ASSERT(it != NULL);
     }

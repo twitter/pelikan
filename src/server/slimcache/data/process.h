@@ -6,6 +6,11 @@
 #include <stream/cc_sockio.h>
 
 #define ALLOW_FLUSH false
+#define PREFILL false
+#define PREFILL_KSIZE 32
+#define PREFILL_VSIZE 32
+#define PREFILL_NKEY 600000000 /* 60M keys roughly fills up a 4GB heap with default data sizes */
+
 
 /*          name         type              default      description */
 #define PROCESS_OPTION(ACTION)                                                              \

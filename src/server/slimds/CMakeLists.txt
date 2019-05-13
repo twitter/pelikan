@@ -9,6 +9,7 @@ set(SOURCE
 
 set(MODULES
     core
+    datatool
     cuckoo
     ds_bitmap
     protocol_admin

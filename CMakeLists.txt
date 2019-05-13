@@ -38,7 +38,7 @@ option(HAVE_STATS "stats enabled by default" ON)
 
 option(TARGET_PINGSERVER "build pingserver binary" ON)
 option(TARGET_DS "build dataserver binary" ON)
-option(TARGET_SLIMDS "build slim dataserver binary" ON)
+option(TARGET_SLIMDS "build slim dataserver binary" OFF)
 option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
 option(TARGET_CDB "build cdb binary (implies HAVE_RUST)" OFF)

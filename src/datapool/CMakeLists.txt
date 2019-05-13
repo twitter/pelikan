@@ -1,4 +1,4 @@
-add_library(datapool datapool.h)
+add_library(datapool)
 
 if(USE_PMEM)
     target_sources(datapool PRIVATE datapool_pmem.c)
