@@ -29,6 +29,7 @@
 #define ITEM_FACTOR     1.25
 #define ITEM_MAX_TTL    (30 * 24 * 60 * 60) /* 30 days */
 #define HASH_POWER      16
+#define SLAB_DATAPOOL   NULL
 
 /* Eviction options */
 #define EVICT_NONE    0 /* throw OOM, no eviction */
@@ -51,7 +52,8 @@
     ACTION( slab_item_growth,   OPTION_TYPE_FPN,    ITEM_FACTOR,    "Slab class growth factor"      )\
     ACTION( slab_item_max_ttl,  OPTION_TYPE_UINT,   ITEM_MAX_TTL,   "Max ttl in seconds"            )\
     ACTION( slab_use_cas,       OPTION_TYPE_BOOL,   SLAB_USE_CAS,   "Store CAS value in item"       )\
-    ACTION( slab_hash_power,    OPTION_TYPE_UINT,   HASH_POWER,     "Power for lookup hash table"   )
+    ACTION( slab_hash_power,    OPTION_TYPE_UINT,   HASH_POWER,     "Power for lookup hash table"   )\
+    ACTION( slab_datapool,      OPTION_TYPE_STR,    SLAB_DATAPOOL,  "Path to data pool"             )
 
 typedef struct {
     SLAB_OPTION(OPTION_DECLARE)

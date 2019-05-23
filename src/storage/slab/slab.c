@@ -2,7 +2,7 @@
 
 #include "hashtable.h"
 #include "item.h"
-
+#include <datapool/datapool.h>
 #include <cc_mm.h>
 #include <cc_util.h>
 
@@ -25,6 +25,7 @@ struct slab_heapinfo {
     struct slab_tqh slab_lruq;   /* lru slab q */
 };
 
+static struct datapool *pool_slab;              /* data pool mapping for the slabs */
 perslab_metrics_st perslab[SLABCLASS_MAX_ID];
 uint8_t profile_last_id; /* last id in slab profile */
 
@@ -41,6 +42,7 @@ static size_t item_min = ITEM_SIZE_MIN; /* min item size */
 static size_t item_max = ITEM_SIZE_MAX; /* max item size */
 static double item_growth = ITEM_FACTOR;/* item size growth factor */
 static uint32_t hash_power = HASH_POWER;/* power (of 2) entries for hashtable */
+static char *slab_datapool = SLAB_DATAPOOL;   /* slab_datapool path */
 
 bool use_cas = SLAB_USE_CAS;
 struct hash_table *hash_table = NULL;
@@ -193,7 +195,12 @@ _slab_heapinfo_setup(void)
 
     heapinfo.base = NULL;
     if (prealloc) {
-        heapinfo.base = cc_alloc(heapinfo.max_nslab * slab_size);
+        pool_slab = datapool_open(slab_datapool, heapinfo.max_nslab * slab_size, NULL);
+        if (pool_slab == NULL) {
+            log_crit("Could not create pool_slab");
+            exit(EX_CONFIG);
+        }
+        heapinfo.base = datapool_addr(pool_slab);
         if (heapinfo.base == NULL) {
             log_error("pre-alloc %zu bytes for %"PRIu32" slabs failed: %s",
                       heapinfo.max_nslab * slab_size, heapinfo.max_nslab,
@@ -203,6 +210,9 @@ _slab_heapinfo_setup(void)
 
         log_info("pre-allocated %zu bytes for %"PRIu32" slabs",
                   slab_mem, heapinfo.max_nslab);
+    } else if (slab_datapool) {
+        log_error("PMEM is supported only for prealloc option");
+        return CC_EINVAL;
     }
     heapinfo.curr = heapinfo.base;
 
@@ -223,6 +233,8 @@ _slab_heapinfo_setup(void)
 static void
 _slab_heapinfo_teardown(void)
 {
+    datapool_close(pool_slab);
+    pool_slab = NULL;
 }
 
 static rstatus_i
@@ -425,6 +437,7 @@ slab_setup(slab_options_st *options, slab_metrics_st *metrics)
         max_ttl = option_uint(&options->slab_item_max_ttl);
         use_cas = option_bool(&options->slab_use_cas);
         hash_power = option_uint(&options->slab_hash_power);
+        slab_datapool = option_str(&options->slab_datapool);
     }
 
     hash_table = hashtable_create(hash_power);
