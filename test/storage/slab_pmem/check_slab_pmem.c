@@ -131,11 +131,9 @@ START_TEST(test_insert_basic)
 
     test_assert_insert_basic_entry_exists(key);
 
+    test_reset(0);
 
-/* TODO: uncomment after support of recreating the slab */
-//    test_reset(0);
-
-//    test_assert_insert_basic_entry_exists(key);
+    test_assert_insert_basic_entry_exists(key);
 
 #undef MLEN
 #undef KEY
@@ -172,10 +170,9 @@ START_TEST(test_insert_large)
 
     test_assert_insert_large_entry_exists(key);
 
-/* TODO: uncomment after support of recreating the slab */
-//    test_reset(0);
+    test_reset(0);
 
-//    test_assert_insert_large_entry_exists(key);
+    test_assert_insert_large_entry_exists(key);
 
 #undef VLEN
 #undef KEY
@@ -212,10 +209,9 @@ START_TEST(test_reserve_backfill_link)
     item_insert(it, &key);
     test_assert_reserve_backfill_link_exists(it);
 
-/* TODO: uncomment after support of recreating the slab */
-//    test_reset(0);
+    test_reset(0);
 
-//    test_assert_reserve_backfill_link_exists(it);
+    test_assert_reserve_backfill_link_exists(it);
 
 #undef VLEN
 #undef KEY
@@ -251,8 +247,7 @@ START_TEST(test_append_basic)
     status = item_annex(it, &key, &append, true);
     ck_assert_msg(status == ITEM_OK, "item_append not OK - return status %d", status);
 
-/* TODO: uncomment after support of recreating the slab */
-//    test_reset(0);
+    test_reset(0);
 
     it = item_get(&key);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
@@ -297,8 +292,7 @@ START_TEST(test_prepend_basic)
     status = item_annex(it, &key, &prepend, false);
     ck_assert_msg(status == ITEM_OK, "item_prepend not OK - return status %d", status);
 
-/* TODO: uncomment after support of recreating the slab */
-//    test_reset(0);
+    test_reset(0);
 
     it = item_get(&key);
     ck_assert_msg(it != NULL, "item_get could not find key %.*s", key.len, key.data);
