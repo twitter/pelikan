@@ -210,5 +210,8 @@ void item_update(struct item *it, const struct bstring *val);
 /* Remove item from cache */
 bool item_delete(const struct bstring *key);
 
+/* Relink item */
+void item_relink(struct item *it);
+
 /* flush the cache */
 void item_flush(void);
