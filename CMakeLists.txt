@@ -158,7 +158,8 @@ endif(TARGET_CDB)
 include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"
     "${CCOMMON_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src")
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/benchmarks")
 
 # server & (cli) client
 add_subdirectory(src)
