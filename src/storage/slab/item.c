@@ -102,20 +102,23 @@ _item_dealloc(struct item **it_p)
 }
 
 /*
- * Link an item into the hash table
+ * (Re)Link an item into the hash table
  */
 static void
-_item_link(struct item *it)
+_item_link(struct item *it, bool relink)
 {
     ASSERT(it->magic == ITEM_MAGIC);
-    ASSERT(!(it->is_linked));
     ASSERT(!(it->in_freeq));
+
+    if (!relink) {
+        ASSERT(!(it->is_linked));
+
+        it->is_linked = 1;
+        slab_deref(item_to_slab(it)); /* slab ref'ed in _item_alloc */
+    }
 
     log_verb("link it %p of id %"PRIu8" at offset %"PRIu32, it, it->id,
             it->offset);
-
-    it->is_linked = 1;
-    slab_deref(item_to_slab(it)); /* slab ref'ed in _item_alloc */
 
     hashtable_put(it, hash_table);
 
@@ -129,13 +132,19 @@ _item_link(struct item *it)
 }
 
 void
+item_relink(struct item *it)
+{
+    _item_link(it, true);
+}
+
+void
 item_insert(struct item *it, const struct bstring *key)
 {
     ASSERT(it != NULL && key != NULL);
 
     item_delete(key);
 
-    _item_link(it);
+    _item_link(it, false);
     log_verb("insert it %p of id %"PRIu8" for key %.*s", it, it->id, key->len,
         key->data);
 }

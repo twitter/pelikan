@@ -129,7 +129,8 @@ struct slab {
     TAILQ_ENTRY(slab) s_tqe;        /* link in slab lruq */
 
     uint8_t           id;           /* slabclass id */
-    uint32_t          padding:24;   /* unused */
+    uint8_t           initialized;  /* flag is slab initialized*/
+    uint16_t          unused;       /* unused, must be 0 */
     uint32_t          refcount;     /* # items that can't be evicted */
     uint8_t           data[1];      /* opaque data */
 };
