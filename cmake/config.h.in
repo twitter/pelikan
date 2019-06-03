@@ -21,3 +21,5 @@
 #cmakedefine TARGET_TWEMCACHE
 
 #cmakedefine TARGET_REDIS
+
+#cmakedefine HAVE_ITT_INSTRUMENTATION

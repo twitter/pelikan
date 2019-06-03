@@ -11,6 +11,13 @@
 #include <stdlib.h>
 #include <sysexits.h>
 
+#if CC_ITT
+#include "ittnotify.h"
+
+__itt_heap_function cuckoo_malloc;
+__itt_heap_function cuckoo_free;
+#endif
+
 #define CUCKOO_MODULE_NAME "storage::cuckoo"
 
 /* D is the degree/cardinality of the hash values computed for each key */
@@ -290,6 +297,15 @@ cuckoo_setup(cuckoo_options_st *options, cuckoo_metrics_st *metrics)
     }
     ds = datapool_addr(pool);
 
+#if CC_ITT
+    cuckoo_malloc = __itt_heap_function_create("cuckoo_malloc", "pelikan");
+    cuckoo_free = __itt_heap_function_create("cuckoo_free", "pelikan");
+    for(size_t n = 0; n < max_nitem; ++n) {
+        __itt_heap_allocate_begin(cuckoo_malloc, item_size, 0);
+        void *it = OFFSET2ITEM(n);
+        __itt_heap_allocate_end(cuckoo_malloc, &it, item_size, 0);
+    }
+#endif
     cuckoo_init = true;
 }
 

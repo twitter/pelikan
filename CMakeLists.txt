@@ -48,6 +48,7 @@ option(HAVE_RUST "build features written in rust" OFF)
 option(RUST_USE_MUSL "build rust deps against musl" OFF)
 option(BUILD_AND_INSTALL_CHECK "build our own version of check and link against it" OFF)
 option(USE_PMEM "build persistent memory features" OFF)
+option(HAVE_ITT_INSTRUMENTATION "Instrument code with ITT API" OFF)
 
 option(COVERAGE "code coverage" OFF)
 
@@ -145,6 +146,13 @@ if (USE_PMEM)
     endif()
     link_directories(${LIBPMEM_LIBRARY_DIRS})
 endif(USE_PMEM)
+
+if (HAVE_ITT_INSTRUMENTATION)
+    pkg_check_modules(ITTNOTIFY REQUIRED ittnotify>=1.0)
+    include_directories(${ITTNOTIFY_INCLUDE_DIRS})
+    link_directories(${ITTNOTIFY_LIBRARY_DIRS})
+    link_libraries(${ITTNOTIFY_LIBRARIES})
+endif(HAVE_ITT_INSTRUMENTATION)
 
 find_package(Threads)
 

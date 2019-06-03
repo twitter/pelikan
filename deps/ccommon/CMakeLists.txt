@@ -57,6 +57,7 @@ option(HAVE_STATS "stats enabled by default" ON)
 option(HAVE_DEBUG_MM "debugging oriented memory management disabled by default" OFF)
 option(COVERAGE "code coverage" OFF)
 option(HAVE_RUST "rust bindings not built by default" OFF)
+option(HAVE_ITT_INSTRUMENTATION "Instrument code with ITT API" OFF)
 
 if(HAVE_RUST)
     option(RUST_VERBOSE_BUILD "pass -vv to cargo compilation" OFF)
