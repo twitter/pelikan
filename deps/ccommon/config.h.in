@@ -19,3 +19,5 @@
 #cmakedefine HAVE_STATS
 
 #cmakedefine HAVE_DEBUG_MM
+
+#cmakedefine HAVE_ITT_INSTRUMENTATION

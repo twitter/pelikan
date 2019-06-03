@@ -98,6 +98,7 @@ _item_dealloc(struct item **it_p)
     PERSLAB_DECR(id, item_curr);
 
     slab_put_item(*it_p, id);
+    cc_itt_free(slab_free, *it_p);
     *it_p = NULL;
 }
 
@@ -147,6 +148,8 @@ item_insert(struct item *it, const struct bstring *key)
     _item_link(it, false);
     log_verb("insert it %p of id %"PRIu8" for key %.*s", it, it->id, key->len,
         key->data);
+
+    cc_itt_alloc(slab_malloc, it, item_size(it));
 }
 
 /*

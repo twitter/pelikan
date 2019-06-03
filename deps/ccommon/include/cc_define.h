@@ -55,6 +55,10 @@ extern "C" {
 #define CC_DEBUG_MM 1
 #endif
 
+#ifdef HAVE_ITT_INSTRUMENTATION
+#define CC_ITT 1
+#endif
+
 #define CC_OK        0
 #define CC_ERROR    -1
 

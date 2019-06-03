@@ -61,6 +61,9 @@ delta_time_i max_ttl = ITEM_MAX_TTL;
 static bool slab_init = false;
 slab_metrics_st *slab_metrics = NULL;
 
+cc_declare_itt_function(,slab_malloc);
+cc_declare_itt_function(,slab_free);
+
 void
 slab_print(void)
 {
@@ -594,6 +597,9 @@ slab_setup(slab_options_st *options, slab_metrics_st *metrics)
         log_crit("Could not setup slabclasses");
         goto error;
     }
+
+     cc_create_itt_malloc(slab_malloc);
+     cc_create_itt_free(slab_free);
 
     slab_init = true;
 
