@@ -65,7 +65,7 @@ datapool_sync(struct datapool *pool)
 static bool
 datapool_valid(struct datapool *pool)
 {
-    if (memcmp(pool->hdr->signature,
+    if (cc_memcmp(pool->hdr->signature,
           DATAPOOL_SIGNATURE, DATAPOOL_SIGNATURE_LEN) != 0) {
         log_info("no signature found in datapool");
         return false;
@@ -107,7 +107,7 @@ datapool_initialize(struct datapool *pool)
     log_info("initializing fresh datapool");
 
     /* 1. clear the header from any leftovers */
-    memset(pool->hdr, 0, DATAPOOL_HEADER_LEN);
+    cc_memset(pool->hdr, 0, DATAPOOL_HEADER_LEN);
     datapool_sync_hdr(pool);
 
     /* 2. fill in the data */
@@ -117,7 +117,7 @@ datapool_initialize(struct datapool *pool)
     datapool_sync_hdr(pool);
 
     /* 3. set the signature */
-    memcpy(pool->hdr->signature, DATAPOOL_SIGNATURE, DATAPOOL_SIGNATURE_LEN);
+    cc_memcpy(pool->hdr->signature, DATAPOOL_SIGNATURE, DATAPOOL_SIGNATURE_LEN);
     datapool_sync_hdr(pool);
 }
 
