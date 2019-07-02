@@ -262,3 +262,16 @@ datapool_size(struct datapool *pool)
     return pool->mapped_len - sizeof(struct datapool_header);
 }
 
+void
+datapool_set_user_data(const struct datapool *pool, const void *user_data, size_t user_size)
+{
+    ASSERT(user_size < DATAPOOL_USER_HEADER_LEN - DATAPOOL_USER_LAYOUT_LEN);
+    cc_memcpy(pool->hdr->user_data, user_data, user_size);
+}
+
+void
+datapool_get_user_data(const struct datapool *pool, void *user_data, size_t user_size)
+{
+    ASSERT(user_size < DATAPOOL_USER_HEADER_LEN - DATAPOOL_USER_LAYOUT_LEN);
+    cc_memcpy(user_data, pool->hdr->user_data, user_size);
+}

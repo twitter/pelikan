@@ -62,6 +62,38 @@ START_TEST(test_devzero)
 }
 END_TEST
 
+START_TEST(test_datapool_userdata)
+{
+#define MAX_USER_DATA_SIZE 2000
+    char data_set[MAX_USER_DATA_SIZE] = {0};
+    char data_get[MAX_USER_DATA_SIZE] = {0};
+
+    struct datapool *pool = datapool_open(TEST_DATAFILE, TEST_DATA_NAME, TEST_DATASIZE, NULL);
+    ck_assert_ptr_nonnull(pool);
+    cc_memset(data_set, 'A', MAX_USER_DATA_SIZE);
+    datapool_set_user_data(pool, data_set, MAX_USER_DATA_SIZE);
+    datapool_close(pool);
+
+    pool = datapool_open(TEST_DATAFILE, TEST_DATA_NAME, TEST_DATASIZE, NULL);
+    ck_assert_ptr_nonnull(pool);
+    datapool_get_user_data(pool, data_get, MAX_USER_DATA_SIZE);
+    ck_assert_mem_eq(data_set, data_get, MAX_USER_DATA_SIZE);
+    datapool_close(pool);
+    test_teardown(TEST_DATAFILE);
+#undef MAX_USER_DATA_SIZE
+}
+END_TEST
+
+
+START_TEST(test_datapool_prealloc)
+{
+    struct datapool *pool = datapool_open(TEST_DATAFILE, TEST_DATA_NAME, TEST_DATASIZE, NULL, true);
+    ck_assert_ptr_nonnull(pool);
+    datapool_close(pool);
+    test_teardown(TEST_DATAFILE);
+}
+END_TEST
+
 START_TEST(test_datapool_empty_signature)
 {
     struct datapool *pool = datapool_open(TEST_DATAFILE, NULL, TEST_DATASIZE, NULL);
@@ -138,6 +170,7 @@ datapool_suite(void)
     TCase *tc_pool = tcase_create("pool");
     tcase_add_test(tc_pool, test_datapool);
     tcase_add_test(tc_pool, test_devzero);
+    tcase_add_test(tc_pool, test_datapool_userdata);
     tcase_add_test(tc_pool, test_datapool_max_length_signature);
     tcase_add_test(tc_pool, test_datapool_empty_signature);
     tcase_add_test(tc_pool, test_datapool_too_long_signature);
