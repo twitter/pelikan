@@ -44,6 +44,7 @@ static size_t item_max = ITEM_SIZE_MAX; /* max item size */
 static double item_growth = ITEM_FACTOR;/* item size growth factor */
 static uint32_t hash_power = HASH_POWER;/* power (of 2) entries for hashtable */
 static char *slab_datapool = SLAB_DATAPOOL;   /* slab datapool path */
+static char *slab_datapool_name = SLAB_DATAPOOL_NAME;   /* slab datapool name */
 
 bool use_cas = SLAB_USE_CAS;
 struct hash_table *hash_table = NULL;
@@ -291,7 +292,8 @@ _slab_heapinfo_setup(void)
 
     heapinfo.base = NULL;
     if (prealloc) {
-        pool_slab = datapool_open(slab_datapool, heapinfo.max_nslab * slab_size, &pool_slab_state);
+        pool_slab = datapool_open(slab_datapool, slab_datapool_name,
+                 heapinfo.max_nslab * slab_size, &pool_slab_state);
         if (pool_slab == NULL) {
             log_crit("Could not create pool_slab");
             exit(EX_CONFIG);
@@ -533,6 +535,7 @@ slab_setup(slab_options_st *options, slab_metrics_st *metrics)
         use_cas = option_bool(&options->slab_use_cas);
         hash_power = option_uint(&options->slab_hash_power);
         slab_datapool = option_str(&options->slab_datapool);
+        slab_datapool_name = option_str(&options->slab_datapool_name);
     }
 
     hash_table = hashtable_create(hash_power);

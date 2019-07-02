@@ -20,7 +20,11 @@
  * Big enough to fit all necessary metadata, but most of this size is left
  * unused for future expansion.
  */
-#define DATAPOOL_HEADER_LEN 4096
+
+#define DATAPOOL_INTERNAL_HEADER_LEN 2048
+#define DATAPOOL_USER_LAYOUT_LEN       48
+#define DATAPOOL_USER_HEADER_LEN     2048
+#define DATAPOOL_HEADER_LEN (DATAPOOL_INTERNAL_HEADER_LEN + DATAPOOL_USER_HEADER_LEN)
 #define DATAPOOL_VERSION 1
 
 #define DATAPOOL_FLAG_DIRTY (1 << 0)
@@ -35,7 +39,10 @@ struct datapool_header {
     uint64_t version;
     uint64_t size;
     uint64_t flags;
-    uint8_t unused[DATAPOOL_HEADER_LEN - 32];
+    uint8_t unused[DATAPOOL_INTERNAL_HEADER_LEN - 32];
+
+    uint8_t user_signature[DATAPOOL_USER_LAYOUT_LEN];
+    uint8_t user_data[DATAPOOL_USER_HEADER_LEN - DATAPOOL_USER_LAYOUT_LEN];
 };
 
 struct datapool {
@@ -60,6 +67,15 @@ datapool_sync(struct datapool *pool)
 {
     int ret = pmem_msync(pool->addr, pool->mapped_len);
     ASSERT(ret == 0);
+}
+
+static bool
+datapool_valid_user_signature(struct datapool *pool, const char *user_name)
+{
+    if (cc_strcmp(pool->hdr->user_signature, user_name)) {
+        return false;
+    }
+    return true;
 }
 
 static bool
@@ -102,7 +118,7 @@ datapool_valid(struct datapool *pool)
 }
 
 static void
-datapool_initialize(struct datapool *pool)
+datapool_initialize(struct datapool *pool, const char *user_name)
 {
     log_info("initializing fresh datapool");
 
@@ -114,6 +130,7 @@ datapool_initialize(struct datapool *pool)
     pool->hdr->version = DATAPOOL_VERSION;
     pool->hdr->size = pool->mapped_len;
     pool->hdr->flags = 0;
+    cc_memcpy(pool->hdr->user_signature, user_name, cc_strlen(user_name));
     datapool_sync_hdr(pool);
 
     /* 3. set the signature */
@@ -143,12 +160,22 @@ datapool_flag_clear(struct datapool *pool, int flag)
  * finish successfully.
  */
 struct datapool *
-datapool_open(const char *path, size_t size, int *fresh)
+datapool_open(const char *path, const char *user_signature, size_t size, int *fresh)
 {
     struct datapool *pool = cc_alloc(sizeof(*pool));
     if (pool == NULL) {
         log_error("unable to create allocate memory for pmem mapping");
         goto err_alloc;
+    }
+
+    if (user_signature == NULL) {
+        log_error("empty user signature");
+        goto err_map;
+    }
+
+    if (cc_strnlen(user_signature, DATAPOOL_USER_LAYOUT_LEN) == DATAPOOL_USER_LAYOUT_LEN ) {
+        log_error("user signature is too long %zu", cc_strlen(user_signature));
+        goto err_map;
     }
 
     size_t map_size = size + sizeof(struct datapool_header);
@@ -184,13 +211,23 @@ datapool_open(const char *path, size_t size, int *fresh)
             *fresh = 1;
         }
 
-        datapool_initialize(pool);
+        datapool_initialize(pool, user_signature);
+    } else if (!datapool_valid_user_signature(pool, user_signature)) {
+        log_error("wrong user signature (%s) used for pool", user_signature);
+        goto err_map_adr;
     }
 
     datapool_flag_set(pool, DATAPOOL_FLAG_DIRTY);
 
     return pool;
 
+err_map_adr:
+    if (pool->file_backed) {
+        int ret = pmem_unmap(pool->addr, pool->mapped_len);
+        ASSERT(ret == 0);
+    } else {
+        cc_free(pool->addr);
+    }
 err_map:
     cc_free(pool);
 err_alloc:
