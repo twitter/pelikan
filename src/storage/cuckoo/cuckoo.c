@@ -284,7 +284,7 @@ cuckoo_setup(cuckoo_options_st *options, cuckoo_metrics_st *metrics)
     hash_size = item_size * max_nitem;
     pool = datapool_open(option_str(&options->cuckoo_datapool),
         option_str(&options->cuckoo_datapool_name), hash_size,
-        NULL);
+        NULL, option_bool(&options->cuckoo_datapool_prefault));
     if (pool == NULL) {
         log_crit("cuckoo data store allocation failed");
         exit(EX_CONFIG);

@@ -1,11 +1,11 @@
 #pragma once
 
 #include <stddef.h>
-
+#include <stdbool.h>
 struct datapool;
 
 struct datapool *datapool_open(const char *path, const char *user_signature,
-    size_t size, int *fresh);
+    size_t size, int *fresh, bool prefault);
 void datapool_close(struct datapool *pool);
 
 void *datapool_addr(struct datapool *pool);

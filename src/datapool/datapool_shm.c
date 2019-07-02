@@ -8,7 +8,7 @@
 #include <cc_mm.h>
 
 struct datapool *
-datapool_open(const char *path, const char *user_signature, size_t size, int *fresh)
+datapool_open(const char *path, const char *user_signature, size_t size, int *fresh, bool prefault)
 {
     if (path != NULL) {
         log_warn("attempted to open a file-based data pool without"
