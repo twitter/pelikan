@@ -25,6 +25,11 @@ struct slab_heapinfo {
     struct slab_tqh slab_lruq;   /* lru slab q */
 };
 
+struct slab_pool_metadata {
+    void        *usr_pool_addr; /* previous pool address */
+    struct slab *slab_lruq_head;/* lru slab q head */
+};
+
 static struct datapool *pool_slab;              /* data pool mapping for the slabs */
 static int pool_slab_state;                     /* data pool state */
 perslab_metrics_st perslab[SLABCLASS_MAX_ID];
@@ -198,6 +203,27 @@ _slab_table_update(struct slab *slab)
 }
 
 /*
+ * Recreate lru slab q
+ * After restart mapping from datapool could be different
+ * and all addresses must be updated
+ */
+static void
+_slab_lruq_rebuild(const uint8_t *heap_start)
+{
+    struct slab_pool_metadata heap_metadata;
+
+    datapool_get_user_data(pool_slab, &heap_metadata, sizeof(struct slab_pool_metadata));
+
+    if (heap_metadata.slab_lruq_head) {
+        ptrdiff_t offset = heap_start - (uint8_t *)heap_metadata.usr_pool_addr;
+
+        struct slab *slab = (void *)((uint8_t *)heap_metadata.slab_lruq_head + offset);
+
+        TAILQ_REINIT(&heapinfo.slab_lruq, slab, s_tqe, offset);
+    }
+}
+
+/*
  * Recreate slabs structure when persistent memory features are enabled (USE_PMEM)
  */
 static void
@@ -205,7 +231,8 @@ _slab_recovery(void)
 {
     uint32_t i;
     uint8_t *heap_start = heapinfo.curr;
-    /* TODO: recreate heapinfo.slab_lruq */
+
+    _slab_lruq_rebuild(heap_start);
     for (i = 0; i < heapinfo.max_nslab; i++) {
         struct slab *slab = (struct slab *) heap_start;
         if (slab->initialized) {
@@ -332,6 +359,13 @@ _slab_heapinfo_setup(void)
 static void
 _slab_heapinfo_teardown(void)
 {
+    struct slab_pool_metadata pool_metadata =
+    {
+        datapool_addr(pool_slab),
+        TAILQ_FIRST(&heapinfo.slab_lruq)
+    };
+
+    datapool_set_user_data(pool_slab, &pool_metadata, sizeof(struct slab_pool_metadata));
     datapool_close(pool_slab);
 }
 
