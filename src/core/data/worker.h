@@ -42,6 +42,7 @@ struct data_processor {
     data_fn read;
     data_fn write;
     data_fn error;
+    bool running;
 };
 
 void core_worker_setup(worker_options_st *options, worker_metrics_st *metrics);

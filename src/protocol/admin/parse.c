@@ -50,6 +50,14 @@ _get_req_type(struct request *req, struct bstring *type)
         }
 
         break;
+
+    case 8:
+        if (str8cmp(type->data, 's', 'h', 'u', 't', 'd', 'o', 'w', 'n')) {
+            req->type = REQ_SHUTDOWN;
+            break;
+        }
+
+        break;
     }
 
     if (req->type == REQ_UNKNOWN) { /* no match */

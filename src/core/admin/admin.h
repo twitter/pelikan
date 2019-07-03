@@ -39,5 +39,5 @@ void core_admin_teardown(void);
 /* add a periodic action to be executed on the admin thread, which uses timing wheel */
 struct timeout_event *
 core_admin_register(uint64_t intvl_ms, timeout_cb_fn cb, void *arg);
-
+void core_admin_unregister(struct timeout_event *tev);
 void core_admin_evloop(void);
