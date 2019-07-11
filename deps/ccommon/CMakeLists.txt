@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8)
 project(ccommon C)
 
 # Uncomment the following to output dependency graph debugging messages
@@ -115,12 +115,23 @@ configure_file(
 # set compiler flags
 # string concat is easier in 3.0, but older versions don't have the concat subcommand
 # so we are using list as input until we move to new version
-# TODO add build types
 add_definitions(-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
+# Set a default build type (Release) if none was specified
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
+else()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
+endif()
+
 set(CMAKE_MACOSX_RPATH 1)
 set(CFLAGS_LIST
     "-std=c11 "
-    "-ggdb3 -O2 "
+    "-ggdb3 "
     "-Wall "
     "-Wmissing-prototypes -Wmissing-declarations -Wredundant-decls "
     "-Wunused-function -Wunused-value -Wunused-variable "
@@ -133,7 +144,10 @@ if(CMAKE_COMPILER_IS_GNUCC)
 endif()
 
 if (COVERAGE)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -Wall -W -fprofile-arcs -ftest-coverage")
+    if(NOT ${CMAKE_BUILD_TYPE} MATCHES Debug)
+        message(WARNING "Code coverage results with an optimised (non-Debug) build may be misleading" )
+    endif()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif(COVERAGE)
 
 # test dependencies
@@ -165,10 +179,10 @@ include_directories(
 
 add_subdirectory(src)
 
-if(CHECK_FOUND)
-    include_directories(${include_directories} ${CHECK_INCLUDES})
+if(CHECK_WORKING)
+    include_directories(${include_directories} "${CHECK_INCLUDES}")
     add_subdirectory(test)
-endif(CHECK_FOUND)
+endif(CHECK_WORKING)
 
 
 if(HAVE_RUST)
@@ -182,6 +196,8 @@ endif()
 ###################
 # print a summary #
 ###################
+
+message(STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
 
 message(STATUS "PLATFORM: " ${OS_PLATFORM})
 
