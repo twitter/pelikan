@@ -76,6 +76,7 @@ benchmark_create(struct benchmark *b, const char *config)
     nopts += bench_storage_config_nopts();
 
     b->options = cc_alloc(sizeof(struct option) * nopts);
+    ASSERT(b->options != NULL);
     b->options->benchmark = opts;
 
     bench_storage_config_init(b->options->engine);
@@ -84,6 +85,8 @@ benchmark_create(struct benchmark *b, const char *config)
         FILE *fp = fopen(config, "r");
         if (fp == NULL) {
             log_crit("failed to open the config file");
+            cc_free(b->options);
+
             return CC_EINVAL;
         }
         option_load_file(fp, (struct option *)b->options, nopts);
@@ -93,6 +96,7 @@ benchmark_create(struct benchmark *b, const char *config)
     if (O(b, entry_min_size) <= sizeof(benchmark_key_u)) {
         log_crit("entry_min_size must larger than %lu",
             sizeof(benchmark_key_u));
+        cc_free(b->options);
 
         return CC_EINVAL;
     }
@@ -305,6 +309,10 @@ benchmark_run(struct benchmark *b)
     duration_stop(&d);
 
     bench_storage_deinit();
+
+    array_destroy(&in);
+    array_destroy(&in2);
+    array_destroy(&out);
 
     return d;
 }

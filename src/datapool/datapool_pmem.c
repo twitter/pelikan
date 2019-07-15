@@ -141,14 +141,14 @@ datapool_initialize(struct datapool *pool, const char *user_name)
 }
 
 static void
-datapool_flag_set(struct datapool *pool, int flag)
+datapool_flag_set(struct datapool *pool, uint64_t flag)
 {
     pool->hdr->flags |= flag;
     datapool_sync_hdr(pool);
 }
 
 static void
-datapool_flag_clear(struct datapool *pool, int flag)
+datapool_flag_clear(struct datapool *pool, uint64_t flag)
 {
     pool->hdr->flags &= ~flag;
     datapool_sync_hdr(pool);
