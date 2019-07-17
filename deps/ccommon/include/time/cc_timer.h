@@ -49,6 +49,14 @@ struct duration;  /* data structure to measure duration */
  *   relationship between this unit and nanosecond can be obtained via another
  *   syscall
  */
+
+enum duration_type {
+    DURATION_PRECISE, /* default */
+    DURATION_FAST,
+
+    MAX_DURATION_TYPE
+};
+
 #ifdef OS_DARWIN
 struct duration {
     bool        started;
@@ -58,6 +66,7 @@ struct duration {
 };
 #elif defined OS_LINUX
 struct duration {
+    enum duration_type type;
     bool            started;
     bool            stopped;
     struct timespec start;
@@ -86,12 +95,12 @@ struct timeout {
     bool        is_intvl;
 };
 
-
 /* update duration */
 void duration_reset(struct duration *d);
 /* get a reading of duration and copy it without stopping the original timer */
 void duration_snapshot(struct duration *s, const struct duration *d);
 void duration_start(struct duration *d);
+void duration_start_type(struct duration *d, enum duration_type type);
 void duration_stop(struct duration *d);
 /* read duration */
 double duration_ns(struct duration *d);
@@ -99,6 +108,18 @@ double duration_us(struct duration *d);
 double duration_ms(struct duration *d);
 double duration_sec(struct duration *d);
 
+static inline int
+duration_compare(const void *lhs, const void *rhs)
+{
+    double lns = duration_ns((struct duration *)lhs);
+    double rns = duration_ns((struct duration *)rhs);
+    if (lns < rns)
+        return -1;
+    if (lns > rns)
+        return 1;
+
+    return 0;
+}
 
 /*
  * Not all possible granularity can be meaningfully used for sleep or event.

@@ -54,7 +54,7 @@ typedef enum cmd_type {
 #undef GET_TYPE
 
 /*
- * Note: though redis supports unboudned number of variables in some commands,
+ * Note: though redis supports unbounded number of variables in some commands,
  * implementation cannot operate with performance guarantee when this number
  * gets too big. It also introduces uncertainty around resources. Therefore, we
  * are limiting it to REQ_NTOKEN minus the # required args. For each command, if

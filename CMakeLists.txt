@@ -71,12 +71,22 @@ configure_file(
 # set compiler flags
 # string concat is easier in 3.0, but older versions don't have the concat subcommand
 # so we are using list as input until we move to new version
-# TODO once we add build types, we should also set flags such as "-O2 "
 add_definitions(-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
+# Set a default build type (Release) if none was specified
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
+else()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
+endif()
 add_definitions()
 set(CFLAGS_LIST
     "-std=c11 "
-    "-ggdb3 -O2 "
+    "-ggdb3 "
     "-Wall -Wshadow -Winline "
     "-Wstrict-prototypes -Wmissing-prototypes "
     "-Wmissing-declarations -Wredundant-decls "
@@ -113,7 +123,10 @@ string(REPLACE "" "" LOCAL_CFLAGS ${CFLAGS_LIST})
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  ${LOCAL_CFLAGS}")
 
 if (COVERAGE)
-  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -Wall -W -fprofile-arcs -ftest-coverage")
+    if(NOT ${CMAKE_BUILD_TYPE} MATCHES Debug)
+        message(WARNING "Code coverage results with an optimised (non-Debug) build may be misleading" )
+    endif()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif(COVERAGE)
 
 # build dependencies
@@ -149,7 +162,8 @@ endif(TARGET_CDB)
 include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"
     "${CCOMMON_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src")
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/benchmarks")
 
 # server & (cli) client
 add_subdirectory(src)
@@ -163,6 +177,9 @@ add_subdirectory(src)
 add_subdirectory(benchmarks)
 
 # print a summary
+
+message(STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
+
 message(STATUS "PLATFORM: " ${OS_PLATFORM})
 
 message(STATUS "CPPFLAGS: " ${CMAKE_CPP_FLAGS})

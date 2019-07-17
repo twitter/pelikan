@@ -1,9 +1,24 @@
-add_executable(bench_micro bench_micro.c)
+add_subdirectory(storage_cuckoo)
+add_subdirectory(storage_slab)
 
-target_include_directories(bench_micro PRIVATE
-	${CMAKE_SOURCE_DIR}/src
-	${CMAKE_SOURCE_DIR}/tests)
+set(SOURCE bench_storage.c)
 
-target_link_libraries(bench_micro cuckoo datapool time)
-target_link_libraries(bench_micro ccommon-static)
-target_link_libraries(bench_micro pthread)
+set(MODULES_SLAB
+    bench_storage_slab
+    slab
+    time)
+
+set(MODULES_CUCKOO
+    bench_storage_cuckoo
+    cuckoo
+    time)
+
+set(LIBS
+    ccommon-static
+    ${CMAKE_THREAD_LIBS_INIT})
+
+add_executable(bench_slab ${SOURCE})
+target_link_libraries(bench_slab ${MODULES_SLAB} ${LIBS})
+
+add_executable(bench_cuckoo ${SOURCE})
+target_link_libraries(bench_cuckoo ${MODULES_CUCKOO} ${LIBS})

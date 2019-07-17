@@ -11,6 +11,7 @@ set(MODULES
     core
     cuckoo
     datapool
+    hotkey
     protocol_admin
     protocol_memcache
     time

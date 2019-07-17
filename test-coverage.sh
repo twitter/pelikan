@@ -5,7 +5,7 @@ rm -rf lcov _build _bin
 
 mkdir _build
 pushd _build
-cmake -DCOVERAGE=on ..
+cmake -DCMAKE_BUILD_TYPE=Debug -DCOVERAGE=on ..
 make -j
 make test
 popd

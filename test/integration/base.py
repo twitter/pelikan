@@ -28,7 +28,6 @@ class GenericTest(unittest.TestCase):
         """receive and verify response (a list) matches expectation"""
         if len(expected) > 0:
             rsp = self.data_client.response()
-            self.assertEqual(len(rsp), len(expected))
             self.assertEqual(rsp, expected)
 
     def assertStats(self, delta):

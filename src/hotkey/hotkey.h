@@ -17,7 +17,7 @@
     ACTION( hotkey_enable,          OPTION_TYPE_BOOL,   false,                  "use hotkey detection?"      )\
     ACTION( hotkey_sample_size,     OPTION_TYPE_UINT,   HOTKEY_WINDOW_SIZE,     "number of keys to maintain" )\
     ACTION( hotkey_sample_rate,     OPTION_TYPE_UINT,   HOTKEY_RATE,            "hotkey sample ratio"        )\
-    ACTION( hotkey_threshold_ratio, OPTION_TYPE_UINT,   HOTKEY_THRESHOLD_RATIO, "threshold for hotkey signal")
+    ACTION( hotkey_threshold_ratio, OPTION_TYPE_FPN,    HOTKEY_THRESHOLD_RATIO, "threshold for hotkey signal")
 
 typedef struct {
     HOTKEY_OPTION(OPTION_DECLARE)
