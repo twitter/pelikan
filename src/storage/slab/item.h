@@ -90,6 +90,7 @@ typedef enum item_rstatus {
 
 extern bool use_cas;
 extern uint64_t cas_id;
+extern size_t slab_profile[SLABCLASS_MAX_ID + 1];
 
 static inline uint64_t
 item_get_cas(struct item *it)
@@ -123,6 +124,20 @@ item_key(struct item *it)
     return it->end + item_cas_size() + it->olen;
 }
 
+/* get key length */
+static inline uint32_t
+item_nkey(const struct item *it)
+{
+    return it->klen;
+}
+
+/* get payload length */
+static inline uint32_t
+item_nval(const struct item *it)
+{
+    return it->vlen;
+}
+
 static inline size_t
 item_ntotal(uint8_t klen, uint32_t vlen, uint8_t olen)
 {
@@ -130,7 +145,7 @@ item_ntotal(uint8_t klen, uint32_t vlen, uint8_t olen)
 }
 
 static inline size_t
-item_size(struct item *it)
+item_size(const struct item *it)
 {
     ASSERT(it->magic == ITEM_MAGIC);
 
@@ -175,6 +190,13 @@ item_atou64(uint64_t *vint, struct item *it)
         return ITEM_ENAN;
     }
 }
+/* return true if item can fit len additional bytes in val in place, false otherwise */
+static inline bool
+item_will_fit(const struct item *it, uint32_t delta)
+{
+    return slab_profile[it->id] >= item_size(it) + delta;
+}
+
 
 /* Init header for given item */
 void item_hdr_init(struct item *it, uint32_t offset, uint8_t id);
@@ -202,7 +224,6 @@ void item_backfill(struct item *it, const struct bstring *val);
 /* Append/prepend */
 item_rstatus_e item_annex(struct item *it, const struct bstring *key, const
         struct bstring *val, bool append);
-
 
 /* In place item update (replace item value) */
 void item_update(struct item *it, const struct bstring *val);

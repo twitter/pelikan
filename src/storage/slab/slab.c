@@ -27,9 +27,9 @@ struct slab_heapinfo {
 
 perslab_metrics_st perslab[SLABCLASS_MAX_ID];
 uint8_t profile_last_id; /* last id in slab profile */
+size_t slab_profile[SLABCLASS_MAX_ID + 1];        /* slab profile */
 
 static struct slab_heapinfo heapinfo;             /* info of all allocated slabs */
-static size_t profile[SLABCLASS_MAX_ID + 1];      /* slab profile */
 struct slabclass slabclass[SLABCLASS_MAX_ID + 1]; /* collection of slabs bucketed by slabclass */
 
 size_t slab_size = SLAB_SIZE;           /* # bytes in a slab */
@@ -144,15 +144,15 @@ _slab_slabclass_setup(void)
         uint32_t nitem;      /* # item per slabclass */
         size_t item_sz;      /* item size */
 
-        nitem = slab_capacity() / profile[id];
+        nitem = slab_capacity() / slab_profile[id];
 
         if (nitem == 0) {
             log_error("Invalid slab class size %u; too large to fit in slab!",
-                    profile[id]);
+                    slab_profile[id]);
             return CC_ERROR;
         }
 
-        item_sz = profile[id];
+        item_sz = slab_profile[id];
         p = &slabclass[id];
 
         p->nitem = nitem;
@@ -245,8 +245,8 @@ _slab_profile_setup(char *profile_str)
              * they are loaded. Do another memcpy to some local variable.
              */
             profile_entry = strsep(&profile_str, " \n\r\t");
-            profile[++i] = atol(profile_entry);
-            if (profile[i] <= profile[i - 1]) {
+            slab_profile[++i] = atol(profile_entry);
+            if (slab_profile[i] <= slab_profile[i - 1]) {
                 log_error("Invalid setup profile configuration provided");
                 return CC_ERROR;
             }
@@ -341,11 +341,11 @@ _slab_profile_setup(char *profile_str)
                 return CC_ERROR;
             }
 
-            if (profile[i - 1] == nbyte) {
+            if (slab_profile[i - 1] == nbyte) {
                 nbyte += CC_ALIGNMENT;
             }
 
-            profile[i++] = nbyte;
+            slab_profile[i++] = nbyte;
             nitem = slab_capacity() / nbyte / item_growth;
             nbyte = SLAB_ALIGN_DOWN(slab_capacity() / nitem, CC_ALIGNMENT);
         }
@@ -359,7 +359,7 @@ _slab_profile_setup(char *profile_str)
                           "too large or growth factor too small");
                 return CC_ERROR;
             }
-            profile[i++] = nbyte;
+            slab_profile[i++] = nbyte;
             if (--nitem > 0) {
                 nbyte = SLAB_ALIGN_DOWN(slab_capacity() / nitem, CC_ALIGNMENT);
             }
@@ -372,7 +372,7 @@ _slab_profile_setup(char *profile_str)
     log_verb("slab profile:");
 
     for (i = SLABCLASS_MIN_ID; i <= profile_last_id; ++i) {
-        log_verb("%u", profile[i]);
+        log_verb("%u", slab_profile[i]);
     }
 
     return CC_OK;

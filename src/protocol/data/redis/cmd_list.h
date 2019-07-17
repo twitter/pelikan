@@ -8,7 +8,7 @@
  * List.delete KEY [VALUE [COUNT]]
  *
  * trim: trimming a list
- * List.trim KEY INDEX [COUNT]
+ * List.trim KEY INDEX COUNT
  *
  * len: return number of entries in list
  * List.len KEY

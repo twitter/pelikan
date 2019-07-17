@@ -39,6 +39,12 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
     command_registry[REQ_PING] = cmd_ping;
     command_registry[REQ_LIST_CREATE] = cmd_list_create;
     command_registry[REQ_LIST_DELETE] = cmd_list_delete;
+    command_registry[REQ_LIST_TRIM] = cmd_list_trim;
+    command_registry[REQ_LIST_LEN] = cmd_list_len;
+    command_registry[REQ_LIST_FIND] = cmd_list_find;
+    command_registry[REQ_LIST_GET] = cmd_list_get;
+    command_registry[REQ_LIST_INSERT] = cmd_list_insert;
+    command_registry[REQ_LIST_PUSH] = cmd_list_push;
 
     process_init = true;
 }

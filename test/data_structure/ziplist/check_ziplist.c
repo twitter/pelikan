@@ -17,27 +17,27 @@ struct ze_example {
 
 static struct ze_example ze_examples[] = {
     /* ZE_U8 */
-    {"\x00\x02", 2, {.type=BLOB_TYPE_INT, .vint=0}},
-    {"\xfa\x02", 2, {.type=BLOB_TYPE_INT, .vint=ZE_U8_MAX}},
+    {"\x00\x02", 2, {.type = BLOB_TYPE_INT, .vint = 0}},
+    {"\xfa\x02", 2, {.type = BLOB_TYPE_INT, .vint = ZE_U8_MAX}},
     /* ZE_U16 */
-    {"\xfb\xfb\x00\x04", 4, {.type=BLOB_TYPE_INT, .vint=ZE_U8_MAX + 1}},
-    {"\xfb\xff\xff\x04", 4, {.type=BLOB_TYPE_INT, .vint=ZE_U16_MAX}},
+    {"\xfb\xfb\x00\x04", 4, {.type = BLOB_TYPE_INT, .vint = ZE_U8_MAX + 1}},
+    {"\xfb\xff\xff\x04", 4, {.type = BLOB_TYPE_INT, .vint = ZE_U16_MAX}},
     /* ZE_U24 */
-    {"\xfc\x00\x00\x01\x05", 5, {.type=BLOB_TYPE_INT, .vint=ZE_U16_MAX + 1}},
-    {"\xfc\xff\xff\xff\x05", 5, {.type=BLOB_TYPE_INT, .vint=ZE_U24_MAX}},
+    {"\xfc\x00\x00\x01\x05", 5, {.type = BLOB_TYPE_INT, .vint = ZE_U16_MAX + 1}},
+    {"\xfc\xff\xff\xff\x05", 5, {.type = BLOB_TYPE_INT, .vint = ZE_U24_MAX}},
     /* ZE_U56 */
     {"\xfd\x00\x00\x00\x01\x00\x00\x00\x09", 9,
-        {.type=BLOB_TYPE_INT, .vint=ZE_U24_MAX + 1}},
+        {.type = BLOB_TYPE_INT, .vint = ZE_U24_MAX + 1}},
     {"\xfd\xff\xff\xff\xff\xff\xff\xff\x09", 9,
-        {.type=BLOB_TYPE_INT, .vint=ZE_U56_MAX}},
+        {.type = BLOB_TYPE_INT, .vint = ZE_U56_MAX}},
     /* ZE_U64 */
     {"\xfe\x00\x00\x00\x00\x00\x00\x00\x01\x0a", 10,
-        {.type=BLOB_TYPE_INT, .vint=ZE_U56_MAX + 1}},
+        {.type = BLOB_TYPE_INT, .vint = ZE_U56_MAX + 1}},
     {"\xfe\xff\xff\xff\xff\xff\xff\xff\xff\x0a", 10,
-        {.type=BLOB_TYPE_INT, .vint=ZE_U64_MAX}},
+        {.type = BLOB_TYPE_INT, .vint = ZE_U64_MAX}},
     /* ZE_STR */
     {"\xff\x0b\x48\x65\x6c\x6c\x6f\x20\x57\x6f\x72\x6c\x64\x0e", 14,
-        {.type=BLOB_TYPE_STR, .vstr={11, "Hello World"}}},
+        {.type = BLOB_TYPE_STR, .vstr = {11, "Hello World"}}},
 };
 
 #define BUF_SIZE 10240
@@ -104,6 +104,10 @@ START_TEST(test_zipentry_compare)
     for (; i > 1; --i) {
         ck_assert_int_eq(zipentry_compare((zipentry_p)ze_examples[i].encoded,
                     &ze_examples[i - 1].decoded), 1);
+    }
+    for(; i < n_ze; ++i) {
+        ck_assert_int_eq(zipentry_compare((zipentry_p)ze_examples[i].encoded,
+                    &ze_examples[i].decoded), 0);
     }
 }
 END_TEST
@@ -285,7 +289,7 @@ START_TEST(test_ziplist_insertremove)
     ck_assert_int_eq(ziplist_nentry((ziplist_p)buf), 0);
 
     ck_assert(ziplist_remove(NULL, 0, 1) == ZIPLIST_ERROR);
-    ck_assert(ziplist_remove((ziplist_p)buf, 0, 0) == ZIPLIST_EINVALID);
+    ck_assert(ziplist_remove((ziplist_p)buf, 0, 0) == ZIPLIST_OK);
     ziplist_insert((ziplist_p)buf, &ze_examples[0].decoded, 0);
     ck_assert(ziplist_remove((ziplist_p)buf, 1, 1) == ZIPLIST_EOOB);
     ck_assert(ziplist_remove((ziplist_p)buf, 0, 3) == ZIPLIST_EOOB);
@@ -342,6 +346,213 @@ START_TEST(test_ziplist_removeval)
 }
 END_TEST
 
+START_TEST(test_ziplist_truncate_forward_basic)
+{
+#define CNT 3
+    ziplist_p zl = (ziplist_p)buf;
+    uint32_t i;
+
+    /* make a copy of ref ziplist */
+    cc_memcpy(zl, ref, ziplist_size((ziplist_p)ref));
+
+    ck_assert_int_eq(ziplist_truncate(zl, CNT), ZIPLIST_OK);
+
+    /* check nentry */
+    ck_assert_uint_eq(ziplist_nentry(zl), ziplist_nentry((ziplist_p)ref) - CNT);
+
+    /* check each zipentry */
+    for (i = 0; i < ziplist_nentry(zl); ++i) {
+        zipentry_p ze;
+        ck_assert_int_eq(ziplist_locate(&ze, zl, i), ZIPLIST_OK);
+        ck_assert_int_eq(zipentry_compare(ze, &ze_examples[CNT + i].decoded), 0);
+    }
+#undef CNT
+}
+END_TEST
+
+START_TEST(test_ziplist_truncate_backward_basic)
+{
+#define CNT 4
+    ziplist_p zl = (ziplist_p)buf;
+    uint32_t i;
+
+    /* make a copy of ref ziplist */
+    cc_memcpy(zl, ref, ziplist_size((ziplist_p)ref));
+
+    ck_assert_int_eq(ziplist_truncate(zl, -CNT), ZIPLIST_OK);
+
+    /* check nentry */
+    ck_assert_uint_eq(ziplist_nentry(zl), ziplist_nentry((ziplist_p)ref) - CNT);
+
+    /* check each zipentry */
+    for (i = 0; i < ziplist_nentry(zl); ++i) {
+        zipentry_p ze;
+        ck_assert_int_eq(ziplist_locate(&ze, zl, i), ZIPLIST_OK);
+        ck_assert_int_eq(zipentry_compare(ze, &ze_examples[i].decoded), 0);
+    }
+#undef CNT
+}
+END_TEST
+
+START_TEST(test_ziplist_truncate_overflow)
+{
+#define CNT 1000
+    ziplist_p zl = (ziplist_p)buf;
+
+    cc_memcpy(zl, ref, ziplist_size((ziplist_p)ref));
+
+    ck_assert_int_eq(ziplist_truncate(zl, CNT), ZIPLIST_OK);
+    ck_assert_int_eq(ziplist_nentry(zl), 0);
+
+    cc_memcpy(zl, ref, ziplist_size((ziplist_p)ref));
+
+    ck_assert_int_eq(ziplist_truncate(zl, -CNT), ZIPLIST_OK);
+    ck_assert_int_eq(ziplist_nentry(zl), 0);
+#undef CNT
+}
+END_TEST
+
+static inline void
+_get_ref_idx_cnt(uint32_t *ref_idx, uint32_t *ref_cnt, int64_t idx, int64_t cnt)
+{
+    ck_assert_ptr_ne(ref_idx, NULL);
+    ck_assert_ptr_ne(ref_cnt, NULL);
+
+    if (idx >= 0) {
+        if (cnt > 0) {
+            /* positive idx, counting forward */
+            *ref_idx = idx;
+            *ref_cnt = idx + cnt > n_ze ? n_ze - idx : cnt;
+        } else {
+            /* positive idx, counting backward */
+            *ref_idx = idx > -cnt ? idx + cnt : 0;
+            *ref_cnt = idx > -cnt ? -cnt : idx;
+        }
+    } else {
+        if (cnt > 0) {
+            /* negative idx, counting forward */
+            *ref_idx = n_ze + idx;
+            *ref_cnt = -idx > cnt ? cnt : -idx;
+        } else {
+            /* negative idx, counting backward */
+            *ref_idx = n_ze + idx > -cnt ? n_ze + idx + cnt : 0;
+            *ref_cnt = n_ze + idx > -cnt ? -cnt : n_ze + idx;
+        }
+    }
+}
+
+static inline void
+_test_ziplist_trim(int64_t idx, int64_t cnt)
+{
+    ziplist_p zl = (ziplist_p)buf;
+    uint32_t i, ref_idx, ref_cnt;
+
+    /* calculate where trimmed list should begin
+       on ref list and how far it should go */
+    _get_ref_idx_cnt(&ref_idx, &ref_cnt, idx, cnt);
+
+    /* make a copy of ref ziplist */
+    cc_memcpy(zl, ref, ziplist_size((ziplist_p)ref));
+
+    ck_assert_int_eq(ziplist_trim(zl, idx, cnt), ZIPLIST_OK);
+
+    /* check nentry */
+    ck_assert_uint_eq(ziplist_nentry(zl), ref_cnt);
+
+    /* check each zipentry */
+    for (i = 0; i < ref_cnt; ++i) {
+        zipentry_p ze;
+
+        /* get trimmed list entry */
+        ck_assert_int_eq(ziplist_locate(&ze, zl, i), ZIPLIST_OK);
+
+        /* compare entries */
+        ck_assert_int_eq(zipentry_compare(ze, &ze_examples[ref_idx + i].decoded), 0);
+    }
+}
+
+START_TEST(test_ziplist_trim_forward_basic)
+{
+#define IDX 3
+#define CNT 3
+    _test_ziplist_trim(IDX, CNT);
+#undef IDX
+#undef CNT
+}
+END_TEST
+
+START_TEST(test_ziplist_trim_backward_basic)
+{
+#define IDX 5
+#define CNT -3
+    _test_ziplist_trim(IDX, CNT);
+#undef IDX
+#undef CNT
+}
+END_TEST
+
+START_TEST(test_ziplist_trim_forward_nidx)
+{
+#define IDX -6
+#define CNT 3
+    _test_ziplist_trim(IDX, CNT);
+#undef IDX
+#undef CNT
+}
+END_TEST
+
+START_TEST(test_ziplist_trim_backward_nidx)
+{
+#define IDX -2
+#define CNT -3
+    _test_ziplist_trim(IDX, CNT);
+#undef IDX
+#undef CNT
+}
+END_TEST
+
+START_TEST(test_ziplist_trim_overflow)
+{
+#define IDX 3
+#define CNT 100
+    _test_ziplist_trim(IDX, CNT);
+#undef IDX
+#undef CNT
+}
+END_TEST
+
+START_TEST(test_ziplist_trim_underflow)
+{
+#define IDX 5
+#define CNT -100
+    _test_ziplist_trim(IDX, CNT);
+#undef IDX
+#undef CNT
+}
+END_TEST
+
+START_TEST(test_ziplist_trim_empty)
+{
+#define IDX 3
+#define CNT 0
+    _test_ziplist_trim(IDX, CNT);
+#undef IDX
+#undef CNT
+}
+END_TEST
+
+START_TEST(test_ziplist_trim_oob)
+{
+    ziplist_p zl = (ziplist_p)buf;
+
+    /* make a copy of ref ziplist */
+    cc_memcpy(zl, ref, ziplist_size((ziplist_p)ref));
+
+    ck_assert_int_eq(ziplist_trim(zl, ziplist_nentry(zl) + 1, 1), ZIPLIST_EOOB);
+    ck_assert_int_eq(ziplist_trim(zl, -(ziplist_nentry(zl) + 1), 1), ZIPLIST_EOOB);
+}
+END_TEST
+
 
 /*
  * test suite
@@ -362,7 +573,7 @@ zipmap_suite(void)
 
     /* create a reference ziplist */
     for (i = 0, sz = ZIPLIST_HEADER_SIZE; i < n_ze; ++i) {
-        ze_index[i] = (zipentry_p)(ref+ sz);
+        ze_index[i] = (zipentry_p)(ref + sz);
         cc_memcpy(ref + sz, ze_examples[i].encoded, ze_examples[i].nbyte);
         sz += ze_examples[i].nbyte;
     }
@@ -377,6 +588,17 @@ zipmap_suite(void)
     tcase_add_test(tc_ziplist, test_ziplist_resetpushpop);
     tcase_add_test(tc_ziplist, test_ziplist_insertremove);
     tcase_add_test(tc_ziplist, test_ziplist_removeval);
+    tcase_add_test(tc_ziplist, test_ziplist_truncate_forward_basic);
+    tcase_add_test(tc_ziplist, test_ziplist_truncate_backward_basic);
+    tcase_add_test(tc_ziplist, test_ziplist_truncate_overflow);
+    tcase_add_test(tc_ziplist, test_ziplist_trim_forward_basic);
+    tcase_add_test(tc_ziplist, test_ziplist_trim_backward_basic);
+    tcase_add_test(tc_ziplist, test_ziplist_trim_forward_nidx);
+    tcase_add_test(tc_ziplist, test_ziplist_trim_backward_nidx);
+    tcase_add_test(tc_ziplist, test_ziplist_trim_overflow);
+    tcase_add_test(tc_ziplist, test_ziplist_trim_underflow);
+    tcase_add_test(tc_ziplist, test_ziplist_trim_empty);
+    tcase_add_test(tc_ziplist, test_ziplist_trim_oob);
 
     return s;
 }
