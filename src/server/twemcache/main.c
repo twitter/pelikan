@@ -57,6 +57,7 @@ teardown(void)
     process_teardown();
     slab_teardown();
     klog_teardown();
+    hotkey_teardown();
     compose_teardown();
     parse_teardown();
     response_teardown();
@@ -121,6 +122,7 @@ setup(void)
     parse_setup(&stats.parse_req, NULL);
     compose_setup(NULL, &stats.compose_rsp);
     klog_setup(&setting.klog, &stats.klog);
+    hotkey_setup(&setting.hotkey);
     slab_setup(&setting.slab, &stats.slab);
     process_setup(&setting.process, &stats.process);
     admin_process_setup();

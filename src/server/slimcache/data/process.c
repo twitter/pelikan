@@ -1,5 +1,6 @@
 #include "process.h"
 
+#include "hotkey/hotkey.h"
 #include "protocol/data/memcache_include.h"
 #include "storage/cuckoo/cuckoo.h"
 
@@ -67,6 +68,10 @@ _get_key(struct response *rsp, struct bstring *key)
             rsp->vint = val.vint;
         } else {
             rsp->vstr = val.vstr;
+        }
+
+        if (hotkey_enabled && hotkey_sample(key)) {
+            log_debug("hotkey detected: %.*s", key->len, key->data);
         }
 
         log_verb("found key at %p, location %p", key, it);

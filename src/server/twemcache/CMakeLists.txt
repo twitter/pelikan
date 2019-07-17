@@ -9,6 +9,7 @@ set(SOURCE
 
 set(MODULES
     core
+    hotkey
     protocol_admin
     protocol_memcache
     slab

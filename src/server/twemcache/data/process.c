@@ -1,5 +1,6 @@
 #include "process.h"
 
+#include "hotkey/hotkey.h"
 #include "protocol/data/memcache_include.h"
 #include "storage/slab/slab.h"
 
@@ -132,6 +133,10 @@ _get_key(struct response *rsp, struct bstring *key)
         rsp->vcas = item_get_cas(it);
         rsp->vstr.len = it->vlen;
         rsp->vstr.data = item_data(it);
+
+        if (hotkey_enabled && hotkey_sample(key)) {
+            log_debug("hotkey detected: %.*s", key->len, key->data);
+        }
 
         log_verb("found key at %p, location %p", key, it);
         return true;

@@ -7,6 +7,7 @@ struct setting setting = {
     { WORKER_OPTION(OPTION_INIT)    },
     { PROCESS_OPTION(OPTION_INIT)   },
     { KLOG_OPTION(OPTION_INIT)      },
+    { HOTKEY_OPTION(OPTION_INIT)    },
     { REQUEST_OPTION(OPTION_INIT)   },
     { RESPONSE_OPTION(OPTION_INIT)  },
     { SLAB_OPTION(OPTION_INIT)      },
