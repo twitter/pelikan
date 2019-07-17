@@ -22,7 +22,6 @@
 #define SLAB_EVICT_OPT  EVICT_RS
 #define SLAB_USE_FREEQ  true
 #define SLAB_PROFILE    NULL
-#define SLAB_HASH       16
 #define SLAB_USE_CAS    true
 #define ITEM_SIZE_MIN   44      /* 40 bytes item overhead */
 #define ITEM_SIZE_MAX   (SLAB_SIZE - SLAB_HDR_SIZE)
