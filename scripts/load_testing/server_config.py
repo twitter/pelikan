@@ -91,7 +91,7 @@ def generate_runscript(binary, instances):
       the_file.write('{binary_file} {config_file}\n'.format(
           binary_file=binary,
           config_file=config_file))
-  os.chmod(fname, 0777)
+  os.chmod(fname, 0o777)
 
   # create warm-up.sh
   fname = 'warm-up.sh'
@@ -107,7 +107,7 @@ do
     sleep 10
 done
 """.format(instances=instances))
-  os.chmod(fname, 0777)
+  os.chmod(fname, 0o777)
 
 
 if __name__ == "__main__":
