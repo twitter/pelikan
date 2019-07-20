@@ -8,7 +8,7 @@
 #include <cc_mm.h>
 
 struct datapool *
-datapool_open(const char *path, size_t size, int *fresh)
+datapool_open(const char *path, const char *user_signature, size_t size, int *fresh, bool prefault)
 {
     if (path != NULL) {
         log_warn("attempted to open a file-based data pool without"
@@ -41,3 +41,19 @@ datapool_size(struct datapool *pool)
     return cc_alloc_usable_size(pool);
 }
 
+/*
+ * NOTE: Abstraction in datapool required defining functions below
+ *       datapool_get_user_data is currently used only in in pmem implementation
+ *       datapool_set_user_data is called during teardown e.g. slab
+ */
+void
+datapool_set_user_data(const struct datapool *pool, const void *user_data, size_t user_size)
+{
+
+}
+
+void
+datapool_get_user_data(const struct datapool *pool, void *user_data, size_t user_size)
+{
+    NOT_REACHED();
+}
