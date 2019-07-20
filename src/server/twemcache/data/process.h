@@ -13,7 +13,7 @@
 
 /*          name           type              default        description */
 #define PROCESS_OPTION(ACTION)                                                         \
-    ACTION( allow_flush,   OPTION_TYPE_BOOL, ALLOW_FLUSH,   "allow flush_all"         )\
+    ACTION( allow_flush,   OPTION_TYPE_BOOL, ALLOW_FLUSH,   "allow flush on data port")\
     ACTION( prefill,       OPTION_TYPE_BOOL, PREFILL,       "prefill slabs with data" )\
     ACTION( prefill_ksize, OPTION_TYPE_UINT, PREFILL_KSIZE, "prefill key size"        )\
     ACTION( prefill_vsize, OPTION_TYPE_UINT, PREFILL_VSIZE, "prefill val size"        )\

@@ -28,8 +28,8 @@ static bool process_init = false;
 static process_metrics_st *process_metrics = NULL;
 static bool allow_flush = ALLOW_FLUSH;
 static bool prefill = PREFILL;
-static uint32_t prefill_ksize;
-static char prefill_kbuf[UINT8_MAX]; /* slab implementation has klen as unint8_t */
+static uint8_t prefill_ksize;
+static char prefill_kbuf[UINT8_MAX]; /* slab implementation has klen as uint8_t */
 static uint32_t prefill_vsize;
 /* val_buf size is arbitrary , update if want to warm up with larger objects */
 static char prefill_vbuf[ITEM_SIZE_MAX];
@@ -63,7 +63,7 @@ _prefill_slab(void)
     }
     duration_stop(&d);
 
-    log_info("prefilling slab with %"PRIu64" keys, of key len %"PRIu32" & val "
+    log_info("prefilling slab with %"PRIu64" keys, of key len %"PRIu8" & val "
             "len %"PRIu32", in %.3f seconds", prefill_nkey, prefill_ksize,
             prefill_vsize, duration_sec(&d));
 }
@@ -83,7 +83,7 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
     if (options != NULL) {
         allow_flush = option_bool(&options->allow_flush);
         prefill = option_bool(&options->prefill);
-        prefill_ksize = (uint32_t)option_uint(&options->prefill_ksize);
+        prefill_ksize = (uint8_t)option_uint(&options->prefill_ksize);
         prefill_vsize = (uint32_t)option_uint(&options->prefill_vsize);
         prefill_nkey = (uint64_t)option_uint(&options->prefill_nkey);
     }

@@ -154,15 +154,16 @@ endif(COVERAGE)
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
-find_package(PkgConfig QUIET)
-
-if(PKG_CONFIG_FOUND)
-    pkg_check_modules(CHECK QUIET check>=0.10)
-endif()
-
+find_package(Check)
 if(NOT CHECK_FOUND)
-    find_package(Check QUIET 0.10)
-endif()
+    message(WARNING "Check is required to build and run tests")
+endif(NOT CHECK_FOUND)
+if(CHECK_FOUND)
+    check_symbol_exists(ck_assert_int_eq check.h CHECK_WORKING)
+    if(NOT CHECK_WORKING)
+        message(WARNING "Check version too old to build tests")
+    endif(NOT CHECK_WORKING)
+endif(CHECK_FOUND)
 
 find_package(Threads)
 
@@ -208,4 +209,4 @@ message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
 
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
 
-message(STATUS "CHECK_FOUND: " ${CHECK_FOUND})
+message(STATUS "CHECK_WORKING: " ${CHECK_WORKING})
