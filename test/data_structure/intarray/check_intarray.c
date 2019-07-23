@@ -22,7 +22,7 @@ static unsigned char buf[BUF_SIZE];
 
 START_TEST(test_intarray_create)
 {
-    ck_assert(intarray_init(buf, 1) == INTARRAY_OK);
+    ck_assert_int_eq(intarray_init(buf, 1), INTARRAY_OK);
     ck_assert(intarray_init(buf, 2) == INTARRAY_OK);
     ck_assert(intarray_init(buf, 4) == INTARRAY_OK);
     ck_assert(intarray_init(buf, 8) == INTARRAY_OK);

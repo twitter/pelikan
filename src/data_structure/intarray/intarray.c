@@ -161,7 +161,7 @@ intarray_init(intarray_p ia, uint32_t esize)
         return INTARRAY_ERROR;
     }
 
-    if (esize != 1 || esize != 2 || esize != 4 || esize != 8) {
+    if (esize != 1 && esize != 2 && esize != 4 && esize != 8) {
         return INTARRAY_EINVALID;
     }
 
