@@ -84,6 +84,7 @@ intarray_esize(const intarray_p ia)
     return IA_ESIZE(ia);
 }
 
+/* initialize an intarray of element size 1/2/4/8 bytes */
 intarray_rstatus_e intarray_init(intarray_p ia, uint32_t esize);
 
 /* intarray APIs: seek */

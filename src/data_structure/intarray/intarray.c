@@ -2,7 +2,6 @@
 
 #include <cc_debug.h>
 
-//#include <stdbool.h>
 
 #define IA_BODY(_ia) ((uint8_t *)(_ia) + INTARRAY_HEADER_SIZE)
 #define SCAN_THRESHOLD 64
