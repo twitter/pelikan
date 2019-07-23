@@ -1,7 +1,8 @@
-#include <data_structure/intarray/intarrah.h>
+#include <data_structure/intarray/intarray.h>
 
 #include <cc_mm.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <check.h>
 
@@ -12,7 +13,7 @@
 #define BUF_SIZE 8200
 #define NENTRY   1024
 
-static char buf[BUF_SIZE];
+static unsigned char buf[BUF_SIZE];
 
 
 /*
@@ -42,7 +43,7 @@ intarray_suite(void)
     TCase *tc_intarray = tcase_create("intarray");
     suite_add_tcase(s, tc_intarray);
 
-    tcase_add_test(tc_zipentry, test_intarray_create);
+    tcase_add_test(tc_intarray, test_intarray_create);
 
     return s;
 }
