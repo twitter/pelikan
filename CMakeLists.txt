@@ -116,6 +116,17 @@ if(BUILD_AND_INSTALL_CHECK)
     set(CMAKE_REQUIRED_LIBRARIES "${CHECK_ROOT_DIR}/lib")
 endif()
 
+find_package(PkgConfig QUIET)
+
+if(PKG_CONFIG_FOUND)
+    pkg_check_modules(CHECK QUIET check>=0.10)
+endif()
+
+if(NOT CHECK_FOUND)
+    find_package(Check QUIET 0.10)
+endif()
+
+
 if(${OS_PLATFORM} MATCHES "OS_LINUX")
   set(CFLAGS_LIST "${CFLAGS_LIST} -lrt")
 endif()
@@ -139,16 +150,6 @@ add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
 # other dependencies
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
-
-find_package(PkgConfig QUIET)
-
-if(PKG_CONFIG_FOUND)
-    pkg_check_modules(CHECK QUIET check>=0.10)
-endif()
-
-if(NOT CHECK_FOUND)
-    find_package(Check QUIET 0.10)
-endif()
 
 if (USE_PMEM)
     if(PKG_CONFIG_FOUND)
@@ -179,11 +180,14 @@ add_subdirectory(src)
 
 # tests: always build last
 if(CHECK_FOUND)
-    include_directories(${include_directories} ${CHECK_INCLUDES})
+    include_directories(${CHECK_INCLUDE_DIRS})
+    link_directories(${CHECK_LIBRARY_DIRS})
     add_subdirectory(test)
 endif(CHECK_FOUND)
 
-add_subdirectory(benchmarks)
+if(${OS_PLATFORM} MATCHES "OS_LINUX")
+  add_subdirectory(benchmarks)
+endif()
 
 # print a summary
 
