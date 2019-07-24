@@ -1,4 +1,4 @@
-#include <protocol/data/redis_include.h>
+#include <protocol/data/resp_include.h>
 
 #include <buffer/cc_buf.h>
 #include <cc_array.h>
@@ -11,7 +11,7 @@
 #include <stdlib.h>
 
 /* define for each suite, local scope due to macro visibility rule */
-#define SUITE_NAME "redis"
+#define SUITE_NAME "resp"
 #define DEBUG_LOG  SUITE_NAME ".log"
 
 struct request *req;
@@ -561,7 +561,7 @@ END_TEST
  * test suite
  */
 static Suite *
-redis_suite(void)
+resp_suite(void)
 {
     Suite *s = suite_create(SUITE_NAME);
 
@@ -616,7 +616,7 @@ main(void)
     /* setup */
     test_setup();
 
-    Suite *suite = redis_suite();
+    Suite *suite = resp_suite();
     SRunner *srunner = srunner_create(suite);
     srunner_set_log(srunner, DEBUG_LOG);
     srunner_run_all(srunner, CK_ENV); /* set CK_VEBOSITY in ENV to customize */

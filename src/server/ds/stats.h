@@ -3,7 +3,7 @@
 #include "data/process.h"
 
 #include "core/core.h"
-#include "protocol/data/redis_include.h"
+#include "protocol/data/resp_include.h"
 #include "storage/slab/item.h"
 #include "storage/slab/slab.h"
 #include "util/procinfo.h"

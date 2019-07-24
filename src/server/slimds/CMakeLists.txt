@@ -12,7 +12,7 @@ set(MODULES
     cuckoo
     ds_bitmap
     protocol_admin
-    protocol_redis
+    protocol_resp
     time
     util)
 

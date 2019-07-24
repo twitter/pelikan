@@ -6,7 +6,7 @@
 #include <cc_mm.h>
 #include <cc_pool.h>
 
-#define REQUEST_MODULE_NAME "protocol::redis::request"
+#define REQUEST_MODULE_NAME "protocol::resp::request"
 
 static bool request_init = false;
 static request_metrics_st *request_metrics = NULL;

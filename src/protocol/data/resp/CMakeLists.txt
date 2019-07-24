@@ -5,4 +5,4 @@ set(SOURCE
     response.c
     token.c)
 
-add_library(protocol_redis ${SOURCE})
+add_library(protocol_resp ${SOURCE})

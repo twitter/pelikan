@@ -6,7 +6,7 @@ set(SOURCE
 
 set(MODULES
     client-network
-    protocol_redis
+    protocol_resp
     util)
 
 set(LIBS

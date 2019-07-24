@@ -11,7 +11,7 @@
 
 #include <ctype.h>
 
-#define PARSE_MODULE_NAME "protocol::redis::parse"
+#define PARSE_MODULE_NAME "protocol::resp::parse"
 
 static bool parse_init = false;
 static parse_req_metrics_st *parse_req_metrics = NULL;

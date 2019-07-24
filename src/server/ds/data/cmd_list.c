@@ -1,7 +1,7 @@
 #include "process.h"
 
 #include "data_structure/ziplist/ziplist.h"
-#include "protocol/data/redis_include.h"
+#include "protocol/data/resp_include.h"
 #include "storage/slab/item.h"
 #include "storage/slab/slab.h"
 

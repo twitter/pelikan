@@ -6,7 +6,7 @@
 #include <cc_mm.h>
 #include <cc_pool.h>
 
-#define RESPONSE_MODULE_NAME "protocol::redis::response"
+#define RESPONSE_MODULE_NAME "protocol::resp::response"
 
 static bool response_init = false;
 static response_metrics_st *response_metrics = NULL;
