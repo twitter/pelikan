@@ -93,7 +93,7 @@ _linear_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, ui
 
 
     for (i = 0; i < nentry; ++i, ++*idx) {
-        if (val == _get_value(_position(body, esize, 0), esize)) {
+        if (val == _get_value(_position(body, esize, i), esize)) {
             return true;
         }
     }
@@ -115,6 +115,11 @@ _binary_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, ui
 
     if (val == _get_value(_position(body, esize, 0), esize)) {
         return true;
+    }
+
+    if (val > _get_value(_position(body, esize, nentry - 1), esize)) {
+        *idx = nentry;
+        return false;
     }
 
     imin = 1;
@@ -188,7 +193,7 @@ intarray_value(uint64_t *val, const intarray_p ia, uint32_t idx)
     }
 
     esize = intarray_esize(ia);
-    *val = _get_value(IA_BODY(ia) + esize * idx, esize);
+    *val = _get_value(_position(IA_BODY(ia), esize, idx), esize);
 
     return INTARRAY_OK;
 }
@@ -303,8 +308,10 @@ intarray_truncate(intarray_p ia, int64_t count)
 
     if (count > 0) { /* only need to move data if truncating from left */
         cc_memmove(body, body + esize * count, esize * (nentry - count));
+        IA_NENTRY(ia) -= count;
+    } else {
+        IA_NENTRY(ia) += count;
     }
-    IA_NENTRY(ia) -= count;
 
     return INTARRAY_OK;
 }
