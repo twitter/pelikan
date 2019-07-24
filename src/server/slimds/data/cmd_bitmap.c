@@ -1,7 +1,7 @@
 #include "process.h"
 
 #include "data_structure/bitmap/bitset.h"
-#include "protocol/data/redis_include.h"
+#include "protocol/data/resp_include.h"
 #include "storage/cuckoo/cuckoo.h"
 #include "time/time.h"
 

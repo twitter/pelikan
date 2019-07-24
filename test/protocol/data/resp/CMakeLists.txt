@@ -1,4 +1,4 @@
-set(suite redis)
+set(suite resp)
 set(test_name check_${suite})
 
 set(source check_${suite}.c)

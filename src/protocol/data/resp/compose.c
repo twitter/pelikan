@@ -7,7 +7,7 @@
 #include <cc_debug.h>
 #include <cc_print.h>
 
-#define COMPOSE_MODULE_NAME "protocol::redis::compose"
+#define COMPOSE_MODULE_NAME "protocol::resp::compose"
 
 static bool compose_init = false;
 static compose_req_metrics_st *compose_req_metrics = NULL;

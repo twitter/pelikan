@@ -4,7 +4,7 @@
 
 #include "core/core.h"
 #include "storage/cuckoo/cuckoo.h"
-#include "protocol/data/redis_include.h"
+#include "protocol/data/resp_include.h"
 #include "time/time.h"
 
 #include <buffer/cc_buf.h>

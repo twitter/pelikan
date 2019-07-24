@@ -1,4 +1,4 @@
-The idea of a CLI client comes from Redis, which builds `redis-cli` for easy
+The idea of a CLI client comes from Redis, which builds `resp-cli` for easy
 testing and interactive play. This is particularly useful for Redis because
 the RESP protocol is more verbose than Memcached's ASCII protocol.
 

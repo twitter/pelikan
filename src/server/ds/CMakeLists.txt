@@ -11,7 +11,7 @@ set(MODULES
     core
     ds_ziplist
     protocol_admin
-    protocol_redis
+    protocol_resp
     slab
     time
     util)
