@@ -36,7 +36,6 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
         allow_flush = option_bool(&options->allow_flush);
     }
 
-    command_registry[REQ_PING] = cmd_ping;
     command_registry[REQ_LIST_CREATE] = cmd_list_create;
     command_registry[REQ_LIST_DELETE] = cmd_list_delete;
     command_registry[REQ_LIST_TRIM] = cmd_list_trim;
@@ -45,6 +44,17 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
     command_registry[REQ_LIST_GET] = cmd_list_get;
     command_registry[REQ_LIST_INSERT] = cmd_list_insert;
     command_registry[REQ_LIST_PUSH] = cmd_list_push;
+
+    command_registry[REQ_SARRAY_CREATE] = cmd_sarray_create;
+    command_registry[REQ_SARRAY_DELETE] = cmd_sarray_delete;
+    command_registry[REQ_SARRAY_TRUNCATE] = cmd_sarray_truncate;
+    command_registry[REQ_SARRAY_LEN] = cmd_sarray_len;
+    command_registry[REQ_SARRAY_FIND] = cmd_sarray_find;
+    command_registry[REQ_SARRAY_GET] = cmd_sarray_get;
+    command_registry[REQ_SARRAY_INSERT] = cmd_sarray_insert;
+    command_registry[REQ_SARRAY_REMOVE] = cmd_sarray_remove;
+
+    command_registry[REQ_PING] = cmd_ping;
 
     process_init = true;
 }
