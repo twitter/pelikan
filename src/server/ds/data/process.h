@@ -2,6 +2,7 @@
 
 #include "cmd_misc.h"
 #include "cmd_list.h"
+#include "cmd_sarray.h"
 
 #include <buffer/cc_buf.h>
 #include <cc_metric.h>

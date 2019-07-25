@@ -68,19 +68,19 @@ typedef enum {
     SARRAY_SENTINEL
 } sarray_rstatus_e;
 
-#define SA_NENTRY(_ia) (*((uint32_t *)(_ia)))
-#define SA_ESIZE(_ia) (*((uint32_t *)(_ia) + 1))
+#define SA_NENTRY(_sa) (*((uint32_t *)(_sa)))
+#define SA_ESIZE(_sa) (*((uint32_t *)(_sa) + 1))
 
 static inline uint32_t
 sarray_nentry(const sarray_p sa)
 {
-    return SA_NENTRY(ia);
+    return SA_NENTRY(sa);
 }
 
 static inline uint32_t
 sarray_esize(const sarray_p sa)
 {
-    return SA_ESIZE(ia);
+    return SA_ESIZE(sa);
 }
 
 /* initialize an sarray of element size 1/2/4/8 bytes */

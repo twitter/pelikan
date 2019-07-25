@@ -29,7 +29,7 @@
 
 
 /*          type                    string              #arg    #opt */
-#define REQ_array(ACTION)                                                \
+#define REQ_SARRAY(ACTION)                                          \
     ACTION( REQ_SARRAY_CREATE,      "SArray.create",    3,      0  )\
     ACTION( REQ_SARRAY_DELETE,      "SArray.delete",    2,      0  )\
     ACTION( REQ_SARRAY_LEN,         "SArray.len",       2,      0  )\

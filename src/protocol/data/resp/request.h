@@ -4,7 +4,7 @@
 #include "cmd_hash.h"
 #include "cmd_list.h"
 #include "cmd_misc.h"
-#include "cmd_sortedarray.h"
+#include "cmd_sarray.h"
 #include "cmd_zset.h"
 #include "token.h"
 
