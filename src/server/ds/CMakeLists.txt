@@ -10,6 +10,7 @@ set(SOURCE
 set(MODULES
     core
     ds_ziplist
+    ds_sarray
     protocol_admin
     protocol_resp
     slab

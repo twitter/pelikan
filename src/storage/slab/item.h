@@ -43,6 +43,7 @@
  *
  * item->end is followed by:
  * - 8-byte cas, if ITEM_CAS flag is set
+ * - other optional metadata
  * - key
  * - data
  */
@@ -136,6 +137,12 @@ static inline uint32_t
 item_nval(const struct item *it)
 {
     return it->vlen;
+}
+
+static inline size_t
+item_npayload(struct item *it)
+{
+    return item_cas_size() + it->olen + it->klen + it->vlen;
 }
 
 static inline size_t

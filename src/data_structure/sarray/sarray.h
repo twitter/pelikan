@@ -83,6 +83,12 @@ sarray_esize(const sarray_p sa)
     return SA_ESIZE(sa);
 }
 
+static inline uint32_t
+sarray_size(const sarray_p sa)
+{
+    return SARRAY_HEADER_SIZE + SA_ESIZE(sa) * SA_NENTRY(sa);
+}
+
 /* initialize an sarray of element size 1/2/4/8 bytes */
 sarray_rstatus_e sarray_init(sarray_p sa, uint32_t esize);
 

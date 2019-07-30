@@ -14,7 +14,8 @@
 #define OTHER_ERR_MSG       "unknown server error"
 
 
-typedef void (* command_fn)(struct response *, struct request *, struct command *cmd);
+typedef void (* command_fn)(struct response *, const struct request *, const
+        struct command *cmd);
 static command_fn command_registry[REQ_SENTINEL];
 
 static bool process_init = false;
