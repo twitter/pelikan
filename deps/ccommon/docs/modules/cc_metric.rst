@@ -111,10 +111,10 @@ Helper functions
 .. code-block:: C
 
   void metric_reset(struct metric sarr[], unsigned int nmetric);
-  size_t metric_print(char *buf, size_t nbuf, struct metric *m);
+  size_t metric_print(char *buf, size_t nbuf, char *fmt, struct metric *m);
 
 ``metric_reset`` resets the values of an array of metrics.
-``metric_print`` prints the name and value of a metric, in human readable format, to buffer ``buf``, with a single space separating the two fields. This simple style is compatible with how Memcached currently reports metrics ([Memcached]_). Helper functions for other formats (e.g. Redis [Redis]_, StatsD [StatsD]_) may be introduced in the future.
+``metric_print`` prints the name and value of a metric, in human readable format specified by ``fmt``, to buffer ``buf``.
 
 
 Update

@@ -441,8 +441,7 @@ static inline bool
 _allowed_in_name(char c)
 {
     /* the criteria is C's rules on variable names since we use it as such */
-    if ((c >= 'a' && c <= 'z') || c == '_' || (c >= 'A' && c <= 'Z') ||
-        (c >= '0' && c <= '9')) {
+    if (isalnum(c) || c == '_') {
         return true;
     } else {
         return false;
