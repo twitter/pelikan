@@ -94,8 +94,7 @@ req_get_bstr(struct bstring **bstr, const struct request *req, uint32_t offset)
 
     struct element *e = (struct element *)array_get(req->token, offset);
 
-    if (e->type != ELEM_STR) {
-        *bstr = NULL;
+    if (e->type != ELEM_BULK) {
         return false;
     }
 
@@ -110,6 +109,7 @@ req_get_int(int64_t *i, const struct request *req, uint32_t offset)
     ASSERT(i != NULL);
 
     struct element *e = (struct element *)array_get(req->token, offset);
+    log_verb("check type, %u", e->type);
     if (e->type != ELEM_INT) {
         return false;
     }

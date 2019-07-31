@@ -8,7 +8,8 @@
 bool allow_flush = ALLOW_FLUSH;
 
 void
-cmd_ping(struct response *rsp, struct request *req, struct command *cmd)
+cmd_ping(struct response *rsp, const struct request *req, const struct command
+        *cmd)
 {
     struct element *el = NULL;
 

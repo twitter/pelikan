@@ -26,7 +26,7 @@ _elem2blob(struct blob *blob, const struct element *elem)
 }
 
 static inline struct bstring *
-_get_key(struct request *req)
+_get_key(const struct request *req)
 {
     ASSERT(array_nelem(req->token) > LIST_KEY);
     struct element *key = (struct element *)array_get(req->token, LIST_KEY);
@@ -34,14 +34,14 @@ _get_key(struct request *req)
 }
 
 static inline struct element *
-_get_val(struct request *req)
+_get_val(const struct request *req)
 {
     ASSERT(array_nelem(req->token) > LIST_VAL);
     return (struct element *)array_get(req->token, LIST_VAL);
 }
 
 static inline bool
-_get_idx(int64_t *idx, struct request *req)
+_get_idx(int64_t *idx, const struct request *req)
 {
     ASSERT(array_nelem(req->token) > LIST_IDX);
     ASSERT(idx != NULL);
@@ -54,7 +54,7 @@ _get_idx(int64_t *idx, struct request *req)
 }
 
 static inline bool
-_get_vidx(int64_t *vidx, struct request *req)
+_get_vidx(int64_t *vidx, const struct request *req)
 {
     ASSERT(array_nelem(req->token) > LIST_VIDX);
     ASSERT(vidx != NULL);
@@ -67,7 +67,7 @@ _get_vidx(int64_t *vidx, struct request *req)
 }
 
 static inline bool
-_get_cnt(int64_t *cnt, struct request *req)
+_get_cnt(int64_t *cnt, const struct request *req)
 {
     ASSERT(array_nelem(req->token) > LIST_CNT);
     ASSERT(cnt != NULL);
@@ -80,7 +80,7 @@ _get_cnt(int64_t *cnt, struct request *req)
 }
 
 static inline struct item *
-_add_key(struct response *rsp, struct bstring *key)
+_add_key(struct response *rsp, const struct bstring *key)
 {
     struct element *reply = (struct element *)array_get(rsp->token, 0);
     struct item *it;
@@ -226,7 +226,8 @@ _rsp_storage_err(struct response *rsp, struct element *reply,
 
 
 void
-cmd_list_create(struct response *rsp, struct request *req, struct command *cmd)
+cmd_list_create(struct response *rsp, const struct request *req, const struct
+        command *cmd)
 {
     struct item *it;
     struct bstring *key = _get_key(req);
@@ -312,7 +313,8 @@ _delete_list_vals(struct element *reply, struct response *rsp, const struct bstr
 }
 
 void
-cmd_list_delete(struct response *rsp, struct request *req, struct command *cmd)
+cmd_list_delete(struct response *rsp, const struct request *req, const struct
+        command *cmd)
 {
     struct bstring *key = _get_key(req);
     struct element *reply = (struct element *)array_push(rsp->token);
@@ -348,7 +350,8 @@ cmd_list_delete(struct response *rsp, struct request *req, struct command *cmd)
 }
 
 void
-cmd_list_trim(struct response *rsp, struct request *req, struct command *cmd)
+cmd_list_trim(struct response *rsp, const struct request *req, const struct
+        command *cmd)
 {
     struct bstring *key = _get_key(req);
     struct element *reply = (struct element *)array_push(rsp->token);
@@ -397,7 +400,8 @@ cmd_list_trim(struct response *rsp, struct request *req, struct command *cmd)
 }
 
 void
-cmd_list_len(struct response *rsp, struct request *req, struct command *cmd)
+cmd_list_len(struct response *rsp, const struct request *req, const struct
+        command *cmd)
 {
     struct bstring *key = _get_key(req);
     struct element *reply = (struct element *)array_push(rsp->token);
@@ -426,7 +430,8 @@ cmd_list_len(struct response *rsp, struct request *req, struct command *cmd)
 }
 
 void
-cmd_list_find(struct response *rsp, struct request *req, struct command *cmd)
+cmd_list_find(struct response *rsp, const struct request *req, const struct
+        command *cmd)
 {
     /* TODO: this command doesn't seem to have a counterpart in redis. let's
              re-evaluate whether or not we want to support this functionality
@@ -438,7 +443,8 @@ cmd_list_find(struct response *rsp, struct request *req, struct command *cmd)
 }
 
 void
-cmd_list_get(struct response *rsp, struct request *req, struct command *cmd)
+cmd_list_get(struct response *rsp, const struct request *req, const struct
+        command *cmd)
 {
     struct bstring *key = _get_key(req);
     struct element *reply = (struct element *)array_push(rsp->token);
@@ -500,7 +506,8 @@ cmd_list_get(struct response *rsp, struct request *req, struct command *cmd)
 }
 
 void
-cmd_list_insert(struct response *rsp, struct request *req, struct command *cmd)
+cmd_list_insert(struct response *rsp, const struct request *req, const struct
+        command *cmd)
 {
     struct bstring *key = _get_key(req);
     struct element *reply = (struct element *)array_push(rsp->token);
@@ -560,7 +567,8 @@ cmd_list_insert(struct response *rsp, struct request *req, struct command *cmd)
 }
 
 void
-cmd_list_push(struct response *rsp, struct request *req, struct command *cmd)
+cmd_list_push(struct response *rsp, const struct request *req, const struct
+        command *cmd)
 {
     struct bstring *key = _get_key(req);
     struct element *reply = (struct element *)array_push(rsp->token);

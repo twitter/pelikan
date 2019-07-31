@@ -97,12 +97,14 @@ cmd_sarray_create(struct response *rsp, const struct request *req,
 
         return;
     }
+    log_verb("before esize");
     if (!req_get_int(&esize, req, SARRAY_ESIZE)) {
         compose_rsp_client_err(rsp, reply, cmd, key);
         INCR(process_metrics, sarray_find_ex);
 
         return;
     }
+    log_verb("post parse");
 
     it = _add_key(rsp, key);
     if (it == NULL) {

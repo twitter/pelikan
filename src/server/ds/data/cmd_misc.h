@@ -10,4 +10,4 @@ struct response;
 struct command;
 
 /* cmd_* functions must be command_fn (process.c) compatible */
-void cmd_ping(struct response *rsp, struct request *req, struct command *cmd);
+void cmd_ping(struct response *rsp, const struct request *req, const struct command *cmd);

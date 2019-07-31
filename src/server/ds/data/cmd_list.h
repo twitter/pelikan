@@ -31,11 +31,11 @@ struct response;
 struct command;
 
 /* cmd_* functions must be command_fn (process.c) compatible */
-void cmd_list_create(struct response *rsp, struct request *req, struct command *cmd);
-void cmd_list_delete(struct response *rsp, struct request *req, struct command *cmd);
-void cmd_list_trim(struct response *rsp, struct request *req, struct command *cmd);
-void cmd_list_len(struct response *rsp, struct request *req, struct command *cmd);
-void cmd_list_find(struct response *rsp, struct request *req, struct command *cmd);
-void cmd_list_get(struct response *rsp, struct request *req, struct command *cmd);
-void cmd_list_insert(struct response *rsp, struct request *req, struct command *cmd);
-void cmd_list_push(struct response *rsp, struct request *req, struct command *cmd);
+void cmd_list_create(struct response *rsp, const struct request *req, const struct command *cmd);
+void cmd_list_delete(struct response *rsp, const struct request *req, const struct command *cmd);
+void cmd_list_trim(struct response *rsp, const struct request *req, const struct command *cmd);
+void cmd_list_len(struct response *rsp, const struct request *req, const struct command *cmd);
+void cmd_list_find(struct response *rsp, const struct request *req, const struct command *cmd);
+void cmd_list_get(struct response *rsp, const struct request *req, const struct command *cmd);
+void cmd_list_insert(struct response *rsp, const struct request *req, const struct command *cmd);
+void cmd_list_push(struct response *rsp, const struct request *req, const struct command *cmd);
