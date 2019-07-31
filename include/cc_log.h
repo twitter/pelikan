@@ -61,6 +61,10 @@ typedef struct {
 void log_setup(log_metrics_st *metrics);
 void log_teardown(void);
 
+/* these two are for testing purposes only */
+log_metrics_st *log_metrics_create(void);
+void log_metrics_destroy(log_metrics_st **p);
+
 /**
  * Create a logger. If filename is NULL, created logger writes to stderr.
  * buf_cap is the size of the buffer used for pauseless logging. specify

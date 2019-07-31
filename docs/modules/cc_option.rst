@@ -40,6 +40,7 @@ Data Structure
   typedef enum option_type {
       OPTION_TYPE_BOOL,
       OPTION_TYPE_UINT,
+      OPTION_TYPE_FPN,
       OPTION_TYPE_STR,
       OPTION_TYPE_SENTINEL
   } option_type_e;
@@ -47,6 +48,7 @@ Data Structure
   typedef union option_val {
       bool vbool;
       uintmax_t vuint;
+      double vfpn;
       char *vstr;
   } option_val_u;
 
@@ -59,7 +61,7 @@ Data Structure
       char *description;
   };
 
-The core data structure ``struct option`` has six members. ``name`` and ``description`` help identify and explain the purpose of the option. ``type`` decides how input should be interpreted, which currently can be boolean, unsigned integer or C string. Both the default value and current value are kept around, with values matching the type. Keeping the default separately will make it easy to reset the option to original. Finally, boolean ``set`` tells if an option has been set, and thus usable.
+The core data structure ``struct option`` has six members. ``name`` and ``description`` help identify and explain the purpose of the option. ``type`` decides how input should be interpreted, which currently can be boolean, unsigned integer, double or C string. Both the default value and current value are kept around, with values matching the type. Keeping the default separately will make it easy to reset the option to original. Finally, boolean ``set`` tells if an option has been set, and thus usable.
 
 Synopsis
 --------
@@ -71,8 +73,8 @@ Synopsis
   rstatus_i option_load_file(FILE *fp, struct option options[], unsigned int nopt);
 
   void option_print(struct option *opt);
-  void option_printall(struct option options[], unsigned int nopt);
-  void option_printall_default(struct option options[], unsigned int nopt);
+  void option_print_all(struct option options[], unsigned int nopt);
+  void option_describe_all(struct option options[], unsigned int nopt);
 
   void option_free(struct option options[], unsigned int nopt);
 
@@ -118,8 +120,8 @@ Print option info
 .. code-block:: C
 
   void option_print(struct option *opt);
-  void option_printall(struct option options[], unsigned int nopt);
-  void option_printall_default(struct option options[], unsigned int nopt);
+  void option_print_all(struct option options[], unsigned int nopt);
+  void option_describe_all(struct option options[], unsigned int nopt);
 
 
 Examples

@@ -9,4 +9,3 @@ failure = "~0.1.1"
 
 [lib]
 name = "cc_binding"
-crate-type = ["rlib", "dylib", "staticlib", "lib"]
