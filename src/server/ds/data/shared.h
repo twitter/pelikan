@@ -105,15 +105,15 @@ req_get_bstr(struct bstring **bstr, const struct request *req, uint32_t offset)
 static inline bool
 req_get_int(int64_t *i, const struct request *req, uint32_t offset)
 {
-    ASSERT(array_nelem(req->token) > offset);
-    ASSERT(i != NULL);
+    struct bstring *bstr;
 
-    struct element *e = (struct element *)array_get(req->token, offset);
-    log_verb("check type, %u", e->type);
-    if (e->type != ELEM_INT) {
+    if (!req_get_bstr(&bstr, req, offset)) {
         return false;
     }
 
-    *i = e->num;
+    if (bstring_atoi64(i, bstr) != CC_OK) {
+        return false;
+    }
+
     return true;
 }

@@ -40,9 +40,9 @@ START_TEST(test_sarray_insert_seek)
     uint64_t val;
 
     ck_assert_int_eq(sarray_init(buf, 1), SARRAY_OK);
-    ck_assert_int_eq(sarray_insert(buf, 1), SARRAY_OK);
-    ck_assert_int_eq(sarray_insert(buf, 3), SARRAY_OK);
-    ck_assert_int_eq(sarray_insert(buf, 5), SARRAY_OK);
+    ck_assert_int_eq(sarray_insert(buf, 3), SARRAY_OK);  /* [3] */
+    ck_assert_int_eq(sarray_insert(buf, 1), SARRAY_OK);  /* [1, 3] */
+    ck_assert_int_eq(sarray_insert(buf, 5), SARRAY_OK);  /* [1, 3, 5] */
     ck_assert_int_eq(sarray_insert(buf, 12345), SARRAY_EINVALID);
     ck_assert_int_eq(sarray_nentry(buf), 3);
     ck_assert_int_eq(sarray_value(&val, buf, 1), SARRAY_OK);
@@ -52,10 +52,12 @@ START_TEST(test_sarray_insert_seek)
     ck_assert_int_eq(sarray_index(&idx, buf, 2), SARRAY_ENOTFOUND);
 
     ck_assert_int_eq(sarray_init(buf, 8), SARRAY_OK);
-    for (int i = 0; i < 50; ++i) { /* 0, 2, 4, ..., 98 */
+    for (int i = 49; i >= 0; --i) {
         ck_assert_int_eq(sarray_insert(buf, 1000 + i * 2), SARRAY_OK);
     }
     ck_assert_int_eq(sarray_nentry(buf), 50);
+    ck_assert_int_eq(sarray_value(&val, buf, 0), SARRAY_OK);
+    ck_assert_int_eq(val, 1000);
     ck_assert_int_eq(sarray_value(&val, buf, 10), SARRAY_OK);
     ck_assert_int_eq(val, 1020);
     ck_assert_int_eq(sarray_index(&idx, buf, 1020), SARRAY_OK);

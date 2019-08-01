@@ -93,12 +93,16 @@ _linear_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, ui
 
 
     for (i = 0; i < nentry; ++i, ++*idx) {
-        if (val == _get_value(_position(body, esize, i), esize)) {
-            return true;
+        if (val <= _get_value(_position(body, esize, i), esize)) {
+            break;
         }
     }
 
-    return false;
+    if (val == _get_value(_position(body, esize, *idx), esize)) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 static inline bool
@@ -116,7 +120,9 @@ _binary_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, ui
     if (val == _get_value(_position(body, esize, 0), esize)) {
         return true;
     }
-
+    if (val < _get_value(_position(body, esize, 0), esize)) {
+        return false;
+    }
     if (val > _get_value(_position(body, esize, nentry - 1), esize)) {
         *idx = nentry;
         return false;
