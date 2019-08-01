@@ -16,6 +16,8 @@
 
 #cmakedefine HAVE_STATS
 
+#cmakedefine HAVE_ITT_INSTRUMENTATION
+
 #cmakedefine TARGET_SLIMCACHE
 
 #cmakedefine TARGET_TWEMCACHE
