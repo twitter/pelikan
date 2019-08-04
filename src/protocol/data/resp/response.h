@@ -44,10 +44,12 @@ typedef struct {
 #define RSP_NOTFOUND "NOT_FOUND"
 #define RSP_PONG "PONG"
 #define RSP_EXIST "EXIST" /* key already exists and op is non-overwriting */
+#define RSP_NOOP "NOOP" /* key unmodified */
 
 #define RSP_ERR_ARG "Err invalid argument"
 #define RSP_ERR_NOSUPPORT "Err command not supported"
 #define RSP_ERR_OUTOFRANGE "Err index out of range"
+#define RSP_ERR_SERVER "Err unspecified server failure"
 #define RSP_ERR_STORAGE "Err storage failure"
 #define RSP_ERR_TYPE "Err type mismatch"
 

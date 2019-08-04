@@ -1,9 +1,9 @@
-#include "intarray.h"
+#include "sarray.h"
 
 #include <cc_debug.h>
 
 
-#define IA_BODY(_ia) ((uint8_t *)(_ia) + INTARRAY_HEADER_SIZE)
+#define SA_BODY(_sa) ((uint8_t *)(_sa) + SARRAY_HEADER_SIZE)
 #define SCAN_THRESHOLD 64
 
 static inline uint8_t *
@@ -93,12 +93,16 @@ _linear_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, ui
 
 
     for (i = 0; i < nentry; ++i, ++*idx) {
-        if (val == _get_value(_position(body, esize, i), esize)) {
-            return true;
+        if (val <= _get_value(_position(body, esize, i), esize)) {
+            break;
         }
     }
 
-    return false;
+    if (val == _get_value(_position(body, esize, *idx), esize)) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 static inline bool
@@ -116,7 +120,9 @@ _binary_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, ui
     if (val == _get_value(_position(body, esize, 0), esize)) {
         return true;
     }
-
+    if (val < _get_value(_position(body, esize, 0), esize)) {
+        return false;
+    }
     if (val > _get_value(_position(body, esize, nentry - 1), esize)) {
         *idx = nentry;
         return false;
@@ -159,159 +165,159 @@ _locate(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, uint64_t 
 }
 
 
-intarray_rstatus_e
-intarray_init(intarray_p ia, uint32_t esize)
+sarray_rstatus_e
+sarray_init(sarray_p sa, uint32_t esize)
 {
-    if (ia == NULL) {
-        return INTARRAY_ERROR;
+    if (sa == NULL) {
+        return SARRAY_ERROR;
     }
 
     if (esize != 1 && esize != 2 && esize != 4 && esize != 8) {
-        return INTARRAY_EINVALID;
+        return SARRAY_EINVALID;
     }
 
-    IA_NENTRY(ia) = 0;
-    IA_ESIZE(ia) = esize;
+    SA_NENTRY(sa) = 0;
+    SA_ESIZE(sa) = esize;
 
-    return INTARRAY_OK;
+    return SARRAY_OK;
 }
 
 
-intarray_rstatus_e
-intarray_value(uint64_t *val, const intarray_p ia, uint32_t idx)
+sarray_rstatus_e
+sarray_value(uint64_t *val, const sarray_p sa, uint32_t idx)
 {
     uint32_t esize, nentry;
 
-    if (val == NULL || ia == NULL) {
-        return INTARRAY_ERROR;
+    if (val == NULL || sa == NULL) {
+        return SARRAY_ERROR;
     }
 
-    nentry = intarray_nentry(ia);
+    nentry = sarray_nentry(sa);
     idx += (idx < 0) * nentry;
     if (idx < 0 || idx >= nentry) {
-        return INTARRAY_EOOB;
+        return SARRAY_EOOB;
     }
 
-    esize = intarray_esize(ia);
-    *val = _get_value(_position(IA_BODY(ia), esize, idx), esize);
+    esize = sarray_esize(sa);
+    *val = _get_value(_position(SA_BODY(sa), esize, idx), esize);
 
-    return INTARRAY_OK;
+    return SARRAY_OK;
 }
 
 /* caller should discard values in idx if function returns ENOTFOUND */
-intarray_rstatus_e
-intarray_index(uint32_t *idx, const intarray_p ia, uint64_t val)
+sarray_rstatus_e
+sarray_index(uint32_t *idx, const sarray_p sa, uint64_t val)
 {
     uint32_t esize;
     bool found;
 
-    if (ia == NULL || idx == NULL) {
-        return INTARRAY_ERROR;
+    if (sa == NULL || idx == NULL) {
+        return SARRAY_ERROR;
     }
 
-    esize = intarray_esize(ia);
+    esize = sarray_esize(sa);
     if (!_validate_range(esize, val)) {
-        return INTARRAY_EINVALID;
+        return SARRAY_EINVALID;
     }
 
-    found = _locate(idx, IA_BODY(ia), intarray_nentry(ia), esize, val);
+    found = _locate(idx, SA_BODY(sa), sarray_nentry(sa), esize, val);
     if (found) {
-        return INTARRAY_OK;
+        return SARRAY_OK;
     } else {
-        return INTARRAY_ENOTFOUND;
+        return SARRAY_ENOTFOUND;
     }
 }
 
 
-intarray_rstatus_e
-intarray_insert(intarray_p ia, uint64_t val)
+sarray_rstatus_e
+sarray_insert(sarray_p sa, uint64_t val)
 {
     bool found;
     uint8_t *body, *p;
     uint32_t idx, esize, nentry;
 
-    if (ia == NULL) {
-        return INTARRAY_ERROR;
+    if (sa == NULL) {
+        return SARRAY_ERROR;
     }
 
-    esize = intarray_esize(ia);
+    esize = sarray_esize(sa);
     if (!_validate_range(esize, val)) {
-        return INTARRAY_EINVALID;
+        return SARRAY_EINVALID;
     }
 
-    body = IA_BODY(ia);
-    nentry = intarray_nentry(ia);
+    body = SA_BODY(sa);
+    nentry = sarray_nentry(sa);
     found = _locate(&idx, body, nentry, esize, val);
     if (found) {
-        return INTARRAY_EDUP;
+        return SARRAY_EDUP;
     }
 
     p = _position(body, esize, idx);
     cc_memmove(p + esize, p, esize * (nentry - idx));
     _set_value(p, esize, val);
-    IA_NENTRY(ia)++;
+    SA_NENTRY(sa)++;
 
-    return INTARRAY_OK;
+    return SARRAY_OK;
 }
 
-intarray_rstatus_e
-intarray_remove(intarray_p ia, uint64_t val)
+sarray_rstatus_e
+sarray_remove(sarray_p sa, uint64_t val)
 {
     bool found;
     uint8_t *body, *p;
     uint32_t idx, esize, nentry;
 
-    if (ia == NULL) {
-        return INTARRAY_ERROR;
+    if (sa == NULL) {
+        return SARRAY_ERROR;
     }
 
-    esize = intarray_esize(ia);
+    esize = sarray_esize(sa);
     if (!_validate_range(esize, val)) {
-        return INTARRAY_EINVALID;
+        return SARRAY_EINVALID;
     }
 
-    body = IA_BODY(ia);
-    nentry = intarray_nentry(ia);
+    body = SA_BODY(sa);
+    nentry = sarray_nentry(sa);
     found = _locate(&idx, body, nentry, esize, val);
     if (found) {
         p = _position(body, esize, idx);
         cc_memmove(p, p + esize, esize * (nentry - idx - 1));
-        IA_NENTRY(ia)--;
+        SA_NENTRY(sa)--;
 
-        return INTARRAY_OK;
+        return SARRAY_OK;
     }
 
-    return INTARRAY_ENOTFOUND;
+    return SARRAY_ENOTFOUND;
 }
 
-intarray_rstatus_e
-intarray_truncate(intarray_p ia, int64_t count)
+sarray_rstatus_e
+sarray_truncate(sarray_p sa, int64_t count)
 {
     uint8_t *body;
     uint32_t esize, nentry;
 
-    if (ia == NULL) {
-        return INTARRAY_ERROR;
+    if (sa == NULL) {
+        return SARRAY_ERROR;
     }
 
     if (count == 0) {
-        return INTARRAY_OK;
+        return SARRAY_OK;
     }
 
-    body = IA_BODY(ia);
-    esize = intarray_esize(ia);
-    nentry = intarray_nentry(ia);
+    body = SA_BODY(sa);
+    esize = sarray_esize(sa);
+    nentry = sarray_nentry(sa);
     /* if abs(count) >= num entries in the array, remove all */
     if (count >= nentry || -count >= nentry) {
-        return intarray_init(ia, intarray_esize(ia));
+        return sarray_init(sa, sarray_esize(sa));
     }
 
     if (count > 0) { /* only need to move data if truncating from left */
         cc_memmove(body, body + esize * count, esize * (nentry - count));
-        IA_NENTRY(ia) -= count;
+        SA_NENTRY(sa) -= count;
     } else {
-        IA_NENTRY(ia) += count;
+        SA_NENTRY(sa) += count;
     }
 
-    return INTARRAY_OK;
+    return SARRAY_OK;
 }

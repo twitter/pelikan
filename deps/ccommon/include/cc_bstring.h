@@ -170,6 +170,7 @@ void bstring_free(struct bstring **bstring);
 
 /* bstring to uint conversion */
 rstatus_i bstring_atou64(uint64_t *u64, struct bstring *str);
+rstatus_i bstring_atoi64(int64_t *i64, struct bstring *str);
 
 #ifdef __cplusplus
 }

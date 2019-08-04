@@ -1,4 +1,4 @@
-set(suite intarray)
+set(suite sarray)
 set(test_name check_${suite})
 
 set(source check_${suite}.c)

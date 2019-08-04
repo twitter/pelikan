@@ -172,12 +172,12 @@ ring_array_create(size_t elem_size, uint32_t cap)
 void
 ring_array_destroy(struct ring_array **arr)
 {
-    log_verb("destroying ring array %p and freeing memory", *arr);
-
     if ((arr == NULL) || (*arr == NULL)) {
         log_warn("destroying NULL ring_array pointer");
         return;
     }
+
+    log_verb("destroying ring array %p and freeing memory", *arr);
 
     cc_free(*arr);
     *arr = NULL;

@@ -31,12 +31,12 @@
 #define REQ_LIST(ACTION)                                    \
     ACTION( REQ_LIST_CREATE,  "List.create",    2,      0  )\
     ACTION( REQ_LIST_DELETE,  "List.delete",    2,      2  )\
-    ACTION( REQ_LIST_TRIM,    "List.trim",      4,      0  )\
     ACTION( REQ_LIST_LEN,     "List.len",       2,      0  )\
     ACTION( REQ_LIST_FIND,    "List.find",      3,      0  )\
     ACTION( REQ_LIST_GET,     "List.get",       2,      2  )\
     ACTION( REQ_LIST_INSERT,  "List.insert",    4,      0  )\
-    ACTION( REQ_LIST_PUSH,    "List.push",      3,      -1 )
+    ACTION( REQ_LIST_PUSH,    "List.push",      3,      -1 )\
+    ACTION( REQ_LIST_TRIM,    "List.trim",      4,      0  )
 
 typedef enum list_elem {
     LIST_VERB = 0,
