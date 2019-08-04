@@ -1,7 +1,7 @@
 #include "setting.h"
 
 struct setting setting = {
-    { DS_OPTION(OPTION_INIT)        },
+    { RDS_OPTION(OPTION_INIT)       },
     { ADMIN_OPTION(OPTION_INIT)     },
     { SERVER_OPTION(OPTION_INIT)    },
     { WORKER_OPTION(OPTION_INIT)    },

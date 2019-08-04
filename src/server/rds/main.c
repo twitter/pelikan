@@ -14,9 +14,9 @@
 #include <sysexits.h>
 
 struct data_processor worker_processor = {
-    ds_process_read,
-    ds_process_write,
-    ds_process_error,
+    rds_process_read,
+    rds_process_write,
+    rds_process_error,
 };
 
 static void
@@ -24,11 +24,11 @@ show_usage(void)
 {
     log_stdout(
             "Usage:" CRLF
-            "  pelikan_ds [option|config]" CRLF
+            "  pelikan_rds [option|config]" CRLF
             );
     log_stdout(
             "Description:" CRLF
-            "  pelikan_ds is one of the unified cache backends. " CRLF
+            "  pelikan_rds is one of the unified cache backends. " CRLF
             "  It uses slab-based storage for various data types. " CRLF
             "  It speaks the RESP protocol." CRLF
             );
@@ -41,7 +41,7 @@ show_usage(void)
             );
     log_stdout(
             "Example:" CRLF
-            "  pelikan_ds ds.conf" CRLF CRLF
+            "  pelikan_rds rds.conf" CRLF CRLF
             "Sample config files can be found under the config dir." CRLF
             );
 }
@@ -92,10 +92,10 @@ setup(void)
     }
 
     /* setup top-level application options */
-    if (option_bool(&setting.ds.daemonize)) {
+    if (option_bool(&setting.rds.daemonize)) {
         daemonize();
     }
-    fname = option_str(&setting.ds.pid_filename);
+    fname = option_str(&setting.rds.pid_filename);
     if (fname != NULL) {
         /* to get the correct pid, call create_pidfile after daemonize */
         create_pidfile(fname);
@@ -124,7 +124,7 @@ setup(void)
     core_worker_setup(&setting.worker, &stats.worker);
 
     /* adding recurring events to maintenance/admin thread */
-    intvl = option_uint(&setting.ds.dlog_intvl);
+    intvl = option_uint(&setting.rds.dlog_intvl);
     if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
         log_stderr("Could not register timed event to flush debug log");
         goto error;

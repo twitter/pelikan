@@ -3,7 +3,8 @@
 #include "data/process.h"
 
 #include "core/core.h"
-#include "storage/cuckoo/cuckoo.h"
+#include "storage/slab/item.h"
+#include "storage/slab/slab.h"
 #include "protocol/data/resp_include.h"
 #include "time/time.h"
 
@@ -17,18 +18,18 @@
 
 /* option related */
 /*          name            type                default description */
-#define SLIMDS_OPTION(ACTION)                                                        \
+#define RDS_OPTION(ACTION)                                                              \
     ACTION( daemonize,      OPTION_TYPE_BOOL,   false,  "daemonize the process"        )\
     ACTION( pid_filename,   OPTION_TYPE_STR,    NULL,   "file storing the pid"         )\
     ACTION( dlog_intvl,     OPTION_TYPE_UINT,   500,    "debug log flush interval(ms)" )
 
 typedef struct {
-    SLIMDS_OPTION(OPTION_DECLARE)
-} slimds_options_st;
+    RDS_OPTION(OPTION_DECLARE)
+} rds_options_st;
 
 struct setting {
     /* top-level */
-    slimds_options_st   slimds;
+    rds_options_st      rds;
     /* application modules */
     admin_options_st    admin;
     server_options_st   server;
@@ -36,7 +37,7 @@ struct setting {
     process_options_st  process;
     request_options_st  request;
     response_options_st response;
-    cuckoo_options_st   cuckoo;
+    slab_options_st     slab;
     time_options_st     time;
     /* ccommon libraries */
     array_options_st    array;
