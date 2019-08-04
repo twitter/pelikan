@@ -1,0 +1,2 @@
+We may want to rename "rds", which stands for "rich data server" right now, once
+we come up with a proper name for the protocol we are using in this binary.

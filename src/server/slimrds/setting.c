@@ -1,7 +1,7 @@
 #include "setting.h"
 
 struct setting setting = {
-    { SLIMDS_OPTION(OPTION_INIT)    },
+    { SLIMRDS_OPTION(OPTION_INIT)   },
     { ADMIN_OPTION(OPTION_INIT)     },
     { SERVER_OPTION(OPTION_INIT)    },
     { WORKER_OPTION(OPTION_INIT)    },

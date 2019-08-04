@@ -36,6 +36,6 @@ extern bool allow_flush;
 void process_setup(process_options_st *options, process_metrics_st *metrics);
 void process_teardown(void);
 
-int slimds_process_read(struct buf **rbuf, struct buf **wbuf, void **data);
-int slimds_process_write(struct buf **rbuf, struct buf **wbuf, void **data);
-int slimds_process_error(struct buf **rbuf, struct buf **wbuf, void **data);
+int slimrds_process_read(struct buf **rbuf, struct buf **wbuf, void **data);
+int slimrds_process_write(struct buf **rbuf, struct buf **wbuf, void **data);
+int slimrds_process_error(struct buf **rbuf, struct buf **wbuf, void **data);
