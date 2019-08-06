@@ -25,7 +25,7 @@ def generate_config(rate, connections, vsize, slab_mem, threads):
   config_str = '''
 [general]
 clients = {threads}
-tcp-nodelay = true
+tcp_nodelay = true
 poolsize = {connections} # this specifies number of connection per thread
 # runtime ~= windows x duration
 windows = 2
