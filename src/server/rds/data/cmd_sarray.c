@@ -257,21 +257,18 @@ cmd_sarray_get(struct response *rsp, const struct request *req, const struct
     struct element *reply = (struct element *)array_push(rsp->token);
     struct bstring *key;
     struct item *it;
-    int64_t idx;
+    int64_t idx = 0, cnt = 1;
     uint64_t val;
+    uint32_t narg, nentry, nreturned = 0;
+    int32_t incr;
     sarray_rstatus_e status;
 
-    ASSERT(array_nelem(req->token) == cmd->narg);
+    narg = array_nelem(req->token);
+    ASSERT(narg >= cmd->narg);
 
     INCR(process_metrics, sarray_get);
 
     if (!req_get_bstr(&key, req, SARRAY_KEY)) {
-        compose_rsp_client_err(rsp, reply, cmd, key);
-        INCR(process_metrics, sarray_get_ex);
-
-        return;
-    }
-    if (!req_get_int(&idx, req, SARRAY_IDX)) {
         compose_rsp_client_err(rsp, reply, cmd, key);
         INCR(process_metrics, sarray_get_ex);
 
@@ -286,26 +283,55 @@ cmd_sarray_get(struct response *rsp, const struct request *req, const struct
         return;
     }
 
-    status = sarray_value(&val, (sarray_p)item_data(it), (uint32_t)idx);
-    switch (status) {
-    case SARRAY_OK:
-        rsp->type = reply->type = ELEM_INT;
-        reply->num = (int64_t)val;
-        log_verb("command '%.*s' '%.*s' succeeded, index %"PRIu32" has value "
-                PRIu64, cmd->bstr.len, cmd->bstr.data, key->len, key->data, idx,
-                val);
-        INCR(process_metrics, sarray_get_ok);
+    nentry = sarray_nentry((sarray_p)item_data(it));
 
-        break;
-    case SARRAY_EOOB:
-        compose_rsp_oob(rsp, reply, cmd, key, idx);
-        INCR(process_metrics, sarray_get_oob);
+    if (narg > cmd->narg && !req_get_int(&idx, req, SARRAY_IDX)) {
+        compose_rsp_client_err(rsp, reply, cmd, key);
+        INCR(process_metrics, sarray_get_ex);
 
-        break;
-    default:
-        compose_rsp_server_err(rsp, reply, cmd, key);
-        NOT_REACHED();
+        return;
     }
+
+    if (idx < 0) {
+        idx += nentry;
+        if (idx < 0) {
+            idx = 0;
+        }
+    } else {
+        if (idx > nentry) {
+            idx = nentry;
+        }
+    }
+
+    if (narg > cmd->narg + 1 && !req_get_int(&cnt, req, SARRAY_ICNT)) {
+        compose_rsp_client_err(rsp, reply, cmd, key);
+        INCR(process_metrics, sarray_get_ex);
+
+        return;
+    }
+    /* cnt < 0 means return in reverse order */
+    if (cnt > 0) {
+        incr = 1;
+        nreturned = MIN(nentry - idx, cnt);
+    } else {
+        incr = -1;
+        nreturned = MIN(idx + 1, -cnt);
+    }
+
+    /* write the array header */
+    rsp->type = ELEM_ARRAY;
+    for (; nreturned > 0; nreturned--, idx += incr) {
+        status = sarray_value(&val, (sarray_p)item_data(it), (uint32_t)idx);
+        ASSERT(status == SARRAY_OK);
+        reply->type = ELEM_INT;
+        reply->num = val;
+        reply = (struct element *)array_push(rsp->token);
+    }
+    array_pop(rsp->token);
+
+    INCR(process_metrics, sarray_get_ok);
+    log_verb("command '%.*s' '%.*s' succeeded, returning %"PRIu32" elements",
+            cmd->bstr.len, cmd->bstr.data, key->len, key->data, array_nelem(rsp->token));
 }
 
 void
@@ -320,7 +346,7 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
     sarray_p sa;
     sarray_rstatus_e status;
 
-    ASSERT(array_nelem(req->token) == cmd->narg);
+    ASSERT(array_nelem(req->token) >= cmd->narg);
 
     INCR(process_metrics, sarray_insert);
 
@@ -340,7 +366,7 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
     }
 
     /* parse and store all values to be inserted in array vals */
-    for (uint32_t i = SARRAY_VAL; i < array_nelem(req->token); ++i) {
+    for (uint32_t i = SARRAY_VAL; i < array_nelem(req->token); ++i, ++nval) {
         if (!req_get_int(&val, req, i)) {
             compose_rsp_client_err(rsp, reply, cmd, key);
             INCR(process_metrics, sarray_insert_ex);
@@ -348,7 +374,6 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
             return;
         } else {
             vals[nval] = (uint64_t)val;
-            nval++;
         }
     }
 
@@ -388,7 +413,7 @@ cmd_sarray_remove(struct response *rsp, const struct request *req, const struct
     struct element *reply = (struct element *)array_push(rsp->token);
     struct bstring *key;
     struct item *it;
-    uint32_t nval = 0, nremoved = 0, delta;
+    uint32_t nval = 0, nremoved = 0;
     int64_t val;
     sarray_p sa;
     sarray_rstatus_e status;
