@@ -89,7 +89,7 @@ slab_evict_opt: 1
 slab_prealloc: yes
 slab_hash_power: {hash_power}
 slab_mem: {slab_mem}
-slab_size: 1048756
+slab_size: 1048576
 slab_datapool_prefault: yes
 
 stats_intvl: 10000
