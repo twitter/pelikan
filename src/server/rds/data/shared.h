@@ -53,6 +53,16 @@ compose_rsp_noop(struct response *rsp, struct element *reply,
 }
 
 static inline void
+compose_rsp_numeric(struct response *rsp, struct element *reply,
+        const struct command *cmd, const struct bstring *key, int64_t num)
+{
+    rsp->type = reply->type = ELEM_INT;
+    reply->num = num;
+    log_verb("command '%.*s' '%.*s' succeeded, response value is %"PRIi64,
+            cmd->bstr.len, cmd->bstr.data, key->len, key->data, num);
+}
+
+static inline void
 compose_rsp_client_err(struct response *rsp, struct element *reply,
         const struct command *cmd, const struct bstring *key)
 {

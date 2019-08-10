@@ -1,7 +1,7 @@
 #pragma once
 
 /*          name                        type            description */
-#define PROCESS_SARRAY_METRIC(ACTION)                                                 \
+#define PROCESS_SARRAY_METRIC(ACTION)                                                     \
     ACTION( sarray_create,              METRIC_COUNTER, "# sarray create requests"       )\
     ACTION( sarray_create_exist,        METRIC_COUNTER, "# sarray already exist"         )\
     ACTION( sarray_create_ok,           METRIC_COUNTER, "# sarray stored"                )\

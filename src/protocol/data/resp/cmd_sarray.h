@@ -36,7 +36,7 @@
     ACTION( REQ_SARRAY_FIND,        "SArray.find",      3,      0  )\
     ACTION( REQ_SARRAY_GET,         "SArray.get",       2,      2  )\
     ACTION( REQ_SARRAY_INSERT,      "SArray.insert",    3,      -1 )\
-    ACTION( REQ_SARRAY_REMOVE,      "SArray.remove",    3,      0  )\
+    ACTION( REQ_SARRAY_REMOVE,      "SArray.remove",    3,      -1 )\
     ACTION( REQ_SARRAY_TRUNCATE,    "SArray.truncate",  3,      0  )
 
 typedef enum sarray_elem {
