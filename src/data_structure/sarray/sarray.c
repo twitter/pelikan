@@ -108,7 +108,7 @@ _linear_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, ui
 static inline bool
 _binary_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, uint64_t val)
 {
-    uint32_t id, imin, imax;
+    uint32_t id = 0, imin, imax;
     uint32_t curr;
 
     *idx = 0;

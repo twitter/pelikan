@@ -15,7 +15,7 @@
 #define MAX_NVAL 255  /* max no. of values to insert/remove in one request */
 
 static uint64_t vals[MAX_NVAL];
-
+static struct bstring null_key = null_bstring;
 
 /**
  * Attempt to extend an item by delta bytes. This is accomplished by first
@@ -168,7 +168,7 @@ cmd_sarray_delete(struct response *rsp, const struct request *req,
         const struct command *cmd)
 {
     struct element *reply = (struct element *)array_push(rsp->token);
-    struct bstring *key;
+    struct bstring *key = &null_key;
 
     ASSERT(array_nelem(req->token) == cmd->narg);
 
@@ -195,7 +195,7 @@ cmd_sarray_len(struct response *rsp, const struct request *req,
         const struct command *cmd)
 {
     struct element *reply = (struct element *)array_push(rsp->token);
-    struct bstring *key;
+    struct bstring *key = &null_key;
     struct item *it;
     uint32_t nentry;
 
@@ -227,7 +227,7 @@ cmd_sarray_find(struct response *rsp, const struct request *req, const struct
         command *cmd)
 {
     struct element *reply = (struct element *)array_push(rsp->token);
-    struct bstring *key;
+    struct bstring *key = &null_key;
     struct item *it;
     uint32_t idx;
     int64_t val;
@@ -290,7 +290,7 @@ cmd_sarray_get(struct response *rsp, const struct request *req, const struct
         command *cmd)
 {
     struct element *reply = (struct element *)array_push(rsp->token);
-    struct bstring *key;
+    struct bstring *key = &null_key;
     struct item *it;
     int64_t idx = 0, cnt = 1;
     uint64_t val;
@@ -374,7 +374,7 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
         command *cmd)
 {
     struct element *reply = (struct element *)array_push(rsp->token);
-    struct bstring *key;
+    struct bstring *key = &null_key;
     struct item *it;
     uint32_t nval = 0, esize;
     int64_t delta, val, wml, wmh, nentry, ninserted = 0;
@@ -479,7 +479,7 @@ cmd_sarray_remove(struct response *rsp, const struct request *req, const struct
         command *cmd)
 {
     struct element *reply = (struct element *)array_push(rsp->token);
-    struct bstring *key;
+    struct bstring *key = &null_key;
     struct item *it;
     uint32_t nval = 0, nremoved = 0;
     int64_t val;
@@ -555,7 +555,7 @@ cmd_sarray_truncate(struct response *rsp, const struct request *req, const
         struct command *cmd)
 {
     struct element *reply = (struct element *)array_push(rsp->token);
-    struct bstring *key;
+    struct bstring *key = &null_key;
     struct item *it;
     int64_t cnt;
     sarray_rstatus_e status;
