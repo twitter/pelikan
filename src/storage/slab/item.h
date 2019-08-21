@@ -166,7 +166,7 @@ item_optional(struct item *it)
 }
 
 /*
- * Get start location of item payload
+ * Get start location of item value
  */
 static inline char *
 item_data(struct item *it)
