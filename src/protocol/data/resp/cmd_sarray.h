@@ -2,7 +2,7 @@
 
 /**
  * create: create an empty array or integer width ESIZE
- * SArray.create KEY ESIZE
+ * SArray.create KEY ESIZE [WATERMARK_L] [WATERMARK_H]
  *
  * delete: delete an array
  * SArray.delete KEY
@@ -20,7 +20,7 @@
  * SArray.insert KEY VALUE [VALUE ...]
  *
  * remove: remove a particular value from array
- * SArray.remove KEY VALUE
+ * SArray.remove KEY VALUE [VALUE ...]
  *
  * truncate: truncate a array
  * SArray.truncate KEY COUNT
@@ -30,7 +30,7 @@
 
 /*          type                    string              #arg    #opt */
 #define REQ_SARRAY(ACTION)                                          \
-    ACTION( REQ_SARRAY_CREATE,      "SArray.create",    3,      0  )\
+    ACTION( REQ_SARRAY_CREATE,      "SArray.create",    3,      2  )\
     ACTION( REQ_SARRAY_DELETE,      "SArray.delete",    2,      0  )\
     ACTION( REQ_SARRAY_LEN,         "SArray.len",       2,      0  )\
     ACTION( REQ_SARRAY_FIND,        "SArray.find",      3,      0  )\
@@ -47,4 +47,6 @@ typedef enum sarray_elem {
     SARRAY_IDX = 2,
     SARRAY_CNT = 2,
     SARRAY_ICNT = 3, /* when an index is also present */
+    SARRAY_WML = 3,  /* watermark (low) */
+    SARRAY_WMH = 4,  /* watermark (high) */
 } sarray_elem_e;
