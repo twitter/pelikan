@@ -163,6 +163,18 @@ _slab_put_item_into_freeq(struct item *it, uint8_t id)
 }
 
 /*
+ * Because a slab can have a reserved item (claimed but not linked), which is
+ * requested when a write command does not have the entirety of value in the
+ * buffer, eviction will fail if the slab has a non-zero refcount. True is
+ * returned if the slab got no reserved items, otherwise False.
+ */
+static inline bool
+_slab_check_no_refcount(struct slab *slab)
+{
+    return (slab->refcount == 0);
+}
+
+/*
  * Recreate items
  */
 static void
@@ -189,6 +201,11 @@ _slab_recreate_items(struct slab *slab)
             }
         } else if (it->in_freeq) {
             _slab_put_item_into_freeq(it, slab->id);
+        } else if (it->klen && !_slab_check_no_refcount(slab)) {
+           /* before reset, item could be only reserved
+            * ensure that slab has a reserved item(s)
+            */
+           item_release(&it);
         }
     }
 }
@@ -699,19 +716,6 @@ _slab_get_new(void)
     return slab;
 }
 
-
-/*
- * Because a slab can have a reserved item (claimed but not linked), which is
- * requested when a write command does not have the entirety of value in the
- * buffer, eviction will fail if the slab has a non-zero refcount. True is
- * returned if the slab is successfully evicted, False if eviction is denied.
- */
-static inline bool
-_slab_evict_ok(struct slab *slab)
-{
-    return (slab->refcount == 0);
-}
-
 /*
  * Evict a slab by evicting all the items within it. This means that the
  * items that are carved out of the slab must either be deleted from their
@@ -775,7 +779,7 @@ _slab_evict_rand(void)
 
     do {
         slab = _slab_table_rand();
-    } while (slab != NULL && ++i < TRIES_MAX && !_slab_evict_ok(slab));
+    } while (slab != NULL && ++i < TRIES_MAX && !_slab_check_no_refcount(slab));
 
     if (slab == NULL) {
         /* warning here because eviction failure should be rare. This can
@@ -800,7 +804,7 @@ _slab_evict_lru(int id)
     struct slab *slab = _slab_lruq_head();
     int i = 0;
 
-    while (slab != NULL && ++i < TRIES_MAX && !_slab_evict_ok(slab)) {
+    while (slab != NULL && ++i < TRIES_MAX && !_slab_check_no_refcount(slab)) {
         slab = TAILQ_NEXT(slab, s_tqe);
     };
 
