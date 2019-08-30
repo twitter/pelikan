@@ -169,10 +169,14 @@ sarray_rstatus_e
 sarray_init(sarray_p sa, uint32_t esize)
 {
     if (sa == NULL) {
+        log_debug("NULL pointer encountered for sa");
+
         return SARRAY_ERROR;
     }
 
     if (esize != 1 && esize != 2 && esize != 4 && esize != 8) {
+        log_debug("%"PRIu32" is not a valid size", esize);
+
         return SARRAY_EINVALID;
     }
 
@@ -189,6 +193,8 @@ sarray_value(uint64_t *val, const sarray_p sa, uint32_t idx)
     uint32_t esize, nentry;
 
     if (val == NULL || sa == NULL) {
+        log_debug("NULL pointer encountered for sa %p or val %p", sa, val);
+
         return SARRAY_ERROR;
     }
 
@@ -212,11 +218,16 @@ sarray_index(uint32_t *idx, const sarray_p sa, uint64_t val)
     bool found;
 
     if (sa == NULL || idx == NULL) {
+        log_debug("NULL pointer encountered for sa %p or val %p", sa, val);
+
         return SARRAY_ERROR;
     }
 
     esize = sarray_esize(sa);
     if (!_validate_range(esize, val)) {
+        log_debug("%"PRIu64" out of range for %"PRIu32" byte integer", val,
+                esize);
+
         return SARRAY_EINVALID;
     }
 
@@ -237,11 +248,16 @@ sarray_insert(sarray_p sa, uint64_t val)
     uint32_t idx, esize, nentry;
 
     if (sa == NULL) {
+        log_debug("NULL pointer encountered for sa");
+
         return SARRAY_ERROR;
     }
 
     esize = sarray_esize(sa);
     if (!_validate_range(esize, val)) {
+        log_debug("%"PRIu64" out of range for %"PRIu32" byte integer", val,
+                esize);
+
         return SARRAY_EINVALID;
     }
 
@@ -268,11 +284,16 @@ sarray_remove(sarray_p sa, uint64_t val)
     uint32_t idx, esize, nentry;
 
     if (sa == NULL) {
+        log_debug("NULL pointer encountered for sa");
+
         return SARRAY_ERROR;
     }
 
     esize = sarray_esize(sa);
     if (!_validate_range(esize, val)) {
+        log_debug("%"PRIu64" out of range for %"PRIu32" byte integer", val,
+                esize);
+
         return SARRAY_EINVALID;
     }
 
@@ -297,6 +318,8 @@ sarray_truncate(sarray_p sa, int64_t count)
     uint32_t esize, nentry;
 
     if (sa == NULL) {
+        log_debug("NULL pointer encountered for sa");
+
         return SARRAY_ERROR;
     }
 
