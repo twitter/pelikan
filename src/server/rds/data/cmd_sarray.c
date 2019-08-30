@@ -84,7 +84,7 @@ cmd_sarray_create(struct response *rsp, const struct request *req,
         const struct command *cmd)
 {
     struct element *reply = (struct element *)array_push(rsp->token);
-    struct bstring *key;
+    struct bstring *key = &null_key;
     struct item *it;
     item_rstatus_e istatus;
     uint32_t ntoken;
@@ -126,27 +126,19 @@ cmd_sarray_create(struct response *rsp, const struct request *req,
         return;
     }
 
-    /* add key */
     it = item_get(key);
-    if (it != NULL) {
+    if (it != NULL) { /* do not add key if exists */
         rsp->type = reply->type = ELEM_ERR;
         reply->bstr = str2bstr(RSP_EXIST);
         INCR(process_metrics, sarray_create_exist);
-    } else {
-        /* TODO: figure out a TTL story here */
-        istatus = item_reserve(&it, key, NULL, SARRAY_HEADER_SIZE,
-                WATERMARK_SIZE * bounded, INT32_MAX);
-        if (istatus != ITEM_OK) {
-            rsp->type = reply->type = ELEM_ERR;
-            reply->bstr = str2bstr(RSP_ERR_STORAGE);
-        } else {
-            if (bounded) {
-                _set_watermark((uint32_t *)item_optional(it), low, high);
-            }
-            INCR(process_metrics, sarray_create_ok);
-        }
+
+        return;
     }
-    if (it == NULL) {
+
+    /* TODO: figure out a TTL story here */
+    istatus = item_reserve(&it, key, NULL, SARRAY_HEADER_SIZE,
+            WATERMARK_SIZE * bounded, INT32_MAX);
+    if (istatus != ITEM_OK) {
         compose_rsp_storage_err(rsp, reply, cmd, key);
         INCR(process_metrics, sarray_create_ex);
 
@@ -156,6 +148,9 @@ cmd_sarray_create(struct response *rsp, const struct request *req,
     /* initialize data structure */
     sarray_init((sarray_p)item_data(it), (uint32_t)esize);
     it->vlen = SARRAY_HEADER_SIZE;
+    if (bounded) {
+        _set_watermark((uint32_t *)item_optional(it), low, high);
+    }
 
     item_insert(it, key);
 
