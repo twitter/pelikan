@@ -127,3 +127,19 @@ req_get_int(int64_t *i, const struct request *req, uint32_t offset)
 
     return true;
 }
+
+static inline bool
+req_get_uint(uint64_t *u, const struct request *req, uint32_t offset)
+{
+    struct bstring *bstr;
+
+    if (!req_get_bstr(&bstr, req, offset)) {
+        return false;
+    }
+
+    if (bstring_atou64(u, bstr) != CC_OK) {
+        return false;
+    }
+
+    return true;
+}
