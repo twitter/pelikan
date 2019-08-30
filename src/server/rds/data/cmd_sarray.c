@@ -399,6 +399,7 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
     /* parse and store all values to be inserted in array vals */
     for (uint32_t i = SARRAY_VAL; i < array_nelem(req->token); ++i, ++nval) {
         if (!req_get_uint(&val, req, i)) {
+            log_debug("the value at offset %"PRIu32" is invalid", i);
             compose_rsp_client_err(rsp, reply, cmd, key);
             INCR(process_metrics, sarray_insert_ex);
 
@@ -443,6 +444,7 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
     for (uint32_t i = 0; i < nval; ++i) {
         status = sarray_insert(sa, vals[i]);
         if (status == SARRAY_EINVALID) {
+            log_debug("value %"PRIu32" out of %"PRIu32" is invalid", i, nval);
             compose_rsp_client_err(rsp, reply, cmd, key);
             INCR(process_metrics, sarray_insert_ex);
             return;
@@ -531,6 +533,7 @@ cmd_sarray_remove(struct response *rsp, const struct request *req, const struct
             break;
         case SARRAY_EINVALID:
             /* client error, bad argument */
+            log_debug("value %"PRIu32" out of %"PRIu32" is invalid", i, nval);
             compose_rsp_client_err(rsp, reply, cmd, key);
             INCR(process_metrics, sarray_remove_ex);
 
