@@ -89,7 +89,7 @@ cmd_sarray_create(struct response *rsp, const struct request *req,
     item_rstatus_e istatus;
     uint32_t ntoken;
     bool bounded;
-    int64_t esize, low, high;
+    uint64_t esize, low, high;
 
     ntoken = array_nelem(req->token);
     ASSERT(ntoken >= cmd->narg);
@@ -102,7 +102,7 @@ cmd_sarray_create(struct response *rsp, const struct request *req,
 
         return;
     }
-    if (!req_get_int(&esize, req, SARRAY_ESIZE)) {
+    if (!req_get_uint(&esize, req, SARRAY_ESIZE)) {
         compose_rsp_client_err(rsp, reply, cmd, key);
         INCR(process_metrics, sarray_create_ex);
 
@@ -118,8 +118,8 @@ cmd_sarray_create(struct response *rsp, const struct request *req,
     }
 
     /* get low & high watermarks */
-    if (cmd->nopt > 0 && (!req_get_int(&low, req, SARRAY_WML) ||
-                !req_get_int(&high, req, SARRAY_WMH))) {
+    if (cmd->nopt > 0 && (!req_get_uint(&low, req, SARRAY_WML) ||
+                !req_get_uint(&high, req, SARRAY_WMH))) {
         compose_rsp_client_err(rsp, reply, cmd, key);
         INCR(process_metrics, sarray_create_ex);
 
@@ -225,7 +225,7 @@ cmd_sarray_find(struct response *rsp, const struct request *req, const struct
     struct bstring *key = &null_key;
     struct item *it;
     uint32_t idx;
-    int64_t val;
+    uint64_t val;
     sarray_rstatus_e status;
 
     ASSERT(array_nelem(req->token) == cmd->narg);
@@ -238,7 +238,7 @@ cmd_sarray_find(struct response *rsp, const struct request *req, const struct
 
         return;
     }
-    if (!req_get_int(&val, req, SARRAY_VAL)) {
+    if (!req_get_uint(&val, req, SARRAY_VAL)) {
         compose_rsp_client_err(rsp, reply, cmd, key);
         INCR(process_metrics, sarray_find_ex);
 
@@ -372,7 +372,8 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
     struct bstring *key = &null_key;
     struct item *it;
     uint32_t nval = 0, esize;
-    int64_t delta, val, wml, wmh, nentry, ninserted = 0;
+    int64_t delta, wml, wmh, nentry, ninserted = 0;
+    uint64_t val;
     sarray_p sa;
     sarray_rstatus_e status;
 
@@ -397,13 +398,13 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
 
     /* parse and store all values to be inserted in array vals */
     for (uint32_t i = SARRAY_VAL; i < array_nelem(req->token); ++i, ++nval) {
-        if (!req_get_int(&val, req, i)) {
+        if (!req_get_uint(&val, req, i)) {
             compose_rsp_client_err(rsp, reply, cmd, key);
             INCR(process_metrics, sarray_insert_ex);
 
             return;
         } else {
-            vals[nval] = (uint64_t)val;
+            vals[nval] = val;
         }
     }
 
