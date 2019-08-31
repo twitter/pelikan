@@ -82,6 +82,9 @@ process_request(struct response *rsp, struct request *req)
     struct command cmd;
     command_fn func = command_registry[req->type];
 
+    log_verb("processing req %p, write rsp to %p", req, rsp);
+    INCR(process_metrics, process_req);
+
     if (func == NULL) {
         struct element *reply = (struct element *)array_push(rsp->token);
         log_warn("command is recognized but not implemented");

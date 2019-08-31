@@ -151,12 +151,19 @@ _tcp_accept(struct buf_sock *ss)
     }
 
     if (!ss->hdl->accept(sc, s->ch)) {
+        buf_sock_reset(s);
         buf_sock_return(&s);
         return false;
     }
 
     /* push buf_sock to queue */
-    ring_array_push(&s, conn_new);
+    if (ring_array_push(&s, conn_new) != CC_OK) { /* close if can't enqueue */
+        log_error("new connetion queue is full, closing connection");
+        buf_sock_reset(s);
+        buf_sock_return(&s);
+        return false;
+    }
+
     /* notify worker, note this may fail and will be retried via write event */
     _server_pipe_write();
 
