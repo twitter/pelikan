@@ -28,6 +28,7 @@
     ACTION( sarray_insert_ok,           METRIC_COUNTER, "# sarray insert success"        )\
     ACTION( sarray_insert_notfound,     METRIC_COUNTER, "# sarray insert miss"           )\
     ACTION( sarray_insert_noop,         METRIC_COUNTER, "# sarray insert no action"      )\
+    ACTION( sarray_insert_trim,         METRIC_COUNTER, "# sarray insert lead to trim"   )\
     ACTION( sarray_insert_ex,           METRIC_COUNTER, "# sarray insert exceptions"     )\
     ACTION( sarray_remove,              METRIC_COUNTER, "# sarray remove requests"       )\
     ACTION( sarray_remove_ok,           METRIC_COUNTER, "# sarray remove success"        )\
