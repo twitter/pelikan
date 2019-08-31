@@ -17,49 +17,6 @@
 static uint64_t vals[MAX_NVAL];
 static struct bstring null_key = null_bstring;
 
-/**
- * Attempt to extend an item by delta bytes. This is accomplished by first
- * checking if adding delta bytes to payload of it would require a larger item
- * to fit.
- *  - If no, then returns OK status without altering item.
- *  - If yes, then attempts to reserve an item that would be large enough. If
- *    this succeeds, then `it' is updated to the new item, and the payload of
- *    the old item is copied to the new one. If allocation fails, then a failure
- *    status is returned, and `it' remain unchanged.
- */
-static inline item_rstatus_e
-_realloc_key(struct item **it, const struct bstring *key, uint32_t delta)
-{
-    ASSERT(it != NULL && *it != NULL);
-
-    if (!item_will_fit(*it, delta)) {
-        /* must alloc new item, cannot fit in place */
-        struct item *nit;
-        item_rstatus_e istatus;
-
-        /* carry over all applilcable item metadata */
-        istatus = item_reserve(&nit, key, NULL, item_nval(*it) + delta,
-                (*it)->olen, (*it)->expire_at);
-        if (istatus != ITEM_OK) {
-            log_debug("reallocate item for key '%.*s' failed: %d", key->len,
-                    key->data, istatus);
-            return istatus;
-        }
-
-        log_verb("successfully reallocated item for key '%.*s'", key->len,
-                key->data);
-        /*copy item payload */
-        /* NOTE(yao): we are double copying the key portion here */
-        cc_memcpy(nit->end, (*it)->end, item_npayload(*it));
-        nit->vlen = (*it)->vlen + delta;
-
-        *it = nit;
-        item_insert(nit, key);
-    }
-
-    ASSERT(item_will_fit(*it, delta));
-    return ITEM_OK;
-}
 
 static inline uint32_t
 _watermark_low(uint32_t *opt)
@@ -435,11 +392,35 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
     esize = sarray_esize(sa);
     delta = esize * nval;
 
-    if (_realloc_key(&it, key, delta) != ITEM_OK) {
-        compose_rsp_storage_err(rsp, reply, cmd, key);
-        INCR(process_metrics, sarray_insert_ex);
+    /**
+     * Attempt to extend an item by delta bytes. This is accomplished by first
+     * checking if adding delta bytes to payload of it would require a larger item
+     * to fit.
+     */
+    if (!item_will_fit(it, delta)) {
+        /* must alloc new item, cannot fit in place */
+        struct item *nit;
 
-        return;
+        /* carry over all applilcable item metadata */
+        if (item_reserve(&nit, key, NULL, item_nval(it) + delta, it->olen,
+                    it->expire_at) != ITEM_OK) {
+            log_debug("reallocate item for key '%.*s' failed", key->len,
+                    key->data);
+            compose_rsp_storage_err(rsp, reply, cmd, key);
+            INCR(process_metrics, sarray_insert_ex);
+
+            return;
+        }
+
+        log_verb("successfully resized item for key '%.*s' to allow delta of %"
+                PRIu32" bytes", key->len, key->data, delta);
+
+        /*copy item payload */
+        /* NOTE(yao): we are double copying the key portion here */
+        cc_memcpy(nit->end, it->end, item_npayload(it));
+        nit->vlen = it->vlen;
+        it = nit;
+        item_insert(nit, key);
     }
 
     sa = (sarray_p)item_data(it); /* item might have changed */
@@ -457,6 +438,7 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
         } else {
             INCR(process_metrics, sarray_insert_ok);
             ninserted++;
+            it->vlen += esize;
         }
     }
 
@@ -468,6 +450,7 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
             log_verb("truncating '%.*s' from %"PRIu32" down to %"PRIu32" elements",
                 key->len, key->data, nentry, wml);
             sarray_truncate(sa, nentry - wml);
+            it->vlen -= esize * (nentry - wml);
         }
     }
 
@@ -481,7 +464,7 @@ cmd_sarray_remove(struct response *rsp, const struct request *req, const struct
     struct element *reply = (struct element *)array_push(rsp->token);
     struct bstring *key = &null_key;
     struct item *it;
-    uint32_t nval = 0, nremoved = 0;
+    uint32_t nval = 0, nremoved = 0, esize;
     int64_t val;
     sarray_p sa;
     sarray_rstatus_e status;
@@ -520,11 +503,13 @@ cmd_sarray_remove(struct response *rsp, const struct request *req, const struct
     /* TODO: should we try to "fit" to a smaller item here? */
 
     sa = (sarray_p)item_data(it);
+    esize = sarray_esize(sa);
     for (uint32_t i = 0; i < nval; ++i) {
         status = sarray_remove(sa, vals[i]);
         switch (status) {
         case SARRAY_OK:
             nremoved++;
+            it->vlen -= esize;
             INCR(process_metrics, sarray_remove_ok);
 
             break;
@@ -559,6 +544,7 @@ cmd_sarray_truncate(struct response *rsp, const struct request *req, const
     struct bstring *key = &null_key;
     struct item *it;
     int64_t cnt;
+    sarray_p sa;
     sarray_rstatus_e status;
 
     ASSERT(array_nelem(req->token) == cmd->narg);
@@ -586,11 +572,13 @@ cmd_sarray_truncate(struct response *rsp, const struct request *req, const
         return;
     }
 
-    status = sarray_truncate((sarray_p)item_data(it), cnt);
+    sa = (sarray_p)item_data(it);
+    status = sarray_truncate(sa, cnt);
     if (status != SARRAY_OK) {
         compose_rsp_server_err(rsp, reply, cmd, key);
     }
 
+    it->vlen = SARRAY_HEADER_SIZE + sarray_esize(sa) * sarray_nentry(sa);
     compose_rsp_ok(rsp, reply, cmd, key);
     INCR(process_metrics, sarray_truncate_ok);
 }
