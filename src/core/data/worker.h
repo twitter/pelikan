@@ -22,7 +22,9 @@ typedef struct {
     ACTION( worker_event_loop,      METRIC_COUNTER, "# worker event loops returned" )\
     ACTION( worker_event_read,      METRIC_COUNTER, "# worker core_read events"     )\
     ACTION( worker_event_write,     METRIC_COUNTER, "# worker core_write events"    )\
-    ACTION( worker_event_error,     METRIC_COUNTER, "# worker core_error events"    )
+    ACTION( worker_event_error,     METRIC_COUNTER, "# worker core_error events"    )\
+    ACTION( worker_add_stream,      METRIC_COUNTER, "# worker adding a stream"      )\
+    ACTION( worker_ret_stream,      METRIC_COUNTER, "# worker returning a stream"   )
 
 typedef struct {
     CORE_WORKER_METRIC(METRIC_DECLARE)
