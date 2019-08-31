@@ -49,7 +49,9 @@ _realloc_key(struct item **it, const struct bstring *key, uint32_t delta)
         log_verb("successfully reallocated item for key '%.*s'", key->len,
                 key->data);
         /*copy item payload */
+        /* NOTE(yao): we are double copying the key portion here */
         cc_memcpy(nit->end, (*it)->end, item_npayload(*it));
+        nit->vlen = (*it)->vlen + delta;
 
         *it = nit;
         item_insert(nit, key);
