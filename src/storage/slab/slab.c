@@ -379,14 +379,16 @@ _slab_heapinfo_setup(void)
 static void
 _slab_heapinfo_teardown(void)
 {
-    struct slab_pool_metadata pool_metadata =
-    {
-        datapool_addr(pool_slab),
-        TAILQ_FIRST(&heapinfo.slab_lruq)
-    };
+    if (pool_slab) {
+        struct slab_pool_metadata pool_metadata =
+        {
+            datapool_addr(pool_slab),
+            TAILQ_FIRST(&heapinfo.slab_lruq)
+        };
 
-    datapool_set_user_data(pool_slab, &pool_metadata, sizeof(struct slab_pool_metadata));
-    datapool_close(pool_slab);
+        datapool_set_user_data(pool_slab, &pool_metadata, sizeof(struct slab_pool_metadata));
+        datapool_close(pool_slab);
+    }
 }
 
 static rstatus_i
