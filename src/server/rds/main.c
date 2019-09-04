@@ -130,6 +130,12 @@ setup(void)
         goto error;
     }
 
+    intvl = option_uint(&setting.rds.stats_intvl);
+    if (core_admin_register(intvl, stats_dump, NULL) == NULL) {
+        log_error("Could not register timed event to dump stats");
+        goto error;
+    }
+
     return;
 
 error:
