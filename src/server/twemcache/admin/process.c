@@ -51,6 +51,9 @@ admin_process_teardown(void)
     admin_init = false;
 }
 
+/* TODO(yao): refactor slab stats reporting somewhere else?
+ * this is duplicated between twemcache and rds
+ */
 static void
 _admin_stats_slab(struct response *rsp, struct request *req)
 {

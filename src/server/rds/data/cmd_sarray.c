@@ -449,6 +449,7 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
         if (nentry > wmh) {
             log_verb("truncating '%.*s' from %"PRIu32" down to %"PRIu32" elements",
                 key->len, key->data, nentry, wml);
+            INCR(process_metrics, sarray_insert_trim);
             sarray_truncate(sa, nentry - wml);
             it->vlen -= esize * (nentry - wml);
         }

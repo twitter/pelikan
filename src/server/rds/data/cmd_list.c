@@ -152,26 +152,6 @@ _realloc_list_item(struct item **it, ziplist_p *zl, const struct bstring *key,
     return ITEM_OK;
 }
 
-static bool
-_replace_list(const struct bstring *key, const ziplist_p zl)
-{
-    item_rstatus_e status;
-    struct item *it;
-    struct bstring val;
-
-    val.len = ziplist_size(zl);
-    val.data = (char *)zl;
-
-    status = item_reserve(&it, key, &val, val.len, 0, INT32_MAX);
-
-    if (status != ITEM_OK) {
-        return false;
-    }
-
-    item_insert(it, key);
-    return true;
-}
-
 static inline void
 _rsp_ok(struct response *rsp, struct element *reply,
         const struct command *cmd, const struct bstring *key)
