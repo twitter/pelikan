@@ -157,8 +157,8 @@ _binary_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, ui
 static inline bool
 _locate(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, uint64_t val)
 {
-    /* optimize for inserting at the end, which is common in many use cases */
-    if (_get_value(body + esize * (nentry - 1), esize) < val) { /* compare to max*/
+    /* optimize for inserting at the end, which is dominant in many use cases */
+    if (nentry > 0 && _get_value(body + esize * (nentry - 1), esize) < val) {
         *idx = nentry;
 
         return false;
