@@ -182,10 +182,12 @@ _worker_event(void *arg, uint32_t events)
         if (events & EVENT_READ) { /* new connection from server */
             INCR(worker_metrics, worker_event_read);
             worker_add_stream();
-        } else if (events & EVENT_WRITE) { /* retry return notification */
+        }
+        if (events & EVENT_WRITE) { /* retry return notification */
             INCR(worker_metrics, worker_event_write);
             _worker_pipe_write();
-        } else { /* EVENT_ERR */
+        }
+        if (events & EVENT_ERR) {
             INCR(worker_metrics, worker_event_error);
             log_error("error event received on pipe");
         }
@@ -196,7 +198,8 @@ _worker_event(void *arg, uint32_t events)
             log_verb("processing worker read event on buf_sock %p", s);
             INCR(worker_metrics, worker_event_read);
             _worker_event_read(s);
-        } else if (events & EVENT_WRITE) {
+        }
+        if (events & EVENT_WRITE) {
             /* got here only when a previous write was incompleted/retried */
             log_verb("processing worker write event on buf_sock %p", s);
             INCR(worker_metrics, worker_event_write);
@@ -205,11 +208,10 @@ _worker_event(void *arg, uint32_t events)
                 event_del(ctx->evb, hdl->wid(s->ch));
                 event_add_read(ctx->evb, hdl->rid(s->ch), s);
             }
-        } else if (events & EVENT_ERR) {
+        }
+        if (events & EVENT_ERR) {
             s->ch->state = CHANNEL_TERM;
             INCR(worker_metrics, worker_event_error);
-        } else {
-            NOT_REACHED();
         }
 
         /* TODO(yao): come up with a robust policy about channel connection
