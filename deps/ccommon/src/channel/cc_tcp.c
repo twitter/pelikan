@@ -340,7 +340,7 @@ _tcp_accept(struct tcp_conn *sc)
 
             log_error("accept on sd %d failed: %s", sc->sd, strerror(errno));
             INCR(tcp_metrics, tcp_accept_ex);
-            return -1;
+            continue;
         }
 
         break;
