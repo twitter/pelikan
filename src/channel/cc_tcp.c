@@ -18,6 +18,7 @@
 #include <channel/cc_tcp.h>
 
 #include <cc_debug.h>
+#include <cc_define.h>
 #include <cc_mm.h>
 #include <cc_pool.h>
 #include <cc_util.h>
@@ -321,7 +322,11 @@ _tcp_accept(struct tcp_conn *sc)
     ASSERT(sc->sd > 0);
 
     for (;;) { /* we accept at most one tcp_conn with the 'break' at the end */
+#ifdef CC_ACCEPT4
+        sd = accept4(sc->sd, NULL, NULL, SOCK_NONBLOCK);
+#else
         sd = accept(sc->sd, NULL, NULL);
+#endif /* CC_ACCEPT4 */
         if (sd < 0) {
             if (errno == EINTR) {
                 log_debug("accept on sd %d not ready: eintr", sc->sd);
@@ -335,7 +340,7 @@ _tcp_accept(struct tcp_conn *sc)
 
             log_error("accept on sd %d failed: %s", sc->sd, strerror(errno));
             INCR(tcp_metrics, tcp_accept_ex);
-            return -1;
+            continue;
         }
 
         break;
@@ -360,11 +365,13 @@ tcp_accept(struct tcp_conn *sc, struct tcp_conn *c)
     c->level = CHANNEL_BASE;
     c->state = CHANNEL_ESTABLISHED;
 
+#ifndef CC_ACCEPT4 /* if we have accept4, nonblock will already have been set */
     ret = tcp_set_nonblocking(sd);
     if (ret < 0) {
         log_warn("set nonblock on sd %d failed, ignored: %s", sd,
                 strerror(errno));
     }
+#endif
 
     ret = tcp_set_tcpnodelay(sd);
     if (ret < 0) {

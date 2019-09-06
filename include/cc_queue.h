@@ -127,6 +127,7 @@ extern "C" {
  * _INSERT_TAIL         -       -       +       +       +
  * _REMOVE_HEAD         +       -       +       -       -
  * _REMOVE              +       +       +       +       +
+ * _REINIT              -       -       -       +       -
  *
  */
 
@@ -689,6 +690,23 @@ struct {                                                                \
         swap_first->field.tqe_prev = &(head2)->tqh_first;               \
     else                                                                \
         (head2)->tqh_last = &(head2)->tqh_first;                        \
+} while (0)
+
+#define TAILQ_REINIT(head, var, field, offset) do {                     \
+    TAILQ_FIRST((head)) = var;                                          \
+    TAILQ_FOREACH(var, head, field) {                                   \
+        if ((TAILQ_NEXT((var), field)) != NULL) {                       \
+            TAILQ_NEXT((var), field) =                                  \
+                (void *)((char *)(TAILQ_NEXT((var), field)) + (offset));\
+        }                                                               \
+        if ((var) == TAILQ_FIRST(head)) {                               \
+            (var)->field.tqe_prev = &TAILQ_FIRST(head);                 \
+        } else {                                                        \
+            (var)->field.tqe_prev =                                     \
+                (void *)((char *)((var)->field.tqe_prev) + (offset));   \
+        }                                                               \
+        (head)->tqh_last = &TAILQ_NEXT((var), field);                   \
+    }                                                                   \
 } while (0)
 
 /*

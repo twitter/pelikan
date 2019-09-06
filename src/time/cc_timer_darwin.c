@@ -73,6 +73,12 @@ duration_start(struct duration *d)
 }
 
 void
+duration_start_type(struct duration *d, enum duration_type type)
+{
+    duration_start(d);
+}
+
+void
 duration_stop(struct duration *d)
 {
     ASSERT(d != NULL);

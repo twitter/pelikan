@@ -53,7 +53,7 @@ Synopsis
 
   void log_flush(struct logger *logger);
 
-  rstatus_i log_reopen(struct logger *logger);
+  rstatus_i log_reopen(struct logger *logger, char *target);
 
 Description
 -----------
@@ -95,18 +95,18 @@ Flush to file
 ^^^^^^^^^^^^^
 .. code-block:: C
 
-  void log_flush(struct logger *logger);
+  size_t log_flush(struct logger *logger);
 
-``log_flush`` writes as much data to the log file as possible, and updates the (read) marker in the ring buffer. Data that cannot be written to the file will be kept until next call. If the ring buffer or the file was never setup, no action is taken.
+``log_flush`` writes as much data to the log file as possible, and updates the (read) marker in the ring buffer. Data that cannot be written to the file will be kept until next call. If the ring buffer or the file was never setup, no action is taken. Return the number of bytes flushed.
 
 
 Log reopen
 ^^^^^^^^^^
 .. code-block:: C
 
-  rstatus_i log_reopen(struct logger *logger);
+  rstatus_i log_reopen(struct logger *logger, char *target);
 
-``log_reopen`` reopens the log file according to ``name``, and does nothing if standard outputs are used. It returns ``CC_OK`` for success or ``CC_ERROR`` if reopen failed (at which point ``logger`` will no longer have a valid ``fd``).
+``log_reopen`` reopens the log file according to ``name``, and does nothing if standard outputs are used. It returns ``CC_OK`` for success or ``CC_ERROR`` if reopen failed (at which point ``logger`` will no longer have a valid ``fd``). If ``target`` is specified function will rename original log file to the provided target filename and reopen the log file.
 
 This function can be used to reopen the log file when an exception has happened, or another party such as ``logrotate`` instructs the application to do so. Log rotation in a ``nocopytruncate`` manner- i.e. the content in the file is not copied, but the file is simply renamed- is more efficient in high-load systems. But doing so requires signaling the application to reopen the log file after renaming. This function makes it possible to achieve that when used with proper signal handling.
 

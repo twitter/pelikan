@@ -91,7 +91,20 @@ impl BStr {
     pub fn as_ptr(&self) -> *mut CCbstring {
         self as *const _ as *mut _
     }
+
+    pub fn from_ref<'a>(ccb: &'a CCbstring) -> &'a Self {
+        unsafe { Self::from_ptr(ccb as *const CCbstring as *mut _) }
+    }
+
+    pub fn to_utf8_str<'a>(&'a self) -> super::Result<&'a str> {
+        str::from_utf8(&self[..]).map_err(|e| e.into())
+    }
+
+    pub fn to_utf8_string(&self) -> super::Result<String> {
+        self.to_utf8_str().map(|x| x.to_owned())
+    }
 }
+
 
 impl Deref for BStr {
     type Target = [u8];
@@ -263,6 +276,7 @@ impl BString {
     /// # Panics
     ///
     /// This method will panic if `src.len() != self.len()`
+    #[allow(dead_code)]
     #[inline]
     #[allow(dead_code)]
     fn copy_from_slice(&mut self, src: &[u8]) {
@@ -271,18 +285,26 @@ impl BString {
     }
 
     #[inline]
-    fn as_bytes(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         unsafe { raw_ptr_to_bytes(self.0) }
     }
 
     #[inline]
-    fn as_bytes_mut(&mut self) -> &mut [u8] {
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
         unsafe { raw_ptr_to_bytes_mut(self.0) }
     }
 
     #[inline]
     fn len(&self) -> usize {
         unsafe { (*self.0).len as usize }
+    }
+
+    pub fn to_utf8_str<'a>(&'a self) -> super::Result<&'a str> {
+        str::from_utf8(self.as_bytes()).map_err(|e| e.into())
+    }
+
+    pub fn to_utf8_string(&self) -> super::Result<String> {
+        self.to_utf8_str().map(|x| x.to_owned())
     }
 }
 
