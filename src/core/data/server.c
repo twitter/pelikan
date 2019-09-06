@@ -191,11 +191,13 @@ _server_event(void *arg, uint32_t events)
             log_verb("processing server read event on pipe");
             INCR(server_metrics, server_event_read);
             _server_pipe_read();
-        } else if (events & EVENT_WRITE) { /* retrying worker notification */
+        }
+        if (events & EVENT_WRITE) { /* retrying worker notification */
             log_verb("processing server write event on pipe");
             INCR(server_metrics, server_event_write);
             _server_pipe_write();
-        } else { /* EVENT_ERR */
+        }
+        if (events & EVENT_ERR) {
             log_debug("processing server error event on pipe");
             INCR(server_metrics, server_event_error);
         }
@@ -204,12 +206,11 @@ _server_event(void *arg, uint32_t events)
             log_verb("processing server read event on buf_sock %p", s);
             INCR(server_metrics, server_event_read);
             _server_event_read(s);
-        } else if (events & EVENT_ERR) { /* effectively refusing new conn */
+        }
+        if (events & EVENT_ERR) { /* effectively refusing new conn */
             /* TODO: shall we retry bind and listen ? */
             log_debug("processing server error event on listening socket");
             _server_close(s);
-        } else {
-            NOT_REACHED();
         }
     }
 }
