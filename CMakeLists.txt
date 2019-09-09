@@ -114,7 +114,6 @@ if(BUILD_AND_INSTALL_CHECK)
 
     set(CHECK_ROOT_DIR "${LIBCHECK_PREFIX}")
     set(CMAKE_REQUIRED_INCLUDES "${CHECK_ROOT_DIR}/include")    # these make check link correctly in ccommon and pelikan
-    set(CMAKE_REQUIRED_LIBRARIES "${CHECK_ROOT_DIR}/lib")
 endif()
 
 find_package(PkgConfig QUIET)
