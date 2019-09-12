@@ -9,6 +9,7 @@
 #include <check.h>
 #include <stdio.h>
 #include <string.h>
+#include <sysexits.h>
 
 /* define for each suite, local scope due to macro visibility rule */
 #define SUITE_NAME "slab"
@@ -243,6 +244,7 @@ START_TEST(test_reserve_backfill_release)
     struct item *it;
     uint32_t vlen;
     size_t len;
+    struct slab *s;
     char *p;
 
     test_reset(1);
@@ -279,14 +281,16 @@ START_TEST(test_reserve_backfill_release)
     item_backfill(it, &val);
     free(val.data);
 
-    test_assert_reserve_backfill_not_linked(it, val.len);
+    s = item_to_slab(it);
 
+    test_assert_reserve_backfill_not_linked(it, val.len);
+    ck_assert_msg(s->refcount == 1, "slab refcount %"PRIu32"; 1 expected", s->refcount);
     test_reset(0);
 
     test_assert_reserve_backfill_not_linked(it, val.len);
+    /* check if item was released after reset */
+    ck_assert_msg(s->refcount == 0, "slab refcount %"PRIu32"; 0 expected", s->refcount);
 
-    /* release */
-    item_release(&it);
 #undef VLEN
 #undef KEY
 }
@@ -880,8 +884,6 @@ START_TEST(test_refcount)
 
     test_reset(0);
 
-    ck_assert_msg(s->refcount == 1, "slab refcount %"PRIu32"; 1 expected", s->refcount);
-    item_release(&it);
     ck_assert_msg(s->refcount == 0, "slab refcount %"PRIu32"; 0 expected", s->refcount);
 
     /* reserve & backfill (& link) */
@@ -892,8 +894,6 @@ START_TEST(test_refcount)
     val = null_bstring;
     item_backfill(it, &val);
     item_insert(it, &key);
-
-    test_reset(0);
 
     ck_assert_msg(s->refcount == 0, "slab refcount %"PRIu32"; 0 expected", s->refcount);
 }
@@ -931,9 +931,6 @@ START_TEST(test_evict_refcount)
     status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d", status);
 
-    test_teardown(0);
-    slab_setup(&options, &metrics);
-
     status = item_reserve(&nit, &key, &val, val.len, 0, INT32_MAX);
     ck_assert_msg(status == ITEM_ENOMEM, "item_reserve should fail - return status %d", status);
 
@@ -948,6 +945,19 @@ START_TEST(test_evict_refcount)
 #undef VAL
 #undef MY_SLAB_SIZE
 #undef MY_SLAB_MAXBYTES
+}
+END_TEST
+
+START_TEST(test_setup_wrong_path)
+{
+#define DATAPOOL_PATH_WRONG "./"
+
+    option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
+    options.slab_datapool.val.vstr = DATAPOOL_PATH_WRONG;
+
+    slab_setup(&options, &metrics);
+
+#undef DATAPOOL_PATH_WRONG
 }
 END_TEST
 
@@ -983,6 +993,7 @@ slab_suite(void)
     tcase_add_test(tc_slab, test_evict_lru_basic);
     tcase_add_test(tc_slab, test_refcount);
     tcase_add_test(tc_slab, test_evict_refcount);
+    tcase_add_exit_test(tc_slab, test_setup_wrong_path, EX_CONFIG);
 
     return s;
 }

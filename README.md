@@ -59,8 +59,7 @@ The executables can be found under ``_bin/`` (under build directory)
 
 To run all the tests, including those on `ccommon`, run:
 ```sh
-make check
-# 'make test' works too
+make test
 ```
 
 To skip building tests, replace the `cmake` step with the following:
