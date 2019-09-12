@@ -18,7 +18,7 @@ fi
 
 export RUST_BACKTRACE=full
 
-mkdir -p _build && ( cd _build && "${cmake_cmd[@]}" .. && make && make check )
+mkdir -p _build && ( cd _build && "${cmake_cmd[@]}" .. && make && make test )
 RESULT=$?
 
 egrep -r ":F:|:E:" . |grep -v 'Binary file' || true

@@ -82,7 +82,6 @@ if(BUILD_AND_INSTALL_CHECK)
 
     set(CHECK_ROOT_DIR "${LIBCHECK_PREFIX}")
     set(CMAKE_REQUIRED_INCLUDES "${CHECK_ROOT_DIR}/include")    # these make check link correctly in ccommon and pelikan
-    set(CMAKE_REQUIRED_LIBRARIES "${CHECK_ROOT_DIR}/lib")
 endif()
 
 include(CheckIncludeFiles)
@@ -202,10 +201,10 @@ include_directories(
 
 add_subdirectory(src)
 
-if(CHECK_WORKING)
-    include_directories(${include_directories} "${CHECK_INCLUDES}")
+if(CHECK_FOUND)
+    include_directories(${include_directories} ${CHECK_INCLUDES})
     add_subdirectory(test)
-endif(CHECK_WORKING)
+endif(CHECK_FOUND)
 
 
 if(HAVE_RUST)
