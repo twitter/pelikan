@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -uo pipefail
 IFS=$'\n\t'
 
 die() { echo "fatal: $*" >&2; exit 1; }
@@ -11,19 +11,23 @@ trap cleanup EXIT
 
 export PATH=$HOME/.cargo/bin:$PATH
 
-# build CDB in CI or else stuff breaks
-
-CMAKE_ARGS=(
+# TODO: run cmake3 on centos hosts
+cmake_cmd=(
+  cmake
   -DBUILD_AND_INSTALL_CHECK=yes
 )
 
+# build CDB in CI or else stuff breaks
+
 if [[ -n "${RUST_ENABLED:-}" ]]; then
-  CMAKE_ARGS+=( -DTARGET_CDB=yes -DHAVE_RUST=yes -DRUST_VERBOSE_BUILD=1 )
+  CMAKE_ARGS+=( -DTARGET_CDB=yes -DHAVE_RUST=yes -DRUST_VERBOSE_BUILD=yes )
 fi
 
-# TODO: run cmake3 on centos hosts
+export RUST_BACKTRACE=full
 
-mkdir -p _build && ( cd _build && cmake ${CMAKE_ARGS[@]} .. && make && make check ) || die 'make failed'
+
+mkdir -p _build && ( cd _build && "${cmake_cmd[@]}" .. && make && make test )
+mkdir -p _build && ( cd _build && cmake ${CMAKE_ARGS[@]} .. && make && make test) || die 'make failed'
 
 egrep -r ":F:|:E:" . |grep -v 'Binary file' || true
 
