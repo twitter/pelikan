@@ -1,6 +1,6 @@
 /*
  * ccommon - a cache common library.
- * Copyright (C) 2013 Twitter, Inc.
+ * Copyright (C) 2018 Twitter, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@
 extern "C" {
 #endif
 
-#include <cc_define.h>
+/* recursively remove all content under path then unlinks path.
+ * returns 0 on success, -1 on failure and sets errno.
+*/
+int
+cc_util_rm_rf_rs(const char *path);
 
-#include <stdint.h>
-#include <stdlib.h>
-
-uint32_t hash_lookup3(const void *key, size_t length, const uint32_t initval);
 
 #ifdef __cplusplus
 }

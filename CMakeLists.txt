@@ -1,5 +1,8 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8)
 project(ccommon C)
+
+# Uncomment the following to output dependency graph debugging messages
+# set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_DEBUG_MODE 1)
 
 enable_testing()
 
@@ -36,8 +39,8 @@ endif()
 # config.h.in has to include entries set/tested here for them to have effect
 
 # version info
-set(${PROJECT_NAME}_VERSION_MAJOR 1)
-set(${PROJECT_NAME}_VERSION_MINOR 2)
+set(${PROJECT_NAME}_VERSION_MAJOR 2)
+set(${PROJECT_NAME}_VERSION_MINOR 1)
 set(${PROJECT_NAME}_VERSION_PATCH 0)
 set(${PROJECT_NAME}_VERSION
    ${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}.${${PROJECT_NAME}_VERSION_PATCH}
@@ -54,6 +57,7 @@ option(HAVE_STATS "stats enabled by default" ON)
 option(HAVE_DEBUG_MM "debugging oriented memory management disabled by default" OFF)
 option(COVERAGE "code coverage" OFF)
 option(HAVE_RUST "rust bindings not built by default" OFF)
+option(HAVE_ITT_INSTRUMENTATION "instrument code with ITT API" OFF)
 
 if(HAVE_RUST)
     option(RUST_VERBOSE_BUILD "pass -vv to cargo compilation" OFF)
@@ -78,7 +82,6 @@ if(BUILD_AND_INSTALL_CHECK)
 
     set(CHECK_ROOT_DIR "${LIBCHECK_PREFIX}")
     set(CMAKE_REQUIRED_INCLUDES "${CHECK_ROOT_DIR}/include")    # these make check link correctly in ccommon and pelikan
-    set(CMAKE_REQUIRED_LIBRARIES "${CHECK_ROOT_DIR}/lib")
 endif()
 
 include(CheckIncludeFiles)
@@ -96,9 +99,7 @@ check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
 
 include(CheckFunctionExists)
 check_function_exists(backtrace HAVE_BACKTRACE)
-
-include(TestBigEndian)
-test_big_endian(HAVE_BIG_ENDIAN)
+check_function_exists(accept4 HAVE_ACCEPT4)
 
 # how to use config.h.in to generate config.h
 # this has to be set _after_ the above checks
@@ -114,12 +115,23 @@ configure_file(
 # set compiler flags
 # string concat is easier in 3.0, but older versions don't have the concat subcommand
 # so we are using list as input until we move to new version
-# TODO add build types
 add_definitions(-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64)
+# Set a default build type (Release) if none was specified
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
+else()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
+endif()
+
 set(CMAKE_MACOSX_RPATH 1)
 set(CFLAGS_LIST
     "-std=c11 "
-    "-ggdb3 -O2 "
+    "-ggdb3 "
     "-Wall "
     "-Wmissing-prototypes -Wmissing-declarations -Wredundant-decls "
     "-Wunused-function -Wunused-value -Wunused-variable "
@@ -132,13 +144,15 @@ if(CMAKE_COMPILER_IS_GNUCC)
 endif()
 
 if (COVERAGE)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -Wall -W -fprofile-arcs -ftest-coverage")
+    if(NOT ${CMAKE_BUILD_TYPE} MATCHES Debug)
+        message(WARNING "Code coverage results with an optimised (non-Debug) build may be misleading" )
+    endif()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif(COVERAGE)
 
 # test dependencies
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
-
 find_package(Check)
 if(NOT CHECK_FOUND)
     message(WARNING "Check is required to build and run tests")
@@ -150,6 +164,17 @@ if(CHECK_FOUND)
     endif(NOT CHECK_WORKING)
 endif(CHECK_FOUND)
 
+if (HAVE_ITT_INSTRUMENTATION)
+    if(PKG_CONFIG_FOUND)
+        pkg_check_modules(ITTNOTIFY REQUIRED ittnotify>=1.0)
+    else()
+        find_package(ITTNOTIFY REQUIRED 1.0)
+    endif()
+    include_directories(${ITTNOTIFY_INCLUDE_DIRS})
+    link_directories(${ITTNOTIFY_LIBRARY_DIRS})
+    link_libraries(${ITTNOTIFY_LIBRARIES})
+endif(HAVE_ITT_INSTRUMENTATION)
+
 find_package(Threads)
 
 
@@ -159,6 +184,17 @@ include_directories(
     "${PROJECT_BINARY_DIR}"
     "include")
 
+###################
+# things to build #
+###################
+
+add_subdirectory(src)
+
+if(CHECK_FOUND)
+    include_directories(${include_directories} ${CHECK_INCLUDES})
+    add_subdirectory(test)
+endif(CHECK_FOUND)
+
 if(HAVE_RUST)
     enable_language(Rust)
     include(CMakeCargo)
@@ -166,20 +202,11 @@ if(HAVE_RUST)
     set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -DHAVE_RUST=1")
 endif()
 
-
-###################
-# things to build #
-###################
-
-add_subdirectory(src)
-if(CHECK_WORKING)
-    include_directories(${include_directories} "${CHECK_INCLUDES}")
-    add_subdirectory(test)
-endif(CHECK_WORKING)
-
 ###################
 # print a summary #
 ###################
+
+message(STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
 
 message(STATUS "PLATFORM: " ${OS_PLATFORM})
 
@@ -189,6 +216,5 @@ message(STATUS "CFLAGS: " ${CMAKE_C_FLAGS})
 message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
 
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
-message(STATUS "HAVE_BIG_ENDIAN: " ${HAVE_BIG_ENDIAN})
 
-message(STATUS "CHECK_WORKING: " ${CHECK_WORKING})
+message(STATUS "CHECK_FOUND: " ${CHECK_FOUND})

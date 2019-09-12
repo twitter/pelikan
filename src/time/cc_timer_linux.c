@@ -25,24 +25,35 @@
  * CLOCK_REALTIME can be reset when clock has drifted, so it may not always be
  * monotonic, and should be avoided if possible.
  */
+static const clockid_t cid[MAX_DURATION_TYPE] = {
+    [DURATION_PRECISE] =
 #if defined(CLOCK_MONOTONIC_RAW)
-static const clockid_t cid = CLOCK_MONOTONIC_RAW;
+        CLOCK_MONOTONIC_RAW
 #elif defined(CLOCK_MONOTONIC)
-static const clockid_t cid = CLOCK_MONOTONIC;
+        CLOCK_MONOTONIC
 #elif defined(CLOCK_REALTIME)
-static const clockid_t cid = CLOCK_REALTIME;
+        CLOCK_REALTIME
 #else
-static const clockid_t cid = (clockid_t)-1;
+        (clockid_t)-1
 #endif
+,
+#if defined(CLOCK_MONOTONIC)
+        CLOCK_MONOTONIC
+#elif defined(CLOCK_REALTIME)
+        CLOCK_REALTIME
+#else
+        (clockid_t)-1
+#endif
+};
 
 static inline void
-_gettime(struct timespec *ts)
+_gettime(struct timespec *ts, enum duration_type type)
 {
     int ret;
 
-    ASSERT(cid != (clockid_t)-1);
+    ASSERT(cid[type] != (clockid_t)-1);
 
-    ret = clock_gettime(cid, ts);
+    ret = clock_gettime(cid[type], ts);
     if (ret == -1) {
         /*
          * Note(yao): for the purpose of this module, it doesn't make much sense
@@ -74,9 +85,16 @@ duration_reset(struct duration *d)
 void
 duration_start(struct duration *d)
 {
+    duration_start_type(d, DURATION_PRECISE);
+}
+
+void
+duration_start_type(struct duration *d, enum duration_type type)
+{
     ASSERT(d != NULL);
 
-    _gettime(&d->start);
+    _gettime(&d->start, type);
+    d->type = type;
     d->started = true;
 }
 
@@ -87,8 +105,9 @@ duration_snapshot(struct duration *s, const struct duration *d)
 
     s->started = true;
     s->start = d->start;
+    s->type = d->type;
     s->stopped = true;
-    _gettime(&s->stop);
+    _gettime(&s->stop, s->type);
 }
 
 void
@@ -96,7 +115,7 @@ duration_stop(struct duration *d)
 {
     ASSERT(d != NULL);
 
-    _gettime(&d->stop);
+    _gettime(&d->stop, d->type);
     d->stopped = true;
 }
 
@@ -153,9 +172,8 @@ _now_ns(void)
 {
     struct timespec now;
 
-    _gettime(&now);
+    _gettime(&now, DURATION_PRECISE);
     return now.tv_sec * NSEC_PER_SEC + now.tv_nsec;
-
 }
 
 void
