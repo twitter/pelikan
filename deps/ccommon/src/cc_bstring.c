@@ -20,6 +20,8 @@
 #include <cc_debug.h>
 #include <cc_mm.h>
 
+#include <ctype.h>
+
 /*
  * Byte string (struct bstring) is a sequence of unsigned char
  * The length of the string is pre-computed and explicitly available.
@@ -131,14 +133,14 @@ bstring_atoi64(int64_t *i64, struct bstring *str)
 
     for (*i64 = 0LL; offset < str->len; offset++) {
         c = *(str->data + offset);
-        if (c < '0' || c > '9') {
+        if (isdigit(c) == 0) {
             return CC_ERROR;
         }
 
         // overflow check
         if (offset == CC_INT64_MAXLEN - 2) {
             if (sign < 0 && *i64 == INT64_MIN / 10 &&
-                    c - '0' > (uint64_t)(-INT64_MIN) % 10) {
+                    c - '0' > -(INT64_MIN % 10)) {
                 return CC_ERROR;
             }
             if (sign > 0 && *i64 == INT64_MAX / 10 &&
@@ -167,7 +169,7 @@ bstring_atou64(uint64_t *u64, struct bstring *str)
 
     for (offset = 0; offset < str->len; offset++) {
         c = *(str->data + offset);
-        if (c < '0' || c > '9') {
+        if (isdigit(c) == 0) {
             return CC_ERROR;
         }
 

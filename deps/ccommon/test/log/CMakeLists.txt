@@ -24,5 +24,4 @@ if(OS_PLATFORM STREQUAL "OS_DARWIN")
     set_target_properties(${test_name} PROPERTIES LINK_FLAGS "-Wl,-F/System/Library/Frameworks")
 endif()
 
-add_dependencies(check ${test_name} ccommon-static)
 add_test(${test_name} ${test_name})
