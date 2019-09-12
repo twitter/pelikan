@@ -141,13 +141,7 @@ add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
-<<<<<<< HEAD
 find_package(PkgConfig QUIET)
-=======
-if(NOT CHECK_FOUND)
-    find_package(Check QUIET 0.10)
-endif()
->>>>>>> master
 
 if (USE_PMEM)
     if(PKG_CONFIG_FOUND)
