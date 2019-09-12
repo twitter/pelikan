@@ -117,16 +117,6 @@ if(BUILD_AND_INSTALL_CHECK)
     set(CMAKE_REQUIRED_LIBRARIES "${CHECK_ROOT_DIR}/lib")
 endif()
 
-find_package(PkgConfig QUIET)
-
-if(PKG_CONFIG_FOUND)
-    pkg_check_modules(CHECK QUIET check>=0.10)
-endif()
-
-if(NOT CHECK_FOUND)
-    find_package(Check QUIET 0.10)
-endif()
-
 
 if(${OS_PLATFORM} MATCHES "OS_LINUX")
   set(CFLAGS_LIST "${CFLAGS_LIST} -lrt")
@@ -152,6 +142,8 @@ add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
+find_package(PkgConfig QUIET)
+
 if (USE_PMEM)
     if(PKG_CONFIG_FOUND)
         pkg_check_modules(LIBPMEM REQUIRED libpmem>=1.0)
@@ -171,6 +163,17 @@ if (HAVE_ITT_INSTRUMENTATION)
     link_directories(${ITTNOTIFY_LIBRARY_DIRS})
     link_libraries(${ITTNOTIFY_LIBRARIES})
 endif(HAVE_ITT_INSTRUMENTATION)
+
+find_package(Check)
+if(NOT CHECK_FOUND)
+    message(WARNING "Check is required to build and run tests")
+endif(NOT CHECK_FOUND)
+if(CHECK_FOUND)
+    check_symbol_exists(ck_assert_int_eq check.h CHECK_WORKING)
+    if(NOT CHECK_WORKING)
+        message(WARNING "Check version too old to build tests")
+    endif(NOT CHECK_WORKING)
+endif(CHECK_FOUND)
 
 find_package(Threads)
 
