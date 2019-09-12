@@ -26,7 +26,7 @@ fi
 export RUST_BACKTRACE=full
 
 
-mkdir -p _build && ( cd _build && cmake ${CMAKE_ARGS[@]} .. && make && make test ) || die 'make failed'
+mkdir -p _build && ( cd _build && "${cmake_cmd[@]}" .. && make && make test ) || die 'make failed'
 
 egrep -r ":F:|:E:" . |grep -v 'Binary file' || true
 
