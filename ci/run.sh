@@ -20,10 +20,8 @@ cmake_cmd=(
 # build CDB in CI or else stuff breaks
 
 if [[ -n "${RUST_ENABLED:-}" ]]; then
-  CMAKE_ARGS+=( -DTARGET_CDB=yes -DHAVE_RUST=yes -DRUST_VERBOSE_BUILD=yes )
+  cmake_cmd+=( -DTARGET_CDB=yes -DHAVE_RUST=yes -DRUST_VERBOSE_BUILD=yes )
 fi
-
-export RUST_BACKTRACE=full
 
 
 mkdir -p _build && ( cd _build && "${cmake_cmd[@]}" .. && make && make test ) || die 'make failed'
