@@ -626,13 +626,12 @@ pub fn log_setup(config: LogConfig) -> Result<Handle> {
 #[no_mangle]
 #[rustfmt::skip]
 pub unsafe extern "C" fn log_create_handle_rs(cfgp: *mut bind::log_config_rs) -> *mut Handle {
-    ptrs::null_check(cfgp)                                    // make sure our input is good
-        .map_err(|e| e.into())              // error type bookkeeping
-        .and_then(|c| LogConfig::from_raw(c)) // convert the *mut into a rust struct
-        .and_then(log_setup)                                  // register our logger
-        .map(|handle| Box::into_raw(Box::new(handle)))        // convert our handle into a raw pointer
-        .unwrap_or_else(|err| {
-            // hand it back to C
+    ptrs::null_check(cfgp)                                // make sure our input is good
+        .map_err(|e| e.into())                            // error type bookkeeping
+        .and_then(|c|LogConfig::from_raw(c))              // convert the *mut into a rust struct
+        .and_then(log_setup)                              // register our logger
+        .map(|handle| Box::into_raw(Box::new(handle)))    // convert our handle into a raw pointer
+        .unwrap_or_else(|err| {                           // hand it back to C
             eprintln!("ERROR log_create_handle: {:#?}", err);
             ptr::null_mut() // unless there was an error, then return NULL
         })

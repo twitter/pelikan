@@ -33,7 +33,7 @@ impl Buf {
     pub unsafe fn from_raw<'a>(buf: *const buf) -> &'a Buf {
         &*(buf as *const Buf)
     }
-
+    
     pub unsafe fn from_raw_mut<'a>(buf: *mut buf) -> &'a mut Buf {
         &mut *(buf as *mut Buf)
     }
@@ -41,7 +41,7 @@ impl Buf {
     pub fn into_raw(&self) -> *const buf {
         &self.buf as *const _
     }
-
+    
     pub fn into_raw_mut(&mut self) -> *mut buf {
         &mut self.buf as *mut _
     }
@@ -53,7 +53,7 @@ impl Buf {
 
         self.buf.end as usize - self.buf.wpos as usize
     }
-
+    
     /// The number of bytes left to read from the buffer
     pub fn read_size(&self) -> usize {
         assert!(self.buf.rpos as usize <= self.buf.wpos as usize);
