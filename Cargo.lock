@@ -376,6 +376,29 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "pelikan"
+version = "0.1.0"
+dependencies = [
+ "cc_binding 0.1.0",
+ "ccommon_rs 0.1.0",
+ "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pelikan-sys 0.0.0",
+]
+
+[[package]]
+name = "pelikan-sys"
+version = "0.0.0"
+dependencies = [
+ "bindgen 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cc_binding 0.1.0",
+ "cdb_rs 0.1.0",
+ "glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "0.4.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"

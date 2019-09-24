@@ -2,23 +2,18 @@ extern crate bindgen;
 
 use std::env;
 use std::fs;
-use std::io;
-use std::io::prelude::*;
 use std::path::PathBuf;
 
-fn get_cmake_binary_dir() -> io::Result<String> {
-    match env::var("CMAKE_BINARY_DIR") {
-        Ok(var) => return Ok(var),
-        Err(_) => ()
-    }
+fn get_cmake_binary_dir() -> String {
+    use std::env::VarError;
 
-    // this file is written by cmake on each run, updated with the location of
-    // the build directory.
-    let mut fp = fs::File::open("CMAKE_BINARY_DIR")?;
-    let mut buf = String::new();
-    let n = fp.read_to_string(&mut buf)?;
-    assert!(n > 0, "file was empty");
-    Ok(String::from(buf.trim_end()))
+    match env::var("CMAKE_BINARY_DIR") {
+        Ok(var) => var,
+        Err(e) => match e {
+            VarError::NotPresent => panic!("CMAKE_BINARY_DIR environment variable was not set!"),
+            VarError::NotUnicode(_) => panic!("CMAKE_BINARY_DIR contained invalid unicode!"),
+        },
+    }
 }
 
 fn main() {
@@ -31,10 +26,7 @@ fn main() {
     eprintln!("ccommon_include: {}", ccommon_include.to_str().unwrap());
     eprintln!("include_path: {}", include_path.to_str().unwrap());
 
-    let cmake_binary_dir = match get_cmake_binary_dir() {
-        Ok(p) => p,
-        Err(err) => panic!("Failed locating the CMAKE_BINARY_DIR file: {:#?}", err),
-    };
+    let cmake_binary_dir = get_cmake_binary_dir();
 
     let cbd = PathBuf::from(cmake_binary_dir);
 

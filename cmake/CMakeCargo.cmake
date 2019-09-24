@@ -56,7 +56,11 @@ function(cargo_build)
 
     file(GLOB_RECURSE LIB_SOURCES "*.rs")
 
-    set(CARGO_ENV_COMMAND ${CMAKE_COMMAND} -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}")
+    set(
+        CARGO_ENV_COMMAND ${CMAKE_COMMAND} -E env 
+            "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}"
+            "CARGO_TARGET_DIR=${CMAKE_BINARY_DIR}/target"
+    )
 
     if(${CARGO_BIN})
         set(OUTPUT_FILE "${CMAKE_BINARY_DIR}/_bin/${CARGO_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
@@ -73,7 +77,7 @@ function(cargo_build)
             COMMENT "copying binary"
         )
 
-        add_custom_target(${CARGO_NAME})
+        add_custom_target(${CARGO_NAME} ALL)
 
         add_dependencies(${CARGO_NAME} ${CARGO_NAME}_copy)
         add_dependencies(${CARGO_NAME}_copy ${CARGO_NAME}_cargo)
@@ -91,5 +95,4 @@ function(cargo_build)
         
         add_dependencies(${CARGO_NAME} ${CARGO_NAME}_target)
     endif()
-
 endfunction()
