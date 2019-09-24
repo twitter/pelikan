@@ -1,0 +1,24 @@
+[package]
+name = "pelikan"
+version = "0.1.0"
+authors = ["Sean Lynch <slynch@twitter.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+c_admin_protocol = []
+protocol_admin = [ "pelikan-sys/protocol_admin" ]
+
+[dependencies]
+pelikan-sys = { path = "../pelikan-sys" }
+libc = "0.2"
+log = "0.4"
+
+[dependencies.ccommon-sys]
+path = "../../../deps/ccommon/rust/cc_binding"
+package = "cc_binding"
+
+[dependencies.ccommon]
+path = "../../../deps/ccommon/rust/ccommon_rs"
+package = "ccommon_rs"

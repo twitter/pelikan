@@ -1,0 +1,40 @@
+[package]
+name = "pelikan-sys"
+version = "0.0.0"
+authors = ["Sean Lynch <slynch@twitter.com>"]
+edition = "2018"
+
+# TODO(sean): Should we use the cmake config instead of cargo features?
+[features]
+client-network = []
+core = []
+ds_bitmap = []
+ds_sarray = []
+ds_ziplist = []
+cuckoo = []
+slab = []
+cdb = [ "cdb_rs" ]
+time = []
+util = [ "time" ]
+protocol_resp = []
+protocol_resp_tw = []
+protocol_memcache = []
+protocol_ping = []
+protocol_admin = []
+
+default = [ "core", "time", "util" ]
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.cdb_rs]
+path = "../../storage/cdb/cdb_rs"
+optional = true
+
+[dependencies.ccommon-sys]
+path = "../../../deps/ccommon/rust/cc_binding"
+package = "cc_binding"
+
+[build-dependencies]
+bindgen = "0.51"
+lazy_static = "1.4"
