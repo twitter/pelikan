@@ -68,7 +68,7 @@ struct buf {
     char              *wpos;    /* write marker */
     char              *end;     /* end of buffer */
     bool              free;     /* is this buf free? */
-    char              begin[1]; /* beginning of buffer */
+    char              begin[];  /* beginning of buffer */
 };
 
 #define BUF_HDR_SIZE       offsetof(struct buf, begin)

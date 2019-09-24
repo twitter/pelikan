@@ -37,8 +37,39 @@ use std::result;
 pub mod bstring;
 pub mod log;
 pub mod util;
+pub mod buf;
 
 // like how guava provides enhancements for Int as "Ints"
 pub mod ptrs;
 
 pub type Result<T> = result::Result<T, failure::Error>;
+
+/// Error codes that could be returned by ccommon functions.
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub enum Error {
+    Generic= -1,
+    EAgain = -2,
+    ERetry = -3,
+    ENoMem = -4,
+    EEmpty = -5,
+    ERdHup = -6,
+    EInval = -7,
+    EOther = -8
+}
+
+impl From<std::os::raw::c_int> for Error {
+    fn from(val: std::os::raw::c_int) -> Self {
+        match val {
+            -1 => Error::Generic,
+            -2 => Error::EAgain,
+            -3 => Error::ERetry,
+            -4 => Error::ENoMem,
+            -5 => Error::EEmpty,
+            -6 => Error::ERdHup,
+            -7 => Error::EInval,
+            _  => Error::EOther
+        }
+    }
+}
+
