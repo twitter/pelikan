@@ -7,6 +7,10 @@ add_subdirectory(time ${PROJECT_BINARY_DIR}/time)
 add_subdirectory(util ${PROJECT_BINARY_DIR}/util)
 add_subdirectory(datapool ${PROJECT_BINARY_DIR}/datapool)
 
+if (HAVE_RUST)
+    add_subdirectory(rust-util ${PROJECT_BINARY_DIR}/rust-util)
+endif()
+
 # executables
 add_custom_target(service)
 add_subdirectory(client ${PROJECT_BINARY_DIR}/client)
