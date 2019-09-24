@@ -1,0 +1,23 @@
+
+[workspace]
+members = [
+    "deps/ccommon/rust/cc_binding",
+    "deps/ccommon/rust/ccommon_rs",
+    "src/server/pingserver-rs",
+    "src/rust-util/pelikan-sys",
+    "src/storage/cdb/cdbgen",
+    "src/storage/cdb/cdb_rs",
+    "src/rust-util/pelikan"
+]
+
+[profile.release]
+opt-level = 3
+debug = true
+# rpath = false
+# lto = true
+debug-assertions = false
+codegen-units = 1
+
+[profile.dev]
+debug = true
+opt-level = 0

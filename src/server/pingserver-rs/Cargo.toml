@@ -1,0 +1,23 @@
+[package]
+name = "pelikan_pingserver_rs"
+authors = ["Sean Lynch <slynch@twitter.com>"]
+edition = "2018"
+version = "0.0.0"
+
+[dependencies]
+clap = "2.33"
+log = "0.4"
+libc = "0.2"
+pelikan = { path="../../rust-util/pelikan", features=["protocol_admin"] }
+
+[dependencies.pelikan-sys]
+path = "../../rust-util/pelikan-sys"
+features = [ "protocol_ping", "protocol_admin" ]
+
+[dependencies.ccommon]
+path = "../../../deps/ccommon/rust/ccommon_rs"
+package = "ccommon_rs"
+
+[dependencies.ccommon-sys]
+path = "../../../deps/ccommon/rust/cc_binding"
+package = "cc_binding"
