@@ -46,5 +46,14 @@ cdb.rs
 compile_commands.json
 
 *.cmd
-core
+/core
 CMAKE_BINARY_DIR
+
+# Junk files from macos
+.DS_Store
+
+# Cargo configuration
+.cargo
+
+# Editor files
+.vscode

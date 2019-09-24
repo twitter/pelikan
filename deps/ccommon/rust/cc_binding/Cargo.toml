@@ -2,10 +2,14 @@
 name = "cc_binding"
 version = "0.1.0"
 authors = ["Jonathan Simms <jsimms@twitter.com>"]
+edition = "2018"
 
 [build-dependencies]
-bindgen = "0.37.0"
-failure = "~0.1.1"
+bindgen = "0.51"
+failure = "0.1"
+
+[dependencies]
+libc = "0.2"
 
 [lib]
 name = "cc_binding"

@@ -1,8 +1,8 @@
 function(cargo_build)
-    cmake_parse_arguments(CARGO "" "NAME" "" ${ARGN})
+    cmake_parse_arguments(CARGO "BIN" "NAME" "" ${ARGN})
     string(REPLACE "-" "_" LIB_NAME ${CARGO_NAME})
 
-    set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR})
+    set(CARGO_TARGET_DIR ${CMAKE_BINARY_DIR}/target)
 
     if(WIN32)
         if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -41,6 +41,7 @@ function(cargo_build)
     endif()
 
     set(LIB_FILE "${CARGO_TARGET_DIR}/${LIB_TARGET}/${LIB_BUILD_TYPE}/${CMAKE_STATIC_LIBRARY_PREFIX}${LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(BIN_FILE "${CARGO_TARGET_DIR}/${LIB_TARGET}/${LIB_BUILD_TYPE}/${LIB_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
 
 	if(IOS)
 		set(CARGO_ARGS "lipo")
@@ -55,16 +56,40 @@ function(cargo_build)
 
     file(GLOB_RECURSE LIB_SOURCES "*.rs")
 
-    set(CARGO_ENV_COMMAND ${CMAKE_COMMAND} -E env "CARGO_TARGET_DIR=${CARGO_TARGET_DIR}")
+    set(CARGO_ENV_COMMAND ${CMAKE_COMMAND} -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}")
 
-    add_custom_command(
-        OUTPUT ${LIB_FILE}
-        COMMAND ${CARGO_ENV_COMMAND} ${CARGO_EXECUTABLE} ARGS ${CARGO_ARGS}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        DEPENDS ${LIB_SOURCES}
-        COMMENT "running cargo")
-    add_custom_target(${CARGO_NAME}_target ALL DEPENDS ${LIB_FILE})
-    add_library(${CARGO_NAME} STATIC IMPORTED GLOBAL)
-    add_dependencies(${CARGO_NAME} ${CARGO_NAME}_target)
-    set_target_properties(${CARGO_NAME} PROPERTIES IMPORTED_LOCATION ${LIB_FILE})
+    if(${CARGO_BIN})
+        set(OUTPUT_FILE "${CMAKE_BINARY_DIR}/_bin/${CARGO_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
+
+        add_custom_target(
+            ${CARGO_NAME}_cargo ALL
+            COMMAND ${CARGO_ENV_COMMAND} ${CARGO_EXECUTABLE} ${CARGO_ARGS}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMENT "running cargo"
+        )
+        add_custom_target(
+            ${CARGO_NAME}_copy ALL
+            COMMAND cp -f ${BIN_FILE} ${OUTPUT_FILE}
+            COMMENT "copying binary"
+        )
+
+        add_custom_target(${CARGO_NAME})
+
+        add_dependencies(${CARGO_NAME} ${CARGO_NAME}_copy)
+        add_dependencies(${CARGO_NAME}_copy ${CARGO_NAME}_cargo)
+    else()
+        set(OUTPUT_FILE ${LIB_FILE})
+
+        add_custom_target(
+            ${CARGO_NAME}_target
+            COMMAND ${CARGO_ENV_COMMAND} ${CARGO_EXECUTABLE} ${CARGO_ARGS}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMENT "running cargo")
+
+        add_library(${CARGO_NAME} STATIC IMPORTED GLOBAL)
+        set_target_properties(${CARGO_NAME} PROPERTIES IMPORTED_LOCATION ${LIB_FILE})
+        
+        add_dependencies(${CARGO_NAME} ${CARGO_NAME}_target)
+    endif()
+
 endfunction()

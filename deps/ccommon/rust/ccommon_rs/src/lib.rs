@@ -37,6 +37,7 @@ use std::result;
 pub mod bstring;
 pub mod log;
 pub mod util;
+pub mod buf;
 
 // like how guava provides enhancements for Int as "Ints"
 pub mod ptrs;

@@ -592,7 +592,7 @@ impl Drop for Handle {
     }
 }
 
-fn log_setup_safe(config: LogConfig) -> Result<Handle> {
+pub fn log_setup(config: LogConfig) -> Result<Handle> {
     rslog::set_max_level(config.level.to_level_filter());
     let shim = Shim::new(config);
     let logger = Logger(Arc::new(ArcCell::new(Arc::new(Some(shim)))));
@@ -609,7 +609,7 @@ pub unsafe extern "C" fn log_create_handle_rs(cfgp: *mut bind::log_config_rs) ->
     ptrs::null_check(cfgp)                                // make sure our input is good
         .map_err(|e| e.into())                            // error type bookkeeping
         .and_then(|c|LogConfig::from_raw(c))              // convert the *mut into a rust struct
-        .and_then(log_setup_safe)                         // register our logger
+        .and_then(log_setup)                         // register our logger
         .map(|handle| Box::into_raw(Box::new(handle)))    // convert our handle into a raw pointer
         .unwrap_or_else(|err| {                           // hand it back to C
             eprintln!("ERROR log_create_handle: {:#?}", err);
@@ -631,11 +631,8 @@ pub unsafe extern "C" fn log_shutdown_rs(ph: *mut Handle, timeout_ms: u32) -> Lo
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn log_destroy_handle_rs(pph: *mut *mut Handle) {
-    assert!(!pph.is_null());
-    let ph = *pph;
+pub unsafe extern "C" fn log_destroy_handle_rs(ph: *mut Handle) {
     drop(Box::from_raw(ph));
-    *pph = ptr::null_mut();
 }
 
 // for integration testing with C
@@ -693,7 +690,7 @@ mod test {
                 level: Level::Trace,
             };
 
-            let handle = log_setup_safe(cfg).unwrap();
+            let handle = log_setup(cfg).unwrap();
 
             let t1 = thread::spawn(move || {
                 error!("thread 1 error");
@@ -730,7 +727,7 @@ mod test {
                 level: Level::Trace,
             };
 
-            let handle = log_setup_safe(cfg).unwrap();
+            let handle = log_setup(cfg).unwrap();
 
             let t1 = build("d_level").spawn(move || {
                 debug!("debug message");
@@ -777,7 +774,7 @@ mod test {
                 level: Level::Trace,
             };
 
-            let handle = log_setup_safe(cfg).unwrap();
+            let handle = log_setup(cfg).unwrap();
 
             let (start_tx, start_rx) = mpsc::sync_channel::<String>(0);
             let (stop_tx, stop_rx) = mpsc::sync_channel::<bool>(0);
