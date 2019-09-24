@@ -416,7 +416,7 @@ pub mod protocol {
             }
         }
         unsafe impl ccommon::metric::Metrics for compose_rsp_metrics_st {
-            pub const fn new() -> Self {
+            fn new() -> Self {
                 init_metric! {
                     Self {
                         ACTION( response_compose,       METRIC_COUNTER, "# responses composed" ),
