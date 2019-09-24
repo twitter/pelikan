@@ -1,6 +1,7 @@
 from base import GenericTest
 
 from os import listdir
+import sys
 import unittest
 
 
@@ -15,4 +16,7 @@ def twemcache():
 
 
 if __name__ == '__main__':
-    unittest.TextTestRunner(verbosity=2).run(twemcache())
+    result = unittest.TextTestRunner(verbosity=2).run(twemcache())
+    if result.wasSuccessful():
+        sys.exit(0)
+    sys.exit(1)
