@@ -50,6 +50,8 @@ fn main() {
 
     println!("cargo:rerun-if-env-changed=CMAKE_BUILD_DIR");
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rustc-link-lib=static=ccommon-2.1.0");
+    println!("cargo:rustc-link-search={}/ccommon/lib", get_cmake_binary_dir());
     
     for entry in glob::glob("../../**/*.h").unwrap().filter_map(|x| x.ok()) {
         if let Some(entry) = entry.to_str() {
