@@ -58,6 +58,9 @@ set_property(GLOBAL PROPERTY ALLOW_DUPLICATE_CUSTOM_TARGETS 1)
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
 set(CMAKE_MACOSX_RPATH 1)
 
+# Required for properly linking with rust code
+set(CMAKE_POSITION_INDEPENDENT_CODE true)
+
 include(CheckSymbolExists)
 check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
 
