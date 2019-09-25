@@ -20,6 +20,7 @@ fn print_directives(lib: impl AsRef<str>, subdir: impl AsRef<str>) {
     println!("cargo:rustc-link-search={}/{}/", bindir, subdir);
     println!("cargo:rustc-link-lib={}", lib);
 }
+
 fn builder() -> bindgen::Builder {
     let mut builder = bindgen::builder();
 
@@ -46,6 +47,22 @@ fn main() {
         .arg(format!("{}/*", env::var("OUT_DIR").unwrap()))
         .status()
         .expect("failed to remove previous build artifacts");
+
+    println!("cargo:rerun-if-env-changed=CMAKE_BUILD_DIR");
+    println!("cargo:rerun-if-changed=build.rs");
+    
+    for entry in glob::glob("../../**/*.h").unwrap().filter_map(|x| x.ok()) {
+        if let Some(entry) = entry.to_str() {
+            println!("cargo:rerun-if-changed={}", entry);
+        }
+    }
+    for entry in glob::glob("../../../deps/ccommon/include").unwrap().filter_map(|x| x.ok()) {
+        if let Some(entry) = entry.to_str() {
+            println!("cargo:rerun-if-changed={}", entry);
+        }
+    }
+
+    println!("cargo:rerun-if-changed={}/config.h", get_cmake_binary_dir());
 
     {
         let bindings = builder()

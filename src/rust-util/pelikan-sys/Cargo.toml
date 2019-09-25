@@ -38,3 +38,4 @@ package = "cc_binding"
 [build-dependencies]
 bindgen = "0.51"
 lazy_static = "1.4"
+glob = "0.3"
