@@ -17,12 +17,15 @@ cmake_cmd=(
   -DBUILD_AND_INSTALL_CHECK=yes
 )
 
-# build CDB in CI or else stuff breaks
+# Ensure that rust test failures have the full backtrace
+export RUST_BACKTRACE=full
+# Make ctest display the output from failing tests
+export CTEST_OUTPUT_ON_FAILURE=1
 
+# build CDB in CI or else stuff breaks
 if [[ -n "${RUST_ENABLED:-}" ]]; then
   cmake_cmd+=( -DTARGET_CDB=yes -DHAVE_RUST=yes -DRUST_VERBOSE_BUILD=yes )
 fi
-
 
 mkdir -p _build && ( cd _build && "${cmake_cmd[@]}" .. && make && make test ) || die 'make failed'
 
@@ -30,18 +33,3 @@ egrep -r ":F:|:E:" . |grep -v 'Binary file' || true
 
 ( cd test/integration && python test_twemcache.py ) || die 'twemcache tests failed'
 
-set +e
-
-if [[ -n "${RUST_ENABLED:-}" ]]; then
-  ( cd src/storage/cdb && env RUST_BACKTRACE=full cargo test )
-fi
-
-RESULT=$?
-
-if [[ $RESULT -ne 0 ]]; then
-  echo "Build failure" >&2
-  exit $RESULT
-else
-  echo "success!" >&2
-  exit 0
-fi
