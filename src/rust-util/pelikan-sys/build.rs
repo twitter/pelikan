@@ -49,8 +49,6 @@ fn dump_env() {
 }
 
 fn main() {
-    dump_env();
-
     // Cargo sometimes puts OUT_DIR in the same directory as
     // a previous build, so this ensures that old artifacts
     // don't stick around.
