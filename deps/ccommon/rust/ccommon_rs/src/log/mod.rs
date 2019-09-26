@@ -669,16 +669,18 @@ mod test {
     // this is necessary until https://github.com/rust-lang/rust/issues/48854
     // lands in stable
     fn assert_result<F, E>(f: F)
-        where F: FnOnce() -> Result<E>
+    where 
+        F: FnOnce() -> std::result::Result<(), E>,
+        E: std::fmt::Display
     {
         match f() {
             Ok(_) => (),
-            Err(e) => panic!(e)
+            Err(e) => panic!("{}", e)
         }
     }
 
     fn basic_mt_roundtrip() {
-        assert_result(|| {
+        assert_result::<_, std::io::Error>(|| {
             let mut stats = LogMetrics::new();
             unsafe { bind::log_setup(stats.as_mut_ptr()) };
             let tmpdir = tempfile::tempdir()?;
@@ -715,7 +717,7 @@ mod test {
     }
 
     fn named_threads_test() {
-        assert_result(||{
+        assert_result::<_, std::io::Error>(||{
             let mut stats = LogMetrics::new();
             unsafe { bind::log_setup(stats.as_mut_ptr()) };
             let tmpdir = tempfile::tempdir()?;
@@ -761,7 +763,7 @@ mod test {
     }
 
     fn mt_shutdown_resilience_test() {
-        assert_result(||{
+        assert_result::<_, Box<dyn std::error::Error>>(||{
             // make sure a thread logging doesn't crash if we shutdown simultaneously
             let mut stats = LogMetrics::new();
             unsafe { bind::log_setup(stats.as_mut_ptr()) };
