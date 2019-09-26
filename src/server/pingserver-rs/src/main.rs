@@ -27,7 +27,7 @@ const LONG_USE_STR: &str = r#"\
   pelikan_pingserver is, arguably, the most over-engineered 
   ping server. 
   
-  The prupose is to demonstrate how to create an otherwise 
+  The purpose is to demonstrate how to create an otherwise 
   minimal service with the libraries and modules provided by
   Pelikan, which meets stringent requirements on latencies,
   observability, configurability, and other valuable traits
