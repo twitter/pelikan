@@ -6,7 +6,7 @@ version = "0.0.0"
 
 [dependencies]
 clap = "2.33"
-log = "0.4"
+log = "0.4.8"
 libc = "0.2"
 pelikan = { path="../../rust-util/pelikan", features=["protocol_admin"] }
 
