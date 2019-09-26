@@ -1,6 +1,6 @@
 pub mod admin;
 
-use ccommon::buf::Buf;
+use ccommon::buf::OwnedBuf;
 use ccommon_sys::buf;
 
 use pelikan_sys::core::data_processor;
@@ -23,18 +23,18 @@ pub trait DataProcessor {
     type SockState: Copy;
 
     fn read(
-        rbuf: &mut Buf,
-        wbuf: &mut Buf,
+        rbuf: &mut OwnedBuf,
+        wbuf: &mut OwnedBuf,
         state: &mut *mut MaybeUninit<Self::SockState>,
     ) -> Result<(), DataProcessorError>;
     fn write(
-        rbuf: &mut Buf,
-        wbuf: &mut Buf,
+        rbuf: &mut OwnedBuf,
+        wbuf: &mut OwnedBuf,
         state: &mut *mut MaybeUninit<Self::SockState>,
     ) -> Result<(), DataProcessorError>;
     fn error(
-        rbuf: &mut Buf,
-        wbuf: &mut Buf,
+        rbuf: &mut OwnedBuf,
+        wbuf: &mut OwnedBuf,
         state: &mut *mut MaybeUninit<Self::SockState>,
     ) -> Result<(), DataProcessorError>;
 }
@@ -51,8 +51,8 @@ unsafe extern "C" fn read_wrapper<T: DataProcessor>(
     assert!(!(*wbuf).is_null());
 
     let res = T::read(
-        Buf::from_raw_mut(*rbuf),
-        Buf::from_raw_mut(*wbuf),
+        &mut *(rbuf as *mut OwnedBuf),
+        &mut *(wbuf as *mut OwnedBuf),
         &mut (*data as *mut MaybeUninit<T::SockState>),
     );
 
@@ -73,8 +73,8 @@ unsafe extern "C" fn write_wrapper<T: DataProcessor>(
     assert!(!(*wbuf).is_null());
 
     let res = T::write(
-        Buf::from_raw_mut(*rbuf),
-        Buf::from_raw_mut(*wbuf),
+        &mut *(rbuf as *mut OwnedBuf),
+        &mut *(wbuf as *mut OwnedBuf),
         &mut (*data as *mut MaybeUninit<T::SockState>),
     );
 
@@ -95,8 +95,8 @@ unsafe extern "C" fn error_wrapper<T: DataProcessor>(
     assert!(!(*wbuf).is_null());
 
     let res = T::error(
-        Buf::from_raw_mut(*rbuf),
-        Buf::from_raw_mut(*wbuf),
+        &mut *(rbuf as *mut OwnedBuf),
+        &mut *(wbuf as *mut OwnedBuf),
         &mut (*data as *mut MaybeUninit<T::SockState>),
     );
 
