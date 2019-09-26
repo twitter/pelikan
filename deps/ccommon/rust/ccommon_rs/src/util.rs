@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 use std::ffi::CStr;
 use std::fs;
 use std::os::raw::c_char;
@@ -26,14 +25,13 @@ use cc_binding::{metric, option};
 pub unsafe extern "C" fn cc_util_rm_rf_rs(path: *const c_char) -> i32 {
     assert!(!path.is_null());
 
-    let s =
-        match CStr::from_ptr(path as *mut c_char).to_str() {
-            Ok(s) => s,
-            Err(err) => {
-                eprintln!("ERROR: cc_util_rm_rf_rs: {:#?}", err);
-                return -1
-            }
-        };
+    let s = match CStr::from_ptr(path as *mut c_char).to_str() {
+        Ok(s) => s,
+        Err(err) => {
+            eprintln!("ERROR: cc_util_rm_rf_rs: {:#?}", err);
+            return -1;
+        }
+    };
 
     match fs::remove_dir_all(s) {
         Ok(()) => 0,
@@ -53,10 +51,7 @@ pub unsafe trait AsMetricArray {
         assert_eq!(size_of_val(self) % size_of::<metric>(), 0);
 
         let count = size_of_val(self) / size_of::<metric>();
-        slice::from_raw_parts(
-            self as *const _ as *const metric,
-            count
-        )
+        slice::from_raw_parts(self as *const _ as *const metric, count)
     }
     unsafe fn as_metric_array_mut<'a>(&'a mut self) -> &'a mut [metric] {
         use std::mem::{size_of, size_of_val};
@@ -66,20 +61,14 @@ pub unsafe trait AsMetricArray {
         assert_eq!(size_of_val(self) % size_of::<metric>(), 0);
 
         let count = size_of_val(self) / size_of::<metric>();
-        slice::from_raw_parts_mut(
-            self as *mut _ as *mut metric,
-            count
-        )
+        slice::from_raw_parts_mut(self as *mut _ as *mut metric, count)
     }
 
     unsafe fn describe_all(&self) {
         let slice = self.as_metric_array();
 
         use cc_binding::metric_describe_all;
-        metric_describe_all(
-            slice.as_ptr() as *mut _,
-            slice.len() as u32
-        )
+        metric_describe_all(slice.as_ptr() as *mut _, slice.len() as u32)
     }
 }
 
@@ -92,10 +81,8 @@ pub unsafe trait AsOptionArray {
         assert_eq!(size_of_val(self) % size_of::<option>(), 0);
 
         let count = size_of_val(self) / size_of::<option>();
-        slice::from_raw_parts(
-            self as *const _ as *const option,
-            count
-        )
+        
+        slice::from_raw_parts(self as *const _ as *const option, count)
     }
     unsafe fn as_option_array_mut<'a>(&'a mut self) -> &'a mut [option] {
         use std::mem::{size_of, size_of_val};
@@ -105,20 +92,15 @@ pub unsafe trait AsOptionArray {
         assert_eq!(size_of_val(self) % size_of::<option>(), 0);
 
         let count = size_of_val(self) / size_of::<option>();
-        slice::from_raw_parts_mut(
-            self as *mut _ as *mut option,
-            count
-        )
+        
+        slice::from_raw_parts_mut(self as *mut _ as *mut option, count)
     }
 
     unsafe fn describe_all(&self) {
+        use cc_binding::option_describe_all;
+
         let slice = self.as_option_array();
 
-        use cc_binding::option_describe_all;
-        option_describe_all(
-            slice.as_ptr() as *mut _,
-            slice.len() as u32
-        )
+        option_describe_all(slice.as_ptr() as *mut _, slice.len() as u32)
     }
 }
-

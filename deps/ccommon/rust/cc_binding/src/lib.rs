@@ -29,7 +29,7 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
 
-use libc::{FILE, addrinfo, timespec};
+use libc::{addrinfo, timespec, FILE};
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 

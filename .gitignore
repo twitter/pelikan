@@ -49,11 +49,5 @@ compile_commands.json
 /core
 CMAKE_BINARY_DIR
 
-# Junk files from macos
-.DS_Store
-
 # Cargo configuration
 .cargo
-
-# Editor files
-.vscode

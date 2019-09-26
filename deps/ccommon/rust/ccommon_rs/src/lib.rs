@@ -24,9 +24,9 @@ extern crate lazy_static;
 #[macro_use]
 extern crate log as rslog;
 extern crate tempfile;
-extern crate time;
-extern crate thread_local;
 extern crate thread_id;
+extern crate thread_local;
+extern crate time;
 
 #[cfg(test)]
 #[macro_use]
@@ -35,9 +35,9 @@ extern crate rusty_fork;
 use std::result;
 
 pub mod bstring;
+pub mod buf;
 pub mod log;
 pub mod util;
-pub mod buf;
 
 // like how guava provides enhancements for Int as "Ints"
 pub mod ptrs;
@@ -48,14 +48,14 @@ pub type Result<T> = result::Result<T, failure::Error>;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub enum Error {
-    Generic= -1,
+    Generic = -1,
     EAgain = -2,
     ERetry = -3,
     ENoMem = -4,
     EEmpty = -5,
     ERdHup = -6,
     EInval = -7,
-    EOther = -8
+    EOther = -8,
 }
 
 impl From<std::os::raw::c_int> for Error {
@@ -68,8 +68,7 @@ impl From<std::os::raw::c_int> for Error {
             -5 => Error::EEmpty,
             -6 => Error::ERdHup,
             -7 => Error::EInval,
-            _  => Error::EOther
+            _ => Error::EOther,
         }
     }
 }
-

@@ -1,5 +1,5 @@
 // ccommon - a cache common library.
-// Copyright (C) 2018 Twitter, Inc.
+// Copyright (C) 2019 Twitter, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,24 +15,25 @@
 
 use cc_binding::buf;
 
-use std::ops::{DerefMut, Deref};
-use std::io::{self, Write, Read};
+use std::io::{self, Read, Write};
+use std::ops::{Deref, DerefMut};
 
 /// A non-owned buffer, can be read from and written to.
-/// 
+///
 /// # Safety
 /// This is a self-referential struct that assumes it is
 /// followed by it's data. Attempting to move it or create
 /// a new instance (via transmute) will cause UB.
 #[repr(transparent)]
 pub struct Buf {
-    buf: buf
+    buf: buf,
 }
 
 impl Buf {
     pub unsafe fn from_raw<'a>(buf: *const buf) -> &'a Buf {
         &*(buf as *const Buf)
     }
+
     pub unsafe fn from_raw_mut<'a>(buf: *mut buf) -> &'a mut Buf {
         &mut *(buf as *mut Buf)
     }
@@ -40,6 +41,7 @@ impl Buf {
     pub fn into_raw(&self) -> *const buf {
         &self.buf as *const _
     }
+
     pub fn into_raw_mut(&mut self) -> *mut buf {
         &mut self.buf as *mut _
     }
@@ -51,6 +53,7 @@ impl Buf {
 
         self.buf.end as usize - self.buf.wpos as usize
     }
+
     /// The number of bytes left to read from the buffer
     pub fn read_size(&self) -> usize {
         assert!(self.buf.rpos as usize <= self.buf.wpos as usize);
@@ -85,11 +88,7 @@ impl Buf {
 
         if size > 0 {
             unsafe {
-                std::ptr::copy(
-                    self.buf.rpos,
-                    self.buf.rpos.offset(-(size as isize)),
-                    size
-                );
+                std::ptr::copy(self.buf.rpos, self.buf.rpos.offset(-(size as isize)), size);
             }
         }
 
@@ -103,11 +102,7 @@ impl Buf {
 
         if size > 0 {
             unsafe {
-                std::ptr::copy(
-                    self.buf.rpos,
-                    self.buf.begin.as_mut_ptr(),
-                    size
-                );
+                std::ptr::copy(self.buf.rpos, self.buf.begin.as_mut_ptr(), size);
             }
         }
 
@@ -119,40 +114,31 @@ impl Buf {
     pub fn as_slice(&self) -> &[u8] {
         use std::slice;
 
-        unsafe {
-            slice::from_raw_parts(
-                self.buf.rpos as *const u8,
-                self.read_size()
-            )
-        }
+        unsafe { slice::from_raw_parts(self.buf.rpos as *const u8, self.read_size()) }
     }
 
     /// Get the currently valid part of the buffer as a slice
     pub fn as_slice_mut(&mut self) -> &mut [u8] {
         use std::slice;
 
-        unsafe {
-            slice::from_raw_parts_mut(
-                self.buf.rpos as *mut u8,
-                self.read_size()
-            )
-        }
+        unsafe { slice::from_raw_parts_mut(self.buf.rpos as *mut u8, self.read_size()) }
     }
 }
 
 /// An owned buffer.
-/// 
+///
 /// In addition to all the operations supported by `Buf`
 /// an `OwnedBuf` also supports some resizing operations.
 #[repr(transparent)]
 pub struct OwnedBuf {
-    buf: *mut buf
+    buf: *mut buf,
 }
 
 impl OwnedBuf {
     pub unsafe fn from_raw(buf: *mut buf) -> Self {
         Self { buf }
     }
+    
     pub fn into_raw(self) -> *mut buf {
         let buf = self.buf;
         // Don't want to run drop on the destructor
@@ -191,7 +177,7 @@ impl OwnedBuf {
     }
 
     /// Resize the buffer to fit the required capacity.
-    /// 
+    ///
     /// # Panics
     /// Panics if `cap` is greater than `u32::MAX`.
     pub fn fit(&mut self, cap: usize) -> Result<(), crate::Error> {
@@ -228,16 +214,13 @@ impl Deref for OwnedBuf {
     type Target = Buf;
 
     fn deref(&self) -> &Buf {
-        unsafe {
-            Buf::from_raw(self.buf)
-        }
+        unsafe { Buf::from_raw(self.buf) }
     }
 }
+
 impl DerefMut for OwnedBuf {
     fn deref_mut(&mut self) -> &mut Buf {
-        unsafe {
-            Buf::from_raw_mut(self.buf)
-        }
+        unsafe { Buf::from_raw_mut(self.buf) }
     }
 }
 
@@ -245,14 +228,13 @@ impl Read for Buf {
     fn read(&mut self, out: &mut [u8]) -> io::Result<usize> {
         let len = self.read_size().min(out.len());
 
-        unsafe {
-            std::ptr::copy_nonoverlapping(self.buf.rpos as *const u8, out.as_mut_ptr(), len)
-        }
+        unsafe { std::ptr::copy_nonoverlapping(self.buf.rpos as *const u8, out.as_mut_ptr(), len) }
         self.buf.rpos = self.buf.rpos.wrapping_add(len);
 
         Ok(len)
     }
 }
+
 impl Write for Buf {
     fn write(&mut self, src: &[u8]) -> io::Result<usize> {
         if src.is_empty() {
@@ -261,9 +243,7 @@ impl Write for Buf {
 
         let len = self.write_size().min(src.len());
 
-        unsafe {
-            std::ptr::copy_nonoverlapping(src.as_ptr(), self.buf.wpos as *mut _, src.len())
-        }
+        unsafe { std::ptr::copy_nonoverlapping(src.as_ptr(), self.buf.wpos as *mut _, src.len()) }
         self.buf.wpos = self.buf.wpos.wrapping_add(len);
 
         Ok(len)
@@ -279,6 +259,7 @@ impl Read for OwnedBuf {
         (**self).read(buf)
     }
 }
+
 impl Write for OwnedBuf {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         (**self).write(buf)
@@ -288,5 +269,3 @@ impl Write for OwnedBuf {
         (**self).flush()
     }
 }
-
-

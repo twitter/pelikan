@@ -5,12 +5,10 @@ extern crate failure;
 use std::env;
 use std::ffi::OsString;
 use std::fs;
-use std::io;
 use std::io::prelude::*;
-use std::io::BufReader;
+use std::io::{self, BufReader};
 use std::os::unix::fs as unix_fs;
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::result;
 
 type Result<T> = result::Result<T, failure::Error>;
@@ -23,14 +21,10 @@ fn get_cmake_binary_dir() -> io::Result<PathBuf> {
 
     match env::var("CMAKE_BINARY_DIR") {
         Ok(var) => Ok(var.into()),
-        Err(e) => {
-            match e {
-                VarError::NotPresent => panic!(
-                    "CMAKE_BINARY_DIR environment variable was not set!"
-                ),
-                VarError::NotUnicode(v) => Ok(PathBuf::from(v))
-            }
-        }
+        Err(e) => match e {
+            VarError::NotPresent => panic!("CMAKE_BINARY_DIR environment variable was not set!"),
+            VarError::NotUnicode(v) => Ok(PathBuf::from(v)),
+        },
     }
 }
 
@@ -103,6 +97,8 @@ fn main() {
         println!("cargo:rustc-link-search=framework=/System/Library/Frameworks");
     }
 
+    // Keep the sections separated
+    #[rustfmt::skip]
     let bindings = bindgen::Builder::default()
         .clang_args(vec![
             "-I",
@@ -240,9 +236,6 @@ fn main() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 
-    // ./target/debug/build/cc_binding-27eac70f0fa2e180/out  <<- starts here
-
-    // cc_binding-27eac70f0fa2e180
     let symlink_content = out_path.parent().unwrap().file_name().unwrap();
 
     let build_dir = out_path.parent().and_then(|p| p.parent()).unwrap();
