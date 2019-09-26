@@ -5,8 +5,8 @@ authors = ["Jonathan Simms <jsimms@twitter.com>"]
 edition = "2018"
 
 [build-dependencies]
-bindgen = "0.51"
-failure = "0.1"
+bindgen = "0.51.1"
+failure = "0.1.5"
 
 [dependencies]
 libc = "0.2"

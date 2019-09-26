@@ -417,14 +417,16 @@ mod test {
     fn test_raw_ptr_to_bytes() {
         let bs = CCbstring {
             len: 5,
-            data: String::from("abcde").as_ptr() as *mut i8
+            data: "abcde".as_ptr() as *mut i8
         };
 
         let ptr: *const CCbstring = &bs as *const CCbstring;
 
         let slice = unsafe { raw_ptr_to_bytes(ptr) };
+
+        assert_eq!(slice.as_ptr(), bs.data as *mut u8);
         assert_eq!(slice.len(), 5);
-        assert_eq!(&slice[..], "abcde".as_bytes());
+        assert_eq!(slice, "abcde".as_bytes());
     }
 
     #[test]
