@@ -1,4 +1,4 @@
-use ccommon::buf::Buf;
+use ccommon::buf::OwnedBuf;
 use pelikan::core::{DataProcessor, DataProcessorError};
 use std::mem::MaybeUninit;
 
@@ -8,8 +8,8 @@ impl DataProcessor for PingDataProcessor {
     type SockState = ();
 
     fn read(
-        rbuf: &mut Buf,
-        wbuf: &mut Buf,
+        rbuf: &mut OwnedBuf,
+        wbuf: &mut OwnedBuf,
         _: &mut *mut MaybeUninit<Self::SockState>,
     ) -> Result<(), DataProcessorError> {
         use pelikan_sys::protocol::ping::*;
@@ -39,27 +39,30 @@ impl DataProcessor for PingDataProcessor {
     }
 
     fn write(
-        _rbuf: &mut Buf,
-        _wbuf: &mut Buf,
+        rbuf: &mut OwnedBuf,
+        wbuf: &mut OwnedBuf,
         _: &mut *mut MaybeUninit<Self::SockState>,
     ) -> Result<(), DataProcessorError> {
         trace!("post-write processing");
 
-        // TODO(sean): The C implementation calls dbuf_shrink here
+        rbuf.shrink().expect("Failed to resize buffer");
+        wbuf.shrink().expect("Failed to resize buffer");
 
         Ok(())
     }
 
     fn error(
-        rbuf: &mut Buf,
-        wbuf: &mut Buf,
+        rbuf: &mut OwnedBuf,
+        wbuf: &mut OwnedBuf,
         _: &mut *mut MaybeUninit<Self::SockState>,
     ) -> Result<(), DataProcessorError> {
         trace!("post-error processing");
 
-        // TODO(sean): The C implementation calls dbuf_shrink here
         rbuf.reset();
+        rbuf.shrink().expect("Failed to resize buffer");
+
         wbuf.reset();
+        wbuf.shrink().expect("Failed to resize buffer");
 
         Ok(())
     }
