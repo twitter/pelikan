@@ -38,7 +38,19 @@ fn builder() -> bindgen::Builder {
         .whitelist_type("u?int([0-9]+|max)_t")
 }
 
+#[allow(unused)]
+fn dump_env() {
+    let mut kvs: Vec<(String, String)> = ::std::env::vars().collect();
+    kvs.sort();
+    eprintln!("-----<( ENVIRONMENT )>-----");
+    for (k, v) in kvs {
+        eprintln!("{}: {}", k, v);
+    }
+}
+
 fn main() {
+    dump_env();
+
     // Cargo sometimes puts OUT_DIR in the same directory as
     // a previous build, so this ensures that old artifacts
     // don't stick around.
@@ -50,7 +62,7 @@ fn main() {
 
     println!("cargo:rerun-if-env-changed=CMAKE_BUILD_DIR");
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rustc-link-lib=static=ccommon-2.1.0");
+    println!("cargo:rustc-link-lib=ccommon");
     println!("cargo:rustc-link-search={}/ccommon/lib", get_cmake_binary_dir());
     
     for entry in glob::glob("../../**/*.h").unwrap().filter_map(|x| x.ok()) {
@@ -513,6 +525,11 @@ fn main() {
             .write_to_file(out_path.join("protocol_admin.rs"))
             .expect("Couldn't write bindings");
     }
+
+    // Note: need to specify linker flags for this after linking all the
+    // other libraries since otherwise we'll get linker errors on linux.
+    println!("cargo:rustc-link-lib=ccommon");
+    println!("cargo:rustc-link-search={}/ccommon/lib", get_cmake_binary_dir());
 }
 
 fn get_cmake_binary_dir() -> String {
