@@ -7,13 +7,18 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 
 fn get_cmake_binary_dir() -> io::Result<String> {
+    match env::var("CMAKE_BINARY_DIR") {
+        Ok(var) => return Ok(var),
+        Err(_) => ()
+    }
+
     // this file is written by cmake on each run, updated with the location of
     // the build directory.
     let mut fp = fs::File::open("CMAKE_BINARY_DIR")?;
     let mut buf = String::new();
     let n = fp.read_to_string(&mut buf)?;
     assert!(n > 0, "file was empty");
-    Ok(String::from(buf.trim_right()))
+    Ok(String::from(buf.trim_end()))
 }
 
 fn main() {

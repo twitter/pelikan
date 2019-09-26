@@ -1,11 +1,11 @@
-##-- cdb Cargo.toml file --##
-# note: do not change the mark above #
+
 
 [workspace]
-
 members = [
-    "cdb_rs",
-    "cdbgen",
+    "deps/ccommon/rust/cc_binding",
+    "deps/ccommon/rust/ccommon_rs",
+    "src/storage/cdb/cdbgen",
+    "src/storage/cdb/cdb_rs",
 ]
 
 [profile.release]
@@ -19,6 +19,3 @@ codegen-units = 1
 [profile.dev]
 debug = true
 opt-level = 0
-
-[term]
-verbose = true

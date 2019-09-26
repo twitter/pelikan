@@ -30,7 +30,7 @@ impl AsRef<[u8]> for Backend {
 impl Backend {
     pub fn noop() -> Result<Backend> {
         let v = {
-            let mut buf  = Vec::with_capacity(MAIN_TABLE_SIZE_BYTES as usize);
+            let buf  = Vec::with_capacity(MAIN_TABLE_SIZE_BYTES as usize);
             let mut cur = Cursor::new(buf);
             super::Writer::new(&mut cur)?;
             cur.into_inner()
