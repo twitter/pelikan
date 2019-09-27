@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::result;
 use std::ptr;
+use std::result;
 
 #[derive(Fail, Debug)]
 #[fail(display = "Null pointer exception")]
@@ -38,4 +38,3 @@ pub fn opt_to_null_mut<T>(o: Option<*mut T>) -> *mut T {
         None => ptr::null_mut(),
     }
 }
-

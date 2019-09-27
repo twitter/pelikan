@@ -1,11 +1,15 @@
 [package]
 name = "cc_binding"
 version = "0.1.0"
-authors = ["Jonathan Simms <jsimms@twitter.com>"]
+authors = ["Jonathan Simms <jsimms@twitter.com>", "Sean Lynch <slynch@twitter.com>"]
+edition = "2018"
 
 [build-dependencies]
-bindgen = "0.37.0"
-failure = "~0.1.1"
+bindgen = "0.51.1"
+failure = "0.1.5"
+
+[dependencies]
+libc = "0.2.0"
 
 [lib]
 name = "cc_binding"

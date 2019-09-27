@@ -28,5 +28,26 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(dead_code)]
+
+use libc::{addrinfo, timespec, FILE};
+
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+pub const DEBUG_LOG_FILE: *mut i8 = std::ptr::null_mut();
+
+// Option methods
+pub unsafe fn option_bool(opt: *mut option) -> bool {
+    return (*opt).val.vbool;
+}
+
+pub unsafe fn option_uint(opt: *mut option) -> u64 {
+    return (*opt).val.vuint;
+}
+
+pub unsafe fn option_fpn(opt: *mut option) -> f64 {
+    return (*opt).val.vfpn;
+}
+
+pub unsafe fn option_str(opt: *mut option) -> *mut i8 {
+    return (*opt).val.vstr;
+}

@@ -8,23 +8,23 @@ publish = false
 ccommon_rs = { path = "../../../../deps/ccommon/rust/ccommon_rs" }
 cc_binding = { path = "../../../../deps/ccommon/rust/cc_binding" }
 
-bytes = "~0.4"
-clap = "~2.31.0"
-env_logger = "~0.5.10"
-failure = "~0.1.1"
-failure_derive = "~0.1.1"
-libc = "~0.2.42"
-log = "~0.4"
-memmap = "~0.6.2"
-rand = "~0.5"
+bytes = "0.4"
+clap = "2.33"
+env_logger = "0.5.10"
+failure = "0.1"
+failure_derive = "0.1"
+libc = "0.2"
+log = "0.4"
+memmap = "0.6"
+rand = "0.5"
 
 [dev-dependencies]
-tempfile = "~3"
-proptest = "~0.7.1"
+tempfile = "3"
+proptest = "0.7.1"
 
 [lib]
 name = "cdb_rs"
 crate-type = ["rlib", "staticlib"]
 
 [build-dependencies]
-bindgen = "0.37.0"
+bindgen = "0.51"

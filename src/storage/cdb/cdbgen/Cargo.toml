@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["Jonathan D. Simms <jsimms@twitter.com>"]
 
 [dependencies]
-clap = "~2.31"
-tempfile = "~3.0"
+clap = "2.31"
+tempfile = "3.0"
 cdb_rs = { path = "../cdb_rs" }
 
 [lib]

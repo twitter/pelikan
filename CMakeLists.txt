@@ -58,6 +58,9 @@ set_property(GLOBAL PROPERTY ALLOW_DUPLICATE_CUSTOM_TARGETS 1)
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
 set(CMAKE_MACOSX_RPATH 1)
 
+# Required for properly linking with rust code
+set(CMAKE_POSITION_INDEPENDENT_CODE true)
+
 include(CheckSymbolExists)
 check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
 
@@ -228,3 +231,32 @@ endif()
 # Note: to uninstall targets, run:
 #  xargs rm < install_manifest.txt
 # vim:ts=4:sw=4:et
+
+if(HAVE_RUST)
+    enable_language(Rust)
+    include(cmake/CMakeCargo.cmake)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_RUST=1")
+
+    # Create a .cargo file which sets the target directory
+    make_directory(.cargo)
+    file(WRITE .cargo/config "[build]\ntarget-dir=\"${CMAKE_BINARY_DIR}/target\"\n")
+
+    set_directory_properties(
+        PROPERTIES
+        MAKE_ADDITIONAL_CLEAN_FILES "${CMAKE_BINARY_DIR}/target"
+    )
+
+    # Add a rust-docs target
+    add_custom_target(
+        rust-doc
+        COMMAND ${CMAKE_COMMAND} -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}" cargo doc
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+
+    # Optionally run rust tests
+    add_test(
+        NAME cargo_test 
+        COMMAND ${CMAKE_COMMAND} -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}" cargo test
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+endif()

@@ -24,6 +24,7 @@
 
 use cc_binding as bind;
 use std::borrow::Borrow;
+use std::borrow::BorrowMut;
 use std::boxed::Box;
 use std::cell::UnsafeCell;
 use std::fmt;
@@ -33,30 +34,20 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::slice;
 use std::str;
-use std::borrow::BorrowMut;
-
 
 pub type CCbstring = bind::bstring;
-
 
 #[doc(hidden)]
 #[inline]
 unsafe fn raw_ptr_to_bytes<'a>(ptr: *const CCbstring) -> &'a [u8] {
-    slice::from_raw_parts(
-        (*ptr).data as *const _ as *const u8,
-        (*ptr).len as usize
-    )
+    slice::from_raw_parts((*ptr).data as *const _ as *const u8, (*ptr).len as usize)
 }
 
 #[doc(hidden)]
 #[inline]
 unsafe fn raw_ptr_to_bytes_mut<'a>(ptr: *mut CCbstring) -> &'a mut [u8] {
-    slice::from_raw_parts_mut(
-        (*ptr).data as *mut _ as *mut u8,
-        (*ptr).len as usize
-    )
+    slice::from_raw_parts_mut((*ptr).data as *mut _ as *mut u8, (*ptr).len as usize)
 }
-
 
 // this pattern lifted from https://docs.rs/foreign-types-shared/0.1.1/src/foreign_types_shared/lib.rs.html
 struct Opaque(UnsafeCell<()>);
@@ -105,7 +96,6 @@ impl BStr {
     }
 }
 
-
 impl Deref for BStr {
     type Target = [u8];
 
@@ -130,7 +120,7 @@ impl AsRef<CCbstring> for BStr {
 
 impl AsMut<CCbstring> for BStr {
     fn as_mut(&mut self) -> &mut CCbstring {
-        unsafe { &mut *(self.as_ptr() as *mut _)}
+        unsafe { &mut *(self.as_ptr() as *mut _) }
     }
 }
 
@@ -142,7 +132,7 @@ impl Borrow<CCbstring> for BStr {
 
 impl BorrowMut<CCbstring> for BStr {
     fn borrow_mut(&mut self) -> &mut CCbstring {
-        unsafe { &mut *(self.as_ptr() as *mut _)}
+        unsafe { &mut *(self.as_ptr() as *mut _) }
     }
 }
 
@@ -408,7 +398,6 @@ impl<'a> From<&'a str> for BString {
 unsafe impl Send for BString {}
 unsafe impl Sync for BString {}
 
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -417,14 +406,16 @@ mod test {
     fn test_raw_ptr_to_bytes() {
         let bs = CCbstring {
             len: 5,
-            data: String::from("abcde").as_ptr() as *mut i8
+            data: "abcde".as_ptr() as *mut i8,
         };
 
         let ptr: *const CCbstring = &bs as *const CCbstring;
 
         let slice = unsafe { raw_ptr_to_bytes(ptr) };
+
+        assert_eq!(slice.as_ptr(), bs.data as *mut u8);
         assert_eq!(slice.len(), 5);
-        assert_eq!(&slice[..], "abcde".as_bytes());
+        assert_eq!(slice, "abcde".as_bytes());
     }
 
     #[test]
@@ -472,7 +463,7 @@ mod test {
     }
 
     fn foreign_code(s: &str) -> *mut CCbstring {
-       BString::into_raw(BString::from(s))
+        BString::into_raw(BString::from(s))
     }
 
     #[test]
