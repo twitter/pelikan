@@ -197,7 +197,7 @@ endif(CHECK_FOUND)
 
 if(HAVE_RUST)
     enable_language(Rust)
-    include(../../cmake/CMakeCargo.cmake)
+    include(CMakeCargo)
     add_subdirectory(rust)
     set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -DHAVE_RUST=1")
 endif()

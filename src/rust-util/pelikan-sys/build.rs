@@ -75,14 +75,20 @@ fn main() {
     println!("cargo:rerun-if-env-changed=CMAKE_BUILD_DIR");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rustc-link-lib=ccommon-2.1.0");
-    println!("cargo:rustc-link-search={}/ccommon/lib", get_cmake_binary_dir());
-    
+    println!(
+        "cargo:rustc-link-search={}/ccommon/lib",
+        get_cmake_binary_dir()
+    );
+
     for entry in glob::glob("../../**/*.h").unwrap().filter_map(|x| x.ok()) {
         if let Some(entry) = entry.to_str() {
             println!("cargo:rerun-if-changed={}", entry);
         }
     }
-    for entry in glob::glob("../../../deps/ccommon/include").unwrap().filter_map(|x| x.ok()) {
+    for entry in glob::glob("../../../deps/ccommon/include")
+        .unwrap()
+        .filter_map(|x| x.ok())
+    {
         if let Some(entry) = entry.to_str() {
             println!("cargo:rerun-if-changed={}", entry);
         }
@@ -541,7 +547,10 @@ fn main() {
     // Note: need to specify linker flags for this after linking all the
     // other libraries since otherwise we'll get linker errors on linux.
     println!("cargo:rustc-link-lib=ccommon-2.1.0");
-    println!("cargo:rustc-link-search={}/ccommon/lib", get_cmake_binary_dir());
+    println!(
+        "cargo:rustc-link-search={}/ccommon/lib",
+        get_cmake_binary_dir()
+    );
 }
 
 fn get_cmake_binary_dir() -> String {

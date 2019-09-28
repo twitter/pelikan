@@ -35,9 +35,12 @@ fn main() {
 
     let bindings = bindgen::Builder::default()
         .clang_args(vec![
-            "-I", include_path.to_str().unwrap(),
-            "-I", config_h_dir.to_str().unwrap(),
-            "-I", ccommon_include.to_str().unwrap(),
+            "-I",
+            include_path.to_str().unwrap(),
+            "-I",
+            config_h_dir.to_str().unwrap(),
+            "-I",
+            ccommon_include.to_str().unwrap(),
         ])
         .header("wrapper.h")
         .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550
