@@ -1,15 +1,16 @@
 use cc_binding as bind;
 use ccommon_rs::bstring::BStr;
-use cdb::{cdb_handle, Reader, Result};
-use cdb;
+
+use cdb::{self, cdb_handle, Reader, Result};
+
 use env_logger; // TODO: switch to cc_log_rs
+
 use std::convert::From;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::ptr;
 
-pub(in super) mod gen;
-
+pub(super) mod gen;
 
 fn mk_cdb_handler(path: &str) -> Result<cdb_handle> {
     assert!(
@@ -55,7 +56,7 @@ pub unsafe extern "C" fn cdb_get(
     let key = BStr::from_ptr(k as *mut _);
     let mut val = BStr::from_ptr_mut(v);
 
-    match Reader::from(handle).get(&key, &mut val)  {
+    match Reader::from(handle).get(&key, &mut val) {
         Ok(Some(n)) => {
             {
                 // this provides access to the underlying struct fields
@@ -65,7 +66,7 @@ pub unsafe extern "C" fn cdb_get(
                 vstr.len = n as u32;
             }
             val.as_ptr()
-        },
+        }
         Ok(None) => ptr::null_mut(), // not found, return a NULL
         Err(err) => {
             eprintln!("got error: {:?}", err);
@@ -73,7 +74,6 @@ pub unsafe extern "C" fn cdb_get(
         }
     }
 }
-
 
 #[no_mangle]
 pub unsafe extern "C" fn cdb_handle_destroy(handle: *mut *mut cdb_handle) {
@@ -91,7 +91,6 @@ pub extern "C" fn cdb_setup() {
 pub extern "C" fn cdb_teardown() {
     eprintln!("teardown cdb");
 }
-
 
 #[cfg(test)]
 mod test {

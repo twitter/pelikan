@@ -81,7 +81,7 @@ pub unsafe trait AsOptionArray {
         assert_eq!(size_of_val(self) % size_of::<option>(), 0);
 
         let count = size_of_val(self) / size_of::<option>();
-        
+
         slice::from_raw_parts(self as *const _ as *const option, count)
     }
     unsafe fn as_option_array_mut<'a>(&'a mut self) -> &'a mut [option] {
@@ -92,7 +92,7 @@ pub unsafe trait AsOptionArray {
         assert_eq!(size_of_val(self) % size_of::<option>(), 0);
 
         let count = size_of_val(self) / size_of::<option>();
-        
+
         slice::from_raw_parts_mut(self as *mut _ as *mut option, count)
     }
 

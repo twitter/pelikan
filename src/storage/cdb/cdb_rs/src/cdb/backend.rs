@@ -1,11 +1,13 @@
-use memmap;
-use std::ops::Deref;
 use super::Result;
-use std::fs::File;
-use std::io::{Cursor, Read};
-use std::path::Path;
+
 use cdb::MAIN_TABLE_SIZE_BYTES;
 
+use memmap;
+
+use std::fs::File;
+use std::io::{Cursor, Read};
+use std::ops::Deref;
+use std::path::Path;
 
 pub enum Backend {
     Heap(Box<[u8]>),
@@ -24,13 +26,15 @@ impl Deref for Backend {
 }
 
 impl AsRef<[u8]> for Backend {
-    fn as_ref(&self) -> &[u8] { &self[..] }
+    fn as_ref(&self) -> &[u8] {
+        &self[..]
+    }
 }
 
 impl Backend {
     pub fn noop() -> Result<Backend> {
         let v = {
-            let buf  = Vec::with_capacity(MAIN_TABLE_SIZE_BYTES as usize);
+            let buf = Vec::with_capacity(MAIN_TABLE_SIZE_BYTES as usize);
             let mut cur = Cursor::new(buf);
             super::Writer::new(&mut cur)?;
             cur.into_inner()
@@ -56,8 +60,8 @@ impl Backend {
     }
 
     pub fn mmap(fp: &File) -> Result<Backend> {
-        Ok(Backend::MMap(
-            unsafe { memmap::MmapOptions::new().map(&fp)? }
-        ))
+        Ok(Backend::MMap(unsafe {
+            memmap::MmapOptions::new().map(&fp)?
+        }))
     }
 }

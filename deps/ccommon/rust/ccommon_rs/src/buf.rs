@@ -138,7 +138,7 @@ impl OwnedBuf {
     pub unsafe fn from_raw(buf: *mut buf) -> Self {
         Self { buf }
     }
-    
+
     pub fn into_raw(self) -> *mut buf {
         let buf = self.buf;
         // Don't want to run drop on the destructor
