@@ -379,6 +379,7 @@ version = "0.0.0"
 dependencies = [
  "bindgen 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc_binding 0.1.0",
+ "ccommon_rs 0.1.0",
  "cdb_rs 0.1.0",
  "glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
