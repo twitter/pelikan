@@ -70,11 +70,11 @@
 #![allow(dead_code)]
 
 pub use super::Result;
-use bstring::BStr;
+use crate::bstring::BStr;
+use crate::ptrs;
 use cc_binding as bind;
 use crossbeam::sync::ArcCell;
 use failure;
-use ptrs;
 use rslog;
 pub use rslog::{Level, Log, SetLoggerError};
 use rslog::{Metadata, Record};
@@ -225,7 +225,7 @@ impl From<usize> for ModuleState {
 }
 
 #[cfg(test)]
-pub(in log) struct LogMetrics(*mut bind::log_metrics_st);
+pub(self) struct LogMetrics(*mut bind::log_metrics_st);
 
 #[cfg(test)]
 impl LogMetrics {
