@@ -48,7 +48,7 @@ use std::fmt::Formatter;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::slice;
-use std::str;
+use std::str::{self, Utf8Error};
 
 pub type CCbstring = bind::bstring;
 
@@ -102,11 +102,11 @@ impl BStr {
         unsafe { Self::from_ptr(ccb as *const CCbstring as *mut _) }
     }
 
-    pub fn to_utf8_str<'a>(&'a self) -> super::Result<&'a str> {
-        str::from_utf8(&self[..]).map_err(|e| e.into())
+    pub fn to_utf8_str<'a>(&'a self) -> Result<&'a str, Utf8Error> {
+        str::from_utf8(&self[..])
     }
 
-    pub fn to_utf8_string(&self) -> super::Result<String> {
+    pub fn to_utf8_string(&self) -> Result<String, Utf8Error> {
         self.to_utf8_str().map(|x| x.to_owned())
     }
 }
@@ -304,11 +304,11 @@ impl BString {
         unsafe { (*self.0).len as usize }
     }
 
-    pub fn to_utf8_str<'a>(&'a self) -> super::Result<&'a str> {
-        str::from_utf8(self.as_bytes()).map_err(|e| e.into())
+    pub fn to_utf8_str<'a>(&'a self) -> Result<&'a str, Utf8Error> {
+        str::from_utf8(self.as_bytes())
     }
 
-    pub fn to_utf8_string(&self) -> super::Result<String> {
+    pub fn to_utf8_string(&self) -> Result<String, Utf8Error> {
         self.to_utf8_str().map(|x| x.to_owned())
     }
 }
