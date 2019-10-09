@@ -22,23 +22,7 @@
 // Hidden module for stuff used by init_metric!
 #[doc(hidden)]
 pub mod export {
-    pub const fn metric_init(
-        name: &'static str,
-        ty: u32,
-        desc: &'static str,
-    ) -> ccommon_sys::metric {
-        use ccommon_sys::*;
-
-        metric {
-            name: name.as_ptr() as *mut _,
-            desc: desc.as_ptr() as *mut _,
-            type_: ty,
-            // Note: while unsafe, this should result in the same
-            //       results for any given type
-            __bindgen_anon_1: metric__bindgen_ty_1 { counter: 0 },
-        }
-    }
-
+    pub use ccommon;
     pub use ccommon_sys;
 }
 
@@ -48,7 +32,21 @@ const fn slice_to_ptr(arr: &[u8]) -> *mut i8 {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! init_option_single {
+macro_rules! __pelikan_sys__c_str {
+    ($s:expr) => {
+        concat!($s, "\0").as_bytes().as_ptr() as *const i8 as *mut _
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __pelikan_sys__stringify {
+    ( $( $tt:tt )* ) => { stringify!($( $tt )*) }
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __pelikan_sys__init_option_single {
     [OPTION_TYPE_BOOL, $default:expr] => {
         $crate::export::ccommon_sys::option_val {
             vbool: $default
@@ -56,12 +54,12 @@ macro_rules! init_option_single {
     };
     [OPTION_TYPE_UINT, $default:expr] => {
         $crate::export::ccommon_sys::option_val {
-            vuint: $default
+            vuint: $default.into()
         }
     };
     [OPTION_TYPE_FPN, $default:expr] => {
         $crate::export::ccommon_sys::option_val {
-            vfpn: $default
+            vfpn: $default.into()
         }
     };
     [OPTION_TYPE_STR, $default:expr] => {
@@ -74,15 +72,15 @@ macro_rules! init_option_single {
             name: concat!(stringify!($name), "\0").as_ptr() as *mut _,
             set: false,
             type_: $crate::export::ccommon_sys::$ty,
-            default_val: init_option_single![$ty, $default],
-            val: init_option_single![$ty, $default],
+            default_val: __pelikan_sys__init_option_single![$ty, $default],
+            val: __pelikan_sys__init_option_single![$ty, $default],
             description: concat!($desc, "\0").as_ptr() as *mut _
         }
     }
 }
 
 /// Macro to properly initialize an options struct.
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! init_option {
     {
         $name:tt ;
@@ -108,10 +106,11 @@ macro_rules! init_option {
         }
     } => {
         {
-            use $crate::init_option_single;
             $name {
                 $(
-                    $field: init_option_single!($field, $ty, $default, $desc),
+                    $field: $crate::__pelikan_sys__init_option_single!(
+                        $field, $ty, $default, $desc
+                    ),
                 )*
             }
         }
@@ -119,8 +118,17 @@ macro_rules! init_option {
 }
 
 /// Macro to properly initialize a metrics struct.
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! init_metric {
+    [METRIC_GAUGE] => {
+        $crate::export::ccommon_sys::metric_anon_union::gauge(0)
+    };
+    [METRIC_COUNTER] => {
+        $crate::export::ccommon_sys::metric_anon_union::counter(0)
+    };
+    [METRIC_FPN] => {
+        $crate::export::ccommon_sys::metric_anon_union::fpn(0.0)
+    };
     {
         $name:tt ;
         $(
@@ -144,11 +152,14 @@ macro_rules! init_metric {
     } => {
         $name {
             $(
-                $field: $crate::export::metric_init(
-                    concat!(stringify!($field), "\0"),
-                    $crate::export::ccommon_sys::$ty,
-                    concat!($desc, "\0")
-                ),
+                $field: $crate::export::ccommon_sys::metric {
+                    name: $crate::__pelikan_sys__c_str!(
+                        $crate::__pelikan_sys__stringify!($field)
+                    ),
+                    desc: $crate::__pelikan_sys__c_str!($desc),
+                    type_: $crate::export::ccommon_sys::$ty,
+                    data: init_metric![$ty]
+                },
             )*
         }
     }
@@ -176,8 +187,8 @@ pub mod core {
 
     include!(concat!(env!("OUT_DIR"), "/core.rs"));
 
-    impl server_metrics_st {
-        pub const fn new() -> Self {
+    unsafe impl ccommon::metric::Metrics for server_metrics_st {
+        fn new() -> Self {
             init_metric! {
                 Self {
                     ACTION( server_event_total,     METRIC_COUNTER, "# server events returned"      ),
@@ -189,8 +200,8 @@ pub mod core {
             }
         }
     }
-    impl worker_metrics_st {
-        pub const fn new() -> Self {
+    unsafe impl ccommon::metric::Metrics for worker_metrics_st {
+        fn new() -> Self {
             init_metric! {
                 Self {
                     ACTION( worker_event_total,     METRIC_COUNTER, "# worker events returned"      ),
@@ -206,8 +217,8 @@ pub mod core {
         }
     }
 
-    impl admin_options_st {
-        pub const fn new() -> Self {
+    unsafe impl ccommon::option::Options for admin_options_st {
+        fn new() -> Self {
             init_option! {
                 Self;
                 ACTION( admin_host,     OPTION_TYPE_STR,    std::ptr::null_mut(),       "admin interfaces listening on"),
@@ -220,8 +231,8 @@ pub mod core {
             }
         }
     }
-    impl server_options_st {
-        pub const fn new() -> Self {
+    unsafe impl ccommon::option::Options for server_options_st {
+        fn new() -> Self {
             init_option! {
                 Self;
                 ACTION( server_host,    OPTION_TYPE_STR,    std::ptr::null_mut(),       "interfaces listening on"      ),
@@ -231,8 +242,8 @@ pub mod core {
             }
         }
     }
-    impl worker_options_st {
-        pub const fn new() -> Self {
+    unsafe impl ccommon::option::Options for worker_options_st {
+        fn new() -> Self {
             init_option! {
                 Self;
                 ACTION( worker_timeout, OPTION_TYPE_UINT,   WORKER_TIMEOUT as u64, "evwait timeout"               ),
@@ -297,8 +308,8 @@ pub mod time {
 
     include!(concat!(env!("OUT_DIR"), "/time.rs"));
 
-    impl time_options_st {
-        pub const fn new() -> Self {
+    unsafe impl ccommon::option::Options for time_options_st {
+        fn new() -> Self {
             init_option! {
                 Self;
                 ACTION(time_type, OPTION_TYPE_UINT, TIME_UNIX as u64, "Expiry timestamp mode")
@@ -314,8 +325,8 @@ pub mod util {
 
     include!(concat!(env!("OUT_DIR"), "/util.rs"));
 
-    impl procinfo_metrics_st {
-        pub const fn new() -> Self {
+    unsafe impl ccommon::metric::Metrics for procinfo_metrics_st {
+        fn new() -> Self {
             init_metric! {
                 Self {
                     ACTION( pid,            METRIC_GAUGE,   "pid of current process"   ),
@@ -372,8 +383,8 @@ pub mod protocol {
 
         include!(concat!(env!("OUT_DIR"), "/protocol_ping.rs"));
 
-        impl parse_req_metrics_st {
-            pub const fn new() -> Self {
+        unsafe impl ccommon::metric::Metrics for parse_req_metrics_st {
+            fn new() -> Self {
                 init_metric! {
                     Self {
                         ACTION( request_parse,      METRIC_COUNTER, "# requests parsed"    ),
@@ -382,8 +393,8 @@ pub mod protocol {
                 }
             }
         }
-        impl parse_rsp_metrics_st {
-            pub const fn new() -> Self {
+        unsafe impl ccommon::metric::Metrics for parse_rsp_metrics_st {
+            fn new() -> Self {
                 init_metric! {
                     Self {
                         ACTION( response_parse,     METRIC_COUNTER, "# responses parsed"   ),
@@ -394,8 +405,8 @@ pub mod protocol {
             }
         }
 
-        impl compose_req_metrics_st {
-            pub const fn new() -> Self {
+        unsafe impl ccommon::metric::Metrics for compose_req_metrics_st {
+            fn new() -> Self {
                 init_metric! {
                     Self {
                         ACTION( request_compose,        METRIC_COUNTER, "# requests composed"  ),
@@ -404,7 +415,7 @@ pub mod protocol {
                 }
             }
         }
-        impl compose_rsp_metrics_st {
+        unsafe impl ccommon::metric::Metrics for compose_rsp_metrics_st {
             pub const fn new() -> Self {
                 init_metric! {
                     Self {

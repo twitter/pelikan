@@ -35,6 +35,10 @@ optional = true
 path = "../../../deps/ccommon/rust/cc_binding"
 package = "cc_binding"
 
+[dependencies.ccommon]
+path = "../../../deps/ccommon/rust/ccommon_rs"
+package = "ccommon_rs"
+
 [build-dependencies]
 bindgen = "0.51.0"
 lazy_static = "1.4.0"
