@@ -15,7 +15,6 @@
 */
 
 #include <rust/cc_log_rs.h>
-#include <rust/cc_util_rs.h>
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>

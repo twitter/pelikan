@@ -15,19 +15,13 @@ crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 cc_binding = { path = "../cc_binding" }
-chrono = "~0.4.4"
-crossbeam = "~0.3.2"
-failure = "~0.1"
-failure_derive = "~0.1"
-lazy_static = "1.4"
-libc = "~0.2"
-log = "~0.4"
-rusty-fork = "~0.2.0"
-tempfile = "~3.0"
-thread-id = "~3.3"
-thread_local = "~0.3.5"
-time = "~0.1"
+libc = "0.2.0"
+log = "0.4.0"
 
 [dependencies.ccommon-derive]
 path = "../ccommon-derive"
 optional = true
+
+[dev-dependencies]
+rusty-fork = "0.2.0"
+gag = "0.1.10"
