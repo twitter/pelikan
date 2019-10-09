@@ -29,11 +29,21 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
 
+#[path = "metric.rs"]
+mod metric_impl;
+
+pub use self::metric_impl::{metric, metric_anon_union};
+
 use libc::{addrinfo, timespec, FILE};
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 pub const DEBUG_LOG_FILE: *mut i8 = std::ptr::null_mut();
+
+/// default log file
+pub const STATS_LOG_FILE: *mut i8 = std::ptr::null_mut();
+/// default log buf size
+pub const STATS_LOG_NBUF: u32 = 0;
 
 // Option methods
 pub unsafe fn option_bool(opt: *mut option) -> bool {

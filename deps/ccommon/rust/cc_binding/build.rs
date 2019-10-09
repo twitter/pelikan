@@ -112,6 +112,9 @@ fn main() {
         .prepend_enum_name(false)
         .whitelist_recursively(false)
 
+        // We provide a custom binding of metric with atomic types
+        .blacklist_type("metric")
+
         // All public types, variables and, functions exported by ccommon
         .whitelist_type("u?intmax_t")
         .whitelist_type("u?int([0-9]+)_t")
