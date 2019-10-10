@@ -16,7 +16,6 @@
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::parse::*;
-use syn::parse_quote;
 use syn::punctuated::*;
 use syn::spanned::Spanned;
 use syn::*;

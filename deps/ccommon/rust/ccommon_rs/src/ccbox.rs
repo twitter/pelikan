@@ -104,7 +104,7 @@ impl<T: ?Sized> CCBox<T> {
         CCBox(NonNull::new_unchecked(raw))
     }
 
-    /// Comsumes the box and returns the pointer stored inside.
+    /// Consumes the box and returns the pointer stored inside.
     ///
     /// The pointer should be freed using [`_cc_free`](ccommon_sys::_cc_free)
     /// or by recreating a `CCBox` from the pointer.
