@@ -17,6 +17,7 @@ if [[ -n "${RUST_ENABLED:-}" ]]; then
 fi
 
 export RUST_BACKTRACE=full
+export CTEST_OUTPUT_ON_FAILURE=1
 
 mkdir -p _build && ( cd _build && "${cmake_cmd[@]}" .. && make && make test )
 RESULT=$?
