@@ -9,4 +9,7 @@ execute_process(
 
 if(HAVE_RUST)
     add_subdirectory(ccommon_rs)
+    add_subdirectory(cc_binding)
+    add_subdirectory(ccommon-derive)
+    add_subdirectory(import-link-flags)
 endif()

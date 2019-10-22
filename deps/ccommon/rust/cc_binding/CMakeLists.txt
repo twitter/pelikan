@@ -1,4 +1,6 @@
 cargo_build(NAME cc_binding)
 
-add_dependencies(cc_binding_static ccommon-static)
-add_dependencies(cc_binding_shared ccommon-shared)
+target_link_libraries(cc_binding INTERFACE ccommon-static)
+
+add_dependencies(cc_binding ccommon-static)
+add_dependencies(cc_binding import-link-flags)

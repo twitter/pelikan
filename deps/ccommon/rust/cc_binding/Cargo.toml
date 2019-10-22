@@ -10,6 +10,7 @@ failure = "0.1.5"
 
 [dependencies]
 libc = "0.2.0"
+import-link-flags = { path="../import-link-flags" }
 
 [lib]
 name = "cc_binding"
