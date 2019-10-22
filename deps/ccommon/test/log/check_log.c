@@ -1,10 +1,5 @@
 #include <cc_log.h>
 
-#ifdef HAVE_RUST
-#include <rust/cc_log_rs.h>
-#include <rust/cc_util_rs.h>
-#endif
-
 #include <check.h>
 
 #include <stdlib.h>
@@ -58,12 +53,7 @@ static void
 tmpname_destroy(char *path)
 {
     unlink(path);
-    path[strlen(path) - 2] = 0;
-#ifdef HAVE_RUST
-    cc_util_rm_rf_rs(path);
-#else
     rmdir(path);
-#endif
     free(path);
 }
 
@@ -250,33 +240,6 @@ START_TEST(test_write_skip_metrics)
 }
 END_TEST
 
-#ifdef HAVE_RUST
-START_TEST(test_most_basic_rust_logging_setup_teardown)
-{
-#define PATH "/tmp/temp.XXXXXX"
-    char *path = malloc(sizeof(PATH) + 1);
-    strcpy(path, PATH);
-    mkdtemp(path);
-
-    struct log_config_rs cfg;
-    cfg.buf_size = 1024;
-    bstring_set_cstr(&cfg.prefix, "templog");
-    bstring_set_cstr(&cfg.path, path);
-    cfg.level = LOG_LEVEL_TRACE;
-
-    struct log_handle_rs *handle = log_create_handle_rs(&cfg);
-    ck_assert(log_is_setup_rs(handle));
-    ck_assert_uint_eq(log_shutdown_rs(handle, 1000), LOG_STATUS_OK);
-    log_destroy_handle_rs(&handle);
-    ck_assert_ptr_null(handle);
-
-    cc_util_rm_rf_rs(path);
-#undef PATH
-}
-END_TEST
-#endif
-
-
 /*
  * test suite
  */
@@ -298,9 +261,6 @@ log_suite(void)
     tcase_add_test(tc_log, test_write_metrics_file_nobuf);
     tcase_add_test(tc_log, test_write_metrics_stderr_nobuf);
     tcase_add_test(tc_log, test_write_skip_metrics);
-#ifdef HAVE_RUST
-    tcase_add_test(tc_log, test_most_basic_rust_logging_setup_teardown);
-#endif
 
     return s;
 }
