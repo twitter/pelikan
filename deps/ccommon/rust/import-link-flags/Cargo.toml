@@ -1,7 +1,0 @@
-[package]
-name = "import-link-flags"
-version = "0.1.0"
-authors = ["Sean Lynch <slynch@twitter.com>"]
-edition = "2018"
-
-[dependencies]
