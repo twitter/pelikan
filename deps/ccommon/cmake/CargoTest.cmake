@@ -56,20 +56,20 @@ while(ARGI LESS ${CMAKE_ARGC})
 endwhile()
 
 file(
-    WRITE
+    READ
     "${LINK_FLAGS_FILE}"
-    ${LINK_FLAGS} ${LINK_LIBRARIES}
+    LINK_FLAGS
 )
 
 # This converts a space-delimited string to a cmake list
-string(REPLACE " " ";" LINK_FLAGS_LIST "${LINK_LIBRARIES}" "${LINK_FLAGS}")
+string(REPLACE " " ";" LINK_FLAGS_LIST "${LINK_FLAGS}")
 set(LINK_FLAGS )
 
 # To pass linker args through cargo we need to use
 # the -Clink-arg=<flag> syntax.
 foreach(FLAG ${LINK_FLAGS_LIST})
-    if(EXISTS "${FLAG}")
-        get_filename_component(FLAG "${FLAG}" ABSOLUTE)
+    if(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/${FLAG}")
+        get_filename_component(FLAG "${CMAKE_CURRENT_BINARY_DIR}/${FLAG}" ABSOLUTE)
     endif()
 
     list(APPEND LINK_FLAGS "-Clink-arg=${FLAG}")
@@ -80,10 +80,10 @@ string(REPLACE " " ";" FLAGS "${FLAGS}")
 
 # TODO(sean): We don't always want to colour the output. Is
 #             there a way to autodetect this properly?
-set(CARGO_COMMAND cargo build --color always ${FLAGS})
+set(CARGO_COMMAND cargo test --color always ${FLAGS})
 
 execute_process(
-    COMMAND ${CMAKE_COMMAND} -E env ${PASSTHROUGH_VARS} "RUSTFLAGS=${LINK_FLAGS}" ${CARGO_COMMAND}
+    COMMAND ${CMAKE_COMMAND} -E env "${PASSTHROUGH_VARS}" "RUSTFLAGS=${LINK_FLAGS}" ${CARGO_COMMAND}
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     RESULT_VARIABLE STATUS
 )
@@ -92,14 +92,8 @@ execute_process(
 # The only way to get a cmake script to exit with an error
 # code is to print a message so that's what we do here.
 if(NOT STATUS EQUAL 0)
-    message(FATAL_ERROR "Cargo build failed")
+    message(ERROR "cargo test failed")
+
+    # Dump some script state to help with debugging
+    message(STATUS "PASSTHROUGH_VARS=${PASSTHROUGH_VARS}")
 endif()
-
-# Get the directory above TARGET since file(COPY ...)
-# uses a directory as the destination
-get_filename_component(
-    TARGET "${TARGET}/.."
-    ABSOLUTE
-)
-
-file(COPY "${OUTPUT}" DESTINATION "${TARGET}")

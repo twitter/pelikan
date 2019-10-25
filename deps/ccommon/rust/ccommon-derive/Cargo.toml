@@ -13,4 +13,3 @@ syn = { version = "1.0.0", features = [ "parsing" ] }
 quote = "1.0.0"
 proc-macro2 = "1.0.0"
 proc-macro-crate = "0.1.4"
-import-link-flags = { path="../import-link-flags" }
