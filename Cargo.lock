@@ -123,7 +123,6 @@ version = "0.1.0"
 dependencies = [
  "bindgen 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "import-link-flags 0.1.0",
  "libc 0.2.65 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -131,7 +130,6 @@ dependencies = [
 name = "ccommon-derive"
 version = "0.1.0"
 dependencies = [
- "import-link-flags 0.1.0",
  "proc-macro-crate 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -145,7 +143,6 @@ dependencies = [
  "cc_binding 0.1.0",
  "ccommon-derive 0.1.0",
  "gag 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "import-link-flags 0.1.0",
  "libc 0.2.65 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusty-fork 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -310,10 +307,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
-
-[[package]]
-name = "import-link-flags"
-version = "0.1.0"
 
 [[package]]
 name = "iovec"

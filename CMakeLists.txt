@@ -181,8 +181,6 @@ find_package(Threads)
 
 if(TARGET_CDB)
     set(HAVE_RUST on)
-    enable_language(Rust)
-    include(CMakeCargo)
 endif(TARGET_CDB)
 
 #set(CMAKE_INCLUDE_CURRENT_DIR)
@@ -233,8 +231,7 @@ endif()
 # vim:ts=4:sw=4:et
 
 if(HAVE_RUST)
-    enable_language(Rust)
-    include(cmake/CMakeCargo.cmake)
+    include(deps/ccommon/cmake/CMakeCargo.cmake)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_RUST=1")
 
     # Create a .cargo file which sets the target directory
@@ -243,20 +240,13 @@ if(HAVE_RUST)
 
     set_directory_properties(
         PROPERTIES
-        MAKE_ADDITIONAL_CLEAN_FILES "${CMAKE_BINARY_DIR}/target"
+        ADDITIONAL_CLEAN_FILES "${CMAKE_BINARY_DIR}/target"
     )
 
     # Add a rust-docs target
     add_custom_target(
         rust-doc
-        COMMAND ${CMAKE_COMMAND} -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}" cargo doc
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-
-    # Optionally run rust tests
-    add_test(
-        NAME cargo_test 
-        COMMAND ${CMAKE_COMMAND} -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}" cargo test
+        COMMAND ${CMAKE_COMMAND} -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}" "CARGO_TARGET_DIR=${CMAKE_BINARY_DIR}/target" cargo doc
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
 endif()
