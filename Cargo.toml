@@ -7,7 +7,8 @@ members = [
     "src/rust-util/pelikan-sys",
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",
-    "src/rust-util/pelikan"
+    "src/rust-util/pelikan",
+    "deps/ccommon/rust/ccommon-derive"
 ]
 
 [profile.release]

@@ -18,6 +18,7 @@ set(MODULES
 set(LIBS
     ccommon-static
     dl
+    cdb_rs
     ${CMAKE_THREAD_LIBS_INIT})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/_bin)
