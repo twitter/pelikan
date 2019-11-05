@@ -141,7 +141,7 @@ _tcp_accept(struct buf_sock *ss)
          * Timed sleep is easy to implement but a little inflexible; conditional
          * sleep is the smartest option but requires cross-thread communication.
          *
-         * Twemcache enables/disables event on the listening port dinamically,
+         * Twemcache enables/disables event on the listening port dynamically,
          * but the handling is not really thread-safe.
          */
         log_error("establish connection failed: cannot allocate buf_sock, "
@@ -158,7 +158,7 @@ _tcp_accept(struct buf_sock *ss)
 
     /* push buf_sock to queue */
     if (ring_array_push(&s, conn_new) != CC_OK) { /* close if can't enqueue */
-        log_error("new connetion queue is full, closing connection");
+        log_error("new connection queue is full, closing connection");
         buf_sock_reset(s);
         buf_sock_return(&s);
         return false;

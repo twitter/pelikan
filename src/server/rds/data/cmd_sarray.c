@@ -401,7 +401,7 @@ cmd_sarray_insert(struct response *rsp, const struct request *req, const struct
         /* must alloc new item, cannot fit in place */
         struct item *nit;
 
-        /* carry over all applilcable item metadata */
+        /* carry over all applicable item metadata */
         if (item_reserve(&nit, key, NULL, item_nval(it) + delta, it->olen,
                     it->expire_at) != ITEM_OK) {
             log_debug("reallocate item for key '%.*s' failed", key->len,
