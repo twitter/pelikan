@@ -96,7 +96,7 @@ impl Log for CCLog {
                 (&filename).as_ptr() as *const c_char,
                 record.line().map(|x| x as c_int).unwrap_or(-1),
                 level_to_int(record.level()),
-                "%s".as_ptr() as *const c_char,
+                "%s\0".as_ptr() as *const c_char,
                 (&buffer).as_ptr() as *const c_char,
             )
         }

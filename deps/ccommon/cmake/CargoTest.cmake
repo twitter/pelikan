@@ -55,8 +55,6 @@ while(ARGI LESS ${CMAKE_ARGC})
     math(EXPR ARGI "${ARGI} + 1")
 endwhile()
 
-message(STATUS A)
-
 file(
     READ
     "${LINK_FLAGS_FILE}"
@@ -80,19 +78,15 @@ endforeach()
 string(REPLACE ";" " " LINK_FLAGS "${LINK_FLAGS}")
 string(REPLACE " " ";" FLAGS "${FLAGS}")
 
-message(STATUS B)
-
 # TODO(sean): We don't always want to colour the output. Is
 #             there a way to autodetect this properly?
 set(CARGO_COMMAND cargo test --color always ${FLAGS})
 
 execute_process(
-    COMMAND ${CMAKE_COMMAND} -E env "${PASSTHROUGH_VARS}" "RUSTFLAGS=${LINK_FLAGS}" ${CARGO_COMMAND}
+    COMMAND ${CMAKE_COMMAND} -E env ${PASSTHROUGH_VARS} "RUSTFLAGS=${LINK_FLAGS}" echo ${CARGO_COMMAND}
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     RESULT_VARIABLE STATUS
 )
-
-message(STATUS C)
 
 # Ensure that our script exits with the correct error code.
 # The only way to get a cmake script to exit with an error

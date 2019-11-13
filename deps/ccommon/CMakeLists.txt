@@ -199,6 +199,18 @@ if(HAVE_RUST)
     include(CMakeCargo)
     add_subdirectory(rust)
     set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -DHAVE_RUST=1")
+
+    if (${CMAKE_VERSION} VERSION_LESS "3.13.0")
+        # CMakeCargo requires the use of some newer features of cmake
+        # for changes to dependant libraries to cause a rebuild. This
+        # will never break the build, it is just annoying for development.
+        # Leave a warning here, but don't break the build for older cmake
+        # versions.
+        message(
+            WARNING
+            "Rust targets don't properly pick up changes to dependencies in cmake version <= 3.13"
+        )
+    endif()
 endif()
 
 ###################

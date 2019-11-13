@@ -27,6 +27,8 @@ use super::{Sealed, SingleOption};
 pub struct Str(option);
 
 impl Str {
+    /// Get the value of this option as a CStr. If null,
+    /// returns none.
     pub fn as_cstr(&self) -> Option<&CStr> {
         let value = self.value();
 
@@ -35,6 +37,12 @@ impl Str {
         } else {
             Some(unsafe { CStr::from_ptr(value) })
         }
+    }
+
+    /// Convert this option to a string if possible. Otherwise
+    /// returns None.
+    pub fn as_str(&self) -> Option<&str> {
+        self.as_cstr().and_then(|s| s.to_str().ok())
     }
 }
 

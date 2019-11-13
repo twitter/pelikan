@@ -25,6 +25,7 @@ use std::ops::{Deref, DerefMut};
 /// followed by it's data. Attempting to move it or create
 /// a new instance (via transmute) will cause UB.
 #[repr(transparent)]
+#[derive(Debug)]
 pub struct Buf {
     buf: buf,
 }
@@ -130,6 +131,7 @@ impl Buf {
 /// In addition to all the operations supported by `Buf`
 /// an `OwnedBuf` also supports some resizing operations.
 #[repr(transparent)]
+#[derive(Debug)]
 pub struct OwnedBuf {
     buf: *mut buf,
 }
@@ -144,6 +146,14 @@ impl OwnedBuf {
         // Don't want to run drop on the destructor
         std::mem::forget(self);
         buf
+    }
+
+    pub fn as_ptr(&self) -> *const buf {
+        self.buf
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut buf {
+        self.buf
     }
 
     /// Double the size of the buffer.
