@@ -75,12 +75,22 @@ impl<T> AllocationError<T> {
 
 impl<T> Display for AllocationError<T> {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        write!(
+        #[cfg(rustc_1_38)]
+        let res = write!(
             fmt,
             "Unable to allocate a value of type {} with size {}",
             std::any::type_name::<T>(),
             std::mem::size_of::<T>()
-        )
+        );
+
+        #[cfg(not(rustc_1_38))]
+        let res = write!(
+            fmt,
+            "Unable to allocate a value of size {}",
+            std::mem::size_of::<T>()
+        );
+
+        res
     }
 }
 impl<T> Debug for AllocationError<T> {
