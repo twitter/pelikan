@@ -8,6 +8,7 @@ members = [
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",
     "src/rust-util/pelikan",
+    "src/rustcore",
     "deps/ccommon/rust/ccommon-derive"
 ]
 

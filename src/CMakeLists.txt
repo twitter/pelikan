@@ -9,6 +9,7 @@ add_subdirectory(datapool ${PROJECT_BINARY_DIR}/datapool)
 
 if (HAVE_RUST)
     add_subdirectory(rust-util ${PROJECT_BINARY_DIR}/rust-util)
+    add_subdirectory(rustcore ${PROJECT_BINARY_DIR}/rustcore)
 endif()
 
 # executables
