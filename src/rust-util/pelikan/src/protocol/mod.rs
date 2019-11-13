@@ -15,8 +15,47 @@
 #[cfg(feature = "protocol_admin")]
 pub mod admin;
 
+use std::error::Error;
+
+use ccommon::buf::OwnedBuf;
+
+/// An error that could indicate that there weren't enough
+/// bytes to successfully parse the buffer.
+pub trait PartialParseError {
+    /// Indicates that this error occurred because there
+    /// weren't enough bytes in the buffer.
+    fn is_unfinished(&self) -> bool;
+}
+
+pub trait QuitResponse {
+    fn is_quit(&self) -> bool;
+}
+
+/// A type that can be serialized/deserialized.
+///
+/// TODO: Name this better
+pub trait Serializable: Sized {
+    type ParseError: Error + PartialParseError;
+    type ComposeError: Error;
+
+    fn reset(&mut self);
+
+    fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError>;
+    fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError>;
+}
+
 /// Trait defining the request and response types for a protocol
 pub trait Protocol {
-    type Request;
-    type Response;
+    type Request: Serializable + Default;
+    type Response: Serializable + Default;
+}
+
+
+/// Useful for cases where stuff can never fail.
+/// 
+/// This should help with dead-code elimination.
+impl PartialParseError for std::convert::Infallible {
+    fn is_unfinished(&self) -> bool {
+        match *self {}
+    }
 }

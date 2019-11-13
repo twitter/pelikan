@@ -40,21 +40,21 @@ pub trait DataProcessor {
         &mut self,
         rbuf: &mut OwnedBuf,
         wbuf: &mut OwnedBuf,
-        state: &mut *mut (),
+        state: &mut Option<&mut Self::SockState>,
     ) -> Result<(), DataProcessorError>;
 
     fn write(
         &mut self,
         rbuf: &mut OwnedBuf,
         wbuf: &mut OwnedBuf,
-        state: &mut *mut (),
+        state: &mut Option<&mut Self::SockState>,
     ) -> Result<(), DataProcessorError>;
 
     fn error(
         &mut self,
         rbuf: &mut OwnedBuf,
         wbuf: &mut OwnedBuf,
-        state: &mut *mut (),
+        state: &mut Option<&mut Self::SockState>,
     ) -> Result<(), DataProcessorError>;
 }
 
@@ -75,7 +75,7 @@ unsafe extern "C" fn read_wrapper<T: DataProcessor>(
     let res = (*ptr).read(
         &mut *(rbuf as *mut OwnedBuf),
         &mut *(wbuf as *mut OwnedBuf),
-        &mut *(data as *mut *mut ()),
+        &mut *(data as *mut _),
     );
 
     match res {
@@ -101,7 +101,7 @@ unsafe extern "C" fn write_wrapper<T: DataProcessor>(
     let res = (*ptr).write(
         &mut *(rbuf as *mut OwnedBuf),
         &mut *(wbuf as *mut OwnedBuf),
-        &mut *(data as *mut *mut ()),
+        &mut *(data as *mut _),
     );
 
     match res {
@@ -127,7 +127,7 @@ unsafe extern "C" fn error_wrapper<T: DataProcessor>(
     let res = (*ptr).error(
         &mut *(rbuf as *mut OwnedBuf),
         &mut *(wbuf as *mut OwnedBuf),
-        &mut *(data as *mut *mut ())
+        &mut *(data as *mut _)
     );
 
     match res {

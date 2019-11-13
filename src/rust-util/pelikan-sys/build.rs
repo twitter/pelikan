@@ -537,6 +537,8 @@ fn main() {
             .whitelist_var("VERSION_PRINTED")
             .whitelist_function("print_stats")
             .whitelist_function("compose_.*")
+            .whitelist_var("COMPOSE_.*")
+            .whitelist_type("compose_.*")
             .generate()
             .expect("Unable to generate bindings");
 
