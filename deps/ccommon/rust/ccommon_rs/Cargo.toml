@@ -9,12 +9,9 @@ derive = [ "ccommon-derive" ]
 
 default = [ "derive" ]
 
-[lib]
-name = "ccommon_rs"
-crate-type = ["staticlib", "rlib"]
-
 [dependencies]
-cc_binding = { path = "../cc_binding" }
+cc_binding = { path="../cc_binding" }
+ccommon-backend = { path="../ccommon-backend" }
 libc = "0.2.0"
 log = "0.4.0"
 

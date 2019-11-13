@@ -127,6 +127,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ccommon-backend"
+version = "0.1.0"
+dependencies = [
+ "cc_binding 0.1.0",
+ "ccommon_rs 0.1.0",
+ "libc 0.2.65 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "ccommon-derive"
 version = "0.1.0"
 dependencies = [
@@ -142,6 +151,7 @@ version = "0.1.0"
 dependencies = [
  "autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc_binding 0.1.0",
+ "ccommon-backend 0.1.0",
  "ccommon-derive 0.1.0",
  "gag 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.65 (registry+https://github.com/rust-lang/crates.io-index)",
