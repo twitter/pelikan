@@ -9,6 +9,11 @@ clap = "2.33"
 log = "0.4.8"
 libc = "0.2"
 pelikan = { path="../../rust-util/pelikan", features=["protocol_admin"] }
+rustcore = { path="../../rustcore" }
+
+lazy_static = "1.4"
+logging-allocator = "0.1"
+backtrace = "*"
 
 [dependencies.pelikan-sys]
 path = "../../rust-util/pelikan-sys"

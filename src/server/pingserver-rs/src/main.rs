@@ -29,10 +29,10 @@ use crate::admin::Handler;
 use crate::setting::Settings;
 use crate::stats::Metrics;
 
-use pelikan::core::admin::Admin;
-
 use libc::atexit;
+
 use std::os::raw::c_char;
+use std::panic::AssertUnwindSafe;
 
 use ccommon::metric::{MetricExt, Metrics as _};
 use ccommon::option::{OptionExt, Options as _, SingleOption};
@@ -51,7 +51,7 @@ const LONG_USE_STR: &str = r#"\
   minimal service with the libraries and modules provided by
   Pelikan, which meets stringent requirements on latencies,
   observability, configurability, and other valuable traits
-  in a typical production environment. \
+  in a typical production environment.\
 "#;
 
 const EXAMPLE_STR: &str = r#"
@@ -59,6 +59,11 @@ Example:
   pelikan_pingserver pingserver.conf
 Sample config files can be found under the config dir.
 "#;
+
+#[no_mangle]
+extern "C" fn malloc_error_break() {
+    loop {}
+}
 
 fn build_args() -> clap::App<'static, 'static> {
     use clap::{App, Arg};
@@ -83,7 +88,9 @@ fn main() {
     use pelikan_sys::{VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH};
 
     let mut settings = Settings::new();
-    let mut metrics = Metrics::new();
+    let metrics = Box::new(Metrics::new());
+    // Need metrics to live forever
+    let metrics: &'static mut Metrics = Box::leak(metrics);
 
     // Setup rust logging shim
     ccommon::log::init().expect("Failed to initialize logging shim");
@@ -130,19 +137,29 @@ fn main() {
         atexit(atexit_handler);
     }
 
-    let handler = ModuleRaiiHandler::new(&mut settings, &mut metrics).unwrap();
+    let handler = ModuleRaiiHandler::new(&mut settings, metrics).unwrap();
     unsafe {
         // This transmutes away the lifetime, it's definitely unsafe
         // but should still work since we make sure to clear RAII_HANDLER
         // before main's lifetime ends. (if atexit has called then
         // technically main's lifetime has not ended)
-        RAII_HANDLER = Some(std::mem::transmute(handler));
+        RAII_HANDLER = Some(handler);
     }
 
+    let admin = Handler::new(metrics);
     let dp = crate::data::PingDataProcessor;
-    let res = std::panic::catch_unwind(|| {
-        ModuleRaiiHandler::run::<crate::data::PingDataProcessor>(dp);
-    });
+    let res = std::panic::catch_unwind(AssertUnwindSafe({
+        let worker_metrics: &'static rustcore::WorkerMetrics = &metrics.worker;
+        move || {
+            rustcore::core_run_tcp(
+                &settings.admin,
+                &settings.server,
+                &worker_metrics,
+                admin,
+                dp,
+            )
+        }
+    }));
 
     // Ensure that the handler is properly dropped in case of a panic,
     // not doing this would mean that RAII_HANDLER would outlive the
@@ -157,19 +174,17 @@ fn main() {
     }
 }
 
-static mut RAII_HANDLER: Option<ModuleRaiiHandler<'static>> = None;
+static mut RAII_HANDLER: Option<ModuleRaiiHandler> = None;
 
-struct ModuleRaiiHandler<'a> {
-    admin: Option<Admin<'a, Handler<'a>>>,
+struct ModuleRaiiHandler {
     fname: *const c_char,
 }
 
-impl<'a> ModuleRaiiHandler<'a> {
-    unsafe fn _new(settings: &mut Settings, stats: &'a mut Metrics) -> Result<Self, String> {
+impl ModuleRaiiHandler {
+    unsafe fn _new(settings: &mut Settings, stats: &mut Metrics) -> Result<Self, String> {
         use ccommon_sys::*;
         use std::ptr::null_mut;
 
-        use pelikan_sys::core::{core_admin_setup, core_server_setup, core_worker_setup};
         use pelikan_sys::protocol::ping::{compose_setup, parse_setup};
         use pelikan_sys::time::time_setup;
         use pelikan_sys::util::procinfo_setup;
@@ -204,50 +219,15 @@ impl<'a> ModuleRaiiHandler<'a> {
         parse_setup(&mut stats.parse_req as *mut _, null_mut());
         compose_setup(null_mut(), &mut stats.compose_rsp as *mut _);
 
-        let admin = Admin::new_global(Handler::new(stats)).unwrap();
-
-        core_admin_setup(&settings.admin as *const _ as *mut _);
-        core_server_setup(
-            &settings.server as *const _ as *mut _,
-            &stats.server as *const _ as *mut _,
-        );
-        core_worker_setup(
-            &settings.worker as *const _ as *mut _,
-            &stats.worker as *const _ as *mut _,
-        );
-
-        Ok(Self {
-            admin: Some(admin),
-            fname,
-        })
+        Ok(Self { fname })
     }
 
-    pub fn new(settings: &'a mut Settings, metrics: &'a mut Metrics) -> Result<Self, String> {
-        use ccommon_sys::{debug_log_flush, option_uint};
-        use pelikan_sys::core::core_admin_register;
-        use std::ptr::null_mut;
-
-        unsafe {
-            let handler = Self::_new(settings, metrics)?;
-
-            let intvl = option_uint(&settings.pingserver.dlog_intvl as *const _ as *mut _);
-            if core_admin_register(intvl, Some(debug_log_flush), null_mut()).is_null() {
-                return Err("Could not register timed event to flush debug log".to_owned());
-            }
-
-            Ok(handler)
-        }
-    }
-
-    pub fn run<DP>(dp: DP)
-    where
-        DP: pelikan::core::DataProcessor,
-    {
-        unsafe { pelikan::core::core_run(dp) };
+    pub fn new(settings: &mut Settings, metrics: &mut Metrics) -> Result<Self, String> {
+        unsafe { Self::_new(settings, metrics) }
     }
 }
 
-impl<'a> Drop for ModuleRaiiHandler<'a> {
+impl Drop for ModuleRaiiHandler {
     fn drop(&mut self) {
         use ccommon_sys::*;
         use pelikan_sys::{
@@ -263,9 +243,6 @@ impl<'a> Drop for ModuleRaiiHandler<'a> {
             core_worker_teardown();
             core_server_teardown();
             core_admin_teardown();
-
-            // Need to ensure drop order remains consistent
-            let _ = self.admin.take();
 
             compose_teardown();
             parse_teardown();

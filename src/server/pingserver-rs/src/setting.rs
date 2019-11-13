@@ -13,25 +13,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use ccommon::option::{Bool, Str, UInt};
+use ccommon::option::*;
 use ccommon_sys::{
     array_options_st, buf_options_st, dbuf_options_st, debug_options_st, sockio_options_st,
     tcp_options_st,
 };
-use pelikan_sys::{
-    core::{admin_options_st, server_options_st, worker_options_st},
-    time::time_options_st,
-};
+use pelikan_sys::{core::worker_options_st, time::time_options_st};
+
+use rustcore::{AdminOptions, ServerOptions};
 
 #[repr(C)]
 #[derive(Options)]
 pub struct PingServerOptions {
     #[option(desc = "daemonize the process", default = false)]
     pub daemonize: Bool,
-    #[option(desc="file storing the pid", default=std::ptr::null_mut())]
+    #[option(desc="file storing the pid", default = std::ptr::null_mut())]
     pub pid_filename: Str,
-    #[option(desc = "debug log flush interval(ms)", default = 500)]
-    pub dlog_intvl: UInt,
 }
 
 #[rustfmt::skip]
@@ -41,8 +38,8 @@ pub struct Settings {
     // top-level
     pub pingserver: PingServerOptions,
     // application modules
-    pub admin:      admin_options_st,
-    pub server:     server_options_st,
+    pub admin:      AdminOptions,
+    pub server:     ServerOptions,
     pub worker:     worker_options_st,
     pub time:       time_options_st,
     // ccommon libraries

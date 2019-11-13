@@ -52,6 +52,9 @@ impl<'a> AdminHandler for Handler<'a> {
         use pelikan_sys::util::procinfo_update;
         use std::os::raw::{c_char, c_uint};
 
+        let ref mut rsp = rsp.0;
+        let ref mut req = req.0;
+
         unsafe {
             rsp.type_ = RSP_GENERIC;
 

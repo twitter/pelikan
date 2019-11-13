@@ -25,7 +25,7 @@ impl DataProcessor for PingDataProcessor {
         &mut self,
         rbuf: &mut OwnedBuf,
         wbuf: &mut OwnedBuf,
-        _: &mut *mut (),
+        _: &mut Option<&mut ()>,
     ) -> Result<(), DataProcessorError> {
         use pelikan_sys::protocol::ping::*;
 
@@ -57,11 +57,14 @@ impl DataProcessor for PingDataProcessor {
         &mut self,
         rbuf: &mut OwnedBuf,
         wbuf: &mut OwnedBuf,
-        _: &mut *mut (),
+        _: &mut Option<&mut ()>,
     ) -> Result<(), DataProcessorError> {
         trace!("post-write processing");
 
+        rbuf.reset();
         rbuf.shrink().expect("Failed to resize buffer");
+
+        wbuf.reset();
         wbuf.shrink().expect("Failed to resize buffer");
 
         Ok(())
@@ -71,7 +74,7 @@ impl DataProcessor for PingDataProcessor {
         &mut self,
         rbuf: &mut OwnedBuf,
         wbuf: &mut OwnedBuf,
-        _: &mut *mut (),
+        _: &mut Option<&mut ()>,
     ) -> Result<(), DataProcessorError> {
         trace!("post-error processing");
 

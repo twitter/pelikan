@@ -15,10 +15,12 @@
 
 use ccommon_sys::*;
 use pelikan_sys::{
-    core::{server_metrics_st, worker_metrics_st},
+    core::server_metrics_st,
     protocol::ping::{compose_rsp_metrics_st, parse_req_metrics_st},
     util::procinfo_metrics_st,
 };
+
+use rustcore::WorkerMetrics;
 
 #[rustfmt::skip]
 #[repr(C)]
@@ -30,7 +32,7 @@ pub struct Metrics {
     pub parse_req:      parse_req_metrics_st,
     pub compose_rsp:    compose_rsp_metrics_st,
     pub server:         server_metrics_st,
-    pub worker:         worker_metrics_st,
+    pub worker:         WorkerMetrics,
     // Common libraries
     pub buf:            buf_metrics_st,
     pub dbuf:           dbuf_metrics_st,
@@ -40,6 +42,9 @@ pub struct Metrics {
     pub tcp:            tcp_metrics_st,
     pub timing_wheel:   timing_wheel_metrics_st
 }
+
+unsafe impl Send for Metrics {}
+unsafe impl Sync for Metrics {}
 
 #[test]
 fn test_stats_size_is_multiple_of_metric_size() {
