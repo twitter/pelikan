@@ -1,0 +1,19 @@
+[package]
+name = "rustcore"
+version = "0.1.0"
+authors = ["Sean Lynch <slynch@twitter.com>"]
+edition = "2018"
+
+[dependencies]
+ccommon = { path="../../deps/ccommon/rust/ccommon_rs", package="ccommon_rs" }
+ccommon-sys = { path="../../deps/ccommon/rust/cc_binding", package="cc_binding" }
+pelikan-sys = { path="../rust-util/pelikan-sys" }
+
+tokio = { version = "0.2.0-alpha.6", features = [ "signal" ] }
+log = "0.4"
+futures = { version="0.3", features = [ "async-await" ] }
+
+[dependencies.pelikan]
+path = "../rust-util/pelikan"
+features = [ "protocol_admin" ]
+
