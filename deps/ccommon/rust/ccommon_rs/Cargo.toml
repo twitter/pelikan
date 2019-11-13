@@ -22,6 +22,9 @@ log = "0.4.0"
 path = "../ccommon-derive"
 optional = true
 
+[build-dependencies]
+autocfg = "0.1.7"
+
 [dev-dependencies]
 rusty-fork = "0.2.0"
 gag = "0.1.10"

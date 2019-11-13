@@ -140,6 +140,7 @@ dependencies = [
 name = "ccommon_rs"
 version = "0.1.0"
 dependencies = [
+ "autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc_binding 0.1.0",
  "ccommon-derive 0.1.0",
  "gag 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
