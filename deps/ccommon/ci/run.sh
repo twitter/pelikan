@@ -22,7 +22,7 @@ export CTEST_OUTPUT_ON_FAILURE=1
 mkdir -p _build && ( cd _build && "${cmake_cmd[@]}" .. && make && make test )
 RESULT=$?
 
-egrep -r ":F:|:E:" . |grep -v 'Binary file' || true
+egrep -r ":F:|:E:" _build/test |grep -v 'Binary file' || true
 
 
 if [[ $RESULT -ne 0 ]]; then
