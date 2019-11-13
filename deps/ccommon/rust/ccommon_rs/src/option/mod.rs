@@ -17,8 +17,9 @@
 
 use std::ffi::CStr;
 
-use cc_binding::{
-    option, option_describe_all, option_load_default, option_load_file, option_print_all,
+use cc_binding::option;
+use ccommon_backend::option::{
+    option_describe_all, option_load, option_load_default, option_print_all, ParseError,
 };
 
 // Sealed trait to prevent SingleOption from ever being implemented
@@ -137,18 +138,32 @@ pub trait OptionExt: Options {
         self as *mut _ as *mut option
     }
 
+    /// Get `self` as a slice of `option`s.
+    fn as_slice(&self) -> &[option] {
+        use std::slice;
+
+        // Safe because implementing the trait means that layout
+        // is guaranteed.
+        unsafe { slice::from_raw_parts(self.as_ptr(), Self::num_options()) }
+    }
+
+    /// Get `self` as a mutable slice of `option`s.
+    fn as_mut_slice(&mut self) -> &mut [option] {
+        use std::slice;
+
+        // Safe because implementing the trait means that layout
+        // is guaranteed.
+        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), Self::num_options()) }
+    }
+
     /// Print a description of all options in the current object
     /// given using the default value, name, and description.
     ///
     /// Internally this calls out to `option_describe_all`.
     fn describe_all(&self) {
         unsafe {
-            option_describe_all(
-                // Note: ccommon uses a mutable pointer but it
-                //       should really be a const pointer.
-                self.as_ptr() as *mut _,
-                Self::num_options() as u32,
-            )
+            option_describe_all(&mut std::io::stdout(), self.as_slice())
+                .expect("Failed to write to stdout");
         }
     }
 
@@ -157,12 +172,8 @@ pub trait OptionExt: Options {
     /// Internally this calls out to `option_print_all`.
     fn print_all(&self) {
         unsafe {
-            option_print_all(
-                // Note: ccommon uses a mutable pointer but it
-                //       should really be a const pointer.
-                self.as_ptr() as *mut _,
-                Self::num_options() as u32,
-            )
+            option_print_all(&mut std::io::stdout(), self.as_slice())
+                .expect("Failed to write to stdout")
         }
     }
 
@@ -170,27 +181,23 @@ pub trait OptionExt: Options {
     ///
     /// Internally this calls `option_load_default`
     fn load_default(&mut self) -> Result<(), crate::Error> {
-        let status = unsafe { option_load_default(self.as_mut_ptr(), Self::num_options() as u32) };
-
-        if status == 0 {
-            Ok(())
-        } else {
-            Err(status.into())
-        }
+        unsafe { option_load_default(self.as_mut_slice()).map_err(|_| crate::Error::ENoMem) }
     }
 
-    /// Load options from a file in `.ini` format.
-    ///
-    /// Internally this calls `option_load_file`.
+    /// Load options from a file.
+    #[deprecated(note = "Use load instead - this interface is unsafe")]
     fn load_from_libc_file(&mut self, file: *mut libc::FILE) -> Result<(), crate::Error> {
-        let status =
-            unsafe { option_load_file(file, self.as_mut_ptr(), Self::num_options() as u32) };
+        use ccommon_backend::compat::CFileRef;
+        use std::io::BufReader;
 
-        if status == 0 {
-            Ok(())
-        } else {
-            Err(status.into())
-        }
+        let cfile = unsafe { CFileRef::from_ptr_mut(file) };
+        self.load(&mut BufReader::new(cfile))
+            .map_err(|_| crate::Error::EOther)
+    }
+
+    /// Load options from a reader implementing `BufRead`.
+    fn load<R: std::io::BufRead>(&mut self, input: &mut R) -> Result<(), ParseError<'static>> {
+        option_load(self.as_mut_slice(), input)
     }
 }
 

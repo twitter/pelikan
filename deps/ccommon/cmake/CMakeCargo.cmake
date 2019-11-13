@@ -201,7 +201,9 @@ function(cargo_build)
 
     # Arguments to cargo
     set(CRATE_ARGS "")
+    set(TEST_ARGS "")
     list(APPEND CRATE_ARGS "--target" ${CRATE_TARGET})
+    list(APPEND TEST_ARGS "--target" ${CRATE_TARGET})
 
     if(CARGO_BIN)
         list(APPEND CRATE_ARGS "--bin" ${CARGO_NAME})
@@ -213,10 +215,12 @@ function(cargo_build)
 
     if(${CRATE_BUILD_TYPE} STREQUAL "release")
         list(APPEND CRATE_ARGS "--release")
+        list(APPEND TEST_ARGS "--release")
     endif()
 
     # Convert CRATE_ARGS from a list to a string
     string(REPLACE ";" " " CRATE_ARGS_STR "${CRATE_ARGS}")
+    string(REPLACE ";" " " TEST_ARGS_STR "${TEST_ARGS}")
 
     set(LINK_FLAGS_FILE "${CMAKE_CURRENT_BINARY_DIR}/${CARGO_NAME}.linkflags.txt")
 
@@ -358,7 +362,7 @@ function(cargo_build)
             COMMAND ${CMAKE_COMMAND} -P "${FILE_LIST_DIR}/CargoTest.cmake" 
                 ${FORWARDED_VARS}
                 "LINK_FLAGS_FILE=${LINK_FLAGS_FILE}"
-                "FLAGS=${CRATE_ARGS_STR}"
+                "FLAGS=${TEST_ARGS_STR}"
                 "CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
                 "CMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}"
                 --

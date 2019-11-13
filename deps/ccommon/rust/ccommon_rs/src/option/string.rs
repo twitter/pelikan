@@ -26,6 +26,18 @@ use super::{Sealed, SingleOption};
 #[repr(transparent)]
 pub struct Str(option);
 
+impl Str {
+    pub fn as_cstr(&self) -> Option<&CStr> {
+        let value = self.value();
+
+        if value.is_null() {
+            None
+        } else {
+            Some(unsafe { CStr::from_ptr(value) })
+        }
+    }
+}
+
 impl Sealed for Str {}
 
 unsafe impl SingleOption for Str {
