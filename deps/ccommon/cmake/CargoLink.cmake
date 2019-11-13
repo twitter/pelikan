@@ -92,6 +92,8 @@ execute_process(
 # The only way to get a cmake script to exit with an error
 # code is to print a message so that's what we do here.
 if(NOT STATUS EQUAL 0)
+    message(STATUS "${PASSTHROUGH_VARS}")
+
     message(FATAL_ERROR "Cargo build failed")
 endif()
 
