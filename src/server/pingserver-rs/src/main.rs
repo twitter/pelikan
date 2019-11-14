@@ -23,7 +23,6 @@ mod alloc;
 mod data;
 mod setting;
 mod stats;
-mod util;
 
 use crate::admin::Handler;
 use crate::setting::Settings;
@@ -31,6 +30,7 @@ use crate::stats::Metrics;
 
 use libc::atexit;
 
+use std::fs::File;
 use std::os::raw::c_char;
 use std::panic::AssertUnwindSafe;
 
@@ -85,7 +85,6 @@ fn build_args() -> clap::App<'static, 'static> {
 }
 
 fn main() {
-    use crate::util::FileHandle;
     use pelikan_sys::{VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH};
 
     let mut settings = Settings::new();
@@ -116,21 +115,17 @@ fn main() {
         return;
     }
 
-    let file = args
-        .value_of("config-file")
-        .map(|x| match FileHandle::open(x, "r+") {
-            Ok(x) => x,
-            Err(e) => panic!("Unable to open config: {}", e),
-        });
+    let file = args.value_of("config-file").map(|x| match File::open(x) {
+        Ok(x) => std::io::BufReader::new(x),
+        Err(e) => panic!("Unable to open config: {}", e),
+    });
 
-    if let Some(ref file) = file {
+    if let Some(mut file) = file {
         info!(
             "loading config from {}",
             args.value_of("config-file").unwrap()
         );
-        settings
-            .load_from_libc_file(file.handle())
-            .expect("Failed to load config");
+        settings.load(&mut file).expect("Failed to load config");
     }
 
     unsafe {

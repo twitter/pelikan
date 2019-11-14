@@ -117,7 +117,7 @@ pub fn main() {
         .expect("Failed to start server process");
 
     // Give the server time to start up
-    std::thread::sleep(Duration::from_millis(1000));
+    std::thread::sleep(Duration::from_millis(500));
 
     let res = catch_unwind(|| run_tests());
 
