@@ -10,3 +10,4 @@ if(USE_PMEM)
 endif()
 
 add_subdirectory(integration)
+add_subdirectory(server)
