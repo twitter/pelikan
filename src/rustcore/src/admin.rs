@@ -150,6 +150,11 @@ where
         rbuf.lshift();
     }
 
+    // We don't own wbuf or rbuf so don't drop them.
+    // (dropping them during a panic is fine since buf_sock_return isn't called)
+    std::mem::forget(wbuf);
+    std::mem::forget(rbuf);
+
     unsafe {
         buf_sock_return(&mut sock as *mut _);
     }
