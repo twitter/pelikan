@@ -29,12 +29,12 @@ impl DataProcessor for PingDataProcessor {
     ) -> Result<(), DataProcessorError> {
         use pelikan_sys::protocol::ping::*;
 
-        info!("post-read processing");
+        trace!("post-read processing");
 
         unsafe {
             // keep parse-process-compose until we run out of data in rbuf
             while rbuf.read_size() > 0 {
-                info!("{} bytes left", rbuf.read_size());
+                trace!("{} bytes left", rbuf.read_size());
 
                 let status = parse_req(rbuf.into_raw_mut());
                 if status == PARSE_EUNFIN {

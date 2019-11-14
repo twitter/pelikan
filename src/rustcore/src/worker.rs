@@ -62,7 +62,7 @@ async fn worker_conn_driver<P, S>(
             Err(_) => break,
         };
 
-        info!("Read {} bytes from stream", nbytes);
+        debug!("Read {} bytes from stream", nbytes);
 
         // Uncomment once we update to tokio 0.2.0-alpha.7
         // let nbytes = select! {
