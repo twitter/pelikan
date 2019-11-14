@@ -56,10 +56,10 @@ async fn worker_conn_driver<P, S>(
                 // This can occurr when a the other end of the connection
                 // disappears. At this point we can just close the connection
                 // as otherwise we will continuously read 0 and waste CPU
-                break
-            },
+                break;
+            }
             Ok(nbytes) => nbytes,
-            Err(_) => break
+            Err(_) => break,
         };
 
         info!("Read {} bytes from stream", nbytes);
@@ -88,37 +88,31 @@ async fn worker_conn_driver<P, S>(
         metrics.socket_read.incr();
         metrics.bytes_read.incr_n(nbytes as u64);
 
-        let mut prev_size = std::usize::MAX;
-        // Don't iterate until the packet is empty, there may be
-        // a partial response that got fragmented.
-        while rbuf.read_size() < prev_size {
-            prev_size = rbuf.read_size();
-            let mut borrow = dp.borrow_mut();
-            if let Err(_) = borrow.read(&mut rbuf, &mut wbuf, &mut state) {
+        let mut borrow = dp.borrow_mut();
+        if let Err(_) = borrow.read(&mut rbuf, &mut wbuf, &mut state) {
+            metrics.socket_write_ex.incr();
+            // Unable to read the socket. This should only occur when
+            // the peer closed the socket or was lost.
+            break 'outer;
+        }
+        // Don't want borrow living across a suspend point
+        drop(borrow);
+
+        if wbuf.read_size() > 0 {
+            if let Err(_) = stream.write_all(wbuf.as_slice()).await {
                 metrics.socket_write_ex.incr();
-                // Unable to read the socket. This should only occur when
-                // the peer closed the socket or was lost.
+                // Something went wrong with the buffer and we can't
+                // write anything to it. Probably means that the connection
+                // is dead so just close it.
                 break 'outer;
             }
-            // Don't want borrow living across a suspend point
-            drop(borrow);
 
-            if wbuf.read_size() > 0 {
-                if let Err(_) = stream.write_all(wbuf.as_slice()).await {
-                    metrics.socket_write_ex.incr();
-                    // Something went wrong with the buffer and we can't
-                    // write anything to it. Probably means that the connection
-                    // is dead so just close it.
-                    break 'outer;
-                }
+            metrics.bytes_sent.incr_n(wbuf.read_size() as u64);
+            metrics.socket_write.incr();
 
-                metrics.bytes_sent.incr_n(wbuf.read_size() as u64);
-                metrics.socket_write.incr();
-
-                let mut borrow = dp.borrow_mut();
-                if let Err(_) = borrow.write(&mut rbuf, &mut wbuf, &mut state) {
-                    break 'outer;
-                }
+            let mut borrow = dp.borrow_mut();
+            if let Err(_) = borrow.write(&mut rbuf, &mut wbuf, &mut state) {
+                break 'outer;
             }
         }
 

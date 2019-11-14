@@ -32,7 +32,7 @@ use std::thread::JoinHandle;
 
 use pelikan::core::admin::AdminHandler;
 use pelikan::core::DataProcessor;
-use pelikan::protocol::{QuitRequest, Protocol};
+use pelikan::protocol::{Protocol, QuitRequest};
 
 pub use crate::acceptors::tcp_acceptor;
 pub use crate::opts::{AdminOptions, ServerOptions};
