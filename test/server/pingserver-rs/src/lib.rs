@@ -89,6 +89,56 @@ fn partial_ping() -> IOResult<()> {
     stream.write_all(b"PI")
 }
 
+fn large_ping() -> IOResult<()> {
+    let mut stream = TcpStream::connect("localhost:12321")?;
+    stream.set_nodelay(true)?;
+    stream.set_nonblocking(false)?;
+
+    let repeats = 2048;
+    let msg = "PING\r\n".repeat(repeats);
+    stream.write_all(msg.as_bytes())?;
+
+    let mut buf: [u8; 6];
+    for _ in 0..repeats {
+        buf = unsafe { std::mem::zeroed() };
+        stream.read_exact(&mut buf)?;
+
+        assert_eq!(
+            b"PONG\r\n",
+            &buf,
+            "'{}' != '{}'",
+            EscapedByteString(&buf),
+            EscapedByteString(b"PONG\r\n")
+        );
+    }
+
+    Ok(())
+}
+
+fn admin_crash() -> IOResult<()> {
+    let mut stream = TcpStream::connect("localhost:9999")?;
+    stream.set_nodelay(true)?;
+    stream.set_nonblocking(false)?;
+
+    stream.write_all(b"stats\r\n")?;
+    stream.write_all(b"\
+        Bacon ipsum dolor amet tongue rump pork belly, \
+        capicola corned beef sausage kielbasa kevin boudin \
+        venison. Pig capicola brisket frankfurter. Filet mignon \
+        leberkas shank turducken sirloin bacon porchetta \
+        hamburger cow pastrami tongue pork belly drumstick. \
+        Frankfurter jerky pork chop, landjaeger strip steak \
+        meatball kielbasa chicken turkey venison. Bacon drumstick \
+        prosciutto, sausage tri-tip buffalo chuck chicken. Filet \
+        mignon pastrami prosciutto jerky corned beef boudin pork belly \
+        landjaeger short ribs tail jowl chicken drumstick t-bone capicola. \
+        Rump spare ribs landjaeger, pork belly jowl kielbasa fatback.\r\n"
+    )?;
+    stream.write_all(b"quit\r\n")?;
+
+    Ok(())
+}
+
 fn run_tests() {
     if let Err(e) = multiping() {
         panic!("test multiping failed: {}", e);
@@ -100,6 +150,14 @@ fn run_tests() {
 
     if let Err(e) = partial_ping() {
         panic!("test partial_ping failed: {}", e);
+    }
+
+    if let Err(e) = large_ping() {
+        panic!("test large_ping failed: {}", e);
+    }
+
+    if let Err(e) = admin_crash() {
+        panic!("test admin_crash failed: {}", e);
     }
 }
 
@@ -120,6 +178,10 @@ pub fn main() {
     std::thread::sleep(Duration::from_millis(500));
 
     let res = catch_unwind(|| run_tests());
+
+    // Give the server some time to crash if any of the test
+    // would cause that to happen.
+    std::thread::sleep(Duration::from_millis(100));
 
     server.kill().expect("Server died unexpectedly");
 
