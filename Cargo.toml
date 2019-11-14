@@ -3,13 +3,14 @@
 members = [
     "deps/ccommon/rust/cc_binding",
     "deps/ccommon/rust/ccommon_rs",
+    "deps/ccommon/rust/ccommon-derive",
     "src/server/pingserver-rs",
     "src/rust-util/pelikan-sys",
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",
     "src/rust-util/pelikan",
     "src/rustcore",
-    "deps/ccommon/rust/ccommon-derive"
+    "test/server/pingserver-rs"
 ]
 
 [profile.release]
