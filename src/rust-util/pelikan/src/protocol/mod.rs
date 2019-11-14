@@ -27,7 +27,7 @@ pub trait PartialParseError {
     fn is_unfinished(&self) -> bool;
 }
 
-pub trait QuitResponse {
+pub trait QuitRequest {
     fn is_quit(&self) -> bool;
 }
 
@@ -50,9 +50,8 @@ pub trait Protocol {
     type Response: Serializable + Default;
 }
 
-
 /// Useful for cases where stuff can never fail.
-/// 
+///
 /// This should help with dead-code elimination.
 impl PartialParseError for std::convert::Infallible {
     fn is_unfinished(&self) -> bool {

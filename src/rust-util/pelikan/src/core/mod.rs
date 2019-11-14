@@ -20,8 +20,8 @@ use ccommon::buf::OwnedBuf;
 use ccommon_sys::buf;
 use pelikan_sys::core::data_processor;
 
-use std::os::raw::c_int;
 use std::ffi::c_void;
+use std::os::raw::c_int;
 
 #[repr(C)]
 pub enum DataProcessorError {
@@ -127,7 +127,7 @@ unsafe extern "C" fn error_wrapper<T: DataProcessor>(
     let res = (*ptr).error(
         &mut *(rbuf as *mut OwnedBuf),
         &mut *(wbuf as *mut OwnedBuf),
-        &mut *(data as *mut _)
+        &mut *(data as *mut _),
     );
 
     match res {
@@ -139,7 +139,7 @@ unsafe extern "C" fn error_wrapper<T: DataProcessor>(
 static mut DATA_PTR: *mut () = std::ptr::null_mut();
 
 /// Start the server on the data port.
-/// 
+///
 /// # Safety
 /// It is unsafe to call this function concurrently.
 /// This function is not reentrant.

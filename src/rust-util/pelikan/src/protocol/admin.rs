@@ -13,13 +13,13 @@
 // limitations under the License.
 
 use super::*;
+use ccommon::buf::OwnedBuf;
 use ccommon_sys::buf;
 use pelikan_sys::protocol::admin::{
     admin_compose_req, admin_compose_rsp, admin_parse_req, admin_request_reset,
     admin_response_reset, request, response, COMPOSE_ENOMEM, COMPOSE_EOVERSIZED, PARSE_EINVALID,
-    PARSE_EUNFIN, PARSE_OK, REQ_QUIT
+    PARSE_EUNFIN, PARSE_OK, REQ_QUIT,
 };
-use ccommon::buf::{OwnedBuf, Buf};
 
 use std::convert::Infallible;
 use std::error::Error;
@@ -59,20 +59,12 @@ impl Serializable for Request {
     type ComposeError = ComposeError;
 
     fn reset(&mut self) {
-        unsafe {
-            admin_request_reset(&mut self.0 as *mut _)
-        }
+        unsafe { admin_request_reset(&mut self.0 as *mut _) }
     }
 
     fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError> {
         unsafe {
-            let status = admin_parse_req(
-                &mut self.0 as *mut _,
-                // Note: This is a hack, replace with buf.as_mut_ptr() when
-                //       that gets implemented. However, this is safe since
-                //       OwnedBuf is repr(transparent)
-                &mut **buf as *mut Buf as *mut buf,
-            );
+            let status = admin_parse_req(&mut self.0 as *mut _, buf.as_mut_ptr());
 
             match status {
                 PARSE_OK => (),
@@ -88,7 +80,7 @@ impl Serializable for Request {
         unsafe {
             let status = admin_compose_req(
                 // Not sure what's the proper pattern here
-                buf as *mut _ as *mut *mut buf,
+                buf as *mut OwnedBuf as *mut *mut buf,
                 // This should actually have been const on the pelikan side
                 &self.0 as *const _ as *mut _,
             );
@@ -107,9 +99,7 @@ impl Serializable for Response {
     type ComposeError = ComposeError;
 
     fn reset(&mut self) {
-        unsafe {
-            admin_response_reset(&mut self.0 as *mut _)
-        }
+        unsafe { admin_response_reset(&mut self.0 as *mut _) }
     }
 
     fn parse(&mut self, _: &mut OwnedBuf) -> Result<(), Self::ParseError> {
@@ -118,7 +108,7 @@ impl Serializable for Response {
     fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
         unsafe {
             let status = admin_compose_rsp(
-                buf as *mut _ as *mut *mut buf,
+                buf as *mut OwnedBuf as *mut *mut buf,
                 // This should actually have been const on the pelikan side
                 &self.0 as *const _ as *mut _,
             );
@@ -133,7 +123,7 @@ impl Serializable for Response {
     }
 }
 
-impl QuitResponse for Request {
+impl QuitRequest for Request {
     fn is_quit(&self) -> bool {
         self.0.type_ == REQ_QUIT
     }
