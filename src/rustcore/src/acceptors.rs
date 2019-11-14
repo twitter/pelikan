@@ -34,6 +34,7 @@ pub async fn tcp_acceptor(addr: SocketAddr, mut chan: Sender<TcpStream>) -> Resu
 
         if let Err(e) = chan.try_send(stream) {
             if e.is_closed() {
+                info!("Channel has shut down, shutting down TCP acceptor.");
                 break;
             }
 

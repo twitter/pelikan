@@ -52,9 +52,17 @@ async fn worker_conn_driver<P, S>(
     let mut tmpbuf = [0u8; 1024];
     'outer: loop {
         let nbytes = match stream.read(&mut tmpbuf).await {
+            Ok(0) => {
+                // This can occurr when a the other end of the connection
+                // disappears. At this point we can just close the connection
+                // as otherwise we will continuously read 0 and waste CPU
+                break
+            },
             Ok(nbytes) => nbytes,
             Err(_) => break
         };
+
+        info!("Read {} bytes from stream", nbytes);
 
         // Uncomment once we update to tokio 0.2.0-alpha.7
         // let nbytes = select! {
@@ -78,18 +86,18 @@ async fn worker_conn_driver<P, S>(
         }
 
         metrics.socket_read.incr();
-        metrics.socket_bytes_read.incr_n(nbytes as u64);
+        metrics.bytes_read.incr_n(nbytes as u64);
 
-        let mut prev_size = rbuf.read_size();
+        let mut prev_size = std::usize::MAX;
         // Don't iterate until the packet is empty, there may be
         // a partial response that got fragmented.
         while rbuf.read_size() < prev_size {
             prev_size = rbuf.read_size();
             let mut borrow = dp.borrow_mut();
             if let Err(_) = borrow.read(&mut rbuf, &mut wbuf, &mut state) {
-                metrics.socket_write_Ex.incr();
-                /// Unable to read the socket. This should only occur when
-                /// the peer closed the socket or was lost.
+                metrics.socket_write_ex.incr();
+                // Unable to read the socket. This should only occur when
+                // the peer closed the socket or was lost.
                 break 'outer;
             }
             // Don't want borrow living across a suspend point
@@ -104,7 +112,7 @@ async fn worker_conn_driver<P, S>(
                     break 'outer;
                 }
 
-                metrics.bytes_sent.incr_n(wbuf.read_size());
+                metrics.bytes_sent.incr_n(wbuf.read_size() as u64);
                 metrics.socket_write.incr();
 
                 let mut borrow = dp.borrow_mut();
@@ -122,6 +130,11 @@ async fn worker_conn_driver<P, S>(
     let _ = borrow.error(&mut rbuf, &mut wbuf, &mut state);
 
     metrics.active_conns.decr();
+
+    // We don't own wbuf or rbuf so don't drop them.
+    // (dropping them during a panic is fine since buf_sock_return isn't called)
+    std::mem::forget(wbuf);
+    std::mem::forget(rbuf);
 
     unsafe {
         buf_sock_return(&mut sock as *mut _);
@@ -143,11 +156,14 @@ where
         let stream: S = match chan.recv().await {
             Some(stream) => stream,
             None => {
+                info!("All acceptors have shut down. Shutting down the worker!");
                 // All upstream senders are closed so we might
                 // as well exit.
                 break;
             }
         };
+
+        info!("Accepted new connection!");
 
         metrics.active_conns.incr();
 

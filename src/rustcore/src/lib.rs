@@ -32,7 +32,7 @@ use std::thread::JoinHandle;
 
 use pelikan::core::admin::AdminHandler;
 use pelikan::core::DataProcessor;
-use pelikan::protocol::{QuitResponse, Protocol};
+use pelikan::protocol::{QuitRequest, Protocol};
 
 pub use crate::acceptors::tcp_acceptor;
 pub use crate::opts::{AdminOptions, ServerOptions};
@@ -71,7 +71,7 @@ pub fn core_run_tcp<P, H>(
 where
     P: DataProcessor + 'static,
     H: AdminHandler + Send + 'static,
-    <H::Protocol as Protocol>::Request: QuitResponse,
+    <H::Protocol as Protocol>::Request: QuitRequest,
 {
     use tokio::runtime::current_thread::Runtime;
     use tokio::sync::mpsc::channel;

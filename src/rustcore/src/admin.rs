@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use pelikan::core::admin::AdminHandler;
-use pelikan::protocol::{PartialParseError, Protocol, QuitResponse, Serializable};
+use pelikan::protocol::{PartialParseError, Protocol, QuitRequest, Serializable};
 
 use std::cell::RefCell;
 use std::io::{Result, Write};
@@ -57,7 +57,7 @@ async fn admin_tcp_stream_handler<H, S>(handler: Rc<RefCell<H>>, mut stream: S)
 where
     H: AdminHandler + 'static,
     S: AsyncWrite + AsyncRead + Unpin,
-    <H::Protocol as Protocol>::Request: QuitResponse,
+    <H::Protocol as Protocol>::Request: QuitRequest,
 {
     let mut sock = unsafe { buf_sock_borrow() };
 
@@ -102,19 +102,19 @@ where
             }
         };
 
-        // Since we want to remain consistent with core we don't
-        // do anything once we've recieved the quit message.
-        if req.is_quit() {
-            info!("Admin peer called quit");
-            break;
-        }
-
         while rbuf.read_size() > 0 {
             if let Err(e) = req.parse(&mut rbuf) {
                 if e.is_unfinished() {
                     break;
                 }
             };
+
+            // Since we want to remain consistent with core we don't
+            // do anything once we've recieved the quit message.
+            if req.is_quit() {
+                info!("Admin peer called quit");
+                break 'outer;
+            }
 
             let mut borrow = handler.borrow_mut();
             borrow.process_request(&mut rsp, &mut req);
@@ -177,7 +177,7 @@ pub async fn admin_tcp<H: AdminHandler + 'static>(
     log_flush_interval: Duration,
 ) -> Result<()>
 where
-    <H::Protocol as Protocol>::Request: QuitResponse,
+    <H::Protocol as Protocol>::Request: QuitRequest,
 {
     let mut listener = TcpListener::bind(addr).await?;
     let handler = Rc::new(RefCell::new(handler));
