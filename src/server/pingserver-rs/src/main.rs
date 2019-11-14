@@ -61,8 +61,9 @@ Sample config files can be found under the config dir.
 "#;
 
 #[no_mangle]
-extern "C" fn malloc_error_break() {
-    loop {}
+unsafe extern "C" fn malloc_error_break() {
+    libc::printf("Detected heap corruption. Exiting now!\n\0".as_ptr() as *const libc::c_char);
+    libc::exit(1);
 }
 
 fn build_args() -> clap::App<'static, 'static> {
@@ -151,13 +152,20 @@ fn main() {
     let res = std::panic::catch_unwind(AssertUnwindSafe({
         let worker_metrics: &'static rustcore::WorkerMetrics = &metrics.worker;
         move || {
-            rustcore::core_run_tcp(
+            let res = rustcore::core_run_tcp(
                 &settings.admin,
                 &settings.server,
                 &worker_metrics,
                 admin,
                 dp,
-            )
+            );
+
+            match res {
+                Ok(()) => (),
+                Err(e) => {
+                    panic!("An IO error occurrred: {}", e);
+                }
+            }
         }
     }));
 
@@ -170,7 +178,7 @@ fn main() {
 
     match res {
         Err(e) => std::panic::resume_unwind(e),
-        Ok(_) => (),
+        Ok(()) => (),
     }
 }
 
@@ -238,7 +246,9 @@ impl Drop for ModuleRaiiHandler {
         };
 
         unsafe {
-            remove_pidfile(self.fname);
+            if !self.fname.is_null() {
+                remove_pidfile(self.fname);
+            }
 
             core_worker_teardown();
             core_server_teardown();

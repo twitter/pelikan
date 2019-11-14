@@ -61,7 +61,6 @@ impl DataProcessor for PingDataProcessor {
     ) -> Result<(), DataProcessorError> {
         trace!("post-write processing");
 
-        rbuf.reset();
         rbuf.shrink().expect("Failed to resize buffer");
 
         wbuf.reset();
