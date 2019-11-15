@@ -110,7 +110,12 @@ fn main() {
         ])
         .header("wrapper.h")
         .prepend_enum_name(false)
-        .whitelist_recursively(false)
+        .whitelist_recursively(true)
+
+        // C stdlib types that we want to get from the libc crate
+        .blacklist_type("FILE")
+        .blacklist_type("addrinfo")
+        .blacklist_type("timespec")
 
         // We provide a custom binding of metric with atomic types
         .blacklist_type("metric")
