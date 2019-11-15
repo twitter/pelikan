@@ -52,6 +52,12 @@ fn assert_buf_valid(buf: &mut OwnedBuf) {
     }
 }
 
+/// Used to contrain an unbounded lifetime produced by
+/// a pointer dereference.
+fn constrain_lifetime<'a, A, B>(x: &'a mut A, _: &'a B) -> &'a mut A {
+    x
+}
+
 /// Process a single request stream
 async fn admin_tcp_stream_handler<H, S>(handler: Rc<RefCell<H>>, mut stream: S)
 where
@@ -59,12 +65,19 @@ where
     S: AsyncWrite + AsyncRead + Unpin,
     <H::Protocol as Protocol>::Request: QuitRequest,
 {
+    // Variable we use to constrain the lifetime of rbuf and wbuf
+    let dummy = ();
     let mut sock = unsafe { buf_sock_borrow() };
-
-    let (mut rbuf, mut wbuf) = unsafe {
+    let (rbuf, wbuf) = unsafe {
         (
-            OwnedBuf::from_raw((*sock).wbuf),
-            OwnedBuf::from_raw((*sock).rbuf),
+            constrain_lifetime(
+                &mut *(&mut (*sock).wbuf as *mut *mut buf as *mut OwnedBuf),
+                &dummy,
+            ),
+            constrain_lifetime(
+                &mut *(&mut (*sock).rbuf as *mut *mut buf as *mut OwnedBuf),
+                &dummy,
+            ),
         )
     };
 
@@ -103,7 +116,7 @@ where
         };
 
         while rbuf.read_size() > 0 {
-            if let Err(e) = req.parse(&mut rbuf) {
+            if let Err(e) = req.parse(rbuf) {
                 if e.is_unfinished() {
                     break;
                 }
@@ -123,9 +136,9 @@ where
             // task tries to borrow it.
             drop(borrow);
 
-            assert_buf_valid(&mut wbuf);
+            assert_buf_valid(wbuf);
 
-            if let Err(e) = rsp.compose(&mut wbuf) {
+            if let Err(e) = rsp.compose(wbuf) {
                 error!("Failed to compose admin response: {}", e);
                 break 'outer;
             }
@@ -149,11 +162,6 @@ where
         req.reset();
         rbuf.lshift();
     }
-
-    // We don't own wbuf or rbuf so don't drop them.
-    // (dropping them during a panic is fine since buf_sock_return isn't called)
-    std::mem::forget(wbuf);
-    std::mem::forget(rbuf);
 
     unsafe {
         buf_sock_return(&mut sock as *mut _);

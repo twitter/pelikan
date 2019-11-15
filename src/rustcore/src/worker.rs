@@ -21,7 +21,7 @@ use tokio::sync::mpsc::Receiver;
 // use futures::select;
 
 use ccommon::buf::OwnedBuf;
-use ccommon_sys::{buf_sock_borrow, buf_sock_return};
+use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
 use pelikan::core::DataProcessor;
 
 use std::cell::RefCell;
@@ -29,6 +29,12 @@ use std::io::{Result, Write};
 use std::rc::Rc;
 
 use crate::WorkerMetrics;
+
+/// Used to contrain an unbounded lifetime produced by
+/// a pointer dereference.
+fn constrain_lifetime<'a, A, B>(x: &'a mut A, _: &'a B) -> &'a mut A {
+    x
+}
 
 async fn worker_conn_driver<P, S>(
     dp: Rc<RefCell<P>>,
@@ -38,12 +44,20 @@ async fn worker_conn_driver<P, S>(
     P: DataProcessor,
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    // Variable we use to constrain the lifetime of rbuf and wbuf
+    let dummy = ();
     let mut state: Option<&mut P::SockState> = None;
     let mut sock = unsafe { buf_sock_borrow() };
-    let (mut rbuf, mut wbuf) = unsafe {
+    let (rbuf, wbuf) = unsafe {
         (
-            OwnedBuf::from_raw((*sock).wbuf),
-            OwnedBuf::from_raw((*sock).rbuf),
+            constrain_lifetime(
+                &mut *(&mut (*sock).wbuf as *mut *mut buf as *mut OwnedBuf),
+                &dummy,
+            ),
+            constrain_lifetime(
+                &mut *(&mut (*sock).rbuf as *mut *mut buf as *mut OwnedBuf),
+                &dummy,
+            ),
         )
     };
 
@@ -89,7 +103,7 @@ async fn worker_conn_driver<P, S>(
         metrics.bytes_read.incr_n(nbytes as u64);
 
         let mut borrow = dp.borrow_mut();
-        if let Err(_) = borrow.read(&mut rbuf, &mut wbuf, &mut state) {
+        if let Err(_) = borrow.read(rbuf, wbuf, &mut state) {
             metrics.socket_write_ex.incr();
             // Unable to read the socket. This should only occur when
             // the peer closed the socket or was lost.
@@ -111,7 +125,7 @@ async fn worker_conn_driver<P, S>(
             metrics.socket_write.incr();
 
             let mut borrow = dp.borrow_mut();
-            if let Err(_) = borrow.write(&mut rbuf, &mut wbuf, &mut state) {
+            if let Err(_) = borrow.write(rbuf, wbuf, &mut state) {
                 break 'outer;
             }
         }
@@ -121,14 +135,9 @@ async fn worker_conn_driver<P, S>(
 
     let mut borrow = dp.borrow_mut();
     // We're already exiting, ignore any errors
-    let _ = borrow.error(&mut rbuf, &mut wbuf, &mut state);
+    let _ = borrow.error(rbuf, wbuf, &mut state);
 
     metrics.active_conns.decr();
-
-    // We don't own wbuf or rbuf so don't drop them.
-    // (dropping them during a panic is fine since buf_sock_return isn't called)
-    std::mem::forget(wbuf);
-    std::mem::forget(rbuf);
 
     unsafe {
         buf_sock_return(&mut sock as *mut _);
