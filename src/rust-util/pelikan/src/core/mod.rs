@@ -37,7 +37,7 @@ pub trait DataProcessor {
     type SockState: Copy;
 
     /// Act on all messages contained within rbuf.
-    /// 
+    ///
     /// Read will only be called when new data is
     /// added to `rbuf`.
     fn read(
@@ -48,7 +48,7 @@ pub trait DataProcessor {
     ) -> Result<(), DataProcessorError>;
 
     /// Post-write cleanup.
-    /// 
+    ///
     /// Will be called after a write has occurred.
     fn write(
         &mut self,
@@ -58,7 +58,7 @@ pub trait DataProcessor {
     ) -> Result<(), DataProcessorError>;
 
     /// Final cleanup handler.
-    /// 
+    ///
     /// This can be used for final cleanup of state.
     fn error(
         &mut self,

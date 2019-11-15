@@ -137,8 +137,8 @@ fn admin_crash() -> IOResult<()> {
     // This set of commands exposed a use-after-free bug in the
     // admin handling thread.
     stream.write_all(b"stats\r\n")?;
-    stream.write_all(b"\
-        Bacon ipsum dolor amet tongue rump pork belly, \
+    stream.write_all(
+        b"Bacon ipsum dolor amet tongue rump pork belly, \
         capicola corned beef sausage kielbasa kevin boudin \
         venison. Pig capicola brisket frankfurter. Filet mignon \
         leberkas shank turducken sirloin bacon porchetta \
@@ -148,7 +148,7 @@ fn admin_crash() -> IOResult<()> {
         prosciutto, sausage tri-tip buffalo chuck chicken. Filet \
         mignon pastrami prosciutto jerky corned beef boudin pork belly \
         landjaeger short ribs tail jowl chicken drumstick t-bone capicola. \
-        Rump spare ribs landjaeger, pork belly jowl kielbasa fatback.\r\n"
+        Rump spare ribs landjaeger, pork belly jowl kielbasa fatback.\r\n",
     )?;
     stream.write_all(b"quit\r\n")?;
 
