@@ -18,6 +18,8 @@ use cc_binding::buf;
 use std::io::{self, Read, Write};
 use std::ops::{Deref, DerefMut};
 
+use bytes::{Buf as BytesBuf, BufMut as BytesBufMut};
+
 /// A non-owned buffer, can be read from and written to.
 ///
 /// # Safety
@@ -277,5 +279,63 @@ impl Write for OwnedBuf {
 
     fn flush(&mut self) -> io::Result<()> {
         (**self).flush()
+    }
+}
+
+impl BytesBuf for Buf {
+    fn remaining(&self) -> usize {
+        self.read_size()
+    }
+
+    fn bytes(&self) -> &[u8] {
+        self.as_slice()
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        assert!(cnt <= self.read_size());
+        self.buf.rpos.wrapping_add(cnt);
+    }
+}
+
+impl BytesBufMut for Buf {
+    fn remaining_mut(&self) -> usize {
+        self.write_size()
+    }
+
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        assert!(cnt <= self.write_size());
+        self.buf.wpos.wrapping_add(cnt);
+    }
+
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        std::slice::from_raw_parts_mut(self.buf.wpos as *mut u8, self.write_size())
+    }
+}
+
+impl BytesBuf for OwnedBuf {
+    fn remaining(&self) -> usize {
+        (**self).remaining()
+    }
+
+    fn bytes(&self) -> &[u8] {
+        BytesBuf::bytes(&**self)
+    }
+
+    fn advance(&mut self, cnt: usize) {
+        (**self).advance(cnt)
+    }
+}
+
+impl BytesBufMut for OwnedBuf {
+    fn remaining_mut(&self) -> usize {
+        (**self).remaining_mut()
+    }
+
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        (**self).advance_mut(cnt)
+    }
+
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        BytesBufMut::bytes_mut(&mut **self)
     }
 }
