@@ -34,7 +34,7 @@ _check_buf_size(struct buf **buf, uint32_t n)
 }
 
 int
-admin_compose_req(struct buf **buf, struct request *req)
+admin_compose_req(struct buf **buf, const struct request *req)
 {
     struct bstring *str = &req_strings[req->type];
     int n = 0;
@@ -54,7 +54,7 @@ admin_compose_req(struct buf **buf, struct request *req)
 }
 
 int
-admin_compose_rsp(struct buf **buf, struct response *rsp)
+admin_compose_rsp(struct buf **buf, const struct response *rsp)
 {
     struct bstring *str = &rsp_strings[rsp->type];
     int n = 0;

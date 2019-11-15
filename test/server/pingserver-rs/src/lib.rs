@@ -134,8 +134,8 @@ fn admin_crash() -> IOResult<()> {
     stream.set_nodelay(true)?;
     stream.set_nonblocking(false)?;
 
-    /// This set of commands exposed a use-after-free bug in the
-    /// admin handling thread.
+    // This set of commands exposed a use-after-free bug in the
+    // admin handling thread.
     stream.write_all(b"stats\r\n")?;
     stream.write_all(b"\
         Bacon ipsum dolor amet tongue rump pork belly, \

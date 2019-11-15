@@ -81,8 +81,7 @@ impl Serializable for Request {
             let status = admin_compose_req(
                 // Not sure what's the proper pattern here
                 buf as *mut OwnedBuf as *mut *mut buf,
-                // This should actually have been const on the pelikan side
-                &self.0 as *const _ as *mut _,
+                &self.0 as *const request,
             );
 
             match status {
@@ -109,8 +108,7 @@ impl Serializable for Response {
         unsafe {
             let status = admin_compose_rsp(
                 buf as *mut OwnedBuf as *mut *mut buf,
-                // This should actually have been const on the pelikan side
-                &self.0 as *const _ as *mut _,
+                &self.0 as *const response,
             );
 
             match status {
