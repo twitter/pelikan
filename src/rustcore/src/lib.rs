@@ -15,7 +15,7 @@
 #[macro_use]
 extern crate log;
 
-mod acceptors;
+mod listener;
 mod opts;
 mod stats;
 
@@ -30,11 +30,13 @@ use std::future::Future;
 use std::io::Result as IOResult;
 use std::thread::JoinHandle;
 
+use tokio::runtime::current_thread::Runtime;
+
 use pelikan::core::admin::AdminHandler;
 use pelikan::core::DataProcessor;
 use pelikan::protocol::{Protocol, QuitRequest};
 
-pub use crate::acceptors::tcp_acceptor;
+pub use crate::listener::tcp_listener;
 pub use crate::opts::{AdminOptions, ServerOptions};
 pub use crate::stats::WorkerMetrics;
 pub use crate::worker::worker;
@@ -44,15 +46,13 @@ pub use crate::worker::worker;
 ///
 /// After the future completes it drops all other
 /// futures that were spawned on the runtime.
-pub fn run_acceptor<Fn, Fut, T, E>(acceptor: Fn) -> JoinHandle<Result<T, E>>
+pub fn run_listener<Fn, Fut, T, E>(acceptor: Fn) -> JoinHandle<Result<T, E>>
 where
     Fn: FnOnce() -> Fut + Send + 'static,
     Fut: Future<Output = Result<T, E>> + 'static,
     E: From<std::io::Error> + Send + 'static,
     T: Send + 'static,
 {
-    use tokio::runtime::current_thread::Runtime;
-
     std::thread::spawn(move || -> Result<T, E> {
         let mut runtime = Runtime::new()?;
 
@@ -73,29 +73,76 @@ where
     H: AdminHandler + Send + 'static,
     <H::Protocol as Protocol>::Request: QuitRequest,
 {
-    use tokio::runtime::current_thread::Runtime;
     use tokio::sync::mpsc::channel;
 
     let admin_addr = admin_opts.addr().expect("Invalid socket address");
     let server_addr = server_opts.addr().expect("Invalid socket address");
 
     let dlog_intvl = admin_opts.dlog_intvl();
-
-    let admin_thread =
-        run_acceptor(move || crate::admin::admin_tcp(admin_addr, admin_handler, dlog_intvl));
-
+    
     let (send, recv) = channel(1024);
+    
+    let mut core = Core::new(move || crate::admin::admin_tcp(admin_addr, admin_handler, dlog_intvl))?;
+    core
+        .listener(async move { 
+            crate::tcp_listener(server_addr, send).await.unwrap() 
+        })
+        .worker(async move { 
+            crate::worker(recv, data_processor, &worker_metrics).await.unwrap()
+        });
 
-    let acceptor_thread = run_acceptor(move || crate::tcp_acceptor(server_addr, send));
+    core.run()
+}
 
-    let mut runtime = Runtime::new()?;
-    let res = runtime.block_on(crate::worker(recv, data_processor, &worker_metrics));
+pub struct Core<A> {
+    workers: Runtime,
+    admin: A,
+}
 
-    let acceptor_res = acceptor_thread.join();
-    let admin_res = admin_thread.join();
+impl<A, F> Core<A>
+where
+    A: (FnOnce() -> F) + Send + 'static,
+    F: Future<Output = IOResult<()>> 
+{
+    pub fn new(admin: A) -> IOResult<Self> {
+        Ok(Self {
+            workers: Runtime::new()?,
+            admin
+        })
+    }
 
-    acceptor_res.expect("Acceptor panicked")?;
-    admin_res.expect("Admin thread panicked")?;
+    pub fn listener<L>(&mut self, listener: L) -> &mut Self
+    where
+        L: Future<Output = ()> + Send + 'static
+    {
+        self.workers.spawn(listener);
+        self
+    }
 
-    res
+    pub fn worker<W>(&mut self, worker: W) -> &mut Self 
+    where
+        W: Future<Output = ()> + 'static
+    {
+        self.workers.spawn(worker);
+        self
+    }
+
+    pub fn run(self) -> IOResult<()> {
+        use std::thread;
+
+        let Self { admin, mut workers } = self;
+        
+        let admin_thread = thread::spawn(move || -> IOResult<()> {
+            let mut runtime = Runtime::new()?;
+            runtime.block_on(admin())
+        });
+        
+        // TODO: Block on a signal handler here
+        workers.run()
+            .expect("Error while running workers");
+
+        admin_thread.join().expect("Admin thread panicked")?;
+
+        Ok(())
+    }
 }

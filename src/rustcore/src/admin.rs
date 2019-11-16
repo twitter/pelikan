@@ -36,26 +36,69 @@ use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
 type Request<H> = <<H as AdminHandler>::Protocol as Protocol>::Request;
 type Response<H> = <<H as AdminHandler>::Protocol as Protocol>::Response;
 
-#[inline(never)]
-fn assert_buf_valid(buf: &mut OwnedBuf) {
-    unsafe {
-        let ptr: *mut *mut buf = std::mem::transmute(buf);
-
-        let mut value = true;
-        value = value && (**ptr).rpos as usize <= (**ptr).end as usize;
-        value = value && (**ptr).wpos as usize <= (**ptr).end as usize;
-        value = value && (**ptr).rpos as usize <= (**ptr).wpos as usize;
-
-        if !value {
-            panic!();
-        }
-    }
-}
-
 /// Used to contrain an unbounded lifetime produced by
 /// a pointer dereference.
 fn constrain_lifetime<'a, A, B>(x: &'a mut A, _: &'a B) -> &'a mut A {
     x
+}
+
+/// Process all the new bytes that were just read.
+async fn process_request<H, S>(
+    handler: &Rc<RefCell<H>>,
+    stream: &mut S,
+    wbuf: &mut OwnedBuf,
+    rbuf: &mut OwnedBuf,
+    req: &mut Request<H>,
+    rsp: &mut Response<H>,
+) -> std::result::Result<(), ()>
+where
+    H: AdminHandler + 'static,
+    S: AsyncWrite + AsyncRead + Unpin,
+    <H::Protocol as Protocol>::Request: QuitRequest,
+{
+    while rbuf.read_size() > 0 {
+        if let Err(e) = req.parse(rbuf) {
+            if e.is_unfinished() {
+                break;
+            }
+
+            return Err(());
+        }
+
+        if req.is_quit() {
+            info!("Admin peer called quit");
+            return Err(());
+        }
+
+        let mut borrow = handler.borrow_mut();
+        borrow.process_request(rsp, req);
+        // Need to ensure that borrow doesn't live across a
+        // suspend point as otherwise we could panic if another
+        // task tries to borrow it.
+        drop(borrow);
+
+        if let Err(e) = rsp.compose(wbuf) {
+            error!("Failed to compose admin response: {}", e);
+            return Err(());
+        }
+
+        if wbuf.read_size() > 0 {
+            if let Err(_) = stream.write_all(wbuf.as_slice()).await {
+                // Something went wrong with the buffer and we can't
+                // write anything to it. Probably means that the connection
+                // is dead so just close it.
+                return Err(());
+            }
+
+            // Need to reset every time otherwise we'll resend existing
+            // messages for the next request.
+            let _ = wbuf.reset();
+        }
+
+        rsp.reset();
+    }
+
+    Ok(())
 }
 
 /// Process a single request stream
@@ -115,48 +158,9 @@ where
             }
         };
 
-        while rbuf.read_size() > 0 {
-            if let Err(e) = req.parse(rbuf) {
-                if e.is_unfinished() {
-                    break;
-                }
-            };
-
-            // Since we want to remain consistent with core we don't
-            // do anything once we've recieved the quit message.
-            if req.is_quit() {
-                info!("Admin peer called quit");
-                break 'outer;
-            }
-
-            let mut borrow = handler.borrow_mut();
-            borrow.process_request(&mut rsp, &mut req);
-            // Need to ensure that borrow doesn't live across a
-            // suspend point as otherwise we could panic if another
-            // task tries to borrow it.
-            drop(borrow);
-
-            assert_buf_valid(wbuf);
-
-            if let Err(e) = rsp.compose(wbuf) {
-                error!("Failed to compose admin response: {}", e);
-                break 'outer;
-            }
-
-            if wbuf.read_size() > 0 {
-                if let Err(_) = stream.write_all(wbuf.as_slice()).await {
-                    // Something went wrong with the buffer and we can't
-                    // write anything to it. Probably means that the connection
-                    // is dead so just close it.
-                    break 'outer;
-                }
-
-                // Need to reset every time otherwise we'll resend existing
-                // messages for the next request.
-                let _ = wbuf.reset();
-            }
-
-            rsp.reset();
+        let res = process_request(&handler, &mut stream, wbuf, rbuf, &mut req, &mut rsp).await;
+        if let Err(()) = res {
+            break;
         }
 
         req.reset();

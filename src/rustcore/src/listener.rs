@@ -18,7 +18,7 @@ use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Sender;
 
-pub async fn tcp_acceptor(addr: SocketAddr, mut chan: Sender<TcpStream>) -> Result<()> {
+pub async fn tcp_listener(addr: SocketAddr, mut chan: Sender<TcpStream>) -> Result<()> {
     let mut listener = TcpListener::bind(addr).await?;
 
     loop {
@@ -34,7 +34,7 @@ pub async fn tcp_acceptor(addr: SocketAddr, mut chan: Sender<TcpStream>) -> Resu
 
         if let Err(e) = chan.try_send(stream) {
             if e.is_closed() {
-                info!("Channel has shut down, shutting down TCP acceptor.");
+                info!("Channel has shut down, shutting down TCP listener.");
                 break;
             }
 
