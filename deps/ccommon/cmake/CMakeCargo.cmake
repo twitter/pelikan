@@ -133,8 +133,13 @@ function(cargo_build)
     )
 
     string(REPLACE "-" "_" LIB_NAME ${CARGO_NAME})
+
     if(NOT (DEFINED CARGO_TARGET_DIR))
-        set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR}/target)
+        if ($ENV{CI})
+            set(CARGO_TARGET_DIR ${CMAKE_BINARY_DIR}/target)
+        else()
+            set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR}/target)
+        endif()
     endif()
 
     if(CARGO_BIN AND CARGO_STATIC)
