@@ -12,6 +12,7 @@ pelikan-sys = { path="../rust-util/pelikan-sys" }
 tokio = { version = "0.2.0-alpha.6", features = [ "signal" ] }
 log = "0.4"
 futures = { version="0.3", features = [ "async-await" ] }
+bytes = "0.4.12"
 
 [dependencies.pelikan]
 path = "../rust-util/pelikan"

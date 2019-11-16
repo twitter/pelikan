@@ -15,9 +15,11 @@
 #[macro_use]
 extern crate log;
 
+mod bufread;
 mod listener;
 mod opts;
 mod stats;
+mod traits;
 
 pub mod admin;
 pub mod worker;
@@ -79,16 +81,16 @@ where
     let server_addr = server_opts.addr().expect("Invalid socket address");
 
     let dlog_intvl = admin_opts.dlog_intvl();
-    
+
     let (send, recv) = channel(1024);
-    
-    let mut core = Core::new(move || crate::admin::admin_tcp(admin_addr, admin_handler, dlog_intvl))?;
-    core
-        .listener(async move { 
-            crate::tcp_listener(server_addr, send).await.unwrap() 
-        })
-        .worker(async move { 
-            crate::worker(recv, data_processor, &worker_metrics).await.unwrap()
+
+    let mut core =
+        Core::new(move || crate::admin::admin_tcp(admin_addr, admin_handler, dlog_intvl))?;
+    core.listener(async move { crate::tcp_listener(server_addr, send).await.unwrap() })
+        .worker(async move {
+            crate::worker(recv, data_processor, &worker_metrics)
+                .await
+                .unwrap()
         });
 
     core.run()
@@ -102,26 +104,26 @@ pub struct Core<A> {
 impl<A, F> Core<A>
 where
     A: (FnOnce() -> F) + Send + 'static,
-    F: Future<Output = IOResult<()>> 
+    F: Future<Output = IOResult<()>>,
 {
     pub fn new(admin: A) -> IOResult<Self> {
         Ok(Self {
             workers: Runtime::new()?,
-            admin
+            admin,
         })
     }
 
     pub fn listener<L>(&mut self, listener: L) -> &mut Self
     where
-        L: Future<Output = ()> + Send + 'static
+        L: Future<Output = ()> + Send + 'static,
     {
         self.workers.spawn(listener);
         self
     }
 
-    pub fn worker<W>(&mut self, worker: W) -> &mut Self 
+    pub fn worker<W>(&mut self, worker: W) -> &mut Self
     where
-        W: Future<Output = ()> + 'static
+        W: Future<Output = ()> + 'static,
     {
         self.workers.spawn(worker);
         self
@@ -131,15 +133,14 @@ where
         use std::thread;
 
         let Self { admin, mut workers } = self;
-        
+
         let admin_thread = thread::spawn(move || -> IOResult<()> {
             let mut runtime = Runtime::new()?;
             runtime.block_on(admin())
         });
-        
+
         // TODO: Block on a signal handler here
-        workers.run()
-            .expect("Error while running workers");
+        workers.run().expect("Error while running workers");
 
         admin_thread.join().expect("Admin thread panicked")?;
 

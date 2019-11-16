@@ -16,7 +16,7 @@ use pelikan::core::admin::AdminHandler;
 use pelikan::protocol::{PartialParseError, Protocol, QuitRequest, Serializable};
 
 use std::cell::RefCell;
-use std::io::{Result, Write};
+use std::io::Result;
 use std::net::SocketAddr;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -55,10 +55,11 @@ where
     H: AdminHandler + 'static,
     S: AsyncWrite + AsyncRead + Unpin,
     <H::Protocol as Protocol>::Request: QuitRequest,
-{
+{  
     while rbuf.read_size() > 0 {
         if let Err(e) = req.parse(rbuf) {
             if e.is_unfinished() {
+                req.reset();
                 break;
             }
 
@@ -96,6 +97,7 @@ where
         }
 
         rsp.reset();
+        req.reset();
     }
 
     Ok(())
@@ -124,16 +126,27 @@ where
         )
     };
 
-    let mut tmpbuf = [0u8; 1024];
-
     let mut req = Request::<H>::default();
     let mut rsp = Response::<H>::default();
 
     // let ctrlc = CtrlC::new();
 
     'outer: loop {
-        let nbytes = match stream.read(&mut tmpbuf).await {
-            Ok(nbytes) => nbytes,
+        let fut = crate::bufread::read_buf(&mut stream, rbuf);
+        match fut.await {
+            Ok(0) => {
+                if rbuf.write_size() == 0 {
+                    // TODO: Not sure what to do in the error case here
+                    let _ = rbuf.fit(rbuf.read_size() + 1024);
+                    continue;
+                } else {
+                    // This can occurr when a the other end of the connection
+                    // disappears. At this point we can just close the connection
+                    // as otherwise we will continuously read 0 and waste CPU
+                    break;
+                }
+            }
+            Ok(_) => (),
             Err(_) => break,
         };
 
@@ -146,24 +159,11 @@ where
         //     _ = ctrlc => break 'outer
         // };
 
-        let _ = rbuf.fit(rbuf.read_size() + tmpbuf.len());
-        match rbuf.write_all(&tmpbuf[..nbytes]) {
-            Ok(()) => (),
-            Err(e) => {
-                error!("Failed to expand buffer: {}", e);
-                // There really isn't anything we can do to recover the
-                // connection from this state since we just truncated
-                // part of a message. Instead, we just close the connection.
-                break;
-            }
-        };
-
         let res = process_request(&handler, &mut stream, wbuf, rbuf, &mut req, &mut rsp).await;
         if let Err(()) = res {
             break;
         }
 
-        req.reset();
         rbuf.lshift();
     }
 

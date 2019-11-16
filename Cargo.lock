@@ -155,6 +155,7 @@ name = "ccommon_rs"
 version = "0.1.0"
 dependencies = [
  "autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc_binding 0.1.0",
  "ccommon-backend 0.1.0",
  "ccommon-derive 0.1.0",
@@ -982,6 +983,7 @@ dependencies = [
 name = "rustcore"
 version = "0.1.0"
 dependencies = [
+ "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc_binding 0.1.0",
  "ccommon_rs 0.1.0",
  "futures 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",

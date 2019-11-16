@@ -156,22 +156,27 @@ fn admin_crash() -> IOResult<()> {
 }
 
 fn run_tests() {
+    println!("Running test multiping");
     if let Err(e) = multiping() {
         panic!("test multiping failed: {}", e);
     }
 
+    println!("Running test fragmented_ping");
     if let Err(e) = fragmented_ping() {
         panic!("test fragmented_ping failed: {}", e);
     }
 
+    println!("Running test partial_ping");
     if let Err(e) = partial_ping() {
         panic!("test partial_ping failed: {}", e);
     }
 
+    println!("Running test large_ping");
     if let Err(e) = large_ping() {
         panic!("test large_ping failed: {}", e);
     }
 
+    println!("Running test admin_crash");
     if let Err(e) = admin_crash() {
         panic!("test admin_crash failed: {}", e);
     }

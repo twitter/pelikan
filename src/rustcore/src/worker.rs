@@ -25,7 +25,7 @@ use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
 use pelikan::core::DataProcessor;
 
 use std::cell::RefCell;
-use std::io::{Result, Write};
+use std::io::Result;
 use std::rc::Rc;
 
 use crate::WorkerMetrics;
@@ -63,14 +63,20 @@ async fn worker_conn_driver<P, S>(
 
     // let mut ctrlc = CtrlC::new();
 
-    let mut tmpbuf = [0u8; 1024];
     'outer: loop {
-        let nbytes = match stream.read(&mut tmpbuf).await {
+        let fut = crate::bufread::read_buf(&mut stream, rbuf);
+        let nbytes = match fut.await {
             Ok(0) => {
-                // This can occurr when a the other end of the connection
-                // disappears. At this point we can just close the connection
-                // as otherwise we will continuously read 0 and waste CPU
-                break;
+                if rbuf.write_size() == 0 {
+                    // TODO: Not sure what to do in the error case here
+                    let _ = rbuf.fit(rbuf.read_size() + 1024);
+                    continue;
+                } else {
+                    // This can occurr when a the other end of the connection
+                    // disappears. At this point we can just close the connection
+                    // as otherwise we will continuously read 0 and waste CPU
+                    break;
+                }
             }
             Ok(nbytes) => nbytes,
             Err(_) => break,
@@ -86,18 +92,6 @@ async fn worker_conn_driver<P, S>(
         //     },
         //     _ = ctrlc => break 'outer
         // };
-
-        let _ = rbuf.fit(rbuf.read_size() + tmpbuf.len());
-        match rbuf.write_all(&tmpbuf[..nbytes]) {
-            Ok(()) => (),
-            Err(e) => {
-                error!("Failed to expand buffer: {}", e);
-                // There really isn't anything we can do to recover the
-                // connection from this state since we just truncated
-                // part of a message. Instead, we just close the connection.
-                break;
-            }
-        }
 
         metrics.socket_read.incr();
         metrics.bytes_read.incr_n(nbytes as u64);
