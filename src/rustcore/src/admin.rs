@@ -55,7 +55,7 @@ where
     H: AdminHandler + 'static,
     S: AsyncWrite + AsyncRead + Unpin,
     <H::Protocol as Protocol>::Request: QuitRequest,
-{  
+{
     while rbuf.read_size() > 0 {
         if let Err(e) = req.parse(rbuf) {
             if e.is_unfinished() {
@@ -132,7 +132,7 @@ where
     // let ctrlc = CtrlC::new();
 
     'outer: loop {
-        let fut = crate::bufread::read_buf(&mut stream, rbuf);
+        let fut = crate::buf::read_buf(&mut stream, rbuf);
         match fut.await {
             Ok(0) => {
                 if rbuf.write_size() == 0 {

@@ -49,4 +49,14 @@ pub struct WorkerMetrics {
         desc = "# of times that a socket write has failed"
     )]
     pub socket_write_ex: Counter,
+    #[metric(
+        name = "worker_request_parse_ex",
+        desc = "# of times that an incoming request failed to parse"
+    )]
+    pub request_parse_ex: Counter,
+    #[metric(
+        name = "worker_response_compose_ex",
+        desc = "# of times that an outgoing response failed to parse"
+    )]
+    pub response_compose_ex: Counter,
 }

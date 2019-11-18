@@ -15,7 +15,7 @@
 #[macro_use]
 extern crate log;
 
-mod bufread;
+mod buf;
 mod listener;
 mod opts;
 mod stats;
@@ -35,12 +35,12 @@ use std::thread::JoinHandle;
 use tokio::runtime::current_thread::Runtime;
 
 use pelikan::core::admin::AdminHandler;
-use pelikan::core::DataProcessor;
 use pelikan::protocol::{Protocol, QuitRequest};
 
 pub use crate::listener::tcp_listener;
 pub use crate::opts::{AdminOptions, ServerOptions};
 pub use crate::stats::WorkerMetrics;
+pub use crate::traits::{Worker, WorkerAction};
 pub use crate::worker::worker;
 
 /// Take a future and run it on a separate thread
@@ -63,19 +63,20 @@ where
 }
 
 /// Given an AdminHandler and a DataProcessor start up a server
-pub fn core_run_tcp<P, H>(
+pub fn core_run_tcp<W, H>(
     admin_opts: &AdminOptions,
     server_opts: &ServerOptions,
     worker_metrics: &'static WorkerMetrics,
     admin_handler: H,
-    data_processor: P,
+    worker: W,
 ) -> IOResult<()>
 where
-    P: DataProcessor + 'static,
+    W: Worker + 'static,
     H: AdminHandler + Send + 'static,
     <H::Protocol as Protocol>::Request: QuitRequest,
 {
     use tokio::sync::mpsc::channel;
+    use std::rc::Rc;
 
     let admin_addr = admin_opts.addr().expect("Invalid socket address");
     let server_addr = server_opts.addr().expect("Invalid socket address");
@@ -87,11 +88,7 @@ where
     let mut core =
         Core::new(move || crate::admin::admin_tcp(admin_addr, admin_handler, dlog_intvl))?;
     core.listener(async move { crate::tcp_listener(server_addr, send).await.unwrap() })
-        .worker(async move {
-            crate::worker(recv, data_processor, &worker_metrics)
-                .await
-                .unwrap()
-        });
+        .worker(async move { crate::worker(recv, Rc::new(worker), &worker_metrics).await.unwrap() });
 
     core.run()
 }

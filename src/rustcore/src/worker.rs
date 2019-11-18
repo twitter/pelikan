@@ -22,114 +22,122 @@ use tokio::sync::mpsc::Receiver;
 
 use ccommon::buf::OwnedBuf;
 use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
-use pelikan::core::DataProcessor;
+use pelikan::protocol::{PartialParseError, Protocol, Serializable};
 
-use std::cell::RefCell;
 use std::io::Result;
 use std::rc::Rc;
 
-use crate::WorkerMetrics;
+use crate::{Worker, WorkerMetrics, WorkerAction};
 
-/// Used to contrain an unbounded lifetime produced by
-/// a pointer dereference.
-fn constrain_lifetime<'a, A, B>(x: &'a mut A, _: &'a B) -> &'a mut A {
-    x
+async fn read_once<'a, W, S>(
+    worker: &'a Rc<W>,
+    stream: &'a mut S,
+    metrics: &'static WorkerMetrics,
+    wbuf: &'a mut OwnedBuf,
+    rbuf: &'a mut OwnedBuf,
+    req: &'a mut <W::Protocol as Protocol>::Request,
+    rsp: &'a mut <W::Protocol as Protocol>::Response,
+    state: &'a mut W::State,
+) -> std::result::Result<(), ()>
+where
+    W: Worker,
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    match crate::buf::read_buf(stream, rbuf).await {
+        Ok(0) => {
+            if rbuf.write_size() == 0 {
+                metrics.socket_read.incr();
+                if let Err(e) = rbuf.fit(rbuf.capacity() * 2) {
+                    error!("Failed to resize buffer: {}", e);
+                    return Err(());
+                }
+                return Ok(());
+            } else {
+                // This can occurr when a the other end of the connection
+                // disappears. At this point we can just close the connection
+                // as otherwise we will continuously read 0 and waste CPU
+                return Err(());
+            }
+        }
+        Ok(nbytes) => {
+            metrics.bytes_read.incr_n(nbytes as u64);
+            metrics.socket_read.incr();
+        }
+        Err(_) => {
+            metrics.socket_read_ex.incr();
+            return Err(());
+        }
+    };
+
+    while rbuf.read_size() > 0 {
+        if let Err(e) = req.parse(rbuf) {
+            if e.is_unfinished() {
+                break;
+            }
+
+            metrics.request_parse_ex.incr();
+            return Err(());
+        }
+
+        match worker.process_request(req, rsp, state) {
+            WorkerAction::None => (),
+            WorkerAction::Close => {
+                return Err(());
+            },
+            WorkerAction::__Nonexhaustive(empty) => match empty {}
+        };
+
+        rsp.compose(wbuf).map_err(|_| {
+            metrics.response_compose_ex.incr();
+        })?;
+
+        while wbuf.read_size() > 0 {
+            let nbytes = crate::buf::write_buf(stream, wbuf).await.map_err(|_| {
+                metrics.socket_write_ex.incr();
+            })?;
+
+            metrics.socket_write.incr();
+            metrics.bytes_sent.incr_n(nbytes as u64);
+        }
+
+        wbuf.lshift();
+    }
+
+    rbuf.lshift();
+
+    Ok(())
 }
 
-async fn worker_conn_driver<P, S>(
-    dp: Rc<RefCell<P>>,
-    mut stream: S,
-    metrics: &'static WorkerMetrics,
-) where
-    P: DataProcessor,
+async fn worker_driver<W, S>(worker: Rc<W>, mut stream: S, metrics: &'static WorkerMetrics)
+where
+    W: Worker,
     S: AsyncRead + AsyncWrite + Unpin,
 {
     // Variable we use to constrain the lifetime of rbuf and wbuf
-    let dummy = ();
-    let mut state: Option<&mut P::SockState> = None;
     let mut sock = unsafe { buf_sock_borrow() };
     let (rbuf, wbuf) = unsafe {
         (
-            constrain_lifetime(
-                &mut *(&mut (*sock).wbuf as *mut *mut buf as *mut OwnedBuf),
-                &dummy,
-            ),
-            constrain_lifetime(
-                &mut *(&mut (*sock).rbuf as *mut *mut buf as *mut OwnedBuf),
-                &dummy,
-            ),
+            &mut *(&mut (*sock).wbuf as *mut *mut buf as *mut OwnedBuf),
+            &mut *(&mut (*sock).rbuf as *mut *mut buf as *mut OwnedBuf),
         )
     };
 
-    // let mut ctrlc = CtrlC::new();
+    let mut req = <W::Protocol as Protocol>::Request::default();
+    let mut rsp = <W::Protocol as Protocol>::Response::default();
+    let mut state = Default::default();
 
-    'outer: loop {
-        let fut = crate::bufread::read_buf(&mut stream, rbuf);
-        let nbytes = match fut.await {
-            Ok(0) => {
-                if rbuf.write_size() == 0 {
-                    // TODO: Not sure what to do in the error case here
-                    let _ = rbuf.fit(rbuf.read_size() + 1024);
-                    continue;
-                } else {
-                    // This can occurr when a the other end of the connection
-                    // disappears. At this point we can just close the connection
-                    // as otherwise we will continuously read 0 and waste CPU
-                    break;
-                }
-            }
-            Ok(nbytes) => nbytes,
-            Err(_) => break,
-        };
-
-        debug!("Read {} bytes from stream", nbytes);
-
-        // Uncomment once we update to tokio 0.2.0-alpha.7
-        // let nbytes = select! {
-        //     res = stream.read(&mut tmpbuf).fuse() => match res {
-        //         Ok(nbytes) => nbytes,
-        //         Err(_) => break 'outer
-        //     },
-        //     _ = ctrlc => break 'outer
-        // };
-
-        metrics.socket_read.incr();
-        metrics.bytes_read.incr_n(nbytes as u64);
-
-        let mut borrow = dp.borrow_mut();
-        if let Err(_) = borrow.read(rbuf, wbuf, &mut state) {
-            metrics.socket_write_ex.incr();
-            // Unable to read the socket. This should only occur when
-            // the peer closed the socket or was lost.
-            break 'outer;
-        }
-        // Don't want borrow living across a suspend point
-        drop(borrow);
-
-        if wbuf.read_size() > 0 {
-            if let Err(_) = stream.write_all(wbuf.as_slice()).await {
-                metrics.socket_write_ex.incr();
-                // Something went wrong with the buffer and we can't
-                // write anything to it. Probably means that the connection
-                // is dead so just close it.
-                break 'outer;
-            }
-
-            metrics.bytes_sent.incr_n(wbuf.read_size() as u64);
-            metrics.socket_write.incr();
-
-            let mut borrow = dp.borrow_mut();
-            if let Err(_) = borrow.write(rbuf, wbuf, &mut state) {
-                break 'outer;
-            }
-        }
-
-        rbuf.lshift();
-    }
-
-    let mut borrow = dp.borrow_mut();
-    // We're already exiting, ignore any errors
-    let _ = borrow.error(rbuf, wbuf, &mut state);
+    while let Ok(_) = read_once(
+        &worker,
+        &mut stream,
+        metrics,
+        wbuf,
+        rbuf,
+        &mut req,
+        &mut rsp,
+        &mut state,
+    )
+    .await
+    {}
 
     metrics.active_conns.decr();
 
@@ -138,17 +146,16 @@ async fn worker_conn_driver<P, S>(
     }
 }
 
-pub async fn worker<P, S>(
+/// Given an incoming stream of new connections and 
+pub async fn worker<W, S>(
     mut chan: Receiver<S>,
-    dp: P,
+    worker: Rc<W>,
     metrics: &'static WorkerMetrics,
 ) -> Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin + 'static,
-    P: DataProcessor + 'static,
+    W: Worker + 'static,
 {
-    let dp = Rc::new(RefCell::new(dp));
-
     loop {
         let stream: S = match chan.recv().await {
             Some(stream) => stream,
@@ -164,7 +171,7 @@ where
 
         metrics.active_conns.incr();
 
-        spawn(worker_conn_driver(Rc::clone(&dp), stream, metrics))
+        spawn(worker_driver(Rc::clone(&worker), stream, metrics))
     }
 
     Ok(())
