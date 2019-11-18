@@ -75,8 +75,8 @@ where
     H: AdminHandler + Send + 'static,
     <H::Protocol as Protocol>::Request: QuitRequest,
 {
-    use tokio::sync::mpsc::channel;
     use std::rc::Rc;
+    use tokio::sync::mpsc::channel;
 
     let admin_addr = admin_opts.addr().expect("Invalid socket address");
     let server_addr = server_opts.addr().expect("Invalid socket address");
@@ -88,7 +88,11 @@ where
     let mut core =
         Core::new(move || crate::admin::admin_tcp(admin_addr, admin_handler, dlog_intvl))?;
     core.listener(async move { crate::tcp_listener(server_addr, send).await.unwrap() })
-        .worker(async move { crate::worker(recv, Rc::new(worker), &worker_metrics).await.unwrap() });
+        .worker(async move {
+            crate::worker(recv, Rc::new(worker), &worker_metrics)
+                .await
+                .unwrap()
+        });
 
     core.run()
 }

@@ -43,7 +43,7 @@ fn constrain_lifetime<'a, A, B>(x: &'a mut A, _: &'a B) -> &'a mut A {
 }
 
 /// Process all the new bytes that were just read.
-async fn process_request<H, S>(
+async fn read_once<H, S>(
     handler: &Rc<RefCell<H>>,
     stream: &mut S,
     wbuf: &mut OwnedBuf,
@@ -56,6 +56,23 @@ where
     S: AsyncWrite + AsyncRead + Unpin,
     <H::Protocol as Protocol>::Request: QuitRequest,
 {
+    match crate::buf::read_buf(stream, rbuf).await {
+        Ok(0) => {
+            if rbuf.write_size() == 0 {
+                // If this fails then just close the connection,
+                // there isn't really anything we can do otherwise.
+                return rbuf.fit(rbuf.read_size() + 1024).map_err(|_| ());
+            } else {
+                // This can occurr when a the other end of the connection
+                // disappears. At this point we can just close the connection
+                // as otherwise we will continuously read 0 and waste CPU
+                return Err(());
+            }
+        }
+        Ok(_) => (),
+        Err(_) => return Err(()),
+    };
+
     while rbuf.read_size() > 0 {
         if let Err(e) = req.parse(rbuf) {
             if e.is_unfinished() {
@@ -71,34 +88,29 @@ where
             return Err(());
         }
 
-        let mut borrow = handler.borrow_mut();
-        borrow.process_request(rsp, req);
-        // Need to ensure that borrow doesn't live across a
-        // suspend point as otherwise we could panic if another
-        // task tries to borrow it.
-        drop(borrow);
+        handler.borrow_mut().process_request(rsp, req);
 
         if let Err(e) = rsp.compose(wbuf) {
             error!("Failed to compose admin response: {}", e);
             return Err(());
         }
 
-        if wbuf.read_size() > 0 {
-            if let Err(_) = stream.write_all(wbuf.as_slice()).await {
-                // Something went wrong with the buffer and we can't
-                // write anything to it. Probably means that the connection
-                // is dead so just close it.
-                return Err(());
-            }
-
-            // Need to reset every time otherwise we'll resend existing
-            // messages for the next request.
-            let _ = wbuf.reset();
+        while wbuf.read_size() > 0 {
+            // If this fails then something went wrong with the buffer and
+            // we can't write anything to it. Probably means that the
+            // connection is dead so just close it.
+            crate::buf::write_buf(stream, wbuf).await.map_err(|_| ())?;
         }
+
+        // wbuf is definitely empty here but need to reset the pointers
+        // to the start of the buffer.
+        wbuf.lshift();
 
         rsp.reset();
         req.reset();
     }
+
+    rbuf.lshift();
 
     Ok(())
 }
@@ -129,43 +141,7 @@ where
     let mut req = Request::<H>::default();
     let mut rsp = Response::<H>::default();
 
-    // let ctrlc = CtrlC::new();
-
-    'outer: loop {
-        let fut = crate::buf::read_buf(&mut stream, rbuf);
-        match fut.await {
-            Ok(0) => {
-                if rbuf.write_size() == 0 {
-                    // TODO: Not sure what to do in the error case here
-                    let _ = rbuf.fit(rbuf.read_size() + 1024);
-                    continue;
-                } else {
-                    // This can occurr when a the other end of the connection
-                    // disappears. At this point we can just close the connection
-                    // as otherwise we will continuously read 0 and waste CPU
-                    break;
-                }
-            }
-            Ok(_) => (),
-            Err(_) => break,
-        };
-
-        // Uncomment this once tokio updates to 0.2.0-alpha.7
-        // let nbytes = select! {
-        //     res = stream.read(&mut tmpbuf).fuse() => match res {
-        //         Ok(nbytes) => nbytes,
-        //         Err(_) => break 'outer
-        //     },
-        //     _ = ctrlc => break 'outer
-        // };
-
-        let res = process_request(&handler, &mut stream, wbuf, rbuf, &mut req, &mut rsp).await;
-        if let Err(()) = res {
-            break;
-        }
-
-        rbuf.lshift();
-    }
+    while let Ok(()) = read_once(&handler, &mut stream, wbuf, rbuf, &mut req, &mut rsp).await {}
 
     unsafe {
         buf_sock_return(&mut sock as *mut _);

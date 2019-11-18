@@ -27,7 +27,7 @@ use pelikan::protocol::{PartialParseError, Protocol, Serializable};
 use std::io::Result;
 use std::rc::Rc;
 
-use crate::{Worker, WorkerMetrics, WorkerAction};
+use crate::{Worker, WorkerAction, WorkerMetrics};
 
 async fn read_once<'a, W, S>(
     worker: &'a Rc<W>,
@@ -47,11 +47,11 @@ where
         Ok(0) => {
             if rbuf.write_size() == 0 {
                 metrics.socket_read.incr();
-                if let Err(e) = rbuf.fit(rbuf.capacity() * 2) {
-                    error!("Failed to resize buffer: {}", e);
-                    return Err(());
-                }
-                return Ok(());
+                // If this fails then just close the connection,
+                // there isn't really anything we can do otherwise.
+                return rbuf.fit(rbuf.read_size() + 1024).map_err(|e| {
+                    error!("Failed to resize read buffer: {}", e);
+                });
             } else {
                 // This can occurr when a the other end of the connection
                 // disappears. At this point we can just close the connection
@@ -83,8 +83,8 @@ where
             WorkerAction::None => (),
             WorkerAction::Close => {
                 return Err(());
-            },
-            WorkerAction::__Nonexhaustive(empty) => match empty {}
+            }
+            WorkerAction::__Nonexhaustive(empty) => match empty {},
         };
 
         rsp.compose(wbuf).map_err(|_| {
@@ -146,7 +146,7 @@ where
     }
 }
 
-/// Given an incoming stream of new connections and 
+/// Given an incoming stream of new connections and
 pub async fn worker<W, S>(
     mut chan: Receiver<S>,
     worker: Rc<W>,

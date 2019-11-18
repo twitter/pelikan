@@ -24,7 +24,7 @@ pub enum WorkerAction {
     Close,
 
     #[doc(hidden)]
-    __Nonexhaustive(Empty)
+    __Nonexhaustive(Empty),
 }
 
 impl Default for WorkerAction {
