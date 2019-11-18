@@ -143,7 +143,7 @@ fn main() {
     }
 
     let admin = Handler::new(metrics);
-    let dp = crate::data::PingDataProcessor;
+    let worker = crate::data::PingWorker;
     let res = std::panic::catch_unwind(AssertUnwindSafe({
         let worker_metrics: &'static rustcore::WorkerMetrics = &metrics.worker;
         move || {
@@ -152,7 +152,7 @@ fn main() {
                 &settings.server,
                 &worker_metrics,
                 admin,
-                dp,
+                worker,
             );
 
             match res {

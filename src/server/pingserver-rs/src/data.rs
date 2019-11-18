@@ -13,76 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use ccommon::buf::OwnedBuf;
-use pelikan::core::{DataProcessor, DataProcessorError};
+use rustcore::{Worker, WorkerAction};
+use pelikan::protocol::ping::{PingProtocol, Request, Response};
 
-pub struct PingDataProcessor;
+pub struct PingWorker;
 
-impl DataProcessor for PingDataProcessor {
-    type SockState = ();
+impl Worker for PingWorker {
+    type State = ();
+    type Protocol = PingProtocol;
 
-    fn read(
-        &mut self,
-        rbuf: &mut OwnedBuf,
-        wbuf: &mut OwnedBuf,
-        _: &mut Option<&mut ()>,
-    ) -> Result<(), DataProcessorError> {
-        use pelikan_sys::protocol::ping::*;
-
-        trace!("post-read processing");
-
-        unsafe {
-            // keep parse-process-compose until we run out of data in rbuf
-            while rbuf.read_size() > 0 {
-                trace!("{} bytes left", rbuf.read_size());
-
-                let status = parse_req(rbuf.into_raw_mut());
-                if status == PARSE_EUNFIN {
-                    return Ok(());
-                }
-                if status != PARSE_OK {
-                    return Err(DataProcessorError::Error);
-                }
-
-                if compose_rsp(&mut wbuf.into_raw_mut() as *mut _) != COMPOSE_OK {
-                    return Err(DataProcessorError::Error);
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn write(
-        &mut self,
-        rbuf: &mut OwnedBuf,
-        wbuf: &mut OwnedBuf,
-        _: &mut Option<&mut ()>,
-    ) -> Result<(), DataProcessorError> {
-        trace!("post-write processing");
-
-        rbuf.shrink().expect("Failed to resize buffer");
-
-        wbuf.reset();
-        wbuf.shrink().expect("Failed to resize buffer");
-
-        Ok(())
-    }
-
-    fn error(
-        &mut self,
-        rbuf: &mut OwnedBuf,
-        wbuf: &mut OwnedBuf,
-        _: &mut Option<&mut ()>,
-    ) -> Result<(), DataProcessorError> {
-        trace!("post-error processing");
-
-        rbuf.reset();
-        rbuf.shrink().expect("Failed to resize buffer");
-
-        wbuf.reset();
-        wbuf.shrink().expect("Failed to resize buffer");
-
-        Ok(())
+    fn process_request(&self, _: &mut Request, _: &mut Response, _: &mut ()) -> WorkerAction {
+        WorkerAction::None
     }
 }
