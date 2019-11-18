@@ -27,7 +27,7 @@ use pelikan::protocol::{PartialParseError, Protocol, Serializable};
 use std::io::Result;
 use std::rc::Rc;
 
-use crate::{Worker, WorkerAction, WorkerMetrics};
+use crate::{Worker, WorkerAction, WorkerMetrics, ClosableStream};
 
 async fn read_once<'a, W, S>(
     worker: &'a Rc<W>,
@@ -81,9 +81,8 @@ where
 
         match worker.process_request(req, rsp, state) {
             WorkerAction::None => (),
-            WorkerAction::Close => {
-                return Err(());
-            }
+            WorkerAction::Close => return Err(()),
+            WorkerAction::NoResponse => continue,
             WorkerAction::__Nonexhaustive(empty) => match empty {},
         };
 
@@ -111,7 +110,7 @@ where
 async fn worker_driver<W, S>(worker: Rc<W>, mut stream: S, metrics: &'static WorkerMetrics)
 where
     W: Worker,
-    S: AsyncRead + AsyncWrite + Unpin,
+    S: AsyncRead + AsyncWrite + Unpin + ClosableStream,
 {
     // Variable we use to constrain the lifetime of rbuf and wbuf
     let mut sock = unsafe { buf_sock_borrow() };
@@ -139,6 +138,11 @@ where
     .await
     {}
 
+    // Best-effort attempt to close the stream - if it doesn't
+    // close then there's nothing that we can really do here.
+    // Note: If a read from the socket already failed then it's
+    //       probable that closing the stream would fail too.
+    let _ = stream.close();
     metrics.active_conns.decr();
 
     unsafe {
@@ -153,7 +157,7 @@ pub async fn worker<W, S>(
     metrics: &'static WorkerMetrics,
 ) -> Result<()>
 where
-    S: AsyncRead + AsyncWrite + Unpin + 'static,
+    S: AsyncRead + AsyncWrite + Unpin + ClosableStream + 'static,
     W: Worker + 'static,
 {
     loop {

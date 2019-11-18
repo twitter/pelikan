@@ -26,9 +26,7 @@ use tokio::prelude::*;
 use tokio::runtime::current_thread::spawn;
 use tokio::timer::Interval;
 
-// Uncomment once tokio updates to 0.2.0-alpha.7
-// use tokio::signal::CtrlC;
-// use futures::select;
+use crate::ClosableStream;
 
 use ccommon::buf::OwnedBuf;
 use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
@@ -119,7 +117,7 @@ where
 async fn admin_tcp_stream_handler<H, S>(handler: Rc<RefCell<H>>, mut stream: S)
 where
     H: AdminHandler + 'static,
-    S: AsyncWrite + AsyncRead + Unpin,
+    S: AsyncWrite + AsyncRead + ClosableStream + Unpin,
     <H::Protocol as Protocol>::Request: QuitRequest,
 {
     // Variable we use to constrain the lifetime of rbuf and wbuf
@@ -142,6 +140,12 @@ where
     let mut rsp = Response::<H>::default();
 
     while let Ok(()) = read_once(&handler, &mut stream, wbuf, rbuf, &mut req, &mut rsp).await {}
+
+    // Best-effort attempt to close the socket - if this fails then
+    // we can't really do anything anyway so ignore the error.
+    // Note: If a read from the socket already failed then it's
+    //       probable that closing the stream would fail too.
+    let _ = stream.close();
 
     unsafe {
         buf_sock_return(&mut sock as *mut _);
