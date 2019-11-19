@@ -293,7 +293,7 @@ impl BytesBuf for Buf {
 
     fn advance(&mut self, cnt: usize) {
         assert!(cnt <= self.read_size());
-        self.buf.rpos.wrapping_add(cnt);
+        self.buf.rpos = self.buf.rpos.wrapping_add(cnt);
     }
 }
 
@@ -304,7 +304,7 @@ impl BytesBufMut for Buf {
 
     unsafe fn advance_mut(&mut self, cnt: usize) {
         assert!(cnt <= self.write_size());
-        self.buf.wpos.wrapping_add(cnt);
+        self.buf.wpos = self.buf.wpos.wrapping_add(cnt);
     }
 
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
