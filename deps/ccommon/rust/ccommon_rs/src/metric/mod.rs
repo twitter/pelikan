@@ -177,7 +177,7 @@ mod impls {
                         Self {
                             $(
                                 $field: metric {
-                                    name: c_str!($desc),
+                                    name: c_str!(stringify!($field)),
                                     type_: $type,
                                     desc: c_str!($desc),
                                     data: initialize_metric_value!($type)
