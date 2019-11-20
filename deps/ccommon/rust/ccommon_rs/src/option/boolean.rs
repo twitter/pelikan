@@ -27,6 +27,8 @@ pub struct Bool(option);
 
 impl Sealed for Bool {}
 
+unsafe impl Send for Bool {}
+
 unsafe impl SingleOption for Bool {
     type Value = bool;
 

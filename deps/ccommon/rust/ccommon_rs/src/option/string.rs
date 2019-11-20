@@ -26,6 +26,8 @@ use super::{Sealed, SingleOption};
 #[repr(transparent)]
 pub struct Str(option);
 
+unsafe impl Send for Str {}
+
 impl Str {
     /// Get the value of this option as a CStr. If null,
     /// returns none.

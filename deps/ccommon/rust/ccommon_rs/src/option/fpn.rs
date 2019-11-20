@@ -27,6 +27,8 @@ pub struct Float(option);
 
 impl Sealed for Float {}
 
+unsafe impl Send for Float {}
+
 unsafe impl SingleOption for Float {
     type Value = f64;
 

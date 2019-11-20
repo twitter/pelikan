@@ -31,6 +31,9 @@ use super::SingleMetric;
 #[repr(transparent)]
 pub struct Counter(metric);
 
+unsafe impl Send for Counter {}
+unsafe impl Sync for Counter {}
+
 impl Counter {
     fn as_ref(&self) -> &AtomicU64 {
         unsafe { &*self.0.data.as_ptr::<AtomicU64>() }

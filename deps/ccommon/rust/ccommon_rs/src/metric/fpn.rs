@@ -41,6 +41,9 @@ impl Fpn {
 
 impl Sealed for Fpn {}
 
+unsafe impl Send for Fpn {}
+unsafe impl Sync for Fpn {}
+
 unsafe impl SingleMetric for Fpn {
     fn new(name: &CStr, desc: &CStr) -> Self {
         Self(metric {
