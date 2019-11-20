@@ -145,7 +145,7 @@ fn main() {
     let admin = Handler::new(metrics);
     let worker = crate::data::PingWorker;
     let res = std::panic::catch_unwind(AssertUnwindSafe({
-        let worker_metrics: &'static rustcore::WorkerMetrics = &metrics.worker;
+        let worker_metrics: &'static rustcore::CoreMetrics = &metrics.core;
         move || {
             let res = rustcore::core_run_tcp(
                 &settings.admin,

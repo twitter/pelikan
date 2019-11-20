@@ -20,7 +20,7 @@ use pelikan_sys::{
     util::procinfo_metrics_st,
 };
 
-use rustcore::WorkerMetrics;
+use rustcore::CoreMetrics;
 
 #[rustfmt::skip]
 #[repr(C)]
@@ -32,7 +32,7 @@ pub struct Metrics {
     pub parse_req:      parse_req_metrics_st,
     pub compose_rsp:    compose_rsp_metrics_st,
     pub server:         server_metrics_st,
-    pub worker:         WorkerMetrics,
+    pub core:           CoreMetrics,
     // Common libraries
     pub buf:            buf_metrics_st,
     pub dbuf:           dbuf_metrics_st,
