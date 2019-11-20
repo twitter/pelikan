@@ -14,6 +14,9 @@
 // limitations under the License.
 
 //! Types and methods for dealing with ccommon options.
+//!
+//! See the docs on the `Options` macro to see how to create
+//! new options structs.
 
 use std::ffi::CStr;
 
@@ -247,7 +250,7 @@ mod impls {
                         Self {
                             $(
                                 $field: option {
-                                    name: c_str!($desc),
+                                    name: c_str!(stringify!($field)),
                                     set: false,
                                     type_: $type,
                                     default_val: initialize_option_value!($type, $default),
