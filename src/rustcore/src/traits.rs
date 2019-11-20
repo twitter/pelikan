@@ -4,7 +4,7 @@ use pelikan::protocol::Protocol;
 pub enum Empty {}
 
 /// A stream that can be gracefully closed.
-/// 
+///
 /// If this is handled properly by the drop impl
 /// then this function can be a no-op.
 pub trait ClosableStream {
@@ -32,9 +32,9 @@ pub trait Worker {
 
 /// An action that the worker thread can do after
 /// processing a request.
-/// 
+///
 /// By default a worker should just send the response.
-/// 
+///
 /// # Note
 /// This enum should not be matched exhaustively. Adding
 /// new variants is not considered a backwards-incompatible

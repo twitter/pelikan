@@ -40,7 +40,7 @@ use pelikan::protocol::{Protocol, QuitRequest};
 pub use crate::listener::tcp_listener;
 pub use crate::opts::{AdminOptions, ServerOptions};
 pub use crate::stats::WorkerMetrics;
-pub use crate::traits::{Worker, WorkerAction, ClosableStream};
+pub use crate::traits::{ClosableStream, Worker, WorkerAction};
 pub use crate::worker::worker;
 
 /// Take a future and run it on a separate thread

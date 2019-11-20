@@ -16,10 +16,6 @@ use tokio::prelude::*;
 use tokio::runtime::current_thread::spawn;
 use tokio::sync::mpsc::Receiver;
 
-// Uncomment once tokio updates to 0.2.0-alpha.7
-// use tokio::signal::CtrlC;
-// use futures::select;
-
 use ccommon::buf::OwnedBuf;
 use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
 use pelikan::protocol::{PartialParseError, Protocol, Serializable};
@@ -27,7 +23,7 @@ use pelikan::protocol::{PartialParseError, Protocol, Serializable};
 use std::io::Result;
 use std::rc::Rc;
 
-use crate::{Worker, WorkerAction, WorkerMetrics, ClosableStream};
+use crate::{ClosableStream, Worker, WorkerAction, WorkerMetrics};
 
 async fn read_once<'a, W, S>(
     worker: &'a Rc<W>,

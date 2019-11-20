@@ -185,7 +185,7 @@ where
         let stream: TcpStream = match listener.accept().await {
             Ok((stream, _)) => stream,
             Err(e) => {
-                error!("Failed to establish connection: {}", e);
+                debug!("Failed to accept connection: {}", e);
                 continue;
             }
         };

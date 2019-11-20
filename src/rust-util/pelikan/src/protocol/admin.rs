@@ -63,18 +63,16 @@ impl Serializable for Request {
     }
 
     fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError> {
-        let status = unsafe {
-            admin_parse_req(&mut self.0 as *mut _, buf.as_mut_ptr())
-        };
+        let status = unsafe { admin_parse_req(&mut self.0 as *mut _, buf.as_mut_ptr()) };
 
-            match status {
-                PARSE_OK => (),
-                PARSE_EUNFIN => return Err(ParseError::Unfinished),
-                PARSE_EINVALID => return Err(ParseError::Invalid),
-                _ => return Err(ParseError::Other),
-            }
+        match status {
+            PARSE_OK => (),
+            PARSE_EUNFIN => return Err(ParseError::Unfinished),
+            PARSE_EINVALID => return Err(ParseError::Invalid),
+            _ => return Err(ParseError::Other),
+        }
 
-            Ok(())
+        Ok(())
     }
 
     fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
@@ -86,12 +84,12 @@ impl Serializable for Request {
             )
         };
 
-            match status {
-                amt if amt >= 0 => Ok(amt as usize),
-                COMPOSE_ENOMEM => Err(ComposeError::NoMem),
-                COMPOSE_EOVERSIZED => Err(ComposeError::Oversized),
-                _ => Err(ComposeError::Other),
-            }
+        match status {
+            amt if amt >= 0 => Ok(amt as usize),
+            COMPOSE_ENOMEM => Err(ComposeError::NoMem),
+            COMPOSE_EOVERSIZED => Err(ComposeError::Oversized),
+            _ => Err(ComposeError::Other),
+        }
     }
 }
 impl Serializable for Response {
@@ -114,12 +112,12 @@ impl Serializable for Response {
             )
         };
 
-            match status {
-                amt if amt >= 0 => Ok(amt as usize),
-                COMPOSE_ENOMEM => Err(ComposeError::NoMem),
-                COMPOSE_EOVERSIZED => Err(ComposeError::Oversized),
-                _ => Err(ComposeError::Other),
-            }
+        match status {
+            amt if amt >= 0 => Ok(amt as usize),
+            COMPOSE_ENOMEM => Err(ComposeError::NoMem),
+            COMPOSE_EOVERSIZED => Err(ComposeError::Oversized),
+            _ => Err(ComposeError::Other),
+        }
     }
 }
 
