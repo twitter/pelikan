@@ -27,6 +27,8 @@ pub struct UInt(option);
 
 impl Sealed for UInt {}
 
+unsafe impl Send for UInt {}
+
 unsafe impl SingleOption for UInt {
     type Value = cc_binding::uintmax_t;
 

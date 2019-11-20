@@ -68,6 +68,10 @@ impl Gauge {
 }
 
 impl Sealed for Gauge {}
+
+unsafe impl Send for Gauge {}
+unsafe impl Sync for Gauge {}
+
 unsafe impl SingleMetric for Gauge {
     fn new(name: &CStr, desc: &CStr) -> Self {
         Self(metric {
