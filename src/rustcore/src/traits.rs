@@ -3,6 +3,10 @@ use pelikan::protocol::Protocol;
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Empty {}
 
+/// A stream that can be gracefully closed.
+/// 
+/// If this is handled properly by the drop impl
+/// then this function can be a no-op.
 pub trait ClosableStream {
     fn close(&self) -> std::io::Result<()>;
 }
@@ -26,6 +30,15 @@ pub trait Worker {
     ) -> WorkerAction;
 }
 
+/// An action that the worker thread can do after
+/// processing a request.
+/// 
+/// By default a worker should just send the response.
+/// 
+/// # Note
+/// This enum should not be matched exhaustively. Adding
+/// new variants is not considered a backwards-incompatible
+/// change.
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum WorkerAction {
     // Nothing special - sends the response as normal
@@ -54,8 +67,6 @@ impl ClosableStream for tokio::net::UnixStream {
 
 impl ClosableStream for tokio::net::TcpStream {
     fn close(&self) -> std::io::Result<()> {
-        use std::net::Shutdown;
-
-        self.shutdown(Shutdown::Both)
+        self.shutdown(std::net::Shutdown::Both)
     }
 }

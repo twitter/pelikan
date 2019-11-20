@@ -6,6 +6,7 @@ use std::io::Result;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+/// Create a future for `poll_read_buf` in `AsyncRead`.
 pub fn read_buf<'a, A: AsyncRead, B: BufMut + Unpin>(
     read: &'a mut A,
     buf: &'a mut B,
@@ -13,6 +14,7 @@ pub fn read_buf<'a, A: AsyncRead, B: BufMut + Unpin>(
     ReadBuf::new(read, buf)
 }
 
+/// Create a future for `poll_write_buf` in `AsyncWrite`.
 pub fn write_buf<'a, A: AsyncWrite, B: Buf + Unpin>(
     write: &'a mut A,
     buf: &'a mut B,

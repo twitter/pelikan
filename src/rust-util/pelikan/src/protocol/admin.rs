@@ -63,8 +63,9 @@ impl Serializable for Request {
     }
 
     fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError> {
-        unsafe {
-            let status = admin_parse_req(&mut self.0 as *mut _, buf.as_mut_ptr());
+        let status = unsafe {
+            admin_parse_req(&mut self.0 as *mut _, buf.as_mut_ptr())
+        };
 
             match status {
                 PARSE_OK => (),
@@ -74,15 +75,16 @@ impl Serializable for Request {
             }
 
             Ok(())
-        }
     }
+
     fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
-        unsafe {
-            let status = admin_compose_req(
+        let status = unsafe {
+            admin_compose_req(
                 // Not sure what's the proper pattern here
                 buf as *mut OwnedBuf as *mut *mut buf,
                 &self.0 as *const request,
-            );
+            )
+        };
 
             match status {
                 amt if amt >= 0 => Ok(amt as usize),
@@ -90,7 +92,6 @@ impl Serializable for Request {
                 COMPOSE_EOVERSIZED => Err(ComposeError::Oversized),
                 _ => Err(ComposeError::Other),
             }
-        }
     }
 }
 impl Serializable for Response {
@@ -104,12 +105,14 @@ impl Serializable for Response {
     fn parse(&mut self, _: &mut OwnedBuf) -> Result<(), Self::ParseError> {
         unimplemented!()
     }
+
     fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
-        unsafe {
-            let status = admin_compose_rsp(
+        let status = unsafe {
+            admin_compose_rsp(
                 buf as *mut OwnedBuf as *mut *mut buf,
                 &self.0 as *const response,
-            );
+            )
+        };
 
             match status {
                 amt if amt >= 0 => Ok(amt as usize),
@@ -117,7 +120,6 @@ impl Serializable for Response {
                 COMPOSE_EOVERSIZED => Err(ComposeError::Oversized),
                 _ => Err(ComposeError::Other),
             }
-        }
     }
 }
 
@@ -136,7 +138,9 @@ impl Display for ParseError {
         }
     }
 }
+
 impl Error for ParseError {}
+
 impl PartialParseError for ParseError {
     fn is_unfinished(&self) -> bool {
         match self {
@@ -155,4 +159,5 @@ impl Display for ComposeError {
         }
     }
 }
+
 impl Error for ComposeError {}
