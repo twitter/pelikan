@@ -60,7 +60,7 @@ impl Serializable for Request {
             _ => Err(ParseError::Other),
         }
     }
-    
+
     fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
         let status = unsafe { compose_rsp(buf as *mut OwnedBuf as *mut *mut buf) };
 

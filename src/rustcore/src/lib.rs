@@ -39,7 +39,7 @@ use pelikan::protocol::{Protocol, QuitRequest};
 
 pub use crate::listener::tcp_listener;
 pub use crate::opts::{AdminOptions, ServerOptions};
-pub use crate::stats::WorkerMetrics;
+pub use crate::stats::{AdminMetrics, CoreMetrics, TcpAcceptorMetrics, WorkerMetrics};
 pub use crate::traits::{ClosableStream, Worker, WorkerAction};
 pub use crate::worker::worker;
 
@@ -66,7 +66,7 @@ where
 pub fn core_run_tcp<W, H>(
     admin_opts: &AdminOptions,
     server_opts: &ServerOptions,
-    worker_metrics: &'static WorkerMetrics,
+    metrics: &'static CoreMetrics,
     admin_handler: H,
     worker: W,
 ) -> IOResult<()>
@@ -85,14 +85,19 @@ where
 
     let (send, recv) = channel(1024);
 
-    let mut core =
-        Core::new(move || crate::admin::admin_tcp(admin_addr, admin_handler, dlog_intvl))?;
-    core.listener(async move { crate::tcp_listener(server_addr, send).await.unwrap() })
-        .worker(async move {
-            crate::worker(recv, Rc::new(worker), &worker_metrics)
-                .await
-                .unwrap()
-        });
+    let mut core = Core::new(move || {
+        crate::admin::admin_tcp(admin_addr, admin_handler, dlog_intvl, &metrics.admin)
+    })?;
+    core.listener(async move {
+        crate::tcp_listener(server_addr, send, &metrics.acceptor)
+            .await
+            .unwrap()
+    })
+    .worker(async move {
+        crate::worker(recv, Rc::new(worker), &metrics.worker)
+            .await
+            .unwrap()
+    });
 
     core.run()
 }

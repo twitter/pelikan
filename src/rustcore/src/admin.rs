@@ -26,7 +26,7 @@ use tokio::prelude::*;
 use tokio::runtime::current_thread::spawn;
 use tokio::timer::Interval;
 
-use crate::ClosableStream;
+use crate::{AdminMetrics, ClosableStream};
 
 use ccommon::buf::OwnedBuf;
 use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
@@ -48,6 +48,7 @@ async fn read_once<H, S>(
     rbuf: &mut OwnedBuf,
     req: &mut Request<H>,
     rsp: &mut Response<H>,
+    metrics: &AdminMetrics,
 ) -> std::result::Result<(), ()>
 where
     H: AdminHandler + 'static,
@@ -114,8 +115,11 @@ where
 }
 
 /// Process a single request stream
-async fn admin_tcp_stream_handler<H, S>(handler: Rc<RefCell<H>>, mut stream: S)
-where
+async fn admin_tcp_stream_handler<H, S>(
+    handler: Rc<RefCell<H>>,
+    mut stream: S,
+    metrics: &'static AdminMetrics,
+) where
     H: AdminHandler + 'static,
     S: AsyncWrite + AsyncRead + ClosableStream + Unpin,
     <H::Protocol as Protocol>::Request: QuitRequest,
@@ -139,7 +143,17 @@ where
     let mut req = Request::<H>::default();
     let mut rsp = Response::<H>::default();
 
-    while let Ok(()) = read_once(&handler, &mut stream, wbuf, rbuf, &mut req, &mut rsp).await {}
+    while let Ok(()) = read_once(
+        &handler,
+        &mut stream,
+        wbuf,
+        rbuf,
+        &mut req,
+        &mut rsp,
+        metrics,
+    )
+    .await
+    {}
 
     // Best-effort attempt to close the socket - if this fails then
     // we can't really do anything anyway so ignore the error.
@@ -172,6 +186,7 @@ pub async fn admin_tcp<H: AdminHandler + 'static>(
     addr: SocketAddr,
     handler: H,
     log_flush_interval: Duration,
+    metrics: &'static AdminMetrics,
 ) -> Result<()>
 where
     <H::Protocol as Protocol>::Request: QuitRequest,
@@ -185,11 +200,19 @@ where
         let stream: TcpStream = match listener.accept().await {
             Ok((stream, _)) => stream,
             Err(e) => {
+                metrics.tcp_accept_ex.incr();
+
                 debug!("Failed to accept connection: {}", e);
                 continue;
             }
         };
 
-        spawn(admin_tcp_stream_handler(Rc::clone(&handler), stream));
+        metrics.tcp_accept.incr();
+
+        spawn(admin_tcp_stream_handler(
+            Rc::clone(&handler),
+            stream,
+            metrics,
+        ));
     }
 }

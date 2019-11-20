@@ -18,17 +18,26 @@ use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Sender;
 
-pub async fn tcp_listener(addr: SocketAddr, mut chan: Sender<TcpStream>) -> Result<()> {
+use crate::TcpAcceptorMetrics;
+
+pub async fn tcp_listener(
+    addr: SocketAddr,
+    mut chan: Sender<TcpStream>,
+    metrics: &'static TcpAcceptorMetrics,
+) -> Result<()> {
     let mut listener = TcpListener::bind(addr).await?;
 
     loop {
         let stream: TcpStream = match listener.accept().await {
             Ok((stream, _)) => stream,
             Err(e) => {
+                metrics.tcp_accept_ex.incr();
                 debug!("Failed to accept connection: {}", e);
                 continue;
             }
         };
+
+        metrics.tcp_accept.incr();
 
         let _ = stream.set_nodelay(true);
 
@@ -37,6 +46,8 @@ pub async fn tcp_listener(addr: SocketAddr, mut chan: Sender<TcpStream>) -> Resu
                 info!("Channel has shut down, shutting down TCP listener.");
                 break;
             }
+
+            metrics.queue_full_ex.incr();
 
             error!("New connection queue is full. Dropping a connection!");
         }

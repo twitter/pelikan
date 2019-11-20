@@ -60,3 +60,43 @@ pub struct WorkerMetrics {
     )]
     pub response_compose_ex: Counter,
 }
+
+#[derive(Metrics)]
+#[repr(C)]
+pub struct TcpAcceptorMetrics {
+    #[metric(name = "tcp_accept_ex", desc = "# of times that accept failed")]
+    pub tcp_accept_ex: Counter,
+    #[metric(
+        name = "tcp_accept",
+        desc = "# of connections that have been accepted by the TCP acceptor"
+    )]
+    pub tcp_accept: Counter,
+    #[metric(
+        name = "tcp_accept_queue_full_ex",
+        desc = "# of connections dropped because the queue was full"
+    )]
+    pub queue_full_ex: Counter,
+}
+
+#[derive(Metrics)]
+#[repr(C)]
+pub struct AdminMetrics {
+    #[metric(
+        name = "admin_tcp_accept_ex",
+        desc = "# of times that an admin TCP accept failed"
+    )]
+    pub tcp_accept_ex: Counter,
+    #[metric(
+        name = "admin_tcp_accept",
+        desc = "# of times that a connection was accepted on admin TCP port"
+    )]
+    pub tcp_accept: Counter,
+}
+
+#[derive(Metrics)]
+#[repr(C)]
+pub struct CoreMetrics {
+    pub worker: WorkerMetrics,
+    pub admin: AdminMetrics,
+    pub acceptor: TcpAcceptorMetrics,
+}
