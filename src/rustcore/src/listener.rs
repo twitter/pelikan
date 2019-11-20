@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::io::Result;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, Shutdown};
 
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Sender;
@@ -48,6 +48,10 @@ pub async fn tcp_listener(
             }
 
             metrics.queue_full_ex.incr();
+
+            let val = e.into_inner();
+            // Gracefully close the channel if possible
+            let _ = val.shutdown(Shutdown::Both);
 
             error!("New connection queue is full. Dropping a connection!");
         }

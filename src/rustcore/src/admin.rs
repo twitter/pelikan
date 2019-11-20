@@ -48,7 +48,7 @@ async fn read_once<H, S>(
     rbuf: &mut OwnedBuf,
     req: &mut Request<H>,
     rsp: &mut Response<H>,
-    metrics: &AdminMetrics,
+    _metrics: &AdminMetrics,
 ) -> std::result::Result<(), ()>
 where
     H: AdminHandler + 'static,
@@ -124,6 +124,8 @@ async fn admin_tcp_stream_handler<H, S>(
     S: AsyncWrite + AsyncRead + ClosableStream + Unpin,
     <H::Protocol as Protocol>::Request: QuitRequest,
 {
+    metrics.active_conns.incr();
+
     // Variable we use to constrain the lifetime of rbuf and wbuf
     let dummy = ();
     let mut sock = unsafe { buf_sock_borrow() };
@@ -160,6 +162,8 @@ async fn admin_tcp_stream_handler<H, S>(
     // Note: If a read from the socket already failed then it's
     //       probable that closing the stream would fail too.
     let _ = stream.close();
+
+    metrics.active_conns.decr();
 
     unsafe {
         buf_sock_return(&mut sock as *mut _);

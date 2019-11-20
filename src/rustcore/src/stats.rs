@@ -91,6 +91,11 @@ pub struct AdminMetrics {
         desc = "# of times that a connection was accepted on admin TCP port"
     )]
     pub tcp_accept: Counter,
+    #[metric(
+        name = "admin_active_conns",
+        desc = "# of currently open connections on the admin port"
+    )]
+    pub active_conns: Gauge,
 }
 
 #[derive(Metrics)]
