@@ -32,8 +32,7 @@ impl<'a> Handler<'a> {
         info!("setting up the pingserver::admin module");
 
         let cap = METRIC_PRINT_LEN as usize * Metrics::num_metrics() + METRIC_END_LEN;
-        let mut vec = Vec::with_capacity(cap);
-        vec.resize(cap, 0);
+        let vec = vec![0; cap];
 
         Self { stats, buf: vec }
     }
@@ -52,8 +51,8 @@ impl<'a> AdminHandler for Handler<'a> {
         use pelikan_sys::util::procinfo_update;
         use std::os::raw::{c_char, c_uint};
 
-        let ref mut rsp = rsp.0;
-        let ref mut req = req.0;
+        let rsp = &mut rsp.0;
+        let req = &mut req.0;
 
         unsafe {
             rsp.type_ = RSP_GENERIC;

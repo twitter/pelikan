@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::io::Result;
-use std::net::{SocketAddr, Shutdown};
+use std::net::{Shutdown, SocketAddr};
 
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Sender;

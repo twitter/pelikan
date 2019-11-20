@@ -25,6 +25,7 @@ use std::rc::Rc;
 
 use crate::{ClosableStream, Worker, WorkerAction, WorkerMetrics};
 
+#[allow(clippy::too_many_arguments)]
 async fn read_once<'a, W, S>(
     worker: &'a Rc<W>,
     stream: &'a mut S,

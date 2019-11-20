@@ -155,11 +155,8 @@ fn main() {
                 worker,
             );
 
-            match res {
-                Ok(()) => (),
-                Err(e) => {
-                    panic!("An IO error occurrred: {}", e);
-                }
+            if let Err(e) = res {
+                panic!("An IO error occurrred: {}", e);
             }
         }
     }));
@@ -171,9 +168,8 @@ fn main() {
         let _ = RAII_HANDLER.take();
     }
 
-    match res {
-        Err(e) => std::panic::resume_unwind(e),
-        Ok(()) => (),
+    if let Err(e) = res {
+        std::panic::resume_unwind(e);
     }
 }
 

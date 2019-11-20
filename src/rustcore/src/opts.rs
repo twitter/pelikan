@@ -44,7 +44,7 @@ pub struct ServerOptions {
 impl AdminOptions {
     fn _addr(&self) -> Result<SocketAddr, AddrParseData> {
         let ptr = self.admin_host.value();
-        let cstr = if ptr == std::ptr::null_mut() {
+        let cstr = if ptr.is_null() {
             None
         } else {
             Some(unsafe { CStr::from_ptr(ptr) })
@@ -71,7 +71,7 @@ impl AdminOptions {
 impl ServerOptions {
     fn _addr(&self) -> Result<SocketAddr, AddrParseData> {
         let ptr = self.server_host.value();
-        let cstr = if ptr == std::ptr::null_mut() {
+        let cstr = if ptr.is_null() {
             None
         } else {
             Some(unsafe { CStr::from_ptr(ptr) })

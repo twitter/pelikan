@@ -34,13 +34,8 @@ use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
 type Request<H> = <<H as AdminHandler>::Protocol as Protocol>::Request;
 type Response<H> = <<H as AdminHandler>::Protocol as Protocol>::Response;
 
-/// Used to contrain an unbounded lifetime produced by
-/// a pointer dereference.
-fn constrain_lifetime<'a, A, B>(x: &'a mut A, _: &'a B) -> &'a mut A {
-    x
-}
-
 /// Process all the new bytes that were just read.
+#[allow(clippy::too_many_arguments)]
 async fn read_once<H, S>(
     handler: &Rc<RefCell<H>>,
     stream: &mut S,
@@ -126,19 +121,11 @@ async fn admin_tcp_stream_handler<H, S>(
 {
     metrics.active_conns.incr();
 
-    // Variable we use to constrain the lifetime of rbuf and wbuf
-    let dummy = ();
     let mut sock = unsafe { buf_sock_borrow() };
     let (rbuf, wbuf) = unsafe {
         (
-            constrain_lifetime(
-                &mut *(&mut (*sock).wbuf as *mut *mut buf as *mut OwnedBuf),
-                &dummy,
-            ),
-            constrain_lifetime(
-                &mut *(&mut (*sock).rbuf as *mut *mut buf as *mut OwnedBuf),
-                &dummy,
-            ),
+            &mut *(&mut (*sock).wbuf as *mut *mut buf as *mut OwnedBuf),
+            &mut *(&mut (*sock).rbuf as *mut *mut buf as *mut OwnedBuf),
         )
     };
 
