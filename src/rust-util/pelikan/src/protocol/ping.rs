@@ -52,25 +52,22 @@ impl Serializable for Request {
     fn reset(&mut self) {}
 
     fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError> {
-        unsafe {
-            let status = parse_req(buf.as_mut_ptr());
+        let status = unsafe { parse_req(buf.as_mut_ptr()) };
 
-            match status {
-                PARSE_OK => Ok(()),
-                PARSE_EUNFIN => Err(ParseError::Unfinished),
-                _ => Err(ParseError::Other),
-            }
+        match status {
+            PARSE_OK => Ok(()),
+            PARSE_EUNFIN => Err(ParseError::Unfinished),
+            _ => Err(ParseError::Other),
         }
     }
+    
     fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
-        unsafe {
-            let status = compose_rsp(buf as *mut OwnedBuf as *mut *mut buf);
+        let status = unsafe { compose_rsp(buf as *mut OwnedBuf as *mut *mut buf) };
 
-            match status {
-                COMPOSE_OK => Ok(REQUEST.len()),
-                COMPOSE_ENOMEM => Err(ComposeError::NoMem),
-                _ => Err(ComposeError::Other),
-            }
+        match status {
+            COMPOSE_OK => Ok(REQUEST.len()),
+            COMPOSE_ENOMEM => Err(ComposeError::NoMem),
+            _ => Err(ComposeError::Other),
         }
     }
 }
@@ -82,25 +79,22 @@ impl Serializable for Response {
     fn reset(&mut self) {}
 
     fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError> {
-        unsafe {
-            let status = parse_rsp(buf.as_mut_ptr());
+        let status = unsafe { parse_rsp(buf.as_mut_ptr()) };
 
-            match status {
-                PARSE_OK => Ok(()),
-                PARSE_EUNFIN => Err(ParseError::Unfinished),
-                _ => Err(ParseError::Other),
-            }
+        match status {
+            PARSE_OK => Ok(()),
+            PARSE_EUNFIN => Err(ParseError::Unfinished),
+            _ => Err(ParseError::Other),
         }
     }
-    fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
-        unsafe {
-            let status = compose_rsp(buf as *mut OwnedBuf as *mut *mut buf);
 
-            match status {
-                COMPOSE_OK => Ok(RESPONSE.len()),
-                COMPOSE_ENOMEM => Err(ComposeError::NoMem),
-                _ => Err(ComposeError::Other),
-            }
+    fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
+        let status = unsafe { compose_rsp(buf as *mut OwnedBuf as *mut *mut buf) };
+
+        match status {
+            COMPOSE_OK => Ok(RESPONSE.len()),
+            COMPOSE_ENOMEM => Err(ComposeError::NoMem),
+            _ => Err(ComposeError::Other),
         }
     }
 }

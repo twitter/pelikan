@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rustcore::{Worker, WorkerAction};
 use pelikan::protocol::ping::{PingProtocol, Request, Response};
+use rustcore::{Worker, WorkerAction};
 
 pub struct PingWorker;
 
