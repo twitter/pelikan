@@ -34,7 +34,7 @@ hotkey_setup(hotkey_options_st *options)
     hotkey_window_size_cur = 0;
     hotkey_counter = 0;
     key_window_setup(hotkey_window_size);
-    /* TODO: determine whether table size should be a tuneable parameter */
+    /* TODO: determine whether table size should be a tunable parameter */
     kc_map_setup(hotkey_window_size, hotkey_window_size);
     hotkey_init = true;
 }

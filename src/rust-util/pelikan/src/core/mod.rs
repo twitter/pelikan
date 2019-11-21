@@ -33,7 +33,7 @@ pub trait DataProcessor {
     /// Per-socket state.
     ///
     /// This field may not implement drop since there is no
-    /// gaurantee that it will be dropped properly
+    /// guarantee that it will be dropped properly
     type SockState: Copy;
 
     fn read(

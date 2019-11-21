@@ -5,7 +5,7 @@
  *   the network module.
  *  - retry and timeout policy are coded into the network module as well, since
  *   we don't expect many edge cases (mostly used on localhost for testing or
- *   debuggin)
+ *   debugging)
  *  - network IO should block
  */
 

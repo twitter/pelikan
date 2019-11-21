@@ -161,7 +161,7 @@ worker_ret_stream(struct buf_sock *s)
     INCR(worker_metrics, worker_ret_stream);
     if (ring_array_push(&s, conn_term) != CC_OK) {
         /* here we have no choice but to clean up the stream to avoid leak */
-        log_error("term connetion queue is full");
+        log_error("term connection queue is full");
         hdl->term(s->ch);
         buf_sock_reset(s);
         buf_sock_return(&s);
