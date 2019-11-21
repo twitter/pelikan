@@ -36,11 +36,8 @@ pub struct Metrics {
     // Common libraries
     pub buf:            buf_metrics_st,
     pub dbuf:           dbuf_metrics_st,
-    pub event:          event_metrics_st,
     pub log:            log_metrics_st,
     pub sockio:         sockio_metrics_st,
-    pub tcp:            tcp_metrics_st,
-    pub timing_wheel:   timing_wheel_metrics_st
 }
 
 unsafe impl Send for Metrics {}

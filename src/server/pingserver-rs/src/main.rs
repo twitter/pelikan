@@ -207,10 +207,7 @@ impl ModuleRaiiHandler {
         // Setup library modules
         buf_setup(&mut settings.buf as *mut _, &mut stats.buf as *mut _);
         dbuf_setup(&mut settings.dbuf as *mut _, &mut stats.dbuf as *mut _);
-        event_setup(&mut stats.event as *mut _);
         sockio_setup(&mut settings.sockio as *mut _, &mut stats.sockio as *mut _);
-        tcp_setup(&mut settings.tcp as *mut _, &mut stats.tcp as *mut _);
-        timing_wheel_setup(&mut stats.timing_wheel as *mut _);
 
         // Setup pelikan modules
         time_setup(&mut settings.time as *mut _);
@@ -230,7 +227,6 @@ impl Drop for ModuleRaiiHandler {
     fn drop(&mut self) {
         use ccommon_sys::*;
         use pelikan_sys::{
-            core::{core_admin_teardown, core_server_teardown, core_worker_teardown},
             protocol::ping::{compose_teardown, parse_teardown},
             time::time_teardown,
             util::{procinfo_teardown, remove_pidfile},
@@ -241,19 +237,12 @@ impl Drop for ModuleRaiiHandler {
                 remove_pidfile(self.fname);
             }
 
-            core_worker_teardown();
-            core_server_teardown();
-            core_admin_teardown();
-
             compose_teardown();
             parse_teardown();
             procinfo_teardown();
             time_teardown();
 
-            timing_wheel_teardown();
-            tcp_teardown();
             sockio_teardown();
-            event_teardown();
             dbuf_teardown();
             buf_teardown();
 

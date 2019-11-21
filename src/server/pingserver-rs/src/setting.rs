@@ -16,7 +16,6 @@
 use ccommon::option::*;
 use ccommon_sys::{
     array_options_st, buf_options_st, dbuf_options_st, debug_options_st, sockio_options_st,
-    tcp_options_st,
 };
 use pelikan_sys::{core::worker_options_st, time::time_options_st};
 
@@ -48,7 +47,6 @@ pub struct Settings {
     pub dbuf:       dbuf_options_st,
     pub debug:      debug_options_st,
     pub sockio:     sockio_options_st,
-    pub tcp:        tcp_options_st
 }
 
 #[test]
