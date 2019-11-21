@@ -149,7 +149,7 @@ fn main() {
         move || {
             let res = rustcore::core_run_tcp(
                 &settings.admin,
-                &settings.server,
+                &settings.listener,
                 &worker_metrics,
                 admin,
                 worker,

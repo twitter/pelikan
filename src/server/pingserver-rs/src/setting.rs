@@ -20,7 +20,7 @@ use ccommon_sys::{
 };
 use pelikan_sys::{core::worker_options_st, time::time_options_st};
 
-use rustcore::{AdminOptions, ServerOptions};
+use rustcore::{AdminOptions, ListenerOptions};
 
 #[repr(C)]
 #[derive(Options)]
@@ -39,7 +39,7 @@ pub struct Settings {
     pub pingserver: PingServerOptions,
     // application modules
     pub admin:      AdminOptions,
-    pub server:     ServerOptions,
+    pub listener:   ListenerOptions,
     pub worker:     worker_options_st,
     pub time:       time_options_st,
     // ccommon libraries

@@ -17,13 +17,14 @@ use tokio::runtime::current_thread::spawn;
 use tokio::sync::mpsc::Receiver;
 
 use ccommon::buf::OwnedBuf;
+use ccommon::{metric::*, Metrics};
 use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
 use pelikan::protocol::{PartialParseError, Protocol, Serializable};
 
 use std::io::Result;
 use std::rc::Rc;
 
-use crate::{ClosableStream, Worker, WorkerAction, WorkerMetrics};
+use crate::{ClosableStream, Worker, WorkerAction};
 
 #[allow(clippy::too_many_arguments)]
 async fn read_once<'a, W, S>(
@@ -147,7 +148,8 @@ where
     }
 }
 
-/// Given an incoming stream of new connections and
+/// Process an incoming stream of new connections and spin up
+/// a future that processes each of them.
 pub async fn worker<W, S>(
     mut chan: Receiver<S>,
     worker: Rc<W>,
@@ -176,4 +178,52 @@ where
     }
 
     Ok(())
+}
+
+/// Metrics collected by a worker.
+#[derive(Metrics)]
+#[repr(C)]
+pub struct WorkerMetrics {
+    #[metric(
+        name = "worker_socket_read",
+        desc = "# of times that a worker has read from a socket"
+    )]
+    pub socket_read: Counter,
+    #[metric(
+        name = "worker_socket_write",
+        desc = "# of times that a worker has written to a socket"
+    )]
+    pub socket_write: Counter,
+    #[metric(name = "worker_active_conns", desc = "# of active connections")]
+    pub active_conns: Gauge,
+    #[metric(
+        name = "worker_bytes_read",
+        desc = "# of bytes that the worker has recieved"
+    )]
+    pub bytes_read: Counter,
+    #[metric(
+        name = "worker_bytes_sent",
+        desc = "# of bytes sent by the worker thread"
+    )]
+    pub bytes_sent: Counter,
+    #[metric(
+        name = "worker_socket_read_ex",
+        desc = "# of times that a socket read has failed"
+    )]
+    pub socket_read_ex: Counter,
+    #[metric(
+        name = "worker_socket_write_ex",
+        desc = "# of times that a socket write has failed"
+    )]
+    pub socket_write_ex: Counter,
+    #[metric(
+        name = "worker_request_parse_ex",
+        desc = "# of times that an incoming request failed to parse"
+    )]
+    pub request_parse_ex: Counter,
+    #[metric(
+        name = "worker_response_compose_ex",
+        desc = "# of times that an outgoing response failed to parse"
+    )]
+    pub response_compose_ex: Counter,
 }

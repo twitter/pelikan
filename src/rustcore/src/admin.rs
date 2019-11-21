@@ -16,6 +16,7 @@ use pelikan::core::admin::AdminHandler;
 use pelikan::protocol::{PartialParseError, Protocol, QuitRequest, Serializable};
 
 use std::cell::RefCell;
+use std::ffi::CStr;
 use std::io::Result;
 use std::net::SocketAddr;
 use std::rc::Rc;
@@ -26,9 +27,11 @@ use tokio::prelude::*;
 use tokio::runtime::current_thread::spawn;
 use tokio::timer::Interval;
 
-use crate::{AdminMetrics, ClosableStream};
+use crate::errors::{AddrParseData, AddrParseError};
+use crate::ClosableStream;
 
 use ccommon::buf::OwnedBuf;
+use ccommon::{metric::*, option::*, Metrics, Options};
 use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
 
 type Request<H> = <<H as AdminHandler>::Protocol as Protocol>::Request;
@@ -206,4 +209,62 @@ where
             metrics,
         ));
     }
+}
+
+#[derive(Options)]
+#[repr(C)]
+pub struct AdminOptions {
+    #[option(desc = "admin interface", default = std::ptr::null_mut())]
+    pub admin_host: Str,
+    #[option(desc = "admin port", default = 9999)]
+    pub admin_port: UInt,
+    #[option(desc = "debug log flush interval (ms)", default = 500)]
+    pub dlog_intvl: UInt,
+}
+
+impl AdminOptions {
+    fn _addr(&self) -> std::result::Result<SocketAddr, AddrParseData> {
+        let ptr = self.admin_host.value();
+        let cstr = if ptr.is_null() {
+            None
+        } else {
+            Some(unsafe { CStr::from_ptr(ptr) })
+        };
+        let host = cstr.and_then(|s| s.to_str().ok()).unwrap_or("0.0.0.0");
+        let port = self.admin_port.value();
+
+        if port > std::u16::MAX as u64 {
+            return Err(AddrParseData::InvalidPort(port));
+        }
+
+        Ok(SocketAddr::new(host.parse()?, port as u16))
+    }
+
+    pub fn addr(&self) -> std::result::Result<SocketAddr, AddrParseError> {
+        self._addr().map_err(AddrParseError)
+    }
+
+    pub fn dlog_intvl(&self) -> Duration {
+        Duration::from_millis(self.dlog_intvl.value())
+    }
+}
+
+#[derive(Metrics)]
+#[repr(C)]
+pub struct AdminMetrics {
+    #[metric(
+        name = "admin_tcp_accept_ex",
+        desc = "# of times that an admin TCP accept failed"
+    )]
+    pub tcp_accept_ex: Counter,
+    #[metric(
+        name = "admin_tcp_accept",
+        desc = "# of times that a connection was accepted on admin TCP port"
+    )]
+    pub tcp_accept: Counter,
+    #[metric(
+        name = "admin_active_conns",
+        desc = "# of currently open connections on the admin port"
+    )]
+    pub active_conns: Gauge,
 }

@@ -18,12 +18,12 @@ use std::net::{Shutdown, SocketAddr};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Sender;
 
-use crate::TcpAcceptorMetrics;
+use ccommon::{metric::*, Metrics};
 
 pub async fn tcp_listener(
     addr: SocketAddr,
     mut chan: Sender<TcpStream>,
-    metrics: &'static TcpAcceptorMetrics,
+    metrics: &'static TcpListenerMetrics,
 ) -> Result<()> {
     let mut listener = TcpListener::bind(addr).await?;
 
@@ -58,4 +58,21 @@ pub async fn tcp_listener(
     }
 
     Ok(())
+}
+
+#[derive(Metrics)]
+#[repr(C)]
+pub struct TcpListenerMetrics {
+    #[metric(name = "tcp_accept_ex", desc = "# of times that accept failed")]
+    pub tcp_accept_ex: Counter,
+    #[metric(
+        name = "tcp_accept",
+        desc = "# of connections that have been accepted by the TCP acceptor"
+    )]
+    pub tcp_accept: Counter,
+    #[metric(
+        name = "tcp_accept_queue_full_ex",
+        desc = "# of connections dropped because the queue was full"
+    )]
+    pub queue_full_ex: Counter,
 }

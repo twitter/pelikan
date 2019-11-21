@@ -17,55 +17,31 @@ extern crate log;
 
 mod buf;
 mod listener;
-mod opts;
-mod stats;
 mod traits;
 
 pub mod admin;
+pub mod errors;
 pub mod worker;
-
-pub mod error {
-    pub use crate::opts::AddrParseError;
-}
 
 use std::future::Future;
 use std::io::Result as IOResult;
-use std::thread::JoinHandle;
+use std::pin::Pin;
 
 use tokio::runtime::current_thread::Runtime;
 
+use ccommon::Metrics;
 use pelikan::core::admin::AdminHandler;
 use pelikan::protocol::{Protocol, QuitRequest};
 
-pub use crate::listener::tcp_listener;
-pub use crate::opts::{AdminOptions, ServerOptions};
-pub use crate::stats::{AdminMetrics, CoreMetrics, TcpAcceptorMetrics, WorkerMetrics};
+pub use crate::admin::AdminOptions;
+pub use crate::listener::*;
 pub use crate::traits::{ClosableStream, Worker, WorkerAction};
-pub use crate::worker::worker;
-
-/// Take a future and run it on a separate thread
-/// only until that future completes.
-///
-/// After the future completes it drops all other
-/// futures that were spawned on the runtime.
-pub fn run_listener<Fn, Fut, T, E>(acceptor: Fn) -> JoinHandle<Result<T, E>>
-where
-    Fn: FnOnce() -> Fut + Send + 'static,
-    Fut: Future<Output = Result<T, E>> + 'static,
-    E: From<std::io::Error> + Send + 'static,
-    T: Send + 'static,
-{
-    std::thread::spawn(move || -> Result<T, E> {
-        let mut runtime = Runtime::new()?;
-
-        runtime.block_on(acceptor())
-    })
-}
+pub use crate::worker::{worker, WorkerMetrics};
 
 /// Given an AdminHandler and a DataProcessor start up a server
 pub fn core_run_tcp<W, H>(
     admin_opts: &AdminOptions,
-    server_opts: &ServerOptions,
+    server_opts: &ListenerOptions,
     metrics: &'static CoreMetrics,
     admin_handler: H,
     worker: W,
@@ -105,6 +81,7 @@ where
 pub struct Core<A> {
     workers: Runtime,
     admin: A,
+    listeners: Vec<Pin<Box<dyn Future<Output = ()> + Send + 'static>>>,
 }
 
 impl<A, F> Core<A>
@@ -116,6 +93,7 @@ where
         Ok(Self {
             workers: Runtime::new()?,
             admin,
+            listeners: vec![],
         })
     }
 
@@ -123,7 +101,7 @@ where
     where
         L: Future<Output = ()> + Send + 'static,
     {
-        self.workers.spawn(listener);
+        self.listeners.push(Box::pin(listener));
         self
     }
 
@@ -138,18 +116,43 @@ where
     pub fn run(self) -> IOResult<()> {
         use std::thread;
 
-        let Self { admin, mut workers } = self;
+        let Self {
+            admin,
+            mut workers,
+            listeners,
+        } = self;
 
         let admin_thread = thread::spawn(move || -> IOResult<()> {
             let mut runtime = Runtime::new()?;
             runtime.block_on(admin())
         });
 
+        let listener_thread = thread::spawn(move || -> IOResult<()> {
+            let mut runtime = Runtime::new()?;
+
+            for listener in listeners {
+                runtime.spawn(listener);
+            }
+
+            runtime.run().expect("Error while running listeners");
+
+            Ok(())
+        });
+
         // TODO: Block on a signal handler here
         workers.run().expect("Error while running workers");
 
         admin_thread.join().expect("Admin thread panicked")?;
+        listener_thread.join().expect("Listener thread panicked")?;
 
         Ok(())
     }
+}
+
+#[derive(Metrics)]
+#[repr(C)]
+pub struct CoreMetrics {
+    pub worker: WorkerMetrics,
+    pub admin: crate::admin::AdminMetrics,
+    pub acceptor: TcpListenerMetrics,
 }
