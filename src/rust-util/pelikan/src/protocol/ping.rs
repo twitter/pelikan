@@ -14,11 +14,13 @@
 
 use super::*;
 use ccommon::buf::OwnedBuf;
-use ccommon_sys::buf;
-use pelikan_sys::protocol::ping::*;
 
 use std::error::Error;
 use std::fmt;
+use std::io::{Read, Write};
+
+const REQUEST: &[u8] = b"PING\r\n";
+const RESPONSE: &[u8] = b"PONG\r\n";
 
 pub enum PingProtocol {}
 
@@ -52,23 +54,28 @@ impl Serializable for Request {
     fn reset(&mut self) {}
 
     fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError> {
-        let status = unsafe { parse_req(buf.as_mut_ptr()) };
+        if buf.read_size() < REQUEST.len() {
+            return Err(ParseError::Unfinished);
+        }
 
-        match status {
-            PARSE_OK => Ok(()),
-            PARSE_EUNFIN => Err(ParseError::Unfinished),
-            _ => Err(ParseError::Other),
+        let mut readbuf = [0; REQUEST.len()];
+        buf.read_exact(&mut readbuf)
+            .map_err(|_| ParseError::Other)?;
+
+        if readbuf == REQUEST {
+            Ok(())
+        } else {
+            Err(ParseError::Other)
         }
     }
 
     fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
-        let status = unsafe { compose_rsp(buf as *mut OwnedBuf as *mut *mut buf) };
-
-        match status {
-            COMPOSE_OK => Ok(REQUEST.len()),
-            COMPOSE_ENOMEM => Err(ComposeError::NoMem),
-            _ => Err(ComposeError::Other),
+        if buf.write_size() < REQUEST.len() {
+            buf.fit(REQUEST.len() - buf.write_size())
+                .map_err(|_| ComposeError::NoMem)?;
         }
+
+        buf.write_all(REQUEST).map_err(|_| ComposeError::Other).map(|_| REQUEST.len())
     }
 }
 
@@ -79,23 +86,28 @@ impl Serializable for Response {
     fn reset(&mut self) {}
 
     fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError> {
-        let status = unsafe { parse_rsp(buf.as_mut_ptr()) };
+        if buf.read_size() < RESPONSE.len() {
+            return Err(ParseError::Unfinished);
+        }
 
-        match status {
-            PARSE_OK => Ok(()),
-            PARSE_EUNFIN => Err(ParseError::Unfinished),
-            _ => Err(ParseError::Other),
+        let mut readbuf = [0; RESPONSE.len()];
+        buf.read_exact(&mut readbuf)
+            .map_err(|_| ParseError::Other)?;
+
+        if readbuf == RESPONSE {
+            Ok(())
+        } else {
+            Err(ParseError::Other)
         }
     }
 
     fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
-        let status = unsafe { compose_rsp(buf as *mut OwnedBuf as *mut *mut buf) };
-
-        match status {
-            COMPOSE_OK => Ok(RESPONSE.len()),
-            COMPOSE_ENOMEM => Err(ComposeError::NoMem),
-            _ => Err(ComposeError::Other),
+        if buf.write_size() < RESPONSE.len() {
+            buf.fit(RESPONSE.len() - buf.write_size())
+                .map_err(|_| ComposeError::NoMem)?;
         }
+
+        buf.write_all(RESPONSE).map_err(|_| ComposeError::Other).map(|_| RESPONSE.len())
     }
 }
 
