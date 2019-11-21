@@ -15,6 +15,7 @@
 use std::error::Error;
 use std::fmt;
 
+/// A socket address could not be parsed properly.
 pub struct AddrParseError(pub(crate) AddrParseData);
 
 #[derive(Debug)]

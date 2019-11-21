@@ -12,6 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! `rustcore` is the core event loop of a server. It is analogous to the
+//! `core` library within pelikan and carries out the same function.
+//!
+//! By default, a pelikan server runs on 3 different threads.
+//! - The admin thread is responsible for non-cache related tasks such
+//!   as exposing metrics.
+//! - The listener thread is responsible for initializing new connections
+//!   that are sent to the server.
+//! - The worker thread is responsible for reading from connections, performing
+//!   cache operations, and sending the results back to the client.
+//!
+//! The `Core` config takes care of starting these threads once configured
+//! with a set of futures to run for each.
+//!
+//! # Example
+//! See `pingserver-rs` for a fully-working example of a server with pelikan.
+//!
+
 #[macro_use]
 extern crate log;
 
@@ -97,6 +115,12 @@ where
         })
     }
 
+    /// Register a new listener. These should accept new connections
+    /// and then hand them off to a worker.
+    ///
+    /// All listeners will run on a separate thread from the workers.
+    /// This is to mitigate DDOSes and also to prevent the creation of new
+    /// connections from affecting the latency of the main thread.
     pub fn listener<L>(&mut self, listener: L) -> &mut Self
     where
         L: Future<Output = ()> + Send + 'static,
@@ -105,6 +129,9 @@ where
         self
     }
 
+    /// Register a new worker. These are responsible for taking new connections
+    /// from the listener and for processing all data sent through those
+    /// connections. These will run the core cache logic within pelikan.
     pub fn worker<W>(&mut self, worker: W) -> &mut Self
     where
         W: Future<Output = ()> + 'static,
@@ -113,6 +140,8 @@ where
         self
     }
 
+    /// Run the admin handler, the listeners, and the workers all on separate
+    /// threads. This will block until they all shut down.
     pub fn run(self) -> IOResult<()> {
         use std::thread;
 

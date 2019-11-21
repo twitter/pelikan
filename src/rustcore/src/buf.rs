@@ -36,7 +36,7 @@ pub fn write_buf<'a, A: AsyncWrite, B: Buf + Unpin>(
     WriteBuf::new(write, buf)
 }
 
-pub struct ReadBuf<'a, A: AsyncRead, B: BufMut> {
+struct ReadBuf<'a, A: AsyncRead, B: BufMut> {
     read: &'a mut A,
     buf: &'a mut B,
 }
@@ -62,7 +62,7 @@ impl<'a, A: AsyncRead, B: BufMut + Unpin> Future for ReadBuf<'a, A, B> {
     }
 }
 
-pub struct WriteBuf<'a, A: AsyncWrite, B: Buf> {
+struct WriteBuf<'a, A: AsyncWrite, B: Buf> {
     write: &'a mut A,
     buf: &'a mut B,
 }
