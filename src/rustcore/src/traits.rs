@@ -31,8 +31,8 @@ pub trait ClosableStream {
     fn close(&self) -> std::io::Result<()>;
 }
 
-/// A type that accepts a certain type of request and
-/// initializes a response.
+/// Worker trait that mirrors how protocols are handled in
+/// pelikan core.
 pub trait Worker {
     /// The protocol for the wire format.
     type Protocol: Protocol;
