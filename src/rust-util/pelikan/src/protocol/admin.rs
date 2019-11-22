@@ -21,7 +21,6 @@ use pelikan_sys::protocol::admin::{
     PARSE_EUNFIN, PARSE_OK,
 };
 
-use std::convert::Infallible;
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 
@@ -50,6 +49,9 @@ impl<'de> Protocol<'de> for AdminProtocol {
     type Request = *const request;
     type Response = *const response;
 
+    type ParseError = ParseError;
+    type ComposeError = ComposeError;
+
     fn parse_req(
         state: &mut request,
         buf: &'de mut OwnedBuf,
@@ -66,7 +68,7 @@ impl<'de> Protocol<'de> for AdminProtocol {
         Ok(state as *const _)
     }
 
-    fn parse_rsp(_: &mut response, _: &'de mut OwnedBuf) -> Result<*const response, Infallible> {
+    fn parse_rsp(_: &mut response, _: &'de mut OwnedBuf) -> Result<*const response, ParseError> {
         unimplemented!()
     }
 
@@ -105,16 +107,6 @@ impl<'de> Protocol<'de> for AdminProtocol {
             _ => Err(ComposeError::Other),
         }
     }
-}
-
-impl<'de> Serializable<'de> for *const request {
-    type ParseError = ParseError;
-    type ComposeError = ComposeError;
-}
-
-impl<'de> Serializable<'de> for *const response {
-    type ParseError = Infallible;
-    type ComposeError = ComposeError;
 }
 
 impl Resettable for request {

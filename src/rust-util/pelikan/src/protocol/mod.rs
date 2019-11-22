@@ -33,14 +33,6 @@ pub trait Resettable {
     fn reset(&mut self);
 }
 
-/// A type that can be serialized/deserialized.
-///
-/// TODO: Name this better
-pub trait Serializable<'de>: Sized {
-    type ParseError: Error + PartialParseError + 'de;
-    type ComposeError: Error + 'de;
-}
-
 pub trait StatefulProtocol {
     type RequestState: Default + Resettable;
     type ResponseState: Default + Resettable;
@@ -48,28 +40,31 @@ pub trait StatefulProtocol {
 
 /// Trait defining the request and response types for a protocol
 pub trait Protocol<'de>: StatefulProtocol {
-    type Request: Serializable<'de>;
-    type Response: Serializable<'de>;
+    type Request: 'de;
+    type Response: 'de;
+
+    type ParseError: Error + PartialParseError + 'de;
+    type ComposeError: Error + 'de;
 
     fn parse_req(
         state: &mut <Self as StatefulProtocol>::RequestState,
         buf: &'de mut OwnedBuf,
-    ) -> Result<Self::Request, <Self::Request as Serializable<'de>>::ParseError>;
+    ) -> Result<Self::Request, Self::ParseError>;
     fn parse_rsp(
         state: &mut <Self as StatefulProtocol>::ResponseState,
         buf: &'de mut OwnedBuf,
-    ) -> Result<Self::Response, <Self::Response as Serializable<'de>>::ParseError>;
+    ) -> Result<Self::Response, Self::ParseError>;
 
     fn compose_req(
         req: Self::Request,
         state: &mut <Self as StatefulProtocol>::RequestState,
         buf: &'de mut OwnedBuf,
-    ) -> Result<usize, <Self::Request as Serializable<'de>>::ComposeError>;
+    ) -> Result<usize, Self::ComposeError>;
     fn compose_rsp(
         rsp: Self::Response,
         state: &mut <Self as StatefulProtocol>::ResponseState,
         buf: &'de mut OwnedBuf,
-    ) -> Result<usize, <Self::Response as Serializable<'de>>::ComposeError>;
+    ) -> Result<usize, Self::ComposeError>;
 }
 
 /// Useful for cases where stuff can never fail.

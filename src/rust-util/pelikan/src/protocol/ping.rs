@@ -51,6 +51,9 @@ impl<'de> Protocol<'de> for PingProtocol {
     type Request = Request;
     type Response = Response;
 
+    type ParseError = ParseError;
+    type ComposeError = ComposeError;
+
     fn parse_req(_: &mut (), buf: &'de mut OwnedBuf) -> Result<Request, ParseError> {
         if buf.read_size() < REQUEST.len() {
             return Err(ParseError::Unfinished);
@@ -104,16 +107,6 @@ impl<'de> Protocol<'de> for PingProtocol {
             .map_err(|_| ComposeError::Other)
             .map(|_| RESPONSE.len())
     }
-}
-
-impl<'de> Serializable<'de> for Request {
-    type ParseError = ParseError;
-    type ComposeError = ComposeError;
-}
-
-impl<'de> Serializable<'de> for Response {
-    type ParseError = ParseError;
-    type ComposeError = ComposeError;
 }
 
 impl Resettable for () {
