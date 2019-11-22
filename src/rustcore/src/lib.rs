@@ -25,10 +25,35 @@
 //!
 //! The `Core` config takes care of starting these threads once configured
 //! with a set of futures to run for each.
+//! 
+//! # How to use this library
+//! There are two different ways to use this library.
+//! 
+//! ## With a simple protocol
+//! If the serialization/deserialization logic for the desired protocol is
+//! simple enough that it can reasonably implement [`Protocol`][0] then
+//! you can implement [`Worker`][1]. Once you've implemented `Worker`, then
+//! you can use [`worker::default_worker`][2] as the worker task. From there
+//! setting up the server is fairly straightforward.
+//! 
+//! ## With a more complicated protocol
+//! If the protocol serialization/deserialization doesn't fit with the 
+//! [`Protocol`][0] trait. Then you'll have to implement the stream
+//! reading loop yourself. There are utility methods under the [`util`][3]
+//! module that take care of some of the more tricky error handling
+//! around reading and writing buffers.
+//! 
+//! For an example of how this is done, see the implementation of 
+//! [`worker::default_worker`][2].
 //!
 //! # Example
 //! See `pingserver-rs` for a fully-working example of a server with pelikan.
-//!
+//! 
+//! [0]: pelikan::protocol::Protocol
+//! [1]: crate::Worker
+//! [2]: crate::worker::default_worker
+//! [3]: crate::util
+
 
 #[macro_use]
 extern crate log;
