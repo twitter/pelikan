@@ -58,12 +58,12 @@ pub trait Protocol<'de>: StatefulProtocol {
     fn compose_req(
         req: Self::Request,
         state: &mut <Self as StatefulProtocol>::RequestState,
-        buf: &'de mut OwnedBuf,
+        buf: &mut OwnedBuf,
     ) -> Result<usize, Self::ComposeError>;
     fn compose_rsp(
         rsp: Self::Response,
         state: &mut <Self as StatefulProtocol>::ResponseState,
-        buf: &'de mut OwnedBuf,
+        buf: &mut OwnedBuf,
     ) -> Result<usize, Self::ComposeError>;
 }
 

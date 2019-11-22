@@ -75,7 +75,7 @@ impl<'de> Protocol<'de> for AdminProtocol {
     fn compose_req(
         req: *const request,
         _: &mut request,
-        buf: &'de mut OwnedBuf,
+        buf: &mut OwnedBuf,
     ) -> Result<usize, ComposeError> {
         let status = unsafe {
             admin_compose_req(
@@ -96,7 +96,7 @@ impl<'de> Protocol<'de> for AdminProtocol {
     fn compose_rsp(
         rsp: *const response,
         _: &mut response,
-        buf: &'de mut OwnedBuf,
+        buf: &mut OwnedBuf,
     ) -> Result<usize, ComposeError> {
         let status = unsafe { admin_compose_rsp(buf as *mut OwnedBuf as *mut *mut buf, rsp) };
 

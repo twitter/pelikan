@@ -86,7 +86,7 @@ impl<'de> Protocol<'de> for PingProtocol {
         }
     }
 
-    fn compose_req(_: Request, _: &mut (), buf: &'de mut OwnedBuf) -> Result<usize, ComposeError> {
+    fn compose_req(_: Request, _: &mut (), buf: &mut OwnedBuf) -> Result<usize, ComposeError> {
         if buf.write_size() < REQUEST.len() {
             buf.fit(REQUEST.len() - buf.write_size())
                 .map_err(|_| ComposeError::NoMem)?;
@@ -97,7 +97,7 @@ impl<'de> Protocol<'de> for PingProtocol {
             .map(|_| REQUEST.len())
     }
 
-    fn compose_rsp(_: Response, _: &mut (), buf: &'de mut OwnedBuf) -> Result<usize, ComposeError> {
+    fn compose_rsp(_: Response, _: &mut (), buf: &mut OwnedBuf) -> Result<usize, ComposeError> {
         if buf.write_size() < RESPONSE.len() {
             buf.fit(RESPONSE.len() - buf.write_size())
                 .map_err(|_| ComposeError::NoMem)?;
