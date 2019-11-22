@@ -75,3 +75,8 @@ impl PartialParseError for std::convert::Infallible {
         match *self {}
     }
 }
+
+
+impl Resettable for () {
+    fn reset(&mut self) {}
+}

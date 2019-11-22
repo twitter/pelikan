@@ -109,10 +109,6 @@ impl<'de> Protocol<'de> for PingProtocol {
     }
 }
 
-impl Resettable for () {
-    fn reset(&mut self) {}
-}
-
 impl Error for ComposeError {}
 
 impl fmt::Display for ComposeError {
