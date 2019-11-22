@@ -16,7 +16,7 @@
 use crate::stats::Metrics;
 
 use ccommon::metric::MetricExt;
-use pelikan::protocol::{admin::AdminProtocol, Protocol, StatefulProtocol};
+use pelikan::protocol::{admin::AdminProtocol, Protocol};
 use pelikan_sys::protocol::admin::{
     METRIC_END_LEN, METRIC_PRINT_LEN, REQ_QUIT, REQ_STATS, REQ_VERSION, RSP_GENERIC, RSP_INVALID,
     VERSION_PRINTED,
@@ -44,23 +44,23 @@ impl<'a> AdminHandler for Handler<'a> {
 
     fn process_request<'de>(
         &mut self,
-        req: <AdminProtocol as Protocol<'de>>::Request,
-        rsp_st: &mut <AdminProtocol as StatefulProtocol>::ResponseState,
-    ) -> Action<'de, AdminProtocol> {
+        req: &mut <AdminProtocol as Protocol>::Request,
+        rsp: &mut <AdminProtocol as Protocol>::Response,
+    ) -> Action {
         use ccommon_sys::*;
         use pelikan_sys::protocol::admin::print_stats;
         use pelikan_sys::util::procinfo_update;
         use std::os::raw::{c_char, c_uint};
 
         unsafe {
-            rsp_st.type_ = RSP_GENERIC;
+            rsp.type_ = RSP_GENERIC;
 
             match (*req).type_ {
                 REQ_QUIT => return Action::Close,
                 REQ_STATS => {
                     procinfo_update();
-                    rsp_st.data.data = self.buf.as_mut_ptr() as *mut c_char;
-                    rsp_st.data.len = print_stats(
+                    rsp.data.data = self.buf.as_mut_ptr() as *mut c_char;
+                    rsp.data.len = print_stats(
                         self.buf.as_mut_ptr() as *mut c_char,
                         self.buf.len(),
                         self.stats.as_ptr() as *mut metric,
@@ -68,15 +68,15 @@ impl<'a> AdminHandler for Handler<'a> {
                     ) as u32;
                 }
                 REQ_VERSION => {
-                    rsp_st.data.data = (&VERSION_PRINTED[..]).as_ptr() as *mut i8;
-                    rsp_st.data.len = (&VERSION_PRINTED[..]).len() as u32
+                    rsp.data.data = (&VERSION_PRINTED[..]).as_ptr() as *mut i8;
+                    rsp.data.len = (&VERSION_PRINTED[..]).len() as u32
                 }
                 _ => {
-                    rsp_st.type_ = RSP_INVALID;
+                    rsp.type_ = RSP_INVALID;
                 }
             }
         }
 
-        Action::Respond(rsp_st as *const _)
+        Action::Respond
     }
 }

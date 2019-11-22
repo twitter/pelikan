@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pelikan::protocol::{Protocol, StatefulProtocol};
+use std::future::Future;
+use std::rc::Rc;
+
+use ccommon::buf::OwnedBuf;
+use pelikan::protocol::Protocol;
+
+use crate::WorkerMetrics;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Empty {}
@@ -29,31 +35,31 @@ pub trait ClosableStream {
 /// initializes a response.
 pub trait Worker {
     /// The protocol for the wire format.
-    type Protocol: for<'de> Protocol<'de>;
+    type Protocol: Protocol;
 
     /// Per-connection state. This is not reinitialized
     /// for each request.
     type State: Default;
 
     /// Handle a single request and initialize a response.
-    fn process_request<'de>(
+    fn process_request(
         &self,
-        req: <Self::Protocol as Protocol>::Request,
-        rsp: &mut <Self::Protocol as StatefulProtocol>::ResponseState,
+        req: &mut <Self::Protocol as Protocol>::Request,
+        rsp: &mut <Self::Protocol as Protocol>::Response,
         state: &mut Self::State,
-    ) -> Action<'de, Self::Protocol>;
+    ) -> Action;
 }
 
 /// Handler for dealing with requests on the admin port.
 pub trait AdminHandler {
-    type Protocol: for<'de> Protocol<'de>;
+    type Protocol: Protocol;
 
     #[must_use]
     fn process_request<'de>(
         &mut self,
-        req: <Self::Protocol as Protocol<'de>>::Request,
-        rsp: &mut <Self::Protocol as StatefulProtocol>::ResponseState,
-    ) -> Action<'de, Self::Protocol>;
+        req: &mut <Self::Protocol as Protocol>::Request,
+        rsp: &mut <Self::Protocol as Protocol>::Response,
+    ) -> Action;
 }
 
 /// An action that the admin thread can do after
@@ -66,9 +72,9 @@ pub trait AdminHandler {
 /// new variants is not considered a backwards-incompatible
 /// change.
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
-pub enum Action<'de, P: Protocol<'de>> {
+pub enum Action {
     // Nothing special - sends the response as normal
-    Respond(P::Response),
+    Respond,
     // Close the connection
     Close,
     // Don't send a response
@@ -76,6 +82,41 @@ pub enum Action<'de, P: Protocol<'de>> {
 
     #[doc(hidden)]
     __Nonexhaustive(Empty),
+}
+
+/// Internal trait type used mainly to abstract over a function type
+pub trait WorkerFn<'a, W: 'static, S: 'a> {
+    type Fut: Future<Output = ()> + 'a;
+
+    fn eval(
+        &self,
+        state: Rc<W>,
+        stream: &'a mut S,
+        rbuf: &'a mut OwnedBuf,
+        wbuf: &'a mut OwnedBuf,
+        metrics: &'static WorkerMetrics,
+    ) -> Self::Fut;
+}
+
+impl<'a, W, S, Fut, Fun> WorkerFn<'a, W, S> for Fun
+where
+    Fun: Fn(Rc<W>, &'a mut S, &'a mut OwnedBuf, &'a mut OwnedBuf, &'static WorkerMetrics) -> Fut,
+    Fut: Future<Output = ()> + 'a,
+    W: 'static,
+    S: 'a,
+{
+    type Fut = Fut;
+
+    fn eval(
+        &self,
+        state: Rc<W>,
+        stream: &'a mut S,
+        rbuf: &'a mut OwnedBuf,
+        wbuf: &'a mut OwnedBuf,
+        metrics: &'static WorkerMetrics,
+    ) -> Fut {
+        self(state, stream, rbuf, wbuf, metrics)
+    }
 }
 
 #[cfg(unix)]

@@ -29,42 +29,26 @@ pub trait PartialParseError {
     fn is_unfinished(&self) -> bool;
 }
 
-pub trait Resettable {
-    fn reset(&mut self);
+/// A type that can be reset to a default state.
+pub trait Resettable: Default {
+    fn reset(&mut self) {
+        *self = Self::default();
+    }
 }
 
-pub trait StatefulProtocol {
-    type RequestState: Default + Resettable;
-    type ResponseState: Default + Resettable;
-}
+/// Trait for a native (or otherwise lifetime-independant) protocol.
+pub trait Protocol {
+    type Request: Resettable;
+    type Response: Resettable;
 
-/// Trait defining the request and response types for a protocol
-pub trait Protocol<'de>: StatefulProtocol {
-    type Request: 'de;
-    type Response: 'de;
+    type ParseError: Error + PartialParseError;
+    type ComposeError: Error;
 
-    type ParseError: Error + PartialParseError + 'de;
-    type ComposeError: Error + 'de;
+    fn parse_req(state: &mut Self::Request, buf: &mut OwnedBuf) -> Result<(), Self::ParseError>;
+    fn parse_rsp(state: &mut Self::Response, buf: &mut OwnedBuf) -> Result<(), Self::ParseError>;
 
-    fn parse_req(
-        state: &mut <Self as StatefulProtocol>::RequestState,
-        buf: &'de mut OwnedBuf,
-    ) -> Result<Self::Request, Self::ParseError>;
-    fn parse_rsp(
-        state: &mut <Self as StatefulProtocol>::ResponseState,
-        buf: &'de mut OwnedBuf,
-    ) -> Result<Self::Response, Self::ParseError>;
-
-    fn compose_req(
-        req: Self::Request,
-        state: &mut <Self as StatefulProtocol>::RequestState,
-        buf: &mut OwnedBuf,
-    ) -> Result<usize, Self::ComposeError>;
-    fn compose_rsp(
-        rsp: Self::Response,
-        state: &mut <Self as StatefulProtocol>::ResponseState,
-        buf: &mut OwnedBuf,
-    ) -> Result<usize, Self::ComposeError>;
+    fn compose_req(req: &Self::Request, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError>;
+    fn compose_rsp(rsp: &Self::Response, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError>;
 }
 
 /// Useful for cases where stuff can never fail.
@@ -74,9 +58,4 @@ impl PartialParseError for std::convert::Infallible {
     fn is_unfinished(&self) -> bool {
         match *self {}
     }
-}
-
-
-impl Resettable for () {
-    fn reset(&mut self) {}
 }

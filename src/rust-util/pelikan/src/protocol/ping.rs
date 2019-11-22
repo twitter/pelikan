@@ -42,19 +42,14 @@ pub enum ComposeError {
     Other,
 }
 
-impl StatefulProtocol for PingProtocol {
-    type RequestState = ();
-    type ResponseState = ();
-}
-
-impl<'de> Protocol<'de> for PingProtocol {
+impl Protocol for PingProtocol {
     type Request = Request;
     type Response = Response;
 
     type ParseError = ParseError;
     type ComposeError = ComposeError;
 
-    fn parse_req(_: &mut (), buf: &'de mut OwnedBuf) -> Result<Request, ParseError> {
+    fn parse_req(_: &mut Request, buf: &mut OwnedBuf) -> Result<(), ParseError> {
         if buf.read_size() < REQUEST.len() {
             return Err(ParseError::Unfinished);
         }
@@ -64,13 +59,13 @@ impl<'de> Protocol<'de> for PingProtocol {
             .map_err(|_| ParseError::Other)?;
 
         if readbuf == REQUEST {
-            Ok(Request)
+            Ok(())
         } else {
             Err(ParseError::Other)
         }
     }
 
-    fn parse_rsp(_: &mut (), buf: &'de mut OwnedBuf) -> Result<Response, ParseError> {
+    fn parse_rsp(_: &mut Response, buf: &mut OwnedBuf) -> Result<(), ParseError> {
         if buf.read_size() < RESPONSE.len() {
             return Err(ParseError::Unfinished);
         }
@@ -80,13 +75,13 @@ impl<'de> Protocol<'de> for PingProtocol {
             .map_err(|_| ParseError::Other)?;
 
         if readbuf == RESPONSE {
-            Ok(Response)
+            Ok(())
         } else {
             Err(ParseError::Other)
         }
     }
 
-    fn compose_req(_: Request, _: &mut (), buf: &mut OwnedBuf) -> Result<usize, ComposeError> {
+    fn compose_req(_: &Request, buf: &mut OwnedBuf) -> Result<usize, ComposeError> {
         if buf.write_size() < REQUEST.len() {
             buf.fit(REQUEST.len() - buf.write_size())
                 .map_err(|_| ComposeError::NoMem)?;
@@ -97,7 +92,7 @@ impl<'de> Protocol<'de> for PingProtocol {
             .map(|_| REQUEST.len())
     }
 
-    fn compose_rsp(_: Response, _: &mut (), buf: &mut OwnedBuf) -> Result<usize, ComposeError> {
+    fn compose_rsp(_: &Response, buf: &mut OwnedBuf) -> Result<usize, ComposeError> {
         if buf.write_size() < RESPONSE.len() {
             buf.fit(RESPONSE.len() - buf.write_size())
                 .map_err(|_| ComposeError::NoMem)?;
@@ -108,6 +103,9 @@ impl<'de> Protocol<'de> for PingProtocol {
             .map(|_| RESPONSE.len())
     }
 }
+
+impl Resettable for Request {}
+impl Resettable for Response {}
 
 impl Error for ComposeError {}
 

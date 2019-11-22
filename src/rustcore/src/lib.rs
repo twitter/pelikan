@@ -32,27 +32,33 @@
 
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate thiserror;
+#[macro_use]
+extern crate ccommon;
 
-mod buf;
 mod listener;
 mod traits;
 
 pub mod admin;
 pub mod errors;
+pub mod util;
 pub mod worker;
 
 use std::future::Future;
 use std::io::Result as IOResult;
 use std::pin::Pin;
+use std::rc::Rc;
 
 use tokio::runtime::current_thread::Runtime;
-
-use ccommon::Metrics;
+use tokio::sync::mpsc::Receiver;
 
 pub use crate::admin::AdminOptions;
 pub use crate::listener::*;
 pub use crate::traits::{Action, AdminHandler, ClosableStream, Worker};
-pub use crate::worker::{worker, WorkerMetrics};
+
+use crate::traits::WorkerFn;
+use crate::worker::{default_worker, WorkerMetrics};
 
 /// Given an AdminHandler and a DataProcessor start up a server
 pub fn core_run_tcp<W, H>(
@@ -63,10 +69,9 @@ pub fn core_run_tcp<W, H>(
     worker: W,
 ) -> IOResult<()>
 where
-    W: Worker + 'static,
+    W: Worker + Unpin + 'static,
     H: AdminHandler + Send + 'static,
 {
-    use std::rc::Rc;
     use tokio::sync::mpsc::channel;
 
     let admin_addr = admin_opts.addr().expect("Invalid socket address");
@@ -83,12 +88,8 @@ where
         crate::tcp_listener(server_addr, send, &metrics.acceptor)
             .await
             .unwrap()
-    })
-    .worker(async move {
-        crate::worker(recv, Rc::new(worker), &metrics.worker)
-            .await
-            .unwrap()
     });
+    core.worker(recv, Rc::new(worker), &metrics.worker, default_worker);
 
     core.run()
 }
@@ -129,11 +130,20 @@ where
     /// Register a new worker. These are responsible for taking new connections
     /// from the listener and for processing all data sent through those
     /// connections. These will run the core cache logic within pelikan.
-    pub fn worker<W>(&mut self, worker: W) -> &mut Self
+    pub fn worker<S, W, Fun>(
+        &mut self,
+        channel: Receiver<S>,
+        state: Rc<W>,
+        metrics: &'static WorkerMetrics,
+        worker: Fun,
+    ) -> &mut Self
     where
-        W: Future<Output = ()> + 'static,
+        Fun: (for<'a> WorkerFn<'a, W, S>) + 'static,
+        W: 'static,
+        S: ClosableStream + 'static,
     {
-        self.workers.spawn(worker);
+        self.workers
+            .spawn(crate::worker::worker(channel, state, metrics, worker));
         self
     }
 

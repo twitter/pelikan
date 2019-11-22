@@ -9,6 +9,7 @@ ccommon = { path="../../deps/ccommon/rust/ccommon_rs", package="ccommon_rs" }
 ccommon-sys = { path="../../deps/ccommon/rust/cc_binding", package="cc_binding" }
 pelikan-sys = { path="../rust-util/pelikan-sys" }
 
+thiserror = "1.0.6"
 tokio = { version = "0.2.0-alpha.6", features = [ "signal" ] }
 log = "0.4"
 futures = { version="0.3", features = [ "async-await" ] }

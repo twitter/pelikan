@@ -40,23 +40,15 @@ pub enum ComposeError {
     Other,
 }
 
-impl StatefulProtocol for AdminProtocol {
-    type RequestState = request;
-    type ResponseState = response;
-}
-
-impl<'de> Protocol<'de> for AdminProtocol {
-    type Request = *const request;
-    type Response = *const response;
+impl Protocol for AdminProtocol {
+    type Request = request;
+    type Response = response;
 
     type ParseError = ParseError;
     type ComposeError = ComposeError;
 
-    fn parse_req(
-        state: &mut request,
-        buf: &'de mut OwnedBuf,
-    ) -> Result<*const request, ParseError> {
-        let status = unsafe { admin_parse_req(state as *mut _, buf.as_mut_ptr()) };
+    fn parse_req(req: &mut request, buf: &mut OwnedBuf) -> Result<(), ParseError> {
+        let status = unsafe { admin_parse_req(req as *mut _, buf.as_mut_ptr()) };
 
         match status {
             PARSE_OK => (),
@@ -65,23 +57,19 @@ impl<'de> Protocol<'de> for AdminProtocol {
             _ => return Err(ParseError::Other),
         }
 
-        Ok(state as *const _)
+        Ok(())
     }
 
-    fn parse_rsp(_: &mut response, _: &'de mut OwnedBuf) -> Result<*const response, ParseError> {
+    fn parse_rsp(_: &mut response, _: &mut OwnedBuf) -> Result<(), ParseError> {
         unimplemented!()
     }
 
-    fn compose_req(
-        req: *const request,
-        _: &mut request,
-        buf: &mut OwnedBuf,
-    ) -> Result<usize, ComposeError> {
+    fn compose_req(req: &request, buf: &mut OwnedBuf) -> Result<usize, ComposeError> {
         let status = unsafe {
             admin_compose_req(
                 // Not sure what's the proper pattern here
                 buf as *mut OwnedBuf as *mut *mut buf,
-                req,
+                req as *const request,
             )
         };
 
@@ -93,12 +81,13 @@ impl<'de> Protocol<'de> for AdminProtocol {
         }
     }
 
-    fn compose_rsp(
-        rsp: *const response,
-        _: &mut response,
-        buf: &mut OwnedBuf,
-    ) -> Result<usize, ComposeError> {
-        let status = unsafe { admin_compose_rsp(buf as *mut OwnedBuf as *mut *mut buf, rsp) };
+    fn compose_rsp(rsp: &response, buf: &mut OwnedBuf) -> Result<usize, ComposeError> {
+        let status = unsafe {
+            admin_compose_rsp(
+                buf as *mut OwnedBuf as *mut *mut buf,
+                rsp as *const response,
+            )
+        };
 
         match status {
             amt if amt >= 0 => Ok(amt as usize),

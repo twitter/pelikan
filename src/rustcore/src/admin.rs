@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pelikan::protocol::{PartialParseError, Protocol, Resettable, StatefulProtocol};
+use pelikan::protocol::{PartialParseError, Protocol, Resettable};
 
 use std::cell::RefCell;
 use std::ffi::CStr;
@@ -33,8 +33,8 @@ use ccommon::buf::OwnedBuf;
 use ccommon::{metric::*, option::*, Metrics, Options};
 use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
 
-type RequestState<H> = <<H as AdminHandler>::Protocol as StatefulProtocol>::RequestState;
-type ResponseState<H> = <<H as AdminHandler>::Protocol as StatefulProtocol>::ResponseState;
+type Request<H> = <<H as AdminHandler>::Protocol as Protocol>::Request;
+type Response<H> = <<H as AdminHandler>::Protocol as Protocol>::Response;
 
 /// Process all the new bytes that were just read.
 #[allow(clippy::too_many_arguments)]
@@ -43,20 +43,20 @@ async fn read_once<H, S>(
     stream: &mut S,
     wbuf: &mut OwnedBuf,
     rbuf: &mut OwnedBuf,
-    req_st: &mut RequestState<H>,
-    rsp_st: &mut ResponseState<H>,
+    req: &mut Request<H>,
+    rsp: &mut Response<H>,
     _metrics: &AdminMetrics,
 ) -> std::result::Result<(), ()>
 where
     H: AdminHandler + 'static,
     S: AsyncWrite + AsyncRead + Unpin,
 {
-    match crate::buf::read_buf(stream, rbuf).await {
+    match crate::util::ReadBuf::new(stream, rbuf).await {
         Ok(0) => {
             if rbuf.write_size() == 0 {
                 // If this fails then just close the connection,
                 // there isn't really anything we can do otherwise.
-                return rbuf.fit(rbuf.read_size() + 1024).map_err(|_| ());
+                return rbuf.double().map_err(|_| ());
             } else {
                 // This can occurr when a the other end of the connection
                 // disappears. At this point we can just close the connection
@@ -69,26 +69,23 @@ where
     };
 
     while rbuf.read_size() > 0 {
-        let req = match H::Protocol::parse_req(req_st, rbuf) {
-            Ok(req) => req,
-            Err(e) => {
-                if e.is_unfinished() {
-                    req_st.reset();
-                    break;
-                }
-
-                return Err(());
+        if let Err(e) = H::Protocol::parse_req(req, rbuf) {
+            if e.is_unfinished() {
+                req.reset();
+                break;
             }
+
+            return Err(());
         };
 
-        let rsp = match handler.borrow_mut().process_request(req, rsp_st) {
-            Action::Respond(rsp) => rsp,
+        match handler.borrow_mut().process_request(req, rsp) {
+            Action::Respond => (),
             Action::Close => return Err(()),
             Action::NoResponse => continue,
             Action::__Nonexhaustive(empty) => match empty {},
         };
 
-        if let Err(e) = H::Protocol::compose_rsp(rsp, rsp_st, wbuf) {
+        if let Err(e) = H::Protocol::compose_rsp(rsp, wbuf) {
             error!("Failed to compose admin response: {}", e);
             return Err(());
         }
@@ -97,15 +94,17 @@ where
             // If this fails then something went wrong with the buffer and
             // we can't write anything to it. Probably means that the
             // connection is dead so just close it.
-            crate::buf::write_buf(stream, wbuf).await.map_err(|_| ())?;
+            crate::util::WriteBuf::new(stream, wbuf)
+                .await
+                .map_err(|_| ())?;
         }
 
         // wbuf is definitely empty here but need to reset the pointers
         // to the start of the buffer.
         wbuf.lshift();
 
-        rsp_st.reset();
-        req_st.reset();
+        rsp.reset();
+        req.reset();
     }
 
     rbuf.lshift();
@@ -132,8 +131,8 @@ async fn admin_tcp_stream_handler<H, S>(
         )
     };
 
-    let mut req = RequestState::<H>::default();
-    let mut rsp = ResponseState::<H>::default();
+    let mut req = Request::<H>::default();
+    let mut rsp = Response::<H>::default();
 
     while let Ok(()) = read_once(
         &handler,
