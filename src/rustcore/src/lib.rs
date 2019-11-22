@@ -48,12 +48,10 @@ use std::pin::Pin;
 use tokio::runtime::current_thread::Runtime;
 
 use ccommon::Metrics;
-use pelikan::core::admin::AdminHandler;
-use pelikan::protocol::{Protocol, QuitRequest};
 
 pub use crate::admin::AdminOptions;
 pub use crate::listener::*;
-pub use crate::traits::{ClosableStream, Worker, WorkerAction};
+pub use crate::traits::{Action, AdminHandler, ClosableStream, Worker};
 pub use crate::worker::{worker, WorkerMetrics};
 
 /// Given an AdminHandler and a DataProcessor start up a server
@@ -67,7 +65,6 @@ pub fn core_run_tcp<W, H>(
 where
     W: Worker + 'static,
     H: AdminHandler + Send + 'static,
-    <H::Protocol as Protocol>::Request: QuitRequest,
 {
     use std::rc::Rc;
     use tokio::sync::mpsc::channel;

@@ -19,12 +19,15 @@ use tokio::sync::mpsc::Receiver;
 use ccommon::buf::OwnedBuf;
 use ccommon::{metric::*, Metrics};
 use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
-use pelikan::protocol::{PartialParseError, Protocol, Serializable};
+use pelikan::protocol::{PartialParseError, Protocol, StatefulProtocol};
 
 use std::io::Result;
 use std::rc::Rc;
 
-use crate::{ClosableStream, Worker, WorkerAction};
+use crate::{Action, ClosableStream, Worker};
+
+type RequestState<H> = <<H as Worker>::Protocol as StatefulProtocol>::RequestState;
+type ResponseState<H> = <<H as Worker>::Protocol as StatefulProtocol>::ResponseState;
 
 #[allow(clippy::too_many_arguments)]
 async fn read_once<'a, W, S>(
@@ -33,8 +36,8 @@ async fn read_once<'a, W, S>(
     metrics: &'static WorkerMetrics,
     wbuf: &'a mut OwnedBuf,
     rbuf: &'a mut OwnedBuf,
-    req: &'a mut <W::Protocol as Protocol>::Request,
-    rsp: &'a mut <W::Protocol as Protocol>::Response,
+    req_st: &'a mut RequestState<W>,
+    rsp_st: &'a mut ResponseState<W>,
     state: &'a mut W::State,
 ) -> std::result::Result<(), ()>
 where
@@ -68,23 +71,26 @@ where
     };
 
     while rbuf.read_size() > 0 {
-        if let Err(e) = req.parse(rbuf) {
-            if e.is_unfinished() {
-                break;
+        let req = match W::Protocol::parse_req(req_st, rbuf) {
+            Ok(req) => req,
+            Err(e) => {
+                if e.is_unfinished() {
+                    break;
+                }
+
+                metrics.request_parse_ex.incr();
+                return Err(());
             }
-
-            metrics.request_parse_ex.incr();
-            return Err(());
-        }
-
-        match worker.process_request(req, rsp, state) {
-            WorkerAction::None => (),
-            WorkerAction::Close => return Err(()),
-            WorkerAction::NoResponse => continue,
-            WorkerAction::__Nonexhaustive(empty) => match empty {},
         };
 
-        rsp.compose(wbuf).map_err(|_| {
+        let rsp = match worker.process_request(req, rsp_st, state) {
+            Action::Respond(rsp) => rsp,
+            Action::Close => return Err(()),
+            Action::NoResponse => continue,
+            Action::__Nonexhaustive(empty) => match empty {},
+        };
+
+        W::Protocol::compose_rsp(rsp, rsp_st, wbuf).map_err(|_| {
             metrics.response_compose_ex.incr();
         })?;
 
@@ -119,8 +125,8 @@ where
         )
     };
 
-    let mut req = <W::Protocol as Protocol>::Request::default();
-    let mut rsp = <W::Protocol as Protocol>::Response::default();
+    let mut req = RequestState::<W>::default();
+    let mut rsp = ResponseState::<W>::default();
     let mut state = Default::default();
 
     while let Ok(_) = read_once(

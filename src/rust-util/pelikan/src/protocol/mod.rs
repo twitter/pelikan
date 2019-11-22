@@ -29,27 +29,47 @@ pub trait PartialParseError {
     fn is_unfinished(&self) -> bool;
 }
 
-pub trait QuitRequest {
-    fn is_quit(&self) -> bool;
+pub trait Resettable {
+    fn reset(&mut self);
 }
 
 /// A type that can be serialized/deserialized.
 ///
 /// TODO: Name this better
-pub trait Serializable: Sized {
-    type ParseError: Error + PartialParseError;
-    type ComposeError: Error;
+pub trait Serializable<'de>: Sized {
+    type ParseError: Error + PartialParseError + 'de;
+    type ComposeError: Error + 'de;
+}
 
-    fn reset(&mut self);
-
-    fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError>;
-    fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError>;
+pub trait StatefulProtocol {
+    type RequestState: Default + Resettable;
+    type ResponseState: Default + Resettable;
 }
 
 /// Trait defining the request and response types for a protocol
-pub trait Protocol {
-    type Request: Serializable + Default;
-    type Response: Serializable + Default;
+pub trait Protocol<'de>: StatefulProtocol {
+    type Request: Serializable<'de>;
+    type Response: Serializable<'de>;
+
+    fn parse_req(
+        state: &mut <Self as StatefulProtocol>::RequestState,
+        buf: &'de mut OwnedBuf,
+    ) -> Result<Self::Request, <Self::Request as Serializable<'de>>::ParseError>;
+    fn parse_rsp(
+        state: &mut <Self as StatefulProtocol>::ResponseState,
+        buf: &'de mut OwnedBuf,
+    ) -> Result<Self::Response, <Self::Response as Serializable<'de>>::ParseError>;
+
+    fn compose_req(
+        req: Self::Request,
+        state: &mut <Self as StatefulProtocol>::RequestState,
+        buf: &'de mut OwnedBuf,
+    ) -> Result<usize, <Self::Request as Serializable<'de>>::ComposeError>;
+    fn compose_rsp(
+        rsp: Self::Response,
+        state: &mut <Self as StatefulProtocol>::ResponseState,
+        buf: &'de mut OwnedBuf,
+    ) -> Result<usize, <Self::Response as Serializable<'de>>::ComposeError>;
 }
 
 /// Useful for cases where stuff can never fail.

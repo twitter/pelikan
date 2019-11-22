@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pelikan::core::admin::AdminHandler;
-use pelikan::protocol::{PartialParseError, Protocol, QuitRequest, Serializable};
+use pelikan::protocol::{PartialParseError, Protocol, Resettable, StatefulProtocol};
 
 use std::cell::RefCell;
 use std::ffi::CStr;
@@ -28,14 +27,14 @@ use tokio::runtime::current_thread::spawn;
 use tokio::timer::Interval;
 
 use crate::errors::{AddrParseData, AddrParseError};
-use crate::ClosableStream;
+use crate::{Action, AdminHandler, ClosableStream};
 
 use ccommon::buf::OwnedBuf;
 use ccommon::{metric::*, option::*, Metrics, Options};
 use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
 
-type Request<H> = <<H as AdminHandler>::Protocol as Protocol>::Request;
-type Response<H> = <<H as AdminHandler>::Protocol as Protocol>::Response;
+type RequestState<H> = <<H as AdminHandler>::Protocol as StatefulProtocol>::RequestState;
+type ResponseState<H> = <<H as AdminHandler>::Protocol as StatefulProtocol>::ResponseState;
 
 /// Process all the new bytes that were just read.
 #[allow(clippy::too_many_arguments)]
@@ -44,14 +43,13 @@ async fn read_once<H, S>(
     stream: &mut S,
     wbuf: &mut OwnedBuf,
     rbuf: &mut OwnedBuf,
-    req: &mut Request<H>,
-    rsp: &mut Response<H>,
+    req_st: &mut RequestState<H>,
+    rsp_st: &mut ResponseState<H>,
     _metrics: &AdminMetrics,
 ) -> std::result::Result<(), ()>
 where
     H: AdminHandler + 'static,
     S: AsyncWrite + AsyncRead + Unpin,
-    <H::Protocol as Protocol>::Request: QuitRequest,
 {
     match crate::buf::read_buf(stream, rbuf).await {
         Ok(0) => {
@@ -71,23 +69,26 @@ where
     };
 
     while rbuf.read_size() > 0 {
-        if let Err(e) = req.parse(rbuf) {
-            if e.is_unfinished() {
-                req.reset();
-                break;
+        let req = match H::Protocol::parse_req(req_st, rbuf) {
+            Ok(req) => req,
+            Err(e) => {
+                if e.is_unfinished() {
+                    req_st.reset();
+                    break;
+                }
+
+                return Err(());
             }
+        };
 
-            return Err(());
-        }
+        let rsp = match handler.borrow_mut().process_request(req, rsp_st) {
+            Action::Respond(rsp) => rsp,
+            Action::Close => return Err(()),
+            Action::NoResponse => continue,
+            Action::__Nonexhaustive(empty) => match empty {},
+        };
 
-        if req.is_quit() {
-            info!("Admin peer called quit");
-            return Err(());
-        }
-
-        handler.borrow_mut().process_request(rsp, req);
-
-        if let Err(e) = rsp.compose(wbuf) {
+        if let Err(e) = H::Protocol::compose_rsp(rsp, rsp_st, wbuf) {
             error!("Failed to compose admin response: {}", e);
             return Err(());
         }
@@ -103,8 +104,8 @@ where
         // to the start of the buffer.
         wbuf.lshift();
 
-        rsp.reset();
-        req.reset();
+        rsp_st.reset();
+        req_st.reset();
     }
 
     rbuf.lshift();
@@ -120,7 +121,6 @@ async fn admin_tcp_stream_handler<H, S>(
 ) where
     H: AdminHandler + 'static,
     S: AsyncWrite + AsyncRead + ClosableStream + Unpin,
-    <H::Protocol as Protocol>::Request: QuitRequest,
 {
     metrics.active_conns.incr();
 
@@ -132,8 +132,8 @@ async fn admin_tcp_stream_handler<H, S>(
         )
     };
 
-    let mut req = Request::<H>::default();
-    let mut rsp = Response::<H>::default();
+    let mut req = RequestState::<H>::default();
+    let mut rsp = ResponseState::<H>::default();
 
     while let Ok(()) = read_once(
         &handler,
@@ -181,10 +181,7 @@ pub async fn admin_tcp<H: AdminHandler + 'static>(
     handler: H,
     log_flush_interval: Duration,
     metrics: &'static AdminMetrics,
-) -> Result<()>
-where
-    <H::Protocol as Protocol>::Request: QuitRequest,
-{
+) -> Result<()> {
     let mut listener = TcpListener::bind(addr).await?;
     let handler = Rc::new(RefCell::new(handler));
 

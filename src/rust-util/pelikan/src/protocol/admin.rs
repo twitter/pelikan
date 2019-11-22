@@ -18,7 +18,7 @@ use ccommon_sys::buf;
 use pelikan_sys::protocol::admin::{
     admin_compose_req, admin_compose_rsp, admin_parse_req, admin_request_reset,
     admin_response_reset, request, response, COMPOSE_ENOMEM, COMPOSE_EOVERSIZED, PARSE_EINVALID,
-    PARSE_EUNFIN, PARSE_OK, REQ_QUIT,
+    PARSE_EUNFIN, PARSE_OK,
 };
 
 use std::convert::Infallible;
@@ -26,14 +26,6 @@ use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 
 pub enum AdminProtocol {}
-
-#[derive(Default)]
-#[repr(transparent)]
-pub struct Request(pub request);
-
-#[derive(Default)]
-#[repr(transparent)]
-pub struct Response(pub response);
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -49,21 +41,20 @@ pub enum ComposeError {
     Other,
 }
 
-impl Protocol for AdminProtocol {
-    type Request = Request;
-    type Response = Response;
+impl StatefulProtocol for AdminProtocol {
+    type RequestState = request;
+    type ResponseState = response;
 }
 
-impl Serializable for Request {
-    type ParseError = ParseError;
-    type ComposeError = ComposeError;
+impl<'de> Protocol<'de> for AdminProtocol {
+    type Request = *const request;
+    type Response = *const response;
 
-    fn reset(&mut self) {
-        unsafe { admin_request_reset(&mut self.0 as *mut _) }
-    }
-
-    fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError> {
-        let status = unsafe { admin_parse_req(&mut self.0 as *mut _, buf.as_mut_ptr()) };
+    fn parse_req(
+        state: &mut request,
+        buf: &'de mut OwnedBuf,
+    ) -> Result<*const request, ParseError> {
+        let status = unsafe { admin_parse_req(state as *mut _, buf.as_mut_ptr()) };
 
         match status {
             PARSE_OK => (),
@@ -72,15 +63,23 @@ impl Serializable for Request {
             _ => return Err(ParseError::Other),
         }
 
-        Ok(())
+        Ok(state as *const _)
     }
 
-    fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
+    fn parse_rsp(_: &mut response, _: &'de mut OwnedBuf) -> Result<*const response, Infallible> {
+        unimplemented!()
+    }
+
+    fn compose_req(
+        req: *const request,
+        _: &mut request,
+        buf: &'de mut OwnedBuf,
+    ) -> Result<usize, ComposeError> {
         let status = unsafe {
             admin_compose_req(
                 // Not sure what's the proper pattern here
                 buf as *mut OwnedBuf as *mut *mut buf,
-                &self.0 as *const request,
+                req,
             )
         };
 
@@ -91,39 +90,42 @@ impl Serializable for Request {
             _ => Err(ComposeError::Other),
         }
     }
+
+    fn compose_rsp(
+        rsp: *const response,
+        _: &mut response,
+        buf: &'de mut OwnedBuf,
+    ) -> Result<usize, ComposeError> {
+        let status = unsafe { admin_compose_rsp(buf as *mut OwnedBuf as *mut *mut buf, rsp) };
+
+        match status {
+            amt if amt >= 0 => Ok(amt as usize),
+            COMPOSE_ENOMEM => Err(ComposeError::NoMem),
+            COMPOSE_EOVERSIZED => Err(ComposeError::Oversized),
+            _ => Err(ComposeError::Other),
+        }
+    }
 }
-impl Serializable for Response {
+
+impl<'de> Serializable<'de> for *const request {
+    type ParseError = ParseError;
+    type ComposeError = ComposeError;
+}
+
+impl<'de> Serializable<'de> for *const response {
     type ParseError = Infallible;
     type ComposeError = ComposeError;
+}
 
+impl Resettable for request {
     fn reset(&mut self) {
-        unsafe { admin_response_reset(&mut self.0 as *mut _) }
-    }
-
-    fn parse(&mut self, _: &mut OwnedBuf) -> Result<(), Self::ParseError> {
-        unimplemented!()
-    }
-
-    fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
-        let status = unsafe {
-            admin_compose_rsp(
-                buf as *mut OwnedBuf as *mut *mut buf,
-                &self.0 as *const response,
-            )
-        };
-
-        match status {
-            amt if amt >= 0 => Ok(amt as usize),
-            COMPOSE_ENOMEM => Err(ComposeError::NoMem),
-            COMPOSE_EOVERSIZED => Err(ComposeError::Oversized),
-            _ => Err(ComposeError::Other),
-        }
+        unsafe { admin_request_reset(self as *mut _) }
     }
 }
 
-impl QuitRequest for Request {
-    fn is_quit(&self) -> bool {
-        self.0.type_ == REQ_QUIT
+impl Resettable for response {
+    fn reset(&mut self) {
+        unsafe { admin_response_reset(self as *mut _) }
     }
 }
 

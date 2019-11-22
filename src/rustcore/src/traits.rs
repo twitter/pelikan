@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pelikan::protocol::Protocol;
+use pelikan::protocol::{Protocol, StatefulProtocol};
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Empty {}
@@ -29,22 +29,34 @@ pub trait ClosableStream {
 /// initializes a response.
 pub trait Worker {
     /// The protocol for the wire format.
-    type Protocol: Protocol;
+    type Protocol: for<'de> Protocol<'de>;
 
     /// Per-connection state. This is not reinitialized
     /// for each request.
     type State: Default;
 
     /// Handle a single request and initialize a response.
-    fn process_request(
+    fn process_request<'de>(
         &self,
-        req: &mut <Self::Protocol as Protocol>::Request,
-        rsp: &mut <Self::Protocol as Protocol>::Response,
+        req: <Self::Protocol as Protocol>::Request,
+        rsp: &mut <Self::Protocol as StatefulProtocol>::ResponseState,
         state: &mut Self::State,
-    ) -> WorkerAction;
+    ) -> Action<'de, Self::Protocol>;
 }
 
-/// An action that the worker thread can do after
+/// Handler for dealing with requests on the admin port.
+pub trait AdminHandler {
+    type Protocol: for<'de> Protocol<'de>;
+
+    #[must_use]
+    fn process_request<'de>(
+        &mut self,
+        req: <Self::Protocol as Protocol<'de>>::Request,
+        rsp: &mut <Self::Protocol as StatefulProtocol>::ResponseState,
+    ) -> Action<'de, Self::Protocol>;
+}
+
+/// An action that the admin thread can do after
 /// processing a request.
 ///
 /// By default a worker should just send the response.
@@ -54,9 +66,9 @@ pub trait Worker {
 /// new variants is not considered a backwards-incompatible
 /// change.
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
-pub enum WorkerAction {
+pub enum Action<'de, P: Protocol<'de>> {
     // Nothing special - sends the response as normal
-    None,
+    Respond(P::Response),
     // Close the connection
     Close,
     // Don't send a response
@@ -64,12 +76,6 @@ pub enum WorkerAction {
 
     #[doc(hidden)]
     __Nonexhaustive(Empty),
-}
-
-impl Default for WorkerAction {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 #[cfg(unix)]

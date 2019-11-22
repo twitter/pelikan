@@ -42,18 +42,16 @@ pub enum ComposeError {
     Other,
 }
 
-impl Protocol for PingProtocol {
-    type Request = Request;
-    type Response = Response;
+impl StatefulProtocol for PingProtocol {
+    type RequestState = ();
+    type ResponseState = ();
 }
 
-impl Serializable for Request {
-    type ParseError = ParseError;
-    type ComposeError = ComposeError;
+impl<'de> Protocol<'de> for PingProtocol {
+    type Request = Request;
+    type Response = Response;
 
-    fn reset(&mut self) {}
-
-    fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError> {
+    fn parse_req(_: &mut (), buf: &'de mut OwnedBuf) -> Result<Request, ParseError> {
         if buf.read_size() < REQUEST.len() {
             return Err(ParseError::Unfinished);
         }
@@ -63,29 +61,13 @@ impl Serializable for Request {
             .map_err(|_| ParseError::Other)?;
 
         if readbuf == REQUEST {
-            Ok(())
+            Ok(Request)
         } else {
             Err(ParseError::Other)
         }
     }
 
-    fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
-        if buf.write_size() < REQUEST.len() {
-            buf.fit(REQUEST.len() - buf.write_size())
-                .map_err(|_| ComposeError::NoMem)?;
-        }
-
-        buf.write_all(REQUEST).map_err(|_| ComposeError::Other).map(|_| REQUEST.len())
-    }
-}
-
-impl Serializable for Response {
-    type ParseError = ParseError;
-    type ComposeError = ComposeError;
-
-    fn reset(&mut self) {}
-
-    fn parse(&mut self, buf: &mut OwnedBuf) -> Result<(), Self::ParseError> {
+    fn parse_rsp(_: &mut (), buf: &'de mut OwnedBuf) -> Result<Response, ParseError> {
         if buf.read_size() < RESPONSE.len() {
             return Err(ParseError::Unfinished);
         }
@@ -95,20 +77,47 @@ impl Serializable for Response {
             .map_err(|_| ParseError::Other)?;
 
         if readbuf == RESPONSE {
-            Ok(())
+            Ok(Response)
         } else {
             Err(ParseError::Other)
         }
     }
 
-    fn compose(&self, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError> {
+    fn compose_req(_: Request, _: &mut (), buf: &'de mut OwnedBuf) -> Result<usize, ComposeError> {
+        if buf.write_size() < REQUEST.len() {
+            buf.fit(REQUEST.len() - buf.write_size())
+                .map_err(|_| ComposeError::NoMem)?;
+        }
+
+        buf.write_all(REQUEST)
+            .map_err(|_| ComposeError::Other)
+            .map(|_| REQUEST.len())
+    }
+
+    fn compose_rsp(_: Response, _: &mut (), buf: &'de mut OwnedBuf) -> Result<usize, ComposeError> {
         if buf.write_size() < RESPONSE.len() {
             buf.fit(RESPONSE.len() - buf.write_size())
                 .map_err(|_| ComposeError::NoMem)?;
         }
 
-        buf.write_all(RESPONSE).map_err(|_| ComposeError::Other).map(|_| RESPONSE.len())
+        buf.write_all(RESPONSE)
+            .map_err(|_| ComposeError::Other)
+            .map(|_| RESPONSE.len())
     }
+}
+
+impl<'de> Serializable<'de> for Request {
+    type ParseError = ParseError;
+    type ComposeError = ComposeError;
+}
+
+impl<'de> Serializable<'de> for Response {
+    type ParseError = ParseError;
+    type ComposeError = ComposeError;
+}
+
+impl Resettable for () {
+    fn reset(&mut self) {}
 }
 
 impl Error for ComposeError {}

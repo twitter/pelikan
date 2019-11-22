@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use pelikan::protocol::ping::{PingProtocol, Request, Response};
-use rustcore::{Worker, WorkerAction};
+use rustcore::{Action, Worker};
 
 pub struct PingWorker;
 
@@ -22,7 +22,12 @@ impl Worker for PingWorker {
     type State = ();
     type Protocol = PingProtocol;
 
-    fn process_request(&self, _: &mut Request, _: &mut Response, _: &mut ()) -> WorkerAction {
-        WorkerAction::None
+    fn process_request<'de>(
+        &self,
+        _: Request,
+        _: &mut (),
+        _: &mut (),
+    ) -> Action<'de, PingProtocol> {
+        Action::Respond(Response)
     }
 }
