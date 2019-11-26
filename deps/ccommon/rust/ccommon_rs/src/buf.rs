@@ -16,6 +16,7 @@
 use cc_binding::buf;
 
 use std::io::{self, Read, Write};
+use std::mem::MaybeUninit;
 use std::ops::{Deref, DerefMut};
 
 use bytes::{Buf as BytesBuf, BufMut as BytesBufMut};
@@ -329,8 +330,10 @@ impl BytesBufMut for Buf {
         self.buf.wpos = self.buf.wpos.wrapping_add(cnt);
     }
 
-    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
-        std::slice::from_raw_parts_mut(self.buf.wpos as *mut u8, self.write_size())
+    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+        unsafe {
+            std::slice::from_raw_parts_mut(self.buf.wpos as *mut MaybeUninit<u8>, self.write_size())
+        }
     }
 }
 
@@ -357,7 +360,7 @@ impl BytesBufMut for OwnedBuf {
         (**self).advance_mut(cnt)
     }
 
-    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+    fn bytes_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         BytesBufMut::bytes_mut(&mut **self)
     }
 }
