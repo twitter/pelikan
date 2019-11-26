@@ -98,11 +98,11 @@ impl BStr {
         self as *const _ as *mut _
     }
 
-    pub fn from_ref<'a>(ccb: &'a CCbstring) -> &'a Self {
+    pub fn from_ref(ccb: &CCbstring) -> &Self {
         unsafe { Self::from_ptr(ccb as *const CCbstring as *mut _) }
     }
 
-    pub fn to_utf8_str<'a>(&'a self) -> Result<&'a str, Utf8Error> {
+    pub fn to_utf8_str(&self) -> Result<&str, Utf8Error> {
         str::from_utf8(&self[..])
     }
 
@@ -281,8 +281,8 @@ impl BString {
     /// # Panics
     ///
     /// This method will panic if `src.len() != self.len()`
-    #[allow(dead_code)]
     #[inline]
+    // Note: Used for tests
     #[allow(dead_code)]
     fn copy_from_slice(&mut self, src: &[u8]) {
         assert_eq!(src.len(), self.len());
@@ -304,7 +304,7 @@ impl BString {
         unsafe { (*self.0).len as usize }
     }
 
-    pub fn to_utf8_str<'a>(&'a self) -> Result<&'a str, Utf8Error> {
+    pub fn to_utf8_str(&self) -> Result<&str, Utf8Error> {
         str::from_utf8(self.as_bytes())
     }
 

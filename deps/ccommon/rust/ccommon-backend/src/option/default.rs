@@ -38,6 +38,12 @@ impl fmt::Display for OutOfMemoryError {
 impl std::error::Error for OutOfMemoryError {}
 
 /// Initialize an option to it's default value.
+///
+/// # Safety
+/// This function assumes that the description and name
+/// pointers within the options always point to a valid
+/// C string. It also assumes that the value for string
+/// type options is either a valid C string or null.
 pub unsafe fn option_default(opt: &mut option) -> Result<(), OutOfMemoryError> {
     use std::mem::MaybeUninit;
 
@@ -77,6 +83,12 @@ pub unsafe fn option_default(opt: &mut option) -> Result<(), OutOfMemoryError> {
 }
 
 /// Initialize all the options to their default values.
+///
+/// # Safety
+/// This function assumes that the description and name
+/// pointers within the options always point to a valid
+/// C string. It also assumes that the value for string
+/// type options is either a valid C string or null.
 pub unsafe fn option_load_default(options: &mut [option]) -> Result<(), OutOfMemoryError> {
     for opt in options.iter_mut() {
         option_default(opt)?;

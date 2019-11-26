@@ -21,13 +21,14 @@
 //! ```
 //!
 
-#![allow(unknown_lints)]
-#![allow(clippy)]
-#![allow(clippy_pedantic)]
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-#![allow(dead_code)]
+#![allow(
+    unknown_lints,
+    clippy::all,
+    non_upper_case_globals,
+    non_camel_case_types,
+    non_snake_case,
+    dead_code
+)]
 
 #[path = "metric.rs"]
 mod metric_impl;

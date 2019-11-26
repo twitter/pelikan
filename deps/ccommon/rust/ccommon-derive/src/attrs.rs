@@ -58,7 +58,7 @@ impl Parse for StrOrExpr {
 }
 
 impl AttrOption<StrOrExpr> {
-    pub fn as_lit(self) -> Result<EqOption> {
+    pub fn into_lit(self) -> Result<EqOption> {
         match self.val {
             StrOrExpr::Str(s) => Ok(EqOption {
                 name: self.name,
@@ -72,7 +72,7 @@ impl AttrOption<StrOrExpr> {
         }
     }
 
-    pub fn as_expr(self) -> ExprOption {
+    pub fn into_expr(self) -> ExprOption {
         let expr = match self.val {
             StrOrExpr::Str(s) => parse_quote!(#s),
             StrOrExpr::Expr(e) => e,
@@ -146,9 +146,9 @@ impl Parse for OptionAttr {
             let span = val.span();
             let param = val.name.to_string();
             let seen = match &*param {
-                "desc" => mem::replace(&mut desc, Some(val.as_lit()?)).is_some(),
-                "name" => mem::replace(&mut name, Some(val.as_lit()?)).is_some(),
-                "default" => mem::replace(&mut default, Some(val.as_expr())).is_some(),
+                "desc" => mem::replace(&mut desc, Some(val.into_lit()?)).is_some(),
+                "name" => mem::replace(&mut name, Some(val.into_lit()?)).is_some(),
+                "default" => mem::replace(&mut default, Some(val.into_expr())).is_some(),
                 _ => return Err(Error::new(span, format!("Unknown option `{}`", param))),
             };
 

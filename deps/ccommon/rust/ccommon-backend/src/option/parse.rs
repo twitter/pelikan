@@ -13,6 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Disabling this lint since I find that the usage of the lifetimes
+// in this file makes things clearer.
+#![allow(clippy::needless_lifetimes)]
+
 use cc_binding::{
     option, option_type, OPTION_TYPE_BOOL, OPTION_TYPE_FPN, OPTION_TYPE_STR, OPTION_TYPE_UINT,
 };
@@ -121,7 +125,7 @@ impl<'a> ParseError<'a> {
         }
     }
 
-    fn to_owned(self) -> ParseError<'static> {
+    fn into_owned(self) -> ParseError<'static> {
         ParseError {
             span: Span {
                 line: self.span.line,
@@ -200,14 +204,14 @@ pub fn option_load<R: BufRead>(
             continue;
         }
 
-        let (k, v) = parse_kv(&line, lineno).map_err(|x| x.to_owned())?;
+        let (k, v) = parse_kv(&line, lineno).map_err(|x| x.into_owned())?;
 
         let opt = match unsafe { find_option(options, k) } {
             Some(opt) => opt,
-            None => return Err(ParseError::invalid_key(Span::new(k, lineno)).to_owned()),
+            None => return Err(ParseError::invalid_key(Span::new(k, lineno)).into_owned()),
         };
 
-        let value = parse_value(v, lineno, opt.type_).map_err(|x| x.to_owned())?;
+        let value = parse_value(v, lineno, opt.type_).map_err(|x| x.into_owned())?;
         unsafe { set_option_value(opt, value)? };
 
         lineno += 1;
@@ -251,7 +255,7 @@ fn is_space(c: Option<u8>) -> bool {
 }
 
 /// Trim starting and ending spaces off of a byte slice
-fn trim_bytes<'a>(mut slice: &'a [u8]) -> &'a [u8] {
+fn trim_bytes(mut slice: &[u8]) -> &[u8] {
     while is_space(slice.first().copied()) {
         slice = slice.split_first().unwrap().1;
     }
@@ -448,9 +452,9 @@ impl fmt::Display for ParseError<'_> {
         use ParseErrorType::*;
 
         let spanmsg: String = (*self.span.text)
-            .into_iter()
+            .iter()
             .copied()
-            .flat_map(|c| std::ascii::escape_default(c))
+            .flat_map(std::ascii::escape_default)
             .map(|c| c as char)
             .collect();
 

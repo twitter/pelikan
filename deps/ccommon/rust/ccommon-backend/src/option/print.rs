@@ -35,7 +35,7 @@ fn fmt_type(ty: option_type) -> &'static str {
     }
 }
 
-fn fmt_value<W: Write>(writer: &mut W, val: &option_val, ty: option_type) -> Result<()> {
+fn fmt_value<W: Write>(writer: &mut W, val: option_val, ty: option_type) -> Result<()> {
     unsafe {
         match ty {
             OPTION_TYPE_BOOL => write!(writer, "{: <20}", if val.vbool { "yes" } else { "no" }),
@@ -53,6 +53,13 @@ fn fmt_value<W: Write>(writer: &mut W, val: &option_val, ty: option_type) -> Res
     }
 }
 
+/// Print a single option.
+///
+/// # Safety
+/// This function assumes that the description and name
+/// pointers within the options always point to a valid
+/// C string. It also assumes that the value for string
+/// type options is either a valid C string or null.
 pub unsafe fn option_print<W: Write>(writer: &mut W, opt: &option) -> Result<()> {
     write!(
         writer,
@@ -60,12 +67,19 @@ pub unsafe fn option_print<W: Write>(writer: &mut W, opt: &option) -> Result<()>
         fmt_cstr(opt.name),
         fmt_type(opt.type_)
     )?;
-    fmt_value(writer, &opt.val, opt.type_)?;
+    fmt_value(writer, opt.val, opt.type_)?;
     write!(writer, " (default: ")?;
-    fmt_value(writer, &opt.default_val, opt.type_)?;
+    fmt_value(writer, opt.default_val, opt.type_)?;
     writeln!(writer, ")")
 }
 
+/// Print all options.
+///
+/// # Safety
+/// This function assumes that the description and name
+/// pointers within the options always point to a valid
+/// C string. It also assumes that the value for string
+/// type options is either a valid C string or null.
 pub unsafe fn option_print_all<W: Write>(writer: &mut W, options: &[option]) -> Result<()> {
     for opt in options.iter() {
         option_print(writer, opt)?;
@@ -74,15 +88,29 @@ pub unsafe fn option_print_all<W: Write>(writer: &mut W, options: &[option]) -> 
     Ok(())
 }
 
+/// Describe a single option.
+///
+/// # Safety
+/// This function assumes that the description and name
+/// pointers within the options always point to a valid
+/// C string. It also assumes that the value for string
+/// type options is either a valid C string or null.
 pub unsafe fn option_describe<W: Write>(writer: &mut W, opt: &option) -> Result<()> {
     let name = fmt_cstr(opt.name);
     let desc = fmt_cstr(opt.description);
 
     write!(writer, "{: <31} {: <15} ", name, fmt_type(opt.type_))?;
-    fmt_value(writer, &opt.default_val, opt.type_)?;
+    fmt_value(writer, opt.default_val, opt.type_)?;
     writeln!(writer, " {}\n", desc)
 }
 
+/// Describe all options.
+///
+/// # Safety
+/// This function assumes that the description and name
+/// pointers within the options always point to a valid
+/// C string. It also assumes that the value for string
+/// type options is either a valid C string or null.
 pub unsafe fn option_describe_all<W: Write>(writer: &mut W, options: &[option]) -> Result<()> {
     for opt in options.iter() {
         option_describe(writer, opt)?;
