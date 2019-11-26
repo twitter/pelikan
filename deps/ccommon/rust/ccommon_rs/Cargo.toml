@@ -14,7 +14,7 @@ cc_binding = { path="../cc_binding" }
 ccommon-backend = { path="../ccommon-backend" }
 libc = "0.2.0"
 log = "0.4.0"
-bytes = "0.4.12"
+bytes = "0.5.0"
 
 [dependencies.ccommon-derive]
 path = "../ccommon-derive"
