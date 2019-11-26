@@ -17,10 +17,7 @@ use crate::stats::Metrics;
 
 use ccommon::metric::MetricExt;
 use pelikan::protocol::{admin::AdminProtocol, Protocol};
-use pelikan_sys::protocol::admin::{
-    METRIC_END_LEN, METRIC_PRINT_LEN, REQ_QUIT, REQ_STATS, REQ_VERSION, RSP_GENERIC, RSP_INVALID,
-    VERSION_PRINTED,
-};
+use pelikan_sys::protocol::admin::*;
 use rustcore::{Action, AdminHandler};
 
 pub struct Handler<'a> {

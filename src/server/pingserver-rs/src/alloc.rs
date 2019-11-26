@@ -40,6 +40,9 @@ unsafe impl GlobalAlloc for LoggedAlloc {
             //
             // The end result of this is that we don't log allocations
             // with alignment > 16.
+            //
+            // TODO: We should fix ccommon so that it can handle allocations
+            //       with arbitrary (within reason) alignments.
             return SYS_ALLOC.alloc(layout);
         }
 
