@@ -160,11 +160,12 @@ fn derive_metrics_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream, E
     let process_field = |is_tuple| {
         let krate = krate.clone();
         move |(i, field): (usize, &Field)| {
-            let ref ty = field.ty;
-            let ref name = field.ident;
-            let label = match is_tuple {
-                true => quote! {},
-                false => quote! { #name: },
+            let ty = &field.ty;
+            let name = &field.ident;
+            let label = if is_tuple {
+                quote! {}
+            } else {
+                quote! { #name: }
             };
 
             Ok(match get_metric_attr(&field.attrs)? {
@@ -229,8 +230,7 @@ fn derive_metrics_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream, E
                 #initializer
             }
         }
-    }
-    .into())
+    })
 }
 
 fn derive_options_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream, Error> {
@@ -273,11 +273,12 @@ fn derive_options_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream, E
     let process_field = |is_tuple| {
         let krate = krate.clone();
         move |(i, field): (usize, &Field)| {
-            let ref ty = field.ty;
-            let ref name = field.ident;
-            let label = match is_tuple {
-                true => quote! {},
-                false => quote! { #name: },
+            let ty = &field.ty;
+            let name = &field.ident;
+            let label = if is_tuple {
+                quote! {}
+            } else {
+                quote! { #name: }
             };
 
             Ok(match get_option_attr(&field.attrs)? {
@@ -347,8 +348,7 @@ fn derive_options_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream, E
                 #initializer
             }
         }
-    }
-    .into())
+    })
 }
 
 fn crate_name(name: &'static str) -> Result<TokenStream, Error> {
@@ -480,9 +480,9 @@ fn is_repr_c_or_transparent(attrs: &[Attribute]) -> bool {
         }
     }
 
-    return false;
+    false
 }
 
 fn has_generics(generics: &Generics) -> bool {
-    return generics.lt_token.is_some() || generics.where_clause.is_some();
+    generics.lt_token.is_some() || generics.where_clause.is_some()
 }

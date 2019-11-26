@@ -33,18 +33,40 @@ pub struct Buf {
 }
 
 impl Buf {
+    pub unsafe fn from_ptr<'a>(buf: *const buf) -> &'a Buf {
+        &*(buf as *const Buf)
+    }
+
+    pub unsafe fn from_mut_ptr<'a>(buf: *mut buf) -> &'a mut Buf {
+        &mut *(buf as *mut Buf)
+    }
+
+    pub fn as_ptr(&self) -> *const buf {
+        &self.buf as *const buf
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut buf {
+        &mut self.buf as *mut buf
+    }
+
+    #[deprecated(note = "use from_ptr instead")]
     pub unsafe fn from_raw<'a>(buf: *const buf) -> &'a Buf {
         &*(buf as *const Buf)
     }
 
+    #[deprecated(note = "use from_mut_ptr instead")]
     pub unsafe fn from_raw_mut<'a>(buf: *mut buf) -> &'a mut Buf {
         &mut *(buf as *mut Buf)
     }
 
+    #[deprecated(note = "use as_ptr instead")]
+    #[allow(clippy::wrong_self_convention)]
     pub fn into_raw(&self) -> *const buf {
         &self.buf as *const _
     }
 
+    #[deprecated(note = "use as_mut_ptr instead")]
+    #[allow(clippy::wrong_self_convention)]
     pub fn into_raw_mut(&mut self) -> *mut buf {
         &mut self.buf as *mut _
     }
@@ -74,7 +96,7 @@ impl Buf {
     pub fn new_cap(&self, bytes: usize) -> usize {
         assert!(unsafe { self.buf.begin.as_ptr() } as usize <= self.buf.wpos as usize);
 
-        return bytes.saturating_sub(self.write_size());
+        bytes.saturating_sub(self.write_size())
     }
 
     /// Clear the buffer and remove it from any allocation pool
@@ -226,13 +248,13 @@ impl Deref for OwnedBuf {
     type Target = Buf;
 
     fn deref(&self) -> &Buf {
-        unsafe { Buf::from_raw(self.buf) }
+        unsafe { Buf::from_ptr(self.buf) }
     }
 }
 
 impl DerefMut for OwnedBuf {
     fn deref_mut(&mut self) -> &mut Buf {
-        unsafe { Buf::from_raw_mut(self.buf) }
+        unsafe { Buf::from_mut_ptr(self.buf) }
     }
 }
 

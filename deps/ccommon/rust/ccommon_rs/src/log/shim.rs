@@ -87,7 +87,7 @@ impl Log for CCLog {
         let filestr = record
             .file()
             .or_else(|| record.module_path())
-            .unwrap_or(record.target());
+            .unwrap_or_else(|| record.target());
         let _ = write!(&mut filename[0..FILENAME_MAX_LEN], "{}", filestr);
 
         unsafe {
@@ -198,11 +198,11 @@ pub fn set_panic_handler() {
 
         let old_val = env::var_os("RUST_BACKTRACE");
         // If possible, have the stdlib display a backtrace
-        let _ = env::set_var("RUST_BACKTRACE", "full");
+        env::set_var("RUST_BACKTRACE", "full");
         old_hook(info);
 
         if let Some(var) = old_val {
-            let _ = env::set_var("RUST_BACKTRACE", var);
+            env::set_var("RUST_BACKTRACE", var);
         }
     }))
 }
