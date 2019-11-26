@@ -16,7 +16,7 @@ use std::io::Result;
 use std::net::{Shutdown, SocketAddr};
 
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{error::TrySendError, Sender};
 
 use ccommon::{metric::*, Metrics};
 
@@ -42,16 +42,20 @@ pub async fn tcp_listener(
         let _ = stream.set_nodelay(true);
 
         if let Err(e) = chan.try_send(stream) {
-            if e.is_closed() {
+            let (val, is_closed) = match e {
+                TrySendError::Full(val) => (val, false),
+                TrySendError::Closed(val) => (val, true),
+            };
+
+            // Gracefully close the channel if possible
+            let _ = val.shutdown(Shutdown::Both);
+
+            if is_closed {
                 info!("Channel has shut down, shutting down TCP listener.");
                 break;
             }
 
             metrics.queue_full_ex.incr();
-
-            let val = e.into_inner();
-            // Gracefully close the channel if possible
-            let _ = val.shutdown(Shutdown::Both);
 
             error!("New connection queue is full. Dropping a connection!");
         }

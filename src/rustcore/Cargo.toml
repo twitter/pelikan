@@ -9,11 +9,13 @@ ccommon = { path="../../deps/ccommon/rust/ccommon_rs", package="ccommon_rs" }
 ccommon-sys = { path="../../deps/ccommon/rust/cc_binding", package="cc_binding" }
 pelikan-sys = { path="../rust-util/pelikan-sys" }
 
-bytes = "0.4.12"
+bytes = "0.5.0"
 futures = { version="0.3", features = [ "async-await" ] }
 log = "0.4"
+pin-project = "0.4.6"
+parking_lot = "0.10.0"
 thiserror = "1.0.6"
-tokio = { version = "0.2.0-alpha.6", features = [ "signal" ] }
+tokio = { version = "0.2.0", features = [ "signal", "net", "sync", "time", "tcp", "uds" ] }
 
 [dependencies.pelikan]
 path = "../rust-util/pelikan"

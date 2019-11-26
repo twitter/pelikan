@@ -19,14 +19,13 @@ use std::ffi::CStr;
 use std::io::Result;
 use std::net::SocketAddr;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
-use tokio::runtime::current_thread::spawn;
-use tokio::timer::Interval;
 
 use crate::errors::{AddrParseData, AddrParseError};
+use crate::spawn_local;
 use crate::{Action, AdminHandler, ClosableStream};
 
 use ccommon::buf::OwnedBuf;
@@ -161,11 +160,12 @@ async fn admin_tcp_stream_handler<H, S>(
 
 async fn flush_debug_log(duration: Duration) {
     use ccommon_sys::debug_log_flush;
+    use tokio::time::interval;
 
-    let mut intvl = Interval::new(Instant::now(), duration);
+    let mut intvl = interval(duration);
 
     loop {
-        let _ = intvl.next().await;
+        let _ = intvl.tick().await;
 
         unsafe {
             debug_log_flush(std::ptr::null_mut());
@@ -184,7 +184,7 @@ pub async fn admin_tcp<H: AdminHandler + 'static>(
     let mut listener = TcpListener::bind(addr).await?;
     let handler = Rc::new(RefCell::new(handler));
 
-    spawn(flush_debug_log(log_flush_interval));
+    spawn_local(flush_debug_log(log_flush_interval));
 
     loop {
         let stream: TcpStream = match listener.accept().await {
@@ -199,7 +199,7 @@ pub async fn admin_tcp<H: AdminHandler + 'static>(
 
         metrics.tcp_accept.incr();
 
-        spawn(admin_tcp_stream_handler(
+        spawn_local(admin_tcp_stream_handler(
             Rc::clone(&handler),
             stream,
             metrics,

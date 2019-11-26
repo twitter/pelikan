@@ -16,9 +16,9 @@ use std::rc::Rc;
 
 use ccommon::buf::OwnedBuf;
 use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
-use tokio::runtime::current_thread::spawn;
 use tokio::sync::mpsc::Receiver;
 
+use crate::spawn_local;
 use crate::traits::WorkerFn;
 use crate::{ClosableStream, WorkerMetrics};
 
@@ -40,7 +40,7 @@ pub(crate) async fn worker<W, S, F>(
 
         let worker = Rc::clone(&worker);
         let state = Rc::clone(&state);
-        spawn(async move {
+        spawn_local(async move {
             // Variable we use to constrain the lifetime of rbuf and wbuf
             let mut sock = unsafe { buf_sock_borrow() };
             let (rbuf, wbuf) = unsafe {
@@ -63,6 +63,6 @@ pub(crate) async fn worker<W, S, F>(
             unsafe {
                 buf_sock_return(&mut sock as *mut _);
             }
-        })
+        });
     }
 }

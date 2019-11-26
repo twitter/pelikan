@@ -25,35 +25,34 @@
 //!
 //! The `Core` config takes care of starting these threads once configured
 //! with a set of futures to run for each.
-//! 
+//!
 //! # How to use this library
 //! There are two different ways to use this library.
-//! 
+//!
 //! ## With a simple protocol
 //! If the serialization/deserialization logic for the desired protocol is
 //! simple enough that it can reasonably implement [`Protocol`][0] then
 //! you can implement [`Worker`][1]. Once you've implemented `Worker`, then
 //! you can use [`worker::default_worker`][2] as the worker task. From there
 //! setting up the server is fairly straightforward.
-//! 
+//!
 //! ## With a more complicated protocol
-//! If the protocol serialization/deserialization doesn't fit with the 
+//! If the protocol serialization/deserialization doesn't fit with the
 //! [`Protocol`][0] trait. Then you'll have to implement the stream
 //! reading loop yourself. There are utility methods under the [`util`][3]
 //! module that take care of some of the more tricky error handling
 //! around reading and writing buffers.
-//! 
-//! For an example of how this is done, see the implementation of 
+//!
+//! For an example of how this is done, see the implementation of
 //! [`worker::default_worker`][2].
 //!
 //! # Example
 //! See `pingserver-rs` for a fully-working example of a server with pelikan.
-//! 
+//!
 //! [0]: pelikan::protocol::Protocol
 //! [1]: crate::Worker
 //! [2]: crate::worker::default_worker
 //! [3]: crate::util
-
 
 #[macro_use]
 extern crate log;
@@ -61,8 +60,12 @@ extern crate log;
 extern crate thiserror;
 #[macro_use]
 extern crate ccommon;
+#[macro_use]
+extern crate pin_project;
 
 mod listener;
+mod signal;
+mod spawn;
 mod traits;
 
 pub mod admin;
@@ -75,13 +78,15 @@ use std::io::Result as IOResult;
 use std::pin::Pin;
 use std::rc::Rc;
 
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::{Builder, Runtime};
 use tokio::sync::mpsc::Receiver;
 
 pub use crate::admin::AdminOptions;
 pub use crate::listener::*;
+pub use crate::spawn::spawn_local;
 pub use crate::traits::{Action, AdminHandler, ClosableStream, Worker};
 
+use crate::spawn::ThreadPinnedFuture;
 use crate::traits::WorkerFn;
 use crate::worker::{default_worker, WorkerMetrics};
 
@@ -131,8 +136,14 @@ where
     F: Future<Output = IOResult<()>>,
 {
     pub fn new(admin: A) -> IOResult<Self> {
+        let runtime = Builder::new()
+            .enable_io()
+            .enable_time()
+            .basic_scheduler()
+            .build()?;
+
         Ok(Self {
-            workers: Runtime::new()?,
+            workers: runtime,
             admin,
             listeners: vec![],
         })
@@ -168,7 +179,9 @@ where
         S: ClosableStream + 'static,
     {
         self.workers
-            .spawn(crate::worker::worker(channel, state, metrics, worker));
+            .spawn(ThreadPinnedFuture::new(crate::worker::worker(
+                channel, state, metrics, worker,
+            )));
         self
     }
 
@@ -184,24 +197,32 @@ where
         } = self;
 
         let admin_thread = thread::spawn(move || -> IOResult<()> {
-            let mut runtime = Runtime::new()?;
+            let mut runtime = Builder::new()
+                .enable_io()
+                .enable_time()
+                .basic_scheduler()
+                .build()?;
+
             runtime.block_on(admin())
         });
 
         let listener_thread = thread::spawn(move || -> IOResult<()> {
-            let mut runtime = Runtime::new()?;
+            let mut runtime = Builder::new()
+                .enable_io()
+                .enable_time()
+                .basic_scheduler()
+                .build()?;
 
             for listener in listeners {
                 runtime.spawn(listener);
             }
 
-            runtime.run().expect("Error while running listeners");
+            runtime.block_on(crate::signal::wait_for_ctrl_c());
 
             Ok(())
         });
 
-        // TODO: Block on a signal handler here
-        workers.run().expect("Error while running workers");
+        workers.block_on(crate::signal::wait_for_ctrl_c());
 
         admin_thread.join().expect("Admin thread panicked")?;
         listener_thread.join().expect("Listener thread panicked")?;
