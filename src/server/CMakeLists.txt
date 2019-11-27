@@ -6,6 +6,10 @@ if(TARGET_PINGSERVER)
     endif()
 endif()
 
+if(TARGET_DUAL)
+    add_subdirectory(dual-protocol)
+endif()
+
 if(TARGET_RDS)
     add_subdirectory(rds)
 endif()
