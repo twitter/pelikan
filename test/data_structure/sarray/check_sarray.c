@@ -7,7 +7,7 @@
 #include <check.h>
 
 /* define for each suite, local scope due to macro visibility rule */
-#define SUITE_NAME "intarray"
+#define SUITE_NAME "sarray"
 #define DEBUG_LOG  SUITE_NAME ".log"
 
 #define BUF_SIZE 8200
@@ -17,7 +17,7 @@ static char buf[BUF_SIZE];
 
 
 /*
- * intarray tests
+ * sarray tests
  */
 
 START_TEST(test_sarray_create)
@@ -131,13 +131,13 @@ sarray_suite(void)
 {
     Suite *s = suite_create(SUITE_NAME);
 
-    TCase *tc_intarray = tcase_create("intarray");
-    suite_add_tcase(s, tc_intarray);
+    TCase *tc_sarray = tcase_create("sarray");
+    suite_add_tcase(s, tc_sarray);
 
-    tcase_add_test(tc_intarray, test_sarray_create);
-    tcase_add_test(tc_intarray, test_sarray_insert_seek);
-    tcase_add_test(tc_intarray, test_sarray_remove);
-    tcase_add_test(tc_intarray, test_sarray_truncate);
+    tcase_add_test(tc_sarray, test_sarray_create);
+    tcase_add_test(tc_sarray, test_sarray_insert_seek);
+    tcase_add_test(tc_sarray, test_sarray_remove);
+    tcase_add_test(tc_sarray, test_sarray_truncate);
 
     return s;
 }

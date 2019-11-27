@@ -43,7 +43,7 @@ _get_key(char *p, uint16_t ksize)
     case 2:
         return *((uint16_t *)p);
     case 1:
-        return *p;
+        return *((uint8_t *)p);
     default:
         NOT_REACHED();
         return 0;
@@ -64,7 +64,7 @@ _set_key(char *p, uint16_t ksize, uint64_t key)
         *((uint16_t *)p) = key;
         break;
     case 1:
-        *p = key;
+        *((uint8_t *)p) = key;
         break;
     default:
         NOT_REACHED();
@@ -161,7 +161,7 @@ _locate(uint32_t *idx, char *body, uint32_t nentry, uint32_t esize,
         uint16_t ksize, uint64_t key)
 {
     /* optimize for inserting at the end, which is dominant in many use cases */
-    if (nentry == 0 || _get_key(body + esize * (nentry - 1), esize) < key) {
+    if (nentry == 0 || _get_key(body + esize * (nentry - 1), ksize) < key) {
         *idx = nentry;
 
         return false;
@@ -244,7 +244,7 @@ smap_index(uint32_t *idx, const smap_p sm, uint64_t key)
 
     ksize = smap_ksize(sm);
     if (!_validate_range(ksize, key)) {
-        log_debug("%"PRIu64" out of range for %"PRIu32" byte integer", key,
+        log_debug("%"PRIu64" out of range for %"PRIu16" byte integer", key,
                 ksize);
 
         return SMAP_EINVALID;
@@ -276,7 +276,7 @@ smap_insert(smap_p sm, uint64_t key, const struct bstring *val)
 
     ksize = smap_ksize(sm);
     if (!_validate_range(ksize, key)) {
-        log_debug("%"PRIu64" out of range for %"PRIu32" byte integer", key,
+        log_debug("%"PRIu64" out of range for %"PRIu16" byte integer", key,
                 ksize);
 
         return SMAP_EINVALID;
@@ -322,7 +322,7 @@ smap_remove(smap_p sm, uint64_t key)
 
     ksize = smap_ksize(sm);
     if (!_validate_range(ksize, key)) {
-        log_debug("%"PRIu64" out of range for %"PRIu32" byte integer", key,
+        log_debug("%"PRIu64" out of range for %"PRIu16" byte integer", key,
                 ksize);
 
         return SMAP_EINVALID;

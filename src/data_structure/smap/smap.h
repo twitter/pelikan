@@ -9,6 +9,13 @@
  * ASC order without duplicates. Once an array is created, these configurable
  * attributes cannot be changed.
  *
+ * Entry boundary is aligned based on the size of the key, i.e. if the key size
+ * is 64-bit, all entries' start address are 64-bit aligned, if the key size is
+ * 16-bit, entries are 16-bit aligned, etc. This is to ensure simple typecast of
+ * pointers to keys would work. Otherwise, integers need to be first copied to
+ * byte aligned address before typecasting for read, and `memcpy' has to be used
+ * for write.
+ *
  * TODO(yao): support variable size up to a max within the same map object
  *
  * Because of the limitation on data type, smap is both more memory-efficient
@@ -81,7 +88,6 @@ typedef enum {
 #define SM_NENTRY(_sm) (*((uint32_t *)(_sm)))
 #define SM_KSIZE(_sm) (*((uint16_t *)((_sm) + sizeof(uint32_t))))
 #define SM_VSIZE(_sm) (*((uint16_t *)((_sm) + sizeof(uint32_t) + sizeof(uint16_t))))
-#define SM_ESIZE(_sm) ((uint32_t)SM_KSIZE(_sm) + (uint32_t)SM_VSIZE(_sm))
 
 static inline uint32_t
 smap_nentry(const smap_p sm)
@@ -104,13 +110,16 @@ smap_vsize(const smap_p sm)
 static inline uint32_t
 smap_esize(const smap_p sm)
 {
-    return SM_ESIZE(sm);
+    uint32_t ksize = smap_ksize(sm);
+
+    /* force alignment by key size */
+    return ((ksize * 2 + smap_vsize(sm) - 1) / ksize) * ksize;
 }
 
 static inline uint32_t
 smap_size(const smap_p sm)
 {
-    return SMAP_HEADER_SIZE + SM_ESIZE(sm) * SM_NENTRY(sm);
+    return SMAP_HEADER_SIZE + smap_esize(sm) * SM_NENTRY(sm);
 }
 
 /* initialize an smap of key size 1/2/4/8 bytes and vsize */
