@@ -3,11 +3,11 @@
 #include <cc_debug.h>
 
 
-#define SA_BODY(_sa) ((uint8_t *)(_sa) + SARRAY_HEADER_SIZE)
+#define SA_BODY(_sa) ((char *)(_sa) + SARRAY_HEADER_SIZE)
 #define SCAN_THRESHOLD 64
 
-static inline uint8_t *
-_position(uint8_t *body, uint32_t esize, uint32_t idx)
+static inline char *
+_position(char *body, uint32_t esize, uint32_t idx)
 {
     return body + esize * idx;
 }
@@ -33,7 +33,7 @@ _validate_range(uint32_t esize, uint64_t val)
 }
 
 static inline uint64_t
-_get_value(uint8_t *p, uint32_t esize)
+_get_value(char *p, uint32_t esize)
 {
     switch (esize) {
     case 8:
@@ -51,7 +51,7 @@ _get_value(uint8_t *p, uint32_t esize)
 }
 
 static inline void
-_set_value(uint8_t *p, uint32_t esize, uint64_t val)
+_set_value(char *p, uint32_t esize, uint64_t val)
 {
     switch (esize) {
     case 8:
@@ -81,7 +81,7 @@ _should_scan(uint32_t nentry, uint32_t esize) {
  * otherwise, idx contains the index of the insertion spot
  */
 static inline bool
-_linear_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, uint64_t val)
+_linear_search(uint32_t *idx, char *body, uint32_t nentry, uint32_t esize, uint64_t val)
 {
     uint32_t i;
 
@@ -106,7 +106,7 @@ _linear_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, ui
 }
 
 static inline bool
-_binary_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, uint64_t val)
+_binary_search(uint32_t *idx, char *body, uint32_t nentry, uint32_t esize, uint64_t val)
 {
     uint32_t id = 0, imin, imax;
     uint32_t curr;
@@ -155,7 +155,7 @@ _binary_search(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, ui
 }
 
 static inline bool
-_locate(uint32_t *idx, uint8_t *body, uint32_t nentry, uint32_t esize, uint64_t val)
+_locate(uint32_t *idx, char *body, uint32_t nentry, uint32_t esize, uint64_t val)
 {
     /* optimize for inserting at the end, which is dominant in many use cases */
     if (nentry == 0 || _get_value(body + esize * (nentry - 1), esize) < val) {
@@ -251,7 +251,7 @@ sarray_rstatus_e
 sarray_insert(sarray_p sa, uint64_t val)
 {
     bool found;
-    uint8_t *body, *p;
+    char *body, *p;
     uint32_t idx, esize, nentry;
 
     if (sa == NULL) {
@@ -287,7 +287,7 @@ sarray_rstatus_e
 sarray_remove(sarray_p sa, uint64_t val)
 {
     bool found;
-    uint8_t *body, *p;
+    char *body, *p;
     uint32_t idx, esize, nentry;
 
     if (sa == NULL) {
@@ -321,7 +321,7 @@ sarray_remove(sarray_p sa, uint64_t val)
 sarray_rstatus_e
 sarray_truncate(sarray_p sa, int64_t count)
 {
-    uint8_t *body;
+    char *body;
     uint32_t esize, nentry;
 
     if (sa == NULL) {

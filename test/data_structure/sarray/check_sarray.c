@@ -13,7 +13,7 @@
 #define BUF_SIZE 8200
 #define NENTRY   1024
 
-static unsigned char buf[BUF_SIZE];
+static char buf[BUF_SIZE];
 
 
 /*

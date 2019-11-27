@@ -46,7 +46,7 @@
  * Insertion and removal of entries involve index-based lookup, as well as
  * shifting data. So in additional to the considerations above, the amount of
  * data being moved for updates will affect performance. Updates near the "fixed
- * end" of the ziplist (currently the beginning) require moving more data and
+ * end" of the array (currently the beginning) require moving more data and
  * therefore will be slower. Overall, it is cheapest to perform updates at the
  * end of the array due to zero data movement.
  *
@@ -56,7 +56,7 @@
 
 #define SARRAY_HEADER_SIZE 8
 
-typedef uint8_t * sarray_p;
+typedef char * sarray_p;
 
 typedef enum {
     SARRAY_OK,
@@ -96,7 +96,7 @@ sarray_rstatus_e sarray_init(sarray_p sa, uint32_t esize);
 sarray_rstatus_e sarray_value(uint64_t *val, const sarray_p sa, uint32_t idx);
 sarray_rstatus_e sarray_index(uint32_t *idx, const sarray_p sa, uint64_t val);
 
-/* ziplist APIs: modify */
+/* sarray APIs: modify */
 sarray_rstatus_e sarray_insert(sarray_p sa, uint64_t val);
 sarray_rstatus_e sarray_remove(sarray_p sa, uint64_t val);
 
