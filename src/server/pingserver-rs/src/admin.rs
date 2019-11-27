@@ -45,7 +45,6 @@ impl<'a> AdminHandler for Handler<'a> {
         rsp: &mut <AdminProtocol as Protocol>::Response,
     ) -> Action {
         use ccommon_sys::*;
-        use pelikan_sys::protocol::admin::print_stats;
         use pelikan_sys::util::procinfo_update;
         use std::os::raw::{c_char, c_uint};
 
