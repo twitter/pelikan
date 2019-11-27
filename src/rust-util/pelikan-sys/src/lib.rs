@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #![allow(
+    clippy::all,
     improper_ctypes,
     non_upper_case_globals,
     non_snake_case,

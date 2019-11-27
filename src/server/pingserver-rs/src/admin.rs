@@ -14,13 +14,11 @@
 // limitations under the License.
 
 use crate::stats::Metrics;
+
 use ccommon::metric::MetricExt;
-use pelikan::core::admin::AdminHandler;
 use pelikan::protocol::{admin::AdminProtocol, Protocol};
-use pelikan_sys::protocol::admin::{
-    METRIC_END_LEN, METRIC_PRINT_LEN, REQ_STATS, REQ_VERSION, RSP_GENERIC, RSP_INVALID,
-    VERSION_PRINTED,
-};
+use pelikan_sys::protocol::admin::*;
+use rustcore::{Action, AdminHandler};
 
 pub struct Handler<'a> {
     stats: &'a Metrics,
@@ -32,8 +30,7 @@ impl<'a> Handler<'a> {
         info!("setting up the pingserver::admin module");
 
         let cap = METRIC_PRINT_LEN as usize * Metrics::num_metrics() + METRIC_END_LEN;
-        let mut vec = Vec::with_capacity(cap);
-        vec.resize(cap, 0);
+        let vec = vec![0; cap];
 
         Self { stats, buf: vec }
     }
@@ -42,11 +39,11 @@ impl<'a> Handler<'a> {
 impl<'a> AdminHandler for Handler<'a> {
     type Protocol = AdminProtocol;
 
-    fn process_request(
+    fn process_request<'de>(
         &mut self,
-        rsp: &mut <AdminProtocol as Protocol>::Response,
         req: &mut <AdminProtocol as Protocol>::Request,
-    ) {
+        rsp: &mut <AdminProtocol as Protocol>::Response,
+    ) -> Action {
         use ccommon_sys::*;
         use pelikan_sys::protocol::admin::print_stats;
         use pelikan_sys::util::procinfo_update;
@@ -55,7 +52,8 @@ impl<'a> AdminHandler for Handler<'a> {
         unsafe {
             rsp.type_ = RSP_GENERIC;
 
-            match req.type_ {
+            match (*req).type_ {
+                REQ_QUIT => return Action::Close,
                 REQ_STATS => {
                     procinfo_update();
                     rsp.data.data = self.buf.as_mut_ptr() as *mut c_char;
@@ -75,5 +73,7 @@ impl<'a> AdminHandler for Handler<'a> {
                 }
             }
         }
+
+        Action::Respond
     }
 }

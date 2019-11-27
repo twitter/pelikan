@@ -7,6 +7,7 @@ edition = "2018"
 [features]
 c_admin_protocol = []
 protocol_admin = [ "pelikan-sys/protocol_admin" ]
+protocol_ping  = [ "pelikan-sys/protocol_ping" ]
 
 [dependencies]
 pelikan-sys = { path = "../pelikan-sys" }

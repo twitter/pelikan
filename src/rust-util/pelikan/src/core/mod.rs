@@ -20,8 +20,8 @@ use ccommon::buf::OwnedBuf;
 use ccommon_sys::buf;
 use pelikan_sys::core::data_processor;
 
-use std::os::raw::c_int;
 use std::ffi::c_void;
+use std::os::raw::c_int;
 
 #[repr(C)]
 pub enum DataProcessorError {
@@ -36,25 +36,35 @@ pub trait DataProcessor {
     /// guarantee that it will be dropped properly
     type SockState: Copy;
 
+    /// Act on all messages contained within rbuf.
+    ///
+    /// Read will only be called when new data is
+    /// added to `rbuf`.
     fn read(
         &mut self,
         rbuf: &mut OwnedBuf,
         wbuf: &mut OwnedBuf,
-        state: &mut *mut (),
+        state: &mut Option<&mut Self::SockState>,
     ) -> Result<(), DataProcessorError>;
 
+    /// Post-write cleanup.
+    ///
+    /// Will be called after a write has occurred.
     fn write(
         &mut self,
         rbuf: &mut OwnedBuf,
         wbuf: &mut OwnedBuf,
-        state: &mut *mut (),
+        state: &mut Option<&mut Self::SockState>,
     ) -> Result<(), DataProcessorError>;
 
+    /// Final cleanup handler.
+    ///
+    /// This can be used for final cleanup of state.
     fn error(
         &mut self,
         rbuf: &mut OwnedBuf,
         wbuf: &mut OwnedBuf,
-        state: &mut *mut (),
+        state: &mut Option<&mut Self::SockState>,
     ) -> Result<(), DataProcessorError>;
 }
 
@@ -75,7 +85,7 @@ unsafe extern "C" fn read_wrapper<T: DataProcessor>(
     let res = (*ptr).read(
         &mut *(rbuf as *mut OwnedBuf),
         &mut *(wbuf as *mut OwnedBuf),
-        &mut *(data as *mut *mut ()),
+        &mut *(data as *mut _),
     );
 
     match res {
@@ -101,7 +111,7 @@ unsafe extern "C" fn write_wrapper<T: DataProcessor>(
     let res = (*ptr).write(
         &mut *(rbuf as *mut OwnedBuf),
         &mut *(wbuf as *mut OwnedBuf),
-        &mut *(data as *mut *mut ()),
+        &mut *(data as *mut _),
     );
 
     match res {
@@ -127,7 +137,7 @@ unsafe extern "C" fn error_wrapper<T: DataProcessor>(
     let res = (*ptr).error(
         &mut *(rbuf as *mut OwnedBuf),
         &mut *(wbuf as *mut OwnedBuf),
-        &mut *(data as *mut *mut ())
+        &mut *(data as *mut _),
     );
 
     match res {
@@ -139,7 +149,7 @@ unsafe extern "C" fn error_wrapper<T: DataProcessor>(
 static mut DATA_PTR: *mut () = std::ptr::null_mut();
 
 /// Start the server on the data port.
-/// 
+///
 /// # Safety
 /// It is unsafe to call this function concurrently.
 /// This function is not reentrant.

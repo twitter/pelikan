@@ -14,9 +14,48 @@
 
 #[cfg(feature = "protocol_admin")]
 pub mod admin;
+#[cfg(feature = "protocol_ping")]
+pub mod ping;
 
-/// Trait defining the request and response types for a protocol
+use std::error::Error;
+
+use ccommon::buf::OwnedBuf;
+
+/// An error that could indicate that there weren't enough
+/// bytes to successfully parse the buffer.
+pub trait PartialParseError {
+    /// Indicates that this error occurred because there
+    /// weren't enough bytes in the buffer.
+    fn is_unfinished(&self) -> bool;
+}
+
+/// A type that can be reset to a default state.
+pub trait Resettable: Default {
+    fn reset(&mut self) {
+        *self = Self::default();
+    }
+}
+
+/// Trait for a native (or otherwise lifetime-independant) protocol.
 pub trait Protocol {
-    type Request;
-    type Response;
+    type Request: Resettable;
+    type Response: Resettable;
+
+    type ParseError: Error + PartialParseError;
+    type ComposeError: Error;
+
+    fn parse_req(state: &mut Self::Request, buf: &mut OwnedBuf) -> Result<(), Self::ParseError>;
+    fn parse_rsp(state: &mut Self::Response, buf: &mut OwnedBuf) -> Result<(), Self::ParseError>;
+
+    fn compose_req(req: &Self::Request, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError>;
+    fn compose_rsp(rsp: &Self::Response, buf: &mut OwnedBuf) -> Result<usize, Self::ComposeError>;
+}
+
+/// Useful for cases where stuff can never fail.
+///
+/// This should help with dead-code elimination.
+impl PartialParseError for std::convert::Infallible {
+    fn is_unfinished(&self) -> bool {
+        match *self {}
+    }
 }

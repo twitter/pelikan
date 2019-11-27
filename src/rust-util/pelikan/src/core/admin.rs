@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::protocol::Protocol;
-
 use std::fmt;
 use std::marker::PhantomData;
 
@@ -21,13 +19,10 @@ static mut ADMIN: Option<AdminInner> = None;
 
 /// Handler for dealing with requests on the admin port.
 pub trait AdminHandler {
-    type Protocol: Protocol;
+    type Request;
+    type Response;
 
-    fn process_request(
-        &mut self,
-        rsp: &mut <Self::Protocol as Protocol>::Response,
-        req: &mut <Self::Protocol as Protocol>::Request,
-    );
+    fn process_request(&mut self, rsp: &mut Self::Response, req: &mut Self::Request);
 }
 
 /// This is basically a manual vtable since there's no real way
@@ -95,8 +90,8 @@ unsafe fn call_process_request<H: AdminHandler>(data: *mut (), rsp: *mut (), req
     assert!(!req.is_null());
 
     let handler = &mut *(data as *mut H);
-    let rsp = &mut *(rsp as *mut <H::Protocol as Protocol>::Response);
-    let req = &mut *(req as *mut <H::Protocol as Protocol>::Request);
+    let rsp = &mut *(rsp as *mut H::Response);
+    let req = &mut *(req as *mut H::Request);
 
     handler.process_request(rsp, req);
 }

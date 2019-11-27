@@ -1,4 +1,3 @@
-// ccommon - a cache common library.
 // Copyright (C) 2019 Twitter, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,16 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pelikan::protocol::ping::{PingProtocol, Request, Response};
-use rustcore::{Action, Worker};
+fn main() {
+    std::env::set_var("RUST_BACKTRACE", "1");
 
-pub struct PingWorker;
-
-impl Worker for PingWorker {
-    type State = ();
-    type Protocol = PingProtocol;
-
-    fn process_request<'de>(&self, _: &mut Request, _: &mut Response, _: &mut ()) -> Action {
-        Action::Respond
-    }
+    check_pingserver_rs::main();
 }
