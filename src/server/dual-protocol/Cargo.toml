@@ -1,0 +1,8 @@
+[package]
+name = "pelikan_dual"
+version = "0.1.0"
+authors = ["Sean Lynch <slynch@twitter.com>"]
+edition = "2018"
+
+[dependencies]
+rustcore = { path = "../../rustcore" }

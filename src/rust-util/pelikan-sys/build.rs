@@ -513,7 +513,7 @@ fn main() {
             .whitelist_var("MAX_.*")
             .whitelist_var("DATAFLAG_SIZE")
             .whitelist_type("compose_.*")
-            .whitelist_type("compose_.*")
+            .whitelist_function("compose_.*")
             .generate()
             .expect("Unable to generate bindings");
 
