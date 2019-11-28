@@ -19,6 +19,7 @@
 
 static char buf[BUF_SIZE];
 static struct bstring val = str2bstr(VALUE);
+static struct bstring val_read;
 
 
 /*
@@ -50,7 +51,6 @@ START_TEST(test_smap_insert_seek)
 {
     uint32_t idx;
     uint64_t key;
-    struct bstring val_read;
 
     ck_assert_int_eq(smap_init(buf, 1, VLEN), SMAP_OK);
     ck_assert_int_eq(smap_insert(buf, 3, &val), SMAP_OK);  /* [(3, val)] */
@@ -137,6 +137,26 @@ START_TEST(test_smap_truncate)
 END_TEST
 
 
+START_TEST(test_smap_value)
+{
+    smap_init(buf, 8, 1);
+    ck_assert_int_eq(smap_esize(buf), 16);
+    smap_init(buf, 4, 1);
+    ck_assert_int_eq(smap_esize(buf), 8);
+    smap_init(buf, 2, 1);
+    ck_assert_int_eq(smap_esize(buf), 4);
+    smap_init(buf, 1, 1);
+    ck_assert_int_eq(smap_esize(buf), 2);
+
+    smap_init(buf, 8, 7);
+    ck_assert_int_eq(smap_insert(buf, 3, &val), SMAP_EINVALID);
+    ck_assert_int_eq(smap_insert(buf, 3, &str2bstr("abcdefg")), SMAP_OK);
+    ck_assert_int_eq(smap_insert(buf, 1, &str2bstr("abc")), SMAP_EINVALID);
+    ck_assert_int_eq(smap_insert(buf, 5, &str2bstr("hijklmn")), SMAP_OK);
+}
+END_TEST
+
+
 /*
  * test suite
  */
@@ -152,6 +172,7 @@ smap_suite(void)
     tcase_add_test(tc_smap, test_smap_insert_seek);
     tcase_add_test(tc_smap, test_smap_remove);
     tcase_add_test(tc_smap, test_smap_truncate);
+    tcase_add_test(tc_smap, test_smap_value);
 
     return s;
 }
