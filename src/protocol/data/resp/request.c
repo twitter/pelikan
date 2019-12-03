@@ -22,6 +22,7 @@ struct command command_table[REQ_SENTINEL] = {
     REQ_HASH(CMD_INIT)
     REQ_LIST(CMD_INIT)
     REQ_SARRAY(CMD_INIT)
+    REQ_SMAP(CMD_INIT)
     REQ_ZSET(CMD_INIT)
     REQ_MISC(CMD_INIT)
 };

@@ -5,6 +5,7 @@
 #include "cmd_list.h"
 #include "cmd_misc.h"
 #include "cmd_sarray.h"
+#include "cmd_smap.h"
 #include "cmd_zset.h"
 #include "token.h"
 
@@ -49,6 +50,7 @@ typedef enum cmd_type {
     REQ_HASH(GET_TYPE)
     REQ_LIST(GET_TYPE)
     REQ_SARRAY(GET_TYPE)
+    REQ_SMAP(GET_TYPE)
     REQ_ZSET(GET_TYPE)
     REQ_MISC(GET_TYPE)
     REQ_SENTINEL
