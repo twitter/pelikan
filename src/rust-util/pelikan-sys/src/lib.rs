@@ -333,6 +333,11 @@ pub mod data_structure {
         include!(concat!(env!("OUT_DIR"), "/ds_sarray.rs"));
     }
 
+    #[cfg(feature = "ds_smap")]
+    pub mod smap{
+        include!(concat!(env!("OUT_DIR"), "/ds_smap.rs"));
+    }
+
     #[cfg(feature = "ds_ziplist")]
     pub mod ziplist {
         use super::{blob, bstring};

@@ -636,6 +636,26 @@ fn main() {
     if cfg!(feature = "ds_sarray") {
         gen_ds_sarray();
     }
+    if cfg!(feature = "ds_smap") {
+        print_directives("ds_smap", "data_structure/smap");
+
+        let bindings = builder()
+            .header("../../data_structure/smap/smap.h")
+            .whitelist_type("smap_p")
+            .whitelist_type("smap_rstatus_e")
+            .whitelist_function("smap_.*")
+            .whitelist_recursively(false)
+            .derive_default(true)
+            .derive_copy(true)
+            .derive_debug(true)
+            .generate()
+            .expect("Unable to generate bindings");
+
+        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+        bindings
+            .write_to_file(out_path.join("ds_smap.rs"))
+            .expect("Couldn't write bindings");
+    }
     if cfg!(feature = "ds_ziplist") {
         gen_ds_ziplist();
     }
