@@ -27,8 +27,25 @@ pub mod export {
     pub use ccommon_sys;
 }
 
+#[allow(unused_imports)]
+#[macro_use]
+extern crate memoffset;
+
 const fn slice_to_ptr(arr: &[u8]) -> *mut i8 {
     arr.as_ptr() as *const i8 as *mut _
+}
+
+struct NULL;
+
+impl From<NULL> for *mut i8 {
+    fn from(_: NULL) -> Self {
+        std::ptr::null_mut()
+    }
+}
+impl From<NULL> for *const i8 {
+    fn from(_: NULL) -> Self {
+        std::ptr::null()
+    }
 }
 
 #[doc(hidden)]
@@ -65,7 +82,7 @@ macro_rules! __pelikan_sys__init_option_single {
     };
     [OPTION_TYPE_STR, $default:expr] => {
         $crate::export::ccommon_sys::option_val {
-            vstr: $default
+            vstr: $default.into()
         }
     };
     ($name:ident, $ty:ident, $default:expr, $desc:literal) => {
@@ -112,6 +129,19 @@ macro_rules! init_option {
                     $field: $crate::__pelikan_sys__init_option_single!(
                         $field, $ty, $default, $desc
                     ),
+                )*
+            }
+        }
+    };
+    {
+        $(
+            ACTION( $field:ident , $ty:ident, $default:expr, $desc:literal )
+        ),* $(,)?
+    } => {
+        init_option! {
+            Self {
+                $(
+                    ACTION( $field, $ty, $default, $desc ),
                 )*
             }
         }
@@ -163,6 +193,19 @@ macro_rules! init_metric {
                 },
             )*
         }
+    };
+    {
+        $(
+            ACTION( $field:ident , $ty:ident, $desc:literal )
+        ),* $(,)?
+    } => {
+        init_metric! {
+            Self {
+                $(
+                    ACTION( $field, $ty, $desc ),
+                )*
+            }
+        }
     }
 }
 
@@ -179,7 +222,7 @@ pub mod client {
 
 #[cfg(feature = "core")]
 pub mod core {
-    use crate::slice_to_ptr;
+    use crate::{slice_to_ptr, NULL};
     use ccommon_sys::{buf, metric, option, pipe_conn, ring_array};
     use ccommon_sys::{timeout_cb_fn, timeout_event};
 
@@ -191,13 +234,11 @@ pub mod core {
     unsafe impl ccommon::metric::Metrics for server_metrics_st {
         fn new() -> Self {
             init_metric! {
-                Self {
-                    ACTION( server_event_total,     METRIC_COUNTER, "# server events returned"      ),
-                    ACTION( server_event_loop,      METRIC_COUNTER, "# server event loops returned" ),
-                    ACTION( server_event_read,      METRIC_COUNTER, "# server core_read events"     ),
-                    ACTION( server_event_write,     METRIC_COUNTER, "# server core_write events"    ),
-                    ACTION( server_event_error,     METRIC_COUNTER, "# server core_error events"    )
-                }
+                ACTION( server_event_total,     METRIC_COUNTER, "# server events returned"      ),
+                ACTION( server_event_loop,      METRIC_COUNTER, "# server event loops returned" ),
+                ACTION( server_event_read,      METRIC_COUNTER, "# server core_read events"     ),
+                ACTION( server_event_write,     METRIC_COUNTER, "# server core_write events"    ),
+                ACTION( server_event_error,     METRIC_COUNTER, "# server core_error events"    )
             }
         }
     }
@@ -222,7 +263,7 @@ pub mod core {
         fn new() -> Self {
             init_option! {
                 Self;
-                ACTION( admin_host,     OPTION_TYPE_STR,    std::ptr::null_mut(),       "admin interfaces listening on"),
+                ACTION( admin_host,     OPTION_TYPE_STR,    NULL,                       "admin interfaces listening on"),
                 ACTION( admin_port,     OPTION_TYPE_STR,    slice_to_ptr(ADMIN_PORT),   "admin port"                   ),
                 ACTION( admin_timeout,  OPTION_TYPE_UINT,   ADMIN_TIMEOUT as u64,       "evwait timeout"               ),
                 ACTION( admin_nevent,   OPTION_TYPE_UINT,   ADMIN_NEVENT as u64,        "evwait max nevent returned"   ),
@@ -236,7 +277,7 @@ pub mod core {
         fn new() -> Self {
             init_option! {
                 Self;
-                ACTION( server_host,    OPTION_TYPE_STR,    std::ptr::null_mut(),       "interfaces listening on"      ),
+                ACTION( server_host,    OPTION_TYPE_STR,    NULL,                       "interfaces listening on"      ),
                 ACTION( server_port,    OPTION_TYPE_STR,    slice_to_ptr(SERVER_PORT),  "port listening on"            ),
                 ACTION( server_timeout, OPTION_TYPE_UINT,   SERVER_TIMEOUT as u64,      "evwait timeout"               ),
                 ACTION( server_nevent,  OPTION_TYPE_UINT,   SERVER_NEVENT as u64,       "evwait max nevent returned"   )
@@ -252,6 +293,29 @@ pub mod core {
             }
         }
     }
+}
+
+#[cfg(feature = "hotkey")]
+pub mod hotkey {
+    use ccommon_sys::{bstring, option};
+
+    include!(concat!(env!("OUT_DIR"), "/hotkey.rs"));
+
+    unsafe impl ccommon::option::Options for hotkey_options_st {
+        fn new() -> Self {
+            init_option! {
+                ACTION( hotkey_enable,          OPTION_TYPE_BOOL,   false,                  "use hotkey detection?"      ),
+                ACTION( hotkey_sample_size,     OPTION_TYPE_UINT,   HOTKEY_WINDOW_SIZE,     "number of keys to maintain" ),
+                ACTION( hotkey_sample_rate,     OPTION_TYPE_UINT,   HOTKEY_RATE,            "hotkey sample ratio"        ),
+                ACTION( hotkey_threshold_ratio, OPTION_TYPE_FPN,    HOTKEY_THRESHOLD_RATIO, "threshold for hotkey signal")
+            }
+        }
+    }
+}
+
+#[cfg(feature = "datapool")]
+pub mod datapool {
+    include!(concat!(env!("OUT_DIR"), "/datapool.rs"));
 }
 
 pub mod data_structure {
@@ -271,53 +335,16 @@ pub mod data_structure {
 
     #[cfg(feature = "ds_ziplist")]
     pub mod ziplist {
-        use super::blob;
+        use super::{blob, bstring};
 
         include!(concat!(env!("OUT_DIR"), "/ds_ziplist.rs"));
     }
 }
 
-pub mod storage {
-    #[cfg(feature = "cuckoo")]
-    pub mod cuckoo {
-        use crate::time::{delta_time_i, proc_time_i};
-        use ccommon_sys::{bstring, metric, option, rstatus_i};
-
-        include!(concat!(env!("OUT_DIR"), "/cuckoo.rs"));
-    }
-
-    #[cfg(feature = "slab")]
-    pub mod slab {
-        use crate::time::proc_time_i;
-        use ccommon_sys::{bstring, metric, option};
-
-        include!(concat!(env!("OUT_DIR"), "/slab.rs"));
-    }
-
-    #[cfg(feature = "cdb")]
-    pub mod cdb {
-        use ccommon_sys::bstring;
-
-        include!(concat!(env!("OUT_DIR"), "/cdb.rs"));
-    }
-}
+pub mod storage;
 
 #[cfg(feature = "time")]
-pub mod time {
-    use ccommon_sys::option;
-    use libc::time_t;
-
-    include!(concat!(env!("OUT_DIR"), "/time.rs"));
-
-    unsafe impl ccommon::option::Options for time_options_st {
-        fn new() -> Self {
-            init_option! {
-                Self;
-                ACTION(time_type, OPTION_TYPE_UINT, TIME_UNIX as u64, "Expiry timestamp mode")
-            }
-        }
-    }
-}
+pub mod time;
 
 #[cfg(feature = "util")]
 pub mod util {
@@ -373,9 +400,121 @@ pub mod protocol {
 
     #[cfg(feature = "protocol_memcache")]
     pub mod memcache {
+        use crate::NULL;
         use ccommon_sys::{array, bstring, buf, metric, option};
 
         include!(concat!(env!("OUT_DIR"), "/protocol_memcache.rs"));
+
+        unsafe impl ccommon::metric::Metrics for parse_req_metrics_st {
+            fn new() -> Self {
+                init_metric! {
+                    Self {
+                        ACTION( request_parse,      METRIC_COUNTER, "# requests parsed"    ),
+                        ACTION( request_parse_ex,   METRIC_COUNTER, "# parsing error"      )
+                    }
+                }
+            }
+        }
+        unsafe impl ccommon::metric::Metrics for parse_rsp_metrics_st {
+            fn new() -> Self {
+                init_metric! {
+                    Self {
+                        ACTION( response_parse,     METRIC_COUNTER, "# responses parsed"   ),
+                        ACTION( response_parse_ex,  METRIC_COUNTER, "# rsp parsing error"  ),
+
+                    }
+                }
+            }
+        }
+
+        unsafe impl ccommon::metric::Metrics for compose_req_metrics_st {
+            fn new() -> Self {
+                init_metric! {
+                    Self {
+                        ACTION( request_compose,        METRIC_COUNTER, "# requests composed"  ),
+                        ACTION( request_compose_ex,     METRIC_COUNTER, "# composing error"    )
+                    }
+                }
+            }
+        }
+        unsafe impl ccommon::metric::Metrics for compose_rsp_metrics_st {
+            fn new() -> Self {
+                init_metric! {
+                    Self {
+                        ACTION( response_compose,       METRIC_COUNTER, "# responses composed" ),
+                        ACTION( response_compose_ex,    METRIC_COUNTER, "# rsp composing error")
+                    }
+                }
+            }
+        }
+
+        unsafe impl ccommon::metric::Metrics for request_metrics_st {
+            fn new() -> Self {
+                init_metric! {
+                    Self {
+                        ACTION( request_free,       METRIC_GAUGE,   "# free req in pool"   ),
+                        ACTION( request_borrow,     METRIC_COUNTER, "# reqs borrowed"      ),
+                        ACTION( request_return,     METRIC_COUNTER, "# reqs returned"      ),
+                        ACTION( request_create,     METRIC_COUNTER, "# reqs created"       ),
+                        ACTION( request_destroy,    METRIC_COUNTER, "# reqs destroyed"     )
+                    }
+                }
+            }
+        }
+        unsafe impl ccommon::metric::Metrics for response_metrics_st {
+            fn new() -> Self {
+                init_metric! {
+                    Self {
+                        ACTION( response_free,      METRIC_GAUGE,   "# free rsp in pool"   ),
+                        ACTION( response_borrow,    METRIC_COUNTER, "# rsps borrowed"      ),
+                        ACTION( response_return,    METRIC_COUNTER, "# rsps returned"      ),
+                        ACTION( response_create,    METRIC_COUNTER, "# rsps created"       ),
+                        ACTION( response_destroy,   METRIC_COUNTER, "# rsps destroyed"     )
+                    }
+                }
+            }
+        }
+
+        unsafe impl ccommon::metric::Metrics for klog_metrics_st {
+            fn new() -> Self {
+                init_metric! {
+                    ACTION( klog_logged,    METRIC_COUNTER, "# commands logged"             ),
+                    ACTION( klog_discard,   METRIC_COUNTER, "# commands discarded"          ),
+                    ACTION( klog_skip,      METRIC_COUNTER, "# commands skipped (sampling)" )
+                }
+            }
+        }
+
+        unsafe impl ccommon::option::Options for request_options_st {
+            fn new() -> Self {
+                init_option! {
+                    Self {
+                        ACTION( request_poolsize,   OPTION_TYPE_UINT,   0u32,   "request pool size")
+                    }
+                }
+            }
+        }
+        unsafe impl ccommon::option::Options for response_options_st {
+            fn new() -> Self {
+                init_option! {
+                    Self {
+                        ACTION( response_poolsize,  OPTION_TYPE_UINT,   0u32,   "response pool size"   )
+                    }
+                }
+            }
+        }
+
+        unsafe impl ccommon::option::Options for klog_options_st {
+            fn new() -> Self {
+                init_option! {
+                    ACTION( klog_file,   OPTION_TYPE_STR,  NULL,         "command log file"                    ),
+                    ACTION( klog_backup, OPTION_TYPE_STR,  NULL,         "command log backup file"             ),
+                    ACTION( klog_nbuf,   OPTION_TYPE_UINT, KLOG_NBUF,    "command log buf size"                ),
+                    ACTION( klog_sample, OPTION_TYPE_UINT, KLOG_SAMPLE,  "command log sample ratio"            ),
+                    ACTION( klog_max,    OPTION_TYPE_UINT, KLOG_MAX,     "klog file size to trigger rotation"  )
+                }
+            }
+        }
     }
 
     #[cfg(feature = "protocol_ping")]

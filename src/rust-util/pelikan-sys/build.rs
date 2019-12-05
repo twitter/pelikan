@@ -44,12 +44,30 @@ fn builder() -> bindgen::Builder {
 
     builder
         .constified_enum(".*")
-        .whitelist_recursively(false)
+        // .whitelist_recursively(false)
         .derive_default(true)
         .derive_copy(true)
         .derive_debug(true)
         .prepend_enum_name(false)
         .whitelist_type("u?int([0-9]+|max)_t")
+        // blacklist types from ccommon
+        .blacklist_item("option")
+        .blacklist_item("metric")
+        .blacklist_item("pipe_conn")
+        .blacklist_item("ring_array")
+        .blacklist_item("timeout_cb_fn")
+        .blacklist_item("timeout_event")
+        .blacklist_item("buf")
+        .blacklist_item("bstring")
+        .blacklist_item("rstatus_i")
+        .blacklist_item("array")
+        .blacklist_item("option_val")
+        .blacklist_item("option_type")
+        .blacklist_item("option_val_u")
+        .blacklist_item("option_type_e")
+        // blacklist types from libc
+        .blacklist_item("addrinfo")
+        .blacklist_item("time_t")
 }
 
 #[allow(unused)]
@@ -206,6 +224,7 @@ fn main() {
             .whitelist_var("proc_ms")
             .whitelist_var("proc_us")
             .whitelist_var("proc_ns")
+            .whitelist_var("time_type")
             .whitelist_var("NSEC_PER_USEC")
             .whitelist_var("USEC_PER_SEC")
             .whitelist_var("MSEC_PER_SEC")
@@ -255,6 +274,43 @@ fn main() {
             .write_to_file(out_path.join("core.rs"))
             .expect("Couldn't write bindings");
     }
+    if cfg!(feature = "hotkey") {
+        print_directives("hotkey", "hotkey");
+
+        let bindings = builder()
+            .header("../../hotkey/hotkey.h")
+            .header("../../hotkey/key_window.h")
+            .header("../../hotkey/kc_map.h")
+            .header("../../hotkey/constant.h")
+            .whitelist_function("key_window_.*")
+            .whitelist_function("kc_map_.*")
+            .whitelist_function("hotkey_.*")
+            .whitelist_type("hotkey_.*")
+            .whitelist_var("HOTKEY_.*")
+            .whitelist_var("MAX_KEY_LEN")
+            .generate()
+            .expect("Unable to generate bindings");
+
+        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+        bindings
+            .write_to_file(out_path.join("hotkey.rs"))
+            .expect("Couldn't write bindings");
+    }
+    if cfg!(feature = "datapool") {
+        print_directives("datapool", "datapool");
+
+        let bindings = builder()
+            .header("../../datapool/datapool.h")
+            .whitelist_type("datapool")
+            .whitelist_function("datapool_.*")
+            .generate()
+            .expect("Unable to generate bindings");
+
+        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+        bindings
+            .write_to_file(out_path.join("datapool.rs"))
+            .expect("Couldn't write bindings");
+    }
 
     // Data Strucutures
     if cfg!(feature = "ds_bitmap") {
@@ -300,6 +356,7 @@ fn main() {
 
         let bindings = builder()
             .header("../../data_structure/ziplist/ziplist.h")
+            .blacklist_item("blob")
             .whitelist_type("ziplist_.*")
             .whitelist_type("zipentry_p")
             .whitelist_function("ziplist_.*")
@@ -319,6 +376,8 @@ fn main() {
 
         let bindings = builder()
             .header("../../storage/cuckoo/cuckoo.h")
+            .blacklist_item("delta_time_i")
+            .blacklist_item("proc_time_i")
             .whitelist_var("CUCKOO_.*")
             .whitelist_type("cuckoo_.*")
             .whitelist_function("cuckoo_.*")
@@ -352,6 +411,7 @@ fn main() {
 
         let bindings = builder()
             .header("../../storage/slab/slab.h")
+            .blacklist_type("proc_time_i")
             .whitelist_var("SLAB_.*")
             .whitelist_var("ITEM_.*")
             .whitelist_var("EVICT_.*")
@@ -373,6 +433,7 @@ fn main() {
             .whitelist_type("slabclass")
             .whitelist_var("SLABCLASS_.*")
             .whitelist_var("slabclass")
+            .whitelist_var("perslab")
             .generate()
             .expect("Unable to generate bindings");
 
@@ -514,6 +575,7 @@ fn main() {
             .whitelist_var("DATAFLAG_SIZE")
             .whitelist_type("compose_.*")
             .whitelist_function("compose_.*")
+            .whitelist_function("REQ_.*")
             .generate()
             .expect("Unable to generate bindings");
 

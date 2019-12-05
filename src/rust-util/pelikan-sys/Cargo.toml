@@ -10,9 +10,11 @@ cdb = [ "cdb_rs" ]
 client-network = []
 core = []
 cuckoo = []
+datapool = []
 ds_bitmap = []
 ds_sarray = []
 ds_ziplist = []
+hotkey = [ "datapool"]
 protocol_resp = []
 protocol_resp_tw = []
 protocol_memcache = []
@@ -22,10 +24,13 @@ slab = []
 time = []
 util = [ "time" ]
 
-default = [ "core", "time", "util" ]
+default = [ 
+    "core", "time", "util",
+]
 
 [dependencies]
 libc = "0.2.0"
+memoffset = "0.5.3"
 
 [dependencies.cdb_rs]
 path = "../../storage/cdb/cdb_rs"
