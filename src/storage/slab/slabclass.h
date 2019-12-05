@@ -83,7 +83,7 @@ struct slabclass {
  * that we can have at most 254 usable slab classes
  */
 #define SLABCLASS_MIN_ID        1
-#define SLABCLASS_MAX_ID        (UCHAR_MAX - 1)
-#define SLABCLASS_INVALID_ID    UCHAR_MAX
+#define SLABCLASS_MAX_ID        254
+#define SLABCLASS_INVALID_ID    255
 
 extern struct slabclass slabclass[SLABCLASS_MAX_ID + 1];  /* collection of slabs bucketed by slabclass */
