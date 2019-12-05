@@ -4,7 +4,6 @@ members = [
     "deps/ccommon/rust/cc_binding",
     "deps/ccommon/rust/ccommon_rs",
     "deps/ccommon/rust/ccommon-derive",
-    "src/server/dual-protocol",
     "src/server/pingserver-rs",
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",

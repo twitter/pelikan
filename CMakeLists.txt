@@ -43,7 +43,6 @@ option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
 option(TARGET_CDB "build cdb binary (implies HAVE_RUST)" OFF)
 option(TARGET_RESPCLI "build resp-cli binary" ON)
-option(TARGET_DUAL "build experimental dual-protocol server (implies HAVE_RUST)" ON)
 
 option(HAVE_RUST "build features written in rust" OFF)
 option(RUST_USE_MUSL "build rust deps against musl" OFF)
@@ -183,10 +182,6 @@ find_package(Threads)
 if(TARGET_CDB)
     set(HAVE_RUST on)
 endif(TARGET_CDB)
-
-if(TARGET_DUAL)
-    set(HAVE_RUST on)
-endif()
 
 #set(CMAKE_INCLUDE_CURRENT_DIR)
 include_directories(${include_directories}
