@@ -11,6 +11,7 @@ set(MODULES
     core
     ds_ziplist
     ds_sarray
+    ds_smap
     protocol_admin
     protocol_resp
     slab

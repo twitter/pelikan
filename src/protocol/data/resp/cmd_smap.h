@@ -9,7 +9,7 @@
 
 /**
  * create: create an empty map or integer width ESIZE & value width VSIZE
- * SMap.create KEY ESIZE VSIZE [WATERMARK_L] [WATERMARK_H]
+ * SMap.create KEY ISIZE VSIZE [WATERMARK_L] [WATERMARK_H]
  *
  * delete: delete an map
  * SMap.delete KEY
@@ -49,13 +49,12 @@
 typedef enum smap_elem {
     SMAP_VERB = 0,
     SMAP_KEY = 1,
-    SMAP_ESIZE = 2,
+    SMAP_ISIZE = 2,
+    SMAP_VSIZE = 3,
     SMAP_IKEY = 2,
     SMAP_IDX = 2,
     SMAP_CNT = 2,
-    SMAP_VSIZE = 3,
-    SMAP_VAL = 3,
     SMAP_ICNT = 3, /* when an index is also present */
-    SMAP_WML = 3,  /* watermark (low) */
-    SMAP_WMH = 4,  /* watermark (high) */
+    SMAP_WML = 4,  /* watermark (low) */
+    SMAP_WMH = 5,  /* watermark (high) */
 } smap_elem_e;
