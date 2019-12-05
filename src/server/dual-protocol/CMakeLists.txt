@@ -9,6 +9,7 @@ add_dependencies(${TARGET_NAME} pelikan_rs)
 
 target_link_libraries(${TARGET_NAME} rustcore)
 target_link_libraries(${TARGET_NAME} pelikan_rs)
+target_link_libraries(${TARGET_NAME} datapool)
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION bin)
 add_dependencies(service ${TARGET_NAME})
