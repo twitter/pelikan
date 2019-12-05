@@ -24,7 +24,7 @@ use std::time::Duration;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 
-use crate::errors::{AddrParseData, AddrParseError};
+use crate::errors::AddrParseError;
 use crate::spawn_local;
 use crate::{Action, AdminHandler, ClosableStream};
 
@@ -219,7 +219,7 @@ pub struct AdminOptions {
 }
 
 impl AdminOptions {
-    fn _addr(&self) -> std::result::Result<SocketAddr, AddrParseData> {
+    pub fn addr(&self) -> std::result::Result<SocketAddr, AddrParseError> {
         let ptr = self.admin_host.value();
         let cstr = if ptr.is_null() {
             None
@@ -230,14 +230,10 @@ impl AdminOptions {
         let port = self.admin_port.value();
 
         if port > std::u16::MAX as u64 {
-            return Err(AddrParseData::InvalidPort(port));
+            return Err(AddrParseError::InvalidPort(port));
         }
 
         Ok(SocketAddr::new(host.parse()?, port as u16))
-    }
-
-    pub fn addr(&self) -> std::result::Result<SocketAddr, AddrParseError> {
-        self._addr().map_err(AddrParseError)
     }
 
     pub fn dlog_intvl(&self) -> Duration {

@@ -21,7 +21,7 @@ use std::net::SocketAddr;
 
 use ccommon::{option::*, Options};
 
-use crate::errors::{AddrParseData, AddrParseError};
+use crate::errors::AddrParseError;
 
 #[derive(Options)]
 #[repr(C)]
@@ -33,7 +33,7 @@ pub struct ListenerOptions {
 }
 
 impl ListenerOptions {
-    fn _addr(&self) -> Result<SocketAddr, AddrParseData> {
+    pub fn addr(&self) -> Result<SocketAddr, AddrParseError> {
         let ptr = self.server_host.value();
         let cstr = if ptr.is_null() {
             None
@@ -44,13 +44,9 @@ impl ListenerOptions {
         let port = self.server_port.value();
 
         if port > std::u16::MAX as u64 {
-            return Err(AddrParseData::InvalidPort(port));
+            return Err(AddrParseError::InvalidPort(port));
         }
 
         Ok(SocketAddr::new(host.parse()?, port as u16))
-    }
-
-    pub fn addr(&self) -> Result<SocketAddr, AddrParseError> {
-        self._addr().map_err(AddrParseError)
     }
 }
