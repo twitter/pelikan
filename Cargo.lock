@@ -858,7 +858,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "pelikan_dual"
+name = "pelikan_pingserver_rs"
+version = "0.0.0"
+dependencies = [
+ "cc_binding 0.1.0",
+ "ccommon_rs 0.1.0",
+ "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pelikan 0.1.0",
+ "pelikan-sys 0.0.0",
+ "rustcore 0.1.0",
+]
+
+[[package]]
+name = "pelikan_twemcache_http"
 version = "0.1.0"
 dependencies = [
  "arrayvec 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -877,21 +892,6 @@ dependencies = [
  "rustcore 0.1.0",
  "thiserror 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "pelikan_pingserver_rs"
-version = "0.0.0"
-dependencies = [
- "cc_binding 0.1.0",
- "ccommon_rs 0.1.0",
- "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "pelikan 0.1.0",
- "pelikan-sys 0.0.0",
- "rustcore 0.1.0",
 ]
 
 [[package]]

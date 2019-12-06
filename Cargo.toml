@@ -5,7 +5,7 @@ members = [
     "deps/ccommon/rust/ccommon_rs",
     "deps/ccommon/rust/ccommon-derive",
     "src/server/pingserver-rs",
-    "src/server/dual-protocol",
+    "src/server/twemcache-http",
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",
     "src/rust-util/httpencode",

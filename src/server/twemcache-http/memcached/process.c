@@ -816,7 +816,7 @@ twemcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 
 
 int
-twemcache_process_write(struct buf **rbuf, struct buf **wbuf, void **_)
+twemcache_process_write(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     log_verb("post-write processing");
 

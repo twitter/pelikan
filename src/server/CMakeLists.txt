@@ -6,8 +6,8 @@ if(TARGET_PINGSERVER)
     endif()
 endif()
 
-if(TARGET_DUAL)
-    add_subdirectory(dual-protocol)
+if(TARGET_HTTP)
+    add_subdirectory(twemcache-http)
 endif()
 
 if(TARGET_RDS)

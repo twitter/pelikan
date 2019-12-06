@@ -43,7 +43,7 @@ option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
 option(TARGET_CDB "build cdb binary (implies HAVE_RUST)" OFF)
 option(TARGET_RESPCLI "build resp-cli binary" ON)
-option(TARGET_DUAL "build experimental dual-protocol server (implies HAVE_RUST)" OFF)
+option(TARGET_HTTP "build experimental twemcache-http server (implies HAVE_RUST)" OFF)
 
 option(HAVE_RUST "build features written in rust" OFF)
 option(RUST_USE_MUSL "build rust deps against musl" OFF)

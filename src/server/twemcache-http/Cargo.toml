@@ -1,5 +1,5 @@
 [package]
-name = "pelikan_dual"
+name = "pelikan_twemcache_http"
 version = "0.1.0"
 authors = ["Sean Lynch <slynch@twitter.com>"]
 edition = "2018"
