@@ -16,15 +16,13 @@ use std::error::Error;
 use std::fmt;
 
 /// A socket address could not be parsed properly.
-pub struct AddrParseError(pub(crate) AddrParseData);
-
 #[derive(Debug)]
-pub(crate) enum AddrParseData {
+pub enum AddrParseError {
     InvalidIP(std::net::AddrParseError),
     InvalidPort(u64),
 }
 
-impl From<std::net::AddrParseError> for AddrParseData {
+impl From<std::net::AddrParseError> for AddrParseError {
     fn from(x: std::net::AddrParseError) -> Self {
         Self::InvalidIP(x)
     }
@@ -32,28 +30,20 @@ impl From<std::net::AddrParseError> for AddrParseData {
 
 impl fmt::Display for AddrParseError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        use self::AddrParseData::*;
+        use self::AddrParseError::*;
 
-        match &self.0 {
+        match &self {
             InvalidIP(err) => write!(fmt, "Invalid IP address: {}", err),
             InvalidPort(port) => write!(fmt, "{} is not a valid port number", port),
         }
     }
 }
 
-impl fmt::Debug for AddrParseError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_tuple("AddrParseError")
-            .field(&format_args!("{}", self))
-            .finish()
-    }
-}
-
 impl Error for AddrParseError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        use self::AddrParseData::*;
+        use self::AddrParseError::*;
 
-        match &self.0 {
+        match &self {
             InvalidIP(err) => Some(err),
             _ => None,
         }

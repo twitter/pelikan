@@ -32,3 +32,4 @@ extern crate log;
 
 pub mod core;
 pub mod protocol;
+pub mod storage;

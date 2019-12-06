@@ -5,9 +5,14 @@ authors = ["Sean Lynch <slynch@twitter.com>"]
 edition = "2018"
 
 [features]
-c_admin_protocol = []
 protocol_admin = [ "pelikan-sys/protocol_admin" ]
 protocol_ping  = [ "pelikan-sys/protocol_ping" ]
+protocol_memcache = [ "pelikan-sys/protocol_memcache" ]
+
+slab = [ "pelikan-sys/slab" ]
+hotkey = [ "pelikan-sys/hotkey" ]
+
+default = [ ]
 
 [dependencies]
 pelikan-sys = { path = "../pelikan-sys" }

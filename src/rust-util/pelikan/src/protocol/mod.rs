@@ -14,6 +14,8 @@
 
 #[cfg(feature = "protocol_admin")]
 pub mod admin;
+#[cfg(feature = "protocol_memcache")]
+pub mod memcache;
 #[cfg(feature = "protocol_ping")]
 pub mod ping;
 
