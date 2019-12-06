@@ -5,6 +5,7 @@ members = [
     "deps/ccommon/rust/ccommon_rs",
     "deps/ccommon/rust/ccommon-derive",
     "src/server/pingserver-rs",
+    "src/server/dual-protocol",
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",
     "src/rust-util/httpencode",
@@ -18,14 +19,14 @@ members = [
     "test/server/twemcache-http"
 ]
 
-# [profile.release]
-# opt-level = 3
-# debug = true
-# rpath = false
-# lto = true
-# debug-assertions = false
-# codegen-units = 1
+[profile.release]
+opt-level = 3
+debug = true
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
 
-# [profile.dev]
-# debug = true
-# opt-level = 0
+[profile.dev]
+debug = true
+opt-level = 0

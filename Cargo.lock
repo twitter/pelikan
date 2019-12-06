@@ -83,6 +83,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "bindgen"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cexpr 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "clang-sys 0.28.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazycell 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "peeking_take_while 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-hash 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "shlex 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "which 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -403,6 +426,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "env_logger"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "atty 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "humantime 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "termcolor 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "failure"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -636,6 +671,11 @@ version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "lazycell"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "libc"
 version = "0.2.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -815,6 +855,28 @@ dependencies = [
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)",
  "memoffset 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "pelikan_dual"
+version = "0.1.0"
+dependencies = [
+ "arrayvec 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bindgen 0.52.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bytes 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cc 1.0.48 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cc_binding 0.1.0",
+ "ccommon_rs 0.1.0",
+ "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "httparse 1.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "httpdate 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "httpencode 0.1.0 (git+https://github.com/swlynch99/httpencode)",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pelikan 0.1.0",
+ "pelikan-sys 0.0.0",
+ "rustcore 0.1.0",
+ "thiserror 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1429,6 +1491,7 @@ dependencies = [
 "checksum backtrace 0.3.40 (registry+https://github.com/rust-lang/crates.io-index)" = "924c76597f0d9ca25d762c25a4d369d51267536465dc5064bdf0eb073ed477ea"
 "checksum backtrace-sys 0.1.32 (registry+https://github.com/rust-lang/crates.io-index)" = "5d6575f128516de27e3ce99689419835fce9643a9b215a14d2b5b685be018491"
 "checksum bindgen 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ebd71393f1ec0509b553aa012b9b58e81dadbdff7130bd3b8cba576e69b32f75"
+"checksum bindgen 0.52.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f1c85344eb535a31b62f0af37be84441ba9e7f0f4111eb0530f43d15e513fe57"
 "checksum bit-set 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e84c238982c4b1e1ee668d136c510c67a13465279c0cb367ea6baf6310620a80"
 "checksum bit-vec 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f59bbe95d4e52a6398ec21238d31577f2b28a9d86807f06ca59d191d8440d0bb"
 "checksum bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
@@ -1455,6 +1518,7 @@ dependencies = [
 "checksum either 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 "checksum env_logger 0.5.13 (registry+https://github.com/rust-lang/crates.io-index)" = "15b0a4d2e39f8420210be8b27eeda28029729e2fd4291019455016c348240c38"
 "checksum env_logger 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "aafcde04e90a5226a6443b7aabdb016ba2f8307c847d524724bd9b346dd1a2d3"
+"checksum env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "44533bbbb3bb3c1fa17d9f2e4e38bbbaf8396ba82193c4cb1b6445d711445d36"
 "checksum failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "f8273f13c977665c5db7eb2b99ae520952fe5ac831ae4cd09d80c4c7042b5ed9"
 "checksum failure_derive 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0bc225b78e0391e4b8683440bf2e63c2deeeb2ce5189eab46e2b68c6d3725d08"
 "checksum fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
@@ -1483,6 +1547,7 @@ dependencies = [
 "checksum itoa 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "501266b7edd0174f8530248f87f99c88fbe60ca4ef3dd486835b8d8d53136f7f"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
 "checksum lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
+"checksum lazycell 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b294d6fa9ee409a054354afc4352b0b9ef7ca222c69b8812cbea9e7d2bf3783f"
 "checksum libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)" = "d515b1f41455adea1313a4a2ac8a8a477634fbae63cc6100e3aebb207ce61558"
 "checksum libloading 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f2b111a074963af1d37a139918ac6d49ad1d0d5e47f72fd55388619691a7d753"
 "checksum lock_api 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e57b3997725d2b60dbec1297f6c2e2957cc383db1cebd6be812163f969c7d586"
