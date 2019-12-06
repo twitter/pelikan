@@ -184,7 +184,7 @@ if(TARGET_CDB)
     set(HAVE_RUST on)
 endif(TARGET_CDB)
 
-if(TARGET_DUAL)
+if(TARGET_HTTP)
     set(HAVE_RUST on)
 endif()
 

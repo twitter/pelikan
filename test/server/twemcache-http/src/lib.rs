@@ -159,7 +159,7 @@ fn basic_http_test() -> IOResult<()> {
         .finish()
         .unwrap();
 
-    let mut stream = TcpStream::connect("localhost:4779")?;
+    let mut stream = TcpStream::connect("0.0.0.0:4779")?;
     stream.set_nodelay(true)?;
     stream.set_nonblocking(true)?;
 
@@ -189,6 +189,7 @@ fn basic_http_test() -> IOResult<()> {
 }
 
 fn run_tests() {
+    println!("Running test basic_http_test");
     if let Err(e) = basic_http_test() {
         panic!("Failed to run basic_http_test: {}", e);
     }
