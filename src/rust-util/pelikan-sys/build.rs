@@ -44,7 +44,6 @@ fn builder() -> bindgen::Builder {
 
     builder
         .constified_enum(".*")
-        // .whitelist_recursively(false)
         .derive_default(true)
         .derive_copy(true)
         .derive_debug(true)

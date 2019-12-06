@@ -14,7 +14,7 @@ datapool = []
 ds_bitmap = []
 ds_sarray = []
 ds_ziplist = []
-hotkey = [ "datapool"]
+hotkey = [ "datapool" ]
 protocol_resp = []
 protocol_resp_tw = []
 protocol_memcache = []
@@ -24,9 +24,7 @@ slab = []
 time = []
 util = [ "time" ]
 
-default = [ 
-    "core", "time", "util",
-]
+default = [ "core", "time", "util" ]
 
 [dependencies]
 libc = "0.2.0"

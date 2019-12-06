@@ -12,7 +12,7 @@ protocol_memcache = [ "pelikan-sys/protocol_memcache" ]
 slab = [ "pelikan-sys/slab" ]
 hotkey = [ "pelikan-sys/hotkey" ]
 
-default = [ "slab" ]
+default = [ ]
 
 [dependencies]
 pelikan-sys = { path = "../pelikan-sys" }
