@@ -14,7 +14,8 @@ members = [
     "src/server/pingserver-rs",
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",
-    "test/server/pingserver-rs"
+    "test/server/pingserver-rs",
+    "test/server/twemcache-http"
 ]
 
 # [profile.release]
