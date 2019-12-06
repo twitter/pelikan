@@ -241,11 +241,6 @@ where
             }
         };
 
-        // TODO: Remove this once dropping a LocalSet with incomplete
-        //       futures doesn't result in an infinite loop.
-        // Ugly hack to prevent pelikan from hanging on shutdown.
-        std::mem::forget(workers);
-
         Ok(())
     }
 }
