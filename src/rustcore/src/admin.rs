@@ -26,7 +26,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 use tokio::task::spawn_local;
 
-use crate::errors::{AddrParseData, AddrParseError};
+use crate::errors::AddrParseError;
 use crate::{Action, AdminHandler, ClosableStream};
 
 use ccommon::buf::OwnedBuf;
