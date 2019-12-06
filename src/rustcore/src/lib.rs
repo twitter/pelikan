@@ -60,12 +60,9 @@ extern crate log;
 extern crate thiserror;
 #[macro_use]
 extern crate ccommon;
-#[macro_use]
-extern crate pin_project;
 
 mod listener;
 mod signal;
-mod spawn;
 mod traits;
 
 pub mod admin;
@@ -77,16 +74,16 @@ use std::future::Future;
 use std::io::Result as IOResult;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::thread;
 
-use tokio::runtime::{Builder, Runtime};
+use tokio::runtime::Builder;
 use tokio::sync::mpsc::Receiver;
+use tokio::task::LocalSet;
 
 pub use crate::admin::AdminOptions;
 pub use crate::listener::*;
-pub use crate::spawn::spawn_local;
 pub use crate::traits::{Action, AdminHandler, ClosableStream, Worker};
 
-use crate::spawn::ThreadPinnedFuture;
 use crate::traits::WorkerFn;
 use crate::worker::{default_worker, WorkerMetrics};
 
@@ -125,7 +122,7 @@ where
 }
 
 pub struct Core<A> {
-    workers: Runtime,
+    workers: LocalSet,
     admin: A,
     listeners: Vec<Pin<Box<dyn Future<Output = ()> + Send + 'static>>>,
 }
@@ -133,17 +130,12 @@ pub struct Core<A> {
 impl<A, F> Core<A>
 where
     A: (FnOnce() -> F) + Send + 'static,
-    F: Future<Output = IOResult<()>>,
+    F: Future<Output = IOResult<()>> + 'static,
 {
+    /// Create a new core context with an explicitly given admin
     pub fn new(admin: A) -> IOResult<Self> {
-        let runtime = Builder::new()
-            .enable_io()
-            .enable_time()
-            .basic_scheduler()
-            .build()?;
-
         Ok(Self {
-            workers: runtime,
+            workers: LocalSet::new(),
             admin,
             listeners: vec![],
         })
@@ -179,53 +171,75 @@ where
         S: ClosableStream + 'static,
     {
         self.workers
-            .spawn(ThreadPinnedFuture::new(crate::worker::worker(
-                channel, state, metrics, worker,
-            )));
+            .spawn_local(crate::worker::worker(channel, state, metrics, worker));
         self
     }
 
     /// Run the admin handler, the listeners, and the workers all on separate
     /// threads. This will block until they all shut down.
     pub fn run(self) -> IOResult<()> {
-        use std::thread;
-
         let Self {
             admin,
-            mut workers,
+            workers,
             listeners,
         } = self;
 
-        let admin_thread = thread::spawn(move || -> IOResult<()> {
-            let mut runtime = Builder::new()
-                .enable_io()
-                .enable_time()
-                .basic_scheduler()
-                .build()?;
+        let admin_thread = thread::Builder::new()
+            .name("admin".to_owned())
+            .spawn(move || -> IOResult<()> {
+                let mut runtime = Builder::new()
+                    .enable_io()
+                    .enable_time()
+                    .basic_scheduler()
+                    .build()?;
 
-            runtime.block_on(admin())
-        });
+                let localset = LocalSet::new();
+                localset.block_on(&mut runtime, admin())
+            })
+            .expect("Failed to spawn admin thread");
 
-        let listener_thread = thread::spawn(move || -> IOResult<()> {
-            let mut runtime = Builder::new()
-                .enable_io()
-                .enable_time()
-                .basic_scheduler()
-                .build()?;
+        let listener_thread = thread::Builder::new()
+            .name("listener".to_owned())
+            .spawn(move || -> IOResult<()> {
+                let mut runtime = Builder::new()
+                    .enable_io()
+                    .enable_time()
+                    .basic_scheduler()
+                    .build()?;
 
-            for listener in listeners {
-                runtime.spawn(listener);
+                let set = LocalSet::new();
+
+                for listener in listeners {
+                    set.spawn_local(listener);
+                }
+
+                set.block_on(&mut runtime, crate::signal::wait_for_ctrl_c());
+
+                Ok(())
+            })
+            .expect("Failed to spawn listener thread");
+
+        let mut rt = Builder::new()
+            .enable_io()
+            .enable_time()
+            .basic_scheduler()
+            .build()?;
+
+        workers.block_on(&mut rt, crate::signal::wait_for_ctrl_c());
+
+        match admin_thread.join() {
+            Ok(res) => res?,
+            Err(_) => {
+                error!("Admin thread panicked");
             }
+        };
 
-            runtime.block_on(crate::signal::wait_for_ctrl_c());
-
-            Ok(())
-        });
-
-        workers.block_on(crate::signal::wait_for_ctrl_c());
-
-        admin_thread.join().expect("Admin thread panicked")?;
-        listener_thread.join().expect("Listener thread panicked")?;
+        match listener_thread.join() {
+            Ok(res) => res?,
+            Err(_) => {
+                error!("Listener thread panicked");
+            }
+        };
 
         Ok(())
     }

@@ -17,8 +17,8 @@ use std::rc::Rc;
 use ccommon::buf::OwnedBuf;
 use ccommon_sys::{buf, buf_sock_borrow, buf_sock_return};
 use tokio::sync::mpsc::Receiver;
+use tokio::task::spawn_local;
 
-use crate::spawn_local;
 use crate::traits::WorkerFn;
 use crate::{ClosableStream, WorkerMetrics};
 

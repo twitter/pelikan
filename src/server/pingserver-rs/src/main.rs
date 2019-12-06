@@ -171,6 +171,8 @@ fn main() {
     if let Err(e) = res {
         std::panic::resume_unwind(e);
     }
+
+    println!("Exiting gracefully!");
 }
 
 static mut RAII_HANDLER: Option<ModuleRaiiHandler> = None;

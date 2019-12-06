@@ -21,11 +21,12 @@ use std::net::SocketAddr;
 use std::rc::Rc;
 use std::time::Duration;
 
+use futures::{pin_mut, FutureExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
+use tokio::task::spawn_local;
 
 use crate::errors::AddrParseError;
-use crate::spawn_local;
 use crate::{Action, AdminHandler, ClosableStream};
 
 use ccommon::buf::OwnedBuf;
@@ -181,13 +182,21 @@ pub async fn admin_tcp<H: AdminHandler + 'static>(
     log_flush_interval: Duration,
     metrics: &'static AdminMetrics,
 ) -> Result<()> {
+    spawn_local(flush_debug_log(log_flush_interval));
+
     let mut listener = TcpListener::bind(addr).await?;
     let handler = Rc::new(RefCell::new(handler));
 
-    spawn_local(flush_debug_log(log_flush_interval));
+    let signal = crate::signal::wait_for_ctrl_c().fuse();
+    pin_mut!(signal);
 
     loop {
-        let stream: TcpStream = match listener.accept().await {
+        let res = futures::select! {
+            res = listener.accept().fuse() => res,
+            _ = signal => break
+        };
+
+        let stream: TcpStream = match res {
             Ok((stream, _)) => stream,
             Err(e) => {
                 metrics.tcp_accept_ex.incr();
@@ -205,6 +214,8 @@ pub async fn admin_tcp<H: AdminHandler + 'static>(
             metrics,
         ));
     }
+
+    Ok(())
 }
 
 #[derive(Options)]
