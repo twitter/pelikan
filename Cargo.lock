@@ -891,7 +891,7 @@ dependencies = [
  "pelikan-sys 0.0.0",
  "rustcore 0.1.0",
  "thiserror 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

@@ -15,6 +15,7 @@
 use std::cell::RefCell;
 use std::io::Write;
 use std::rc::Rc;
+use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
 use ccommon::buf::OwnedBuf;
@@ -23,7 +24,7 @@ use rustcore::util::{read_buf, write_buf, BufIOError};
 use rustcore::worker::WorkerMetrics;
 
 use arrayvec::ArrayVec;
-use bytes::{buf::BufMutExt, Buf};
+use bytes::{buf::BufMutExt, Buf, BufMut};
 use httparse::{Header, Request, Status as ParseStatus, EMPTY_HEADER};
 use httpdate::HttpDate;
 use httpencode::{HttpBuilder, Status, Version};
@@ -46,30 +47,35 @@ enum RspSendError {
     Corrupted,
 }
 
-enum HttpError {
-    MalformedContentLength,
-    DuplicateContentLength,
-    MissingContentLength,
+enum HttpError<'b> {
+    Malformed(&'b str),
+    Duplicate(&'b str),
     InvalidURI,
-    MalformedExpires,
-    DuplicateExpires,
-    MalformedFlag,
-    DuplicateFlag,
+    Missing(&'b str),
 }
 
-impl HttpError {
-    pub fn write_rsp(&self, wbuf: &mut OwnedBuf) -> Result<(), RspSendError> {
-        let message = match self {
-            HttpError::MalformedContentLength => "Malformed Content-Length header",
-            HttpError::DuplicateContentLength => "Duplicate Content-Length header",
-            HttpError::MissingContentLength => "Missing Content-Length header",
-            HttpError::InvalidURI => "Invalid URI",
-            HttpError::MalformedExpires => "Malformed Expires header",
-            HttpError::DuplicateExpires => "Duplicate Expires header",
-            HttpError::MalformedFlag => "Malformed Flag header",
-            HttpError::DuplicateFlag => "Duplicate Flag header",
-        };
+impl<'b> HttpError<'b> {
+    fn write_strs<B: BufMut>(
+        mut builder: HttpBuilder<B>,
+        strs: &[&str],
+    ) -> Result<(), RspSendError> {
+        let len = strs.iter().map(|s| s.len()).sum();
 
+        builder.header("Content-Length", len)?;
+        let mut buf = builder.finish()?;
+
+        if buf.remaining_mut() < len {
+            return Err(RspSendError::Compose(httpencode::Error::OutOfBuffer));
+        }
+
+        for s in strs {
+            buf.put_slice(s.as_bytes());
+        }
+
+        Ok(())
+    }
+
+    pub fn write_rsp(&self, wbuf: &mut OwnedBuf) -> Result<(), RspSendError> {
         let mut builder = HttpBuilder::response_with_reason(
             wbuf,
             Version::Http11,
@@ -78,85 +84,67 @@ impl HttpError {
         )?;
 
         builder.header("Content-Type", "text/plain; charset=utf-8")?;
-        builder.header("Content-Length", message.len())?;
-        builder.body(&mut message.as_bytes())?;
 
-        Ok(())
+        match self {
+            HttpError::Malformed(header) => {
+                Self::write_strs(builder, &["Malformed ", header, " header"])
+            }
+            HttpError::Duplicate(header) => {
+                Self::write_strs(builder, &["Duplicate ", header, " header"])
+            }
+            HttpError::Missing(header) => {
+                Self::write_strs(builder, &["Missing ", header, " header"])
+            }
+            HttpError::InvalidURI => Self::write_strs(builder, &["Invalid URI"]),
+        }
     }
 }
 
-#[derive(Default, Debug)]
-struct HeaderInfo {
-    pub content_length: Option<usize>,
-    pub expiry: Option<SystemTime>,
-    pub flag: Option<u32>,
+struct HeaderMap<'h, 'b> {
+    headers: &'h mut [Header<'b>],
 }
 
-impl HeaderInfo {
-    pub fn from_headers(headers: &[Header]) -> Result<Self, HttpError> {
-        const U32_MAX: usize = std::u32::MAX as usize;
+impl<'h, 'b> HeaderMap<'h, 'b> {
+    pub fn new(headers: &'h mut [Header<'b>]) -> Result<Self, HttpError<'b>> {
+        headers.sort_by(|a, b| order_ascii_lowercase(a.name.as_bytes(), b.name.as_bytes()));
 
-        let mut info = Self::default();
+        for window in headers.windows(2) {
+            let first = window[0];
+            let second = window[1];
 
-        for header in headers {
-            let name = header.name.as_bytes();
-
-            if compare_ascii_lowercase(name, b"content-length") {
-                if info.content_length.is_some() {
-                    return Err(HttpError::DuplicateContentLength);
-                }
-
-                info.content_length = match parse_usize(header.value) {
-                    Some(x) => Some(x),
-                    None => return Err(HttpError::MalformedContentLength),
-                };
-            } else if compare_ascii_lowercase(name, b"expires") {
-                if info.expiry.is_some() {
-                    return Err(HttpError::DuplicateExpires);
-                }
-
-                let date: HttpDate = std::str::from_utf8(header.value)
-                    .map_err(|_| HttpError::MalformedExpires)?
-                    .parse()
-                    .map_err(|_| HttpError::MalformedExpires)?;
-
-                info.expiry = Some(date.into());
-            } else if compare_ascii_lowercase(name, b"flag") {
-                if info.expiry.is_some() {
-                    return Err(HttpError::DuplicateFlag);
-                }
-
-                info.flag = match parse_usize(header.value) {
-                    val @ Some(0..=U32_MAX) => val.map(|x| x as u32),
-                    _ => return Err(HttpError::MalformedFlag),
-                };
+            if compare_ascii_lowercase(first.name.as_bytes(), second.name.as_bytes()) {
+                return Err(HttpError::Duplicate(first.name));
             }
         }
 
-        Ok(info)
-    }
-}
-
-async fn malformed_request<'a, S>(
-    stream: &'a mut S,
-    mut builder: HttpBuilder<&'a mut OwnedBuf>,
-    error: httparse::Error,
-    metrics: &'static WorkerMetrics,
-) -> Result<(), RspSendError>
-where
-    S: AsyncWrite + Unpin + 'static,
-{
-    builder.header("Content-Type", "text/html; charset=utf-8")?;
-
-    let buf = builder.finish()?;
-
-    if let Err(_) = write!(buf.writer(), "{}", error) {
-        return Err(httpencode::Error::OutOfBuffer.into());
+        Ok(Self { headers })
     }
 
-    write_buf(stream, buf, metrics).await?;
+    pub fn get(&self, name: &str) -> Option<&'b [u8]> {
+        let index = self
+            .headers
+            .binary_search_by(|a| order_ascii_lowercase(a.name.as_bytes(), name.as_bytes()))
+            .ok()?;
 
-    Ok(())
+        Some(unsafe { self.headers.get_unchecked(index).value })
+    }
+
+    pub fn get_as<'n, P: FromStr>(&self, name: &'n str) -> Result<Option<P>, HttpError<'n>> {
+        let val = match self.get(name) {
+            Some(val) => val,
+            None => return Ok(None),
+        };
+
+        let s = match std::str::from_utf8(val) {
+            Ok(s) => s,
+            Err(_) => return Err(HttpError::Malformed(name)),
+        };
+
+        match s.parse() {
+            Ok(v) => Ok(Some(v)),
+            Err(_) => Err(HttpError::Malformed(name)),
+        }
+    }
 }
 
 fn key_not_found(wbuf: &mut OwnedBuf, version: Version) -> Result<(), RspSendError> {
@@ -194,17 +182,17 @@ fn invalid_method(wbuf: &mut OwnedBuf, version: Version) -> Result<(), RspSendEr
 
 fn process_request<'b, 'h>(
     worker: &mut Worker,
-    req: &Request<'b, 'h>,
+    req: &mut Request<'b, 'h>,
     wbuf: &mut OwnedBuf,
     bytes: &[u8],
-) -> Result<usize, RspSendError> {
+) -> Result<Option<usize>, RspSendError> {
     let version = match req.version {
         Some(0) => Version::Http10,
         Some(1) => Version::Http11,
-        _ => return unsupported_protocol_version(wbuf).map(|_| 0),
+        _ => return unsupported_protocol_version(wbuf).map(|_| None),
     };
 
-    let info = match HeaderInfo::from_headers(req.headers) {
+    let headers = match HeaderMap::new(req.headers) {
         Ok(info) => info,
         Err(e) => {
             e.write_rsp(wbuf)?;
@@ -214,11 +202,14 @@ fn process_request<'b, 'h>(
 
     let method = req.method.unwrap();
     let path = req.path.unwrap().as_bytes();
-    let bytes_read = info.content_length.unwrap_or(0);
-
-    info!("headers: {:?}", info);
-    info!("body available: {}", escape(bytes));
-    info!("path: {}", req.path.unwrap());
+    let content_length = match headers.get_as("Content-Length") {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            e.write_rsp(wbuf)?;
+            return Err(RspSendError::Corrupted);
+        }
+    };
+    let bytes_read = content_length.unwrap_or(0);
 
     if bytes_read > bytes.len() {
         return Err(RspSendError::Partial);
@@ -226,23 +217,22 @@ fn process_request<'b, 'h>(
 
     let body = &bytes[..bytes_read];
 
-    info!("req body: {}", escape(body));
-    info!("bytes read: {}", bytes_read);
-
     let res = match method {
         "GET" => process_get(worker, path, version, wbuf),
         "PUT" => {
-            if info.content_length.is_none() {
-                return HttpError::MissingContentLength.write_rsp(wbuf).map(|_| 0);
+            if headers.get("Content-Length").is_none() {
+                return HttpError::Missing("Content-Length")
+                    .write_rsp(wbuf)
+                    .map(|_| None);
             }
 
-            process_put(worker, path, version, body, &info, wbuf)
+            process_put(worker, path, version, body, &headers, wbuf)
         }
         "DELETE" => process_delete(worker, path, version, wbuf),
         _ => invalid_method(wbuf, version),
     };
 
-    res.map(|_| bytes_read)
+    res.map(|_| content_length)
 }
 
 fn process_get(
@@ -268,11 +258,9 @@ fn process_get(
 
     let flag = unsafe { *(item_optional(item) as *mut u32) };
 
-    info!("got value: {:?}", escape(value));
-
     builder.header("Content-Type", "application/octet-stream")?;
     builder.header("Content-Length", item.vlen())?;
-    builder.header("Flag", flag)?;
+    builder.header("Flags", flag)?;
     builder.body(&mut value)?;
 
     Ok(())
@@ -283,7 +271,7 @@ fn process_put(
     path: &[u8],
     version: Version,
     body: &[u8],
-    info: &HeaderInfo,
+    headers: &HeaderMap,
     wbuf: &mut OwnedBuf,
 ) -> Result<(), RspSendError> {
     if path[0] != b'/' {
@@ -293,10 +281,17 @@ fn process_put(
     let key = &path[1..];
     let val = body;
 
-    let expiry = info
-        .expiry
-        .unwrap_or_else(|| SystemTime::now() + Duration::from_secs(3600 * 24 * 30));
-    let flags = info.flag.unwrap_or(0);
+    let expiry = match headers.get_as::<HttpDate>("Expiry") {
+        Ok(expiry) => match expiry {
+            Some(date) => date.into(),
+            None => SystemTime::now() + Duration::from_secs(3600 * 24 * 30),
+        },
+        Err(e) => return e.write_rsp(wbuf),
+    };
+    let flags = match headers.get_as::<u32>("Flags") {
+        Ok(flags) => flags.unwrap_or(0),
+        Err(e) => return e.write_rsp(wbuf),
+    };
 
     if let Err(e) = worker.put(key, val, expiry, flags) {
         // The client submitted a request that made the backing
@@ -346,6 +341,32 @@ fn process_delete(
     return Ok(());
 }
 
+async fn handle_malformed<'a, S>(
+    error: httparse::Error,
+    stream: &'a mut S,
+    wbuf: &'a mut OwnedBuf,
+    metrics: &'static WorkerMetrics,
+) -> Result<(), RspSendError>
+where
+    S: AsyncRead + AsyncWrite + Unpin + 'static,
+{
+    metrics.request_parse_ex.incr();
+
+    info!("Got malformed HTTP request: {}", error);
+
+    let mut builder = HttpBuilder::response(wbuf, Version::Http11, Status::BAD_REQUEST)?;
+    builder.header("Content-Type", "text/html; charset=utf-8")?;
+    let wbuf = builder.finish()?;
+
+    if let Err(_) = write!(wbuf.writer(), "{}", error) {
+        return Err(httpencode::Error::OutOfBuffer.into());
+    }
+
+    write_buf(stream, wbuf, metrics).await?;
+
+    Ok(())
+}
+
 pub async fn http_worker<'a, S>(
     worker: Rc<RefCell<Worker>>,
     stream: &'a mut S,
@@ -375,24 +396,9 @@ pub async fn http_worker<'a, S>(
             let status = match req.parse(slice) {
                 Ok(status) => status,
                 Err(e) => {
-                    metrics.request_parse_ex.incr();
-
-                    info!("Got malformed HTTP request: {}", e);
-
-                    let builder =
-                        match HttpBuilder::response(wbuf, Version::Http11, Status::BAD_REQUEST) {
-                            Ok(builder) => builder,
-                            Err(_) => {
-                                metrics.response_compose_ex.incr();
-                                warn!("Failed to write response");
-                                return;
-                            }
-                        };
-
-                    if let Err(_) = malformed_request(stream, builder, e, metrics).await {
+                    if let Err(_) = handle_malformed(e, stream, wbuf, metrics).await {
                         metrics.response_compose_ex.incr();
                     }
-
                     return;
                 }
             };
@@ -406,10 +412,16 @@ pub async fn http_worker<'a, S>(
 
             let process_res = {
                 let mut borrow = worker.borrow_mut();
-                process_request(&mut borrow, &req, wbuf, &slice[bytes..])
+                process_request(&mut borrow, &mut req, wbuf, &slice[bytes..])
             };
             bytes += match process_res {
-                Ok(bytes) => bytes,
+                Ok(Some(bytes)) => bytes,
+                Ok(None) => {
+                    // This is the easiest way to make sure we close the connection
+                    // after sending a reply.
+                    req.version = Some(0);
+                    0
+                }
                 Err(e) => match e {
                     RspSendError::Partial => break,
                     RspSendError::Corrupted => {
@@ -442,37 +454,6 @@ pub async fn http_worker<'a, S>(
     }
 }
 
-pub fn parse_usize(bytes: &[u8]) -> Option<usize> {
-    fn trim(mut slice: &[u8]) -> &[u8] {
-        while slice.first().map(u8::is_ascii_whitespace).unwrap_or(false) {
-            slice = slice.split_first().map(|x| x.1).unwrap_or(slice);
-        }
-
-        while slice.last().map(u8::is_ascii_whitespace).unwrap_or(false) {
-            slice = slice.split_last().map(|x| x.1).unwrap_or(slice);
-        }
-
-        slice
-    }
-
-    let bytes = trim(bytes);
-    let mut value: usize = 0;
-
-    for digit in bytes.iter().copied() {
-        let digit: u8 = digit;
-        if !digit.is_ascii_digit() {
-            return None;
-        }
-
-        value = value
-            .checked_mul(10)?
-            .checked_add((digit - b'0') as usize)?;
-    }
-
-    Some(value)
-}
-
-/// Note: assumes that `b` is already in lowercase
 fn compare_ascii_lowercase(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
@@ -481,17 +462,29 @@ fn compare_ascii_lowercase(a: &[u8], b: &[u8]) -> bool {
     a.iter()
         .copied()
         .map(|x| x.to_ascii_lowercase())
-        .zip(b.iter().copied())
+        .zip(b.iter().copied().map(|x| x.to_ascii_lowercase()))
         .all(|(a, b)| a == b)
 }
 
-fn escape(bytes: &[u8]) -> String {
-    bytes
-        .iter()
-        .copied()
-        .flat_map(std::ascii::escape_default)
-        .map(|c| c as char)
-        .collect()
+fn order_ascii_lowercase(a: &[u8], b: &[u8]) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+
+    match a.len().cmp(&b.len()) {
+        Ordering::Equal => (),
+        x => return x,
+    }
+
+    for (a, b) in a.iter().zip(b.iter()) {
+        let a = a.to_ascii_lowercase();
+        let b = b.to_ascii_lowercase();
+
+        match a.cmp(&b) {
+            Ordering::Equal => (),
+            x => return x,
+        }
+    }
+
+    Ordering::Equal
 }
 
 #[cfg(test)]

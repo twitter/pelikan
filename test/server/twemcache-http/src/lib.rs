@@ -36,9 +36,11 @@ impl fmt::Display for EscapedByteString<'_> {
         .flat_map(|x| std::ascii::escape_default(x))
         .map(|x| x as char);
 
+        fmt.write_str("\"")?;
         for c in iter {
-            fmt.write_fmt(format_args!("\"{}\"", c))?;
+            fmt.write_fmt(format_args!("{}", c))?;
         }
+        fmt.write_str("\"")?;
 
         Ok(())
     }
@@ -70,7 +72,7 @@ impl<'b> Index<&'_ str> for LinearMap<'b, '_> {
             }
         }
 
-        panic!("No such header {}", key);
+        panic!("No such header '{}'\nAll headers: {:?}", key, self.headers);
     }
 }
 
@@ -82,7 +84,7 @@ fn put(buf: &mut Vec<u8>, flags: u32, path: &[u8], mut body: &[u8]) -> Result<()
     let mut builder = request::put(buf, Uri::new(path))?;
     
     builder.header("Content-Length", body.len())?;
-    builder.header("Flag", flags)?;
+    builder.header("Flags", flags)?;
     builder.body(&mut body)?;
 
     Ok(())
@@ -159,9 +161,9 @@ fn basic_http_test() -> IOResult<()> {
         .finish()
         .unwrap();
 
-    let mut stream = TcpStream::connect("0.0.0.0:4779")?;
+    let mut stream = TcpStream::connect("localhost:4779")?;
     stream.set_nodelay(true)?;
-    stream.set_nonblocking(true)?;
+    // stream.set_nonblocking(true)?;
 
     stream.write_all(&requests)?;
     stream.read_to_end(&mut buf)?;
@@ -169,8 +171,10 @@ fn basic_http_test() -> IOResult<()> {
     let mut bytes = &buf[..];
     let mut header_array = [httparse::EMPTY_HEADER; 128];
 
+    println!("resp: {}", escape(bytes));
+
     let (status, _, body) = parse_response(&mut bytes, &mut header_array);
-    assert_eq!(status, 20);
+    assert_eq!(status, 200);
     assert_eq!(body, b"");
 
     let (status, headers, body) = parse_response(&mut bytes, &mut header_array);
@@ -204,12 +208,12 @@ pub fn main() {
         }
     };
 
-    let mut server = Command::new(bindir.join("_bin/pelikan_pingserver_rs"))
+    let mut server = Command::new(bindir.join("_bin/pelikan_twemcache_http"))
         .spawn()
         .expect("Failed to start server process");
 
     // Give the server time to start up
-    std::thread::sleep(Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(1000));
 
     let res = catch_unwind(|| run_tests());
 
