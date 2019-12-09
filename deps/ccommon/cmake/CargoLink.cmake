@@ -82,9 +82,7 @@ string(REPLACE " " ";" FLAGS "${FLAGS}")
 #             there a way to autodetect this properly?
 set(CARGO_COMMAND cargo build --color always ${FLAGS})
 
-message(STATUS "Building with vars ${PASSTHROUGH_VARS}")
 if(USE_CMAKE_LINK)
-    message(STATUS "Building with rustflags ${LINK_FLAGS}")
     execute_process(
         COMMAND ${CMAKE_COMMAND} -E env ${PASSTHROUGH_VARS} "RUSTFLAGS=${LINK_FLAGS}" ${CARGO_COMMAND}
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"

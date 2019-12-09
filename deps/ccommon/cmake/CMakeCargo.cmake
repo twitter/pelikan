@@ -157,8 +157,6 @@ function(cargo_build)
         endif()
     endif()
 
-    message(STATUS TARGET_DIR: "${CARGO_TARGET_DIR}")
-
     if(CARGO_BIN AND CARGO_STATIC)
         message(
             FATAL_ERROR
@@ -370,7 +368,7 @@ function(cargo_build)
         # However, we still want to build the library, so define a custom command for that
         add_custom_command(
             OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/build.stamp
-            COMMAND ${CARGO_ENV_COMMAND} cargo build -v ${CRATE_ARGS}
+            COMMAND ${CARGO_ENV_COMMAND} cargo build ${CRATE_ARGS}
             COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/build.stamp
             DEPENDS ${CRATE_SOURCES}
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
