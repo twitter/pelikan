@@ -4,12 +4,12 @@ version = "0.0.0"
 authors = ["Sean Lynch <slynch@twitter.com>"]
 edition = "2018"
 
-# TODO(sean): Should we use the cmake config instead of cargo features?
+# Feature dependencies should mirror cmake library dependencies
 [features]
 cdb = [ "cdb_rs" ]
 client-network = []
 core = []
-cuckoo = []
+cuckoo = [ "datapool", "time" ]
 datapool = []
 ds_bitmap = []
 ds_sarray = []
@@ -20,7 +20,7 @@ protocol_resp_tw = []
 protocol_memcache = []
 protocol_ping = []
 protocol_admin = []
-slab = []
+slab = [ "datapool" ]
 time = []
 util = [ "time" ]
 

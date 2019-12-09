@@ -15,6 +15,7 @@ export PATH=$HOME/.cargo/bin:$PATH
 cmake_cmd=(
   cmake
   -DBUILD_AND_INSTALL_CHECK=yes
+  -DCARGO_CI=yes
 )
 
 # Ensure that rust test failures have the full backtrace
