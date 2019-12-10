@@ -85,6 +85,10 @@ endfunction()
 #       can be consumed by other cmake targets.
 #   NO_TEST
 #       Disables generation of the test target.
+#   USE_CMAKE_LINK
+#       Pass link flags through from cmake through RUSTFLAGS. This
+#       is necessary if the build scripts for the rust code don't
+#       account for all the necessary linker dependencies.
 #
 # Notes:
 #   - If neither BIN or STATIC is defined then it is assumed
@@ -126,19 +130,30 @@ endfunction()
 function(cargo_build)
     cmake_parse_arguments(
         CARGO
-        "BIN;STATIC;NO_TEST"
+        "BIN;STATIC;NO_TEST;USE_CMAKE_LINK"
         "NAME;TARGET_DIR;COPY_TO"
         ""
         ${ARGN}
     )
 
+    set(CARGO_FORCE_CMAKE_LINK OFF CACHE BOOL "Pass link flags from cmake to cargo - this will slow down builds considerably")
+    set(CARGO_CI OFF CACHE BOOL "Optimize build for from-scratch build time instead of incremental rebuild")
+
+    mark_as_advanced(CARGO_FORCE_CMAKE_LINK CARGO_CI)
+
+    if(CARGO_FORCE_CMAKE_LINK)
+        set(${CARGO_USE_CMAKE_LINK} ON)
+    endif()
+
     string(REPLACE "-" "_" LIB_NAME ${CARGO_NAME})
 
-    if(NOT (DEFINED CARGO_TARGET_DIR))
-        if ($ENV{CI})
-            set(CARGO_TARGET_DIR ${CMAKE_BINARY_DIR}/target)
+    if(NOT DEFINED CARGO_TARGET_DIR)
+        if(NOT CARGO_USE_CMAKE_LINK AND NOT DEFINED CARGO_TARGET_DIR)
+            set(CARGO_TARGET_DIR "${CMAKE_BINARY_DIR}/target")
+        elseif(CARGO_CI)
+            set(CARGO_TARGET_DIR "${CMAKE_BINARY_DIR}/target")
         else()
-            set(CARGO_TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR}/target)
+            set(CARGO_TARGET_DIR "${CMAKE_CURRENT_BINARY_DIR}/target")
         endif()
     endif()
 
@@ -250,7 +265,7 @@ function(cargo_build)
     #
     # "Docs" for the expansion rules can be found here
     # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/Build-Rules
-    set(LINK_COMMAND "<CMAKE_COMMAND> -P ${FILE_LIST_DIR}/CargoLink.cmake 'TARGET=<TARGET>' 'LINK_FLAGS=<LINK_FLAGS>' 'LINK_LIBRARIES=<LINK_LIBRARIES>' 'FLAGS=${CRATE_ARGS_STR}' 'OUTPUT=${OUTPUT_FILE}' 'CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}' 'LINK_FLAGS_FILE=${LINK_FLAGS_FILE}' -- ")
+    set(LINK_COMMAND "<CMAKE_COMMAND> -P ${FILE_LIST_DIR}/CargoLink.cmake 'TARGET=<TARGET>' 'LINK_FLAGS=<LINK_FLAGS>' 'LINK_LIBRARIES=<LINK_LIBRARIES>' 'FLAGS=${CRATE_ARGS_STR}' 'OUTPUT=${OUTPUT_FILE}' 'CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}' 'LINK_FLAGS_FILE=${LINK_FLAGS_FILE}' 'USE_CMAKE_LINK=${USE_CMAKE_LINK}' -- ")
     
     foreach(VAR ${FORWARDED_VARS})
         string(APPEND LINK_COMMAND " ${VAR}")
@@ -389,6 +404,7 @@ function(cargo_build)
                 "FLAGS=${TEST_ARGS_STR}"
                 "CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
                 "CMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}"
+                "USE_CMAKE_LINK=${CARGO_USE_CMAKE_LINK}"
                 --
                 ${FORWARDED_VARS}
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

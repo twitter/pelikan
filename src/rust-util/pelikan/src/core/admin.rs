@@ -97,6 +97,7 @@ unsafe fn call_process_request<H: AdminHandler>(data: *mut (), rsp: *mut (), req
 }
 
 #[no_mangle]
+#[allow(improper_ctypes)]
 unsafe extern "C" fn admin_process_request(req: *mut (), rsp: *mut ()) {
     let admin = match ADMIN {
         Some(ref admin) => admin,
