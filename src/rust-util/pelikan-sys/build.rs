@@ -270,16 +270,28 @@ fn gen_ds_sarray() {
         .whitelist_type("sarray_p")
         .whitelist_type("sarray_rstatus_e")
         .whitelist_function("sarray_.*")
-        .whitelist_recursively(false)
-        .derive_default(true)
-        .derive_copy(true)
-        .derive_debug(true)
         .generate()
         .expect("Unable to generate bindings");
 
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
         .write_to_file(out_path.join("ds_sarray.rs"))
+        .expect("Couldn't write bindings");
+}
+fn gen_ds_smap() {
+    print_directives("ds_smap", "data_structure/smap");
+
+    let bindings = builder()
+        .header("../../data_structure/smap/smap.h")
+        .whitelist_type("smap_p")
+        .whitelist_type("smap_rstatus_e")
+        .whitelist_function("smap_.*")
+        .generate()
+        .expect("Unable to generate bindings");
+
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(out_path.join("ds_smap.rs"))
         .expect("Couldn't write bindings");
 }
 fn gen_ds_ziplist() {
@@ -396,6 +408,7 @@ fn gen_protocol_resp() {
         .whitelist_type("bitmap_elem(_e)?")
         .whitelist_type("list_elem(_e)?")
         .whitelist_type("sarray_elem(_e)?")
+        .whitelist_type("smap_elem(_e)?")
         .whitelist_type("compose_.*")
         .whitelist_function("compose_.*")
         .whitelist_type("parse_.*")
@@ -452,6 +465,7 @@ fn gen_protocol_resp_tw() {
         .whitelist_type("compose_(req|rsp)_metrics_st")
         .whitelist_var("OPT_UNLIMITED")
         .whitelist_type("sarray_elem(_e)?")
+        .whitelist_type("smap_elem(_e)?")
         .whitelist_type("list_elem(_e)?")
         .whitelist_type("bitmap_elem(_e)?")
         .generate()
@@ -637,24 +651,7 @@ fn main() {
         gen_ds_sarray();
     }
     if cfg!(feature = "ds_smap") {
-        print_directives("ds_smap", "data_structure/smap");
-
-        let bindings = builder()
-            .header("../../data_structure/smap/smap.h")
-            .whitelist_type("smap_p")
-            .whitelist_type("smap_rstatus_e")
-            .whitelist_function("smap_.*")
-            .whitelist_recursively(false)
-            .derive_default(true)
-            .derive_copy(true)
-            .derive_debug(true)
-            .generate()
-            .expect("Unable to generate bindings");
-
-        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-        bindings
-            .write_to_file(out_path.join("ds_smap.rs"))
-            .expect("Couldn't write bindings");
+        gen_ds_smap();
     }
     if cfg!(feature = "ds_ziplist") {
         gen_ds_ziplist();
