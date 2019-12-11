@@ -610,25 +610,6 @@ fn main() {
             .expect("Couldn't write bindings");
     }
 
-    if cfg!(feature = "client-network") {
-        gen_client_network();
-    }
-    if cfg!(feature = "util") {
-        gen_util();
-    }
-    if cfg!(feature = "time") {
-        gen_time();
-    }
-    if cfg!(feature = "core") {
-        gen_core();
-    }
-    if cfg!(feature = "hotkey") {
-        gen_hotkey();
-    }
-    if cfg!(feature = "datapool") {
-        gen_datapool();
-    }
-
     // Data Strucutures
     if cfg!(feature = "ds_bitmap") {
         gen_ds_bitmap();
@@ -666,6 +647,25 @@ fn main() {
     }
     if cfg!(feature = "protocol_admin") {
         gen_protocol_admin();
+    }
+
+    if cfg!(feature = "client-network") {
+        gen_client_network();
+    }
+    if cfg!(feature = "util") {
+        gen_util();
+    }
+    if cfg!(feature = "time") {
+        gen_time();
+    }
+    if cfg!(feature = "core") {
+        gen_core();
+    }
+    if cfg!(feature = "hotkey") {
+        gen_hotkey();
+    }
+    if cfg!(feature = "datapool") {
+        gen_datapool();
     }
 
     // Note: need to specify linker flags for this after linking all the
