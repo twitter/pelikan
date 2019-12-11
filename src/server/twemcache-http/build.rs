@@ -18,8 +18,10 @@ use std::path::Path;
 fn main() {
     let flag = if cfg!(target_os = "linux") {
         "OS_LINUX"
-    } else {
+    } else if cfg!(target_os = "macos") {
         "OS_DARWIN"
+    } else {
+        panic!("Unsupported OS! Only linux and MacOS are supported.");
     };
 
     let bindir = get_cmake_binary_dir();
