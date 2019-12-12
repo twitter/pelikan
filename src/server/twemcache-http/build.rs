@@ -26,6 +26,9 @@ fn main() {
 
     let bindir = get_cmake_binary_dir();
 
+    println!("cargo:rerun-if-changed=memcached/process.h");
+    println!("cargo:rerun-if-changed=memcached/process.c");
+
     cc::Build::new()
         .include("../../")
         .include("../../../deps/ccommon/include")
