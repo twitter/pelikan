@@ -7,6 +7,7 @@ members = [
     "src/server/pingserver-rs",
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",
+    "src/rust-util/httpencode",
     "src/rust-util/pelikan",
     "src/rust-util/pelikan-sys",
     "src/rustcore",
