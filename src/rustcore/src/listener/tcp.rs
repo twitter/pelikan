@@ -20,12 +20,31 @@ use tokio::sync::mpsc::{error::TrySendError, Sender};
 
 use ccommon::{metric::*, Metrics};
 
+struct DropMsg;
+
+impl Drop for DropMsg {
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            info!("Dropped while panicking!");
+        } else {
+            info!("Dropped normally");
+        }
+    }
+}
+
 pub async fn tcp_listener(
     addr: SocketAddr,
     mut chan: Sender<TcpStream>,
     metrics: &'static TcpListenerMetrics,
 ) -> Result<()> {
-    let mut listener = TcpListener::bind(addr).await?;
+    let _test = DropMsg;
+    let mut listener = match TcpListener::bind(addr).await {
+        Ok(listener) => listener,
+        Err(e) => {
+            error!("Failed to bind listener port {}: {}", addr, e);
+            return Err(e);
+        }
+    };
 
     loop {
         let stream: TcpStream = match listener.accept().await {
@@ -60,6 +79,8 @@ pub async fn tcp_listener(
             error!("New connection queue is full. Dropping a connection!");
         }
     }
+
+    info!("Shutting down listener on address {}", addr);
 
     Ok(())
 }

@@ -6,6 +6,10 @@ if(TARGET_PINGSERVER)
     endif()
 endif()
 
+if(TARGET_HTTP)
+    add_subdirectory(twemcache-http)
+endif()
+
 if(TARGET_RDS)
     add_subdirectory(rds)
 endif()

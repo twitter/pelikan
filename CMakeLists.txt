@@ -43,6 +43,7 @@ option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
 option(TARGET_CDB "build cdb binary (implies HAVE_RUST)" OFF)
 option(TARGET_RESPCLI "build resp-cli binary" ON)
+option(TARGET_HTTP "build experimental twemcache-http server (implies HAVE_RUST)" OFF)
 
 option(HAVE_RUST "build features written in rust" OFF)
 option(RUST_USE_MUSL "build rust deps against musl" OFF)
@@ -183,6 +184,10 @@ if(TARGET_CDB)
     set(HAVE_RUST on)
 endif(TARGET_CDB)
 
+if(TARGET_HTTP)
+    set(HAVE_RUST on)
+endif()
+
 #set(CMAKE_INCLUDE_CURRENT_DIR)
 include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"
@@ -216,6 +221,7 @@ message(STATUS "CFLAGS: " ${CMAKE_C_FLAGS})
 message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
 
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
+message(STATUS "HAVE_RUST: " ${HAVE_RUST})
 
 if(DUMP_ALL)
     message(STATUS "<<++=====------------------\\/------------------=====++>>")

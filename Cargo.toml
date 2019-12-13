@@ -5,6 +5,7 @@ members = [
     "deps/ccommon/rust/ccommon_rs",
     "deps/ccommon/rust/ccommon-derive",
     "src/server/pingserver-rs",
+    "src/server/twemcache-http",
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",
     "src/rust-util/httpencode",
@@ -14,7 +15,8 @@ members = [
     "src/server/pingserver-rs",
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",
-    "test/server/pingserver-rs"
+    "test/server/pingserver-rs",
+    "test/server/twemcache-http"
 ]
 
 [profile.release]
