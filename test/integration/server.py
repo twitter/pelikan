@@ -35,7 +35,6 @@ class PelikanServer(object):
       os.getenv('PELIKAN_BIN_PATH', PelikanServer.default_path()),
       self.executable
     )
-    print(executable)
     exec_tup = (executable, self.config) if self.config else (executable)
 
     self.server = subprocess.Popen(exec_tup,
@@ -54,6 +53,7 @@ class PelikanServer(object):
     while not line.decode('UTF-8').startswith(u'name: server_port'):
       line = self.server.stdout.readline()
       #pass
+    print("server is up and running")
 
 
   def stop(self):
