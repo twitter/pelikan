@@ -45,7 +45,7 @@ class GenericTest(unittest.TestCase):
 
     if len(expected) > 0:
       rsp = self.data_client.response()
-      self.assertEqual(rsp, expected, "expecting response '{}', received '{}'".format(expectd, rsp))
+      self.assertEqual(rsp, expected, "expecting response '{}', received '{}'".format(expected, rsp))
 
 
   def assertStats(self, delta):
