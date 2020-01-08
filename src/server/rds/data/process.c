@@ -55,6 +55,15 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
     command_registry[REQ_SARRAY_INSERT] = cmd_sarray_insert;
     command_registry[REQ_SARRAY_REMOVE] = cmd_sarray_remove;
 
+    command_registry[REQ_SMAP_CREATE] = cmd_smap_create;
+    command_registry[REQ_SMAP_DELETE] = cmd_smap_delete;
+    command_registry[REQ_SMAP_TRUNCATE] = cmd_smap_truncate;
+    command_registry[REQ_SMAP_LEN] = cmd_smap_len;
+    command_registry[REQ_SMAP_FIND] = cmd_smap_find;
+    command_registry[REQ_SMAP_GET] = cmd_smap_get;
+    command_registry[REQ_SMAP_INSERT] = cmd_smap_insert;
+    command_registry[REQ_SMAP_REMOVE] = cmd_smap_remove;
+
     command_registry[REQ_PING] = cmd_ping;
 
     process_init = true;

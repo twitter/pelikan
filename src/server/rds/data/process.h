@@ -3,6 +3,7 @@
 #include "cmd_misc.h"
 #include "cmd_list.h"
 #include "cmd_sarray.h"
+#include "cmd_smap.h"
 
 #include <buffer/cc_buf.h>
 #include <cc_metric.h>
@@ -29,6 +30,7 @@ typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)
     PROCESS_LIST_METRIC(METRIC_DECLARE)
     PROCESS_SARRAY_METRIC(METRIC_DECLARE)
+    PROCESS_SMAP_METRIC(METRIC_DECLARE)
     PROCESS_MISC_METRIC(METRIC_DECLARE)
 } process_metrics_st;
 
