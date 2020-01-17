@@ -85,11 +85,49 @@ process_teardown(void)
 }
 
 
+static void
+_process_attribute(struct request *req, struct element *key, struct element *val)
+{
+    attrib_type_e type = ATTRIB_UNKNOWN;
+
+    /* treat this as it cannot fail, skip anything that is not recognized or has
+     * invalid value so the program will proceed to the request main itself.
+     */
+    if (key->type != ELEM_STR) { /* key has to be a simple string */
+        log_warn("attribute key must be simple string, not type %d", key->type);
+
+        return;
+    }
+    while (++type < ATTRIB_SENTINEL &&
+            bstring_compare(&attrib_table[type], &key->bstr) != 0) {}
+    if (type == REQ_SENTINEL) {
+        log_warn("unrecognized attribute: %.*s", key->bstr.len, key->bstr.data);
+
+        return;
+    }
+
+    if (type == ATTRIB_TTL) {
+        if (val->type != ELEM_INT) {
+            log_warn("attribute ttl has value type int, %d found", val->type);
+
+            return;
+        }
+        req->ttl = val->num;
+
+        /* TODO(yao): determine what's valid value range for TTL */
+        log_verb("request provides attribute 'ttl', value is %"PRIi64, req->ttl);
+    }
+
+    /* TODO(yao): softTTL */
+}
+
+
 void
 process_request(struct response *rsp, struct request *req)
 {
     struct command cmd;
     command_fn func = command_registry[req->type];
+    int64_t nattrib;
 
     log_verb("processing req %p, write rsp to %p", req, rsp);
     INCR(process_metrics, process_req);
@@ -105,8 +143,17 @@ process_request(struct response *rsp, struct request *req)
         return;
     }
 
+    if (req->offset > 0) { /* attributes are present */
+        nattrib = ((struct element *)array_first(req->token))->num;
+        for (int64_t i = 1; i < nattrib * 2 + 1; i += 2) {
+            _process_attribute(req, (struct element *)array_get(req->token, i),
+                    (struct element *)array_get(req->token, i + 1));
+        }
+    }
+
     cmd = command_table[req->type];
-    cmd.nopt = req->token->nelem - cmd.narg;
+    cmd.nopt = ((struct element *)array_get(req->token, req->offset))->num -
+        cmd.narg;
 
     log_verb("processing command '%.*s' with %d optional arguments",
             cmd.bstr.len, cmd.bstr.data, cmd.nopt);

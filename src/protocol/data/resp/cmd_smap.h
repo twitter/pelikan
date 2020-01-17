@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cmd.h"
+
 /**
  * KEY: key used to represet the sorted map
  * IKEY: integer key that is used for sorting within a map
@@ -36,25 +38,24 @@
 
 
 /*          type                string              #arg    #opt */
-#define REQ_SMAP(ACTION)                                            \
-    ACTION( REQ_SMAP_CREATE,    "SMap.create",      3,      2  )\
-    ACTION( REQ_SMAP_DELETE,    "SMap.delete",      2,      0  )\
-    ACTION( REQ_SMAP_LEN,       "SMap.len",         2,      0  )\
-    ACTION( REQ_SMAP_FIND,      "SMap.find",        3,      0  )\
-    ACTION( REQ_SMAP_GET,       "SMap.get",         2,      2  )\
-    ACTION( REQ_SMAP_INSERT,    "SMap.insert",      3,      -1 )\
-    ACTION( REQ_SMAP_REMOVE,    "SMap.remove",      3,      -1 )\
-    ACTION( REQ_SMAP_TRUNCATE,  "SMap.truncate",    3,      0  )
+#define REQ_SMAP(ACTION)                                                \
+    ACTION( REQ_SMAP_CREATE,    "SMap.create",      3,      2          )\
+    ACTION( REQ_SMAP_DELETE,    "SMap.delete",      2,      0          )\
+    ACTION( REQ_SMAP_LEN,       "SMap.len",         2,      0          )\
+    ACTION( REQ_SMAP_FIND,      "SMap.find",        3,      0          )\
+    ACTION( REQ_SMAP_GET,       "SMap.get",         2,      2          )\
+    ACTION( REQ_SMAP_INSERT,    "SMap.insert",      3,      OPT_VARIED )\
+    ACTION( REQ_SMAP_REMOVE,    "SMap.remove",      3,      OPT_VARIED )\
+    ACTION( REQ_SMAP_TRUNCATE,  "SMap.truncate",    3,      0          )
 
 typedef enum smap_elem {
-    SMAP_VERB = 0,
-    SMAP_KEY = 1,
-    SMAP_ISIZE = 2,
-    SMAP_VSIZE = 3,
-    SMAP_IKEY = 2,
-    SMAP_IDX = 2,
-    SMAP_CNT = 2,
-    SMAP_ICNT = 3, /* when an index is also present */
-    SMAP_WML = 4,  /* watermark (low) */
-    SMAP_WMH = 5,  /* watermark (high) */
+    SMAP_KEY = 2,
+    SMAP_ISIZE = 3,
+    SMAP_VSIZE = 4,
+    SMAP_IKEY = 3,
+    SMAP_IDX = 3,
+    SMAP_CNT = 3,
+    SMAP_ICNT = 4, /* when an index is also present */
+    SMAP_WML = 5,  /* watermark (low) */
+    SMAP_WMH = 6,  /* watermark (high) */
 } smap_elem_e;

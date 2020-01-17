@@ -60,14 +60,19 @@ typedef struct {
  */
 
 struct response {
-    STAILQ_ENTRY(response)  next;       /* allow response pooling/chaining */
+    STAILQ_ENTRY(response)  next;   /* allow response pooling/chaining */
     bool                    free;
 
-    bool                    serror;     /* server error */
+    bool                    serror; /* server error */
 
-    element_type_e          type;       /* only array can have >1 token */
-    bool                    nil;        /* null array or null bulk string */
-    struct array            *token;     /* member type: `struct element' */
+    element_type_e          type;   /* only array can have >1 token */
+    bool                    nil;    /* null array or null bulk string */
+    struct array            *token; /* member type: `struct element' */
+    uint32_t                offset; /* location of first non-attribute token */
+
+    /* global attributes */
+    uint32_t                ttl;
+    uint32_t                soft_ttl;
 };
 
 void response_setup(response_options_st *options, response_metrics_st *metrics);

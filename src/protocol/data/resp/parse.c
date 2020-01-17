@@ -57,7 +57,7 @@ _parse_cmd(struct request *req)
 
     /* check verb */
     type = REQ_UNKNOWN;
-    el = array_first(req->token);
+    el = array_get(req->token, req->offset + CMD_OFFSET);
 
     ASSERT (el->type == ELEM_BULK);
     while (++type < REQ_SENTINEL &&
@@ -71,7 +71,7 @@ _parse_cmd(struct request *req)
 
     /* check narg */
     cmd = command_table[type];
-    narg = req->token->nelem;
+    narg = req->token->nelem - req->offset - 1;
     if (narg < cmd.narg || narg > (cmd.narg + cmd.nopt)) {
         log_warn("wrong # of arguments for '%.*s': %d+[%d] expected, %d given",
                 cmd.bstr.len, cmd.bstr.data, cmd.narg, cmd.nopt, narg);
@@ -81,14 +81,37 @@ _parse_cmd(struct request *req)
     return PARSE_OK;
 }
 
+static parse_rstatus_e
+_parse_range(struct array *token, struct buf *buf, int64_t nelem)
+{
+    parse_rstatus_e status;
+    struct element *el;
+
+    while (nelem > 0) {
+        if (buf_rsize(buf) == 0) {
+            return PARSE_EUNFIN;
+        }
+        el = array_push(token);
+        status = parse_element(el, buf);
+        log_verb("parse element returned status %d", status);
+        if (status != PARSE_OK) {
+            return status;
+        }
+        nelem--;
+    }
+
+    return PARSE_OK;
+}
 
 parse_rstatus_e
 parse_req(struct request *req, struct buf *buf)
 {
     parse_rstatus_e status = PARSE_OK;
     char *old_rpos = buf->rpos;
-    int64_t nelem;
     struct element *el;
+    uint32_t cap = array_nalloc(req->token);
+
+    ASSERT(cap > 1);
 
     log_verb("parsing buf %p into req %p", buf, req);
 
@@ -96,52 +119,58 @@ parse_req(struct request *req, struct buf *buf)
         return PARSE_EUNFIN;
     }
 
-    /* get number of elements in the array */
-    if (!token_is_array(buf)) {
+    /* parse attributes if present */
+    if (token_is_attrib(buf)) {
+        cap--;
+        el = array_push(req->token);
+        status = parse_element(el, buf);
+        if (status != PARSE_OK) {
+            goto error;
+        }
+        /* each attrib takes 2 elements, which is why we divide cap by 2 (>>1),
+         * we need at least another 2 token slots for the shortest command
+         */
+        if (el->num > (cap - 2) >> 1) {
+            log_debug("too many attributes, %d is greater than %"PRIu32, el->num,
+                    (cap - 2) >> 1);
+            goto error;
+        }
+        cap -= el->num * 2;
+        req->offset = 1 + el->num * 2;
+        status = _parse_range(req->token, buf, el->num * 2);
+        if (status != PARSE_OK) {
+            goto error;
+        }
+    }
+
+    cap--; /* we will have at least 2 slots here */
+    el = array_push(req->token);
+    status = parse_element(el, buf);
+    if (status != PARSE_OK || el->num < 1) {
+        goto error;
+    }
+
+    if (el->type != ELEM_ARRAY) {
         log_debug("parse req failed: not an array");
         return PARSE_EINVALID;
     }
-    status = token_array_nelem(&nelem, buf);
+
+    status = _parse_range(req->token, buf, el->num);
     if (status != PARSE_OK) {
-        log_verb("getting array size returns status %d", status);
-        buf->rpos = old_rpos;
-        return status;
-    } else {
-        log_verb("array size is %"PRId64, nelem);
-    }
-
-    if (nelem < 1 || nelem > req->token->nalloc) {
-        log_debug("parse req: invalid array size, %d not in [1, %"PRIu32"]",
-                nelem, req->token->nalloc);
-        return PARSE_EINVALID;
-    }
-
-
-    /* parse elements */
-    while (nelem > 0) {
-        if (buf_rsize(buf) == 0) {
-            buf->rpos = old_rpos;
-            return PARSE_EUNFIN;
-        }
-        el = array_push(req->token);
-        status = parse_element(el, buf);
-        log_verb("parse element returned status %d", status);
-        if (status != PARSE_OK) {
-            request_reset(req);
-            buf->rpos = old_rpos;
-            return status;
-        }
-        nelem--;
+        goto error;
     }
 
     status = _parse_cmd(req);
-    log_verb("parse command returned status %d", status);
     if (status != PARSE_OK) {
-        buf->rpos = old_rpos;
-        return status;
+        goto error;
     }
 
     return PARSE_OK;
+
+error:
+    request_reset(req);
+    buf->rpos = old_rpos;
+    return status;
 }
 
 parse_rstatus_e
@@ -151,7 +180,9 @@ parse_rsp(struct response *rsp, struct buf *buf)
     char *old_rpos = buf->rpos;
     int64_t nelem = 1;
     struct element *el;
+    uint32_t cap = array_nalloc(rsp->token);
 
+    ASSERT(cap  > 0);
     ASSERT(rsp->type == ELEM_UNKNOWN);
 
     log_verb("parsing buf %p into rsp %p", buf, rsp);
@@ -160,39 +191,65 @@ parse_rsp(struct response *rsp, struct buf *buf)
         return PARSE_EUNFIN;
     }
 
-    if (token_is_array(buf)) {
-        status = token_array_nelem(&nelem, buf);
+    /* parse attributes if present */
+    if (token_is_attrib(buf)) {
+        cap--;
+        el = array_push(rsp->token);
+        status = parse_element(el, buf);
         if (status != PARSE_OK) {
-            buf->rpos = old_rpos;
-            return status;
+            goto error;
         }
+        /* each attrib takes 2 elements, which is why we divide cap by 2 (>>1),
+         * we need at least another token for the shortest response, hence -1
+         */
+        if (el->num > (cap - 1) >> 1) {
+            log_debug("too many attributes, %d is greater than %"PRIu32, el->num,
+                    (cap - 1) >> 1);
+            goto error;
+        }
+        cap -= el->num * 2;
+        rsp->offset = 1 + el->num * 2;
+        status = _parse_range(rsp->token, buf, el->num * 2);
+        if (status != PARSE_OK) {
+            goto error;
+        }
+    }
+
+    if (buf_rsize(buf) == 0) {
+        return PARSE_EUNFIN;
+    }
+
+    if (token_is_array(buf)) {
         rsp->type = ELEM_ARRAY;
-        if (nelem > rsp->token->nalloc) {
-            log_debug("parse rsp: invalid # of elements, %d > %"PRIu32, nelem,
-                 rsp->token->nalloc);
-            return PARSE_EOVERSIZE;
+        cap--;
+        el = array_push(rsp->token);
+        status = parse_element(el, buf);
+        if (status != PARSE_OK) {
+            goto error;
         }
+        nelem = el->num;
         if (nelem < 0) {
             rsp->nil = true;
+
             return PARSE_OK;
         }
     }
 
-    /* parse elements */
-    while (nelem > 0) {
-        el = array_push(rsp->token);
-        status = parse_element(el, buf);
-        if (status != PARSE_OK) {
-            log_verb("parse element returned status %d", status);
-            response_reset(rsp);
-            buf->rpos = old_rpos;
-            return status;
-        }
-        if (rsp->type == ELEM_UNKNOWN) {
-            rsp->type = el->type;
-        }
-        nelem--;
+    status = _parse_range(rsp->token, buf, nelem);
+    if (status != PARSE_OK) {
+        goto error;
+    }
+
+    /* assign rsp type based on first non-attribute element */
+    if (rsp->type == ELEM_UNKNOWN) {
+        rsp->type =
+            ((struct element *)array_get(rsp->token, rsp->offset))->type;
     }
 
     return PARSE_OK;
+
+error:
+    response_reset(rsp);
+    buf->rpos = old_rpos;
+    return status;
 }

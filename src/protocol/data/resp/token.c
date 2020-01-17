@@ -13,7 +13,7 @@
 
 #define STR_MAXLEN 255 /* max length for simple string or error */
 #define BULK_MAXLEN (512 * MiB)
-#define ARRAY_MAXLEN (64 * MiB)
+#define TOKEN_MAXLEN (32 * MiB)
 
 #define NIL_STR "$-1\r\n"
 
@@ -89,7 +89,7 @@ _read_int(int64_t *num, struct buf *buf, int64_t min, int64_t max)
                 /* TODO(yao): catch the few numbers that will still overflow */
                 log_warn("ill formatted token: integer out of bounds");
 
-                return PARSE_EOVERSIZE;
+                return PARSE_EINVALID;
             }
 
             len++;
@@ -101,10 +101,14 @@ _read_int(int64_t *num, struct buf *buf, int64_t min, int64_t max)
                 return PARSE_EINVALID;
             }
             if (line_end(buf)) {
-                buf->rpos += CRLF_LEN;
                 log_vverb("parsed integer, value %"PRIi64, *num);
 
-                return PARSE_OK;
+                buf->rpos += CRLF_LEN;
+                if (*num > max || *num < min) {
+                    return PARSE_EINVALID;
+                } else {
+                    return PARSE_OK;
+                }
             } else {
                 return PARSE_EUNFIN;
             }
@@ -159,7 +163,7 @@ _read_bulk(struct bstring *str, struct buf *buf)
 }
 
 static inline int
-_write_int(struct buf *buf, int64_t val)
+_writeln_int(struct buf *buf, int64_t val)
 {
     size_t n = 0;
 
@@ -172,7 +176,7 @@ _write_int(struct buf *buf, int64_t val)
 }
 
 static inline int
-_write_bstr(struct buf *buf, struct bstring *bstr)
+_writeln_bstr(struct buf *buf, struct bstring *bstr)
 {
     buf_write(buf, bstr->data, bstr->len);
     buf_write(buf, CRLF, CRLF_LEN);
@@ -189,26 +193,15 @@ token_is_array(struct buf *buf)
     return (buf_rsize(buf) > 0 && *(buf->rpos) == '*');
 }
 
-parse_rstatus_e
-token_array_nelem(int64_t *nelem, struct buf *buf)
+bool
+token_is_attrib(struct buf *buf)
 {
-    parse_rstatus_e status;
-    char *pos;
+    ASSERT(buf != NULL);
 
-    ASSERT(nelem != NULL && buf != NULL);
-    ASSERT(token_is_array(buf));
-
-    pos = buf->rpos++;
-    status = _read_int(nelem, buf, -1, ARRAY_MAXLEN);
-    if (status == PARSE_EUNFIN) {
-        buf->rpos = pos;
-    }
-
-    return status;
+    return buf_rsize(buf) > 0 && *(buf->rpos) == '|';
 }
 
 
-/* this function does not handle array, which is a composite type */
 parse_rstatus_e
 parse_element(struct element *el, struct buf *buf)
 {
@@ -251,6 +244,18 @@ parse_element(struct element *el, struct buf *buf)
         }
         break;
 
+    case '*':
+        /* array */
+        el->type = ELEM_ARRAY;
+        status = _read_int(&el->num, buf, -1, UINT32_MAX);
+        break;
+
+    case '|':
+        /* attribute */
+        el->type = ELEM_ATTRIB;
+        status = _read_int(&el->num, buf, 1, INT32_MAX);
+        break;
+
     default:
         return PARSE_EINVALID;
     }
@@ -260,22 +265,6 @@ parse_element(struct element *el, struct buf *buf)
     }
 
     return status;
-}
-
-
-int
-compose_array_header(struct buf **buf, int nelem)
-{
-    struct buf *b;
-    size_t n = 1 + CRLF_LEN + CC_INT64_MAXLEN;
-
-    if (_check_buf_size(buf, n) != COMPOSE_OK) {
-        return COMPOSE_ENOMEM;
-    }
-
-    b = *buf;
-    *b->wpos++ = '*';
-    return (1 + _write_int(b, nelem));
 }
 
 /* this function does not handle array, which is a composite type */
@@ -295,6 +284,8 @@ compose_element(struct buf **buf, struct element *el)
         break;
 
     case ELEM_INT:
+    case ELEM_ARRAY:
+    case ELEM_ATTRIB:
         n += CC_INT64_MAXLEN;
         break;
 
@@ -305,6 +296,7 @@ compose_element(struct buf **buf, struct element *el)
     case ELEM_NIL:
         n += 2; /* "-1" */
         break;
+
 
     default:
         return COMPOSE_EINVALID;
@@ -320,28 +312,38 @@ compose_element(struct buf **buf, struct element *el)
     switch (el->type) {
     case ELEM_STR:
         n = buf_write(b, "+", 1);
-        n += _write_bstr(b, &el->bstr);
+        n += _writeln_bstr(b, &el->bstr);
         break;
 
     case ELEM_ERR:
         n = buf_write(b, "-", 1);
-        n += _write_bstr(b, &el->bstr);
+        n += _writeln_bstr(b, &el->bstr);
         break;
 
     case ELEM_INT:
         n = buf_write(b, ":", 1);
-        n += _write_int(b, el->num);
+        n += _writeln_int(b, el->num);
         break;
 
     case ELEM_BULK:
         n = buf_write(b, "$", 1);
-        n += _write_int(b, el->bstr.len);
-        n += _write_bstr(b, &el->bstr);
+        n += _writeln_int(b, el->bstr.len);
+        n += _writeln_bstr(b, &el->bstr);
         break;
 
     case ELEM_NIL:
         n = sizeof(NIL_STR) - 1;
         buf_write(b, NIL_STR, n);
+        break;
+
+    case ELEM_ARRAY:
+        n = buf_write(b, "*", 1);
+        n +=  _writeln_int(b, el->num);
+        break;
+
+    case ELEM_ATTRIB:
+        n = buf_write(b, "|", 1);
+        n +=  _writeln_int(b, el->num);
         break;
 
     default:

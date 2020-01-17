@@ -102,7 +102,8 @@ req_get_bstr(struct bstring **bstr, const struct request *req, uint32_t offset)
     ASSERT(array_nelem(req->token) > offset);
     ASSERT(bstr != NULL);
 
-    struct element *e = (struct element *)array_get(req->token, offset);
+    struct element *e = (struct element *)array_get(req->token, req->offset +
+            offset);
 
     if (e->type != ELEM_BULK) {
         return false;

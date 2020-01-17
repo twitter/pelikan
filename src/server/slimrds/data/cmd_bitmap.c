@@ -25,7 +25,7 @@ _get_col(struct response *rsp, struct request *req, uint16_t max)
 {
     uint64_t col = 0;
     rstatus_i status;
-    struct element *reply = (struct element *)array_get(rsp->token, BITMAP_VERB);
+    struct element *reply = (struct element *)array_get(rsp->token, rsp->offset);
     struct element *arg = (struct element *)array_get(req->token, BITMAP_COL);
 
     status = bstring_atou64(&col, &arg->bstr);
@@ -46,7 +46,7 @@ _get_bitval(struct response *rsp, struct request *req, uint8_t max)
 {
     uint64_t val = 0;
     rstatus_i status;
-    struct element *reply = (struct element *)array_get(rsp->token, BITMAP_VERB);
+    struct element *reply = (struct element *)array_get(rsp->token, rsp->offset);
     struct element *arg = (struct element *)array_get(req->token, BITMAP_VAL);
 
     status = bstring_atou64(&val, &arg->bstr);
@@ -65,7 +65,7 @@ _get_bitval(struct response *rsp, struct request *req, uint8_t max)
 static inline struct item *
 _add_key(struct response *rsp, struct bstring *key)
 {
-    struct element *reply = (struct element *)array_get(rsp->token, BITMAP_VERB);
+    struct element *reply = (struct element *)array_get(rsp->token, rsp->offset);
     struct item *it;
 
     it = cuckoo_get(key);
