@@ -549,6 +549,41 @@ START_TEST(test_array_reply)
 }
 END_TEST
 
+START_TEST(test_unfin_rsp)
+{
+#define ARRLEN 13
+    char *token[ARRLEN] = {
+        ":-10",
+        "$-1\r",
+        "-ERR invalid arg\r",
+        "+foo",
+        "$5\r\n",
+        "$5\r\nHEL",
+        "*2\r\n",
+        "*2\r\n$3\r\n",
+        "*2\r\n$3\r\nfoo\r\n",
+        "*2\r\n$3\r\nfoo\r\n$3\r\n",
+        "|2\r\n+foo\r\n:3\r\n",
+        "|2\r\n+foo\r\n:3\r\n+bar\r\n",
+        "|2\r\n+foo\r\n:3\r\n+bar\r\n:4\r\n",
+    };
+
+    for (int i = 0; i < ARRLEN; i++) {
+        char *pos;
+        size_t len;
+
+        len = strlen(token[i]);
+        buf_reset(buf);
+        buf_write(buf, token[i], len);
+        pos = buf->rpos;
+        request_reset(req);
+        ck_assert_int_eq(parse_req(req, buf), PARSE_EUNFIN);
+        ck_assert(buf->rpos == pos);
+    }
+#undef ARRLEN
+}
+END_TEST
+
 /*
  * edge cases
  */
@@ -655,6 +690,7 @@ resp_suite(void)
 
     tcase_add_test(tc_response, test_ok);
     tcase_add_test(tc_response, test_array_reply);
+    tcase_add_test(tc_request, test_unfin_rsp);
 
     /* edge cases */
     TCase *tc_edge = tcase_create("edge cases");
