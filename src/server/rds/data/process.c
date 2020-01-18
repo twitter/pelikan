@@ -90,7 +90,6 @@ process_request(struct response *rsp, struct request *req)
 {
     struct command cmd;
     command_fn func = command_registry[req->type];
-    int64_t nattrib;
 
     log_verb("processing req %p, write rsp to %p", req, rsp);
     INCR(process_metrics, process_req);
