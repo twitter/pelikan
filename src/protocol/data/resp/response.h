@@ -68,11 +68,10 @@ struct response {
     element_type_e          type;   /* only array can have >1 token */
     bool                    nil;    /* null array or null bulk string */
     struct array            *token; /* member type: `struct element' */
-    uint32_t                offset; /* location of first non-attribute token */
 
     /* global attributes */
-    uint32_t                ttl;
-    uint32_t                soft_ttl;
+    int64_t                 ttl;    /* if negative, ignore at serialization */
+    int64_t                 flag;   /* if negative, ignore at serialization */
 };
 
 void response_setup(response_options_st *options, response_metrics_st *metrics);

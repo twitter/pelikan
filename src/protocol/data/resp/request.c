@@ -47,7 +47,9 @@ request_reset(struct request *req)
 
     req->type = REQ_UNKNOWN;
     req->token->nelem = 0;
-    req->offset = 0;
+
+    req->ttl = INT64_MIN;
+    req->flag = INT64_MIN;
 }
 
 struct request *

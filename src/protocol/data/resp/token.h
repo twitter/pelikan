@@ -43,6 +43,8 @@
  *       String, Integers). NOTE: different from what's in RESP, this type can
  *       be used in both request and reply, and for now can only be used to
  *       decorate at the top level of the request / response.
+ *   - Null: "_\r\n", we keep Null Bulk and Null Array for compatibility, but
+ *       all other types should use the new Null.
  */
 
 /**
@@ -91,7 +93,8 @@ typedef enum element_type {
     ELEM_BULK       = 4,
     ELEM_ARRAY      = 5,
     ELEM_ATTRIB     = 6,
-    ELEM_NIL        = 7,
+    ELEM_NIL        = 7, /* nil bulk */
+    ELEM_NULL       = 8,
 } element_type_e;
 
 struct element {

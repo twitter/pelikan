@@ -16,6 +16,7 @@
 #define TOKEN_MAXLEN (32 * MiB)
 
 #define NIL_STR "$-1\r\n"
+#define NULL_STR "_\r\n"
 
 
 static inline compose_rstatus_e
@@ -256,6 +257,25 @@ parse_element(struct element *el, struct buf *buf)
         status = _read_int(&el->num, buf, 1, INT32_MAX);
         break;
 
+    case '_':
+        /* null type */
+        el->type = ELEM_NULL;
+        if (buf_rsize(buf) >= CRLF_LEN) {
+            if (is_crlf(buf)) {
+                buf->rpos += CRLF_LEN;
+                status = PARSE_OK;
+            } else {
+                status = PARSE_EINVALID;
+            }
+        } else {
+            /* currently ignoring the case where rsize == 1 but the character is
+             * not CR. This should be handled when we address idle connection
+             * with residual partial data.
+             */
+            status = PARSE_EUNFIN;
+        }
+        break;
+
     default:
         return PARSE_EINVALID;
     }
@@ -267,7 +287,6 @@ parse_element(struct element *el, struct buf *buf)
     return status;
 }
 
-/* this function does not handle array, which is a composite type */
 int
 compose_element(struct buf **buf, struct element *el)
 {
@@ -294,9 +313,10 @@ compose_element(struct buf **buf, struct element *el)
         break;
 
     case ELEM_NIL:
-        n += 2; /* "-1" */
-        break;
+        n += 2;
 
+    case ELEM_NULL:
+        break;
 
     default:
         return COMPOSE_EINVALID;
@@ -310,6 +330,16 @@ compose_element(struct buf **buf, struct element *el)
     log_verb("write element %p in buf %p", el, b);
 
     switch (el->type) {
+    case ELEM_ARRAY:
+        n = buf_write(b, "*", 1);
+        n +=  _writeln_int(b, el->num);
+        break;
+
+    case ELEM_ATTRIB:
+        n = buf_write(b, "|", 1);
+        n +=  _writeln_int(b, el->num);
+        break;
+
     case ELEM_STR:
         n = buf_write(b, "+", 1);
         n += _writeln_bstr(b, &el->bstr);
@@ -336,14 +366,9 @@ compose_element(struct buf **buf, struct element *el)
         buf_write(b, NIL_STR, n);
         break;
 
-    case ELEM_ARRAY:
-        n = buf_write(b, "*", 1);
-        n +=  _writeln_int(b, el->num);
-        break;
-
-    case ELEM_ATTRIB:
-        n = buf_write(b, "|", 1);
-        n +=  _writeln_int(b, el->num);
+    case ELEM_NULL:
+        n = sizeof(NULL_STR) - 1;
+        buf_write(b, NULL_STR, n);
         break;
 
     default:

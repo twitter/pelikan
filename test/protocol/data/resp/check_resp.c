@@ -293,6 +293,7 @@ START_TEST(test_attribute)
 #undef SERIALIZED
 }
 END_TEST
+
 START_TEST(test_nil_bulk)
 {
 #define NIL_BULK "$-1\r\n"
@@ -312,6 +313,29 @@ START_TEST(test_nil_bulk)
     ck_assert_int_eq(el_p.type, ELEM_NIL);
 
 #undef NIL_BULK
+}
+END_TEST
+
+
+START_TEST(test_null)
+{
+#define SERIALIZED "_\r\n"
+
+    size_t len = sizeof(SERIALIZED) - 1;
+    struct element el_c, el_p;
+
+    test_reset();
+
+    el_c.type = ELEM_NULL;
+    ck_assert_int_eq(compose_element(&buf, &el_c), len);
+    ck_assert_int_eq(buf_rsize(buf), len);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, len), 0);
+
+    el_p.type = ELEM_UNKNOWN;
+    ck_assert_int_eq(parse_element(&el_p, buf), PARSE_OK);
+    ck_assert_int_eq(el_p.type, ELEM_NULL);
+
+#undef SERIALIZED
 }
 END_TEST
 
@@ -445,9 +469,61 @@ START_TEST(test_ping)
     ck_assert_int_eq(el->type, ELEM_BULK);
     ck_assert_int_eq(cc_bcmp(el->bstr.data, VAL, sizeof(VAL) - 1), 0);
 #undef S_ECHO
-#undef ECHO
 #undef S_PING
-#undef QUIT
+#undef VAL
+#undef PING
+}
+END_TEST
+
+
+START_TEST(test_req_with_attrib)
+{
+#define PING "ping"
+#define SERIALIZED "|2\r\n+ttl\r\n:123\r\n+flag\r\n:0\r\n*1\r\n$4\r\nping\r\n"
+    int ret;
+    struct element *el;
+
+    test_reset();
+
+    req->type = REQ_PING;
+    el = array_push(req->token);
+    el->type = ELEM_ATTRIB;
+    el->num = 2;
+    el = array_push(req->token);
+    el->type = ELEM_STR;
+    el->bstr = attrib_table[ATTRIB_TTL];
+    el = array_push(req->token);
+    el->type = ELEM_INT;
+    el->num = 123;
+    el = array_push(req->token);
+    el->type = ELEM_STR;
+    el->bstr = attrib_table[ATTRIB_FLAG];
+    el = array_push(req->token);
+    el->type = ELEM_INT;
+    el->num = 0;
+    el = array_push(req->token);
+    el->type = ELEM_ARRAY;
+    el->num = 1;
+    el = array_push(req->token);
+    el->type = ELEM_BULK;
+    el->bstr = (struct bstring){sizeof(PING) - 1, PING};
+    ret = compose_req(&buf, req);
+    ck_assert_int_eq(ret, sizeof(SERIALIZED) - 1);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
+
+    el->type = ELEM_UNKNOWN; /* resets *el */
+    request_reset(req);
+    ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
+    ck_assert_int_eq(req->type, REQ_PING);
+    ck_assert_int_eq(req->ttl, 123);
+    ck_assert_int_eq(req->flag, 0);
+    ck_assert_int_eq(req->token->nelem, 2);
+    el = array_first(req->token);
+    ck_assert_int_eq(el->type, ELEM_ARRAY);
+    el = array_get(req->token, 1);
+    ck_assert_int_eq(el->type, ELEM_BULK);
+    ck_assert_int_eq(cc_bcmp(el->bstr.data, PING, sizeof(PING) - 1), 0);
+#undef SERIALIZED
 }
 END_TEST
 
@@ -510,6 +586,55 @@ START_TEST(test_ok)
     ck_assert_int_eq(cc_bcmp(el->bstr.data, OK, sizeof(OK) - 1), 0);
 #undef SERIALIZED
 #undef OK
+}
+END_TEST
+
+START_TEST(test_rsp_with_attrib)
+{
+#define OK "OK"
+#define SERIALIZED "|2\r\n+ttl\r\n:12345\r\n+flag\r\n:2222\r\n+OK\r\n"
+    int ret;
+    struct element *el;
+
+    test_reset();
+
+    rsp->type = ELEM_STR;
+    el = array_push(rsp->token);
+    el->type = ELEM_ATTRIB;
+    el->num = 2;
+    /* first attribute */
+    el = array_push(rsp->token);
+    el->type = ELEM_STR;
+    el->bstr = attrib_table[ATTRIB_TTL];
+    el = array_push(rsp->token);
+    el->type = ELEM_INT;
+    el->num = 12345;
+    /* second attribute */
+    el = array_push(rsp->token);
+    el->type = ELEM_STR;
+    el->bstr = attrib_table[ATTRIB_FLAG];
+    el = array_push(rsp->token);
+    el->type = ELEM_INT;
+    el->num = 2222;
+    /* response main */
+    el = array_push(rsp->token);
+    el->type = ELEM_STR;
+    el->bstr = (struct bstring){sizeof(OK) - 1, OK};
+    ret = compose_rsp(&buf, rsp);
+    ck_assert_int_eq(ret, sizeof(SERIALIZED) - 1);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
+
+    el->type = ELEM_UNKNOWN; /* resets *el */
+    response_reset(rsp);
+    ck_assert_int_eq(parse_rsp(rsp, buf), PARSE_OK);
+    ck_assert_int_eq(rsp->type, ELEM_STR);
+    ck_assert_int_eq(rsp->ttl, 12345);
+    ck_assert_int_eq(rsp->flag, 2222);
+    ck_assert_int_eq(rsp->token->nelem, 1);
+    el = array_first(rsp->token);
+    ck_assert_int_eq(el->type, ELEM_STR);
+    ck_assert_int_eq(cc_bcmp(el->bstr.data, OK, sizeof(OK) - 1), 0);
+#undef SERIALIZED
 }
 END_TEST
 
@@ -674,6 +799,7 @@ resp_suite(void)
     tcase_add_test(tc_token, test_array);
     tcase_add_test(tc_token, test_attribute);
     tcase_add_test(tc_token, test_nil_bulk);
+    tcase_add_test(tc_token, test_null);
     tcase_add_test(tc_token, test_unfin_token);
 
     /* basic requests */
@@ -682,6 +808,7 @@ resp_suite(void)
 
     tcase_add_test(tc_request, test_quit);
     tcase_add_test(tc_request, test_ping);
+    tcase_add_test(tc_request, test_req_with_attrib);
     tcase_add_test(tc_request, test_unfin_req);
 
     /* basic responses */
@@ -690,6 +817,7 @@ resp_suite(void)
 
     tcase_add_test(tc_response, test_ok);
     tcase_add_test(tc_response, test_array_reply);
+    tcase_add_test(tc_request, test_rsp_with_attrib);
     tcase_add_test(tc_request, test_unfin_rsp);
 
     /* edge cases */

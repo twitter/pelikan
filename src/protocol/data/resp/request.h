@@ -84,11 +84,10 @@ struct request {
 
     cmd_type_e              type;
     struct array            *token; /* member type: `struct element' */
-    uint32_t                offset; /* location of first non-attribute token */
 
     /* global attributes */
-    uint32_t                ttl;
-    uint32_t                soft_ttl;
+    int64_t                ttl;     /* -1 means it is not provided */
+    int64_t                flag;    /* -1 means it is not provided */
 };
 
 

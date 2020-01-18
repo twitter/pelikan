@@ -3,6 +3,7 @@
 #include "request.h"
 #include "response.h"
 #include "token.h"
+#include "attribute.h"
 
 #include <cc_array.h>
 #include <cc_debug.h>
@@ -56,8 +57,9 @@ _parse_cmd(struct request *req)
     ASSERT(req != NULL);
 
     /* check verb */
+
     type = REQ_UNKNOWN;
-    el = array_get(req->token, req->offset + CMD_OFFSET);
+    el = array_get(req->token, CMD_OFFSET);
 
     ASSERT (el->type == ELEM_BULK);
     while (++type < REQ_SENTINEL &&
@@ -71,7 +73,7 @@ _parse_cmd(struct request *req)
 
     /* check narg */
     cmd = command_table[type];
-    narg = req->token->nelem - req->offset - 1;
+    narg = req->token->nelem - 1;
     if (narg < cmd.narg || narg > (cmd.narg + cmd.nopt)) {
         log_warn("wrong # of arguments for '%.*s': %d+[%d] expected, %d given",
                 cmd.bstr.len, cmd.bstr.data, cmd.narg, cmd.nopt, narg);
@@ -103,12 +105,61 @@ _parse_range(struct array *token, struct buf *buf, int64_t nelem)
     return PARSE_OK;
 }
 
+
+static void
+_parse_req_attrib(struct request *req, struct element *key, struct element *val)
+{
+    attrib_type_e type = ATTRIB_UNKNOWN;
+
+    /* treat this as it cannot fail, skip anything that is not recognized or has
+     * invalid value so the program will proceed to the request main itself.
+     */
+    if (key->type != ELEM_STR) { /* key has to be a simple string */
+        log_warn("attribute key must be simple string, not type %d", key->type);
+
+        return;
+    }
+    while (++type < ATTRIB_SENTINEL &&
+            bstring_compare(&attrib_table[type], &key->bstr) != 0) {}
+    if (type == REQ_SENTINEL) {
+        log_warn("unrecognized attribute: %.*s", key->bstr.len, key->bstr.data);
+
+        return;
+    }
+
+    switch (type) {
+    case ATTRIB_TTL:
+        if (val->type != ELEM_INT) {
+            log_warn("attribute ttl has value type int, %d found", val->type);
+
+            return;
+        }
+        req->ttl = val->num;
+        log_verb("request provides attribute 'ttl', value is %"PRIi64, req->ttl);
+        break;
+
+    case ATTRIB_FLAG:
+        if (val->type != ELEM_INT || val->num > UINT32_MAX || val->num < 0) {
+            log_warn("attribute ttl has invalid type or value");
+
+            return;
+        }
+        req->flag = val->num;
+        log_verb("request provides attribute 'flag', value is %"PRIi64, req->flag);
+        break;
+
+    default:
+        /* do nothing */
+        break;
+    }
+}
+
 parse_rstatus_e
 parse_req(struct request *req, struct buf *buf)
 {
     parse_rstatus_e status = PARSE_OK;
     char *old_rpos = buf->rpos;
-    struct element *el;
+    struct element *el, attrib, key, val;
     uint32_t cap = array_nalloc(req->token);
 
     ASSERT(cap > 1);
@@ -121,25 +172,20 @@ parse_req(struct request *req, struct buf *buf)
 
     /* parse attributes if present */
     if (token_is_attrib(buf)) {
-        cap--;
-        el = array_push(req->token);
-        status = parse_element(el, buf);
+        status = parse_element(&attrib, buf);
         if (status != PARSE_OK) {
             goto error;
         }
-        /* each attrib takes 2 elements, which is why we divide cap by 2 (>>1),
-         * we need at least another 2 token slots for the shortest command
-         */
-        if (el->num > (cap - 2) >> 1) {
-            log_debug("too many attributes, %d is greater than %"PRIu32, el->num,
-                    (cap - 2) >> 1);
-            goto error;
-        }
-        cap -= el->num * 2;
-        req->offset = 1 + el->num * 2;
-        status = _parse_range(req->token, buf, el->num * 2);
-        if (status != PARSE_OK) {
-            goto error;
+        for (;attrib.num > 0; attrib.num--) {
+            status = parse_element(&key, buf);
+            if (status != PARSE_OK) {
+                goto error;
+            }
+            status = parse_element(&val, buf);
+            if (status != PARSE_OK) {
+                goto error;
+            }
+            _parse_req_attrib(req, &key, &val);
         }
     }
 
@@ -152,7 +198,7 @@ parse_req(struct request *req, struct buf *buf)
 
     if (el->type != ELEM_ARRAY) {
         log_debug("parse req failed: not an array");
-        return PARSE_EINVALID;
+        goto error;
     }
 
     status = _parse_range(req->token, buf, el->num);
@@ -173,13 +219,62 @@ error:
     return status;
 }
 
+
+static void
+_parse_rsp_attrib(struct response *rsp, struct element *key, struct element *val)
+{
+    attrib_type_e type = ATTRIB_UNKNOWN;
+
+    /* treat this as it cannot fail, skip anything that is not recognized or has
+     * invalid value so the program will proceed to the request main itself.
+     */
+    if (key->type != ELEM_STR) { /* key has to be a simple string */
+        log_warn("attribute key must be simple string, not type %d", key->type);
+
+        return;
+    }
+    while (++type < ATTRIB_SENTINEL &&
+            bstring_compare(&attrib_table[type], &key->bstr) != 0) {}
+    if (type == REQ_SENTINEL) {
+        log_warn("unrecognized attribute: %.*s", key->bstr.len, key->bstr.data);
+
+        return;
+    }
+
+    switch (type) {
+    case ATTRIB_TTL:
+        if (val->type != ELEM_INT) {
+            log_warn("attribute ttl has value type int, %d found", val->type);
+
+            return;
+        }
+        rsp->ttl = val->num;
+        log_verb("request provides attribute 'ttl', value is %"PRIi64, rsp->ttl);
+        break;
+
+    case ATTRIB_FLAG:
+        if (val->type != ELEM_INT || val->num > UINT32_MAX || val->num < 0) {
+            log_warn("attribute ttl has invalid type or value");
+
+            return;
+        }
+        rsp->flag = val->num;
+        log_verb("request provides attribute 'flag', value is %"PRIi64, rsp->flag);
+        break;
+
+    default:
+        NOT_REACHED();
+
+    }
+}
+
 parse_rstatus_e
 parse_rsp(struct response *rsp, struct buf *buf)
 {
     parse_rstatus_e status = PARSE_OK;
     char *old_rpos = buf->rpos;
     int64_t nelem = 1;
-    struct element *el;
+    struct element *el, attrib, key, val;
     uint32_t cap = array_nalloc(rsp->token);
 
     ASSERT(cap  > 0);
@@ -193,25 +288,20 @@ parse_rsp(struct response *rsp, struct buf *buf)
 
     /* parse attributes if present */
     if (token_is_attrib(buf)) {
-        cap--;
-        el = array_push(rsp->token);
-        status = parse_element(el, buf);
+        status = parse_element(&attrib, buf);
         if (status != PARSE_OK) {
             goto error;
         }
-        /* each attrib takes 2 elements, which is why we divide cap by 2 (>>1),
-         * we need at least another token for the shortest response, hence -1
-         */
-        if (el->num > (cap - 1) >> 1) {
-            log_debug("too many attributes, %d is greater than %"PRIu32, el->num,
-                    (cap - 1) >> 1);
-            goto error;
-        }
-        cap -= el->num * 2;
-        rsp->offset = 1 + el->num * 2;
-        status = _parse_range(rsp->token, buf, el->num * 2);
-        if (status != PARSE_OK) {
-            goto error;
+        for (;attrib.num > 0; attrib.num--) {
+            status = parse_element(&key, buf);
+            if (status != PARSE_OK) {
+                goto error;
+            }
+            status = parse_element(&val, buf);
+            if (status != PARSE_OK) {
+                goto error;
+            }
+            _parse_rsp_attrib(rsp, &key, &val);
         }
     }
 
@@ -242,8 +332,7 @@ parse_rsp(struct response *rsp, struct buf *buf)
 
     /* assign rsp type based on first non-attribute element */
     if (rsp->type == ELEM_UNKNOWN) {
-        rsp->type =
-            ((struct element *)array_get(rsp->token, rsp->offset))->type;
+        rsp->type = ((struct element *)array_first(rsp->token))->type;
     }
 
     return PARSE_OK;

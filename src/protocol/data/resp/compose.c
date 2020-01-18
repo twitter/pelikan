@@ -44,11 +44,9 @@ compose_teardown(void)
 int
 compose_req(struct buf **buf, struct request *req)
 {
-    int n = 0;
+    int n = 0, ret;
 
     for (int i = 0; i < req->token->nelem; i++) {
-        int ret;
-
         ret = compose_element(buf, array_get(req->token, i));
         if (ret < 0) {
             return ret;
@@ -63,11 +61,9 @@ compose_req(struct buf **buf, struct request *req)
 int
 compose_rsp(struct buf **buf, struct response *rsp)
 {
-    int n = 0;
+    int n = 0, ret;
 
     for (int i = 0; i < rsp->token->nelem; i++) {
-        int ret;
-
         ret = compose_element(buf, array_get(rsp->token, i));
         if (ret < 0) {
             return ret;

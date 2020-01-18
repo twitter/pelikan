@@ -29,6 +29,9 @@ response_reset(struct response *rsp)
     rsp->type = ELEM_UNKNOWN;
     rsp->nil = false;
     rsp->token->nelem = 0;
+
+    rsp->ttl = INT64_MIN;
+    rsp->flag = INT64_MIN;
 }
 
 struct response *
