@@ -5,8 +5,8 @@
 /* Top level attributes */
 
 /*          type            string */
-#define ATTRIB_GLOBAL(ACTION)           \
-    ACTION( ATTRIB_TTL,     "ttl"      )\
+#define ATTRIB_GLOBAL(ACTION)       \
+    ACTION( ATTRIB_TTL,     "ttl"  )\
     ACTION( ATTRIB_FLAG,    "flag" )
 
 

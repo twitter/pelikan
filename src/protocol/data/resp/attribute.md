@@ -24,22 +24,23 @@ We are interested in a few use cases that are related to attributes, such as:
 To support these use cases, and maybe more future ones, it is necessary to
 allow attributes to be present in both requests and responses. For example,
 one might want to extend the TTL whenever they are appending to a list, without
-having to issue another two commands, `EXPIRE` and `TTL`, as they would need to
-in current Redis.
+having to issue another two commands, `TTL` and `EXPIRE`, as they would need to
+with current Redis.
 
 ### Limited Global Attributes
 
 The parser is opinionated about which top-level attributes are allowed via a
 preset list in `attribute.h`, with related support in request and response
-object declareations. This is due to the fact that attributes can be nested
-anywhere, and therefore more local options should be declared, and therefore
-handled, in a more local fashion. In exchange, knowing what attributes to
-expect allows us to handle them with less code in the protocol module. Of
-course, it is easy to expand this list for legitimate use cases.
+object declarations. This is due to the fact that attributes can be nested
+anywhere, and therefore more local options should be declared and handled
+handled if used by specific commands. In exchange, knowing what attributes to
+expect globally allows us to handle the most universal attributes with shared
+code in the protocol module. Of course, it is easy to expand this list for
+legitimate use cases.
 
 Another limitation on global attributes is that we expect the keys to be simple
 strings, while the values should be integers. Obviously this assumption could
-change with the right use case. But for now, that covers all we want and is very
+change with future demand. But for now, that covers all we want and is very
 easy to code up.
 
 ## Notes on Other Usage
@@ -54,4 +55,4 @@ responding with the whole value after modification. This has historically been
 difficult to predetermine which response is the best, and can be highly use-case
 dependent. With attributes, it would be easy to declare a reply style within the
 request itself, or request any number of metadata to be included in the response
-as attributes along side the main value(s).
+as attributes alongside the main value(s).
