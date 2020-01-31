@@ -86,8 +86,8 @@ struct request {
     struct array            *token; /* member type: `struct element' */
 
     /* global attributes */
-    int64_t                ttl;     /* -1 means it is not provided */
-    int64_t                flag;    /* -1 means it is not provided */
+    int64_t                ttl;     /* INT64_MIN means it is not provided */
+    int64_t                flag;    /* INT64_MIN means it is not provided */
 };
 
 

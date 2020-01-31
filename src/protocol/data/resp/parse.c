@@ -106,28 +106,33 @@ _parse_range(struct array *token, struct buf *buf, int64_t nelem)
 }
 
 
-static void
-_parse_req_attrib(struct request *req, struct element *key, struct element *val)
+/* true if attribute is valid, false otherwise */
+static attrib_type_e
+_lookup_attrib_key(struct element *key)
 {
     attrib_type_e type = ATTRIB_UNKNOWN;
 
-    /* treat this as it cannot fail, skip anything that is not recognized or has
-     * invalid value so the program will proceed to the request main itself.
-     */
     if (key->type != ELEM_STR) { /* key has to be a simple string */
         log_warn("attribute key must be simple string, not type %d", key->type);
 
-        return;
+        return ATTRIB_UNKNOWN;
     }
+
     while (++type < ATTRIB_SENTINEL &&
             bstring_compare(&attrib_table[type], &key->bstr) != 0) {}
-    if (type == REQ_SENTINEL) {
+    if (type == ATTRIB_SENTINEL) {
         log_warn("unrecognized attribute: %.*s", key->bstr.len, key->bstr.data);
 
-        return;
+        return ATTRIB_SENTINEL;
     }
 
-    switch (type) {
+    return type;
+}
+
+static void
+_parse_req_attrib(struct request *req, struct element *key, struct element *val)
+{
+    switch (_lookup_attrib_key(key)) {
     case ATTRIB_TTL:
         if (val->type != ELEM_INT) {
             log_warn("attribute ttl has value type int, %d found", val->type);
@@ -149,7 +154,7 @@ _parse_req_attrib(struct request *req, struct element *key, struct element *val)
         break;
 
     default:
-        /* do nothing */
+        /* do nothing, including unknown or invalid */
         break;
     }
 }
@@ -223,25 +228,7 @@ error:
 static void
 _parse_rsp_attrib(struct response *rsp, struct element *key, struct element *val)
 {
-    attrib_type_e type = ATTRIB_UNKNOWN;
-
-    /* treat this as it cannot fail, skip anything that is not recognized or has
-     * invalid value so the program will proceed to the request main itself.
-     */
-    if (key->type != ELEM_STR) { /* key has to be a simple string */
-        log_warn("attribute key must be simple string, not type %d", key->type);
-
-        return;
-    }
-    while (++type < ATTRIB_SENTINEL &&
-            bstring_compare(&attrib_table[type], &key->bstr) != 0) {}
-    if (type == REQ_SENTINEL) {
-        log_warn("unrecognized attribute: %.*s", key->bstr.len, key->bstr.data);
-
-        return;
-    }
-
-    switch (type) {
+    switch (_lookup_attrib_key(key)) {
     case ATTRIB_TTL:
         if (val->type != ELEM_INT) {
             log_warn("attribute ttl has value type int, %d found", val->type);
@@ -263,8 +250,8 @@ _parse_rsp_attrib(struct response *rsp, struct element *key, struct element *val
         break;
 
     default:
-        NOT_REACHED();
-
+        /* do nothing, including unknown or invalid */
+        break;
     }
 }
 

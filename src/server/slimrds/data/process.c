@@ -65,7 +65,6 @@ process_teardown(void)
 void
 process_request(struct response *rsp, struct request *req)
 {
-    int64_t nattrib;
     struct command cmd;
     command_fn func = command_registry[req->type];
 
