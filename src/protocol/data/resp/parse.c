@@ -118,8 +118,11 @@ _lookup_attrib_key(struct element *key)
         return ATTRIB_UNKNOWN;
     }
 
-    while (++type < ATTRIB_SENTINEL &&
-            bstring_compare(&attrib_table[type], &key->bstr) != 0) {}
+    for (; type < ATTRIB_SENTINEL; ++type) {
+        if (bstring_compare(&attrib_table[type], &key->bstr) == 0) {
+            break;
+        }
+    }
     if (type == ATTRIB_SENTINEL) {
         log_warn("unrecognized attribute: %.*s", key->bstr.len, key->bstr.data);
 
