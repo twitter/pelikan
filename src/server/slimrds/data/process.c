@@ -68,6 +68,9 @@ process_request(struct response *rsp, struct request *req)
     struct command cmd;
     command_fn func = command_registry[req->type];
 
+    log_verb("processing req %p, write rsp to %p", req, rsp);
+    INCR(process_metrics, process_req);
+
     if (func == NULL) {
         struct element *reply = (struct element *)array_push(rsp->token);
         log_warn("command is recognized but not implemented");
@@ -80,7 +83,7 @@ process_request(struct response *rsp, struct request *req)
     }
 
     cmd = command_table[req->type];
-    cmd.nopt = req->token->nelem - cmd.narg;
+    cmd.nopt = ((struct element *)array_first(req->token))->num - cmd.narg;
 
     log_verb("processing command '%.*s' with %d optional arguments",
             cmd.bstr.len, cmd.bstr.data, cmd.nopt);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cmd.h"
+
 /**
  * create: create an empty list
  * List.create KEY
@@ -28,21 +30,20 @@
 
 
 /*          type                string          #arg    #opt */
-#define REQ_LIST(ACTION)                                    \
-    ACTION( REQ_LIST_CREATE,  "List.create",    2,      0  )\
-    ACTION( REQ_LIST_DELETE,  "List.delete",    2,      2  )\
-    ACTION( REQ_LIST_LEN,     "List.len",       2,      0  )\
-    ACTION( REQ_LIST_FIND,    "List.find",      3,      0  )\
-    ACTION( REQ_LIST_GET,     "List.get",       2,      2  )\
-    ACTION( REQ_LIST_INSERT,  "List.insert",    4,      0  )\
-    ACTION( REQ_LIST_PUSH,    "List.push",      3,      -1 )\
-    ACTION( REQ_LIST_TRIM,    "List.trim",      4,      0  )
+#define REQ_LIST(ACTION)                                            \
+    ACTION( REQ_LIST_CREATE,  "List.create",    2,      0          )\
+    ACTION( REQ_LIST_DELETE,  "List.delete",    2,      2          )\
+    ACTION( REQ_LIST_LEN,     "List.len",       2,      0          )\
+    ACTION( REQ_LIST_FIND,    "List.find",      3,      0          )\
+    ACTION( REQ_LIST_GET,     "List.get",       2,      2          )\
+    ACTION( REQ_LIST_INSERT,  "List.insert",    4,      0          )\
+    ACTION( REQ_LIST_PUSH,    "List.push",      3,      OPT_VARIED )\
+    ACTION( REQ_LIST_TRIM,    "List.trim",      4,      0          )
 
 typedef enum list_elem {
-    LIST_VERB = 0,
-    LIST_KEY = 1,
-    LIST_VAL = 2,
-    LIST_IDX = 2,
-    LIST_VIDX = 3, /* when a value is also present */
-    LIST_CNT = 3,
+    LIST_KEY = 2,
+    LIST_VAL = 3,
+    LIST_IDX = 3,
+    LIST_VIDX = 4, /* when a value is also present */
+    LIST_CNT = 4,
 } list_elem_e;

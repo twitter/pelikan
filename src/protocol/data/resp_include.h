@@ -4,3 +4,5 @@
 #include "resp/process.h"
 #include "resp/request.h"
 #include "resp/response.h"
+#include "resp/attribute.h"
+

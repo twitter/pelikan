@@ -47,6 +47,9 @@ request_reset(struct request *req)
 
     req->type = REQ_UNKNOWN;
     req->token->nelem = 0;
+
+    req->ttl = INT64_MIN;
+    req->flag = INT64_MIN;
 }
 
 struct request *
@@ -197,6 +200,9 @@ request_setup(request_options_st *options, request_metrics_st *metrics)
     if (options != NULL) {
         int i;
         ntoken = option_uint(&options->request_ntoken);
+        if (ntoken < 2) {
+            log_panic("invalid ntoken config: %u is too small");
+        }
         for (i = 1; i < REQ_SENTINEL; i++) { /* update nopt based on ntoken */
             if (command_table[i].nopt == -1) {
                 command_table[i].nopt = ntoken - command_table[i].narg;

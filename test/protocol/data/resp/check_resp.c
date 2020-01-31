@@ -159,7 +159,7 @@ START_TEST(test_integer)
     buf_reset(buf);
     buf_write(buf, OVERSIZE, sizeof(OVERSIZE) - 1);
     ret = parse_element(&el_p, buf);
-    ck_assert_int_eq(ret, PARSE_EOVERSIZE);
+    ck_assert_int_eq(ret, PARSE_EINVALID);
 
     buf_reset(buf);
     buf_write(buf, INVALID1, sizeof(INVALID1) - 1);
@@ -198,7 +198,6 @@ START_TEST(test_bulk_string)
 
     /* parse */
     ck_assert_int_eq(parse_element(&el_p, buf), PARSE_OK);
-    ck_assert(buf->rpos == buf->wpos);
     ck_assert(el_p.type == ELEM_BULK);
     ck_assert(el_p.bstr.len == sizeof(BULK) - 1);
     ck_assert(el_p.bstr.data + el_p.bstr.len == buf->rpos - CRLF_LEN);
@@ -223,20 +222,74 @@ END_TEST
 
 START_TEST(test_array)
 {
-#define SERIALIZED "*2\r\n+foo\r\n$4\r\nbarr\r\n"
-#define NELEM 2
+#define SERIALIZED "*2\r\n"
+#define NIL_ARRAY "*-1\r\n"
+#define INVALID_ARRAY "*-2\r\n"
 
+    struct element el_c, el_p;
+    int ret;
     size_t len = sizeof(SERIALIZED) - 1;
-    int64_t nelem;
 
     test_reset();
 
-    buf_write(buf, SERIALIZED, len);
-    ck_assert(token_is_array(buf));
-    ck_assert_int_eq(token_array_nelem(&nelem, buf), PARSE_OK);
-    ck_assert_int_eq(nelem, NELEM);
+    el_c.type = ELEM_ARRAY;
+    el_c.num = 2;
+    ret = compose_element(&buf, &el_c);
+    ck_assert(ret == len);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, len), 0);
 
-#undef NELEM
+    el_p.type = ELEM_UNKNOWN;
+    ck_assert(token_is_array(buf));
+    ck_assert_int_eq(parse_element(&el_p, buf), PARSE_OK);
+    ck_assert(el_p.type == ELEM_ARRAY);
+    ck_assert_int_eq(el_p.num, 2);
+
+    /* nil */
+    buf_reset(buf);
+    buf_write(buf, NIL_ARRAY, sizeof(NIL_ARRAY) - 1);
+    ck_assert_int_eq(parse_element(&el_p, buf), PARSE_OK);
+    ck_assert_int_eq(el_p.num, -1);
+
+    /* invalid */
+    buf_reset(buf);
+    buf_write(buf, INVALID_ARRAY, sizeof(INVALID_ARRAY) - 1);
+    ck_assert_int_eq(parse_element(&el_p, buf), PARSE_EINVALID);
+
+#undef INVALID_ARRAY
+#undef NIL_ARRAY
+#undef SERIALIZED
+}
+END_TEST
+
+START_TEST(test_attribute)
+{
+#define SERIALIZED "|2\r\n"
+#define INVALID_ATTRIB "|-1\r\n"
+
+    struct element el_c, el_p;
+    int ret;
+    size_t len = sizeof(SERIALIZED) - 1;
+
+    test_reset();
+
+    el_c.type = ELEM_ATTRIB;
+    el_c.num = 2;
+    ret = compose_element(&buf, &el_c);
+    ck_assert(ret == len);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, len), 0);
+
+    el_p.type = ELEM_UNKNOWN;
+    ck_assert(token_is_attrib(buf));
+    ck_assert_int_eq(parse_element(&el_p, buf), PARSE_OK);
+    ck_assert(el_p.type == ELEM_ATTRIB);
+    ck_assert_int_eq(el_p.num, 2);
+
+    /* invalid */
+    buf_reset(buf);
+    buf_write(buf, INVALID_ATTRIB, sizeof(INVALID_ATTRIB) - 1);
+    ck_assert_int_eq(parse_element(&el_p, buf), PARSE_EINVALID);
+
+#undef INVALID_ATTRIB
 #undef SERIALIZED
 }
 END_TEST
@@ -263,9 +316,33 @@ START_TEST(test_nil_bulk)
 }
 END_TEST
 
+
+START_TEST(test_null)
+{
+#define SERIALIZED "_\r\n"
+
+    size_t len = sizeof(SERIALIZED) - 1;
+    struct element el_c, el_p;
+
+    test_reset();
+
+    el_c.type = ELEM_NULL;
+    ck_assert_int_eq(compose_element(&buf, &el_c), len);
+    ck_assert_int_eq(buf_rsize(buf), len);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, len), 0);
+
+    el_p.type = ELEM_UNKNOWN;
+    ck_assert_int_eq(parse_element(&el_p, buf), PARSE_OK);
+    ck_assert_int_eq(el_p.type, ELEM_NULL);
+
+#undef SERIALIZED
+}
+END_TEST
+
 START_TEST(test_unfin_token)
 {
-    char *token[13] = {
+#define ARRLEN 14
+    char *token[ARRLEN] = {
         "+hello ",
         "-err",
         "-err\r",
@@ -278,11 +355,13 @@ START_TEST(test_unfin_token)
         "$5\r\nabcde\r",
         "*5",
         "*5\r",
+        "|2",
+        "|2\r",
     };
     char *pos;
     size_t len;
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < ARRLEN; i++) {
         struct element el;
 
         len = strlen(token[i]);
@@ -292,17 +371,7 @@ START_TEST(test_unfin_token)
         ck_assert_int_eq(parse_element(&el, buf), PARSE_EUNFIN);
         ck_assert(buf->rpos == pos);
     }
-
-    for (int i = 10; i < 12; i++) {
-        int64_t nelem;
-
-        len = strlen(token[i]);
-        buf_reset(buf);
-        buf_write(buf, token[i], len);
-        pos = buf->rpos;
-        ck_assert_int_eq(token_array_nelem(&nelem, buf), PARSE_EUNFIN);
-        ck_assert(buf->rpos == pos);
-    }
+#undef ARRLEN
 }
 END_TEST
 
@@ -321,7 +390,11 @@ START_TEST(test_quit)
 
     test_reset();
 
+    request_reset(req);
     req->type = REQ_QUIT;
+    el = array_push(req->token);
+    el->type = ELEM_ARRAY;
+    el->num = 1;
     el = array_push(req->token);
     el->type = ELEM_BULK;
     el->bstr = (struct bstring){sizeof(QUIT) - 1, QUIT};
@@ -333,8 +406,8 @@ START_TEST(test_quit)
     request_reset(req);
     ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
     ck_assert_int_eq(req->type, REQ_QUIT);
-    ck_assert_int_eq(req->token->nelem, 1);
-    el = array_first(req->token);
+    ck_assert_int_eq(req->token->nelem, 2);
+    el = array_get(req->token, 1);
     ck_assert_int_eq(el->type, ELEM_BULK);
     ck_assert_int_eq(cc_bcmp(el->bstr.data, QUIT, sizeof(QUIT) - 1), 0);
 
@@ -370,6 +443,9 @@ START_TEST(test_ping)
 
     req->type = REQ_PING;
     el = array_push(req->token);
+    el->type = ELEM_ARRAY;
+    el->num = 2;
+    el = array_push(req->token);
     el->type = ELEM_BULK;
     el->bstr = (struct bstring){sizeof(PING) - 1, PING};
     el = array_push(req->token);
@@ -383,30 +459,88 @@ START_TEST(test_ping)
     request_reset(req);
     ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
     ck_assert_int_eq(req->type, REQ_PING);
-    ck_assert_int_eq(req->token->nelem, 2);
+    ck_assert_int_eq(req->token->nelem, 3);
     el = array_first(req->token);
+    ck_assert_int_eq(el->type, ELEM_ARRAY);
+    el = array_get(req->token, 1);
     ck_assert_int_eq(el->type, ELEM_BULK);
     ck_assert_int_eq(cc_bcmp(el->bstr.data, PING, sizeof(PING) - 1), 0);
-    el = array_get(req->token, 1);
+    el = array_get(req->token, 2);
     ck_assert_int_eq(el->type, ELEM_BULK);
     ck_assert_int_eq(cc_bcmp(el->bstr.data, VAL, sizeof(VAL) - 1), 0);
 #undef S_ECHO
-#undef ECHO
 #undef S_PING
-#undef QUIT
+#undef VAL
+#undef PING
+}
+END_TEST
+
+
+START_TEST(test_req_with_attrib)
+{
+#define PING "ping"
+#define SERIALIZED "|2\r\n+ttl\r\n:123\r\n+flag\r\n:0\r\n*1\r\n$4\r\nping\r\n"
+    int ret;
+    struct element *el;
+
+    test_reset();
+
+    req->type = REQ_PING;
+    el = array_push(req->token);
+    el->type = ELEM_ATTRIB;
+    el->num = 2;
+    el = array_push(req->token);
+    el->type = ELEM_STR;
+    el->bstr = attrib_table[ATTRIB_TTL];
+    el = array_push(req->token);
+    el->type = ELEM_INT;
+    el->num = 123;
+    el = array_push(req->token);
+    el->type = ELEM_STR;
+    el->bstr = attrib_table[ATTRIB_FLAG];
+    el = array_push(req->token);
+    el->type = ELEM_INT;
+    el->num = 0;
+    el = array_push(req->token);
+    el->type = ELEM_ARRAY;
+    el->num = 1;
+    el = array_push(req->token);
+    el->type = ELEM_BULK;
+    el->bstr = (struct bstring){sizeof(PING) - 1, PING};
+    ret = compose_req(&buf, req);
+    ck_assert_int_eq(ret, sizeof(SERIALIZED) - 1);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
+
+    el->type = ELEM_UNKNOWN; /* resets *el */
+    request_reset(req);
+    ck_assert_int_eq(parse_req(req, buf), PARSE_OK);
+    ck_assert_int_eq(req->type, REQ_PING);
+    ck_assert_int_eq(req->ttl, 123);
+    ck_assert_int_eq(req->flag, 0);
+    ck_assert_int_eq(req->token->nelem, 2);
+    el = array_first(req->token);
+    ck_assert_int_eq(el->type, ELEM_ARRAY);
+    el = array_get(req->token, 1);
+    ck_assert_int_eq(el->type, ELEM_BULK);
+    ck_assert_int_eq(cc_bcmp(el->bstr.data, PING, sizeof(PING) - 1), 0);
+#undef SERIALIZED
 }
 END_TEST
 
 START_TEST(test_unfin_req)
 {
-    char *token[4] = {
+#define ARRLEN 7
+    char *token[ARRLEN] = {
         "*2\r\n",
         "*2\r\n$3\r\n",
         "*2\r\n$3\r\nfoo\r\n",
         "*2\r\n$3\r\nfoo\r\n$3\r\n",
+        "|2\r\n+foo\r\n:3\r\n",
+        "|2\r\n+foo\r\n:3\r\n+bar\r\n",
+        "|2\r\n+foo\r\n:3\r\n+bar\r\n:4\r\n",
     };
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < ARRLEN; i++) {
         char *pos;
         size_t len;
 
@@ -414,9 +548,11 @@ START_TEST(test_unfin_req)
         buf_reset(buf);
         buf_write(buf, token[i], len);
         pos = buf->rpos;
+        request_reset(req);
         ck_assert_int_eq(parse_req(req, buf), PARSE_EUNFIN);
         ck_assert(buf->rpos == pos);
     }
+#undef ARRLEN
 }
 END_TEST
 
@@ -453,6 +589,55 @@ START_TEST(test_ok)
 }
 END_TEST
 
+START_TEST(test_rsp_with_attrib)
+{
+#define OK "OK"
+#define SERIALIZED "|2\r\n+ttl\r\n:12345\r\n+flag\r\n:2222\r\n+OK\r\n"
+    int ret;
+    struct element *el;
+
+    test_reset();
+
+    rsp->type = ELEM_STR;
+    el = array_push(rsp->token);
+    el->type = ELEM_ATTRIB;
+    el->num = 2;
+    /* first attribute */
+    el = array_push(rsp->token);
+    el->type = ELEM_STR;
+    el->bstr = attrib_table[ATTRIB_TTL];
+    el = array_push(rsp->token);
+    el->type = ELEM_INT;
+    el->num = 12345;
+    /* second attribute */
+    el = array_push(rsp->token);
+    el->type = ELEM_STR;
+    el->bstr = attrib_table[ATTRIB_FLAG];
+    el = array_push(rsp->token);
+    el->type = ELEM_INT;
+    el->num = 2222;
+    /* response main */
+    el = array_push(rsp->token);
+    el->type = ELEM_STR;
+    el->bstr = (struct bstring){sizeof(OK) - 1, OK};
+    ret = compose_rsp(&buf, rsp);
+    ck_assert_int_eq(ret, sizeof(SERIALIZED) - 1);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
+
+    el->type = ELEM_UNKNOWN; /* resets *el */
+    response_reset(rsp);
+    ck_assert_int_eq(parse_rsp(rsp, buf), PARSE_OK);
+    ck_assert_int_eq(rsp->type, ELEM_STR);
+    ck_assert_int_eq(rsp->ttl, 12345);
+    ck_assert_int_eq(rsp->flag, 2222);
+    ck_assert_int_eq(rsp->token->nelem, 1);
+    el = array_first(rsp->token);
+    ck_assert_int_eq(el->type, ELEM_STR);
+    ck_assert_int_eq(cc_bcmp(el->bstr.data, OK, sizeof(OK) - 1), 0);
+#undef SERIALIZED
+}
+END_TEST
+
 START_TEST(test_array_reply)
 {
 #define SERIALIZED "*5\r\n:-10\r\n$-1\r\n-ERR invalid arg\r\n+foo\r\n$5\r\nHELLO\r\n"
@@ -464,16 +649,19 @@ START_TEST(test_array_reply)
     buf_write(buf, SERIALIZED, len);
     ck_assert_int_eq(parse_rsp(rsp, buf), PARSE_OK);
     ck_assert_int_eq(rsp->type, ELEM_ARRAY);
-    ck_assert_int_eq(rsp->token->nelem, 5);
+    ck_assert_int_eq(rsp->token->nelem, 6);
     el = array_first(rsp->token);
-    ck_assert_int_eq(el->type, ELEM_INT);
+    ck_assert_int_eq(el->type, ELEM_ARRAY);
     el = array_get(rsp->token, 1);
-    ck_assert_int_eq(el->type, ELEM_NIL);
+    ck_assert_int_eq(el->type, ELEM_INT);
     el = array_get(rsp->token, 2);
-    ck_assert_int_eq(el->type, ELEM_ERR);
+    ck_assert_int_eq(el->type, ELEM_NIL);
     el = array_get(rsp->token, 3);
-    ck_assert_int_eq(el->type, ELEM_STR);
+    ck_assert_int_eq(el->type, ELEM_ERR);
     el = array_get(rsp->token, 4);
+    ck_assert_int_eq(el->type, ELEM_STR);
+    ck_assert_int_eq(el->bstr.len, 3);
+    el = array_get(rsp->token, 5);
     ck_assert_int_eq(el->type, ELEM_BULK);
     ck_assert_int_eq(el->bstr.len, 5);
     ck_assert_int_eq(cc_bcmp(el->bstr.data, "HELLO", 5), 0);
@@ -483,6 +671,41 @@ START_TEST(test_array_reply)
     ck_assert_int_eq(buf_rsize(buf), len);
     ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, len), 0);
 #undef SERIALIZED
+}
+END_TEST
+
+START_TEST(test_unfin_rsp)
+{
+#define ARRLEN 13
+    char *token[ARRLEN] = {
+        ":-10",
+        "$-1\r",
+        "-ERR invalid arg\r",
+        "+foo",
+        "$5\r\n",
+        "$5\r\nHEL",
+        "*2\r\n",
+        "*2\r\n$3\r\n",
+        "*2\r\n$3\r\nfoo\r\n",
+        "*2\r\n$3\r\nfoo\r\n$3\r\n",
+        "|2\r\n+foo\r\n:3\r\n",
+        "|2\r\n+foo\r\n:3\r\n+bar\r\n",
+        "|2\r\n+foo\r\n:3\r\n+bar\r\n:4\r\n",
+    };
+
+    for (int i = 0; i < ARRLEN; i++) {
+        char *pos;
+        size_t len;
+
+        len = strlen(token[i]);
+        buf_reset(buf);
+        buf_write(buf, token[i], len);
+        pos = buf->rpos;
+        request_reset(req);
+        ck_assert_int_eq(parse_req(req, buf), PARSE_EUNFIN);
+        ck_assert(buf->rpos == pos);
+    }
+#undef ARRLEN
 }
 END_TEST
 
@@ -574,7 +797,9 @@ resp_suite(void)
     tcase_add_test(tc_token, test_integer);
     tcase_add_test(tc_token, test_bulk_string);
     tcase_add_test(tc_token, test_array);
+    tcase_add_test(tc_token, test_attribute);
     tcase_add_test(tc_token, test_nil_bulk);
+    tcase_add_test(tc_token, test_null);
     tcase_add_test(tc_token, test_unfin_token);
 
     /* basic requests */
@@ -583,6 +808,7 @@ resp_suite(void)
 
     tcase_add_test(tc_request, test_quit);
     tcase_add_test(tc_request, test_ping);
+    tcase_add_test(tc_request, test_req_with_attrib);
     tcase_add_test(tc_request, test_unfin_req);
 
     /* basic responses */
@@ -591,6 +817,8 @@ resp_suite(void)
 
     tcase_add_test(tc_response, test_ok);
     tcase_add_test(tc_response, test_array_reply);
+    tcase_add_test(tc_request, test_rsp_with_attrib);
+    tcase_add_test(tc_request, test_unfin_rsp);
 
     /* edge cases */
     TCase *tc_edge = tcase_create("edge cases");

@@ -32,6 +32,22 @@
  */
 
 /**
+ * we add the following type to both RESP request and response, referencing
+ * RESP3 protocol (https://github.com/antirez/RESP3/blob/master/spec.md),
+ * but not wholesale implementing it):
+ *
+ *   - Attribute: the first line starts with '|', followed the number of
+ *       attributes (A). After the first line, there should be 2xA lines
+ *       describing A attributes in key/value (or dictionary) style.
+ *       For now, we limit the elements to be of two simple types (Simple
+ *       String, Integers). NOTE: different from what's in RESP, this type can
+ *       be used in both request and reply, and for now can only be used to
+ *       decorate at the top level of the request / response.
+ *   - Null: "_\r\n", we keep Null Bulk and Null Array for compatibility, but
+ *       all other types should use the new Null.
+ */
+
+/**
  * It makes sense to always parse Simple Strings, Errors, and Integers in
  * full. However, for Bulk Strings and Arrays, it is possible that they
  * will be big enough that we cannot always expect the full content to be
@@ -76,7 +92,9 @@ typedef enum element_type {
     ELEM_INT        = 3,
     ELEM_BULK       = 4,
     ELEM_ARRAY      = 5,
-    ELEM_NIL        = 6,
+    ELEM_ATTRIB     = 6,
+    ELEM_NIL        = 7, /* nil bulk */
+    ELEM_NULL       = 8,
 } element_type_e;
 
 struct element {
@@ -103,8 +121,7 @@ line_end(struct buf *buf)
 }
 
 bool token_is_array(struct buf *buf);
-parse_rstatus_e token_array_nelem(int64_t *nelem, struct buf *buf);
+bool token_is_attrib(struct buf *buf);
 parse_rstatus_e parse_element(struct element *el, struct buf *buf);
 
-int compose_array_header(struct buf **buf, int nelem);
 int compose_element(struct buf **buf, struct element *el);

@@ -29,6 +29,9 @@ response_reset(struct response *rsp)
     rsp->type = ELEM_UNKNOWN;
     rsp->nil = false;
     rsp->token->nelem = 0;
+
+    rsp->ttl = INT64_MIN;
+    rsp->flag = INT64_MIN;
 }
 
 struct response *
@@ -183,6 +186,9 @@ response_setup(response_options_st *options, response_metrics_st *metrics)
 
     if (options != NULL) {
         ntoken = option_uint(&options->response_ntoken);
+        if (ntoken < 1) {
+            log_panic("invalid ntoken config: %u is too small");
+        }
         max = option_uint(&options->response_poolsize);
     }
 

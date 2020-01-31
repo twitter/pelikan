@@ -34,8 +34,7 @@
     ACTION( REQ_BITMAP_SET,     "BitMap.set",       4,      0  )
 
 typedef enum bitmap_elem {
-    BITMAP_VERB = 0,
-    BITMAP_KEY = 1,
-    BITMAP_COL = 2,
-    BITMAP_VAL = 3,
+    BITMAP_KEY = 2,
+    BITMAP_COL = 3,
+    BITMAP_VAL = 4,
 } bitmap_elem_e;

@@ -75,16 +75,21 @@ struct command {
 extern struct command command_table[REQ_SENTINEL];
 
 struct request {
-    STAILQ_ENTRY(request)   next;     /* allow request pooling/chaining */
+    STAILQ_ENTRY(request)   next;   /* allow request pooling/chaining */
     bool                    free;
 
-    bool                    noreply;  /* skip response */
-    bool                    serror;   /* server error */
-    bool                    cerror;   /* client error */
+    bool                    noreply;/* skip response */
+    bool                    serror; /* server error */
+    bool                    cerror; /* client error */
 
     cmd_type_e              type;
-    struct array            *token;    /* member type: `struct element' */
+    struct array            *token; /* member type: `struct element' */
+
+    /* global attributes */
+    int64_t                ttl;     /* INT64_MIN means it is not provided */
+    int64_t                flag;    /* INT64_MIN means it is not provided */
 };
+
 
 void request_setup(request_options_st *options, request_metrics_st *metrics);
 void request_teardown(void);

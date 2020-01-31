@@ -1,4 +1,5 @@
 set(SOURCE
+    attribute.c
     compose.c
     parse.c
     request.c
