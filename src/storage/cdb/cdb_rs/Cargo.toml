@@ -1,30 +1,37 @@
 [package]
 name = "cdb_rs"
 version = "0.1.0"
-authors = ["Jonathan D. Simms <jsimms@twitter.com>"]
+authors = [
+	"Brian Martin <bmartin@twitter.com>",
+	"Jonathan D. Simms <jsimms@twitter.com>",
+]
 publish = false
+edition = "2018"
 
 [dependencies]
-ccommon_rs = { path = "../../../../deps/ccommon/rust/ccommon_rs" }
-cc_binding = { path = "../../../../deps/ccommon/rust/cc_binding" }
+bytes = "0.4.12"
+clap = "2.33.0"
+env_logger = "0.7.1"
+failure = "0.1.7"
+failure_derive = "0.1.7"
+libc = "0.2.68"
+log = "0.4.8"
+memmap = "0.7.0"
+rand = "0.7.3"
 
-bytes = "0.4"
-clap = "2.33"
-env_logger = "0.5.10"
-failure = "0.1"
-failure_derive = "0.1"
-libc = "0.2"
-log = "0.4"
-memmap = "0.6"
-rand = "0.5"
+[dependencies.ccommon_rs]
+path = "../../../../deps/ccommon/rust/ccommon_rs"
+
+[dependencies.cc_binding]
+path = "../../../../deps/ccommon/rust/cc_binding"
 
 [dev-dependencies]
-tempfile = "3"
-proptest = "0.7.1"
+tempfile = "3.1.0"
+proptest = "0.9.5"
 
 [lib]
 name = "cdb_rs"
 crate-type = ["rlib", "staticlib"]
 
 [build-dependencies]
-bindgen = "0.51"
+bindgen = "0.51.1"
