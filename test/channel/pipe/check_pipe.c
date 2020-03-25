@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <time.h>
+#include <errno.h>
 
 #define SUITE_NAME "pipe"
 #define DEBUG_LOG  SUITE_NAME ".log"
@@ -44,7 +46,20 @@ static void *do_write(void *_write_task)
 {
     struct write_task* task = _write_task;
     if (task->usleep) {
-        usleep(task->usleep);
+        struct timespec req;
+        struct timespec res;
+
+        req.tv_sec = task->usleep / 1000000;
+        req.tv_nsec = (task->usleep % 1000000) * 1000;
+
+        while (nanosleep(&req, &res) != 0) {
+            // If there is a different error then we should fail
+            // instead of potentially spinning indefinitely.
+            if (errno != EINTR)
+                break;
+
+            req = res;
+        }
     }
     ck_assert_int_eq(pipe_send(task->pipe, task->buf, task->nbytes), task->nbytes);
     return NULL;
