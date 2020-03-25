@@ -16,7 +16,7 @@
 use std::ffi::CStr;
 use std::fmt;
 
-use cc_binding::{option, option_val_u, OPTION_TYPE_UINT};
+use ccommon_sys::{option, option_val_u, OPTION_TYPE_UINT};
 
 use super::{Sealed, SingleOption};
 
@@ -30,7 +30,7 @@ impl Sealed for UInt {}
 unsafe impl Send for UInt {}
 
 unsafe impl SingleOption for UInt {
-    type Value = cc_binding::uintmax_t;
+    type Value = ccommon_sys::uintmax_t;
 
     fn new(default: Self::Value, name: &'static CStr, desc: &'static CStr) -> Self {
         Self(option {

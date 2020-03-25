@@ -13,12 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::convert::TryInto;
 use std::fmt;
 use std::mem::{self, MaybeUninit};
 use std::ops::*;
 use std::ptr::NonNull;
 
-use cc_binding::{_cc_alloc, _cc_free};
+use ccommon_sys::{_cc_alloc, _cc_free};
 
 use crate::error::AllocationError;
 
@@ -71,7 +72,7 @@ impl<T> CCBox<T> {
 
         unsafe {
             let ptr = _cc_alloc(
-                mem::size_of_val(&val),
+                mem::size_of_val(&val).try_into().unwrap(),
                 c_str!(module_path!()),
                 line!() as std::os::raw::c_int,
             ) as *mut MaybeUninit<T>;

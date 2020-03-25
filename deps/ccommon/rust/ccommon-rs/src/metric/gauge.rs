@@ -18,7 +18,7 @@ use std::fmt;
 use std::ops::{AddAssign, SubAssign};
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use cc_binding::{metric, metric_anon_union, METRIC_GAUGE};
+use ccommon_sys::{metric, metric_anon_union, METRIC_GAUGE};
 
 use super::private::Sealed;
 use super::SingleMetric;

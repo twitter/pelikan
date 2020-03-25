@@ -20,10 +20,10 @@
 
 use std::ffi::CStr;
 
-use cc_binding::option;
 use ccommon_backend::option::{
     option_describe_all, option_load, option_load_default, option_print_all, ParseError,
 };
+use ccommon_sys::option;
 
 // Sealed trait to prevent SingleOption from ever being implemented
 // from outside of this crate.
@@ -210,7 +210,7 @@ impl<T: Options> OptionExt for T {}
 /// Implementations of Options for cc_bindings types
 mod impls {
     use super::Options;
-    use cc_binding::*;
+    use ccommon_sys::*;
 
     macro_rules! c_str {
         ($s:expr) => {

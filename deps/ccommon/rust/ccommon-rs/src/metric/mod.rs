@@ -22,7 +22,7 @@
 
 use std::ffi::CStr;
 
-use cc_binding::{metric, metric_describe_all, metric_reset};
+use ccommon_sys::{metric, metric_describe_all, metric_reset};
 
 // Sealed trait to prevent SingleMetric from ever being implemented
 // from outside of this crate.
@@ -141,7 +141,7 @@ impl<T: Metrics> MetricExt for T {}
 /// Impls of Metrics for cc_bindings types
 mod impls {
     use super::Metrics;
-    use cc_binding::*;
+    use ccommon_sys::*;
 
     macro_rules! c_str {
         ($s:expr) => {

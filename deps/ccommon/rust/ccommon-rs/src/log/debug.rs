@@ -15,7 +15,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use cc_binding::{debug_options_st, debug_setup, debug_teardown};
+use ccommon_sys::{debug_options_st, debug_setup, debug_teardown};
 
 use crate::Error;
 

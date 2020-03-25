@@ -16,7 +16,7 @@
 use std::ffi::CStr;
 use std::fmt;
 
-use cc_binding::{option, option_free, option_val_u, OPTION_TYPE_STR};
+use ccommon_sys::{option, option_free, option_val_u, OPTION_TYPE_STR};
 
 use super::{Sealed, SingleOption};
 

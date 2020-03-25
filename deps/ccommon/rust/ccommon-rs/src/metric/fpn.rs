@@ -17,7 +17,7 @@ use std::ffi::CStr;
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use cc_binding::{metric, metric_anon_union, METRIC_FPN};
+use ccommon_sys::{metric, metric_anon_union, METRIC_FPN};
 
 use super::private::Sealed;
 use super::SingleMetric;

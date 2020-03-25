@@ -19,11 +19,11 @@ use std::panic::{self, PanicInfo};
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::thread;
 
-use cc_binding::{_log, debug_log_flush, debug_logger, LOG_MAX_LEN};
+use ccommon_sys::{_log, debug_log_flush, debug_logger, LOG_MAX_LEN};
 use log::{Level, Log, Metadata, Record, SetLoggerError};
 
 fn ccommon_dlog() -> &'static AtomicPtr<debug_logger> {
-    unsafe { &*(&cc_binding::dlog as *const _ as *const AtomicPtr<debug_logger>) }
+    unsafe { &*(&ccommon_sys::dlog as *const _ as *const AtomicPtr<debug_logger>) }
 }
 
 const FILENAME_MAX_LEN: usize = 1024;
@@ -36,7 +36,7 @@ unsafe impl Send for CCLog {}
 unsafe impl Sync for CCLog {}
 
 fn level_to_int(level: Level) -> c_int {
-    use cc_binding::*;
+    use ccommon_sys::*;
 
     let level = match level {
         Level::Trace => LOG_VERB,
@@ -130,7 +130,7 @@ pub fn init() -> Result<(), SetLoggerError> {
 /// panic at `LOG_CRIT` level before calling the original
 /// panic hook.
 pub fn set_panic_handler() {
-    use cc_binding::LOG_CRIT;
+    use ccommon_sys::LOG_CRIT;
 
     use std::env;
     use std::io::Cursor;
@@ -212,8 +212,8 @@ pub fn set_panic_handler() {
 //================================================
 
 #[no_mangle]
-pub extern "C" fn rust_log_setup() -> cc_binding::rstatus_i {
-    use cc_binding::*;
+pub extern "C" fn rust_log_setup() -> ccommon_sys::rstatus_i {
+    use ccommon_sys::*;
 
     match init() {
         Ok(()) => CC_OK as rstatus_i,
