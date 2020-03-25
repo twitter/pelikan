@@ -121,7 +121,7 @@ pub fn derive_options(stream: proc_macro::TokenStream) -> proc_macro::TokenStrea
 }
 
 fn derive_metrics_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream, Error> {
-    let krate = crate_name("ccommon_rs")?;
+    let krate = crate_name("ccommon-rs")?;
 
     let data = match input.data {
         Data::Struct(data) => data,
@@ -234,7 +234,7 @@ fn derive_metrics_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream, E
 }
 
 fn derive_options_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream, Error> {
-    let krate = crate_name("ccommon_rs")?;
+    let krate = crate_name("ccommon-rs")?;
 
     let data = match input.data {
         Data::Struct(data) => data,
@@ -352,7 +352,7 @@ fn derive_options_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream, E
 }
 
 fn crate_name(name: &'static str) -> Result<TokenStream, Error> {
-    if std::env::var("CARGO_PKG_NAME").unwrap() == "ccommon_rs" {
+    if std::env::var("CARGO_PKG_NAME").unwrap() == "ccommon-rs" {
         return Ok(quote! { ::ccommon_rs });
     }
 

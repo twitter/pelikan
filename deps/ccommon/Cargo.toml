@@ -1,0 +1,17 @@
+[workspace]
+members = [
+  "rust/ccommon-backend",
+  "rust/ccommon-derive",
+  "rust/ccommon-rs",
+  "rust/ccommon-sys",
+]
+
+[profile.bench]
+debug = true
+lto = true
+codegen-units = 1
+
+[profile.release]
+debug = true
+lto = true
+codegen-units = 1

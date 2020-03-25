@@ -8,10 +8,10 @@ edition = "2018"
 c-export = []
 
 [dependencies]
-cc_binding = { path="../cc_binding" }
+ccommon-sys = { path = "../ccommon-sys" }
 libc = "0.2"
 
 # Note: We can depend on ccommon_rs for testing purposes
 #       but not otherwise to avoid circular dependencies.
 [dev-dependencies]
-ccommon_rs = { path="../ccommon_rs" }
+ccommon-rs = { path = "../ccommon-rs" }

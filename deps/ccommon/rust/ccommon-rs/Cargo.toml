@@ -1,17 +1,19 @@
 [package]
-name = "ccommon_rs"
+name = "ccommon-rs"
 version = "0.1.0"
-authors = ["Jonathan Simms <jsimms@twitter.com>", "Sean Lynch <slynch@twitter.com>"]
+authors = [
+	"Jonathan Simms <jsimms@twitter.com>",
+	"Sean Lynch <slynch@twitter.com>"
+]
 edition = "2018"
 
 [features]
+default = [ "derive" ]
 derive = [ "ccommon-derive" ]
 
-default = [ "derive" ]
-
 [dependencies]
-cc_binding = { path="../cc_binding" }
-ccommon-backend = { path="../ccommon-backend" }
+ccommon-sys = { path = "../ccommon-sys" }
+ccommon-backend = { path = "../ccommon-backend" }
 libc = "0.2.0"
 log = "0.4.0"
 bytes = "0.5.0"

@@ -26,19 +26,22 @@ matrix:
           packages:
             - libsubunit-dev
 
-    - name: "gcc-5 on Linux, Rust enabled"
-      compiler: gcc
-      env:
-        - RUST_ENABLED=1
+    - os: osx
+      osx_image: xcode10.1
+      compiler: clang
+
+    - name: "cargo build"
+      language: rust
       addons:
         apt:
           <<: *apt
           packages:
             - libsubunit-dev
-
-    - os: osx
-      osx_image: xcode10.1
-      compiler: clang
+      script:
+        - cargo build
+        - cargo test
+        - cargo build --release
+        - cargo test --release
 
   allow_failures:
     - os: osx
