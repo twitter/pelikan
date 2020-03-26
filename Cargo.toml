@@ -1,8 +1,8 @@
 
 [workspace]
 members = [
-    "deps/ccommon/rust/cc_binding",
-    "deps/ccommon/rust/ccommon_rs",
+    "deps/ccommon/rust/cccommon-sys",
+    "deps/ccommon/rust/ccommon-rs",
     "deps/ccommon/rust/ccommon-derive",
     "src/server/pingserver-rs",
     "src/server/twemcache-http",
@@ -20,13 +20,6 @@ members = [
 ]
 
 [profile.release]
-opt-level = 3
 debug = true
-rpath = false
 lto = true
-debug-assertions = false
 codegen-units = 1
-
-[profile.dev]
-debug = true
-opt-level = 0

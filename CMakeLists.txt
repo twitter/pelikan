@@ -45,8 +45,6 @@ option(TARGET_CDB "build cdb binary (implies HAVE_RUST)" OFF)
 option(TARGET_RESPCLI "build resp-cli binary" ON)
 option(TARGET_HTTP "build experimental twemcache-http server (implies HAVE_RUST)" OFF)
 
-option(HAVE_RUST "build features written in rust" OFF)
-option(RUST_USE_MUSL "build rust deps against musl" OFF)
 option(BUILD_AND_INSTALL_CHECK "build our own version of check and link against it" OFF)
 option(USE_PMEM "build persistent memory features" OFF)
 option(HAVE_ITT_INSTRUMENTATION "instrument code with ITT API" OFF)
@@ -235,24 +233,3 @@ endif()
 # Note: to uninstall targets, run:
 #  xargs rm < install_manifest.txt
 # vim:ts=4:sw=4:et
-
-if(HAVE_RUST)
-    include(deps/ccommon/cmake/CMakeCargo.cmake)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_RUST=1")
-
-    # Create a .cargo file which sets the target directory
-    make_directory(.cargo)
-    file(WRITE .cargo/config "[build]\ntarget-dir=\"${CMAKE_BINARY_DIR}/target\"\n")
-
-    set_directory_properties(
-        PROPERTIES
-        ADDITIONAL_CLEAN_FILES "${CMAKE_BINARY_DIR}/target"
-    )
-
-    # Add a rust-docs target
-    add_custom_target(
-        rust-doc
-        COMMAND ${CMAKE_COMMAND} -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}" "CARGO_TARGET_DIR=${CMAKE_BINARY_DIR}/target" cargo doc
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-endif()
