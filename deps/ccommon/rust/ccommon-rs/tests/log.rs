@@ -60,7 +60,7 @@ fn test_log_printing() {
 }
 
 fn test_log_levels() {
-    use cc_binding::*;
+    use ccommon_sys::*;
     use ccommon_rs::option::Options;
 
     let mut opts = debug_options_st::new();

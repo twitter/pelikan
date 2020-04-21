@@ -16,34 +16,55 @@
 use std::ffi::CStr;
 use std::fmt;
 
-use cc_binding::{option, option_val_u, OPTION_TYPE_UINT};
+use ccommon_sys::{option, option_free, option_val_u, OPTION_TYPE_STR};
 
 use super::{Sealed, SingleOption};
 
-/// An unsigned integer option.
-#[derive(Copy, Clone)]
+/// A string option.
+///
+/// Note that this type wraps a C string.
 #[repr(transparent)]
-pub struct UInt(option);
+pub struct Str(option);
 
-impl Sealed for UInt {}
+unsafe impl Send for Str {}
 
-unsafe impl Send for UInt {}
+impl Str {
+    /// Get the value of this option as a CStr. If null,
+    /// returns none.
+    pub fn as_cstr(&self) -> Option<&CStr> {
+        let value = self.value();
 
-unsafe impl SingleOption for UInt {
-    type Value = cc_binding::uintmax_t;
+        if value.is_null() {
+            None
+        } else {
+            Some(unsafe { CStr::from_ptr(value) })
+        }
+    }
+
+    /// Convert this option to a string if possible. Otherwise
+    /// returns None.
+    pub fn as_str(&self) -> Option<&str> {
+        self.as_cstr().and_then(|s| s.to_str().ok())
+    }
+}
+
+impl Sealed for Str {}
+
+unsafe impl SingleOption for Str {
+    type Value = *mut std::os::raw::c_char;
 
     fn new(default: Self::Value, name: &'static CStr, desc: &'static CStr) -> Self {
         Self(option {
             name: name.as_ptr() as *mut _,
             set: false,
-            type_: OPTION_TYPE_UINT,
-            default_val: option_val_u { vuint: default },
-            val: option_val_u { vuint: default },
+            type_: OPTION_TYPE_STR,
+            default_val: option_val_u { vstr: default },
+            val: option_val_u { vstr: default },
             description: desc.as_ptr() as *mut _,
         })
     }
     fn defaulted(name: &'static CStr, desc: &'static CStr) -> Self {
-        Self::new(Default::default(), name, desc)
+        Self::new(std::ptr::null_mut(), name, desc)
     }
 
     fn name(&self) -> &'static CStr {
@@ -53,10 +74,10 @@ unsafe impl SingleOption for UInt {
         unsafe { CStr::from_ptr(self.0.description) }
     }
     fn value(&self) -> Self::Value {
-        unsafe { self.0.val.vuint }
+        unsafe { self.0.val.vstr }
     }
     fn default(&self) -> Self::Value {
-        unsafe { self.0.default_val.vuint }
+        unsafe { self.0.default_val.vstr }
     }
     fn is_set(&self) -> bool {
         self.0.set
@@ -64,18 +85,25 @@ unsafe impl SingleOption for UInt {
 
     fn set_value(&mut self, val: Self::Value) {
         self.0.set = true;
-        self.0.val = option_val_u { vuint: val }
+        self.0.val = option_val_u { vstr: val }
     }
 }
 
-impl fmt::Debug for UInt {
+// TODO(sean): Debug print the string pointer
+impl fmt::Debug for Str {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("UInt")
+        fmt.debug_struct("Str")
             .field("name", &self.name())
             .field("desc", &self.desc())
             .field("value", &self.value())
             .field("default", &self.default())
             .field("is_set", &self.is_set())
             .finish()
+    }
+}
+
+impl Drop for Str {
+    fn drop(&mut self) {
+        unsafe { option_free(self as *mut _ as *mut option, 1) }
     }
 }

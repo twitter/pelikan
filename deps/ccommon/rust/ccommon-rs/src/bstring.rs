@@ -37,7 +37,6 @@
 //!
 //! [nasal demons]: http://www.catb.org/jargon/html/N/nasal-demons.html
 
-use cc_binding as bind;
 use std::borrow::Borrow;
 use std::borrow::BorrowMut;
 use std::boxed::Box;
@@ -50,7 +49,7 @@ use std::ops::{Deref, DerefMut};
 use std::slice;
 use std::str::{self, Utf8Error};
 
-pub type CCbstring = bind::bstring;
+pub type CCbstring = ccommon_sys::bstring;
 
 #[doc(hidden)]
 #[inline]
@@ -245,7 +244,7 @@ pub struct BString(*mut CCbstring);
 
 impl BString {
     pub fn new(size: u32) -> Self {
-        let bsp: *mut CCbstring = unsafe { bind::bstring_alloc(size) };
+        let bsp: *mut CCbstring = unsafe { ccommon_sys::bstring_alloc(size) };
 
         assert!(!bsp.is_null());
         BString(bsp)
@@ -267,7 +266,7 @@ impl BString {
     /// Takes byte slice `&[u8]` and copies it into an owned BString.
     #[inline]
     pub fn from_bytes(s: &[u8]) -> Self {
-        let bsp: *mut CCbstring = unsafe { bind::bstring_alloc(s.len() as u32) };
+        let bsp: *mut CCbstring = unsafe { ccommon_sys::bstring_alloc(s.len() as u32) };
 
         assert!(!bsp.is_null());
 
@@ -332,7 +331,7 @@ impl PartialEq for BString {
 impl Drop for BString {
     #[inline]
     fn drop(&mut self) {
-        unsafe { bind::bstring_free(&mut self.0) };
+        unsafe { ccommon_sys::bstring_free(&mut self.0) };
     }
 }
 

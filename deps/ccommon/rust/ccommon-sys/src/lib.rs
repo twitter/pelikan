@@ -13,13 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This module contains the bindgen created classes.
-//! PRO-TIP: If you want to look at the generated code, you can find it with:
+//! This module contains the generated bindings for the `ccommon` library.
 //!
-//! ```ignore
-//! $ find . -name bindgen.rs
-//! ```
-//!
+//! PRO-TIP: To view the generated code, look in `src/bindings.rs` after running
+//! the build.
 
 #![allow(
     unknown_lints,
@@ -33,11 +30,11 @@
 #[path = "metric.rs"]
 mod metric_impl;
 
-pub use self::metric_impl::{metric, metric_anon_union};
+pub use metric_impl::{metric, metric_anon_union};
 
 use libc::{addrinfo, timespec, FILE};
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+include!("bindings.rs");
 
 pub const DEBUG_LOG_FILE: *mut i8 = std::ptr::null_mut();
 

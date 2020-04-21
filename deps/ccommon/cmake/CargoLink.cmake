@@ -82,26 +82,16 @@ string(REPLACE " " ";" FLAGS "${FLAGS}")
 #             there a way to autodetect this properly?
 set(CARGO_COMMAND cargo build --color always ${FLAGS})
 
-if(USE_CMAKE_LINK)
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} -E env ${PASSTHROUGH_VARS} "RUSTFLAGS=${LINK_FLAGS}" ${CARGO_COMMAND}
-        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        RESULT_VARIABLE STATUS
-    )
-else()
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} -E env ${PASSTHROUGH_VARS} ${CARGO_COMMAND}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        RESULT_VARIABLE STATUS
-    )
-endif()
+execute_process(
+    COMMAND ${CMAKE_COMMAND} -E env ${PASSTHROUGH_VARS} "RUSTFLAGS=${LINK_FLAGS}" ${CARGO_COMMAND}
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    RESULT_VARIABLE STATUS
+)
 
 # Ensure that our script exits with the correct error code.
 # The only way to get a cmake script to exit with an error
 # code is to print a message so that's what we do here.
 if(NOT STATUS EQUAL 0)
-    message(STATUS "${PASSTHROUGH_VARS}")
-
     message(FATAL_ERROR "Cargo build failed")
 endif()
 

@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cc_binding::buf;
+use ccommon_sys::buf;
 
 use std::io::{self, Read, Write};
 use std::mem::MaybeUninit;
@@ -88,14 +88,14 @@ impl Buf {
     }
 
     pub fn capacity(&self) -> usize {
-        assert!(unsafe { self.buf.begin.as_ptr() } as usize <= self.buf.end as usize);
+        assert!(self.buf.begin.as_ptr() as usize <= self.buf.end as usize);
 
-        self.buf.end as usize - unsafe { self.buf.begin.as_ptr() } as usize
+        self.buf.end as usize - self.buf.begin.as_ptr() as usize
     }
 
     /// Additional capacity required to write count bytes to the buffer
     pub fn new_cap(&self, bytes: usize) -> usize {
-        assert!(unsafe { self.buf.begin.as_ptr() } as usize <= self.buf.wpos as usize);
+        assert!(self.buf.begin.as_ptr() as usize <= self.buf.wpos as usize);
 
         bytes.saturating_sub(self.write_size())
     }
@@ -104,7 +104,7 @@ impl Buf {
     pub fn reset(&mut self) {
         self.buf.next.stqe_next = std::ptr::null_mut();
         self.buf.free = false;
-        self.buf.rpos = unsafe { self.buf.begin.as_mut_ptr() };
+        self.buf.rpos = self.buf.begin.as_mut_ptr();
         self.buf.wpos = self.buf.rpos;
     }
 
@@ -132,7 +132,7 @@ impl Buf {
             }
         }
 
-        self.buf.rpos = unsafe { self.buf.begin.as_mut_ptr() };
+        self.buf.rpos = self.buf.begin.as_mut_ptr();
         self.buf.wpos = self.buf.rpos.wrapping_add(size);
     }
 
@@ -183,7 +183,7 @@ impl OwnedBuf {
 
     /// Double the size of the buffer.
     pub fn double(&mut self) -> Result<(), crate::Error> {
-        use cc_binding::dbuf_double;
+        use ccommon_sys::dbuf_double;
 
         unsafe {
             let status = dbuf_double(&mut self.buf as *mut _);
@@ -198,7 +198,7 @@ impl OwnedBuf {
 
     /// Shrink the buffer to the max of the initial size or the content size.
     pub fn shrink(&mut self) -> Result<(), crate::Error> {
-        use cc_binding::dbuf_shrink;
+        use ccommon_sys::dbuf_shrink;
 
         unsafe {
             let status = dbuf_shrink(&mut self.buf as *mut _);
@@ -216,7 +216,7 @@ impl OwnedBuf {
     /// # Panics
     /// Panics if `cap` is greater than `u32::MAX`.
     pub fn fit(&mut self, cap: usize) -> Result<(), crate::Error> {
-        use cc_binding::dbuf_fit;
+        use ccommon_sys::dbuf_fit;
 
         assert!((cap as u64) <= std::u32::MAX as u64);
 
@@ -237,7 +237,7 @@ unsafe impl Sync for OwnedBuf {}
 
 impl Drop for OwnedBuf {
     fn drop(&mut self) {
-        use cc_binding::buf_destroy;
+        use ccommon_sys::buf_destroy;
 
         unsafe {
             buf_destroy(&mut self.buf as *mut _);

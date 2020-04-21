@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cc_binding::{option, rstatus_i, CC_ENOMEM, CC_ERROR};
+use ccommon_sys::{option, rstatus_i, CC_ENOMEM, CC_ERROR};
 use libc::{c_char, c_uint, FILE};
 
 use std::ffi::CStr;
@@ -21,7 +21,7 @@ use std::io::BufReader;
 
 use crate::compat::CFileRef;
 
-const CC_OK: rstatus_i = cc_binding::CC_OK as rstatus_i;
+const CC_OK: rstatus_i = ccommon_sys::CC_OK as rstatus_i;
 
 /// Set an option using the value parsed from the string.
 ///
