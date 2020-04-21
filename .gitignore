@@ -44,3 +44,12 @@ cscope.*
 lcov
 
 CMAKE_BINARY_DIR
+
+# Generated Rust Bindings
+bindings.rs
+
+# Cargo lock file
+Cargo.lock
+
+# Cargo build path
+target

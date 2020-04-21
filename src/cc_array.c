@@ -74,7 +74,7 @@ array_create(struct array **arr, uint32_t nalloc, size_t size)
     ASSERT(nalloc != 0 && size != 0);
 
     *arr = (struct array *)cc_alloc(sizeof(**arr));
-    if (arr == NULL) {
+    if (*arr == NULL) {
         log_info("array creation failed due to OOM");
 
         return CC_ENOMEM;
