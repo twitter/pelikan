@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::env;
+use std::env::VarError;
 use std::path::Path;
 
 fn main() {
@@ -24,7 +25,14 @@ fn main() {
         panic!("Unsupported OS! Only linux and MacOS are supported.");
     };
 
-    let bindir = get_cmake_binary_dir();
+    let bindir = match get_cmake_binary_dir() {
+        Ok(dir) => dir,
+        Err(_) => {
+            // Cargo driven build
+            let dst = cmake::Config::new("../../..").no_build_target(true).build();
+            format!("{}/build", dst.display())
+        }
+    };
 
     println!("cargo:rerun-if-changed=memcached/process.h");
     println!("cargo:rerun-if-changed=memcached/process.c");
@@ -66,13 +74,14 @@ fn main() {
         .unwrap();
 }
 
-fn get_cmake_binary_dir() -> String {
-    use std::env::VarError;
-
+fn get_cmake_binary_dir() -> Result<String, VarError> {
     match env::var("CMAKE_BINARY_DIR") {
-        Ok(var) => var,
+        Ok(var) => Ok(var),
         Err(e) => match e {
-            VarError::NotPresent => panic!("CMAKE_BINARY_DIR environment variable was not set!"),
+            VarError::NotPresent => {
+                eprintln!("CMAKE_BINARY_DIR environment variable was not set!");
+                Err(e)
+            }
             VarError::NotUnicode(_) => panic!("CMAKE_BINARY_DIR contained invalid unicode!"),
         },
     }

@@ -20,6 +20,8 @@ use pelikan::protocol::{admin::AdminProtocol, Protocol};
 use pelikan_sys::protocol::admin::*;
 use rustcore::{Action, AdminHandler};
 
+use std::convert::TryInto;
+
 const METRIC_FMT: *const i8 = " %s %s\0".as_ptr() as *const i8;
 
 pub struct Handler<'a> {
@@ -63,12 +65,12 @@ impl<'a> Handler<'a> {
             for metric in slice {
                 let offset = metric_print(
                     self.buf.as_mut_ptr().wrapping_add(self.buf.len()) as *mut _,
-                    self.buf.capacity() - self.buf.len(),
+                    (self.buf.capacity() - self.buf.len()).try_into().unwrap(),
                     METRIC_FMT as *mut c_char,
                     metric,
                 );
 
-                self.buf.set_len(self.buf.len() + offset);
+                self.buf.set_len(self.buf.len() + offset as usize);
             }
 
             let _ = write!(&mut self.buf, "\r\n");
@@ -91,7 +93,7 @@ impl<'a> Handler<'a> {
         rsp.data.data = self.buf.as_mut_ptr() as *mut c_char;
         rsp.data.len = print_stats(
             self.buf.as_mut_ptr() as *mut c_char,
-            self.buf.len(),
+            self.buf.len().try_into().unwrap(),
             self.stats.as_ptr() as *mut metric,
             Metrics::num_metrics() as c_uint,
         ) as u32;

@@ -5,8 +5,8 @@ authors = ["Sean Lynch <slynch@twitter.com>"]
 edition = "2018"
 
 [dependencies]
-ccommon = { path="../../deps/ccommon/rust/ccommon_rs", package="ccommon_rs" }
-ccommon-sys = { path="../../deps/ccommon/rust/cc_binding", package="cc_binding" }
+ccommon = { path="../../deps/ccommon/rust/ccommon-rs", package="ccommon-rs" }
+ccommon-sys = { path="../../deps/ccommon/rust/ccommon-sys", package="ccommon-sys" }
 pelikan-sys = { path="../rust-util/pelikan-sys" }
 
 bytes = "0.5.0"

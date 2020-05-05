@@ -35,14 +35,15 @@ path = "../../storage/cdb/cdb_rs"
 optional = true
 
 [dependencies.ccommon-sys]
-path = "../../../deps/ccommon/rust/cc_binding"
-package = "cc_binding"
+path = "../../../deps/ccommon/rust/ccommon-sys"
+package = "ccommon-sys"
 
 [dependencies.ccommon]
-path = "../../../deps/ccommon/rust/ccommon_rs"
-package = "ccommon_rs"
+path = "../../../deps/ccommon/rust/ccommon-rs"
+package = "ccommon-rs"
 
 [build-dependencies]
-bindgen = "0.51.0"
+bindgen = "0.53.2"
+cmake = "*"
 lazy_static = "1.4.0"
 glob = "0.3.0"

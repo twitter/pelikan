@@ -20,6 +20,8 @@ use pelikan::protocol::{admin::AdminProtocol, Protocol};
 use pelikan_sys::protocol::admin::*;
 use rustcore::{Action, AdminHandler};
 
+use std::convert::TryInto;
+
 pub struct Handler<'a> {
     stats: &'a Metrics,
     buf: Vec<u8>,
@@ -58,7 +60,7 @@ impl<'a> AdminHandler for Handler<'a> {
                     rsp.data.data = self.buf.as_mut_ptr() as *mut c_char;
                     rsp.data.len = print_stats(
                         self.buf.as_mut_ptr() as *mut c_char,
-                        self.buf.len(),
+                        self.buf.len().try_into().unwrap(),
                         self.stats.as_ptr() as *mut metric,
                         Metrics::num_metrics() as c_uint,
                     ) as u32;
