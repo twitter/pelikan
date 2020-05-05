@@ -43,10 +43,27 @@ matrix:
       osx_image: xcode10.1
       compiler: clang
 
+    - os: osx
+      osx_image: xcode10.1
+      language: rust
+      script:
+        - cargo build
+        - cargo test
+        - cargo build --release
+        - cargo test --release
+
   allow_failures:
     - os: osx
       osx_image: xcode10.1
       compiler: clang
+    - os: osx
+      osx_image: xcode10.1
+      compiler: clang
+      script:
+        - cargo build
+        - cargo test
+        - cargo build --release
+        - cargo test --release
 
 before_install:
   - ./ci/before-install.sh
