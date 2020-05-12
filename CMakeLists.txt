@@ -241,9 +241,6 @@ endif()
 # vim:ts=4:sw=4:et
 
 if(HAVE_RUST)
-    include(cmake/CMakeCargo.cmake)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_RUST=1")
-
     # Create a .cargo file which sets the target directory
     make_directory(.cargo)
     file(WRITE .cargo/config "[build]\ntarget-dir=\"${CMAKE_BINARY_DIR}/target\"\n")
