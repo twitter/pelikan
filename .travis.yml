@@ -26,6 +26,16 @@ matrix:
           packages:
             - libsubunit-dev
 
+    - name: "gcc-5 on Linux, Rust enabled"
+      compiler: gcc
+      env:
+        - RUST_ENABLED=1
+      addons:
+        apt:
+          <<: *apt
+          packages:
+            - libsubunit-dev
+
     - name: "cargo build"
       language: rust
       addons:
