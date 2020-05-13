@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cc_binding::{
+use ccommon_sys::{
     option, option_type, option_val, OPTION_TYPE_BOOL, OPTION_TYPE_FPN, OPTION_TYPE_STR,
     OPTION_TYPE_UINT,
 };

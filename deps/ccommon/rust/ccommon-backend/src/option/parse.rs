@@ -17,11 +17,12 @@
 // in this file makes things clearer.
 #![allow(clippy::needless_lifetimes)]
 
-use cc_binding::{
+use ccommon_sys::{
     option, option_type, OPTION_TYPE_BOOL, OPTION_TYPE_FPN, OPTION_TYPE_STR, OPTION_TYPE_UINT,
 };
 
 use std::borrow::Cow;
+use std::convert::TryInto;
 use std::error::Error;
 use std::ffi::CStr;
 use std::fmt;
@@ -382,7 +383,7 @@ unsafe fn find_option<'a>(options: &'a mut [option], name: &[u8]) -> Option<&'a 
 }
 
 unsafe fn set_option_value(option: &mut option, value: Value) -> Result<(), ParseError<'static>> {
-    use cc_binding::{_cc_alloc, _cc_free};
+    use ccommon_sys::{_cc_alloc, _cc_free};
     use std::mem::MaybeUninit;
 
     match value {
@@ -401,7 +402,7 @@ unsafe fn set_option_value(option: &mut option, value: Value) -> Result<(), Pars
             }
 
             let mem = _cc_alloc(
-                v.len() + 1,
+                (v.len() + 1).try_into().unwrap(),
                 c_str!(module_path!()),
                 line!() as std::os::raw::c_int,
             ) as *mut MaybeUninit<u8>;

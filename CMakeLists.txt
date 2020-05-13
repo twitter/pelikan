@@ -188,6 +188,10 @@ if(TARGET_HTTP)
     set(HAVE_RUST on)
 endif()
 
+if(HAVE_RUST)
+    include(cmake/CMakeCargo.cmake)
+endif(HAVE_RUST)
+
 #set(CMAKE_INCLUDE_CURRENT_DIR)
 include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"
@@ -237,9 +241,6 @@ endif()
 # vim:ts=4:sw=4:et
 
 if(HAVE_RUST)
-    include(deps/ccommon/cmake/CMakeCargo.cmake)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DHAVE_RUST=1")
-
     # Create a .cargo file which sets the target directory
     make_directory(.cargo)
     file(WRITE .cargo/config "[build]\ntarget-dir=\"${CMAKE_BINARY_DIR}/target\"\n")

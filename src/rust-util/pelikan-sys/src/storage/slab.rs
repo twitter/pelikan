@@ -16,6 +16,8 @@ use crate::slice_to_ptr;
 use crate::time::proc_time_i;
 use ccommon_sys::{bstring, metric, option};
 
+use std::convert::TryInto;
+
 include!(concat!(env!("OUT_DIR"), "/slab.rs"));
 
 pub const HASH_POWER: u32 = 16;
@@ -40,7 +42,7 @@ pub unsafe fn item_optional(it: *mut item) -> *mut libc::c_void {
 pub unsafe fn item_data(it: *mut item) -> *mut libc::c_void {
     let ptr = if (*it).is_raligned() != 0 {
         (it as *const i8)
-            .wrapping_add(slabclass[(*it).id as usize].size)
+            .wrapping_add(slabclass[(*it).id as usize].size.try_into().unwrap())
             .wrapping_sub((*it).vlen() as usize)
     } else {
         (*it).end[..]

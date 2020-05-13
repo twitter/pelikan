@@ -40,10 +40,31 @@ matrix:
       osx_image: xcode10.1
       compiler: clang
 
+    - name: "cargo build"
+      language: rust
+      addons:
+        apt:
+          <<: *apt
+          packages:
+            - libsubunit-dev
+      script:
+        - ./ci/cargo.sh
+
+    - os: osx
+      osx_image: xcode10.1
+      language: rust
+      script:
+        - ./ci/cargo.sh
+
   allow_failures:
     - os: osx
       osx_image: xcode10.1
       compiler: clang
+    - os: osx
+      osx_image: xcode10.1
+      language: rust
+      script:
+        - ./ci/cargo.sh
 
 before_install:
   - ./ci/before-install.sh

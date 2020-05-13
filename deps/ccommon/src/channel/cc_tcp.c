@@ -282,6 +282,12 @@ tcp_listen(struct addrinfo *ai, struct tcp_conn *c)
         goto error;
     }
 
+    ret = tcp_set_tcpnodelay(sd);
+    if (ret < 0) {
+        log_warn("set tcp nodelay on listening sd %d failed, ignored: %s", sd,
+                 strerror(errno));
+    }
+
     c->level = CHANNEL_META;
     c->state = CHANNEL_LISTEN;
     log_info("server listen setup on socket descriptor %d", c->sd);
@@ -402,12 +408,6 @@ tcp_accept(struct tcp_conn *sc, struct tcp_conn *c)
                 strerror(errno));
     }
 #endif
-
-    ret = tcp_set_tcpnodelay(sd);
-    if (ret < 0) {
-        log_warn("set tcp nodelay on sd %d failed, ignored: %s", sd,
-                 strerror(errno));
-    }
 
     log_info("accepted c %d on sd %d", c->sd, sc->sd);
 

@@ -15,14 +15,16 @@
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+use std::env::VarError;
 
-fn get_cmake_binary_dir() -> String {
-    use std::env::VarError;
-
+fn get_cmake_binary_dir() -> Result<String,VarError> {
     match env::var("CMAKE_BINARY_DIR") {
-        Ok(var) => var,
+        Ok(var) => Ok(var),
         Err(e) => match e {
-            VarError::NotPresent => panic!("CMAKE_BINARY_DIR environment variable was not set!"),
+            VarError::NotPresent => {
+                eprintln!("CMAKE_BINARY_DIR environment variable was not set!");
+                Err(e)
+            }
             VarError::NotUnicode(_) => panic!("CMAKE_BINARY_DIR contained invalid unicode!"),
         },
     }
@@ -38,9 +40,13 @@ fn main() {
     eprintln!("ccommon_include: {}", ccommon_include.to_str().unwrap());
     eprintln!("include_path: {}", include_path.to_str().unwrap());
 
-    let cmake_binary_dir = get_cmake_binary_dir();
-
-    let cbd = PathBuf::from(cmake_binary_dir);
+    let cbd = match get_cmake_binary_dir() {
+        Ok(dir) => PathBuf::from(dir),
+        Err(_) => {
+            // build is being driven by Cargo
+            cmake::Config::new("../../../../deps/ccommon").no_build_target(true).build()
+        }
+    };
 
     let mut config_h_dir = cbd.clone();
     config_h_dir.push("ccommon");
@@ -53,6 +59,8 @@ fn main() {
             config_h_dir.to_str().unwrap(),
             "-I",
             ccommon_include.to_str().unwrap(),
+            "-I",
+            &format!("{}/build", env::var("OUT_DIR").unwrap()),
         ])
         .header("wrapper.h")
         .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550

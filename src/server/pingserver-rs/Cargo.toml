@@ -18,9 +18,9 @@ path = "../../rust-util/pelikan-sys"
 features = [ "protocol_ping", "protocol_admin" ]
 
 [dependencies.ccommon]
-path = "../../../deps/ccommon/rust/ccommon_rs"
-package = "ccommon_rs"
+path = "../../../deps/ccommon/rust/ccommon-rs"
+package = "ccommon-rs"
 
 [dependencies.ccommon-sys]
-path = "../../../deps/ccommon/rust/cc_binding"
-package = "cc_binding"
+path = "../../../deps/ccommon/rust/ccommon-sys"
+package = "ccommon-sys"

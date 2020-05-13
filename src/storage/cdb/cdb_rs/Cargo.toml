@@ -20,10 +20,12 @@ memmap = "0.7.0"
 rand = "0.7.3"
 
 [dependencies.ccommon_rs]
-path = "../../../../deps/ccommon/rust/ccommon_rs"
+path = "../../../../deps/ccommon/rust/ccommon-rs"
+package = "ccommon-rs"
 
 [dependencies.cc_binding]
-path = "../../../../deps/ccommon/rust/cc_binding"
+path = "../../../../deps/ccommon/rust/ccommon-sys"
+package = "ccommon-sys"
 
 [dev-dependencies]
 tempfile = "3.1.0"
@@ -34,4 +36,5 @@ name = "cdb_rs"
 crate-type = ["rlib", "staticlib"]
 
 [build-dependencies]
-bindgen = "0.51.1"
+bindgen = "0.53.2"
+cmake = "*"

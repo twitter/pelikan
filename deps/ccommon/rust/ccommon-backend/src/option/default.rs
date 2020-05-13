@@ -13,10 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cc_binding::{
+use ccommon_sys::{
     _cc_alloc, option, OPTION_TYPE_BOOL, OPTION_TYPE_FPN, OPTION_TYPE_STR, OPTION_TYPE_UINT,
 };
 
+use std::convert::TryInto;
 use std::ffi::CStr;
 use std::fmt;
 
@@ -62,7 +63,7 @@ pub unsafe fn option_default(opt: &mut option) -> Result<(), OutOfMemoryError> {
                 let s = CStr::from_ptr(default);
                 let bytes = s.to_bytes_with_nul();
                 let mem = _cc_alloc(
-                    bytes.len(),
+                    bytes.len().try_into().unwrap(),
                     c_str!(module_path!()),
                     line!() as std::os::raw::c_int,
                 ) as *mut MaybeUninit<u8>;

@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use std::alloc::{GlobalAlloc, Layout};
+use std::convert::TryInto;
 use std::os::raw::{c_int, c_void};
 
 use ccommon_sys::{_cc_alloc, _cc_free};
@@ -46,7 +47,7 @@ unsafe impl GlobalAlloc for LoggedAlloc {
             return SYS_ALLOC.alloc(layout);
         }
 
-        _cc_alloc(layout.size(), c_str!(module_path!()), line!() as c_int) as *mut u8
+        _cc_alloc(layout.size().try_into().unwrap(), c_str!(module_path!()), line!() as c_int) as *mut u8
     }
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         if layout.align() > 16 {

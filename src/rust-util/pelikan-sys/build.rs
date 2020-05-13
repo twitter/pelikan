@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::env;
+use std::env::VarError;
 use std::path::PathBuf;
 
 use bindgen;
@@ -22,14 +23,14 @@ lazy_static! {
     static ref INCLUDE_PATH: Vec<String> = vec![
         "../../../deps/ccommon/include".to_owned(),
         "../../../src".to_owned(),
-        get_cmake_binary_dir()
+        get_cmake_binary_dir().unwrap_or(format!("{}/build", env::var("OUT_DIR").unwrap()))
     ];
 }
 
 fn print_directives(lib: impl AsRef<str>, subdir: impl AsRef<str>) {
     let lib: &str = lib.as_ref();
     let subdir: &str = subdir.as_ref();
-    let bindir = get_cmake_binary_dir();
+    let bindir = get_cmake_binary_dir().unwrap_or(format!("{}/build", env::var("OUT_DIR").unwrap()));
 
     println!("cargo:rustc-link-search={}/{}/", bindir, subdir);
     println!("cargo:rustc-link-lib={}", lib);
@@ -573,7 +574,7 @@ fn main() {
     println!("cargo:rustc-link-lib=ccommon-2.1.0");
     println!(
         "cargo:rustc-link-search={}/ccommon/lib",
-        get_cmake_binary_dir()
+        get_cmake_binary_dir().unwrap_or(env::var("OUT_DIR").unwrap())
     );
 
     for entry in glob::glob("../../**/*.h").unwrap().filter_map(|x| x.ok()) {
@@ -590,7 +591,12 @@ fn main() {
         }
     }
 
-    println!("cargo:rerun-if-changed={}/config.h", get_cmake_binary_dir());
+    if get_cmake_binary_dir().is_err() {
+        // Cargo driven build
+        cmake::build("../../../deps/ccommon");
+    }
+
+    println!("cargo:rerun-if-changed={}/config.h", get_cmake_binary_dir().unwrap_or(env::var("OUT_DIR").unwrap()));
 
     {
         let bindings = builder()
@@ -607,7 +613,14 @@ fn main() {
             .expect("Couldn't write bindings");
     }
     {
-        let bindir = get_cmake_binary_dir();
+        let bindir = match get_cmake_binary_dir() {
+            Ok(dir) => dir,
+            Err(_) => {
+                // handle Cargo driven build
+                let dst = cmake::Config::new("../../..").no_build_target(true).build();
+                format!("{}/build", dst.display())
+            }
+        };
 
         let bindings = builder()
             .header(format!("{}/config.h", bindir))
@@ -690,17 +703,18 @@ fn main() {
     println!("cargo:rustc-link-lib=ccommon-2.1.0");
     println!(
         "cargo:rustc-link-search={}/ccommon/lib",
-        get_cmake_binary_dir()
+        get_cmake_binary_dir().unwrap_or(env::var("OUT_DIR").unwrap())
     );
 }
 
-fn get_cmake_binary_dir() -> String {
-    use std::env::VarError;
-
+fn get_cmake_binary_dir() -> Result<String,VarError> {
     match env::var("CMAKE_BINARY_DIR") {
-        Ok(var) => var,
+        Ok(var) => Ok(var),
         Err(e) => match e {
-            VarError::NotPresent => panic!("CMAKE_BINARY_DIR environment variable was not set!"),
+            VarError::NotPresent => {
+                eprintln!("CMAKE_BINARY_DIR environment variable was not set!");
+                Err(e)
+            }
             VarError::NotUnicode(_) => panic!("CMAKE_BINARY_DIR contained invalid unicode!"),
         },
     }
