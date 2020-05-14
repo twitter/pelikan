@@ -13,6 +13,7 @@
 #include <cc_debug.h>
 #include <cc_option.h>
 #include <cc_ring_array.h>
+#include <cc_stats_log.h>
 #include <channel/cc_tcp.h>
 #include <stream/cc_sockio.h>
 
@@ -30,23 +31,24 @@ typedef struct {
 
 struct setting {
     /* top-level */
-    rds_options_st      rds;
+    rds_options_st          rds;
     /* application modules */
-    admin_options_st    admin;
-    server_options_st   server;
-    worker_options_st   worker;
-    process_options_st  process;
-    request_options_st  request;
-    response_options_st response;
-    slab_options_st     slab;
-    time_options_st     time;
+    admin_options_st        admin;
+    server_options_st       server;
+    worker_options_st       worker;
+    process_options_st      process;
+    request_options_st      request;
+    response_options_st     response;
+    slab_options_st         slab;
+    time_options_st         time;
     /* ccommon libraries */
-    array_options_st    array;
-    buf_options_st      buf;
-    dbuf_options_st     dbuf;
-    debug_options_st    debug;
-    sockio_options_st   sockio;
-    tcp_options_st      tcp;
+    array_options_st        array;
+    buf_options_st          buf;
+    dbuf_options_st         dbuf;
+    debug_options_st        debug;
+    sockio_options_st       sockio;
+    stats_log_options_st    stats_log;
+    tcp_options_st          tcp;
 };
 
 extern struct setting setting;

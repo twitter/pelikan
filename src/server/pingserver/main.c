@@ -65,6 +65,7 @@ teardown(void)
 
     timing_wheel_teardown();
     tcp_teardown();
+    stats_log_teardown();
     sockio_teardown();
     event_teardown();
     dbuf_teardown();
@@ -107,6 +108,7 @@ setup(void)
     dbuf_setup(&setting.dbuf, &stats.dbuf);
     event_setup(&stats.event);
     sockio_setup(&setting.sockio, &stats.sockio);
+    stats_log_setup(&setting.stats_log);
     tcp_setup(&setting.tcp, &stats.tcp);
     timing_wheel_setup(&stats.timing_wheel);
 
@@ -124,6 +126,12 @@ setup(void)
     intvl = option_uint(&setting.pingserver.dlog_intvl);
     if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
         log_stderr("Could not register timed event to flush debug log");
+        goto error;
+    }
+
+    intvl = option_uint(&setting.pingserver.stats_intvl);
+    if (core_admin_register(intvl, stats_dump, NULL) == NULL) {
+        log_error("Could not register timed event to dump stats");
         goto error;
     }
 

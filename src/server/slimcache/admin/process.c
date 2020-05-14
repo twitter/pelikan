@@ -4,6 +4,7 @@
 #include "util/procinfo.h"
 
 #include <cc_mm.h>
+#include <cc_stats_log.h>
 
 #define SLIMCACHE_ADMIN_MODULE_NAME "slimcache::admin"
 
@@ -65,4 +66,12 @@ admin_process_request(struct response *rsp, struct request *req)
         rsp->type = RSP_INVALID;
         break;
     }
+}
+
+void
+stats_dump(void *arg)
+{
+    procinfo_update();
+    stats_log((struct metric *)&stats, nmetric);
+    stats_log_flush();
 }
