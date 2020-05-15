@@ -8,7 +8,6 @@
 #include "time/time.h"
 
 #include <buffer/cc_buf.h>
-#include <buffer/cc_dbuf.h>
 #include <cc_debug.h>
 #include <cc_metric.h>
 #include <cc_option.h>
@@ -40,7 +39,6 @@ struct setting {
     time_options_st         time;
     /* ccommon libraries */
     buf_options_st          buf;
-    dbuf_options_st         dbuf;
     debug_options_st        debug;
     sockio_options_st       sockio;
     stats_log_options_st    stats_log;
