@@ -6,7 +6,6 @@ struct setting setting = {
     { SERVER_OPTION(OPTION_INIT)    },
     { WORKER_OPTION(OPTION_INIT)    },
     { TIME_OPTION(OPTION_INIT)      },
-    { ARRAY_OPTION(OPTION_INIT)     },
     { BUF_OPTION(OPTION_INIT)       },
     { DBUF_OPTION(OPTION_INIT)      },
     { DEBUG_OPTION(OPTION_INIT)     },

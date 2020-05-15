@@ -9,7 +9,6 @@
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>
-#include <cc_array.h>
 #include <cc_debug.h>
 #include <cc_metric.h>
 #include <cc_option.h>
@@ -40,7 +39,6 @@ struct setting {
     worker_options_st       worker;
     time_options_st         time;
     /* ccommon libraries */
-    array_options_st        array;
     buf_options_st          buf;
     dbuf_options_st         dbuf;
     debug_options_st        debug;
