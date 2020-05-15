@@ -68,7 +68,6 @@ teardown(void)
     stats_log_teardown();
     sockio_teardown();
     event_teardown();
-    dbuf_teardown();
     buf_teardown();
 
     debug_teardown();
@@ -105,7 +104,6 @@ setup(void)
 
     /* setup library modules */
     buf_setup(&setting.buf, &stats.buf);
-    dbuf_setup(&setting.dbuf, &stats.dbuf);
     event_setup(&stats.event);
     sockio_setup(&setting.sockio, &stats.sockio);
     stats_log_setup(&setting.stats_log);
