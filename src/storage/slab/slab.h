@@ -79,7 +79,11 @@ typedef struct {
     ACTION( item_link,          METRIC_COUNTER, "# items inserted to HT"   )\
     ACTION( item_unlink,        METRIC_COUNTER, "# items removed from HT"  )\
     ACTION( item_keyval_byte,   METRIC_GAUGE,   "key+val in bytes, linked" )\
-    ACTION( item_val_byte,      METRIC_GAUGE,   "value only in bytes"      )
+    ACTION( item_val_byte,      METRIC_GAUGE,   "value only in bytes"      )\
+    ACTION( hash_lookup,        METRIC_COUNTER, "# of hash lookups"        )\
+    ACTION( hash_insert,        METRIC_COUNTER, "# of hash inserts"        )\
+    ACTION( hash_remove,        METRIC_COUNTER, "# of hash deletes"        )\
+    ACTION( hash_traverse,      METRIC_COUNTER, "# of nodes touched"       )
 
 typedef struct {
     SLAB_METRIC(METRIC_DECLARE)
