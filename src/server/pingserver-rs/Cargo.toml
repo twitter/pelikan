@@ -1,26 +1,15 @@
 [package]
-name = "pelikan_pingserver_rs"
-authors = ["Sean Lynch <slynch@twitter.com>"]
+name = "pingserver-rs"
+version = "0.0.1"
+authors = ["Brian Martin <bmartin@twitter.com>"]
 edition = "2018"
-version = "0.0.0"
+description = "an over-engineered ping server written in Rust"
+license = "Apache-2.0"
 
 [dependencies]
-clap = "2.33"
-lazy_static = "1.4"
-log = "0.4.8"
-libc = "0.2"
-
-pelikan = { path="../../rust-util/pelikan", features=["protocol_admin", "protocol_ping"] }
-rustcore = { path="../../rustcore" }
-
-[dependencies.pelikan-sys]
-path = "../../rust-util/pelikan-sys"
-features = [ "protocol_ping", "protocol_admin" ]
-
-[dependencies.ccommon]
-path = "../../../deps/ccommon/rust/ccommon-rs"
-package = "ccommon-rs"
-
-[dependencies.ccommon-sys]
-path = "../../../deps/ccommon/rust/ccommon-sys"
-package = "ccommon-sys"
+bytes = "0.4.12"
+chrono = "0.4.11"
+config = { path = "../../rust/config" }
+log = { version = "0.4.8", features = ["std"] }
+mio = "0.6.21"
+slab = "0.4.2"
