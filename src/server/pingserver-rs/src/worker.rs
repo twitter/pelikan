@@ -79,21 +79,14 @@ impl Worker {
                 } else if buf.len() == 6 && &buf[..] == b"PING\r\n" {
                     session.clear_buffer();
                     if session.write(b"PONG\r\n").is_ok() {
-                        match session.flush() {
-                            Ok(Some(6)) => {
-                                // complete write
-                                self.reregister(token);
-                            }
-                            Ok(Some(_)) => {
-                                // partial write
+                        if session.flush().is_ok() {
+                            if session.tx_pending() {
+                                // wait to write again
                                 session.set_state(State::Writing);
                                 self.reregister(token);
                             }
-                            Ok(None) => {
-                                // this shouldn't happen?
-                                self.handle_error(token);
-                            }
-                            _ => self.handle_error(token),
+                        } else {
+                            self.handle_error(token);
                         }
                     } else {
                         self.handle_error(token);
