@@ -66,7 +66,6 @@ impl Worker {
         // read from stream to buffer
         match session.read() {
             Ok(Some(0)) => {
-                debug!("zero byte read");
                 self.handle_hup(token);
             }
             Ok(Some(_)) => {
@@ -75,7 +74,8 @@ impl Worker {
                 if buf.len() < 6 || &buf[buf.len() - 2..buf.len()] != b"\r\n" {
                     // Shortest request is "PING\r\n" at 6 bytes
                     // All complete responses end in CRLF
-                    self.reregister(token);
+
+                    // incomplete request, stay in reading
                 } else if buf.len() == 6 && &buf[..] == b"PING\r\n" {
                     session.clear_buffer();
                     if session.write(b"PONG\r\n").is_ok() {
@@ -97,8 +97,7 @@ impl Worker {
                 }
             }
             Ok(None) => {
-                // spurious read, reregister
-                self.reregister(token);
+                // spurious read
             }
             Err(_) => {
                 // some read error
@@ -112,20 +111,14 @@ impl Worker {
         let session = &mut self.sessions[token.0];
         match session.flush() {
             Ok(Some(_)) => {
-                if session.tx_pending() {
-                    // incomplete write
-                    debug!("incomplete write");
-                    self.reregister(token);
-                } else {
-                    debug!("switch to reading");
-                    // successful write, transition to reading
+                if !session.tx_pending() {
+                    // done writing, transition to reading
                     session.set_state(State::Reading);
                     self.reregister(token);
                 }
             }
             Ok(None) => {
-                // spurious write, reregister
-                self.reregister(token);
+                // spurious write
             }
             Err(_) => {
                 // some error writing
