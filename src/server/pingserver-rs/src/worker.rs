@@ -8,6 +8,8 @@ pub struct Worker {
     sessions: Slab<Session>,
     poll: Poll,
     receiver: Receiver<Session>,
+    waker: Arc<Waker>,
+    waker_token: Token,
 }
 
 impl Worker {
@@ -20,13 +22,17 @@ impl Worker {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
-        let sessions = Slab::<Session>::new();
+        let mut sessions = Slab::<Session>::new();
+        let waker_token = Token(sessions.vacant_entry().key());
+        let waker = Arc::new(Waker::new(&poll.registry(), waker_token)?);
 
         Ok(Self {
             config,
             poll,
             receiver,
             sessions,
+            waker,
+            waker_token,
         })
     }
 
@@ -142,12 +148,15 @@ impl Worker {
 
             // process all events
             for event in events.iter() {
-                if event.is_readable() {
-                    self.do_read(event.token());
-                }
+                let token = event.token();
+                if token != self.waker_token {
+                    if event.is_readable() {
+                        self.do_read(token);
+                    }
 
-                if event.is_writable() {
-                    self.do_write(event.token());
+                    if event.is_writable() {
+                        self.do_write(token);
+                    }
                 }
             }
 
@@ -170,5 +179,9 @@ impl Worker {
                 };
             }
         }
+    }
+
+    pub fn waker(&self) -> Arc<Waker> {
+        self.waker.clone()
     }
 }

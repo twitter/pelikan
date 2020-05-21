@@ -53,10 +53,11 @@ fn main() {
         error!("{}", e);
         std::process::exit(1);
     });
+    let waker = worker.waker();
     let worker_thread = std::thread::spawn(move || worker.run());
 
     // initialize server
-    let mut server = Server::new(config, sender).unwrap_or_else(|e| {
+    let mut server = Server::new(config, sender, waker).unwrap_or_else(|e| {
         error!("{}", e);
         std::process::exit(1);
     });
