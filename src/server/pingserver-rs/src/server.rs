@@ -1,10 +1,10 @@
 use crate::session::*;
 use crate::*;
 
-/// A `Listener` is used to bind to a given socket address and accept new
+/// A `Server` is used to bind to a given socket address and accept new
 /// sessions. These sessions are moved onto a MPSC queue, where they can be
 /// handled by a `Worker`.
-pub struct Listener {
+pub struct Server {
     addr: SocketAddr,
     config: Arc<PingserverConfig>,
     listener: TcpListener,
@@ -12,8 +12,8 @@ pub struct Listener {
     sender: Sender<Session>,
 }
 
-impl Listener {
-    /// Creates a new `Listener` that will bind to a given `addr` and push new
+impl Server {
+    /// Creates a new `Server` that will bind to a given `addr` and push new
     /// `Session`s over the `sender`
     pub fn new(
         config: Arc<PingserverConfig>,
@@ -51,10 +51,10 @@ impl Listener {
         })
     }
 
-    /// Runs the `Listener` in a loop, accepting new sessions and moving them to
+    /// Runs the `Server` in a loop, accepting new sessions and moving them to
     /// the queue
     pub fn run(&mut self) {
-        info!("running listener on: {}", self.addr);
+        info!("running server on: {}", self.addr);
 
         let mut events = Events::with_capacity(self.config.server().nevent());
         let timeout = Some(std::time::Duration::from_millis(
@@ -64,7 +64,7 @@ impl Listener {
         // repeatedly run accepting new connections and moving them to the worker
         loop {
             if self.poll.poll(&mut events, timeout).is_err() {
-                error!("Error polling listener");
+                error!("Error polling server");
             }
             for event in events.iter() {
                 if event.token() == Token(0) {

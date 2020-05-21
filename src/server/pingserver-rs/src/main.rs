@@ -14,12 +14,12 @@ use mio::*;
 use slab::Slab;
 
 mod buffer;
-mod listener;
+mod server;
 mod logger;
 mod session;
 mod worker;
 
-use crate::listener::Listener;
+use crate::server::Server;
 use crate::logger::*;
 use crate::worker::Worker;
 
@@ -55,14 +55,14 @@ fn main() {
     });
     let worker_thread = std::thread::spawn(move || worker.run());
 
-    // initialize listener
-    let mut listener = Listener::new(config, sender).unwrap_or_else(|e| {
+    // initialize server
+    let mut server = Server::new(config, sender).unwrap_or_else(|e| {
         error!("{}", e);
         std::process::exit(1);
     });
-    let listener_thread = std::thread::spawn(move || listener.run());
+    let server_thread = std::thread::spawn(move || server.run());
 
     // join threads
-    let _ = listener_thread.join();
+    let _ = server_thread.join();
     let _ = worker_thread.join();
 }
