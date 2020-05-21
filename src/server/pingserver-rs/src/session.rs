@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use mio::net::TcpStream;
 use crate::*;
 
 use crate::buffer::Buffer;
@@ -31,20 +32,20 @@ impl Session {
     }
 
     /// Register the `Session` with the event loop
-    pub fn register(&self, poll: &Poll) -> Result<(), std::io::Error> {
-        self.stream
-            .register(poll, self.token, self.readiness(), PollOpt::edge())
+    pub fn register(&mut self, poll: &Poll) -> Result<(), std::io::Error> {
+        let interest = self.readiness();
+        poll.registry().register(&mut self.stream, self.token, interest)
     }
 
     /// Deregister the `Session` from the event loop
-    pub fn deregister(&self, poll: &Poll) -> Result<(), std::io::Error> {
-        self.stream.deregister(poll)
+    pub fn deregister(&mut self, poll: &Poll) -> Result<(), std::io::Error> {
+        poll.registry().deregister(&mut self.stream)
     }
 
     /// Reregister the `Session` with the event loop
-    pub fn reregister(&self, poll: &Poll) -> Result<(), std::io::Error> {
-        self.stream
-            .reregister(poll, self.token, self.readiness(), PollOpt::edge())
+    pub fn reregister(&mut self, poll: &Poll) -> Result<(), std::io::Error> {
+        let interest = self.readiness();
+        poll.registry().reregister(&mut self.stream, self.token, interest)
     }
 
     /// Reads from the stream into the session buffer
@@ -89,10 +90,10 @@ impl Session {
     }
 
     /// Get the set of readiness events the session is waiting for
-    fn readiness(&self) -> Ready {
+    fn readiness(&self) -> Interest {
         match self.state {
-            State::Reading => Ready::readable(),
-            State::Writing => Ready::writable(),
+            State::Reading => Interest::READABLE,
+            State::Writing => Interest::WRITABLE,
         }
     }
 }

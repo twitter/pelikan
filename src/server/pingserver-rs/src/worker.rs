@@ -32,7 +32,7 @@ impl Worker {
 
     /// Close a session given its token
     fn close(&mut self, token: Token) {
-        let session = self.sessions.remove(token.0);
+        let mut session = self.sessions.remove(token.0);
         if session.deregister(&self.poll).is_err() {
             error!("Error deregistering");
         }
@@ -142,22 +142,17 @@ impl Worker {
 
             // process all events
             for event in events.iter() {
-                if UnixReady::from(event.readiness()).is_hup() {
-                    self.handle_hup(event.token());
-                    continue;
-                }
-
-                if event.readiness().is_readable() {
+                if event.is_readable() {
                     self.do_read(event.token());
                 }
 
-                if event.readiness().is_writable() {
+                if event.is_writable() {
                     self.do_write(event.token());
                 }
             }
 
-            // handle up to one new connection
-            if let Ok(mut s) = self.receiver.try_recv() {
+            // handle new connections
+            while let Ok(mut s) = self.receiver.try_recv() {
                 // reserve vacant slab
                 let session = self.sessions.vacant_entry();
 

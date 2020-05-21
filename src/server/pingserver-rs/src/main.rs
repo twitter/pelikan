@@ -8,8 +8,8 @@ use std::sync::mpsc::*;
 use std::sync::Arc;
 
 use log::*;
-use mio::net::*;
-use mio::unix::*;
+// use mio::net::*;
+// use mio::unix::*;
 use mio::*;
 use slab::Slab;
 

@@ -1,3 +1,4 @@
+use mio::net::TcpListener;
 use crate::session::*;
 use crate::*;
 
@@ -23,7 +24,7 @@ impl Server {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
         })?;
-        let listener = TcpListener::bind(&addr).map_err(|e| {
+        let mut listener = TcpListener::bind(addr).map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to start tcp listener")
         })?;
@@ -33,7 +34,7 @@ impl Server {
         })?;
 
         // register listener to event loop
-        poll.register(&listener, Token(0), Ready::readable(), PollOpt::edge())
+        poll.registry().register(&mut listener, Token(0), Interest::READABLE)
             .map_err(|e| {
                 error!("{}", e);
                 std::io::Error::new(

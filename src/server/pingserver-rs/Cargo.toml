@@ -11,5 +11,5 @@ bytes = "0.4.12"
 chrono = "0.4.11"
 config = { path = "../../rust/config" }
 log = { version = "0.4.8", features = ["std"] }
-mio = "0.6.21"
+mio = { version = "0.7.0", features = ["os-poll", "tcp"] }
 slab = "0.4.2"
