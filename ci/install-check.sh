@@ -17,20 +17,42 @@ TEMP="$(mktemp -d -t TEMP.XXXXXXX)" || die "failed to make tmpdir"
 cleanup() { [[ -n "${TEMP:-}" ]] && rm -rf "${TEMP}"; }
 trap cleanup EXIT
 
-realpath() { python -c "from __future__ import print_function; import os,sys; print(os.path.realpath(sys.argv[1]))" "$1"; }
+realpath() { python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$1"; }
 
 TOPLEVEL="$(cd "$(dirname "$(realpath "$0" >/dev/null || exit 1)")" && git rev-parse --show-toplevel)" || die 'failed to find TOPLEVEL'
 
-CHECK_VERSION=0.12.0
-CHECK_TARBALL="check-${CHECK_VERSION}.tar.gz"
+
+CHECK_VERSION="0.14-tf"
+CHECK_TARBALL="${CHECK_VERSION}.tar.gz"
 CHECK_DIR="check-${CHECK_VERSION}"
+CHECK_LOG="build-check.log"
+
+echo "building and installing check" >&2
+
+echo "building and installing check" >&2
 
 (
   cd "$TEMP" &&
-    wget "https://github.com/libcheck/check/releases/download/${CHECK_VERSION}/${CHECK_TARBALL}" &&
-    tar xvfz "${CHECK_TARBALL}" &&
+    wget "https://github.com/thinkingfish/check/archive/${CHECK_TARBALL}" &&
+    tar xfz "${CHECK_TARBALL}" &&
     cd "${CHECK_DIR}" &&
-    ./configure --prefix="$CHECK_PREFIX" &&
-    make &&
+    mkdir build &&
+    cd build &&
+    cmake -DCMAKE_INSTALL_PREFIX="${CHECK_PREFIX}" -DDISABLE_SUBUNIT=ON .. &&
+    make -j &&
     make install
-) || die "check build failed"
+) >$TEMP/${CHECK_LOG} 2>&1
+
+RESULT=$?
+if [[ $RESULT -ne 0 ]]; then
+  cat >&2 <<EOS
+check build failed! log below:
+
+EOS
+
+  cat $TEMP/${CHECK_LOG}
+else
+  echo "Success!" >&2
+fi
+
+exit $RESULT
