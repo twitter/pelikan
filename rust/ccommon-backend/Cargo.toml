@@ -1,0 +1,17 @@
+[package]
+name = "ccommon-backend"
+version = "0.1.0"
+authors = ["Sean Lynch <slynch@twitter.com>"]
+edition = "2018"
+
+[features]
+c-export = []
+
+[dependencies]
+ccommon-sys = { path = "../ccommon-sys" }
+libc = "0.2"
+
+# Note: We can depend on ccommon_rs for testing purposes
+#       but not otherwise to avoid circular dependencies.
+[dev-dependencies]
+ccommon-rs = { path = "../ccommon-rs" }

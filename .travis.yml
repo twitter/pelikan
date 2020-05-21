@@ -1,14 +1,12 @@
 sudo: false
 language: c
+dist: bionic
 
 # using anchor to import sources into linux builds
 addons:
   apt: &apt
     sources:
       - ubuntu-toolchain-r-test
-      - llvm-toolchain-precise-3.6
-      - llvm-toolchain-precise-3.7
-      - llvm-toolchain-precise
 
 # important for allowed-to-fail matching
 # see https://docs.travis-ci.com/user/customizing-the-build#Rows-that-are-Allowed-to-Fail
@@ -18,115 +16,55 @@ env:
 # travis currently does not support directly setting gcc/clang with versions
 # (e.g. gcc-4.8) as value for the compiler key. So we will have to manually
 # request these packages and use environment varibles to create the matrix.
-#
-# In the case of osx, use brew to install the paritcular versions, instead of
-# specifying with packages.
 matrix:
   include:
-    # gcc 4.8 on linux
-    - env:
-        - C_COMPILER=gcc-4.8
+    - name: "gcc-7 on Linux"
+      compiler: gcc
       addons:
         apt:
           <<: *apt
           packages:
-            - gcc-4.8
             - libsubunit-dev
 
-
-    # gcc 4.9 on linux
-    - env:
-        - C_COMPILER=gcc-4.9
-      addons:
-        apt:
-          <<: *apt
-          packages:
-            - gcc-4.9
-            - libsubunit-dev
-
-    # gcc 5 on linux
-    - env:
-        - C_COMPILER=gcc-5
-      addons:
-        apt:
-          <<: *apt
-          packages:
-            - gcc-5
-            - libsubunit-dev
-
-    # gcc 5 on linux
-    - env:
-        - C_COMPILER=gcc-5
+    - name: "gcc-7 on Linux, Rust enabled"
+      compiler: gcc
+      env:
         - RUST_ENABLED=1
       addons:
         apt:
           <<: *apt
           packages:
-            - gcc-5
             - libsubunit-dev
 
-    # clang 3.6 on linux
-    - env:
-        - C_COMPILER=clang-3.6
+    - os: osx
+      osx_image: xcode11.4
+      compiler: clang
+
+    - name: "cargo build"
+      language: rust
       addons:
         apt:
           <<: *apt
           packages:
-            - clang-3.6
             - libsubunit-dev
+      script:
+        - ./ci/cargo.sh
 
-    # clang 3.7 on linux
-    - env:
-        - C_COMPILER=clang-3.7
-      addons:
-        apt:
-          <<: *apt
-          packages:
-            - clang-3.7
-            - libsubunit-dev
-
-    ## gcc 4.8 on osx
-    #- os: osx
-    #  env: FORMULA=gcc48 COMPILER=gcc C_COMPILER=gcc-4.8
-    #
-    ## gcc 4.9 on osx
-    #- os: osx
-    #  env: FORMULA=gcc49 COMPILER=gcc C_COMPILER=gcc-4.9
-    #
-    ## gcc 5 on osx
-    #- os: osx
-    #  env: FORMULA=gcc5 COMPILER=gcc C_COMPILER=gcc-5
-
-    # OSX 10.13
-    # Apple LLVM version 9.1.0 (clang-902.0.39.2)
-    # Target: x86_64-apple-darwin17.6.0
     - os: osx
-      osx_image: xcode9.4
-      env:
-        - C_COMPILER=clang
-        - ALLOWED_TO_FAIL=1
-
-    # OSX 10.12
-    # Apple LLVM version 9.0.0 (clang-900.0.39.2)
-    # Target: x86_64-apple-darwin16.7.0
-    - os: osx
-      osx_image: xcode9.2
-      env:
-        - C_COMPILER=clang
-        - ALLOWED_TO_FAIL=1
+      osx_image: xcode11.4
+      language: rust
+      script:
+        - ./ci/cargo.sh
 
   allow_failures:
     - os: osx
-      osx_image: xcode9.4
-      env:
-        - C_COMPILER=clang
-        - ALLOWED_TO_FAIL=1
-
+      osx_image: xcode11.4
+      compiler: clang
     - os: osx
-      osx_image: xcode9.2
-      env:
-        - C_COMPILER=clang
-        - ALLOWED_TO_FAIL=1
+      osx_image: xcode11.4
+      language: rust
+      script:
+        - ./ci/cargo.sh
 
 before_install:
   - ./ci/before-install.sh
