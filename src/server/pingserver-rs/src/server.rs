@@ -10,7 +10,7 @@ pub struct Server {
     config: Arc<PingserverConfig>,
     listener: TcpListener,
     poll: Poll,
-    sender: Sender<Session>,
+    sender: SyncSender<Session>,
     waker: Arc<Waker>,
 }
 
@@ -19,7 +19,7 @@ impl Server {
     /// `Session`s over the `sender`
     pub fn new(
         config: Arc<PingserverConfig>,
-        sender: Sender<Session>,
+        sender: SyncSender<Session>,
         waker: Arc<Waker>,
     ) -> Result<Self, std::io::Error> {
         let addr = config.server().socket_addr().map_err(|e| {

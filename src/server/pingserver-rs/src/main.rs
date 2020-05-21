@@ -46,7 +46,7 @@ fn main() {
     };
 
     // create channel to move sessions from listener to worker
-    let (sender, receiver) = channel();
+    let (sender, receiver) = sync_channel(128);
 
     // initialize worker
     let mut worker = Worker::new(config.clone(), receiver).unwrap_or_else(|e| {
