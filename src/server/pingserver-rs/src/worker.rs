@@ -11,7 +11,7 @@ pub struct Worker {
 }
 
 impl Worker {
-    /// Create a new `Worker` which will get new `Session`s from the MPMC queue
+    /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(
         config: Arc<PingserverConfig>,
         receiver: Receiver<Session>,
