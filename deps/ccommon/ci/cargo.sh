@@ -20,7 +20,8 @@ cat > Cargo.toml <<HEADER
 members = [
 HEADER
 
-for CRATE_ROOT in `find rust -type d -mindepth 1 -maxdepth 1`; do
+for CRATE_MANIFEST in `find rust -type f -name "Cargo.toml"`; do
+  CRATE_ROOT=`dirname ${CRATE_MANIFEST}`
   echo "\"${CRATE_ROOT}\"," >> Cargo.toml
 done
 

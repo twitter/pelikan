@@ -22,8 +22,8 @@ realpath() { python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$
 TOPLEVEL="$(cd "$(dirname "$(realpath "$0" >/dev/null || exit 1)")" && git rev-parse --show-toplevel)" || die 'failed to find TOPLEVEL'
 
 
-CHECK_VERSION="0.14-tf"
-CHECK_TARBALL="${CHECK_VERSION}.tar.gz"
+CHECK_VERSION="0.14.0"
+CHECK_TARBALL="check-${CHECK_VERSION}.tar.gz"
 CHECK_DIR="check-${CHECK_VERSION}"
 CHECK_LOG="build-check.log"
 
@@ -33,12 +33,12 @@ echo "building and installing check" >&2
 
 (
   cd "$TEMP" &&
-    wget "https://github.com/thinkingfish/check/archive/${CHECK_TARBALL}" &&
+    wget "https://github.com/libcheck/check/releases/download/${CHECK_VERSION}/${CHECK_TARBALL}" &&
     tar xfz "${CHECK_TARBALL}" &&
     cd "${CHECK_DIR}" &&
     mkdir build &&
     cd build &&
-    cmake -DCMAKE_INSTALL_PREFIX="${CHECK_PREFIX}" -DDISABLE_SUBUNIT=ON .. &&
+    cmake -DCMAKE_INSTALL_PREFIX="${CHECK_PREFIX}" .. &&
     make -j &&
     make install
 ) >$TEMP/${CHECK_LOG} 2>&1
