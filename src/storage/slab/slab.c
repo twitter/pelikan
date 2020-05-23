@@ -553,7 +553,7 @@ slab_teardown(void)
         log_warn("%s has never been set up", SLAB_MODULE_NAME);
     }
 
-    hashtable_destroy(hash_table);
+    hashtable_destroy(&hash_table);
     _slab_heapinfo_teardown();
     _slab_slabclass_teardown();
     slab_metrics = NULL;

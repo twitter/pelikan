@@ -9,7 +9,6 @@ export PATH=$HOME/.cargo/bin:$PATH
 
 cmake_cmd=(
   cmake
-  -DBUILD_AND_INSTALL_CHECK=yes
 )
 
 if [[ -n "${RUST_ENABLED:-}" ]]; then

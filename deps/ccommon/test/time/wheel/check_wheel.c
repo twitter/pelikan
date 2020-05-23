@@ -116,13 +116,14 @@ END_TEST
 
 START_TEST(test_timing_wheel_recur)
 {
-#define TICK_NS 50000000
+#define TICK_NS 500000000
+#define SLEEP_NS 450000000
 #define NSLOT 3
 #define NTICK 2
 
     struct timeout tick, delay;
     struct timing_wheel *tw;
-    struct timespec ts = (struct timespec){0, TICK_NS};
+    struct timespec ts = (struct timespec){0, SLEEP_NS};
     int i = 0;
 
     test_reset();
@@ -134,21 +135,32 @@ START_TEST(test_timing_wheel_recur)
     timing_wheel_start(tw);
     ck_assert_int_le(timeout_ns(&tw->due), TICK_NS);
 
+    /* recurring events are inserted into the next tick at the earliest */
     timing_wheel_insert(tw, &delay, true, _incr_cb, &i);
 
-    /* tick unchanged */
+    /* tick not advanced yet, no event processed */
     timing_wheel_execute(tw);
     ck_assert_int_eq(tw->nprocess, 0);
     ck_assert_int_eq(tw->nevent, 1);
 
-    /* next 2 tick */
     nanosleep(&ts, NULL);
     nanosleep(&ts, NULL);
+    nanosleep(&ts, NULL);
+    /* elapsed time between 2 and 3 ticks.
+     * The first tick started empty; the next ticket has one
+     * event, and we should process it, and inserting it into
+     * the tick after that (because delay < tick, and re-insert
+     * will move the event by at least one slot).
+     * Despite the re-inserted event being due by wall clock
+     * since we process the tick at the end of that tick, we
+     * should only see one event processed.
+     */
     timing_wheel_execute(tw);
     ck_assert_int_eq(tw->nevent, 1);
     ck_assert_int_eq(tw->nprocess, 1);
     ck_assert_int_eq(i, 1);
     nanosleep(&ts, NULL);
+    /* elapsed time now between 3 and 4 ticks */
     timing_wheel_execute(tw);
     ck_assert_int_eq(tw->nevent, 1);
     ck_assert_int_eq(tw->nprocess, 2);
@@ -163,6 +175,7 @@ START_TEST(test_timing_wheel_recur)
 
 #undef NTICK
 #undef NSLOT
+#undef SLEEP_NS
 #undef TICK_NS
 }
 END_TEST

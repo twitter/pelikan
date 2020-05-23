@@ -1,7 +1,16 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 project(pelikan C)
 
-enable_testing()
+# Uncomment the following to output dependency graph debugging messages
+# set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_DEBUG_MODE 1)
+
+###################
+# detect platform #
+###################
+
+# TODO(yao):
+#   1. make this a .cmake macro and put it under cmake/
+#   2. avoid calling this twice when included by another project, e.g. Pelikan
 
 # detect platform
 macro(set_platform system_name)
@@ -21,6 +30,10 @@ if(OS_PLATFORM STREQUAL "OS_UNSUPPORTED")
     message(FATAL_ERROR "unsupported operating system")
 endif()
 
+####################
+# define variables #
+####################
+
 # the following sections work with config.h(.in): version, compile variables
 # config.h.in has to include entries set/tested here for them to have effect
 
@@ -28,13 +41,29 @@ endif()
 set(${PROJECT_NAME}_VERSION_MAJOR 0)
 set(${PROJECT_NAME}_VERSION_MINOR 1)
 set(${PROJECT_NAME}_VERSION_PATCH 1)
-set(${PROJECT_NAME}_VERSION ${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}.${${PROJECT_NAME}_VERSION_PATCH})
+set(${PROJECT_NAME}_VERSION
+    ${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}.${${PROJECT_NAME}_VERSION_PATCH}
+    )
+set(${PROJECT_NAME}_RELEASE_VERSION
+   ${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}
+   )
 
 # flags => compile-time variables: use modules/macros
 option(HAVE_ASSERT_LOG "assert_log enabled by default" ON)
 option(HAVE_ASSERT_PANIC "assert_panic disabled by default" OFF)
 option(HAVE_LOGGING "logging enabled by default" ON)
 option(HAVE_STATS "stats enabled by default" ON)
+option(HAVE_TEST "test built by default" ON)
+option(HAVE_DEBUG_MM "debugging oriented memory management disabled by default" OFF)
+option(HAVE_COVERAGE "code coverage" OFF)
+option(HAVE_RUST "rust bindings not built by default" OFF)
+option(HAVE_ITT_INSTRUMENTATION "instrument code with ITT API" OFF)
+
+option(FORCE_CHECK_BUILD "Force building check with ci/install-check.sh" OFF)
+
+if(HAVE_RUST)
+    option(RUST_VERBOSE_BUILD "pass -vv to cargo compilation" OFF)
+endif()
 
 option(TARGET_PINGSERVER "build pingserver binary" ON)
 option(TARGET_RDS "build rich data server binary" ON)
@@ -45,25 +74,8 @@ option(TARGET_CDB "build cdb binary (implies HAVE_RUST)" OFF)
 option(TARGET_RESPCLI "build resp-cli binary" ON)
 option(TARGET_HTTP "build experimental twemcache-http server (implies HAVE_RUST)" OFF)
 
-option(HAVE_RUST "build features written in rust" OFF)
-option(RUST_USE_MUSL "build rust deps against musl" OFF)
-option(BUILD_AND_INSTALL_CHECK "build our own version of check and link against it" OFF)
 option(USE_PMEM "build persistent memory features" OFF)
-option(HAVE_ITT_INSTRUMENTATION "instrument code with ITT API" OFF)
 
-option(COVERAGE "code coverage" OFF)
-
-# Note: duplicate custom targets only works with Makefile generators, will break XCode & VS
-# reference: http://public.kitware.com/Bug/view.php?id=6348
-set_property(GLOBAL PROPERTY ALLOW_DUPLICATE_CUSTOM_TARGETS 1)
-set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
-set(CMAKE_MACOSX_RPATH 1)
-
-# Required for properly linking with rust code
-set(CMAKE_POSITION_INDEPENDENT_CODE true)
-
-include(CheckSymbolExists)
-check_symbol_exists(sys_signame signal.h HAVE_SIGNAME)
 
 include(CheckFunctionExists)
 check_function_exists(backtrace HAVE_BACKTRACE)
@@ -73,6 +85,15 @@ check_function_exists(backtrace HAVE_BACKTRACE)
 configure_file(
   "${PROJECT_SOURCE_DIR}/cmake/config.h.in"
   "${PROJECT_BINARY_DIR}/config.h")
+
+# Note: duplicate custom targets only works with Makefile generators, will break XCode & VS
+# reference: http://public.kitware.com/Bug/view.php?id=6348
+set_property(GLOBAL PROPERTY ALLOW_DUPLICATE_CUSTOM_TARGETS 1)
+set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
+set(CMAKE_MACOSX_RPATH 1)
+
+# Required for properly linking with rust code
+set(CMAKE_POSITION_INDEPENDENT_CODE true)
 
 # set compiler flags
 # string concat is easier in 3.0, but older versions don't have the concat subcommand
@@ -145,6 +166,48 @@ add_subdirectory(${CCOMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/ccommon)
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
+# test dependencies
+if (HAVE_TEST)
+    enable_testing()
+    # first we try default ways of finding gmodules
+    find_package(CHECK)
+    if(CHECK_FOUND)
+        check_symbol_exists(ck_assert_int_eq check.h CHECK_WORKING)
+    endif(CHECK_FOUND)
+    # if we don't have a working version of check, build it
+    if(NOT CHECK_WORKING OR FORCE_CHECK_BUILD)
+        set(LIBCHECK_PREFIX "${CMAKE_BINARY_DIR}/check")
+        execute_process(
+            COMMAND "bash" "${PROJECT_SOURCE_DIR}/ci/install-check.sh" "${LIBCHECK_PREFIX}"
+            TIMEOUT 300  # if this doesn't build in 5 minutes something is hosed
+            RESULT_VARIABLE LIBCHECK_RETCODE
+        )
+        if(LIBCHECK_RETCODE) # non-zero means error
+            message(STATUS "build libcheck failed, return code: " ${LIBCHECK_RETCODE})
+        else(LIBCHECK_RETCODE)
+            # use locally built libcheck
+            set(CHECK_ROOT_DIR "${LIBCHECK_PREFIX}")
+            find_package(CHECK)
+        endif(LIBCHECK_RETCODE)
+    endif(NOT CHECK_WORKING OR FORCE_CHECK_BUILD)
+
+    # use fluxcapacitor to mock time
+    if(OS_PLATFORM STREQUAL "OS_LINUX")
+        set(FLUXCAP_PREFIX "${CMAKE_BINARY_DIR}/fluxcapacitor")
+        execute_process(
+            COMMAND "bash" "${PROJECT_SOURCE_DIR}/ci/install-fluxcapacitor.sh" "${FLUXCAP_PREFIX}"
+            TIMEOUT 60  # if this doesn't build in 60 seconds something is hosed
+            RESULT_VARIABLE FLUXCAP_RETCODE
+        )
+        if(FLUXCAP_RETCODE) # non-zero means error
+            message(STATUS "build fluxcapacitor failed, return code: " ${FLUXCAP_RETCODE})
+        else(FLUXCAP_RETCODE)
+            set(FLUXCAP_BINARY "${FLUXCAP_PREFIX}/fluxcapacitor")
+            message(STATUS "fluxcapacitor available at: " ${FLUXCAP_BINARY})
+        endif(FLUXCAP_RETCODE)
+    endif(OS_PLATFORM STREQUAL "OS_LINUX")
+endif(HAVE_TEST)
+
 find_package(PkgConfig QUIET)
 
 if (USE_PMEM)
@@ -166,17 +229,6 @@ if (HAVE_ITT_INSTRUMENTATION)
     link_directories(${ITTNOTIFY_LIBRARY_DIRS})
     link_libraries(${ITTNOTIFY_LIBRARIES})
 endif(HAVE_ITT_INSTRUMENTATION)
-
-find_package(Check)
-if(NOT CHECK_FOUND)
-    message(WARNING "Check is required to build and run tests")
-endif(NOT CHECK_FOUND)
-if(CHECK_FOUND)
-    check_symbol_exists(ck_assert_int_eq check.h CHECK_WORKING)
-    if(NOT CHECK_WORKING)
-        message(WARNING "Check version too old to build tests")
-    endif(NOT CHECK_WORKING)
-endif(CHECK_FOUND)
 
 find_package(Threads)
 
@@ -202,30 +254,45 @@ include_directories(${include_directories}
 # server & (cli) client
 add_subdirectory(src)
 
-# tests: always build last
-if(CHECK_FOUND)
-    include_directories(${CHECK_INCLUDES})
-    link_directories(${CHECK_LIBRARY_DIRS})
+if(HAVE_TEST)
+    include_directories(${include_directories} ${CHECK_INCLUDES})
     add_subdirectory(test)
-endif(CHECK_FOUND)
+    if(${OS_PLATFORM} MATCHES "OS_LINUX")
+        add_subdirectory(benchmarks)
+    endif()
+endif(HAVE_TEST)
 
-if(${OS_PLATFORM} MATCHES "OS_LINUX")
-  add_subdirectory(benchmarks)
-endif()
 
-# print a summary
+###################
+# print a summary #
+###################
 
+message(STATUS "<<++=====------------------\\/------------------=====++>>")
+message(STATUS "<<++                 pelikan summary                 ++>>")
+message(STATUS "<<++=====------------------/\\------------------=====++>>")
+message(STATUS "=============CMake related=============")
 message(STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
-
 message(STATUS "PLATFORM: " ${OS_PLATFORM})
-
 message(STATUS "CPPFLAGS: " ${CMAKE_CPP_FLAGS})
 message(STATUS "CFLAGS: " ${CMAKE_C_FLAGS})
+message(STATUS "=======================================")
 
-message(STATUS "HAVE_SIGNAME: " ${HAVE_SIGNAME})
-
+message(STATUS "=======Status of system features=======")
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
+message(STATUS "=======================================")
+
+message(STATUS "======Status of optional features======")
 message(STATUS "HAVE_RUST: " ${HAVE_RUST})
+message(STATUS "HAVE_ASSERT_LOG: " ${HAVE_ASSERT_LOG})
+message(STATUS "HAVE_ASSERT_PANIC: " ${HAVE_ASSERT_PANIC})
+message(STATUS "HAVE_LOGGING: " ${HAVE_LOGGING})
+message(STATUS "HAVE_STATS: " ${HAVE_STATS})
+message(STATUS "HAVE_ITT_INSTRUMENTATION: " ${HAVE_ITT_INSTRUMENTATION})
+message(STATUS "HAVE_DEBUG_MM: " ${HAVE_DEBUG_MM})
+message(STATUS "HAVE_TEST: " ${HAVE_TEST})
+message(STATUS "HAVE_COVERAGE: " ${HAVE_COVERAGE})
+message(STATUS "USE_PMEM: " ${USE_PMEM})
+message(STATUS "=======================================")
 
 if(DUMP_ALL)
     message(STATUS "<<++=====------------------\\/------------------=====++>>")

@@ -104,7 +104,8 @@ START_TEST(test_read_blocking)
     pthread_t thread;
 #define READ_MESSAGE_LENGTH 12
 #define SLEEP_TIME 500000
-#define TOLERANCE_TIME 100000
+#define TOLERANCE_UNDER 10000
+#define TOLERANCE_OVER 100000
     char read_message[READ_MESSAGE_LENGTH];
     test_reset();
     duration_reset(&duration);
@@ -126,8 +127,8 @@ START_TEST(test_read_blocking)
     duration_stop(&duration);
     pthread_join(thread, NULL);
 
-    ck_assert_int_ge(duration_us(&duration), SLEEP_TIME);
-    ck_assert_int_le(duration_us(&duration), SLEEP_TIME + TOLERANCE_TIME);
+    ck_assert_int_ge(duration_us(&duration), SLEEP_TIME - TOLERANCE_UNDER);
+    ck_assert_int_le(duration_us(&duration), SLEEP_TIME + TOLERANCE_OVER);
 
     ck_assert_str_eq(write_message, read_message);
 
