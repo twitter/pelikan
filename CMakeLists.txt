@@ -116,10 +116,9 @@ if(CMAKE_COMPILER_IS_GNUCC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--no-as-needed -ldl -pthread -fPIC")
 endif()
 
+include(FindPackageHandleStandardArgs)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
-
-    include(FindPackageHandleStandardArgs)
-    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 # test dependencies
 if (HAVE_TEST)
     enable_testing()
@@ -220,6 +219,9 @@ endif()
 # print a summary #
 ###################
 
+message(STATUS "<<++=====------------------\\/------------------=====++>>")
+message(STATUS "<<++                 ccommon summary                 ++>>")
+message(STATUS "<<++=====------------------/\\------------------=====++>>")
 message(STATUS "=============CMake related=============")
 message(STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
 message(STATUS "PLATFORM: " ${OS_PLATFORM})
@@ -248,3 +250,12 @@ message(STATUS "HAVE_TEST: " ${HAVE_TEST})
 message(STATUS "HAVE_COVERAGE: " ${HAVE_COVERAGE})
 message(STATUS "=======================================")
 
+
+if(DUMP_ALL)
+    message(STATUS "<<++=====------------------\\/------------------=====++>>")
+    get_cmake_property(_variableNames VARIABLES)
+    foreach (_variableName ${_variableNames})
+        message(STATUS "${_variableName}=${${_variableName}}")
+    endforeach()
+    message(STATUS "<<++=====------------------/\\------------------=====++>>")
+endif()
