@@ -1,9 +1,8 @@
-include_directories(${include_directories} CHECK_INCLUDES)
-
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
+include_directories(${include_directories} ${CHECK_INCLUDES})
 
 add_subdirectory(array)
 add_subdirectory(bstring)
+add_subdirectory(buffer)
 add_subdirectory(channel)
 add_subdirectory(event)
 add_subdirectory(log)

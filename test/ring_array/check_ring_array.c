@@ -207,6 +207,7 @@ START_TEST(test_thread)
         }
     }
 
+    pthread_join(producer, NULL);
     ring_array_destroy(&arr);
 #undef ELEM_SIZE
 #undef CAP

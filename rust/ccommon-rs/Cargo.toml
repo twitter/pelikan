@@ -1,0 +1,30 @@
+[package]
+name = "ccommon-rs"
+version = "0.1.0"
+authors = [
+	"Jonathan Simms <jsimms@twitter.com>",
+	"Sean Lynch <slynch@twitter.com>"
+]
+edition = "2018"
+
+[features]
+default = [ "derive" ]
+derive = [ "ccommon-derive" ]
+
+[dependencies]
+ccommon-sys = { path = "../ccommon-sys" }
+ccommon-backend = { path = "../ccommon-backend" }
+libc = "0.2.0"
+log = "0.4.0"
+bytes = "0.5.0"
+
+[dependencies.ccommon-derive]
+path = "../ccommon-derive"
+optional = true
+
+[build-dependencies]
+autocfg = "0.1.7"
+
+[dev-dependencies]
+rusty-fork = "0.2.0"
+gag = "0.1.10"

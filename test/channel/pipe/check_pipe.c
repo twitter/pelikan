@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <time.h>
+#include <errno.h>
 
 #define SUITE_NAME "pipe"
 #define DEBUG_LOG  SUITE_NAME ".log"
@@ -44,7 +46,20 @@ static void *do_write(void *_write_task)
 {
     struct write_task* task = _write_task;
     if (task->usleep) {
-        usleep(task->usleep);
+        struct timespec req;
+        struct timespec res;
+
+        req.tv_sec = task->usleep / 1000000;
+        req.tv_nsec = (task->usleep % 1000000) * 1000;
+
+        while (nanosleep(&req, &res) != 0) {
+            // If there is a different error then we should fail
+            // instead of potentially spinning indefinitely.
+            if (errno != EINTR)
+                break;
+
+            req = res;
+        }
     }
     ck_assert_int_eq(pipe_send(task->pipe, task->buf, task->nbytes), task->nbytes);
     return NULL;
@@ -89,7 +104,8 @@ START_TEST(test_read_blocking)
     pthread_t thread;
 #define READ_MESSAGE_LENGTH 12
 #define SLEEP_TIME 500000
-#define TOLERANCE_TIME 100000
+#define TOLERANCE_UNDER 10000
+#define TOLERANCE_OVER 100000
     char read_message[READ_MESSAGE_LENGTH];
     test_reset();
     duration_reset(&duration);
@@ -111,8 +127,8 @@ START_TEST(test_read_blocking)
     duration_stop(&duration);
     pthread_join(thread, NULL);
 
-    ck_assert_int_ge(duration_us(&duration), SLEEP_TIME);
-    ck_assert_int_le(duration_us(&duration), SLEEP_TIME + TOLERANCE_TIME);
+    ck_assert_int_ge(duration_us(&duration), SLEEP_TIME - TOLERANCE_UNDER);
+    ck_assert_int_le(duration_us(&duration), SLEEP_TIME + TOLERANCE_OVER);
 
     ck_assert_str_eq(write_message, read_message);
 

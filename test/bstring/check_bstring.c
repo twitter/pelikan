@@ -96,6 +96,60 @@ START_TEST(test_compare)
 }
 END_TEST
 
+START_TEST(test_strcmp)
+{
+    ck_assert(str2cmp("an", 'a', 'n'));
+    ck_assert(str3cmp("old", 'o', 'l', 'd'));
+    ck_assert(str4cmp("farm", 'f', 'a', 'r', 'm'));
+    ck_assert(str5cmp("EIEIO", 'E', 'I', 'E', 'I', 'O'));
+    ck_assert(str6cmp("horses", 'h', 'o', 'r', 's', 'e', 's'));
+    ck_assert(str7cmp("beavers", 'b', 'e', 'a', 'v', 'e', 'r', 's'));
+    ck_assert(str8cmp("McDonald", 'M', 'c', 'D', 'o', 'n', 'a', 'l', 'd'));
+    ck_assert(str9cmp("elephants", 'e', 'l', 'e', 'p', 'h', 'a', 'n', 't',
+                's'));
+    ck_assert(str10cmp("everywhere", 'e', 'v', 'e', 'r', 'y', 'w', 'h', 'e',
+                'r', 'e'));
+    ck_assert(str11cmp("polar bears", 'p', 'o', 'l', 'a', 'r', ' ', 'b', 'e',
+                'a', 'r', 's'));
+    ck_assert(str12cmp("snow leopard", 's', 'n', 'o', 'w', ' ', 'l', 'e', 'o',
+                'p', 'a', 'r', 'd'));
+    ck_assert(!str12cmp("pocket mouse", 's', 'n', 'o', 'w', ' ', 'l', 'e', 'o',
+                'p', 'a', 'r', 'd'));
+}
+END_TEST
+
+
+START_TEST(test_atoi64)
+{
+    int64_t val;
+    struct bstring bstr;
+    char int64[CC_INT64_MAXLEN];
+
+    test_reset();
+
+    ck_assert_int_eq(bstring_atoi64(&val, &str2bstr("foo")), CC_ERROR);
+
+    ck_assert_int_eq(bstring_atoi64(&val, &str2bstr("123")), CC_OK);
+    ck_assert_uint_eq(val, 123);
+    ck_assert_int_eq(bstring_atoi64(&val, &str2bstr("-123")), CC_OK);
+    ck_assert_uint_eq(val, -123);
+
+    sprintf(int64, "%"PRIi64, INT64_MAX);
+    bstring_init(&bstr);
+    ck_assert_int_eq(bstring_copy(&bstr, int64, strlen(int64)), CC_OK);
+    ck_assert_int_eq(bstring_atoi64(&val, &bstr), CC_OK);
+    ck_assert_int_eq(val, INT64_MAX);
+    bstring_deinit(&bstr);
+
+    sprintf(int64, "%"PRIi64, INT64_MIN);
+    bstring_init(&bstr);
+    ck_assert_int_eq(bstring_copy(&bstr, int64, strlen(int64)), CC_OK);
+    ck_assert_int_eq(bstring_atoi64(&val, &bstr), CC_OK);
+    ck_assert_int_eq(val, INT64_MIN);
+    bstring_deinit(&bstr);
+}
+END_TEST
+
 START_TEST(test_atou64)
 {
     uint64_t val;
@@ -165,6 +219,8 @@ bstring_suite(void)
     tcase_add_test(tc_bstring, test_duplicate);
     tcase_add_test(tc_bstring, test_copy);
     tcase_add_test(tc_bstring, test_compare);
+    tcase_add_test(tc_bstring, test_strcmp);
+    tcase_add_test(tc_bstring, test_atoi64);
     tcase_add_test(tc_bstring, test_atou64);
     tcase_add_test(tc_bstring, test_bstring_alloc_and_free);
 
