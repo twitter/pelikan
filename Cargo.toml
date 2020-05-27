@@ -1,9 +1,17 @@
 
 [workspace]
 members = [
-    "deps/ccommon/rust/ccommon-sys",
-    "deps/ccommon/rust/ccommon-rs",
+    "deps/ccommon/rust/ccommon-array",
+    "deps/ccommon/rust/ccommon-backend",
+    "deps/ccommon/rust/ccommon-buffer",
+    "deps/ccommon/rust/ccommon-channel",
     "deps/ccommon/rust/ccommon-derive",
+    "deps/ccommon/rust/ccommon-log",
+    "deps/ccommon/rust/ccommon-rs",
+    "deps/ccommon/rust/ccommon-stats",
+    "deps/ccommon/rust/ccommon-stream",
+    "deps/ccommon/rust/ccommon-sys",
+    "deps/ccommon/rust/ccommon-time",
     "src/rust-util/httpencode",
     "src/rust-util/pelikan",
     "src/rust-util/pelikan-sys",
