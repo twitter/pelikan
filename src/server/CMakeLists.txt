@@ -26,6 +26,10 @@ if(TARGET_TWEMCACHE)
     add_subdirectory(twemcache)
 endif()
 
+if(TARGET_LTWEMCACHE)
+    add_subdirectory(segcache)
+endif()
+
 if(TARGET_CDB)
     add_subdirectory(cdb)
 endif()
