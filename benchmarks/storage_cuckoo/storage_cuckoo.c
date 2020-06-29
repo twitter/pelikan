@@ -46,7 +46,7 @@ bench_storage_put(struct benchmark_entry *e)
     struct bstring key;
     struct val val;
     val.type = VAL_TYPE_STR;
-    bstring_set_cstr(&val.vstr, e->value);
+    bstring_set_cstr(&val.vstr, e->val);
     bstring_set_cstr(&key, e->key);
 
     struct item *it = cuckoo_insert(&key, &val, INT32_MAX);

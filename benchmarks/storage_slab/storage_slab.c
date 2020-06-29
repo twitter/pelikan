@@ -24,8 +24,9 @@ rstatus_i
 bench_storage_init(void *opts, size_t item_size, size_t nentries)
 {
     slab_options_st *options = opts;
+    /* Q(jason): should SLAB_MEM be SLAB_SIZE? */
     options->slab_mem.val.vuint =
-        CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries, SLAB_MEM);
+        CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries, SLAB_SIZE);
     options->slab_item_min.val.vuint = item_size;
 
     slab_setup(options, &metrics);
@@ -47,7 +48,7 @@ bench_storage_put(struct benchmark_entry *e)
     struct bstring val;
     struct item *it;
 
-    bstring_set_cstr(&val, e->value);
+    bstring_set_cstr(&val, e->val);
     bstring_set_cstr(&key, e->key);
 
     item_rstatus_e status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
