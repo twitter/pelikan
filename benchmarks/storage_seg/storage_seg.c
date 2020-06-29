@@ -24,9 +24,11 @@ rstatus_i
 bench_storage_init(void *opts, size_t item_size, size_t nentries)
 {
     seg_options_st *options = opts;
-    /* because we don't update in-place, we need to allocate large enough space */
-    options->seg_mem_dram.val.vuint =
-            CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries * 24, SEG_SIZE);
+    if (item_size != 0 && nentries != 0) {
+        /* because we don't update in-place, we need to allocate large enough space */
+        options->seg_mem_dram.val.vuint =
+                CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries * 40, SEG_SIZE);
+    }
 
     seg_setup(options, &metrics);
 
@@ -43,15 +45,11 @@ bench_storage_deinit(void)
 rstatus_i
 bench_storage_put(struct benchmark_entry *e)
 {
-    struct bstring key;
-    struct bstring val;
+    struct bstring key = {.data=e->key, .len=e->key_len};
+    struct bstring val = {.data=e->val, .len=e->val_len};
     struct item *it;
 
-    bstring_set_cstr(&val, e->val);
-    bstring_set_cstr(&key, e->key);
-//    printf("put %s\n", e->key);
-
-    item_rstatus_e status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
+    item_rstatus_e status = item_reserve(&it, &key, &val, val.len, 0, e->ttl);
     if (status != ITEM_OK)
         return CC_ENOMEM;
 
@@ -63,8 +61,8 @@ bench_storage_put(struct benchmark_entry *e)
 rstatus_i
 bench_storage_get(struct benchmark_entry *e)
 {
-    struct bstring key;
-    bstring_set_cstr(&key, e->key);
+    struct bstring key = {.data=e->key, .len=e->key_len};
+
     struct item *it = item_get(&key);
 
     rstatus_i status = it != NULL ? CC_OK : CC_EEMPTY;
@@ -79,9 +77,7 @@ bench_storage_get(struct benchmark_entry *e)
 rstatus_i
 bench_storage_rem(struct benchmark_entry *e)
 {
-    struct bstring key;
-    bstring_set_cstr(&key, e->key);
-//    printf("remove %s\n", e->key);
+    struct bstring key = {.data=e->key, .len=e->key_len};
 
     return item_delete(&key) ? CC_OK : CC_EEMPTY;
 }
@@ -89,9 +85,8 @@ bench_storage_rem(struct benchmark_entry *e)
 rstatus_i
 bench_storage_incr(struct benchmark_entry *e)
 {
-    struct bstring key;
+    struct bstring key = {.data=e->key, .len=e->key_len};
     uint64_t vint;
-    bstring_set_cstr(&key, e->key);
 
     struct item *it = item_get(&key);
     rstatus_i status = item_incr(&vint, it, 20) == ITEM_OK? CC_OK : CC_ERROR;

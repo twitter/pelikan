@@ -31,3 +31,13 @@ target_link_libraries(bench_cuckoo ${MODULES_CUCKOO} ${LIBS})
 
 add_executable(bench_seg ${SOURCE})
 target_link_libraries(bench_seg ${MODULES_SEG} ${LIBS})
+
+
+set(SOURCE_TRACE_REPLAY trace_replay/trace_replay.c trace_replay/reader.c)
+
+add_executable(trace_replay_slab ${SOURCE_TRACE_REPLAY})
+target_link_libraries(trace_replay_slab ${MODULES_SLAB} ${LIBS})
+
+add_executable(trace_replay_seg ${SOURCE_TRACE_REPLAY})
+target_link_libraries(trace_replay_seg ${MODULES_SEG} ${LIBS})
+
