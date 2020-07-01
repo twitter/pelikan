@@ -31,24 +31,21 @@ seg_metrics_st *seg_metrics = NULL;
 seg_options_st *seg_options = NULL;
 seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
 
-cc_declare_itt_function(, seg_malloc);
-cc_declare_itt_function(, seg_free);
+proc_time_i flush_at = -1;
 
-static void
-migrate_dram_to_pmem(uint32_t seg_id_dram, uint32_t seg_id_pmem);
 
-static void
+void
 _seg_print(uint32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
 
-    loga("seg %p size %zu, create_at %" PRId32 " ttl " PRId32,
-            ", initialized %u, sealed %u, in_pmem %u, %" PRIu32
-            " items, write offset %" PRIu32 ", occupied size %" PRIu32,
-            ", n_hit %" PRIu32 ", n_hit_last %" PRIu32, seg->seg_id,
-            heap.seg_size, seg->create_at, seg->ttl, seg->initialized,
-            seg->sealed, seg->in_pmem, seg->n_item, seg->write_offset,
-            seg->occupied_size, seg->n_hit, seg->n_hit_last);
+    loga("seg id %" PRIu32 " seg size %zu, create_at time %" PRId32
+         ", ttl %" PRId32 ", initialized %u, sealed %u, in_pmem %u, "
+         "%" PRIu32 " items, write offset %" PRIu32 ", occupied size "
+         "%" PRIu32 ", n_hit %" PRIu32 ", n_hit_last %" PRIu32,
+            seg->seg_id, heap.seg_size, seg->create_at, seg->ttl,
+            seg->initialized, seg->sealed, seg->in_pmem, seg->n_item,
+            seg->write_offset, seg->occupied_size, seg->n_hit, seg->n_hit_last);
 }
 
 /* when we want to evict/remove a seg, we need to make sure no other
@@ -57,11 +54,12 @@ _seg_print(uint32_t seg_id)
  * 2. perform non-destructive eviction op (such as remove hashtable entries)
  * 3. then we check and wait until refcount becomes 0
  * 4. init the seg for future use */
-static inline void
+static inline bool
 _seg_lock(uint32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
-    __atomic_store_n(&seg->locked, 1, __ATOMIC_RELAXED);
+    return __atomic_exchange_n(&seg->locked, 1, __ATOMIC_RELAXED) == 0 ? true :
+                                                                         false;
 }
 
 /* we do not need to unlock a seg, because seg is locked for eviction/removal,
@@ -113,8 +111,8 @@ static void
 _sync_seg_hdr(void)
 {
     log_crit("wait for impl :(");
-//    cc_memcpy(heap.persisted_seg_hdr, heap.segs,
-//            SEG_HDR_SIZE * (heap.max_nseg_dram + heap.max_nseg_pmem));
+    //    cc_memcpy(heap.persisted_seg_hdr, heap.segs,
+    //            SEG_HDR_SIZE * (heap.max_nseg_dram + heap.max_nseg_pmem));
 }
 
 ///*
@@ -394,7 +392,20 @@ _seg_init(uint32_t seg_id)
     seg->locked = 0;
 }
 
-void
+/*
+ * remove all items on this segment, at this time, the seg should be sealed
+ * indicating the seg hsa no writer, but can have readers, doing so allows us
+ * to avoid locking to access the metadata of the seg
+ *
+ * we do not remove/evict un-sealed seg,
+ * because doing so will cause new writes to be corrupted
+ * as they are inserted into hashtable, but item data is wiped
+ *
+ * because multiple threads could try to wipe the seg at the same time,
+ * return true if current thread is able to wipe this seg,
+ * otherwise false
+ */
+bool
 seg_rm_all_item(uint32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
@@ -407,17 +418,19 @@ seg_rm_all_item(uint32_t seg_id)
     curr += sizeof(uint64_t);
 #endif
 
-
-    _seg_lock(seg_id);
+    /* lock the seg to prevent other threads evicting this seg */
+    if (!_seg_lock(seg_id)) {
+        /* fail to lock, some other thread is expiring/evicting this seg */
+        return false;
+    }
 
     ASSERT(seg->write_offset <= heap.seg_size);
     while (curr - seg_data < seg->write_offset) {
         it = (struct item *)curr;
         curr += item_ntotal(it);
 
-        struct bstring key = {.data=item_key(it), .len=item_nkey(it)};
+        struct bstring key = {.data = item_key(it), .len = item_nkey(it)};
         item_delete(&key);
-
     }
     /* all operation up till here does not require refcount to be 0
      * because the data on the segment is not cleared yet,
@@ -426,17 +439,23 @@ seg_rm_all_item(uint32_t seg_id)
      * from hashtable, ideally by the time we have removed all hashtable
      * entries, previous requests on this segment have all finished */
     _seg_wait_refcnt(seg_id);
+    return true;
 }
 
 /* the segment points to by seg_id_pmem is empty and ready to use */
-void
+bool
 migrate_dram_to_pmem(uint32_t seg_id_dram, uint32_t seg_id_pmem)
 {
     /* first thing, we lock the dram seg to prevent future access to it */
-
     /* TODO(jason): change function signature to use struct seg instead of
      * seg_id */
-    _seg_lock(seg_id_dram);
+
+    log_verb("migrate DRAM seg %" PRIu32 " to PMem seg %" PRIu32, seg_id_dram,
+            seg_id_pmem);
+
+    if (!_seg_lock(seg_id_dram)) {
+        return false;
+    }
 
     struct item *oit, *nit;
     struct seg *seg_dram = &heap.segs[seg_id_dram];
@@ -499,14 +518,18 @@ _seg_alloc_from_pmem()
 
 /*
  * alloc a seg from the seg pool, if there is no free segment, evict one
+ *
+ * this has become too complex, so only focus on DRAM for now
  */
 struct seg *
 seg_get_new(void)
 {
     /* TODO(jason): sync seg_header if we want to tolerate failures */
     struct seg *seg_ret;
-
+    evict_rstatus_e status;
     uint32_t seg_id_dram, seg_id_pmem, seg_id_ret;
+
+    INCR(seg_metrics, seg_req);
 
     if (!_seg_dram_heap_full()) {
         seg_id_ret = _seg_alloc_from_dram()->seg_id;
@@ -517,23 +540,55 @@ seg_get_new(void)
         if (seg_use_dram()) {
             /* if both DRAM and PMem are used, migrate one DRAM segment to PMem
              */
-            seg_id_dram = least_valuable_seg_dram();
-            migrate_dram_to_pmem(seg_id_dram, seg_id_ret);
-            seg_id_ret = seg_id_dram;
+            status = least_valuable_seg_dram(&seg_id_dram);
+            if (status == EVICT_NO_SEALED_SEG) {
+                log_warn("unable to evict DRAM segment because no seg is "
+                         "sealed");
+                INCR(seg_metrics, seg_req_ex);
+            } else {
+                migrate_dram_to_pmem(seg_id_dram, seg_id_ret);
+                seg_id_ret = seg_id_dram;
+            }
         }
     } else {
         /* both DRAM and PMem are full (or not used),
          * we have to evict in this case */
         if (seg_use_pmem()) {
             /* if PMem is used, we evict from PMem */
-            seg_id_pmem = least_valuable_seg_pmem();
+            status = least_valuable_seg_pmem(&seg_id_pmem);
+            if (status == EVICT_NO_SEALED_SEG) {
+                log_warn("unable to evict PMem segment because no seg is "
+                         "sealed");
+                INCR(seg_metrics, seg_req_ex);
+
+                return NULL;
+            }
+
+            /* TODO(jason): BUG!! we need to check the return val
+             * it can be false when mulitple threads are trying to evict
+             * the same seg */
             seg_rm_all_item(seg_id_pmem);
-            seg_id_dram = least_valuable_seg_dram();
+            status = least_valuable_seg_dram(&seg_id_dram);
+            if (status == EVICT_NO_SEALED_SEG) {
+                log_warn("unable to evict segment because no seg is sealed");
+                INCR(seg_metrics, seg_req_ex);
+
+                return NULL;
+            }
             migrate_dram_to_pmem(seg_id_dram, seg_id_pmem);
         } else {
-            log_verb("evict DRAM segment %" PRIu32, seg_id_dram);
             /* PMem is not used, we can only evict from DRAM */
-            seg_id_dram = least_valuable_seg_dram();
+            for (uint x = 0; x < 4; x++)
+                _seg_print(x);
+            status = least_valuable_seg_dram(&seg_id_dram);
+            if (status == EVICT_NO_SEALED_SEG) {
+                log_warn("unable to evict segment because no seg is sealed");
+                INCR(seg_metrics, seg_req_ex);
+
+                return NULL;
+            }
+
+            log_verb("evict DRAM segment %" PRIu32, seg_id_dram);
             seg_rm_all_item(seg_id_dram);
         }
         seg_id_ret = seg_id_dram;
@@ -711,6 +766,7 @@ seg_teardown(void)
 
     seg_metrics = NULL;
 
+    flush_at = -1;
     seg_initialized = false;
 }
 
@@ -733,6 +789,8 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
         log_crit("no option is provided for seg initialization");
         exit(EX_CONFIG);
     }
+
+    flush_at = -1;
 
     seg_options = options;
     heap.seg_size = option_uint(&options->seg_size);
@@ -768,8 +826,6 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
     segevict_setup(option_uint(&options->seg_evict_opt), heap.max_nseg_dram,
             heap.max_nseg_pmem);
 
-    cc_create_itt_malloc(seg_malloc);
-    cc_create_itt_free(seg_free);
 
     seg_initialized = true;
 

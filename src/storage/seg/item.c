@@ -8,8 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// extern delta_time_i max_ttl;
-static proc_time_i flush_at = -1;
+extern proc_time_i flush_at;
 struct locktable cas_table;
 
 extern struct hash_table *hash_table;
@@ -21,17 +20,13 @@ static inline bool
 item_expired(struct item *it)
 {
     struct seg *seg = item_to_seg(it);
-    /* seg->locked means being evicted */
+    /* seg->locked means being evicted, should not read it */
     uint8_t locked = __atomic_load_n(&seg->locked, __ATOMIC_RELAXED);
     bool expired = locked || seg->ttl + seg->create_at < time_proc_sec();
     expired = expired || seg->create_at <= flush_at;
 
     if (expired && !locked) {
-        /* cas the lock, if not locked by others, we lock and evict */
-        locked = __atomic_exchange_n(&seg->locked, 1, __ATOMIC_RELAXED);
-        if (!locked) {
-            seg_rm_expired_seg(seg->seg_id);
-        }
+        seg_rm_expired_seg(seg->seg_id);
     }
     return expired;
 }
@@ -43,7 +38,6 @@ _item_hdr_init(struct item *it)
 #if CC_ASSERT_PANIC == 1 || CC_ASSERT_LOG == 1
     it->magic = ITEM_MAGIC;
 #endif
-
 }
 
 
@@ -128,15 +122,13 @@ static struct item *
 _item_alloc(uint32_t sz, delta_time_i ttl)
 {
     uint16_t ttl_bucket_idx = find_ttl_bucket_idx(ttl);
-    log_verb("ttl %d - ttl_bucket_idx %d - bucket ttl %d", ttl, ttl_bucket_idx,
-            ttl_buckets[ttl_bucket_idx].ttl);
     struct item *it = ttl_bucket_reserve_item(ttl_bucket_idx, sz);
 
     if (it == NULL) {
         INCR(seg_metrics, item_alloc_ex);
-        log_warn("server error on allocating item size %" PRIu32 " ttl "
-                 "%" PRIu32,
-                sz, ttl);
+        log_verb("error alloc it %p of size %" PRIu32 " ttl %" PRIu32
+                 " (bucket %" PRIu16 ") in seg %" PRIu32,
+                it, sz, ttl, ttl_bucket_idx, it->seg_id);
 
         return NULL;
     }
@@ -149,8 +141,9 @@ _item_alloc(uint32_t sz, delta_time_i ttl)
     PERTTL_INCR(ttl_bucket_idx, item_curr);
     PERTTL_INCR_N(ttl_bucket_idx, item_curr_bytes, sz);
 
-    log_verb("alloc it %p of size %" PRIu32 " ttl %" PRIu32 " in seg %" PRIu16,
-            it, ttl, sz, it->seg_id);
+    log_verb("alloc it %p of size %" PRIu32 " ttl %" PRIu32 " (bucket %" PRIu16
+             ") in seg %" PRIu32,
+            it, sz, ttl, ttl_bucket_idx, it->seg_id);
 
     return it;
 }
@@ -176,8 +169,9 @@ item_insert(struct item *it)
 void
 item_update(struct item *it)
 {
-    _item_free(it);
-    hashtable_delete(item_key(it), item_nkey(it), hash_table, false, NULL);
+    struct item *oit;
+    hashtable_delete(item_key(it), item_nkey(it), hash_table, false, &oit);
+    _item_free(oit);
 
     hashtable_put(it, hash_table);
 
@@ -190,14 +184,16 @@ item_update(struct item *it)
 void
 item_insert_or_update(struct item *it)
 {
-    struct bstring key = {.data=item_key(it), .len=item_nkey(it)};
+    struct bstring key = {.data = item_key(it), .len = item_nkey(it)};
     item_delete(&key);
 
     hashtable_put(it, hash_table);
 
-    log_verb("insert_or_update it %p (%.*s) of size %zu"
+    log_verb("insert_or_update it %p (%.*s) of key size %" PRIu32
+             ", val size %" PRIu32 ", total size %zu"
              " in seg %" PRIu32,
-            it, it->klen, item_key(it), item_ntotal(it), it->seg_id);
+            it, it->klen, item_key(it), item_nkey(it), item_nval(it),
+            item_ntotal(it), it->seg_id);
 }
 
 
@@ -214,12 +210,14 @@ item_get(const struct bstring *key)
     it = hashtable_get(key->data, key->len, hash_table);
     if (it == NULL) {
         log_verb("get it '%.*s' not found", key->len, key->data);
+
         return NULL;
     }
 
 
     if (item_expired(it)) {
         log_verb("get it '%.*s' expired and seg nuked", key->len, key->data);
+
         return NULL;
     }
 
@@ -270,11 +268,13 @@ item_reserve(struct item **it_p, const struct bstring *key,
     size_t sz = item_size(key->len, vlen, olen);
 
     if (sz > heap.seg_size) {
+        *it_p = NULL;
         return ITEM_EOVERSIZED;
     }
 
     if ((it = _item_alloc(sz, ttl)) == NULL) {
-        log_debug("item reservation failed");
+        log_warn("item reservation failed");
+        *it_p = NULL;
         return ITEM_ENOMEM;
     }
 
@@ -407,9 +407,10 @@ item_delete(const struct bstring *key)
 {
     struct item *it = NULL;
 
-    bool in_cache = hashtable_delete(key->data, key->len, hash_table, true, &it);
+    bool in_cache =
+            hashtable_delete(key->data, key->len, hash_table, true, &it);
 
-    if (in_cache){
+    if (in_cache) {
         _item_free(it);
     }
 

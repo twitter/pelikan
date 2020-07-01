@@ -25,6 +25,8 @@ seg_metrics_st metrics = {SEG_METRIC(METRIC_INIT)};
 static void
 test_setup(void)
 {
+    //    time_update();
+    proc_sec = 0;
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
     seg_setup(&options, &metrics);
 }
@@ -121,7 +123,7 @@ END_TEST
 
 START_TEST(test_insert_basic)
 {
-#define KEY "key"
+#define KEY "test_insert_basic"
 #define VAL "val"
 #define MLEN 8
     struct bstring key, val;
@@ -131,9 +133,7 @@ START_TEST(test_insert_basic)
     key = str2bstr(KEY);
     val = str2bstr(VAL);
 
-    time_update();
     status = item_reserve(&it, &key, &val, val.len, MLEN, INT32_MAX);
-    printf("status %d\n", status);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
             status);
     ck_assert_msg(it != NULL, "item_reserve with key %.*s reserved NULL item",
@@ -151,6 +151,7 @@ START_TEST(test_insert_basic)
 
     ck_assert_int_eq(item_val(it) - (char *)it,
             offsetof(struct item, end) + +MLEN + sizeof(KEY) - 1);
+    ck_assert_int_eq(cc_memcmp(item_key(it), KEY, key.len), 0);
     ck_assert_int_eq(cc_memcmp(item_val(it), VAL, val.len), 0);
 
     item_insert(it);
@@ -173,7 +174,7 @@ END_TEST
  */
 START_TEST(test_insert_large)
 {
-#define KEY "key"
+#define KEY "test_insert_large"
 #define VLEN (1000 * KiB)
 
     struct bstring key, val;
@@ -190,7 +191,6 @@ START_TEST(test_insert_large)
     cc_memset(val.data, 'A', VLEN);
     val.len = VLEN;
 
-    time_update();
     status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
     cc_free(val.data);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
@@ -222,7 +222,7 @@ END_TEST
  */
 START_TEST(test_reserve_backfill_release)
 {
-#define KEY "key"
+#define KEY "test_reserve_backfill_release"
 #define VLEN (1000 * KiB)
 
     struct bstring key, val;
@@ -277,7 +277,7 @@ END_TEST
 
 START_TEST(test_reserve_backfill_link)
 {
-#define KEY "key"
+#define KEY "test_reserve_backfill_link"
 #define VLEN (1000 * KiB)
 
     struct bstring key, val;
@@ -295,7 +295,6 @@ START_TEST(test_reserve_backfill_link)
     cc_memset(val.data, 'A', val.len);
 
     /* reserve */
-    time_update();
     status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
     free(val.data);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
@@ -323,7 +322,7 @@ END_TEST
  */
 START_TEST(test_update_basic)
 {
-#define KEY "key"
+#define KEY "test_update_basic"
 #define OLD_VAL "old_val"
 #define NEW_VAL "new_val"
     struct bstring key, old_val, new_val;
@@ -336,7 +335,6 @@ START_TEST(test_update_basic)
     old_val = str2bstr(OLD_VAL);
     new_val = str2bstr(NEW_VAL);
 
-    time_update();
     status = item_reserve(&oit, &key, &old_val, old_val.len, 0, INT32_MAX);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
             status);
@@ -369,7 +367,7 @@ END_TEST
 /* test insert_or_update_func */
 START_TEST(test_insert_or_update_basic)
 {
-#define KEY "key"
+#define KEY "test_insert_or_update_basic"
 #define OLD_VAL "old_val"
 #define NEW_VAL "new_val"
     struct bstring key, old_val, new_val;
@@ -428,22 +426,23 @@ END_TEST
  */
 START_TEST(test_delete_basic)
 {
-#define KEY "key"
-#define VAL "val"
+#define KEY "test_delete_basic"
+#define VAL "valvalvalvalvalvalvalvalval"
     struct bstring key, val;
     item_rstatus_e status;
     struct item *it;
+    struct seg *seg;
 
     test_reset();
 
     key = str2bstr(KEY);
     val = str2bstr(VAL);
 
-    time_update();
     status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
             status);
     item_insert(it);
+    seg = item_to_seg(it);
 
     it = item_get(&key);
     ck_assert_msg(
@@ -455,6 +454,10 @@ START_TEST(test_delete_basic)
     it = item_get(&key);
     ck_assert_msg(it == NULL, "item with key %.*s still exists after delete",
             key.len, key.data);
+    ck_assert(seg->n_item == 0);
+    ck_assert(seg->write_offset >= cc_strlen(VAL));
+    ck_assert(seg->occupied_size <= sizeof(uint64_t));
+    ck_assert(seg->refcount == 0);
 
 #undef KEY
 #undef VAL
@@ -464,7 +467,7 @@ END_TEST
 
 START_TEST(test_delete_more)
 {
-#define KEY "key"
+#define KEY "test_delete_more"
 #define VAL "val"
     struct bstring key, val;
     item_rstatus_e status;
@@ -475,8 +478,6 @@ START_TEST(test_delete_more)
 
     key = str2bstr(KEY);
     val = str2bstr(VAL);
-
-    time_update();
 
     /* test deleting items not in the hashtable */
     status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
@@ -509,9 +510,9 @@ END_TEST
  */
 START_TEST(test_flush_basic)
 {
-#define KEY1 "key1"
+#define KEY1 "test_flush_basic1"
 #define VAL1 "val1"
-#define KEY2 "key2"
+#define KEY2 "test_flush_basic2"
 #define VAL2 "val2"
     struct bstring key1, val1, key2, val2;
     item_rstatus_e status;
@@ -525,13 +526,11 @@ START_TEST(test_flush_basic)
     key2 = str2bstr(KEY2);
     val2 = str2bstr(VAL2);
 
-    time_update();
     status = item_reserve(&it, &key1, &val1, val1.len, 0, INT32_MAX);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
             status);
     item_insert(it);
 
-    time_update();
     status = item_reserve(&it, &key2, &val2, val2.len, 0, INT32_MAX);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
             status);
@@ -555,7 +554,7 @@ END_TEST
 
 START_TEST(test_expire_basic)
 {
-#define KEY "key"
+#define KEY "test_expire_basic"
 #define VAL "val"
 #define TIME 12345678
     struct bstring key, val;
@@ -593,7 +592,7 @@ END_TEST
 
 START_TEST(test_item_numeric)
 {
-#define KEY "key"
+#define KEY "test_item_numeric"
 #define VAL "1"
     struct bstring key, val;
     item_rstatus_e status;
@@ -628,14 +627,11 @@ END_TEST
 
 START_TEST(test_seg_basic)
 {
-#define KEY "key"
+#define KEY "test_seg_basic"
 #define VLEN (1000 * KiB)
 #define TIME 12345678
 
     struct bstring key, val;
-
-    test_reset();
-
     key = str2bstr(KEY);
 
     val.data = cc_alloc(VLEN);
@@ -659,40 +655,35 @@ END_TEST
 
 START_TEST(test_seg_more)
 {
-#define KEY "key"
+#define KEY "test_seg_more"
 #define VAL "val"
     struct bstring key, val;
     item_rstatus_e status;
     struct item *it;
     bool in_cache;
     struct seg *seg;
-    uint32_t offset, occu_size, n_item;
 
     test_reset();
 
     key = str2bstr(KEY);
     val = str2bstr(VAL);
 
-    time_update();
-
     /* test deleting items not in the hashtable */
     status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
             status);
     item_insert(it);
+    it = item_get(&key);
+    ck_assert_msg(it != NULL, "item_get could not find key");
+    item_release(it);
 
     seg = item_to_seg(it);
-    offset = seg->write_offset;
-    occu_size = seg->occupied_size;
-    n_item = seg->n_item;
 
     ck_assert_int_eq(seg->locked, 0);
     ck_assert_int_eq(seg->refcount, 0);
     ck_assert_int_eq(seg->sealed, 0);
-
-                   it = item_get(&key);
-    ck_assert_msg(it != NULL, "item_get could not find key");
-    item_release(it);
+    ck_assert_int_eq(seg->n_item, 1);
+    ck_assert_int_eq(seg->write_offset, seg->occupied_size);
 
     in_cache = item_delete(&key);
     it = item_get(&key);
@@ -704,30 +695,361 @@ START_TEST(test_seg_more)
     in_cache = item_delete(&val);
     ck_assert_msg(in_cache == false, "delete item never inserted return true");
 
+#undef KEY
+#undef VAL
+}
+END_TEST
+
+START_TEST(test_segevict_FIFO)
+{
+#define KEY "test_segevict_FIFO"
+#define VLEN (1000 * KiB)
+#define MEM_SIZE "4194304"
+
+    char *keys[] = {"fifo-0", "fifo-1", "fifo-2", "fifo-3", "fifo-4", "fifo-5",
+            "fifo-6", "fifo-7", "fifo-8"};
+    seg_teardown();
+    option_set(&options.seg_mem_dram, MEM_SIZE);
+    option_set(&options.seg_evict_opt, "2");
+    seg_setup(&options, &metrics);
+
+    struct bstring key, val;
+    struct item *it;
+    struct seg *seg;
+    item_rstatus_e status;
+
+
+    val.data = cc_alloc(VLEN);
+    cc_memset(val.data, 'A', VLEN);
+    val.len = VLEN;
+
+    ck_assert_msg(heap.max_nseg_dram == 4, "max_n_seg incorrect %" PRIu32,
+            heap.max_nseg_dram);
+
+    for (uint32_t i = 0; i < 4; i++) {
+        proc_sec++;
+        bstring_set_literal(&key, keys[i]);
+        status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
+        ck_assert(it != NULL);
+        item_insert(it);
+        it = item_get(&key);
+        ck_assert(it != NULL);
+        item_release(it);
+    }
+
+    /* cache is full at this time, check before next insert (and evict) */
+    bstring_set_literal(&key, keys[0]);
+    it = item_get(&key);
+    ck_assert(it != NULL);
+    ck_assert_int_eq(it->seg_id, 0);
+    seg = item_to_seg(it);
+    ck_assert_msg(seg->refcount == 1, "refcount not 1");
+    ck_assert_msg(seg->write_offset == item_ntotal(it) ||
+                    seg->write_offset == item_ntotal(it) + 8,
+            "write offset error %" PRIu32, seg->write_offset);
+    ck_assert_msg(seg->write_offset == seg->occupied_size);
+    ck_assert(seg->n_item == 1);
+    ck_assert(seg->sealed == 1);
+    item_release(it);
+
+    /* cache is full at this time, EVICT_FIFO should evict seg 0 and item 0 */
+    bstring_set_literal(&key, keys[4]);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
+            status);
+    item_insert(it);
+    ck_assert_int_eq(it->seg_id, 0);
+    seg = item_to_seg(it);
+    ck_assert_msg(seg->refcount == 0, "refcount not 0");
+    ck_assert_msg(seg->write_offset == item_ntotal(it) ||
+                    seg->write_offset == item_ntotal(it) + 8,
+            "write offset error %" PRIu32, seg->write_offset);
+    ck_assert_msg(seg->write_offset == seg->occupied_size);
+    ck_assert(seg->n_item == 1);
+    ck_assert(seg->sealed == 0);
+
+    /* double check item 1 is not in cache */
+    bstring_set_literal(&key, keys[0]);
+    it = item_get(&key);
+    ck_assert_msg(it == NULL, "item should have been evicted");
+
+#undef KEY
+#undef VAL
 }
 END_TEST
 
 
+START_TEST(test_segevict_CTE)
+{
+#define KEY "test_segevict_CTE"
+#define VLEN (1000 * KiB)
+#define MEM_SIZE "4194304"
+
+    char *keys[] = {"cte-0", "cte-1", "cte-2", "cte-3", "cte-4", "cte-5",
+            "cte-6", "cte-7", "cte-8"};
+    seg_teardown();
+    option_set(&options.seg_mem_dram, MEM_SIZE);
+    option_set(&options.seg_evict_opt, "3");
+    seg_setup(&options, &metrics);
+
+    struct bstring key, val;
+    struct item *it;
+    struct seg *seg;
+    item_rstatus_e status;
+
+    val.data = cc_alloc(VLEN);
+    cc_memset(val.data, 'A', VLEN);
+    val.len = VLEN;
+
+    for (uint32_t i = 0; i < 4; i++) {
+        proc_sec++;
+        bstring_set_literal(&key, keys[i]);
+        status = item_reserve(
+                &it, &key, &val, val.len, 0, proc_sec + 63 - 4 * i);
+        ck_assert(it != NULL);
+
+        item_insert(it);
+        it = item_get(&key);
+        ck_assert(it != NULL);
+        item_release(it);
+    }
+
+    /* cache is full at this time, seg 0 and 2 is sealed, but 1 and 3 not */
+    ck_assert(heap.segs[0].sealed == 1);
+    ck_assert(heap.segs[2].sealed == 1);
+    ck_assert(heap.segs[1].sealed == 0);
+    ck_assert(heap.segs[3].sealed == 0);
+
+    /* cache is full at this time, EVICT_CTE should evict seg 2 and item 2 */
+    bstring_set_literal(&key, keys[4]);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
+            status);
+    item_insert(it);
+
+    ck_assert_int_eq(it->seg_id, 2);
+    seg = item_to_seg(it);
+    ck_assert_msg(seg->refcount == 0, "refcount not 0");
+    ck_assert_msg(seg->write_offset == item_ntotal(it) ||
+                    seg->write_offset == item_ntotal(it) + 8,
+            "write offset error %" PRIu32, seg->write_offset);
+    ck_assert_msg(seg->write_offset == seg->occupied_size);
+    ck_assert(seg->n_item == 1);
+    ck_assert(seg->sealed == 0);
+
+    /* double check item 3 is not in cache */
+    bstring_set_literal(&key, keys[2]);
+    it = item_get(&key);
+    ck_assert_msg(it == NULL, "item should have been evicted");
+
+#undef KEY
+#undef VAL
+}
+END_TEST
+
+START_TEST(test_segevict_UTIL)
+{
+#define KEY "test_segevict_UTIL"
+#define VLEN_SMALL (500 * KiB)
+#define VLEN_LARGE (1000 * KiB)
+#define MEM_SIZE "4194304"
+
+    char *keys[] = {"util-0", "util-1", "util-2", "util-3", "util-4", "util-5",
+            "util-6", "util-7", "util-8"};
+    seg_teardown();
+    option_set(&options.seg_mem_dram, MEM_SIZE);
+    option_set(&options.seg_evict_opt, "3");
+    seg_setup(&options, &metrics);
+
+    struct bstring key, val_small, val_large;
+    struct item *it;
+    struct seg *seg;
+    item_rstatus_e status;
+
+    val_small.data = cc_alloc(VLEN_SMALL);
+    val_large.data = cc_alloc(VLEN_LARGE);
+    cc_memset(val_small.data, 'A', VLEN_SMALL);
+    cc_memset(val_large.data, 'A', VLEN_LARGE);
+    val_small.len = VLEN_SMALL;
+    val_large.len = VLEN_LARGE;
+
+    for (uint32_t i = 0; i < 4; i++) {
+        bstring_set_literal(&key, keys[i]);
+        status = item_reserve(
+                &it, &key, &val_small, val_small.len, 0, INT32_MAX);
+        ck_assert(it != NULL);
+        item_insert(it);
+    }
+
+
+    /* first two segs are full with four items, now replace three of them */
+    for (uint32_t i = 1; i < 4; i++) {
+        bstring_set_literal(&key, keys[i]);
+        status = item_reserve(
+                &it, &key, &val_small, val_small.len, 0, INT32_MAX);
+        ck_assert(it != NULL);
+        item_update(it);
+    }
+
+    /* three items are replaced, seg 0 should have item 0 and seg 1 should
+     * be empty now, and
+     * seg 2 has small item 1, 2, seg 3 has small item 3 */
+    ck_assert(heap.segs[1].write_offset > VLEN_SMALL);
+    ck_assert(heap.segs[1].occupied_size < 200);
+    ck_assert(heap.segs[1].n_item == 0);
+    ck_assert(heap.segs[1].sealed == 1);
+
+    /* now we add one large item, seg 3 is too small to fit in, so it will be
+     * sealed, and evict seg 0 */
+    bstring_set_literal(&key, keys[4]);
+    status = item_reserve(&it, &key, &val_large, val_large.len, 0, INT32_MAX);
+    ck_assert(it != NULL);
+    item_insert(it);
+
+    /* check seg 3 */
+    ck_assert(heap.segs[3].n_item == 1);
+    ck_assert(heap.segs[3].sealed == 1);
+
+    /* check whether reserved item is on seg 0 */
+    seg = item_to_seg(it);
+    ck_assert(seg->seg_id == 0);
+    ck_assert(heap.segs[0].write_offset < heap.seg_size);
+    ck_assert(heap.segs[0].occupied_size < heap.seg_size);
+    ck_assert(heap.segs[0].n_item == 1);
+    ck_assert(heap.segs[0].sealed == 0);
+
+#undef KEY
+#undef VAL
+}
+END_TEST
+
+
+START_TEST(test_segevict_RAND)
+{
+#define KEY "test_segevict_RAND"
+#define VLEN (1000 * KiB)
+#define MEM_SIZE "4194304"
+
+    char *keys[] = {"rand-0", "rand-1", "rand-2", "rand-3", "rand-4", "rand-5",
+            "rand-6", "rand-7", "rand-8"};
+    seg_teardown();
+    option_set(&options.seg_mem_dram, MEM_SIZE);
+    option_set(&options.seg_evict_opt, "1");
+    seg_setup(&options, &metrics);
+
+    struct bstring key, val;
+    struct item *it;
+    struct seg *seg;
+    item_rstatus_e status;
+
+    val.data = cc_alloc(VLEN);
+    cc_memset(val.data, 'A', VLEN);
+    val.len = VLEN;
+
+    for (uint32_t i = 0; i < 160; i++) {
+        it = NULL;
+        bstring_set_literal(&key, keys[i % 8]);
+        status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
+        ck_assert(it != NULL);
+        item_insert_or_update(it);
+
+        it = item_get(&key);
+        ck_assert_msg(it != NULL, "inserted %s but not found", keys[i % 8]);
+        seg = item_to_seg(it);
+        ck_assert_msg(seg->refcount == 1, "refcount not 1");
+        ck_assert_msg(seg->write_offset == item_ntotal(it) ||
+                        seg->write_offset == item_ntotal(it) + 8,
+                "write offset error %" PRIu32, seg->write_offset);
+        ck_assert_msg(seg->write_offset == seg->occupied_size);
+        ck_assert_int_eq(seg->n_item, 1);
+        ck_assert_int_eq(seg->sealed, 0);
+
+        item_release(it);
+    }
+#undef KEY
+#undef VAL
+}
+END_TEST
+
+#ifdef do_not_define
+START_TEST(test_segevict_SMART)
+{
+#    define KEY "test_segevict_SMART"
+#    define VLEN (1000 * KiB)
+#    define MEM_SIZE "4194304"
+
+    char *keys[] = {"smart-1", "smart-2", "smart-3", "smart-4", "smart-5",
+            "smart-6", "smart-7", "smart-8"};
+    seg_teardown();
+    option_set(&options.seg_mem_dram, MEM_SIZE);
+    option_set(&options.seg_evict_opt, "4");
+    seg_setup(&options, &metrics);
+
+    struct bstring key, val;
+    struct item *it;
+    struct seg *seg;
+    item_rstatus_e status;
+
+    val.data = cc_alloc(VLEN);
+    cc_memset(val.data, 'A', VLEN);
+    val.len = VLEN;
+
+    for (uint32_t i = 0; i < 4; i++) {
+        bstring_set_literal(&key, keys[i]);
+        status = item_reserve(&it, &key, &val, val.len, 0, 64 - 8 * i + 1);
+        ck_assert(it != NULL);
+        item_insert(it);
+        it = item_get(&key);
+        ck_assert(it != NULL);
+        item_release(it);
+    }
+
+    /* cache is full at this time, EVICT_CTE should evict seg 3 and item 4 */
+    bstring_set_literal(&key, keys[4]);
+    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
+    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
+            status);
+    item_insert(it);
+
+    ck_assert_int_eq(it->seg_id, 3);
+    seg = item_to_seg(it) ck_assert_msg(seg->refcount == 0, "refcount not 0");
+    ck_assert_msg(seg->write_offset == item_ntotal(it) ||
+                    seg->write_offset == item_ntotal(it) + 8,
+            "write offset error %" PRIu32, seg->write_offset);
+    ck_assert_msg(seg->write_offset == seg->occupied_size);
+    ck_assert(seg->n_item == 1);
+    ck_assert(seg->sealed == 0);
+
+    /* double check item 1 is not in cache */
+    bstring_set_literal(&key, keys[3]);
+    it = item_get(&key);
+    ck_assert_msg(it == NULL, "item should have been evicted");
+
+#    undef KEY
+#    undef VAL
+}
+END_TEST
+#endif
+
 START_TEST(test_ttl_bucket_basic)
 {
-#define KEY "key"
+#define KEY "test_ttl_bucket_basic"
 #define VLEN (1000 * KiB)
 #define TIME 12345678
+
+    test_reset();
+    proc_sec = 0;
 
     struct bstring key, val;
     item_rstatus_e status;
     struct item *it, *it2;
     uint32_t offset, occu_size;
 
-    test_reset();
-
     key = str2bstr(KEY);
-
     val.data = cc_alloc(VLEN);
     cc_memset(val.data, 'A', VLEN);
     val.len = VLEN;
 
-    test_reset();
 
     struct seg *seg1, *seg2;
     for (uint32_t i = 0; i < 4; i++) {
@@ -796,159 +1118,6 @@ START_TEST(test_ttl_bucket_basic)
 END_TEST
 
 
-#ifdef do_not_define
-START_TEST(test_evict_lru_basic)
-{
-#    define MY_seg_SIZE 160
-#    define MY_seg_MAXBYTES 160
-    /**
-     * These are the segs that will be created with these parameters:
-     *
-     * seg size 160, seg hdr size 36, item hdr size 40, item chunk size44, total
-     *memory 320 class   1: items       2  size      48  data       8  slack 28
-     * class   2: items       1  size     120  data      80  slack       4
-     *
-     * If we use 8 bytes of key+value, it will use the class 1 that can fit
-     * two elements. The third one will cause a full seg eviction.
-     *
-     **/
-#    define KEY_LENGTH 2
-#    define VALUE_LENGTH 8
-#    define NUM_ITEMS 2
-
-    size_t i;
-    struct bstring key[NUM_ITEMS + 1] = {
-            {KEY_LENGTH, "aa"},
-            {KEY_LENGTH, "bb"},
-            {KEY_LENGTH, "cc"},
-    };
-    struct bstring val[NUM_ITEMS + 1] = {
-            {VALUE_LENGTH, "aaaaaaaa"},
-            {VALUE_LENGTH, "bbbbbbbb"},
-            {VALUE_LENGTH, "cccccccc"},
-    };
-    item_rstatus_e status;
-    struct item *it;
-
-    option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
-    options.seg_size.val.vuint = MY_seg_SIZE;
-    options.seg_mem.val.vuint = MY_seg_MAXBYTES;
-    options.seg_evict_opt.val.vuint = EVICT_CS;
-    options.seg_item_max.val.vuint = MY_seg_SIZE - seg_HDR_SIZE;
-
-    test_teardown();
-    seg_setup(&options, &metrics);
-
-    for (i = 0; i < NUM_ITEMS + 1; i++) {
-        time_update();
-        status = item_reserve(&it, &key[i], &val[i], val[i].len, 0, INT32_MAX);
-        ck_assert_msg(status == ITEM_OK,
-                "item_reserve not OK - return status %d", status);
-        item_insert(it, &key[i]);
-        ck_assert_msg(item_get(&key[i]) != NULL, "item %lu not found", i);
-    }
-
-    ck_assert_msg(
-            item_get(&key[0]) == NULL, "item 0 found, expected to be evicted");
-    ck_assert_msg(
-            item_get(&key[1]) == NULL, "item 1 found, expected to be evicted");
-    ck_assert_msg(item_get(&key[2]) != NULL, "item 2 not found");
-
-#    undef KEY_LENGTH
-#    undef VALUE_LENGTH
-#    undef NUM_ITEMS
-#    undef MY_seg_SIZE
-#    undef MY_seg_MAXBYTES
-}
-END_TEST
-
-START_TEST(test_refcount)
-{
-#    define KEY "key"
-#    define VAL "val"
-    struct bstring key, val;
-    item_rstatus_e status;
-    struct item *it;
-    struct seg *s;
-
-    test_reset();
-
-    key = str2bstr(KEY);
-    val = str2bstr(VAL);
-
-    /* reserve & release */
-    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
-    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
-            status);
-    s = item_to_seg(it);
-    ck_assert_msg(s->refcount == 1, "seg refcount %" PRIu32 "; 1 expected",
-            s->refcount);
-    item_release(&it);
-    ck_assert_msg(s->refcount == 0, "seg refcount %" PRIu32 "; 0 expected",
-            s->refcount);
-
-    /* reserve & backfill (& link) */
-    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
-    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
-            status);
-    s = item_to_seg(it);
-    ck_assert_msg(s->refcount == 1, "seg refcount %" PRIu32 "; 1 expected",
-            s->refcount);
-    val = null_bstring;
-    item_backfill(it, &val);
-    item_insert(it, &key);
-    ck_assert_msg(s->refcount == 0, "seg refcount %" PRIu32 "; 0 expected",
-            s->refcount);
-}
-END_TEST
-
-START_TEST(test_evict_refcount)
-{
-#    define MY_seg_SIZE 96
-#    define MY_seg_MAXBYTES 96
-#    define KEY "key"
-#    define VAL "val"
-    /**
-     * The seg will be created with these parameters:
-     *   seg size 96, seg hdr size 36, item hdr size 40
-     * Given that cas 8,
-     * we know: key + val < 12
-     *
-     **/
-    struct bstring key, val;
-    item_rstatus_e status;
-    struct item *it, *nit;
-
-    option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
-    options.seg_size.val.vuint = MY_seg_SIZE;
-    options.seg_mem.val.vuint = MY_seg_MAXBYTES;
-    options.seg_evict_opt.val.vuint = EVICT_CS;
-    options.seg_item_max.val.vuint = MY_seg_SIZE - seg_HDR_SIZE;
-
-    test_teardown();
-    seg_setup(&options, &metrics);
-    key = str2bstr(KEY);
-    val = str2bstr(VAL);
-
-    status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
-    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
-            status);
-    status = item_reserve(&nit, &key, &val, val.len, 0, INT32_MAX);
-    ck_assert_msg(status == ITEM_ENOMEM,
-            "item_reserve should fail - return status %d", status);
-
-    item_insert(it, &key); /* clears seg refcount, can be evicted */
-    status = item_reserve(&nit, &key, &val, val.len, 0, INT32_MAX);
-    ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
-            status);
-#    undef KEY
-#    undef VAL
-#    undef MY_seg_SIZE
-#    undef MY_seg_MAXBYTES
-}
-END_TEST
-#endif
-
 /*
  * test suite
  */
@@ -957,7 +1126,6 @@ seg_suite(void)
 {
     Suite *s = suite_create(SUITE_NAME);
 
-    /* basic item */
     TCase *tc_item = tcase_create("item api");
     suite_add_tcase(s, tc_item);
     tcase_add_test(tc_item, test_item_basic);
@@ -975,14 +1143,19 @@ seg_suite(void)
 
     TCase *tc_ttl = tcase_create("ttl_bucket api");
     suite_add_tcase(s, tc_ttl);
-    tcase_add_test(tc_item, test_ttl_bucket_find);
-    tcase_add_test(tc_item, test_ttl_bucket_basic);
+    tcase_add_test(tc_ttl, test_ttl_bucket_find);
+    tcase_add_test(tc_ttl, test_ttl_bucket_basic);
 
 
     TCase *tc_seg = tcase_create("seg api");
     suite_add_tcase(s, tc_seg);
     tcase_add_test(tc_seg, test_seg_basic);
     tcase_add_test(tc_seg, test_seg_more);
+    tcase_add_test(tc_seg, test_segevict_FIFO);
+    tcase_add_test(tc_seg, test_segevict_CTE);
+    tcase_add_test(tc_seg, test_segevict_UTIL);
+    tcase_add_test(tc_seg, test_segevict_RAND);
+    //    tcase_add_test(tc_seg, test_segevict_SMART);
 
     return s;
 }
@@ -995,6 +1168,14 @@ main(void)
     /* setup */
     test_setup();
 
+    /* turn on during debug */
+    debug_options_st debug_opts = {DEBUG_OPTION(OPTION_INIT)};
+    option_load_default(
+            (struct option *)&debug_opts, OPTION_CARDINALITY(debug_options_st));
+    debug_opts.debug_log_level.val.vuint = 6;
+    debug_setup(&debug_opts);
+
+
     Suite *suite = seg_suite();
     SRunner *srunner = srunner_create(suite);
     srunner_set_log(srunner, DEBUG_LOG);
@@ -1003,7 +1184,7 @@ main(void)
     srunner_free(srunner);
 
     /* teardown */
-    //    test_teardown();
+    test_teardown();
 
     return (nfail == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }

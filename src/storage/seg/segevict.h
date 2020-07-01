@@ -8,14 +8,20 @@
 
 typedef enum {
     EVICT_NONE = 0,
+    EVICT_RANDOM,
     EVICT_FIFO,
-    EVICT_TTL,
+    EVICT_CTE,     /* Closet To Expiration */
     EVICT_UTIL,
     EVICT_SMART,
 
     EVICT_INVALID
 } evict_policy_e;
 
+typedef enum evict_rstatus {
+    EVICT_OK,
+    EVICT_NO_SEALED_SEG,
+    EVICT_OTHER,
+} evict_rstatus_e;
 
 #ifdef do_not_define
 //static struct seg *
@@ -162,10 +168,12 @@ _seg_evict_one(struct seg *seg)
 struct seg_evict_info {
     evict_policy_e policy;
     proc_time_i last_update_time;
-    uint32_t max_nseg_dram;
-    uint32_t max_nseg_pmem;
+    uint32_t nseg_dram;
+    uint32_t nseg_pmem;
     uint32_t *ranked_seg_id_dram;  /* the least valuable to the most valuable */
     uint32_t *ranked_seg_id_pmem;
+    uint32_t idx_rseg_dram;     /* curr index in ranked seg id array */
+    uint32_t idx_rseg_pmem;
 };
 
 
@@ -173,15 +181,15 @@ struct seg_evict_info {
  * find the least valuable segment in DRAM
  * return seg_id
  */
-uint32_t
-least_valuable_seg_dram(void);
+evict_rstatus_e
+least_valuable_seg_dram(uint32_t *seg_id);
 
 /**
  * find the least valuable segment in DRAM
  * return seg_id
  */
-uint32_t
-least_valuable_seg_pmem(void);
+evict_rstatus_e
+least_valuable_seg_pmem(uint32_t *seg_id);
 
 
 /* this must be setup update seg_setup has finished */

@@ -90,7 +90,8 @@ struct seg {
     uint32_t n_hit; /* only update when the seg is sealed */
     uint32_t n_hit_last; /* number of hits in the last window */
 
-    uint32_t n_item; /* TODO (jason): could remove this field */
+    uint32_t n_item; /* the number of usable items
+                      * TODO (jason): could remove this field */
     uint16_t refcount; /* # items that can't be evicted */
     uint8_t locked; /* whether the seg is locked for eviction, used 1 byte
                      * because we need atomic operation on it,
@@ -153,7 +154,7 @@ extern struct seg_heapinfo heap;
 #define SEG_SIZE                MiB
 #define SEG_MEM                 (64 * MiB)
 #define SEG_PREALLOC            true
-#define SEG_EVICT_OPT           EVICT_TTL
+#define SEG_EVICT_OPT           EVICT_CTE
 #define SEG_USE_CAS             true
 #define ITEM_SIZE_MAX           (SEG_SIZE - ITEM_HDR_SIZE)
 #define HASH_POWER              20
@@ -166,16 +167,16 @@ extern struct seg_heapinfo heap;
 #define SEG_OPTION(ACTION)                                                                                         \
     ACTION( seg_size,              OPTION_TYPE_UINT,   SEG_SIZE,              "Segment size"                      )\
     ACTION( seg_mem_dram,          OPTION_TYPE_UINT,   SEG_MEM,               "Max memory used for DRAM caching (byte)")\
-    ACTION( seg_mem_pmem,               OPTION_TYPE_UINT,   0,               "Max memory used for PMem caching (byte)")\
+    ACTION( seg_mem_pmem,          OPTION_TYPE_UINT,   0,                     "Max memory used for PMem caching (byte)")\
     ACTION( seg_prealloc,          OPTION_TYPE_BOOL,   SEG_PREALLOC,          "Pre-allocate segs at setup"        )\
     ACTION( seg_evict_opt,         OPTION_TYPE_UINT,   SEG_EVICT_OPT,         "Eviction strategy"                 )\
-    ACTION( seg_item_use_cas,           OPTION_TYPE_BOOL,   SEG_USE_CAS,           "Store CAS value in item"           )\
+    ACTION( seg_item_use_cas,      OPTION_TYPE_BOOL,   SEG_USE_CAS,           "Store CAS value in item"           )\
     ACTION( seg_hash_power,        OPTION_TYPE_UINT,   HASH_POWER,            "Power for lookup hash table"       )\
-    ACTION( datapool_path_dram,          OPTION_TYPE_STR,    SEG_DATAPOOL,          "Path to DRAM data pool"                 )\
-    ACTION( datapool_name_dram,     OPTION_TYPE_STR,    SEG_DATAPOOL_NAME_DRAM,     "Seg DRAM data pool name"                )\
-    ACTION( datapool_path_pmem,          OPTION_TYPE_STR,    SEG_DATAPOOL,          "Path to PMem data pool"                 )\
-    ACTION( datapool_name_pmem,     OPTION_TYPE_STR,    SEG_DATAPOOL_NAME_PMEM,     "Seg PMem data pool name"                )\
-    ACTION( prefault_pmem, OPTION_TYPE_BOOL,   SEG_DATAPOOL_PREFAULT, "Prefault Pmem"                )
+    ACTION( datapool_path_dram,    OPTION_TYPE_STR,    SEG_DATAPOOL,          "Path to DRAM data pool"                 )\
+    ACTION( datapool_name_dram,    OPTION_TYPE_STR,    SEG_DATAPOOL_NAME_DRAM,"Seg DRAM data pool name"                )\
+    ACTION( datapool_path_pmem,    OPTION_TYPE_STR,    SEG_DATAPOOL,          "Path to PMem data pool"                 )\
+    ACTION( datapool_name_pmem,    OPTION_TYPE_STR,    SEG_DATAPOOL_NAME_PMEM,"Seg PMem data pool name"                )\
+    ACTION( prefault_pmem,         OPTION_TYPE_BOOL,   SEG_DATAPOOL_PREFAULT, "Prefault Pmem"                )
 
 typedef struct {
     SEG_OPTION(OPTION_DECLARE)
@@ -190,11 +191,12 @@ typedef struct {
     ACTION( seg_req,               METRIC_COUNTER, "# req for new seg"                  )\
     ACTION( seg_req_ex,            METRIC_COUNTER, "# seg get exceptions"               )\
     ACTION( seg_evict,             METRIC_COUNTER, "# segs evicted"                     )\
+    ACTION( seg_evict_ex,             METRIC_COUNTER, "# segs evict exceptions"                     )\
     ACTION( seg_expire,            METRIC_COUNTER, "# segs removed due to expiration"   )\
     ACTION( seg_curr_dram,         METRIC_GAUGE,   "# currently active segs in DRAM"    )\
     ACTION( seg_curr_pmem,         METRIC_GAUGE,   "# currently active segs in PMem"    )\
     ACTION( item_curr,             METRIC_GAUGE,   "# current items"                    )\
-    ACTION( item_curr_bytes,      METRIC_GAUGE,   "currently used bytes including header"           )\
+    ACTION( item_curr_bytes,       METRIC_GAUGE,   "# used bytes including item header" )\
     ACTION( item_alloc,            METRIC_COUNTER, "# items allocated"                  )\
     ACTION( item_alloc_ex,         METRIC_COUNTER, "# item alloc errors"                )\
     ACTION( hash_lookup,           METRIC_COUNTER, "# of hash lookups"                  )\
@@ -225,10 +227,6 @@ typedef struct {
 #define PERTTL_DECR(idx, metric) DECR(&perttl[idx], metric)
 #define PERTTL_INCR_N(idx, metric, delta) INCR_N(&perttl[idx], metric, delta)
 #define PERTTL_DECR_N(idx, metric, delta) DECR_N(&perttl[idx], metric, delta)
-
-
-
-
 
 
 static inline struct seg *
@@ -300,6 +298,8 @@ struct seg *seg_get_new(void);
  * make sure segment is locked and ref_cnt 0
  * indicating no other threads are accessing items on the seg
  */
-void seg_rm_all_item(uint32_t seg_id);
+bool seg_rm_all_item(uint32_t seg_id);
 
 void seg_rm_expired_seg(uint32_t seg_id);
+
+void _seg_print(uint32_t seg_id);

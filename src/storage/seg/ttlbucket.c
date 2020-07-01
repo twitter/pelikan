@@ -34,7 +34,6 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
     uint32_t offset          = 0;  /* offset of the reserved item in the seg */
 
     ttl_bucket = &ttl_buckets[ttl_bucket_idx];
-    log_verb("ttl_bucket %p", ttl_bucket);
 
     curr_seg = TAILQ_LAST(&ttl_bucket->seg_q, seg_tqh);
     if (curr_seg != NULL) {
@@ -64,7 +63,12 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
              * we could move seg_get out of lock with the cost of
              * unnecessary eviction
              */
-            new_seg = seg_get_new();        /* TODO(jason): set create_at */
+            new_seg = seg_get_new();
+            if (new_seg == NULL){
+                log_warn("cannot get new segment");
+                pthread_mutex_unlock(&ttl_bucket->mtx);
+                return NULL;
+            }
             new_seg->ttl = ttl_bucket->ttl;
             TAILQ_INSERT_TAIL(&ttl_bucket->seg_q, new_seg, seg_tqe);
             if (curr_seg) {
@@ -82,6 +86,8 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
     uint32_t occupied_size = __atomic_add_fetch(&(curr_seg->occupied_size),
         sz, __ATOMIC_RELAXED);
     ASSERT(occupied_size <= heap.seg_size);
+
+    __atomic_add_fetch(&curr_seg->n_item, 1, __ATOMIC_RELAXED);
 
     ASSERT(seg_data_start != NULL);
     it = (struct item *) (seg_data_start + offset);
