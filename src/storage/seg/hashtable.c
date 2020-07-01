@@ -5,9 +5,10 @@
 #include <cc_mm.h>
 #include <hash/cc_murmur3.h>
 
-struct item;
-SLIST_HEAD(item_slh, item);
+//struct item;
+//SLIST_HEAD(item_slh, item);
 extern seg_metrics_st *seg_metrics;
+extern bool use_cas;
 
 static uint32_t murmur3_iv = 0x3ac5d673;
 
@@ -95,6 +96,11 @@ hashtable_put(struct item *it, struct hash_table *ht)
 
     ++(ht->nhash_item);
     INCR(seg_metrics, hash_insert);
+
+    if (use_cas){
+        /* update cas_table */
+        ;
+    }
 }
 
 bool
@@ -136,6 +142,38 @@ hashtable_delete(const char *key, uint32_t klen, struct hash_table *ht,
 
         return false;
     }
+}
+
+/*
+ * delete the hashtable entry only if item is the up-to-date/valid item
+ */
+bool
+hashtable_delete_it(struct item *oit, struct hash_table *ht)
+{
+    struct item_slh *bucket;
+    struct item *it, *prev;
+
+    bucket = _get_bucket(item_key(oit), item_nkey(oit), ht);
+    for (prev = NULL, it = SLIST_FIRST(bucket); it != NULL;
+         prev = it, it = SLIST_NEXT(it, hash_next)) {
+        INCR(seg_metrics, hash_traverse);
+
+        /* iterate through bucket to find item to be removed */
+        if (it == oit) {
+            /* found item */
+            if (prev == NULL) {
+                SLIST_REMOVE_HEAD(bucket, hash_next);
+            } else {
+                SLIST_REMOVE_AFTER(prev, hash_next);
+            }
+
+            --(ht->nhash_item);
+            INCR(seg_metrics, hash_remove);
+
+            return true;
+        }
+    }
+    return false;
 }
 
 struct item *

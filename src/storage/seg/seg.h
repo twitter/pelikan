@@ -1,14 +1,17 @@
 #pragma once
 
+#include "datapool/datapool.h"
 #include "item.h"
 #include "segevict.h"
-#include "datapool/datapool.h"
 
 #include <cc_define.h>
 #include <cc_itt.h>
+#include <cc_option.h>
 #include <cc_util.h>
 #include <time/cc_timer.h>
-#include <cc_option.h>
+#include <cc_define.h>
+#include <cc_metric.h>
+
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -92,7 +95,8 @@ struct seg {
 
     uint32_t n_item; /* the number of usable items
                       * TODO (jason): could remove this field */
-    uint16_t refcount; /* # items that can't be evicted */
+    uint32_t refcount; /* # current accesses, >0 means the seg can't be evicted
+                        */
     uint8_t locked; /* whether the seg is locked for eviction, used 1 byte
                      * because we need atomic operation on it,
                      * we can reuse refcount for this purpose by setting it
@@ -115,7 +119,8 @@ TAILQ_ENTRY(seg) seg_tqe;
 struct seg_heapinfo {
     /* the first max_nseg_dram points to the segments in DRAM,
      * the next max_nseg_pmem points the segments in PMem */
-    struct seg *segs;           /* seg headers, note that this is not part of heap_base allocated memory */
+    struct seg *segs; /* seg headers, note that this is not part of heap_base
+                         allocated memory */
     size_t seg_size;
     uint32_t concat_seg : 1;
     uint32_t prealloc : 1;
@@ -140,83 +145,87 @@ struct seg_heapinfo {
     char *poolname_pmem;
     struct datapool *pool_pmem;
 
-//    struct seg *persisted_seg_hdr; /* persisted copy of seg headers
-//                                    * once we fix datapool, we need to
-//                                    * add a magic after persisted headers
-//                                    * to avoid unnoticed data corruption */
-    uint8_t *reserved_seg; /* reserved for DRAM/PMem migration and recovery */
     //    time_t time_started;
 };
 
 extern struct seg_heapinfo heap;
 
 
-#define SEG_SIZE                MiB
-#define SEG_MEM                 (64 * MiB)
-#define SEG_PREALLOC            true
-#define SEG_EVICT_OPT           EVICT_CTE
-#define SEG_USE_CAS             true
-#define ITEM_SIZE_MAX           (SEG_SIZE - ITEM_HDR_SIZE)
-#define HASH_POWER              20
-#define SEG_DATAPOOL            NULL
-#define SEG_DATAPOOL_PREFAULT   false
-#define SEG_DATAPOOL_NAME_DRAM       "seg_datapool_dram"
-#define SEG_DATAPOOL_NAME_PMEM       "seg_datapool_pmem"
+#define SEG_SIZE MiB
+#define SEG_MEM (64 * MiB)
+#define SEG_PREALLOC true
+#define SEG_EVICT_OPT EVICT_UTIL
+#define SEG_USE_CAS true
+#define ITEM_SIZE_MAX (SEG_SIZE - ITEM_HDR_SIZE)
+#define HASH_POWER 20
+#define SEG_DATAPOOL NULL
+#define SEG_DATAPOOL_PREFAULT false
+#define SEG_DATAPOOL_NAME_DRAM "seg_datapool_dram"
+#define SEG_DATAPOOL_NAME_PMEM "seg_datapool_pmem"
 
-/*          name                    type                default              description */
-#define SEG_OPTION(ACTION)                                                                                         \
-    ACTION( seg_size,              OPTION_TYPE_UINT,   SEG_SIZE,              "Segment size"                      )\
-    ACTION( seg_mem_dram,          OPTION_TYPE_UINT,   SEG_MEM,               "Max memory used for DRAM caching (byte)")\
-    ACTION( seg_mem_pmem,          OPTION_TYPE_UINT,   0,                     "Max memory used for PMem caching (byte)")\
-    ACTION( seg_prealloc,          OPTION_TYPE_BOOL,   SEG_PREALLOC,          "Pre-allocate segs at setup"        )\
-    ACTION( seg_evict_opt,         OPTION_TYPE_UINT,   SEG_EVICT_OPT,         "Eviction strategy"                 )\
-    ACTION( seg_item_use_cas,      OPTION_TYPE_BOOL,   SEG_USE_CAS,           "Store CAS value in item"           )\
-    ACTION( seg_hash_power,        OPTION_TYPE_UINT,   HASH_POWER,            "Power for lookup hash table"       )\
-    ACTION( datapool_path_dram,    OPTION_TYPE_STR,    SEG_DATAPOOL,          "Path to DRAM data pool"                 )\
-    ACTION( datapool_name_dram,    OPTION_TYPE_STR,    SEG_DATAPOOL_NAME_DRAM,"Seg DRAM data pool name"                )\
-    ACTION( datapool_path_pmem,    OPTION_TYPE_STR,    SEG_DATAPOOL,          "Path to PMem data pool"                 )\
-    ACTION( datapool_name_pmem,    OPTION_TYPE_STR,    SEG_DATAPOOL_NAME_PMEM,"Seg PMem data pool name"                )\
-    ACTION( prefault_pmem,         OPTION_TYPE_BOOL,   SEG_DATAPOOL_PREFAULT, "Prefault Pmem"                )
+/*          name                    type                default description */
+#define SEG_OPTION(ACTION)                                                     \
+    ACTION(seg_size, OPTION_TYPE_UINT, SEG_SIZE, "Segment size")               \
+    ACTION(seg_mem_dram, OPTION_TYPE_UINT, SEG_MEM,                            \
+            "Max memory used for DRAM caching (byte)")                         \
+    ACTION(seg_mem_pmem, OPTION_TYPE_UINT, 0,                                  \
+            "Max memory used for PMem caching (byte)")                         \
+    ACTION(seg_prealloc, OPTION_TYPE_BOOL, SEG_PREALLOC,                       \
+            "Pre-allocate segs at setup")                                      \
+    ACTION(seg_evict_opt, OPTION_TYPE_UINT, SEG_EVICT_OPT,                     \
+            "Eviction strategy")                                               \
+    ACTION(seg_use_cas, OPTION_TYPE_BOOL, SEG_USE_CAS,                         \
+            "Store CAS value in item")                                         \
+    ACTION(seg_hash_power, OPTION_TYPE_UINT, HASH_POWER,                       \
+            "Power for lookup hash table")                                     \
+    ACTION(datapool_path_dram, OPTION_TYPE_STR, SEG_DATAPOOL,                  \
+            "Path to DRAM data pool")                                          \
+    ACTION(datapool_name_dram, OPTION_TYPE_STR, SEG_DATAPOOL_NAME_DRAM,        \
+            "Seg DRAM data pool name")                                         \
+    ACTION(datapool_path_pmem, OPTION_TYPE_STR, SEG_DATAPOOL,                  \
+            "Path to PMem data pool")                                          \
+    ACTION(datapool_name_pmem, OPTION_TYPE_STR, SEG_DATAPOOL_NAME_PMEM,        \
+            "Seg PMem data pool name")                                         \
+    ACTION(prefault_pmem, OPTION_TYPE_BOOL, SEG_DATAPOOL_PREFAULT,             \
+            "Prefault Pmem")
 
 typedef struct {
     SEG_OPTION(OPTION_DECLARE)
 } seg_options_st;
 
-#include <cc_define.h>
-#include <cc_metric.h>
-
 
 /*          name                    type            description */
-#define SEG_METRIC(ACTION)                                                               \
-    ACTION( seg_req,               METRIC_COUNTER, "# req for new seg"                  )\
-    ACTION( seg_req_ex,            METRIC_COUNTER, "# seg get exceptions"               )\
-    ACTION( seg_evict,             METRIC_COUNTER, "# segs evicted"                     )\
-    ACTION( seg_evict_ex,             METRIC_COUNTER, "# segs evict exceptions"                     )\
-    ACTION( seg_expire,            METRIC_COUNTER, "# segs removed due to expiration"   )\
-    ACTION( seg_curr_dram,         METRIC_GAUGE,   "# currently active segs in DRAM"    )\
-    ACTION( seg_curr_pmem,         METRIC_GAUGE,   "# currently active segs in PMem"    )\
-    ACTION( item_curr,             METRIC_GAUGE,   "# current items"                    )\
-    ACTION( item_curr_bytes,       METRIC_GAUGE,   "# used bytes including item header" )\
-    ACTION( item_alloc,            METRIC_COUNTER, "# items allocated"                  )\
-    ACTION( item_alloc_ex,         METRIC_COUNTER, "# item alloc errors"                )\
-    ACTION( hash_lookup,           METRIC_COUNTER, "# of hash lookups"                  )\
-    ACTION( hash_insert,           METRIC_COUNTER, "# of hash inserts"                  )\
-    ACTION( hash_remove,           METRIC_COUNTER, "# of hash deletes"                  )\
-    ACTION( hash_traverse,         METRIC_COUNTER, "# of nodes touched"                 )
+#define SEG_METRIC(ACTION)                                                     \
+    ACTION(seg_req, METRIC_COUNTER, "# req for new seg")                       \
+    ACTION(seg_req_ex, METRIC_COUNTER, "# seg get exceptions")                 \
+    ACTION(seg_evict, METRIC_COUNTER, "# segs evicted")                        \
+    ACTION(seg_evict_ex, METRIC_COUNTER, "# segs evict exceptions")            \
+    ACTION(seg_expire, METRIC_COUNTER, "# segs removed due to expiration")     \
+    ACTION(seg_curr_dram, METRIC_GAUGE, "# currently active segs in DRAM")     \
+    ACTION(seg_curr_pmem, METRIC_GAUGE, "# currently active segs in PMem")     \
+    ACTION(item_curr, METRIC_GAUGE, "# current items")                         \
+    ACTION(item_curr_bytes, METRIC_GAUGE,                                      \
+            "# used bytes including item header")                              \
+    ACTION(item_alloc, METRIC_COUNTER, "# items allocated")                    \
+    ACTION(item_alloc_ex, METRIC_COUNTER, "# item alloc errors")               \
+    ACTION(hash_lookup, METRIC_COUNTER, "# of hash lookups")                   \
+    ACTION(hash_insert, METRIC_COUNTER, "# of hash inserts")                   \
+    ACTION(hash_remove, METRIC_COUNTER, "# of hash deletes")                   \
+    ACTION(hash_traverse, METRIC_COUNTER, "# of nodes touched")
 
 typedef struct {
     SEG_METRIC(METRIC_DECLARE)
 } seg_metrics_st;
 
 /*          name                type            description */
-#define PERTTL_METRIC(ACTION)                                                        \
-    ACTION( item_curr,          METRIC_GAUGE,   "# items stored"                    )\
-    ACTION( item_update,        METRIC_GAUGE,   "# holes caused by updates"         )\
-    ACTION( item_del,           METRIC_GAUGE,   "# holes caused by deletion"        )\
-    ACTION( item_curr_bytes,    METRIC_GAUGE,   "size of items stored"              )\
-    ACTION( item_update_bytes,  METRIC_GAUGE,   "size of holes caused by updates"   )\
-    ACTION( item_del_bytes,     METRIC_GAUGE,   "size of holes caused by deletion"  )\
-    ACTION( seg_curr,           METRIC_GAUGE,   "# segs"                            )\
+#define PERTTL_METRIC(ACTION)                                                  \
+    ACTION(item_curr, METRIC_GAUGE, "# items stored")                          \
+    ACTION(item_update, METRIC_GAUGE, "# holes caused by updates")             \
+    ACTION(item_del, METRIC_GAUGE, "# holes caused by deletion")               \
+    ACTION(item_curr_bytes, METRIC_GAUGE, "size of items stored")              \
+    ACTION(item_update_bytes, METRIC_GAUGE, "size of holes caused by updates") \
+    ACTION(item_del_bytes, METRIC_GAUGE, "size of holes caused by deletion")   \
+    ACTION(seg_curr, METRIC_GAUGE, "# segs")
 
 typedef struct {
     PERTTL_METRIC(METRIC_DECLARE)
@@ -245,8 +254,8 @@ seg_is_locked(struct seg *seg)
 static inline bool
 seg_ref(struct seg *seg)
 {
-    if (!seg_is_locked(seg)){
-        /* this does not strictly remove race condition, but it is fine
+    if (!seg_is_locked(seg)) {
+        /* this does not strictly prevent race condition, but it is fine
          * because letting one reader passes when the segment is locking
          * has no problem in correctness */
         __atomic_fetch_add(&seg->refcount, 1, __ATOMIC_RELAXED);
@@ -287,19 +296,25 @@ seg_use_pmem(void)
 }
 
 
-void seg_setup(seg_options_st *options, seg_metrics_st *metrics);
+void
+seg_setup(seg_options_st *options, seg_metrics_st *metrics);
 
-void seg_teardown(void);
+void
+seg_teardown(void);
 
-struct seg *seg_get_new(void);
+struct seg *
+seg_get_new(void);
 
 /*
  * remove all items on this segment
  * make sure segment is locked and ref_cnt 0
  * indicating no other threads are accessing items on the seg
  */
-bool seg_rm_all_item(uint32_t seg_id);
+bool
+seg_rm_all_item(uint32_t seg_id);
 
-void seg_rm_expired_seg(uint32_t seg_id);
+void
+seg_rm_expired_seg(uint32_t seg_id);
 
-void _seg_print(uint32_t seg_id);
+void
+_seg_print(uint32_t seg_id);

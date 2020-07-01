@@ -35,6 +35,7 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
 
     ttl_bucket = &ttl_buckets[ttl_bucket_idx];
 
+    /* a ttl_bucket has either no seg, or at least one seg that is not sealed */
     curr_seg = TAILQ_LAST(&ttl_bucket->seg_q, seg_tqh);
     if (curr_seg != NULL) {
         seg_data_start = seg_get_data_start(curr_seg->seg_id);
@@ -71,6 +72,7 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
             }
             new_seg->ttl = ttl_bucket->ttl;
             TAILQ_INSERT_TAIL(&ttl_bucket->seg_q, new_seg, seg_tqe);
+            ttl_bucket->n_seg += 1;
             if (curr_seg) {
                 curr_seg->sealed = 1;
             }

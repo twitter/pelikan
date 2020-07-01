@@ -627,17 +627,6 @@ END_TEST
 
 START_TEST(test_seg_basic)
 {
-#define KEY "test_seg_basic"
-#define VLEN (1000 * KiB)
-#define TIME 12345678
-
-    struct bstring key, val;
-    key = str2bstr(KEY);
-
-    val.data = cc_alloc(VLEN);
-    cc_memset(val.data, 'A', VLEN);
-    val.len = VLEN;
-
     test_reset();
 
     struct seg *seg;
@@ -646,10 +635,6 @@ START_TEST(test_seg_basic)
         ck_assert_int_eq(seg->seg_id, i);
         ck_assert_int_eq(seg->initialized, 1);
     }
-
-#undef KEY
-#undef VAL
-#undef TIME
 }
 END_TEST
 
@@ -881,8 +866,8 @@ START_TEST(test_segevict_UTIL)
         item_insert(it);
     }
 
-
-    /* first two segs are full with four items, now replace three of them */
+    /* first two segments are full with four items,
+     * now replace the last three of them */
     for (uint32_t i = 1; i < 4; i++) {
         bstring_set_literal(&key, keys[i]);
         status = item_reserve(

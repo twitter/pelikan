@@ -70,9 +70,9 @@ struct item {
 #endif
     SLIST_ENTRY(item) hash_next; /* link in hash */
 
-    uint32_t seg_id : 23; /* id of the segment the item belongs to, max 16 TiB.
+    uint32_t seg_id : 24; /* id of the segment the item belongs to, max 16 TiB.
                            * we can make this field optional if needed,
-                           * we don't need this field if we can fix the segment
+                           * we don't need this field if we used a fixed  segment
                            * size and only use DRAM/PMem for storage,
                            * in such scenario, we can make the starting address
                            * of each segment as multiple of 1<<20,
@@ -80,17 +80,17 @@ struct item {
                            * and does not save space if we have cas as uint64_t
                            * due to struct packing
                            */
-//    uint32_t valid : 1; /* whether the item has been deleted or updated,
-//                         * used only when seg compaction is on */
     uint32_t olen : 8; /* option length */
 
     uint32_t klen : 8; /* key size */
     uint32_t is_num : 1; /* whether this is a number */
     uint32_t vlen : 23; /* data size TODO(jason): will this cause memalign? */
 
+    /* data start needs to be 8-byte aligned for incr/decr */
     char end[1]; /* item data */
 };
 
+SLIST_HEAD(item_slh, item);
 
 extern struct locktable cas_table;
 
@@ -178,24 +178,6 @@ item_ntotal(const struct item *it)
     return item_size_roundup(sz);
 }
 
-/* NOTE: we only support uint32_t although the first parameter is uint64_t*/
-// static inline item_rstatus_e
-// item_atou64(uint64_t *vint, struct item *it)
-//{
-//    if (it->is_num) {
-//        *vint = *(uint64_t *)item_val(it);
-//        return ITEM_OK;
-//    }
-//
-//    struct bstring vstr = {.data = (char *)item_val(it), .len = it->vlen};
-//    if (bstring_atou64(vint, &vstr) == CC_OK) {
-//        it->is_num = true;
-//        *(uint64_t *)item_val(it) = *vint;
-//        return ITEM_OK;
-//    } else {
-//        return ITEM_ENAN;
-//    }
-//}
 
 item_rstatus_e
 item_incr(uint64_t *vint, struct item *it, uint64_t delta);
@@ -240,6 +222,11 @@ item_set_cas(struct item *it)
     set_cas(&cas_table, _item_get_hv(it));
 }
 
+/* check the existence of an item, this is different from
+ * item_get in that this one does not incr ref_count,
+ * so we should not use the returned item */
+struct item *
+item_check_existence(const struct bstring *key);
 
 /* acquire an item */
 struct item *
@@ -275,15 +262,8 @@ item_insert_or_update(struct item *it);
 bool
 item_delete(const struct bstring *key);
 
-///* remove the item from cache if it is in the cache */
-// void
-// item_try_delete_it(struct item *it, bool mark_invalid);
-
-/* remove the item from cache, if the item might not be in the hashtable,
- * set try_del to true, this can happen because we do not mark tombstone
- * of deleted and updated object, so we will encounter this during seg eviction */
 bool
-item_delete_it(struct item *it, bool mark_invalid, bool try_del);
+item_delete_it(struct item *it_to_del);
 
 /* remove oit from hashtable and insert nit */
 void

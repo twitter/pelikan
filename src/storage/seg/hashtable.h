@@ -27,6 +27,12 @@ bool
 hashtable_delete(const char *key, uint32_t klen, struct hash_table *ht,
         bool try_del, struct item **it);
 
+/*
+ * delete the hashtable entry only if item is the up-to-date/valid item
+ */
+bool
+hashtable_delete_it(struct item *oit, struct hash_table *ht);
+
 struct item *
 hashtable_get(const char *key, uint32_t klen, struct hash_table *ht);
 

@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 extern delta_time_i max_ttl;
-static proc_time_i flush_at = -1;
+extern proc_time_i flush_at;
 
 static inline bool
 _item_expired(struct item *it)
@@ -383,6 +383,7 @@ item_delete(const struct bstring *key)
         return false;
     }
 }
+
 
 void
 item_flush(void)

@@ -9,12 +9,10 @@
 #include <stdlib.h>
 
 extern proc_time_i flush_at;
-struct locktable cas_table;
-
 extern struct hash_table *hash_table;
 extern seg_metrics_st *seg_metrics;
 extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
-
+//extern bool use_cas;
 
 static inline bool
 item_expired(struct item *it)
@@ -55,8 +53,8 @@ item_relink(struct item *oit, struct item *nit)
 /*
  * verify the integrity of segments, items and hashtable
  */
-static void
-_verify_integrity()
+static inline void
+_verify_integrity(void)
 {
     uint32_t seg_id;
     struct seg *seg;
@@ -87,6 +85,7 @@ _verify_integrity()
                 ASSERT(item_nval(it) == item_nval(it2));
                 cc_memcmp(item_key(it), item_key(it2), item_nkey(it));
                 cc_memcmp(item_val(it), item_val(it2), item_nval(it));
+                item_release(it2);
             }
 
             curr += item_ntotal(it);
@@ -143,6 +142,7 @@ _item_alloc(uint32_t sz, delta_time_i ttl)
 
     log_verb("alloc it %p of size %" PRIu32 " ttl %" PRIu32 " (bucket %" PRIu16
              ") in seg %" PRIu32,
+
             it, sz, ttl, ttl_bucket_idx, it->seg_id);
 
     return it;
@@ -197,23 +197,15 @@ item_insert_or_update(struct item *it)
 }
 
 
-/**
- * find the key in the cache and return,
- * return NULL if the item is not in the cache (never added or evicted)
- * or expired
- */
 struct item *
-item_get(const struct bstring *key)
-{
+item_check_existence(const struct bstring *key) {
     struct item *it;
 
     it = hashtable_get(key->data, key->len, hash_table);
     if (it == NULL) {
         log_verb("get it '%.*s' not found", key->len, key->data);
-
         return NULL;
     }
-
 
     if (item_expired(it)) {
         log_verb("get it '%.*s' expired and seg nuked", key->len, key->data);
@@ -221,12 +213,35 @@ item_get(const struct bstring *key)
         return NULL;
     }
 
-    /* since we won't evict segment that's not sealed, so we only need refcount
-     * for get, not update/insert/del */
+    return it;
+}
+
+/**
+ * find the key in the cache and return,
+ * return NULL if not in the cache (never added or evicted, or expired)
+ *
+ * incr_ref decides whether we want to increase ref_count,
+ * if it is just
+ */
+struct item *
+item_get(const struct bstring *key)
+{
+    struct item *it = item_check_existence(key);
+
+    if (it == NULL) {
+        return NULL;
+    }
+
+    /*
+     * because we do not evict segments that are not sealed,
+     * so we only need to increase refcount for item_get,
+     * not set/add/replace/cas/delete/incr/decr
+     * */
+
     /* TODO(jason): corner case - what if the TTL is shorter than the time
      * one segment finishes writing */
     if (seg_ref(item_to_seg(it))) {
-        log_verb("get it key %.*s val %.*s", key->len, key->data, it->vlen,
+        log_vverb("get it key %.*s val %.*s", key->len, key->data, it->vlen,
                 item_val(it));
 
         return it;
@@ -236,6 +251,7 @@ item_get(const struct bstring *key)
         return NULL;
     }
 }
+
 
 void
 item_release(struct item *it)
@@ -320,13 +336,6 @@ item_recreate(struct item **nit_p, struct item *oit, delta_time_i ttl,
 }
 #endif
 
-// void
-// item_release(struct item **it_p)
-//{
-//    slab_deref(item_to_slab(*it_p)); /* slab ref'ed in _item_alloc */
-//    _item_dealloc(it_p);
-//}
-
 void
 item_backfill(struct item *it, const struct bstring *val)
 {
@@ -339,12 +348,14 @@ item_backfill(struct item *it, const struct bstring *val)
             it, it->klen, item_key(it), val->len, it->vlen);
 }
 
+/* TODO(jason): better change the interface to use bstring key and do item_get
+ * inside function, so that we can manage refcount within function */
+
 item_rstatus_e
 item_incr(uint64_t *vint, struct item *it, uint64_t delta)
 {
     struct seg *seg = item_to_seg(it);
-    /* not needed since we have already called item_get */
-    //    seg_ref(seg);
+    /* do not incr refcount since we have already called item_get */
     if (it->is_num) {
         *vint = *(uint64_t *)item_val(it) + delta;
     } else {
@@ -359,7 +370,7 @@ item_incr(uint64_t *vint, struct item *it, uint64_t delta)
     }
 
     *(uint64_t *)item_val(it) = *vint;
-    //    seg_deref(seg);
+//    seg_deref(seg);
     return ITEM_OK;
 }
 
@@ -367,9 +378,12 @@ item_rstatus_e
 item_decr(uint64_t *vint, struct item *it, uint64_t delta)
 {
     struct seg *seg = item_to_seg(it);
-    seg_ref(seg);
     if (it->is_num) {
-        *vint = *(uint64_t *)item_val(it) - delta;
+        if (*(uint64_t *)item_val(it) >= delta){
+            *vint = *(uint64_t *)item_val(it) - delta;
+        } else {
+            *vint = 0;
+        }
     } else {
         struct bstring vstr = {.data = (char *)item_val(it), .len = it->vlen};
         if (bstring_atou64(vint, &vstr) == CC_OK) {
@@ -381,7 +395,7 @@ item_decr(uint64_t *vint, struct item *it, uint64_t delta)
         }
     }
     *(uint64_t *)item_val(it) = *vint;
-    seg_deref(seg);
+//    seg_deref(seg);
     return ITEM_OK;
 }
 
@@ -412,6 +426,18 @@ item_delete(const struct bstring *key)
 
     if (in_cache) {
         _item_free(it);
+    }
+
+    return in_cache;
+}
+
+bool
+item_delete_it(struct item *it_to_del)
+{
+    bool in_cache = hashtable_delete_it(it_to_del, hash_table);
+
+    if (in_cache) {
+        _item_free(it_to_del);
     }
 
     return in_cache;

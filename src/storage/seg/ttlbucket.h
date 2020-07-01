@@ -87,7 +87,8 @@
 
 /* we can use a timing wheel here or in seg */
 struct ttl_bucket {
-    struct seg_tqh  seg_q;
+    struct seg_tqh  seg_q;          /* TODO(jason): I think we don't need a queue here
+                                     * we can just keep the last unsealed seg */
     pthread_mutex_t mtx;
     delta_time_i    ttl;           /* the min ttl of this bucket */
 //    uint32_t       n_seg_mul_two; /* n_seg_mul_two has two usages,
@@ -97,6 +98,7 @@ struct ttl_bucket {
 //                                   * when it is odd, indicating the seg_q
 //                                   * is being updated.
 //                                   */
+    uint32_t n_seg;
 };
 
 extern struct ttl_bucket ttl_buckets[MAX_TTL_BUCKET];
