@@ -12,7 +12,7 @@ extern proc_time_i flush_at;
 extern struct hash_table *hash_table;
 extern seg_metrics_st *seg_metrics;
 extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
-//extern bool use_cas;
+// extern bool use_cas;
 
 static inline bool
 item_expired(struct item *it)
@@ -61,7 +61,7 @@ _verify_integrity(void)
     uint8_t *seg_data, *curr;
     struct item *it, *it2;
 
-    for (seg_id = 0; seg_id < heap.nseg_dram; seg_id++) {
+    for (seg_id = 0; seg_id < heap.nseg; seg_id++) {
         seg = &heap.segs[seg_id];
         ASSERT(seg->seg_id == seg_id);
         seg_data = curr = seg_get_data_start(seg_id);
@@ -93,15 +93,61 @@ _verify_integrity(void)
     }
 }
 
+static inline bool _item_r_ref(struct item *it){
+    struct seg *seg = &heap.segs[it->seg_id];
+
+    if (__atomic_load_n(&seg->locked, __ATOMIC_RELAXED) == 0) {
+        /* this does not strictly prevent race condition, but it is fine
+         * because letting one reader passes when the segment is locking
+         * has no problem in correctness */
+        __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_RELAXED);
+        return true;
+    }
+
+    return false;
+}
+
+static inline void _item_r_deref(struct item *it) {
+    struct seg *seg = &heap.segs[it->seg_id];
+
+    uint32_t ref = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
+
+    ASSERT(ref >= 0);
+}
+
+static inline bool _item_w_ref(struct item *it){
+    struct seg *seg = &heap.segs[it->seg_id];
+
+    if (__atomic_load_n(&seg->locked, __ATOMIC_RELAXED) == 0) {
+        /* this does not strictly prevent race condition, but it is fine
+         * because letting one reader passes when the segment is locking
+         * has no problem in correctness */
+        __atomic_fetch_add(&seg->w_refcount, 1, __ATOMIC_RELAXED);
+        return true;
+    }
+
+    return false;
+}
+
+static inline void _item_w_deref(struct item *it) {
+    struct seg *seg = &heap.segs[it->seg_id];
+
+    uint32_t ref = __atomic_sub_fetch(&seg->w_refcount, 1, __ATOMIC_RELAXED);
+
+    ASSERT(ref >= 0);
+}
+
 static inline void
 _item_free(struct item *it)
 {
     size_t sz = item_ntotal(it);
     struct seg *seg = item_to_seg(it);
-    seg->occupied_size -= item_ntotal(it);
-    seg->n_item -= 1;
+    __atomic_sub_fetch(&seg->occupied_size, item_ntotal(it), __ATOMIC_RELAXED);
+    __atomic_sub_fetch(&seg->n_item, 1, __ATOMIC_RELAXED);
 
-    /* TODO(jason): what is the overhead of tracking PERTTL metric */
+    /* TODO(jason): what is the overhead of tracking PERTTL metric
+     * consider removing the metrics since we can get them from
+     * iterating over all seg headers */
     uint16_t ttl_bucket_idx = find_ttl_bucket_idx(seg->ttl);
 
     DECR(seg_metrics, item_curr);
@@ -125,9 +171,18 @@ _item_alloc(uint32_t sz, delta_time_i ttl)
 
     if (it == NULL) {
         INCR(seg_metrics, item_alloc_ex);
-        log_verb("error alloc it %p of size %" PRIu32 " ttl %" PRIu32
+        log_error("error alloc it %p of size %" PRIu32 " ttl %" PRIu32
                  " (bucket %" PRIu16 ") in seg %" PRIu32,
                 it, sz, ttl, ttl_bucket_idx, it->seg_id);
+
+        return NULL;
+    }
+
+    if (!_item_w_ref(it)) {
+        /* should be very rare -
+         * TTL is shorter than the segment write time */
+        INCR(seg_metrics, item_alloc_ex);
+        log_error("allocated item is about to be evicted");
 
         return NULL;
     }
@@ -157,6 +212,8 @@ item_insert(struct item *it)
 {
     hashtable_put(it, hash_table);
 
+    _item_w_deref(it);
+
     log_verb("insert it %p (%.*s) of size %zu"
              " in seg %" PRIu32,
             it, it->klen, item_key(it), item_ntotal(it), it->seg_id);
@@ -167,17 +224,19 @@ item_insert(struct item *it)
  * we delete the item first (update metrics), then insert into hashtable
  */
 void
-item_update(struct item *it)
+item_update(struct item *nit)
 {
     struct item *oit;
-    hashtable_delete(item_key(it), item_nkey(it), hash_table, false, &oit);
+    hashtable_delete(item_key(nit), item_nkey(nit), hash_table, false, &oit);
     _item_free(oit);
 
-    hashtable_put(it, hash_table);
+    hashtable_put(nit, hash_table);
+
+    _item_w_deref(nit);
 
     log_verb("update it %p (%.*s) of size %zu"
              " in seg %" PRIu32,
-            it, it->klen, item_key(it), item_ntotal(it), it->seg_id);
+            nit, nit->klen, item_key(nit), item_ntotal(nit), nit->seg_id);
 }
 
 /* insert or update */
@@ -189,6 +248,8 @@ item_insert_or_update(struct item *it)
 
     hashtable_put(it, hash_table);
 
+    _item_w_deref(it);
+
     log_verb("insert_or_update it %p (%.*s) of key size %" PRIu32
              ", val size %" PRIu32 ", total size %zu"
              " in seg %" PRIu32,
@@ -198,7 +259,8 @@ item_insert_or_update(struct item *it)
 
 
 struct item *
-item_check_existence(const struct bstring *key) {
+item_check_existence(const struct bstring *key)
+{
     struct item *it;
 
     it = hashtable_get(key->data, key->len, hash_table);
@@ -232,15 +294,7 @@ item_get(const struct bstring *key)
         return NULL;
     }
 
-    /*
-     * because we do not evict segments that are not sealed,
-     * so we only need to increase refcount for item_get,
-     * not set/add/replace/cas/delete/incr/decr
-     * */
-
-    /* TODO(jason): corner case - what if the TTL is shorter than the time
-     * one segment finishes writing */
-    if (seg_ref(item_to_seg(it))) {
+    if (_item_r_ref(it)) {
         log_vverb("get it key %.*s val %.*s", key->len, key->data, it->vlen,
                 item_val(it));
 
@@ -256,10 +310,9 @@ item_get(const struct bstring *key)
 void
 item_release(struct item *it)
 {
-    seg_deref(item_to_seg(it));
+    _item_r_deref(it);
 }
 
-/* TODO(yao): move this to memcache-specific location */
 static void
 _item_define(struct item *it, const struct bstring *key,
         const struct bstring *val, uint8_t olen)
@@ -354,7 +407,6 @@ item_backfill(struct item *it, const struct bstring *val)
 item_rstatus_e
 item_incr(uint64_t *vint, struct item *it, uint64_t delta)
 {
-    struct seg *seg = item_to_seg(it);
     /* do not incr refcount since we have already called item_get */
     if (it->is_num) {
         *vint = *(uint64_t *)item_val(it) + delta;
@@ -364,22 +416,21 @@ item_incr(uint64_t *vint, struct item *it, uint64_t delta)
             it->is_num = true;
             *vint = *vint + delta;
         } else {
-            seg_deref(seg);
+//            _item_r_deref(it);
             return ITEM_ENAN;
         }
     }
 
     *(uint64_t *)item_val(it) = *vint;
-//    seg_deref(seg);
+    //    seg_deref(seg);
     return ITEM_OK;
 }
 
 item_rstatus_e
 item_decr(uint64_t *vint, struct item *it, uint64_t delta)
 {
-    struct seg *seg = item_to_seg(it);
     if (it->is_num) {
-        if (*(uint64_t *)item_val(it) >= delta){
+        if (*(uint64_t *)item_val(it) >= delta) {
             *vint = *(uint64_t *)item_val(it) - delta;
         } else {
             *vint = 0;
@@ -390,12 +441,12 @@ item_decr(uint64_t *vint, struct item *it, uint64_t delta)
             it->is_num = true;
             *vint = *vint - delta;
         } else {
-            seg_deref(seg);
+//            _item_r_deref(it);
             return ITEM_ENAN;
         }
     }
     *(uint64_t *)item_val(it) = *vint;
-//    seg_deref(seg);
+    //    seg_deref(seg);
     return ITEM_OK;
 }
 

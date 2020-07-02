@@ -60,6 +60,7 @@ hashtable_create(uint32_t hash_power)
         return NULL;
     }
 
+    log_info("create hash table of size %zu", size);
     return ht;
 }
 

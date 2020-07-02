@@ -66,7 +66,7 @@ _admin_stats_ttl(struct response *rsp, struct request *req)
 
     for (idx = 0; idx <= MAX_TTL_BUCKET; idx++) {
         struct ttl_bucket *ttl_bucket = &ttl_buckets[idx];
-        if (TAILQ_EMPTY(&ttl_bucket->seg_q)){
+        if (&ttl_bucket->n_seg == 0) {
             /* do not print empty ttl bucket */
             continue;
         }

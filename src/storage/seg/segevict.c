@@ -10,7 +10,7 @@ static struct seg_evict_info evict;
 
 /* maybe we should use # of req instead of real time to make decision */
 static inline bool
-_should_rerank()
+_should_rerank(void)
 {
     bool rerank;
     proc_time_i curr_sec, prev_sec;
@@ -18,7 +18,7 @@ _should_rerank()
     prev_sec = __atomic_load_n(&evict.last_update_time, __ATOMIC_RELAXED);
     rerank = prev_sec == -1 || curr_sec - prev_sec > UPDATE_INTERVAL;
 
-    if (rerank){
+    if (rerank) {
         __atomic_store_n(&evict.last_update_time, curr_sec, __ATOMIC_RELAXED);
     }
 
@@ -31,10 +31,11 @@ _cmp_seg_FIFO(const void *d1, const void *d2)
     struct seg *seg1 = &heap.segs[*(uint32_t *)d1];
     struct seg *seg2 = &heap.segs[*(uint32_t *)d2];
 
-    if (!seg1->sealed) {
+    /* avoid segments that are currently being written to */
+    if (seg1->w_refcount || seg1->in_free_pool) {
         return 1;
     }
-    if (!seg2->sealed) {
+    if (seg2->w_refcount || seg2->in_free_pool) {
         return -1;
     }
 
@@ -47,10 +48,10 @@ _cmp_seg_CTE(const void *d1, const void *d2)
     struct seg *seg1 = &heap.segs[*(uint32_t *)d1];
     struct seg *seg2 = &heap.segs[*(uint32_t *)d2];
 
-    if (!seg1->sealed) {
+    if (seg1->w_refcount || seg1->in_free_pool) {
         return 1;
     }
-    if (!seg2->sealed) {
+    if (seg2->w_refcount || seg2->in_free_pool) {
         return -1;
     }
 
@@ -63,12 +64,15 @@ _cmp_seg_util(const void *d1, const void *d2)
     struct seg *seg1 = &heap.segs[*(uint32_t *)d1];
     struct seg *seg2 = &heap.segs[*(uint32_t *)d2];
 
-    if (!seg1->sealed) {
+    if (seg1->w_refcount || seg1->in_free_pool) {
         return 1;
     }
-    if (!seg2->sealed) {
+    if (seg2->w_refcount || seg2->in_free_pool) {
         return -1;
     }
+
+    /* need to avoid the segments that are newly allocated */
+    //    seg1->next_seg_id == -1
 
     return seg1->occupied_size - seg2->occupied_size;
 }
@@ -93,16 +97,13 @@ _cmp_seg_smart(const void *d1, const void *d2)
 static inline void
 _rank_seg(void)
 {
-    printf("try to rank seg %d\n", time_proc_sec());
     if (!_should_rerank()) {
         return;
     }
-    printf("rank seg\n");
 
-    evict.idx_rseg_dram = 0;
-    evict.idx_rseg_pmem = 0;
+    evict.idx_rseg = 0;
 
-    int (*cmp)(const void *, const void *);
+    int (*cmp)(const void *, const void *) = NULL;
 
     switch (evict.policy) {
     case EVICT_FIFO:
@@ -121,34 +122,46 @@ _rank_seg(void)
         NOT_REACHED();
     }
 
-    if (evict.nseg_dram > 0) {
-        qsort(evict.ranked_seg_id_dram, evict.nseg_dram, sizeof(uint32_t), cmp);
-    }
-    if (evict.nseg_pmem > 0) {
-        qsort(evict.ranked_seg_id_pmem, evict.nseg_pmem, sizeof(uint32_t), cmp);
-    }
+    ASSERT(cmp != NULL);
+    qsort(evict.ranked_seg_id, evict.nseg, sizeof(uint32_t), cmp);
 
 
-    printf("ranked seg id %u %u %u %u\n", evict.ranked_seg_id_dram[0],
-            evict.ranked_seg_id_dram[1], evict.ranked_seg_id_dram[2],
-            evict.ranked_seg_id_dram[3]);
+    log_debug("ranked seg id %u %u %u %u %u %u %u %u %u ...",
+            evict.ranked_seg_id[0], evict.ranked_seg_id[1],
+            evict.ranked_seg_id[2], evict.ranked_seg_id[3],
+            evict.ranked_seg_id[4], evict.ranked_seg_id[5],
+            evict.ranked_seg_id[6], evict.ranked_seg_id[7],
+            evict.ranked_seg_id[8]);
+    _seg_print(evict.ranked_seg_id[0]);
+    _seg_print(evict.ranked_seg_id[1]);
+    _seg_print(evict.ranked_seg_id[2]);
+    _seg_print(evict.ranked_seg_id[3]);
+
+//    log_debug("ranked seg %d - craete at %" PRId32 ", TTL %" PRId32
+//              ", write offset %" PRIu32 ", occupied size %" PRIu32,
+//            heap.segs[evict.ranked_seg_id[0]].seg_id,
+//            heap.segs[evict.ranked_seg_id[0]].create_at,
+//            heap.segs[evict.ranked_seg_id[0]].ttl,
+//            heap.segs[evict.ranked_seg_id[0]].write_offset,
+//            heap.segs[evict.ranked_seg_id[0]].occupied_size)
 }
 
 
 evict_rstatus_e
-least_valuable_seg_dram(uint32_t *seg_id)
+least_valuable_seg(uint32_t *seg_id)
 {
-    ASSERT(heap.nseg_dram == heap.max_nseg_dram);
+    ASSERT(heap.nseg == heap.max_nseg);
 
     if (evict.policy == EVICT_RANDOM) {
         uint32_t i = 0;
-        *seg_id = rand() % heap.nseg_dram;
-        while (heap.segs[*seg_id].sealed == 0) {
+        *seg_id = rand() % heap.nseg;
+        while (heap.segs[*seg_id].w_refcount > 0 && i <= heap.max_nseg) {
             /* transition to linear search */
-            *seg_id = (*seg_id + 1) % heap.max_nseg_dram;
+            *seg_id = (*seg_id + 1) % heap.max_nseg;
+            i++;
         }
-        if (i == heap.max_nseg_dram) {
-            log_warn("unable to find a segment that is not sealed");
+        if (i == heap.max_nseg) {
+            log_warn("unable to find a segment that has no writer");
             return EVICT_NO_SEALED_SEG;
         } else {
             return EVICT_OK;
@@ -156,50 +169,38 @@ least_valuable_seg_dram(uint32_t *seg_id)
     } else {
         _rank_seg();
 
-        *seg_id = evict.ranked_seg_id_dram[evict.idx_rseg_dram];
+        int32_t idx = __atomic_fetch_add(&evict.idx_rseg, 1, __ATOMIC_RELAXED);
+        *seg_id = evict.ranked_seg_id[idx];
         /* it is OK if we read a staled seg.sealed because we will double check
          * when we perform real eviction */
-        while (heap.segs[*seg_id].sealed == 0 &&
-                evict.idx_rseg_dram < evict.nseg_dram) {
-            *seg_id = evict.ranked_seg_id_dram[++evict.idx_rseg_dram];
-            ;
+        while (heap.segs[*seg_id].w_refcount > 0 && idx < evict.nseg) {
+            idx = __atomic_fetch_add(&evict.idx_rseg, 1, __ATOMIC_RELAXED);
+            *seg_id = evict.ranked_seg_id[idx];
         }
-        if (evict.idx_rseg_dram >= evict.nseg_dram) {
+        if (idx >= evict.nseg) {
             log_warn("unable to find a segment that is not sealed");
-            evict.idx_rseg_dram = 0;
+            __atomic_store_n(&evict.idx_rseg, 0, __ATOMIC_RELAXED);
             /* better return a less utilized one */
             return EVICT_NO_SEALED_SEG;
         }
-        *seg_id = evict.ranked_seg_id_dram[evict.idx_rseg_dram++];
+        //        *seg_id = evict.ranked_seg_id[evict.idx_rseg++];
+        ASSERT(heap.segs[*seg_id].in_free_pool == 0);
+
         return EVICT_OK;
     }
 }
 
-evict_rstatus_e
-least_valuable_seg_pmem(uint32_t *seg_id)
-{
-    ASSERT(heap.nseg_pmem == heap.max_nseg_pmem);
-    if (evict.policy == EVICT_RANDOM) {
-        return rand() % heap.nseg_pmem;
-    } else {
-        _rank_seg();
-        return evict.ranked_seg_id_pmem[evict.idx_rseg_pmem++];
-    }
-
-    return 0;
-}
 
 void
 segevict_teardown(void)
 {
-    cc_free(evict.ranked_seg_id_dram);
-    cc_free(evict.ranked_seg_id_pmem);
+    cc_free(evict.ranked_seg_id);
 
     segevict_initialized = false;
 }
 
 void
-segevict_setup(evict_policy_e ev_policy, uint32_t nseg_dram, uint32_t nseg_pmem)
+segevict_setup(evict_policy_e ev_policy, uint32_t nseg)
 {
     uint32_t i = 0;
 
@@ -210,19 +211,12 @@ segevict_setup(evict_policy_e ev_policy, uint32_t nseg_dram, uint32_t nseg_pmem)
 
     evict.last_update_time = -1;
     evict.policy = ev_policy;
-    evict.nseg_dram = nseg_dram;
-    evict.nseg_pmem = nseg_pmem;
-    evict.ranked_seg_id_dram = cc_zalloc(sizeof(uint32_t) * nseg_dram);
-    evict.ranked_seg_id_pmem = cc_zalloc(sizeof(uint32_t) * nseg_pmem);
-    evict.idx_rseg_dram = 0;
-    evict.idx_rseg_pmem = 0;
+    evict.nseg = nseg;
+    evict.ranked_seg_id = cc_zalloc(sizeof(uint32_t) * nseg);
+    evict.idx_rseg = 0;
 
-    for (i = 0; i < nseg_dram; i++) {
-        evict.ranked_seg_id_dram[i] = i;
-    }
-
-    for (i = 0; i < nseg_pmem; i++) {
-        evict.ranked_seg_id_pmem[i] = i;
+    for (i = 0; i < nseg; i++) {
+        evict.ranked_seg_id[i] = i;
     }
 
     srand(time(NULL));

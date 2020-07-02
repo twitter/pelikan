@@ -481,7 +481,8 @@ _process_cas(struct response *rsp, struct request *req)
         return;
     }
 
-    item_update(it);
+    /* the item might be evicted since we check */
+    item_insert_or_update(it);
     item_set_cas(it);
     rsp->type = RSP_STORED;
     INCR(process_metrics, cas_stored);

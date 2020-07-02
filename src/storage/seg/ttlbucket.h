@@ -85,11 +85,17 @@
  */
 
 
+//TAILQ_HEAD(seg_id_tqh, uint32_t);
+//TAILQ_ENTRY(uint32_t) seg_id_tqe;
+
 /* we can use a timing wheel here or in seg */
 struct ttl_bucket {
-    struct seg_tqh  seg_q;          /* TODO(jason): I think we don't need a queue here
-                                     * we can just keep the last unsealed seg */
-    pthread_mutex_t mtx;
+//    struct seg_tqh  seg_q;          /* TODO(jason): I think we don't need a queue here
+//                                     * we can just keep the last unsealed seg */
+    int32_t first_seg_id;
+    int32_t last_seg_id;
+
+//    pthread_mutex_t mtx;
     delta_time_i    ttl;           /* the min ttl of this bucket */
 //    uint32_t       n_seg_mul_two; /* n_seg_mul_two has two usages,
 //                                   * 1. tracking the number of segments,

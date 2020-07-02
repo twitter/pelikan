@@ -6,11 +6,10 @@
 
 #include <cc_define.h>
 #include <cc_itt.h>
+#include <cc_metric.h>
 #include <cc_option.h>
 #include <cc_util.h>
 #include <time/cc_timer.h>
-#include <cc_define.h>
-#include <cc_metric.h>
 
 
 #include <pthread.h>
@@ -74,15 +73,15 @@
 
 /* TODO(jason): make sure it is less than one cacheline */
 struct seg {
-    TAILQ_ENTRY(seg) seg_tqe;
-    uint32_t seg_id; /* the segment id in segment table,
-                      * use seg_id instead of uint8_t*
-                      * because seg address change after restart,
-                      * and this also saves four byte for each seg
-                      *
-                      * maybe we can drop this as well since it can be
-                      * calculated using address between datapool_base
-                      * */
+    //    TAILQ_ENTRY(seg) seg_tqe;
+    int32_t seg_id; /* the segment id in segment table,
+                     * use seg_id instead of uint8_t*
+                     * because seg address change after restart,
+                     * and this also saves four byte for each seg
+                     *
+                     * maybe we can drop this as well since it can be
+                     * calculated using address between datapool_base
+                     * */
 
     uint32_t write_offset; /* used to calculate the write pos */
     uint32_t occupied_size; /* used size, less than seg_size because of
@@ -90,28 +89,35 @@ struct seg {
 
     proc_time_i create_at;
     delta_time_i ttl;
+
+    uint32_t n_item; /* the number of valid items
+                      * TODO (jason): could remove this field */
+    uint32_t w_refcount; /* # concurrent reade accesses, >0 means the seg can't
+                            be evicted */
+    uint32_t r_refcount; /* # concurrent write accesses, >0 means the seg can't
+                          * be evicted */
+    int32_t prev_seg_id; /* the id of prev seg in ttl_bucket or free seg list */
+    int32_t next_seg_id; /* the id of next seg in ttl_bucket or free seg list */
+
     uint32_t n_hit; /* only update when the seg is sealed */
     uint32_t n_hit_last; /* number of hits in the last window */
 
-    uint32_t n_item; /* the number of usable items
-                      * TODO (jason): could remove this field */
-    uint32_t refcount; /* # current accesses, >0 means the seg can't be evicted
-                        */
     uint8_t locked; /* whether the seg is locked for eviction, used 1 byte
                      * because we need atomic operation on it,
                      * we can reuse refcount for this purpose by setting it
                      * to negative val */
-    uint8_t sealed : 1; /* whether it is full and no longer write to */
-    uint8_t in_pmem : 1; /* whether the seg is in PMem, not used */
+    //    uint8_t sealed : 1; /* whether it is full and no longer write to */
+    //    uint8_t in_pmem : 1; /* whether the seg is in PMem, not used */
     uint8_t initialized : 1; /* is seg initialized */
+    uint8_t in_free_pool : 1; /* is seg in the free pool */
     uint8_t recovered : 1; /* whether the items on this seg have been
                               recovered*/
 
     uint16_t unused; /* unused, must be 0 */
 };
 
-TAILQ_HEAD(seg_tqh, seg);
-TAILQ_ENTRY(seg) seg_tqe;
+// TAILQ_HEAD(seg_tqh, seg);
+// TAILQ_ENTRY(seg) seg_tqe;
 
 /* the order of field is optimized for CPU cacheline,
  * if it is using DRAM only, all frequent accessed field must not exceed 64 B
@@ -122,28 +128,44 @@ struct seg_heapinfo {
     struct seg *segs; /* seg headers, note that this is not part of heap_base
                          allocated memory */
     size_t seg_size;
+
+    uint8_t *base; /* address where seg data starts */
+    int32_t nseg; /* # seg allocated */
+    int32_t max_nseg; /* max # seg allowed */
+    size_t heap_size;
+
+    int32_t free_seg_id; /* this is the head of free seg list,
+                          * we use next_seg in seg header for
+                          * linking segs */
+
+    char *poolpath;
+    char *poolname;
+    struct datapool *pool;
+
     uint32_t concat_seg : 1;
     uint32_t prealloc : 1;
     uint32_t prefault : 1;
     /* seg score priority queue */
 
-    /* dram related */
-    uint8_t *base_dram; /* address where seg data starts */
-    uint32_t nseg_dram; /* # seg allocated */
-    uint32_t max_nseg_dram; /* max # seg allowed */
-    size_t size_dram;
-    char *poolpath_dram;
-    char *poolname_dram;
-    struct datapool *pool_dram;
+    pthread_mutex_t mtx;
 
-    /* pmem related */
-    uint8_t *base_pmem; /* address where seg data starts */
-    uint32_t nseg_pmem; /* # seg allocated */
-    uint32_t max_nseg_pmem; /* max # seg allowed */
-    size_t size_pmem;
-    char *poolpath_pmem;
-    char *poolname_pmem;
-    struct datapool *pool_pmem;
+    //    /* dram related */
+    //    uint8_t *base_dram; /* address where seg data starts */
+    //    uint32_t nseg_dram; /* # seg allocated */
+    //    uint32_t max_nseg_dram; /* max # seg allowed */
+    //    size_t size_dram;
+    //    char *poolpath_dram;
+    //    char *poolname_dram;
+    //    struct datapool *pool_dram;
+    //
+    //    /* pmem related */
+    //    uint8_t *base_pmem; /* address where seg data starts */
+    //    uint32_t nseg_pmem; /* # seg allocated */
+    //    uint32_t max_nseg_pmem; /* max # seg allowed */
+    //    size_t size_pmem;
+    //    char *poolpath_pmem;
+    //    char *poolname_pmem;
+    //    struct datapool *pool_pmem;
 
     //    time_t time_started;
 };
@@ -160,16 +182,13 @@ extern struct seg_heapinfo heap;
 #define HASH_POWER 20
 #define SEG_DATAPOOL NULL
 #define SEG_DATAPOOL_PREFAULT false
-#define SEG_DATAPOOL_NAME_DRAM "seg_datapool_dram"
-#define SEG_DATAPOOL_NAME_PMEM "seg_datapool_pmem"
+#define SEG_DATAPOOL_NAME "seg_datapool"
 
 /*          name                    type                default description */
 #define SEG_OPTION(ACTION)                                                     \
     ACTION(seg_size, OPTION_TYPE_UINT, SEG_SIZE, "Segment size")               \
-    ACTION(seg_mem_dram, OPTION_TYPE_UINT, SEG_MEM,                            \
-            "Max memory used for DRAM caching (byte)")                         \
-    ACTION(seg_mem_pmem, OPTION_TYPE_UINT, 0,                                  \
-            "Max memory used for PMem caching (byte)")                         \
+    ACTION(seg_mem, OPTION_TYPE_UINT, SEG_MEM,                                 \
+            "Max memory used for caching (byte)")                              \
     ACTION(seg_prealloc, OPTION_TYPE_BOOL, SEG_PREALLOC,                       \
             "Pre-allocate segs at setup")                                      \
     ACTION(seg_evict_opt, OPTION_TYPE_UINT, SEG_EVICT_OPT,                     \
@@ -178,16 +197,11 @@ extern struct seg_heapinfo heap;
             "Store CAS value in item")                                         \
     ACTION(seg_hash_power, OPTION_TYPE_UINT, HASH_POWER,                       \
             "Power for lookup hash table")                                     \
-    ACTION(datapool_path_dram, OPTION_TYPE_STR, SEG_DATAPOOL,                  \
+    ACTION(datapool_path, OPTION_TYPE_STR, SEG_DATAPOOL,                       \
             "Path to DRAM data pool")                                          \
-    ACTION(datapool_name_dram, OPTION_TYPE_STR, SEG_DATAPOOL_NAME_DRAM,        \
+    ACTION(datapool_name, OPTION_TYPE_STR, SEG_DATAPOOL_NAME,             \
             "Seg DRAM data pool name")                                         \
-    ACTION(datapool_path_pmem, OPTION_TYPE_STR, SEG_DATAPOOL,                  \
-            "Path to PMem data pool")                                          \
-    ACTION(datapool_name_pmem, OPTION_TYPE_STR, SEG_DATAPOOL_NAME_PMEM,        \
-            "Seg PMem data pool name")                                         \
-    ACTION(prefault_pmem, OPTION_TYPE_BOOL, SEG_DATAPOOL_PREFAULT,             \
-            "Prefault Pmem")
+    ACTION(prefault, OPTION_TYPE_BOOL, SEG_DATAPOOL_PREFAULT, "Prefault Pmem")
 
 typedef struct {
     SEG_OPTION(OPTION_DECLARE)
@@ -197,8 +211,10 @@ typedef struct {
 /*          name                    type            description */
 #define SEG_METRIC(ACTION)                                                     \
     ACTION(seg_req, METRIC_COUNTER, "# req for new seg")                       \
+    ACTION(seg_return, METRIC_COUNTER, "# segment returns")                    \
     ACTION(seg_req_ex, METRIC_COUNTER, "# seg get exceptions")                 \
     ACTION(seg_evict, METRIC_COUNTER, "# segs evicted")                        \
+    ACTION(seg_evict_retry, METRIC_COUNTER, "# retried seg eviction")                        \
     ACTION(seg_evict_ex, METRIC_COUNTER, "# segs evict exceptions")            \
     ACTION(seg_expire, METRIC_COUNTER, "# segs removed due to expiration")     \
     ACTION(seg_curr_dram, METRIC_GAUGE, "# currently active segs in DRAM")     \
@@ -251,48 +267,33 @@ seg_is_locked(struct seg *seg)
 }
 
 
-static inline bool
-seg_ref(struct seg *seg)
-{
-    if (!seg_is_locked(seg)) {
-        /* this does not strictly prevent race condition, but it is fine
-         * because letting one reader passes when the segment is locking
-         * has no problem in correctness */
-        __atomic_fetch_add(&seg->refcount, 1, __ATOMIC_RELAXED);
-        return true;
-    }
-
-    return false;
-}
-
-static inline void
-seg_deref(struct seg *seg)
-{
-    ASSERT(seg->refcount > 0);
-
-    seg->refcount--;
-}
+// static inline bool
+// seg_ref(struct seg *seg)
+//{
+//    if (!seg_is_locked(seg)) {
+//        /* this does not strictly prevent race condition, but it is fine
+//         * because letting one reader passes when the segment is locking
+//         * has no problem in correctness */
+//        __atomic_fetch_add(&seg->refcount, 1, __ATOMIC_RELAXED);
+//        return true;
+//    }
+//
+//    return false;
+//}
+//
+// static inline void
+// seg_deref(struct seg *seg)
+//{
+//
+//    uint32_t ref = __atomic_sub_fetch(&seg->refcount, 1, __ATOMIC_RELAXED);
+//    ASSERT(    ref >=0);
+//
+//}
 
 static inline uint8_t *
-seg_get_data_start(uint32_t seg_id)
+seg_get_data_start(int32_t seg_id)
 {
-    if (seg_id >= heap.max_nseg_dram) {
-        return heap.base_pmem + heap.seg_size * (seg_id - heap.max_nseg_dram);
-    } else {
-        return heap.base_dram + heap.seg_size * seg_id;
-    }
-}
-
-static inline bool
-seg_use_dram(void)
-{
-    return heap.max_nseg_dram > 0;
-}
-
-static inline bool
-seg_use_pmem(void)
-{
-    return heap.max_nseg_pmem > 0;
+    return heap.base + heap.seg_size * seg_id;
 }
 
 
@@ -302,8 +303,16 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics);
 void
 seg_teardown(void);
 
-struct seg *
+int32_t
 seg_get_new(void);
+
+/* return the seg to global pool
+ * this is used when multiple threads are evicting multiple segments
+ * at the same time, in the end, only one segment will be linked to
+ * ttl_bucket, the rest will return to global pool */
+void
+seg_return_seg(int32_t seg_id);
+
 
 /*
  * remove all items on this segment
@@ -311,10 +320,10 @@ seg_get_new(void);
  * indicating no other threads are accessing items on the seg
  */
 bool
-seg_rm_all_item(uint32_t seg_id);
+seg_rm_all_item(int32_t seg_id);
 
 void
-seg_rm_expired_seg(uint32_t seg_id);
+seg_rm_expired_seg(int32_t seg_id);
 
 void
-_seg_print(uint32_t seg_id);
+_seg_print(int32_t seg_id);

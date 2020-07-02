@@ -28,12 +28,9 @@ typedef enum evict_rstatus {
 struct seg_evict_info {
     evict_policy_e policy;
     proc_time_i last_update_time;
-    uint32_t nseg_dram;
-    uint32_t nseg_pmem;
-    uint32_t *ranked_seg_id_dram;  /* the least valuable to the most valuable */
-    uint32_t *ranked_seg_id_pmem;
-    uint32_t idx_rseg_dram;     /* curr index in ranked seg id array */
-    uint32_t idx_rseg_pmem;
+    uint32_t nseg;
+    uint32_t *ranked_seg_id;  /* the least valuable to the most valuable */
+    uint32_t idx_rseg;     /* curr index in ranked seg id array */
 };
 
 
@@ -42,17 +39,10 @@ struct seg_evict_info {
  * return seg_id
  */
 evict_rstatus_e
-least_valuable_seg_dram(uint32_t *seg_id);
-
-/**
- * find the least valuable segment in DRAM
- * return seg_id
- */
-evict_rstatus_e
-least_valuable_seg_pmem(uint32_t *seg_id);
+least_valuable_seg(uint32_t *seg_id);
 
 
 /* this must be setup update seg_setup has finished */
-void segevict_setup(evict_policy_e ev_policy, uint32_t nseg_dram, uint32_t nseg_pmem);
+void segevict_setup(evict_policy_e ev_policy, uint32_t nseg);
 
 void segevict_teardown(void);
