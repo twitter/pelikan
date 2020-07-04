@@ -2,26 +2,24 @@ add_subdirectory(storage_cuckoo)
 add_subdirectory(storage_slab)
 add_subdirectory(storage_seg)
 
-set(SOURCE bench_storage.c)
+set(SOURCE bench_storage.c bench_shared.c)
 
 set(MODULES_SLAB
-    bench_storage_slab
-    slab
-    time)
+        bench_storage_slab
+        slab)
 
 set(MODULES_CUCKOO
-    bench_storage_cuckoo
-    cuckoo
-    time)
+        bench_storage_cuckoo
+        cuckoo)
 
 set(MODULES_SEG
         bench_storage_seg
-        seg
-        time)
+        seg)
 
 set(LIBS
-    ccommon-static
-    ${CMAKE_THREAD_LIBS_INIT})
+        time
+        ccommon-static
+        ${CMAKE_THREAD_LIBS_INIT})
 
 add_executable(bench_slab ${SOURCE})
 target_link_libraries(bench_slab ${MODULES_SLAB} ${LIBS})
@@ -33,7 +31,7 @@ add_executable(bench_seg ${SOURCE})
 target_link_libraries(bench_seg ${MODULES_SEG} ${LIBS})
 
 
-set(SOURCE_TRACE_REPLAY trace_replay/trace_replay.c trace_replay/reader.c)
+set(SOURCE_TRACE_REPLAY trace_replay/trace_replay.c trace_replay/reader.c bench_shared.c)
 
 add_executable(trace_replay_slab ${SOURCE_TRACE_REPLAY})
 target_link_libraries(trace_replay_slab ${MODULES_SLAB} ${LIBS})

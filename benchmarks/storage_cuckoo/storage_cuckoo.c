@@ -42,17 +42,6 @@ bench_storage_deinit(void)
     return CC_OK;
 }
 
-rstatus_i
-bench_storage_put(struct benchmark_entry *e)
-{
-    struct bstring key = {.data = e->key, .len = e->key_len};
-    struct val val = {
-            .vstr = {.data = e->val, .len = e->val_len}, .type = VAL_TYPE_STR};
-
-    struct item *it = cuckoo_insert(&key, &val, e->ttl);
-
-    return it != NULL ? CC_OK : CC_ENOMEM;
-}
 
 rstatus_i
 bench_storage_get(struct benchmark_entry *e)
@@ -65,9 +54,62 @@ bench_storage_get(struct benchmark_entry *e)
 }
 
 rstatus_i
-bench_storage_rem(struct benchmark_entry *e)
+bench_storage_gets(struct benchmark_entry *e)
+{
+    /* to implement */
+    return CC_OK;
+}
+
+rstatus_i
+bench_storage_set(struct benchmark_entry *e)
+{
+    struct bstring key = {.data = e->key, .len = e->key_len};
+    struct val val = {
+            .vstr = {.data = e->val, .len = e->val_len}, .type = VAL_TYPE_STR};
+
+    struct item *it = cuckoo_insert(&key, &val, e->expire_at);
+
+    return it != NULL ? CC_OK : CC_ENOMEM;
+}
+
+rstatus_i
+bench_storage_cas(struct benchmark_entry *e)
+{
+    /* to implement */
+    return CC_OK;
+}
+rstatus_i
+bench_storage_add(struct benchmark_entry *e)
+{
+    /* to implement */
+    return CC_OK;
+}
+rstatus_i
+bench_storage_replace(struct benchmark_entry *e)
+{
+    /* to implement */
+    return CC_OK;
+}
+
+rstatus_i
+bench_storage_delete(struct benchmark_entry *e)
 {
     struct bstring key = {.data = e->key, .len = e->key_len};
 
     return cuckoo_delete(&key) ? CC_OK : CC_EEMPTY;
 }
+
+
+rstatus_i
+bench_storage_incr(struct benchmark_entry *e)
+{
+    /* to implement */
+    return CC_OK;
+}
+rstatus_i
+bench_storage_decr(struct benchmark_entry *e)
+{
+    /* to implement */
+    return CC_OK;
+}
+

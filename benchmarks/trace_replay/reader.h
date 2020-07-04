@@ -19,14 +19,15 @@ struct reader {
     size_t file_size;
     char trace_path[MAX_TRACE_PATH_LEN];
     uint64_t n_total_req;
+    struct benchmark_entry *e;
 
     /* this is not thread-safe, currently a hack to use existing benchmark */
-    char curr_key[MAX_KEY_LEN];
+//    char curr_key[MAX_KEY_LEN];
 };
 
 
 struct reader *
-open_trace(char *trace_path);
+open_trace(const char *trace_path);
 
 
 /*
@@ -47,7 +48,7 @@ open_trace(char *trace_path);
  *
  */
 int
-read_trace(struct reader *reader, struct benchmark_entry *e);
+read_trace(struct reader *reader, struct benchmark_entry **e);
 
 
 void close_trace(struct reader *reader);

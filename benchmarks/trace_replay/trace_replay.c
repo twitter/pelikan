@@ -1,6 +1,8 @@
 
 #include "bench_storage.h"
 #include "reader.h"
+#include "reader_mt.h"
+#include "reader_pl.h"
 
 #include <cc_debug.h>
 #include <cc_define.h>
@@ -14,12 +16,37 @@
 #include <string.h>
 #include <sysexits.h>
 
+#define NORMAL_READER 1
+#define MULTI_THREAD_READER 2
+#define PRELOADED_READER 3
 
-#define READER(b)  ((struct reader*) (b->reader))
+#define READER_TYPE MULTI_THREAD_READER
+
+#if !defined(READER_TYPE) || READER_TYPE == NORMAL_READER
+#define OPEN_TRACE(x) open_trace(x)
+#define READ_TRACE(x, e) read_trace(x, e)
+#define CLOSE_TRACE(x) close_trace(x)
+#define READER      struct reader
+
+#elif READER_TYPE == MULTI_THREAD_READER
+#define OPEN_TRACE(x) open_trace_mt(x)
+#define READ_TRACE(x, e) read_trace_mt(x, e)
+#define CLOSE_TRACE(x) close_trace_mt(x)
+#define READER      struct reader_mt
+
+#elif READER_TYPE == PRELOADED_READER
+#define OPEN_TRACE(x) open_trace_pl(x)
+#define READ_TRACE(x, e) read_trace_pl(x, e)
+#define CLOSE_TRACE(x) close_trace_pl(x)
+#define READER      struct reader_pl
+
+#endif
+
 
 #define BENCHMARK_OPTION(ACTION)                                               \
     ACTION(trace_path, OPTION_TYPE_STR, "trace.bin", "path to the trace")      \
-    ACTION(latency, OPTION_TYPE_BOOL, true, "Collect latency samples")
+    ACTION(per_op_latency, OPTION_TYPE_BOOL, true, "Collect latency samples")  \
+    ACTION(debug_logging, OPTION_TYPE_BOOL, true, "turn on debug logging")
 
 
 struct replay_specific {
@@ -37,7 +64,9 @@ static rstatus_i
 benchmark_create(struct benchmark *b, const char *config)
 {
     memset(b, 0, sizeof(*b));
-    b->entries = cc_zalloc(sizeof(struct benchmark_entry) * 1);
+//    b->entries = cc_zalloc(sizeof(struct benchmark_entry) * 1);
+//    b->entries->key = cc_zalloc(MAX_KEY_LEN);
+//    ASSERT(b->entries->key != NULL);
 
     unsigned nopts = OPTION_CARDINALITY(struct replay_specific);
 
@@ -46,7 +75,8 @@ benchmark_create(struct benchmark *b, const char *config)
 
     debug_options_st debug_opts = {DEBUG_OPTION(OPTION_INIT)};
     nopts += OPTION_CARDINALITY(debug_options_st);
-    option_load_default((struct option *)&debug_opts, OPTION_CARDINALITY(debug_options_st));
+    option_load_default(
+            (struct option *)&debug_opts, OPTION_CARDINALITY(debug_options_st));
 
     nopts += bench_storage_config_nopts();
 
@@ -70,23 +100,29 @@ benchmark_create(struct benchmark *b, const char *config)
         fclose(fp);
     }
 
-    if (debug_setup(&BENCH_OPTS(b)->debug) != CC_OK) {
-        log_stderr("debug log setup failed");
-        exit(EX_CONFIG);
+    if (O_BOOL(b, debug_logging)) {
+        if (debug_setup(&BENCH_OPTS(b)->debug) != CC_OK) {
+            log_stderr("debug log setup failed");
+            exit(EX_CONFIG);
+        }
     }
 
-    b->reader = open_trace(O_STR(b, trace_path));
-    if (b->reader == NULL){
+    b->reader = OPEN_TRACE(O_STR(b, trace_path));
+    if (b->reader == NULL) {
         log_stderr("failed to open trace");
         exit(EX_CONFIG);
     }
 
-    uint64_t nops = READER(b)->n_total_req;
+    uint64_t nops = ((READER *)b->reader)->n_total_req;
 
-    if (O_BOOL(b, latency)){
+    if (O_BOOL(b, per_op_latency)) {
         b->latency.samples = cc_zalloc(nops * sizeof(struct duration));
+        ASSERT(b->latency.samples != NULL);
+
         b->latency.ops = cc_zalloc(nops * sizeof(op_e));
+        ASSERT(b->latency.ops != NULL);
     }
+
     b->latency.count = 0;
 
     return CC_OK;
@@ -95,32 +131,40 @@ benchmark_create(struct benchmark *b, const char *config)
 static void
 benchmark_destroy(struct benchmark *b)
 {
-    cc_free(b->entries);
-    cc_free(b->latency.samples);
-    cc_free(b->latency.ops);
+//    cc_free(b->entries->key);
+//    cc_free(b->entries);
+
+    if (O_BOOL(b, per_op_latency)) {
+        cc_free(b->latency.samples);
+        cc_free(b->latency.ops);
+    }
 
     cc_free(b->options);
+
+    CLOSE_TRACE(b->reader);
 }
 
 
 static struct duration
 trace_replay_run(struct benchmark *b)
 {
-    bool per_op_latency = O_BOOL(b, latency);
+    bool per_op_latency = O_BOOL(b, per_op_latency);
 
     bench_storage_init(BENCH_OPTS(b)->engine, 0, 0);
 
-    struct reader *reader = b->reader;
-    struct benchmark_entry *e = b->entries;
+    READER *reader = b->reader;
+    struct benchmark_entry *e = NULL;
 
     rstatus_i status;
     uint64_t n_miss = 0;
+    uint64_t n_req = reader->n_total_req;
 
     struct duration d;
     duration_start(&d);
 
-    while (read_trace(reader, e) == 0){
+    while (READ_TRACE(reader, &e) == 0) {
         status = benchmark_run_operation(b, e, per_op_latency);
+        /* we are counting read-after-delete as miss, maybe exclude this */
         if (status == CC_EEMPTY) {
             n_miss += 1;
         }
@@ -128,8 +172,8 @@ trace_replay_run(struct benchmark *b)
 
     duration_stop(&d);
 
-    printf("%"PRIu64 " req, %" PRIu64 " miss (%.4f)\n", reader->n_total_req,
-            n_miss, (double) n_miss/reader->n_total_req);
+    printf("%" PRIu64 " req, %" PRIu64 " miss (%.4f)\n", n_req, n_miss,
+            (double)n_miss / n_req);
 
     bench_storage_deinit();
 
@@ -148,10 +192,9 @@ main(int argc, char *argv[])
 
     struct duration d = trace_replay_run(&b);
 
-    benchmark_print_summary(&b, &d, O_BOOL(&b, latency));
+    benchmark_print_summary(&b, &d, O_BOOL(&b, per_op_latency));
 
     benchmark_destroy(&b);
 
     return 0;
 }
-

@@ -1,4 +1,8 @@
 
+/**
+ *  a reader for reading requests from trace
+ */
+
 #include "reader.h"
 #include "bench_storage.h"
 
@@ -19,7 +23,6 @@
 #include <sysexits.h>
 
 
-
 static const char *const key_array = "1234567890abcdefghijklmnopqrstuvwxyz_"
                                      "1234567890abcdefghijklmnopqrstuvwxyz_"
                                      "1234567890abcdefghijklmnopqrstuvwxyz_"
@@ -34,7 +37,7 @@ static char val_array[MAX_VAL_LEN];
 
 
 struct reader *
-open_trace(char *trace_path)
+open_trace(const char *trace_path)
 {
     int fd;
     struct stat st;
@@ -70,7 +73,7 @@ open_trace(char *trace_path)
 
 #ifdef __linux__
     /* USE_HUGEPAGE */
-    madvise(reader->mapped_file, st.st_size, MADV_HUGEPAGE | MADV_SEQUENTIAL);
+    madvise(reader->mmap, st.st_size, MADV_HUGEPAGE | MADV_SEQUENTIAL);
 #endif
 
     /* size of one request, hard-coded for the trace type */
@@ -82,6 +85,8 @@ open_trace(char *trace_path)
     }
 
     reader->n_total_req = reader->file_size / item_size;
+    reader->e = (struct benchmark_entry *) malloc(sizeof(struct benchmark_entry));
+    reader->e->key = malloc(MAX_KEY_LEN);
 
     close(fd);
     return reader;
@@ -90,6 +95,7 @@ open_trace(char *trace_path)
 
 /*
  * read one request from trace and store in benchmark_entry
+ * this func is thread-safe
  *
  * current trace format:
  * 20 byte for each request,
@@ -99,21 +105,30 @@ open_trace(char *trace_path)
  *      the left 10-bit is key size, right 22-bit is val size
  * next 4-byte is op and ttl,
  *      the left 8-bit is op and right 24-bit is ttl
- *      op is the index in the following array: get, gets, set, add,
+ *      op is the index (start from 1) in the following array:
+ *      get, gets, set, add,
  *      cas, replace, append, prepend, delete, incr, decr
  *
  * return 1 on trace EOF, otherwise 0
  *
  */
 int
-read_trace(struct reader *reader, struct benchmark_entry *e)
+read_trace(struct reader *reader, struct benchmark_entry **e)
 {
-    if (reader->offset >= reader->file_size) {
+    size_t offset = __atomic_fetch_add(&reader->offset, 20, __ATOMIC_RELAXED);
+    if (offset >= reader->file_size) {
         return 1;
     }
 
-    char *mmap = reader->mmap + reader->offset;
-    mmap += 4; /* skip time */
+    /* used by normal reader */
+    if (*e == NULL){
+        *e = reader->e;
+    }
+
+    char *mmap = reader->mmap + offset;
+    uint32_t ts = *(uint32_t *)mmap;
+    proc_sec = ts;
+    mmap += 4;
 
     uint64_t key = *(uint64_t *)mmap;
     mmap += 8;
@@ -121,32 +136,45 @@ read_trace(struct reader *reader, struct benchmark_entry *e)
     mmap += 4;
     uint32_t op_ttl = *(uint32_t *)mmap;
 
-    size_t key_len = (kv_len >> 22) & (0x00000400 - 1);
-    size_t val_len = kv_len & (0x00400000 - 1);
+    uint_fast16_t key_len = (kv_len >> 22) & (0x00000400 - 1);
+    uint32_t val_len = kv_len & (0x00400000 - 1);
+
+    if (key_len == 0){
+        log_warn("trace contains request of key size 0, object id %" PRIu64, key);
+        return read_trace(reader, e);
+    }
 
     uint32_t op = (op_ttl >> 24) & (0x00000100 - 1);
     uint32_t ttl = op_ttl & (0x01000000 - 1);
 
-    int ret = snprintf(reader->curr_key, key_len, "%12lu_%.*s",
-            (unsigned long) key, (int) key_len - 14, key_array);
+    /* used by reader_pl */
+    if ((*e)->key == NULL) {
+        (*e)->key = cc_alloc(key_len + 1);
+    }
+
+    int ret = snprintf((*e)->key, key_len + 1, "%12lu_%.*s",
+            (unsigned long)key, (int)key_len - 13, key_array);
+//    int ret = snprintf(e->key, key_len, "%12lu_%.*s",
+//            (unsigned long)key, (int)key_len - 14, key_array);
     ASSERT(ret > 0);
 
-    e->key_len = key_len;
-    e->val_len = val_len;
-    e->key = reader->curr_key;
-    e->val = val_array;
-    e->op = op;
-    e->ttl = ttl;
+//    printf("klen %d vlen %d %s\n", key_len, val_len, e->key);
 
-    log_vverb("e key %s, key len %zu, val_len %zu, op %u, ttl %u\n",
-            e->key, e->key_len, e->val_len, e->op, e->ttl);
+    (*e)->key_len = key_len;
+    (*e)->val_len = val_len;
+    (*e)->val = val_array;
+    (*e)->op = op - 1;
+    (*e)->expire_at = ts + ttl;
 
-    reader->mmap += 20;
     return 0;
 }
 
-void close_trace(struct reader *reader){
+void
+close_trace(struct reader *reader)
+{
+    free(reader->e->key);
+    free(reader->e);
+
     munmap(reader->mmap, reader->file_size);
     cc_free(reader);
 }
-
