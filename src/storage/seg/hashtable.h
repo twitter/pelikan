@@ -4,12 +4,17 @@
 
 struct hash_table {
     struct item_slh *table;
-    uint32_t nhash_item;
+    uint32_t *cas_table;        /* used for cas and hash table lock */
+    uint32_t cas_table_hp;      /* cas table hash power */
+    uint32_t *lock_table;
+    uint32_t lock_table_hp;
     uint32_t hash_power;
 };
 
-//#define HASHSIZE(_n) (1ULL << (_n))
-//#define HASHMASK(_n) (HASHSIZE(_n) - 1)
+#define HASHSIZE(_n) (1ULL << (_n))
+#define HASHMASK(_n) (HASHSIZE(_n) - 1)
+#define get_hv(key, klen) _get_hv_xxhash(key, klen)
+
 
 struct hash_table *
 hashtable_create(uint32_t hash_power);
@@ -34,8 +39,25 @@ bool
 hashtable_delete_it(struct item *oit, struct hash_table *ht);
 
 struct item *
-hashtable_get(const char *key, uint32_t klen, struct hash_table *ht);
+hashtable_get(const char *key, uint32_t klen, struct hash_table *ht, uint64_t *cas);
 
 
 struct hash_table *
 hashtable_double(struct hash_table *ht); /* best effort expansion */
+
+
+//static inline uint32_t
+//get_cas(struct locktable *ltable, uint32_t hv)
+//{
+//    uint32_t pos      = hv & HASHMASK(ltable->hashpower);
+//    uint32_t *cas_ptr = &(ltable->table[pos]);
+//    return __atomic_load_n(cas_ptr, __ATOMIC_RELAXED);
+//}
+//
+//static inline uint32_t
+//set_cas(struct locktable *ltable, uint32_t hv)
+//{
+//    uint32_t pos      = hv & HASHMASK(ltable->hashpower);
+//    uint32_t *cas_ptr = &(ltable->table[pos]);
+//    return __atomic_add_fetch(cas_ptr, 1, __ATOMIC_RELAXED);
+//}

@@ -64,9 +64,9 @@ _admin_stats_ttl(struct response *rsp, struct request *req)
     uint32_t idx;
     size_t offset = 0;
 
-    for (idx = 0; idx <= MAX_TTL_BUCKET; idx++) {
+    for (idx = 0; idx < MAX_TTL_BUCKET; idx++) {
         struct ttl_bucket *ttl_bucket = &ttl_buckets[idx];
-        if (&ttl_bucket->n_seg == 0) {
+        if (ttl_bucket->n_seg == 0) {
             /* do not print empty ttl bucket */
             continue;
         }

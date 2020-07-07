@@ -52,8 +52,7 @@
 
 /* TODO(jason) consider making this an option */
 #define LOCKTABLE_HASHPOWER         16u
-#define HASHSIZE(n)       (1u << n)
-#define HASHMASK(n)       (HASHSIZE(n) - 1u)
+#define CAS_TABLE_HASHPOWER         16u
 
 #define SEG_HDR_SIZE            sizeof(struct seg)
 

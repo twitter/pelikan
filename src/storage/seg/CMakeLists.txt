@@ -2,6 +2,7 @@ set(SOURCE
         hashtable.c
         item.c
         seg.c
+        background.c
         segevict.c
         ttlbucket.c)
 

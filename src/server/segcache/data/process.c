@@ -36,7 +36,7 @@ static char prefill_vbuf[ITEM_SIZE_MAX];
 static uint64_t prefill_nkey;
 
 static void
-_prefill_slab(void)
+_prefill_seg(void)
 {
     struct duration d;
     struct bstring key, val;
@@ -48,8 +48,6 @@ _prefill_slab(void)
     val.len = prefill_vsize;
     val.data = prefill_vbuf;
 
-    item_rstatus_e istatus;
-
     duration_start(&d);
     for (uint32_t i = 0; i < prefill_nkey; ++i) {
         /* print fixed-length key with leading 0's for padding */
@@ -57,7 +55,7 @@ _prefill_slab(void)
         /* fill val, use the same value as key for now */
         cc_snprintf(&prefill_vbuf, val.len + 1, "%.*d", val.len, i);
         /* insert into seg/heap */
-        istatus = item_reserve(&it, &key, &val, val.len, DATAFLAG_SIZE,
+        item_reserve(&it, &key, &val, val.len, DATAFLAG_SIZE,
                 time_convert_proc_sec((time_i)INT32_MAX));
         ASSERT(it != NULL);
         item_insert(it);
@@ -91,7 +89,7 @@ process_setup(process_options_st *options, process_metrics_st *metrics)
     }
 
     if (prefill) {
-        _prefill_slab();
+        _prefill_seg();
     }
 
     process_init = true;
@@ -273,6 +271,7 @@ _put(item_rstatus_e *istatus, struct request *req)
     put_rstatus_e status;
     struct item *it = NULL;
 
+    *istatus = ITEM_OK;
     if (req->first) { /* self-contained req */
         struct bstring *key = array_first(req->keys);
         /* TODO(jason): might worthwhile add a new function for cal TTL */

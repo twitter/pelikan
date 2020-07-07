@@ -559,6 +559,7 @@ START_TEST(test_flush_basic)
     item_insert(it);
 
     item_flush();
+    sleep(1);   // allow background thread to clean expired segments
     it = item_get(&key1);
     ck_assert_msg(it == NULL, "item with key %.*s still exists after flush",
             key1.len, key1.data);
@@ -604,6 +605,7 @@ START_TEST(test_expire_basic)
     ck_assert_msg(item_to_seg(it)->w_refcount == 0, "seg refcount incorrect");
 
     proc_sec += 2;
+    sleep(1);
     it = item_get(&key);
     ck_assert_msg(it == NULL, "item_get returned not NULL after expiration");
 
@@ -707,7 +709,9 @@ START_TEST(test_seg_more)
 
     /* remove all item of seg 2 and return to global pool */
     seg_rm_all_item(2);
+    pthread_mutex_lock(&heap.mtx);
     seg_return_seg(2);
+    pthread_mutex_unlock(&heap.mtx);
 
     ck_assert_msg(heap.free_seg_id == 2);
     heap.segs[2].prev_seg_id = -1;

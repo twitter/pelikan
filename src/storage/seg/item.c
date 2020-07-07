@@ -93,7 +93,9 @@ _verify_integrity(void)
     }
 }
 
-static inline bool _item_r_ref(struct item *it){
+static inline bool
+_item_r_ref(struct item *it)
+{
     struct seg *seg = &heap.segs[it->seg_id];
 
     if (__atomic_load_n(&seg->locked, __ATOMIC_RELAXED) == 0) {
@@ -107,7 +109,9 @@ static inline bool _item_r_ref(struct item *it){
     return false;
 }
 
-static inline void _item_r_deref(struct item *it) {
+static inline void
+_item_r_deref(struct item *it)
+{
     struct seg *seg = &heap.segs[it->seg_id];
 
     uint32_t ref = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
@@ -115,7 +119,9 @@ static inline void _item_r_deref(struct item *it) {
     ASSERT(ref >= 0);
 }
 
-static inline bool _item_w_ref(struct item *it){
+static inline bool
+_item_w_ref(struct item *it)
+{
     struct seg *seg = &heap.segs[it->seg_id];
 
     if (__atomic_load_n(&seg->locked, __ATOMIC_RELAXED) == 0) {
@@ -129,7 +135,9 @@ static inline bool _item_w_ref(struct item *it){
     return false;
 }
 
-static inline void _item_w_deref(struct item *it) {
+static inline void
+_item_w_deref(struct item *it)
+{
     struct seg *seg = &heap.segs[it->seg_id];
 
     uint32_t ref = __atomic_sub_fetch(&seg->w_refcount, 1, __ATOMIC_RELAXED);
@@ -172,7 +180,7 @@ _item_alloc(uint32_t sz, delta_time_i ttl)
     if (it == NULL) {
         INCR(seg_metrics, item_alloc_ex);
         log_error("error alloc it %p of size %" PRIu32 " ttl %" PRIu32
-                 " (bucket %" PRIu16 ") in seg %" PRIu32,
+                  " (bucket %" PRIu16 ") in seg %" PRIu32,
                 it, sz, ttl, ttl_bucket_idx, it->seg_id);
 
         return NULL;
@@ -262,18 +270,30 @@ struct item *
 item_check_existence(const struct bstring *key)
 {
     struct item *it;
+    struct seg *seg;
 
-    it = hashtable_get(key->data, key->len, hash_table);
+    it = hashtable_get(key->data, key->len, hash_table, NULL);
     if (it == NULL) {
         log_verb("get it '%.*s' not found", key->len, key->data);
         return NULL;
     }
 
-    if (item_expired(it)) {
-        log_verb("get it '%.*s' expired and seg nuked", key->len, key->data);
+    seg = &heap.segs[it->seg_id];
+    uint8_t locked = __atomic_load_n(&seg->locked, __ATOMIC_RELAXED);
+    if (__atomic_load_n(&seg->locked, __ATOMIC_RELAXED)) {
+        log_verb("get it %.*s not available because seg is locked for "
+                 "eviction/expiration",
+                item_nkey(it), item_key(it));
 
         return NULL;
     }
+
+    //    if (item_expired(it)) {
+    //        log_verb("get it '%.*s' expired and seg nuked", key->len,
+    //        key->data);
+    //
+    //        return NULL;
+    //    }
 
     return it;
 }
@@ -416,7 +436,7 @@ item_incr(uint64_t *vint, struct item *it, uint64_t delta)
             it->is_num = true;
             *vint = *vint + delta;
         } else {
-//            _item_r_deref(it);
+            //            _item_r_deref(it);
             return ITEM_ENAN;
         }
     }
@@ -441,7 +461,7 @@ item_decr(uint64_t *vint, struct item *it, uint64_t delta)
             it->is_num = true;
             *vint = *vint - delta;
         } else {
-//            _item_r_deref(it);
+            //            _item_r_deref(it);
             return ITEM_ENAN;
         }
     }

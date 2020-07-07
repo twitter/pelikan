@@ -20,31 +20,32 @@
 #define MULTI_THREAD_READER 2
 #define PRELOADED_READER 3
 
-#define READER_TYPE MULTI_THREAD_READER
+#define READER_TYPE PRELOADED_READER
 
 #if !defined(READER_TYPE) || READER_TYPE == NORMAL_READER
-#define OPEN_TRACE(x) open_trace(x)
-#define READ_TRACE(x, e) read_trace(x, e)
-#define CLOSE_TRACE(x) close_trace(x)
-#define READER      struct reader
+#    define OPEN_TRACE(x) open_trace(x)
+#    define READ_TRACE(x, e) read_trace(x, e)
+#    define CLOSE_TRACE(x) close_trace(x)
+#    define READER struct reader
 
 #elif READER_TYPE == MULTI_THREAD_READER
-#define OPEN_TRACE(x) open_trace_mt(x)
-#define READ_TRACE(x, e) read_trace_mt(x, e)
-#define CLOSE_TRACE(x) close_trace_mt(x)
-#define READER      struct reader_mt
+#    define OPEN_TRACE(x) open_trace_mt(x)
+#    define READ_TRACE(x, e) read_trace_mt(x, e)
+#    define CLOSE_TRACE(x) close_trace_mt(x)
+#    define READER struct reader_mt
 
 #elif READER_TYPE == PRELOADED_READER
-#define OPEN_TRACE(x) open_trace_pl(x)
-#define READ_TRACE(x, e) read_trace_pl(x, e)
-#define CLOSE_TRACE(x) close_trace_pl(x)
-#define READER      struct reader_pl
+#    define OPEN_TRACE(x) open_trace_pl(x)
+#    define READ_TRACE(x, e) read_trace_pl(x, e)
+#    define CLOSE_TRACE(x) close_trace_pl(x)
+#    define READER struct reader_pl
 
 #endif
 
 
 #define BENCHMARK_OPTION(ACTION)                                               \
-    ACTION(trace_path, OPTION_TYPE_STR, "trace.bin", "path to the trace")      \
+    ACTION(warmup_trace_path, OPTION_TYPE_STR, "", "path to the trace")        \
+    ACTION(eval_trace_path, OPTION_TYPE_STR, "trace.bin", "path to the trace") \
     ACTION(per_op_latency, OPTION_TYPE_BOOL, true, "Collect latency samples")  \
     ACTION(debug_logging, OPTION_TYPE_BOOL, true, "turn on debug logging")
 
@@ -64,9 +65,9 @@ static rstatus_i
 benchmark_create(struct benchmark *b, const char *config)
 {
     memset(b, 0, sizeof(*b));
-//    b->entries = cc_zalloc(sizeof(struct benchmark_entry) * 1);
-//    b->entries->key = cc_zalloc(MAX_KEY_LEN);
-//    ASSERT(b->entries->key != NULL);
+    //    b->entries = cc_zalloc(sizeof(struct benchmark_entry) * 1);
+    //    b->entries->key = cc_zalloc(MAX_KEY_LEN);
+    //    ASSERT(b->entries->key != NULL);
 
     unsigned nopts = OPTION_CARDINALITY(struct replay_specific);
 
@@ -107,7 +108,7 @@ benchmark_create(struct benchmark *b, const char *config)
         }
     }
 
-    b->reader = OPEN_TRACE(O_STR(b, trace_path));
+    b->reader = OPEN_TRACE(O_STR(b, eval_trace_path));
     if (b->reader == NULL) {
         log_stderr("failed to open trace");
         exit(EX_CONFIG);
@@ -131,8 +132,8 @@ benchmark_create(struct benchmark *b, const char *config)
 static void
 benchmark_destroy(struct benchmark *b)
 {
-//    cc_free(b->entries->key);
-//    cc_free(b->entries);
+    //    cc_free(b->entries->key);
+    //    cc_free(b->entries);
 
     if (O_BOOL(b, per_op_latency)) {
         cc_free(b->latency.samples);

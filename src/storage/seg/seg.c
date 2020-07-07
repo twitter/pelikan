@@ -1,4 +1,5 @@
 #include "seg.h"
+#include "background.h"
 #include "constant.h"
 #include "datapool/datapool.h"
 #include "hashtable.h"
@@ -22,9 +23,8 @@ extern struct setting setting;
 
 struct seg_heapinfo heap; /* info of all allocated segs */
 struct ttl_bucket ttl_buckets[MAX_TTL_BUCKET];
-static uint32_t hash_power = HASH_POWER;
+//static uint32_t hash_power = HASH_POWER;
 struct hash_table *hash_table = NULL;
-struct locktable cas_table;
 
 
 static bool seg_initialized = false;
@@ -34,7 +34,7 @@ seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
 
 proc_time_i flush_at = -1;
 bool use_cas = false;
-
+bool stop = false;
 
 void
 _seg_print(int32_t seg_id)
@@ -42,11 +42,11 @@ _seg_print(int32_t seg_id)
     struct seg *seg = &heap.segs[seg_id];
 
     log_debug("seg id %" PRIu32 " seg size %zu, create_at time %" PRId32
-         ", ttl %" PRId32 ", initialized %u, "
-         "%" PRIu32 " items, write offset %" PRIu32 ", occupied size "
-         "%" PRIu32 ", n_hit %" PRIu32 ", n_hit_last %" PRIu32 ", read "
-         "refcount "
-         "%" PRIu32 ", write refcount %" PRIu32,
+              ", ttl %" PRId32 ", initialized %u, "
+              "%" PRIu32 " items, write offset %" PRIu32 ", occupied size "
+              "%" PRIu32 ", n_hit %" PRIu32 ", n_hit_last %" PRIu32 ", read "
+              "refcount "
+              "%" PRIu32 ", write refcount %" PRIu32,
             seg->seg_id, heap.seg_size, seg->create_at, seg->ttl,
             seg->initialized, seg->n_item, seg->write_offset,
             seg->occupied_size, seg->n_hit, seg->n_hit_last,
@@ -57,7 +57,6 @@ _seg_print(int32_t seg_id)
 static inline void
 _debug_print_seg_list(void)
 {
-    log_debug("free seg %d\n", heap.free_seg_id);
     for (int i = 0; i < MAX_TTL_BUCKET; i++) {
         struct ttl_bucket *ttl_bucket = &ttl_buckets[i];
         if (ttl_bucket->first_seg_id == -1)
@@ -68,6 +67,29 @@ _debug_print_seg_list(void)
     for (int i = 0; i < heap.max_nseg; i++)
         log_debug("seg %d: prev %d next %d\n", i, heap.segs[i].prev_seg_id,
                 heap.segs[i].next_seg_id);
+}
+
+void
+dump_seg_info(void)
+{
+    uint32_t seg_id;
+    for (int i = 0; i < MAX_TTL_BUCKET; i++) {
+        struct ttl_bucket *ttl_bucket = &ttl_buckets[i];
+        if (ttl_bucket->first_seg_id == -1)
+            continue;
+        printf("ttl bucket %d (%16" PRId32 ") first seg %d last seg %d, "
+                                           "seg_id/create_at/n_hit",
+                i, ttl_bucket->ttl, ttl_bucket->first_seg_id,
+                ttl_bucket->last_seg_id);
+        seg_id = ttl_bucket->first_seg_id;
+        while (seg_id != -1) {
+            printf("%" PRId32 "/%" PRId32 "/%" PRId32 ", ",
+                    heap.segs[seg_id].seg_id, heap.segs[seg_id].create_at,
+                    heap.segs[seg_id].n_hit);
+            seg_id = heap.segs[seg_id].next_seg_id;
+        }
+        printf("\n");
+    }
 }
 
 /* when we want to evict/remove a seg, we need to make sure no other
@@ -442,8 +464,9 @@ seg_rm_all_item(int32_t seg_id)
     struct ttl_bucket *ttl_bucket = &ttl_buckets[find_ttl_bucket_idx(seg->ttl)];
     uint32_t offset = __atomic_load_n(&seg->write_offset, __ATOMIC_RELAXED);
 
-    log_debug("evict seg %" PRIu32 ", read refcount %" PRIu32 ", write refcount "
-             "%" PRIu32 ", write offset %" PRIu32 ", occupied size %" PRIu32,
+    log_debug("evict seg %" PRIu32 ", read refcount %" PRIu32 ", write "
+                                                              "refcount "
+              "%" PRIu32 ", write offset %" PRIu32 ", occupied size %" PRIu32,
             seg_id, __atomic_load_n(&(seg->r_refcount), __ATOMIC_RELAXED),
             __atomic_load_n(&(seg->w_refcount), __ATOMIC_RELAXED),
             __atomic_load_n(&(seg->write_offset), __ATOMIC_RELAXED),
@@ -622,7 +645,7 @@ _seg_get_from_free_pool(void)
     seg_id_ret = heap.free_seg_id;
     next_seg_id = heap.segs[seg_id_ret].next_seg_id;
     heap.free_seg_id = next_seg_id;
-    if (next_seg_id != -1){
+    if (next_seg_id != -1) {
         heap.segs[next_seg_id].prev_seg_id = -1; /* not necessary */
     }
 
@@ -635,12 +658,16 @@ _seg_get_from_free_pool(void)
     return seg_id_ret;
 }
 
-/* return evicted seg to global pool, this function is called
- * after caller grabbed the lock */
+/**
+ * return evicted seg to global pool,
+ * caller should grab the global lock before calling this function
+ **/
 void
 seg_return_seg(int32_t seg_id)
 {
     log_debug("return seg %" PRId32 " to global free pool", seg_id);
+
+    ASSERT(pthread_mutex_trylock(&heap.mtx) != 0);
 
     int32_t curr_seg_id, next_seg_id;
     struct seg *seg = &heap.segs[seg_id];
@@ -727,11 +754,13 @@ _setup_heap_mem(void)
 
     heap.pool = datapool_open(heap.poolpath, heap.poolname, heap.heap_size,
             &datapool_fresh, false);
+
     if (heap.pool == NULL || datapool_addr(heap.pool) == NULL) {
         log_crit("create datapool failed: %s - %zu bytes for %" PRIu32 " segs",
                 strerror(errno), heap.heap_size, heap.max_nseg);
         exit(EX_CONFIG);
     }
+
     log_info("pre-allocated %zu bytes for %" PRIu32 " segs", heap.heap_size,
             heap.max_nseg);
 
@@ -812,7 +841,7 @@ seg_rm_expired_seg(int32_t seg_id)
     seg_return_seg(seg_id);
     pthread_mutex_unlock(&heap.mtx);
 
-//    _seg_init(seg_id);
+    //    _seg_init(seg_id);
 }
 
 
@@ -820,6 +849,8 @@ void
 seg_teardown(void)
 {
     log_info("tear down the %s module", SEG_MODULE_NAME);
+
+    stop = true;
 
     if (!seg_initialized) {
         log_warn("%s has never been set up", SEG_MODULE_NAME);
@@ -830,7 +861,7 @@ seg_teardown(void)
     _sync_seg_hdr();
 
     segevict_teardown();
-    locktable_teardown(&cas_table);
+//    locktable_teardown(&cas_table);
     ttl_bucket_teardown();
 
     seg_metrics = NULL;
@@ -860,6 +891,7 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
     }
 
     flush_at = -1;
+    stop = false;
 
     seg_options = options;
     heap.seg_size = option_uint(&options->seg_size);
@@ -875,8 +907,7 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
 
     use_cas = option_bool(&options->seg_use_cas);
 
-    hash_power = option_uint(&seg_options->seg_hash_power);
-    hash_table = hashtable_create(hash_power);
+    hash_table = hashtable_create(option_uint(&seg_options->seg_hash_power));
     if (hash_table == NULL) {
         log_crit("Could not create hash table");
         goto error;
@@ -889,10 +920,11 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
 
     ttl_bucket_setup();
 
-    locktable_create(&cas_table, LOCKTABLE_HASHPOWER);
+//    locktable_create(&cas_table, LOCKTABLE_HASHPOWER);
 
     segevict_setup(option_uint(&options->seg_evict_opt), heap.max_nseg);
 
+    start_background_thread(NULL);
 
     seg_initialized = true;
 

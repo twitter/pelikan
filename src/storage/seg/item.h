@@ -1,6 +1,6 @@
 #pragma once
 
-#include "locktable.h"
+#include "constant.h"
 
 #include <cc_bstring.h>
 #include <cc_metric.h>
@@ -198,29 +198,29 @@ item_decr(uint64_t *vint, struct item *it, uint64_t delta);
 void
 item_release(struct item *it);
 
-/* TODO(jason): we may want to avoid repeated hash computation,
- * and use the same function from hashtable */
-static inline uint32_t
-_item_get_hv(struct item *it)
-{
-    static uint32_t murmur3_iv = 0x3ac5d673;
-    uint32_t hv;
-    hash_murmur3_32(item_key(it), it->klen, murmur3_iv, &hv);
-    return hv;
-}
-
-/* TODO(jason): merge cas table with hashtable */
-static inline uint32_t
-item_get_cas(struct item *it)
-{
-    return get_cas(&cas_table, _item_get_hv(it));
-}
-
-static inline void
-item_set_cas(struct item *it)
-{
-    set_cas(&cas_table, _item_get_hv(it));
-}
+///* TODO(jason): we may want to avoid repeated hash computation,
+// * and use the same function from hashtable */
+//static inline uint32_t
+//_item_get_hv(struct item *it)
+//{
+//    static uint32_t murmur3_iv = 0x3ac5d673;
+//    uint32_t hv;
+//    hash_murmur3_32(item_key(it), it->klen, murmur3_iv, &hv);
+//    return hv;
+//}
+//
+///* TODO(jason): merge cas table with hashtable */
+//static inline uint32_t
+//item_get_cas(struct item *it)
+//{
+//    return get_cas(&cas_table, _item_get_hv(it));
+//}
+//
+//static inline void
+//item_set_cas(struct item *it)
+//{
+//    set_cas(&cas_table, _item_get_hv(it));
+//}
 
 /* check the existence of an item, this is different from
  * item_get in that this one does not incr ref_count,

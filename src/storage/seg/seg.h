@@ -10,6 +10,7 @@
 #include <cc_option.h>
 #include <cc_util.h>
 #include <time/cc_timer.h>
+#include <time/cc_wheel.h>
 
 
 #include <pthread.h>
@@ -267,29 +268,6 @@ seg_is_locked(struct seg *seg)
 }
 
 
-// static inline bool
-// seg_ref(struct seg *seg)
-//{
-//    if (!seg_is_locked(seg)) {
-//        /* this does not strictly prevent race condition, but it is fine
-//         * because letting one reader passes when the segment is locking
-//         * has no problem in correctness */
-//        __atomic_fetch_add(&seg->refcount, 1, __ATOMIC_RELAXED);
-//        return true;
-//    }
-//
-//    return false;
-//}
-//
-// static inline void
-// seg_deref(struct seg *seg)
-//{
-//
-//    uint32_t ref = __atomic_sub_fetch(&seg->refcount, 1, __ATOMIC_RELAXED);
-//    ASSERT(    ref >=0);
-//
-//}
-
 static inline uint8_t *
 seg_get_data_start(int32_t seg_id)
 {
@@ -327,3 +305,6 @@ seg_rm_expired_seg(int32_t seg_id);
 
 void
 _seg_print(int32_t seg_id);
+
+void
+dump_seg_info(void);
