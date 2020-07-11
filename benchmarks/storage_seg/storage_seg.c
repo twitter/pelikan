@@ -52,7 +52,7 @@ bench_storage_get(struct benchmark_entry *e)
 {
     struct bstring key = {.data=e->key, .len=e->key_len};
 
-    struct item *it = item_get(&key);
+    struct item *it = item_get(&key, NULL);
 
     rstatus_i status = it != NULL ? CC_OK : CC_EEMPTY;
 
@@ -87,7 +87,7 @@ bench_storage_incr(struct benchmark_entry *e)
     struct bstring key = {.data=e->key, .len=e->key_len};
     uint64_t vint;
 
-    struct item *it = item_get(&key);
+    struct item *it = item_get(&key, NULL);
     rstatus_i status = item_incr(&vint, it, e->delta) == ITEM_OK? CC_OK : CC_ERROR;
     item_release(it);
 
@@ -100,7 +100,7 @@ bench_storage_decr(struct benchmark_entry *e)
     struct bstring key = {.data=e->key, .len=e->key_len};
     uint64_t vint;
 
-    struct item *it = item_get(&key);
+    struct item *it = item_get(&key, NULL);
     rstatus_i status = item_decr(&vint, it, e->delta) == ITEM_OK? CC_OK : CC_ERROR;
     item_release(it);
 
@@ -129,7 +129,7 @@ bench_storage_add(struct benchmark_entry *e)
     struct bstring key = {.data=e->key, .len=e->key_len};
     struct item *it;
 
-    it = item_check_existence(&key);
+    it = item_check_existence(&key, NULL);
     if (it != NULL){
         return CC_OK;
     }
@@ -140,7 +140,7 @@ bench_storage_add(struct benchmark_entry *e)
     if (status != ITEM_OK)
         return CC_ENOMEM;
 
-    item_insert(it);
+    item_insert_or_update(it);
 
     return CC_OK;
 }
@@ -150,13 +150,12 @@ bench_storage_cas(struct benchmark_entry *e)
 {
     struct bstring key = {.data=e->key, .len=e->key_len};
     struct item *oit, *nit;
+    uint64_t cas;
 
-    oit = item_check_existence(&key);
+    oit = item_check_existence(&key, &cas);
     if (oit == NULL){
         return CC_ERROR;
     }
-
-//    uint32_t cas = item_get_cas(it);
 
     struct bstring val = {.data=e->val, .len=e->val_len};
     item_rstatus_e status = item_reserve(&nit, &key, &val, val.len, 0, e->expire_at);
@@ -175,7 +174,7 @@ bench_storage_replace(struct benchmark_entry *e)
     struct bstring key = {.data=e->key, .len=e->key_len};
     struct item *it;
 
-    it = item_check_existence(&key);
+    it = item_check_existence(&key, NULL);
     if (it == NULL){
         return CC_OK;
     }
@@ -186,7 +185,7 @@ bench_storage_replace(struct benchmark_entry *e)
     if (status != ITEM_OK)
         return CC_ENOMEM;
 
-    item_update(it);
+    item_insert_or_update(it);
 
     return CC_OK;
 }

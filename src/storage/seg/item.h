@@ -172,7 +172,7 @@ item_size(uint32_t klen, uint32_t vlen, uint32_t olen)
 static inline size_t
 item_ntotal(const struct item *it)
 {
-    size_t sz = ITEM_HDR_SIZE + item_nkey(it) + item_olen(it) + item_nval(it);
+    size_t sz = ITEM_HDR_SIZE + it->klen + it->olen + item_nval(it);
 
     /* we need to make sure memory is aligned at 8-byte boundary */
     return item_size_roundup(sz);
@@ -198,43 +198,27 @@ item_decr(uint64_t *vint, struct item *it, uint64_t delta);
 void
 item_release(struct item *it);
 
-///* TODO(jason): we may want to avoid repeated hash computation,
-// * and use the same function from hashtable */
-//static inline uint32_t
-//_item_get_hv(struct item *it)
-//{
-//    static uint32_t murmur3_iv = 0x3ac5d673;
-//    uint32_t hv;
-//    hash_murmur3_32(item_key(it), it->klen, murmur3_iv, &hv);
-//    return hv;
-//}
-//
-///* TODO(jason): merge cas table with hashtable */
-//static inline uint32_t
-//item_get_cas(struct item *it)
-//{
-//    return get_cas(&cas_table, _item_get_hv(it));
-//}
-//
-//static inline void
-//item_set_cas(struct item *it)
-//{
-//    set_cas(&cas_table, _item_get_hv(it));
-//}
 
 /* check the existence of an item, this is different from
  * item_get in that this one does not incr ref_count,
  * so we should not use the returned item */
 struct item *
-item_check_existence(const struct bstring *key);
+item_check_existence(const struct bstring *key, uint64_t *cas);
 
 /* acquire an item */
 struct item *
-item_get(const struct bstring *key);
+item_get(const struct bstring *key, uint64_t *cas);
+
+/* this function does insert or update,
+ * the other function exists simply to reduce one hashtable lookup */
+void
+item_insert_or_update(struct item *it);
 
 /* insert an item, this functions assumes the item is not the hashtable */
-void
-item_insert(struct item *it);
+static inline void
+item_insert(struct item *it) {
+    item_insert_or_update(it);
+}
 
 /* reserve an item, this does not link it or remove existing item with the same
  * key.
@@ -253,11 +237,6 @@ item_backfill(struct item *it, const struct bstring *val);
 void
 item_update(struct item *it);
 
-/* this function does insert or update,
- * the other function exists simply to reduce one hashtable lookup */
-void
-item_insert_or_update(struct item *it);
-
 /* Remove item from cache */
 bool
 item_delete(const struct bstring *key);
@@ -268,6 +247,10 @@ item_delete_it(struct item *it_to_del);
 /* remove oit from hashtable and insert nit */
 void
 item_relink(struct item *oit, struct item *nit);
+
+
+void
+item_free(struct item *it);
 
 /* flush the cache */
 void

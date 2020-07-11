@@ -95,9 +95,9 @@ benchmark_create(struct benchmark *b, const char *config)
         }
     }
 
-    if (O(b, entry_min_size) <= sizeof(benchmark_key_u)) {
+    if (O(b, entry_min_size) <= sizeof(uint32_t)) {
         log_crit(
-                "entry_min_size must larger than %lu", sizeof(benchmark_key_u));
+                "entry_min_size must larger than %lu", sizeof(uint32_t));
         cc_free(b->options);
 
         return CC_EINVAL;
@@ -126,7 +126,7 @@ benchmark_destroy(struct benchmark *b)
 }
 
 static struct benchmark_entry
-benchmark_entry_create(benchmark_key_u key, size_t size)
+benchmark_entry_create(uint32_t key, size_t size)
 {
     struct benchmark_entry e;
     e.key_len = sizeof(key);
@@ -136,7 +136,7 @@ benchmark_entry_create(benchmark_key_u key, size_t size)
     e.val = cc_alloc(e.val_len);
     ASSERT(e.val != NULL);
 
-    int ret = snprintf(e.key, e.key_len, "%zu", key);
+    int ret = snprintf(e.key, e.key_len, "%"PRIu32, key);
     ASSERT(ret > 0);
 
     memset(e.val, 'a', e.val_len);

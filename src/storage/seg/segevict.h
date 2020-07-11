@@ -5,6 +5,7 @@
 
 #include <time/time.h>
 #include <cc_mm.h>
+#include <pthread.h>
 
 typedef enum {
     EVICT_NONE = 0,
@@ -31,6 +32,7 @@ struct seg_evict_info {
     uint32_t nseg;
     uint32_t *ranked_seg_id;  /* the least valuable to the most valuable */
     uint32_t idx_rseg;     /* curr index in ranked seg id array */
+    pthread_mutex_t mtx;
 };
 
 

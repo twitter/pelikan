@@ -5,8 +5,6 @@
 
 #include "cc_mm.h"
 
-#define _GNU_SOURCE
-
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -68,8 +66,6 @@ _reader_thread(void *data)
     int64_t read_pos;
 
     set_thread_affinity(thread_idx);
-
-    static int64_t max_cnt = 0;
 
     int eof = 0;
     while (eof == 0) {

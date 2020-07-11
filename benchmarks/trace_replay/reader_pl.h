@@ -24,7 +24,7 @@ struct reader_pl {
 };
 
 
-static inline struct reader_pl *
+static struct reader_pl *
 open_trace_pl(const char *trace_path)
 {
     struct reader *reader = open_trace(trace_path);
@@ -65,7 +65,7 @@ read_trace_pl(struct reader_pl *reader_pl, struct benchmark_entry **e)
     return 0;
 }
 
-static inline void
+static void
 close_trace_pl(struct reader_pl *reader_pl)
 {
     for (int64_t i=0; i<reader_pl->n_total_req; i++)

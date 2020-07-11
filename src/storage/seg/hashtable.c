@@ -16,24 +16,55 @@
 
 extern seg_metrics_st *seg_metrics;
 extern bool use_cas;
+extern struct hash_table *hash_table;
 
 static uint32_t murmur3_iv = 0x3ac5d673;
-static struct hash_table lock_table;
-// static struct hash_table cas_table;
 
-// add -mlzcnt to gcc flag list
-//#ifdef __LZCNT__
-// uint32_t h = 63 - __lzcnt64(v);
-//#else
-// uint32_t h = 63 - __builtin_clzll(v);
-//#endif
 
+#define get_hv(key, klen) _get_hv_xxhash(key, klen)
+//#define get_hv(key, klen) _get_hv_murmur3(key, klen)
 
 #define get_bucket(hv, ht) (&((ht)->table[(hv)&HASHMASK((ht)->hash_power)]))
 #define get_cas(hv, ht) ((ht)->cas_table[(hv)&HASHMASK((ht)->cas_table_hp)])
 #define set_cas(hv, ht)                                                        \
     __atomic_add_fetch(&((ht)->cas_table[(hv)&HASHMASK((ht)->cas_table_hp)]),  \
             1, __ATOMIC_RELAXED)
+
+#define mtx_lock(hv, ht)                                                       \
+    do {                                                                       \
+        int status = pthread_mutex_lock(                                       \
+                &(ht)->mtx_table[(hv)&HASHMASK((ht)->lock_table_hp)]);         \
+        ASSERT(status == 0);                                                   \
+    } while (0)
+
+#define mtx_unlock(hv, ht)                                                     \
+    do {                                                                       \
+        int status = pthread_mutex_unlock(                                     \
+                &(ht)->mtx_table[(hv)&HASHMASK((ht)->lock_table_hp)]);         \
+        ASSERT(status == 0);                                                   \
+    } while (0)
+
+/*
+#undef mtx_lock
+#undef mtx_unlock
+
+#define mtx_lock(hv, ht)                                                       \
+    do {                                                                       \
+        pthread_mutex_lock(                                                    \
+                &(ht)->mtx_table[(hv)&HASHMASK((ht)->lock_table_hp)]);         \
+        printf("lock %s:%d\n", __FUNCTION__, __LINE__);                        \
+    } while (0)
+#define mtx_unlock(hv, ht)                                                     \
+    do {                                                                       \
+        pthread_mutex_unlock(                                                  \
+                &(ht)->mtx_table[(hv)&HASHMASK((ht)->lock_table_hp)]);         \
+        printf("unlock %s:%d\n", __FUNCTION__, __LINE__);                      \
+    } while (0)
+*/
+
+
+//#define mtx_lock(hv, ht)
+//#define mtx_unlock(hv, ht)
 
 /*
  * Allocate table given size
@@ -92,6 +123,7 @@ hashtable_create(uint32_t hash_power)
     n_entry = (uint32_t)HASHSIZE(ht->cas_table_hp);
     ht->cas_table = cc_zalloc(sizeof(uint32_t) * n_entry);
     if (ht->cas_table == NULL) {
+        cc_free(ht->table);
         cc_free(ht);
         return NULL;
     }
@@ -101,9 +133,28 @@ hashtable_create(uint32_t hash_power)
     n_entry = (uint32_t)HASHSIZE(ht->lock_table_hp);
     ht->lock_table = cc_zalloc(sizeof(uint32_t) * n_entry);
     if (ht->lock_table == NULL) {
+        cc_free(ht->table);
+        cc_free(ht->cas_table);
         cc_free(ht);
         return NULL;
     }
+
+    /* create mtx table */
+    ht->lock_table_hp = LOCKTABLE_HASHPOWER;
+    n_entry = (uint32_t)HASHSIZE(ht->lock_table_hp);
+    ht->mtx_table = cc_alloc(sizeof(pthread_mutex_t) * n_entry);
+    if (ht->mtx_table == NULL) {
+        cc_free(ht->table);
+        cc_free(ht->cas_table);
+        cc_free(ht->lock_table);
+        cc_free(ht);
+        return NULL;
+    }
+
+    for (uint32_t i = 0; i < n_entry; i++) {
+        pthread_mutex_init(&ht->mtx_table[i], NULL);
+    }
+
 
     log_info("create hash table of size %zu", size);
     return ht;
@@ -146,40 +197,97 @@ hashtable_put(struct item *it, struct hash_table *ht)
 {
     struct item_slh *bucket;
 
-    ASSERT(hashtable_get(item_key(it), it->klen, ht, NULL) == NULL);
+    uint64_t hv = get_hv(item_key(it), it->klen);
+
+    bucket = get_bucket(hv, ht);
+
+    if (use_cas) {
+        /* update cas_table */
+        set_cas(hv, ht);
+    }
+
+    mtx_lock(hv, ht);
+
+    SLIST_INSERT_HEAD(bucket, it, hash_next);
+    mtx_unlock(hv, ht);
+
+
+    INCR(seg_metrics, hash_insert);
+}
+
+
+bool
+hashtable_del_and_put(struct item *it, struct hash_table *ht)
+{
+    struct item_slh *bucket;
+    struct item *curr, *prev;
+    bool found_old = false;
 
     uint64_t hv = get_hv(item_key(it), it->klen);
 
     bucket = get_bucket(hv, ht);
 
-    if (use_cas){
+    if (use_cas) {
         /* update cas_table */
         set_cas(hv, ht);
     }
 
+    uint32_t klen = item_nkey(it);
+    char *key = item_key(it);
 
+    mtx_lock(hv, ht);
+
+    /* now delete */
+    for (prev = NULL, curr = SLIST_FIRST(bucket); curr != NULL;
+            prev = curr, curr = SLIST_NEXT(curr, hash_next)) {
+
+        INCR(seg_metrics, hash_traverse);
+
+        /* iterate through bucket to find item to be removed */
+        if ((klen == curr->klen) && cc_memcmp(key, item_key(curr), klen) == 0) {
+            /* found item */
+            if (prev == NULL) {
+                SLIST_REMOVE_HEAD(bucket, hash_next);
+            } else {
+                SLIST_REMOVE_AFTER(prev, hash_next);
+            }
+            found_old = true;
+
+            item_free(curr);
+
+            INCR(seg_metrics, hash_remove);
+
+            break;
+        }
+    }
+
+    /* now insert */
     SLIST_INSERT_HEAD(bucket, it, hash_next);
-//    SLIST_NEXT((elm), field) = SLIST_FIRST((head));
-//    SLIST_FIRST((head)) = (elm);
+
+    mtx_unlock(hv, ht);
 
 
     INCR(seg_metrics, hash_insert);
 
+    return found_old;
 }
-
 bool
-hashtable_delete(const char *key, uint32_t klen, struct hash_table *ht,
-        bool try_del, struct item **it_p)
+hashtable_delete(
+        const char *key, uint32_t klen, struct hash_table *ht, bool try_del)
 {
     struct item_slh *bucket;
     struct item *it, *prev;
+    bool deleted = false;
 
     uint64_t hv = get_hv(key, klen);
 
     bucket = get_bucket(hv, ht);
 
+    mtx_lock(hv, ht);
+
     for (prev = NULL, it = SLIST_FIRST(bucket); it != NULL;
             prev = it, it = SLIST_NEXT(it, hash_next)) {
+
         INCR(seg_metrics, hash_traverse);
 
         /* iterate through bucket to find item to be removed */
@@ -195,19 +303,24 @@ hashtable_delete(const char *key, uint32_t klen, struct hash_table *ht,
         } else {
             SLIST_REMOVE_AFTER(prev, hash_next);
         }
+        deleted = true;
 
-        if (it_p != NULL) {
-            *it_p = it;
-        }
+        /* this has to be done wihtin critical section,
+         * we need to either move the lock to item.c
+         * or do item_free here, I prefer the later because this makes
+         * the critical section shorter */
+
+        item_free(it);
 
         INCR(seg_metrics, hash_remove);
 
-        return true;
     } else {
         ASSERT(try_del);
-
-        return false;
     }
+
+    mtx_unlock(hv, ht);
+
+    return deleted;
 }
 
 /*
@@ -218,10 +331,13 @@ hashtable_delete_it(struct item *oit, struct hash_table *ht)
 {
     struct item_slh *bucket;
     struct item *it, *prev;
+    bool deleted = false;
 
     uint64_t hv = get_hv(item_key(oit), item_nkey(oit));
 
     bucket = get_bucket(hv, ht);
+
+    mtx_lock(hv, ht);
 
     for (prev = NULL, it = SLIST_FIRST(bucket); it != NULL;
             prev = it, it = SLIST_NEXT(it, hash_next)) {
@@ -236,12 +352,19 @@ hashtable_delete_it(struct item *oit, struct hash_table *ht)
                 SLIST_REMOVE_AFTER(prev, hash_next);
             }
 
+            deleted = true;
+
+            item_free(oit);
+
             INCR(seg_metrics, hash_remove);
 
-            return true;
+            break;
         }
     }
-    return false;
+
+    mtx_unlock(hv, ht);
+
+    return deleted;
 }
 
 struct item *
@@ -249,7 +372,7 @@ hashtable_get(
         const char *key, uint32_t klen, struct hash_table *ht, uint64_t *cas)
 {
     struct item_slh *bucket;
-    struct item *it;
+    struct item *it = NULL;
 
     ASSERT(key != NULL);
     ASSERT(klen != 0);
@@ -264,17 +387,21 @@ hashtable_get(
         *cas = get_cas(hv, ht);
     }
 
+    mtx_lock(hv, ht);
+
     /* iterate through bucket looking for item */
     for (it = SLIST_FIRST(bucket); it != NULL; it = SLIST_NEXT(it, hash_next)) {
         INCR(seg_metrics, hash_traverse);
 
         if ((klen == it->klen) && cc_memcmp(key, item_key(it), klen) == 0) {
             /* found item */
-            return it;
+            break;
         }
     }
 
-    return NULL;
+    mtx_unlock(hv, ht);
+
+    return it;
 }
 
 /*
@@ -317,4 +444,49 @@ hashtable_double(struct hash_table *ht)
     hashtable_destroy(&ht);
 
     return new_ht;
+}
+
+void
+hashtable_print_chain_depth_hist(void)
+{
+#define MAX_DEPTH 20000
+    struct hash_table *ht = hash_table;
+    uint64_t n_item = HASHSIZE(ht->hash_power);
+    uint64_t n_active_item = 0, n_active_bucket = 0;
+    uint64_t i;
+    uint32_t depth, max_depth = 0;
+    struct item *it;
+    uint32_t hist[MAX_DEPTH];
+
+
+    for (i = 0; i < n_item; i++) {
+        depth = 0;
+        for (it = SLIST_FIRST(&ht->table[i]); it != NULL;
+                it = SLIST_NEXT(it, hash_next)) {
+            depth += 1;
+            n_active_item += 1;
+        }
+        if (depth > max_depth)
+            max_depth = depth;
+        if (depth > MAX_DEPTH)
+            depth = MAX_DEPTH - 1;
+        hist[depth] += 1;
+        n_active_bucket += 1;
+    }
+
+    double load = (double)n_active_item / n_item;
+    printf("hashtable hash chain depth hist, load %.2lf - depth: count\n",
+            load);
+    uint32_t print_cnt = 0;
+    for (i = 0; i < max_depth; i++) {
+        if (hist[i] != 0) {
+            print_cnt += 1;
+            printf("%" PRIu64 ": %" PRIu32 "(%.4lf), ", i, hist[i],
+                    (double)hist[i] / n_active_bucket);
+            if (print_cnt % 20 == 0)
+                printf("\n");
+        }
+    }
+
+    printf("\n");
 }

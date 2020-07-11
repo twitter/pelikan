@@ -127,7 +127,7 @@ read_trace(struct reader *reader, struct benchmark_entry **e)
 
     char *mmap = reader->mmap + offset;
     uint32_t ts = *(uint32_t *)mmap;
-    proc_sec = ts;
+    __atomic_store_n(&proc_sec, ts, __ATOMIC_RELAXED);
     mmap += 4;
 
     uint64_t key = *(uint64_t *)mmap;
@@ -138,6 +138,7 @@ read_trace(struct reader *reader, struct benchmark_entry **e)
 
     uint_fast16_t key_len = (kv_len >> 22) & (0x00000400 - 1);
     uint32_t val_len = kv_len & (0x00400000 - 1);
+//    val_len = 300*1024;
 
     if (key_len == 0){
         log_warn("trace contains request of key size 0, object id %" PRIu64, key);
@@ -154,8 +155,6 @@ read_trace(struct reader *reader, struct benchmark_entry **e)
 
     int ret = snprintf((*e)->key, key_len + 1, "%12lu_%.*s",
             (unsigned long)key, (int)key_len - 13, key_array);
-//    int ret = snprintf(e->key, key_len, "%12lu_%.*s",
-//            (unsigned long)key, (int)key_len - 14, key_array);
     ASSERT(ret > 0);
 
 //    printf("klen %d vlen %d %s\n", key_len, val_len, e->key);
@@ -167,6 +166,12 @@ read_trace(struct reader *reader, struct benchmark_entry **e)
     (*e)->expire_at = ts + ttl;
 
     return 0;
+}
+
+struct reader * clone_reader(struct reader *reader) {
+    struct reader *cloned_reader = cc_zalloc(sizeof(struct reader));
+    memcpy(cloned_reader, reader, sizeof(struct reader));
+    return cloned_reader;
 }
 
 void

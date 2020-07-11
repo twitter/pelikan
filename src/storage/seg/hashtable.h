@@ -2,24 +2,30 @@
 
 #include "item.h"
 
+#include <pthread.h>
+
 struct hash_table {
     struct item_slh *table;
     uint32_t *cas_table;        /* used for cas and hash table lock */
     uint32_t cas_table_hp;      /* cas table hash power */
     uint32_t *lock_table;
     uint32_t lock_table_hp;
+    pthread_mutex_t *mtx_table;
+
     uint32_t hash_power;
 };
 
 #define HASHSIZE(_n) (1ULL << (_n))
 #define HASHMASK(_n) (HASHSIZE(_n) - 1)
-#define get_hv(key, klen) _get_hv_xxhash(key, klen)
 
 
 struct hash_table *
 hashtable_create(uint32_t hash_power);
 void
 hashtable_destroy(struct hash_table **ht_p);
+
+
+bool hashtable_del_and_put(struct item *it, struct hash_table *ht);
 
 void
 hashtable_put(struct item *it, struct hash_table *ht);
@@ -30,7 +36,7 @@ hashtable_put(struct item *it, struct hash_table *ht);
  * the item has not been wiped from segment */
 bool
 hashtable_delete(const char *key, uint32_t klen, struct hash_table *ht,
-        bool try_del, struct item **it);
+        bool try_del);
 
 /*
  * delete the hashtable entry only if item is the up-to-date/valid item
@@ -45,6 +51,8 @@ hashtable_get(const char *key, uint32_t klen, struct hash_table *ht, uint64_t *c
 struct hash_table *
 hashtable_double(struct hash_table *ht); /* best effort expansion */
 
+void
+hashtable_print_chain_depth_hist(void);
 
 //static inline uint32_t
 //get_cas(struct locktable *ltable, uint32_t hv)

@@ -9,10 +9,6 @@
 #include <stddef.h>
 
 
-static const char *op_names[op_invalid + 1] = {"get", "gets", "set", "add",
-        "cas", "replace", "append", "prepend", "delete", "incr", "decr",
-        "cache_miss", "invalid"};
-
 /* shared functions */
 void
 benchmark_print_summary(
@@ -68,49 +64,20 @@ benchmark_run_operation(
         struct benchmark *b, struct benchmark_entry *e, bool per_op_latency)
 {
     rstatus_i status = CC_OK;
+    size_t nsample;
+    struct operation_latency *latency;
 
     log_verb("** start a new request key %.*s, op %s, ttl %" PRId32, e->key_len,
             e->key, op_names[e->op], e->expire_at - proc_sec);
-    struct operation_latency *latency = &b->latency;
-    size_t nsample = __atomic_fetch_add(&latency->count, 1, __ATOMIC_RELAXED);
+
+    latency = &b->latency;
+    nsample = __atomic_fetch_add(&latency->count, 1, __ATOMIC_RELAXED);
 
     if (per_op_latency) {
         duration_start_type(&latency->samples[nsample], DURATION_FAST);
     }
 
-    switch (e->op) {
-    case op_get:
-        status = bench_storage_get(e);
-        break;
-    case op_gets:
-        status = bench_storage_gets(e);
-        break;
-    case op_set:
-        status = bench_storage_set(e);
-        break;
-    case op_cas:
-        status = bench_storage_cas(e);
-        break;
-    case op_add:
-        status = bench_storage_add(e);
-        break;
-    case op_replace:
-        status = bench_storage_replace(e);
-        break;
-    case op_delete:
-        status = bench_storage_delete(e);
-        break;
-    case op_incr:
-        status = bench_storage_incr(e);
-        break;
-    case op_decr:
-        status = bench_storage_decr(e);
-        break;
-    default:
-        break;
-        log_crit("op %s not implemented", op_names[e->op]);
-        NOT_REACHED();
-    }
+    status = run_op(e);
 
     op_e op = status == CC_OK ? e->op : op_failed;
 
@@ -121,9 +88,6 @@ benchmark_run_operation(
 
     __atomic_fetch_add(&b->op_cnt[op], 1, __ATOMIC_RELAXED);
 
-
-    /* do not assert here because trace_replay could ask for a recently
-     * deleted item */
-    //    ASSERT(status == CC_OK);
     return status;
 }
+

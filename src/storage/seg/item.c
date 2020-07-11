@@ -5,6 +5,7 @@
 
 #include <cc_debug.h>
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -14,13 +15,20 @@ extern seg_metrics_st *seg_metrics;
 extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
 // extern bool use_cas;
 
+#define SANITY_CHECK(it)                                                       \
+    do {                                                                       \
+        ASSERT(it->magic == ITEM_MAGIC);                                       \
+        ASSERT(seg_get_data_start(it->seg_id) != NULL);                        \
+        ASSERT(*(uint64_t *)(seg_get_data_start(it->seg_id)) == SEG_MAGIC);    \
+    } while (0)
+
 static inline bool
 item_expired(struct item *it)
 {
     struct seg *seg = item_to_seg(it);
-    /* seg->locked means being evicted, should not read it */
-    uint8_t locked = __atomic_load_n(&seg->locked, __ATOMIC_RELAXED);
-    bool expired = locked || seg->ttl + seg->create_at < time_proc_sec();
+    /* seg->locked == 1 means being evicted, should not read it */
+    uint8_t locked = __atomic_load_n(&seg->locked, __ATOMIC_SEQ_CST);
+    bool expired = (locked) || seg->ttl + seg->create_at < time_proc_sec();
     expired = expired || seg->create_at <= flush_at;
 
     if (expired && !locked) {
@@ -30,25 +38,16 @@ item_expired(struct item *it)
 }
 
 
-static inline void
-_item_hdr_init(struct item *it)
-{
-#if CC_ASSERT_PANIC == 1 || CC_ASSERT_LOG == 1
-    it->magic = ITEM_MAGIC;
-#endif
-}
-
-
 /*
  * this is only used when migrating or compacting segments
  * it assumes oit is in the hashtable, now we update hashtable entry to new loc
  */
-void
-item_relink(struct item *oit, struct item *nit)
-{
-    hashtable_delete(item_key(oit), oit->klen, hash_table, true, NULL);
-    hashtable_put(nit, hash_table);
-}
+// void
+// item_relink(struct item *oit, struct item *nit)
+//{
+//    hashtable_delete(item_key(oit), oit->klen, hash_table, true);
+//    hashtable_put(nit, hash_table);
+//}
 
 /*
  * verify the integrity of segments, items and hashtable
@@ -78,7 +77,7 @@ _verify_integrity(void)
             ASSERT(it->seg_id == seg_id);
 
             struct bstring key = {.data = item_key(it), .len = item_nkey(it)};
-            it2 = item_get(&key);
+            it2 = item_get(&key, NULL);
             if (it2 != NULL) {
                 /* item might be deleted */
                 ASSERT(item_nkey(it) == item_nkey(it2));
@@ -98,11 +97,11 @@ _item_r_ref(struct item *it)
 {
     struct seg *seg = &heap.segs[it->seg_id];
 
-    if (__atomic_load_n(&seg->locked, __ATOMIC_RELAXED) == 0) {
+    if (__atomic_load_n(&seg->locked, __ATOMIC_SEQ_CST) == 0) {
         /* this does not strictly prevent race condition, but it is fine
          * because letting one reader passes when the segment is locking
          * has no problem in correctness */
-        __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_RELAXED);
+        __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_SEQ_CST);
         return true;
     }
 
@@ -114,7 +113,7 @@ _item_r_deref(struct item *it)
 {
     struct seg *seg = &heap.segs[it->seg_id];
 
-    uint32_t ref = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
+    uint32_t ref = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_SEQ_CST);
 
     ASSERT(ref >= 0);
 }
@@ -124,11 +123,11 @@ _item_w_ref(struct item *it)
 {
     struct seg *seg = &heap.segs[it->seg_id];
 
-    if (__atomic_load_n(&seg->locked, __ATOMIC_RELAXED) == 0) {
+    if (__atomic_load_n(&seg->locked, __ATOMIC_SEQ_CST) == 0) {
         /* this does not strictly prevent race condition, but it is fine
          * because letting one reader passes when the segment is locking
          * has no problem in correctness */
-        __atomic_fetch_add(&seg->w_refcount, 1, __ATOMIC_RELAXED);
+        __atomic_fetch_add(&seg->w_refcount, 1, __ATOMIC_SEQ_CST);
         return true;
     }
 
@@ -140,22 +139,27 @@ _item_w_deref(struct item *it)
 {
     struct seg *seg = &heap.segs[it->seg_id];
 
-    uint32_t ref = __atomic_sub_fetch(&seg->w_refcount, 1, __ATOMIC_RELAXED);
+    uint32_t ref = __atomic_sub_fetch(&seg->w_refcount, 1, __ATOMIC_SEQ_CST);
 
     ASSERT(ref >= 0);
+
+    log_vverb("item %p seg %d w_deref", it, it->seg_id);
 }
 
-static inline void
-_item_free(struct item *it)
+void
+item_free(struct item *it)
 {
-    size_t sz = item_ntotal(it);
     struct seg *seg = item_to_seg(it);
-    __atomic_sub_fetch(&seg->occupied_size, item_ntotal(it), __ATOMIC_RELAXED);
-    __atomic_sub_fetch(&seg->n_item, 1, __ATOMIC_RELAXED);
+    /* this is protected by hashtable lock */
+    //    seg->occupied_size -= item_ntotal(it);
+    //    seg->n_item -= 1;
+    __atomic_sub_fetch(&seg->occupied_size, item_ntotal(it), __ATOMIC_SEQ_CST);
+    __atomic_sub_fetch(&seg->n_item, 1, __ATOMIC_SEQ_CST);
 
     /* TODO(jason): what is the overhead of tracking PERTTL metric
      * consider removing the metrics since we can get them from
      * iterating over all seg headers */
+    uint32_t sz = item_ntotal(it);
     uint16_t ttl_bucket_idx = find_ttl_bucket_idx(seg->ttl);
 
     DECR(seg_metrics, item_curr);
@@ -181,21 +185,35 @@ _item_alloc(uint32_t sz, delta_time_i ttl)
         INCR(seg_metrics, item_alloc_ex);
         log_error("error alloc it %p of size %" PRIu32 " ttl %" PRIu32
                   " (bucket %" PRIu16 ") in seg %" PRIu32,
-                it, sz, ttl, ttl_bucket_idx, it->seg_id);
+                it, sz, ttl, ttl_bucket_idx);
 
         return NULL;
     }
+
+    struct seg *curr_seg = &heap.segs[it->seg_id];
 
     if (!_item_w_ref(it)) {
         /* should be very rare -
          * TTL is shorter than the segment write time */
-        INCR(seg_metrics, item_alloc_ex);
-        log_error("allocated item is about to be evicted");
+        /* roll back seg stat, otherwise at eviction, we will see
+         * inconsistent state */
 
+        INCR(seg_metrics, item_alloc_ex);
+
+        __atomic_sub_fetch(&curr_seg->write_offset, sz, __ATOMIC_SEQ_CST);
+
+        log_warn("allocated item is about to be evicted, seg info ");
+        _seg_print(it->seg_id);
+
+        /* maybe we should retry here */
         return NULL;
     }
 
-    _item_hdr_init(it);
+    uint32_t occupied_size = __atomic_add_fetch(
+            &(curr_seg->occupied_size), sz, __ATOMIC_SEQ_CST);
+    ASSERT(occupied_size <= heap.seg_size);
+
+    __atomic_add_fetch(&curr_seg->n_item, 1, __ATOMIC_SEQ_CST);
 
     INCR(seg_metrics, item_alloc);
     INCR(seg_metrics, item_curr);
@@ -203,84 +221,95 @@ _item_alloc(uint32_t sz, delta_time_i ttl)
     PERTTL_INCR(ttl_bucket_idx, item_curr);
     PERTTL_INCR_N(ttl_bucket_idx, item_curr_bytes, sz);
 
-    log_verb("alloc it %p of size %" PRIu32 " ttl %" PRIu32 " (bucket %" PRIu16
-             ") in seg %" PRIu32,
-
+    log_vverb("alloc it %p of size %" PRIu32 " ttl %" PRIu32 " (bucket %" PRIu16
+              ") in seg %" PRIu32,
             it, sz, ttl, ttl_bucket_idx, it->seg_id);
 
     return it;
 }
 
-
 /*
  * this assumes the inserted item is not in the hashtable
+ *
+ * we do not need this under multi-threading because we cannot guarantee the
+ * item checked is not in the hashtable without lock
  */
-void
-item_insert(struct item *it)
-{
-    hashtable_put(it, hash_table);
-
-    _item_w_deref(it);
-
-    log_verb("insert it %p (%.*s) of size %zu"
-             " in seg %" PRIu32,
-            it, it->klen, item_key(it), item_ntotal(it), it->seg_id);
-}
+// void
+// item_insert(struct item *it)
+//{
+//    ASSERT(hashtable_get(item_key(it), item_nkey(it), hash_table, NULL) ==
+//    NULL);
+//
+//    hashtable_put(it, hash_table);
+//
+//    _item_w_deref(it);
+//
+//    log_verb("insert it %p (%.*s) of size %zu in seg %" PRIu32,
+//        it, it->klen, item_key(it), item_ntotal(it), it->seg_id);
+//}
 
 /*
  * this assumes the updated item is in the hashtable,
  * we delete the item first (update metrics), then insert into hashtable
  */
-void
-item_update(struct item *nit)
-{
-    struct item *oit;
-    hashtable_delete(item_key(nit), item_nkey(nit), hash_table, false, &oit);
-    _item_free(oit);
-
-    hashtable_put(nit, hash_table);
-
-    _item_w_deref(nit);
-
-    log_verb("update it %p (%.*s) of size %zu"
-             " in seg %" PRIu32,
-            nit, nit->klen, item_key(nit), item_ntotal(nit), nit->seg_id);
-}
+// void
+// item_update(struct item *nit)
+//{
+//    hashtable_delete(item_key(nit), item_nkey(nit), hash_table, false);
+//
+//    hashtable_put(nit, hash_table);
+//
+//    _item_w_deref(nit);
+//
+//    log_verb("update it %p (%.*s) of size %zu in seg %" PRIu32, nit,
+//    nit->klen,
+//            item_key(nit), item_ntotal(nit), nit->seg_id);
+//}
 
 /* insert or update */
 void
 item_insert_or_update(struct item *it)
 {
-    struct bstring key = {.data = item_key(it), .len = item_nkey(it)};
-    item_delete(&key);
+#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
+    ASSERT(it->magic == ITEM_MAGIC);
+    ASSERT(*(uint64_t *)(seg_get_data_start(it->seg_id)) == SEG_MAGIC);
+#endif
 
-    hashtable_put(it, hash_table);
+    bool in_cache = hashtable_del_and_put(it, hash_table);
+
+    //    hashtable_delete(item_key(it), item_nkey(it), hash_table, true);
+    //
+    //    hashtable_put(it, hash_table);
+
 
     _item_w_deref(it);
 
-    log_verb("insert_or_update it %p (%.*s) of key size %" PRIu32
-             ", val size %" PRIu32 ", total size %zu"
-             " in seg %" PRIu32,
-            it, it->klen, item_key(it), item_nkey(it), item_nval(it),
-            item_ntotal(it), it->seg_id);
+    log_verb("insert_or_update it %p (%.*s) of key size %u, val size %u, "
+             "total size %zu in seg %d, old it found %d, "
+             "seg write-offset %d, occupied size %d",
+            it, item_nkey(it), item_key(it), item_nkey(it), item_nval(it),
+            item_ntotal(it), it->seg_id, in_cache,
+            __atomic_load_n(
+                    &heap.segs[it->seg_id].write_offset, __ATOMIC_RELAXED),
+            __atomic_load_n(
+                    &heap.segs[it->seg_id].occupied_size, __ATOMIC_RELAXED));
 }
 
-
 struct item *
-item_check_existence(const struct bstring *key)
+item_check_existence(const struct bstring *key, uint64_t *cas)
 {
     struct item *it;
     struct seg *seg;
 
-    it = hashtable_get(key->data, key->len, hash_table, NULL);
+    it = hashtable_get(key->data, key->len, hash_table, cas);
     if (it == NULL) {
-        log_verb("get it '%.*s' not found", key->len, key->data);
+        log_vverb("get it '%.*s' not found", key->len, key->data);
         return NULL;
     }
 
     seg = &heap.segs[it->seg_id];
-    uint8_t locked = __atomic_load_n(&seg->locked, __ATOMIC_RELAXED);
-    if (__atomic_load_n(&seg->locked, __ATOMIC_RELAXED)) {
+
+    if (__atomic_load_n(&seg->locked, __ATOMIC_SEQ_CST)) {
         log_verb("get it %.*s not available because seg is locked for "
                  "eviction/expiration",
                 item_nkey(it), item_key(it));
@@ -288,12 +317,10 @@ item_check_existence(const struct bstring *key)
         return NULL;
     }
 
-    //    if (item_expired(it)) {
-    //        log_verb("get it '%.*s' expired and seg nuked", key->len,
-    //        key->data);
-    //
-    //        return NULL;
-    //    }
+#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
+    ASSERT(it->magic == ITEM_MAGIC);
+    ASSERT(*(uint64_t *)(seg_get_data_start(it->seg_id)) == SEG_MAGIC);
+#endif
 
     return it;
 }
@@ -306,9 +333,9 @@ item_check_existence(const struct bstring *key)
  * if it is just
  */
 struct item *
-item_get(const struct bstring *key)
+item_get(const struct bstring *key, uint64_t *cas)
 {
-    struct item *it = item_check_existence(key);
+    struct item *it = item_check_existence(key, cas);
 
     if (it == NULL) {
         return NULL;
@@ -326,7 +353,6 @@ item_get(const struct bstring *key)
     }
 }
 
-
 void
 item_release(struct item *it)
 {
@@ -337,6 +363,10 @@ static void
 _item_define(struct item *it, const struct bstring *key,
         const struct bstring *val, uint8_t olen)
 {
+#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
+    it->magic = ITEM_MAGIC;
+#endif
+
     it->olen = olen;
     cc_memcpy(item_key(it), key->data, key->len);
     it->klen = key->len;
@@ -345,7 +375,6 @@ _item_define(struct item *it, const struct bstring *key,
     }
     it->vlen = (val == NULL) ? 0 : val->len;
 }
-
 
 item_rstatus_e
 item_reserve(struct item **it_p, const struct bstring *key,
@@ -368,10 +397,17 @@ item_reserve(struct item **it_p, const struct bstring *key,
     }
 
     _item_define(it, key, val, olen);
+
+
     *it_p = it;
 
-    log_verb("reserve it %p (%.*s) of size %" PRIu32 " in seg %" PRIu16, it,
-            it->klen, item_key(it), item_ntotal(it), it->seg_id);
+    log_verb("reserve it %p (%.*s) of size %u ttl %d in seg %d (my offset %d "
+             "write offset %d)",
+            it, it->klen, item_key(it), item_ntotal(it), ttl, it->seg_id,
+            (uint8_t *)it - seg_get_data_start(it->seg_id),
+            __atomic_load_n(
+                    &heap.segs[it->seg_id].write_offset, __ATOMIC_SEQ_CST));
+
 
     return ITEM_OK;
 }
@@ -490,26 +526,16 @@ item_decr(uint64_t *vint, struct item *it, uint64_t delta)
 bool
 item_delete(const struct bstring *key)
 {
-    struct item *it = NULL;
-
-    bool in_cache =
-            hashtable_delete(key->data, key->len, hash_table, true, &it);
-
-    if (in_cache) {
-        _item_free(it);
-    }
-
-    return in_cache;
+    log_verb("delete it (%.*s)", key->len, key->data);
+    return hashtable_delete(key->data, key->len, hash_table, true);
 }
 
 bool
 item_delete_it(struct item *it_to_del)
 {
     bool in_cache = hashtable_delete_it(it_to_del, hash_table);
-
-    if (in_cache) {
-        _item_free(it_to_del);
-    }
+    log_verb("delete it %p (%.*s) from seg %d in_cache %d", it_to_del, item_nkey(it_to_del),
+            item_key(it_to_del), it_to_del->seg_id, in_cache);
 
     return in_cache;
 }

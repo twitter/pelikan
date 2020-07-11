@@ -1,11 +1,12 @@
 #pragma once
 
 #include <time/time.h>
+#include <pthread.h>
 
 #define MAX_KEY_LEN 255
 #define ENTRY_SIZE sizeof(struct benchmark_entry)
 
-typedef size_t benchmark_key_u;
+// typedef size_t benchmark_key_u;
 
 typedef enum {
     op_get = 0,
@@ -24,32 +25,42 @@ typedef enum {
     op_invalid
 } op_e;
 
+static const char *op_names[op_invalid + 1] = {"get", "gets", "set", "add",
+        "cas", "replace", "append", "prepend", "delete", "incr", "decr",
+        "cache_miss", "invalid"};
+
+
 struct benchmark_entry {
     char *key;
-    benchmark_key_u key_len;
     char *val;
-    size_t val_len;
-    op_e op;
-    proc_time_i expire_at;
+    uint32_t key_len : 8;
+    uint32_t val_len : 24;
     uint64_t delta;
+    proc_time_i expire_at;
+    op_e op;
 };
 
 struct benchmark {
     struct benchmark_entry *entries;
     void *options;
-    void *reader; /* used in trace_replay */
+    void *warmup_reader; /*used in trace_replay */
+    void *eval_reader; /* used in trace_replay */
     int64_t op_cnt[op_invalid];
 
     struct operation_latency {
         struct duration *samples;
-        op_e *ops;      /* can change to uint8_t* to reduce memory footprint */
+        op_e *ops; /* can change to uint8_t* to reduce memory footprint */
         size_t count;
     } latency;
+    uint8_t n_thread;
+    uint64_t n_req;
+    uint64_t n_miss;
 };
 
 
 #define BENCH_OPTS(b) ((struct benchmark_options *)((b)->options))
 #define O(b, opt) option_uint(&(BENCH_OPTS(b)->benchmark.opt))
+#define O_UINT(b, opt) option_uint(&(BENCH_OPTS(b)->benchmark.opt))
 #define O_BOOL(b, opt) option_bool(&(BENCH_OPTS(b)->benchmark.opt))
 #define O_STR(b, opt) option_str(&(BENCH_OPTS(b)->benchmark.opt))
 
@@ -92,3 +103,42 @@ benchmark_print_summary(
 rstatus_i
 benchmark_run_operation(
         struct benchmark *b, struct benchmark_entry *e, bool per_op_latency);
+
+
+/* this is not placed in shared.c because in throughput mode, we want to avoid
+ * the op count and latency measurement
+ */
+static inline rstatus_i
+run_op(struct benchmark_entry *e)
+{
+    int status;
+
+    switch (e->op) {
+    case op_get:
+        return bench_storage_get(e);
+    case op_set:
+         status = bench_storage_set(e);
+         return status;
+    case op_gets:
+        return bench_storage_gets(e);
+    case op_cas:
+        return bench_storage_cas(e);
+    case op_add:
+        return bench_storage_add(e);
+    case op_replace:
+        return bench_storage_replace(e);
+    case op_delete:
+        return bench_storage_delete(e);
+    case op_incr:
+        return bench_storage_incr(e);
+    case op_decr:
+        return bench_storage_decr(e);
+    default:
+        break;
+        log_crit("op %s not implemented", op_names[e->op]);
+        NOT_REACHED();
+    }
+
+    NOT_REACHED();
+    return CC_ERROR;
+}

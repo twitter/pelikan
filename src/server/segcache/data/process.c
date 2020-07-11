@@ -131,15 +131,16 @@ static bool
 _get_key(struct response *rsp, struct bstring *key, bool cas)
 {
     struct item *it;
+    uint64_t cas_v;
 
-    it = item_get(key);
+    it = item_get(key, &cas_v);
     if (it != NULL) {
         rsp->type = RSP_VALUE;
         rsp->key = *key;
         rsp->flag = _get_dataflag(it);
         rsp->vstr.len = it->vlen;       /* do not use item_nval here */
         rsp->vstr.data = item_val(it);
-        rsp->vcas = cas ? item_get_cas(it) : 0;
+        rsp->vcas = cas ? cas_v : 0;
 
         if (hotkey_enabled && hotkey_sample(key)) {
             log_debug("hotkey detected: %.*s", key->len, key->data);
@@ -349,7 +350,7 @@ _process_add(struct response *rsp, struct request *req)
     if (req->first) {
         INCR(process_metrics, add);
         key_p = array_first(req->keys);
-        if (item_check_existence(key_p) != NULL) {
+        if (item_check_existence(key_p, NULL) != NULL) {
             rsp->type = RSP_NOT_STORED;
             req->swallow = 1;
             INCR(process_metrics, add_notstored);
@@ -361,7 +362,7 @@ _process_add(struct response *rsp, struct request *req)
         it = req->reserved;
         ASSERT(it != NULL);
         struct bstring key = (struct bstring){it->klen, item_key(it)};
-        ASSERT(item_get(&key) == NULL);
+        ASSERT(item_get(&key, NULL) == NULL);
         status = _put(&istatus, req);
     }
 
@@ -396,7 +397,7 @@ _process_replace(struct response *rsp, struct request *req)
     if (req->first) {
         INCR(process_metrics, add);
         key_p = array_first(req->keys);
-        if (item_check_existence(key_p) == NULL) {
+        if (item_check_existence(key_p, NULL) == NULL) {
             rsp->type = RSP_NOT_STORED;
             req->swallow = 1;
             INCR(process_metrics, replace_notstored);
@@ -435,11 +436,12 @@ _process_cas(struct response *rsp, struct request *req)
     item_rstatus_e istatus;
     struct item *it = NULL;
     struct bstring *key_p;
+    uint64_t cas;
 
     if (req->first) {
         INCR(process_metrics, add);
         key_p = array_first(req->keys);
-        it = item_check_existence(key_p);
+        it = item_check_existence(key_p, cas);
         if (it == NULL) {
             rsp->type = RSP_NOT_FOUND;
             req->swallow = 1;
@@ -447,7 +449,7 @@ _process_cas(struct response *rsp, struct request *req)
             return;
         }
 
-        if (item_get_cas(it) != req->vcas) {
+        if (cas != req->vcas) {
             req->swallow = 1;
             rsp->type = RSP_EXISTS;
             INCR(process_metrics, cas_exists);
@@ -474,7 +476,7 @@ _process_cas(struct response *rsp, struct request *req)
 
     it = (struct item *)req->reserved;
     /* TODO(jason): BUG!! not thread-safe */
-    if (item_get_cas(it) != req->vcas) {
+    if (cas != req->vcas) {
         rsp->type = RSP_EXISTS;
         INCR(process_metrics, cas_exists);
         return;
@@ -482,7 +484,6 @@ _process_cas(struct response *rsp, struct request *req)
 
     /* the item might be evicted since we check */
     item_insert_or_update(it);
-    item_set_cas(it);
     rsp->type = RSP_STORED;
     INCR(process_metrics, cas_stored);
 
@@ -513,7 +514,7 @@ _process_incr(struct response *rsp, struct request *req)
 
     INCR(process_metrics, incr);
     key = array_first(req->keys);
-    it = item_get(key);
+    it = item_get(key, NULL);
     if (it != NULL) {
         status = _process_delta(rsp, it, req, true);
         if (status == ITEM_OK) {
@@ -540,7 +541,7 @@ _process_decr(struct response *rsp, struct request *req)
 
     INCR(process_metrics, decr);
     key = array_first(req->keys);
-    it = item_get(key);
+    it = item_get(key, NULL);
     if (it != NULL) {
         status = _process_delta(rsp, it, req, false);
         if (status == ITEM_OK) {

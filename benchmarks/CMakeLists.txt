@@ -2,7 +2,7 @@ add_subdirectory(storage_cuckoo)
 add_subdirectory(storage_slab)
 add_subdirectory(storage_seg)
 
-set(SOURCE bench_storage.c bench_shared.c)
+set(SOURCE bench_storage.c shared.c)
 
 set(MODULES_SLAB
         bench_storage_slab
@@ -31,7 +31,7 @@ add_executable(bench_seg ${SOURCE})
 target_link_libraries(bench_seg ${MODULES_SEG} ${LIBS})
 
 
-set(SOURCE_TRACE_REPLAY trace_replay/trace_replay.c trace_replay/reader.c bench_shared.c)
+set(SOURCE_TRACE_REPLAY trace_replay/trace_replay.c trace_replay/reader.c shared.c)
 
 add_executable(trace_replay_slab ${SOURCE_TRACE_REPLAY})
 target_link_libraries(trace_replay_slab ${MODULES_SLAB} ${LIBS})

@@ -107,10 +107,12 @@ struct seg {
                      * because we need atomic operation on it,
                      * we can reuse refcount for this purpose by setting it
                      * to negative val */
+//    uint8_t linked: 1; /* whether it is linked in ttl_bucket */
+
     //    uint8_t sealed : 1; /* whether it is full and no longer write to */
     //    uint8_t in_pmem : 1; /* whether the seg is in PMem, not used */
-    uint8_t initialized : 1; /* is seg initialized */
-    uint8_t in_free_pool : 1; /* is seg in the free pool */
+//    uint8_t initialized : 1; /* is seg initialized */
+    uint8_t in_free_pool; /* is seg in the free pool */
     uint8_t recovered : 1; /* whether the items on this seg have been
                               recovered*/
 
@@ -298,7 +300,7 @@ seg_return_seg(int32_t seg_id);
  * indicating no other threads are accessing items on the seg
  */
 bool
-seg_rm_all_item(int32_t seg_id);
+seg_rm_all_item(int32_t seg_id, bool expire);
 
 void
 seg_rm_expired_seg(int32_t seg_id);
