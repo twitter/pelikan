@@ -365,12 +365,14 @@ _server_evwait(void)
 void *
 core_server_evloop(void *arg)
 {
-    for(;;) {
+    bool *running = arg;
+
+    while (__atomic_load_n(running, __ATOMIC_ACQUIRE)) {
         if (_server_evwait() != CC_OK) {
             log_crit("server core event loop exited due to failure");
-            break;
+            exit(1);
         }
     }
 
-    exit(1);
+    return NULL;
 }

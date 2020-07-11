@@ -142,6 +142,12 @@ _admin_post_read(struct buf_sock *s)
             goto done;
         }
 
+        if (req.type == REQ_SHUTDOWN) {
+            log_info("peer called shutdown");
+            s->ch->state = CHANNEL_TERM_RESET_DB;
+            goto done;
+        }
+
         admin_response_reset(&rsp);
 
         admin_process_request(&rsp, &req);
@@ -191,6 +197,12 @@ _admin_event(void *arg, uint32_t events)
         s->ch->state = CHANNEL_TERM;
     } else {
         NOT_REACHED();
+    }
+
+    if (s->ch->state == CHANNEL_TERM_RESET_DB) {
+        _admin_close(s);
+        raise(SIGTERM);
+        return;
     }
 
     if (s->ch->state == CHANNEL_TERM || s->ch->state == CHANNEL_ERROR) {
@@ -308,6 +320,12 @@ core_admin_register(uint64_t intvl_ms, timeout_cb_fn cb, void *arg)
 
     timeout_set_ms(&delay, intvl_ms);
     return timing_wheel_insert(tw, &delay, true, cb, arg);
+}
+
+void
+core_admin_unregister(struct timeout_event *tev)
+{
+   timing_wheel_remove(tw, &tev);
 }
 
 static rstatus_i

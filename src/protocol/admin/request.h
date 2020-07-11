@@ -25,7 +25,8 @@
     ACTION( REQ_UNKNOWN,       ""          )\
     ACTION( REQ_STATS,         "stats"     )\
     ACTION( REQ_VERSION,       "version"   )\
-    ACTION( REQ_QUIT,          "quit"      )
+    ACTION( REQ_QUIT,          "quit"      )\
+    ACTION( REQ_SHUTDOWN,      "shutdown"  )
 
 #define GET_TYPE(_name, _str) _name,
 typedef enum request_type {

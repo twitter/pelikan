@@ -111,6 +111,7 @@ enum {
     CHANNEL_OPEN,           /* opening */
     CHANNEL_ESTABLISHED,
     CHANNEL_TERM,           /* to be closed, don't need a closing state yet */
+    CHANNEL_TERM_RESET_DB,
     CHANNEL_ERROR,          /* unrecoverable error occurred */
 
     CHANNEL_SENTINEL

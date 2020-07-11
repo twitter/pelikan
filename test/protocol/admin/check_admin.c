@@ -69,6 +69,30 @@ START_TEST(test_quit)
 }
 END_TEST
 
+START_TEST(test_shutdown)
+{
+#define SERIALIZED "shutdown\r\n"
+    int ret;
+    int len = sizeof(SERIALIZED) - 1;
+
+    test_reset();
+
+    /* compose */
+    req->type = REQ_SHUTDOWN;
+    ret = admin_compose_req(&buf, req);
+    ck_assert_msg(ret == len, "expected: %d, returned: %d", len, ret);
+    ck_assert_int_eq(cc_bcmp(buf->rpos, SERIALIZED, ret), 0);
+
+    /* parse */
+    admin_request_reset(req);
+    ret = admin_parse_req(req, buf);
+    ck_assert_int_eq(ret, PARSE_OK);
+    ck_assert(req->state == REQ_PARSED);
+    ck_assert(req->type = REQ_SHUTDOWN);
+#undef SERIALIZED
+}
+END_TEST
+
 START_TEST(test_stats)
 {
 #define SERIALIZED "stats\r\n"
@@ -132,6 +156,7 @@ admin_suite(void)
     tcase_add_test(tc_basic_req, test_quit);
     tcase_add_test(tc_basic_req, test_stats);
     tcase_add_test(tc_basic_req, test_version);
+    tcase_add_test(tc_basic_req, test_shutdown);
 
     return s;
 }

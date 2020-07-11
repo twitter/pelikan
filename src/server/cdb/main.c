@@ -23,6 +23,7 @@ struct data_processor worker_processor = {
     cdb_process_read,
     cdb_process_write,
     cdb_process_error,
+    .running = true
 };
 
 static void
@@ -239,7 +240,7 @@ main(int argc, char **argv)
     setup();
     option_print_all((struct option *)&setting, nopt);
 
-    core_run(&worker_processor);
+    core_run(&worker_processor, &worker_processor.running);
 
     exit(EX_OK);
 }
