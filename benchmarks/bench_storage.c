@@ -129,7 +129,7 @@ static struct benchmark_entry
 benchmark_entry_create(uint32_t key, size_t size)
 {
     struct benchmark_entry e;
-    e.key_len = sizeof(key);
+    e.key_len = 16;      /* this needs to be large enough */
     e.val_len = size - sizeof(key);
     e.key = cc_alloc(e.key_len);
     ASSERT(e.key != NULL);
@@ -219,9 +219,10 @@ benchmark_run(struct benchmark *b)
             ASSERT(array_nelem(in) != 0);
             struct benchmark_entry **e = array_pop(in);
             (*e)->op = op_get;
+            log_verb("benchmark get(%.*s)", (*e)->key_len, (*e)->key);
 
             if (benchmark_run_operation(b, *e, per_op_latency) != CC_OK) {
-                log_info("benchmark get() failed");
+                log_info("benchmark get(%.*s) failed", (*e)->key_len, (*e)->key);
             }
 
             struct benchmark_entry **e2 = array_push(in2);
@@ -237,14 +238,16 @@ benchmark_run(struct benchmark *b)
                 e = array_pop(in);
                 (*e)->op = op_delete;
 
+                log_verb("benchmark rem(%.*s) for set", (*e)->key_len, (*e)->key);
                 if (bench_storage_delete(*e) != CC_OK) {
-                    log_info("benchmark rem() failed");
+                    log_info("benchmark rem(%.*s) for set failed", (*e)->key_len, (*e)->key);
                 }
             }
 
             (*e)->op = op_set;
+            log_verb("benchmark set(%.*s)", (*e)->key_len, (*e)->key);
             if (benchmark_run_operation(b, *e, per_op_latency) != CC_OK) {
-                log_info("benchmark put() failed");
+                log_info("benchmark put(%.*s) failed", (*e)->key_len, (*e)->key);
             }
 
             struct benchmark_entry **e2 = array_push(in2);
@@ -256,8 +259,9 @@ benchmark_run(struct benchmark *b)
             struct benchmark_entry **e = array_pop(in);
             (*e)->op = op_delete;
 
+            log_verb("benchmark rem(%.*s)", (*e)->key_len, (*e)->key);
             if (benchmark_run_operation(b, *e, per_op_latency) != CC_OK) {
-                log_info("benchmark rem() failed");
+                log_info("benchmark rem(%.*s) failed", (*e)->key_len, (*e)->key);
             }
 
             struct benchmark_entry **e2 = array_push(out);

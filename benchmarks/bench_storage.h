@@ -111,14 +111,12 @@ benchmark_run_operation(
 static inline rstatus_i
 run_op(struct benchmark_entry *e)
 {
-    int status;
 
     switch (e->op) {
     case op_get:
         return bench_storage_get(e);
     case op_set:
-         status = bench_storage_set(e);
-         return status;
+        return bench_storage_set(e);
     case op_gets:
         return bench_storage_gets(e);
     case op_cas:

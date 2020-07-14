@@ -63,6 +63,7 @@ rstatus_i
 benchmark_run_operation(
         struct benchmark *b, struct benchmark_entry *e, bool per_op_latency)
 {
+    /* TODO(jason): for accuracy, move latency to thread local variable */
     rstatus_i status = CC_OK;
     size_t nsample;
     struct operation_latency *latency;
