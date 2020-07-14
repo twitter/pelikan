@@ -11,7 +11,6 @@ members = [
     "deps/ccommon/rust/ccommon-stats",
     "deps/ccommon/rust/ccommon-stream",
     "deps/ccommon/rust/ccommon-sys",
-    "deps/ccommon/rust/ccommon-time",
     "src/rust-util/httpencode",
     "src/rust-util/pelikan",
     "src/rust-util/pelikan-sys",
