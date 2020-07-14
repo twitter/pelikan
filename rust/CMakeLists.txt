@@ -18,6 +18,5 @@ if(HAVE_RUST)
     add_subdirectory(ccommon-stats)
     add_subdirectory(ccommon-stream)
     add_subdirectory(ccommon-sys)
-    add_subdirectory(ccommon-time)
     
 endif()
