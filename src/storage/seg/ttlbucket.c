@@ -12,23 +12,16 @@ extern seg_metrics_st *seg_metrics;
 extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
 
 
-/* I originally wrote using atomics for scalability and ttl_bucket struct
- * size reduction, but it is way too complex and might be incorrect,
- * so fall back to use lock for now.
- * I don't think this will be a scalability bottleneck and
- * the extra space used by lock (48B) and cond var (40B)
- * should not be a problem.
- */
 /* reserve the size of an incoming item in the segment,
  * if the segment size is not large enough,
- * we grab a new one and connect to the seg list
- * seg_p and ttl_bucket_idx_p are used to return the seg and ttl_bucket_idx
+ * grab a new one and connect to the seg list
+ * seg_id is used to return the seg
  */
 struct item *
-ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
+ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz, uint32_t *seg_id)
 {
     struct item *it;
-    struct ttl_bucket *ttl_bucket;
+    struct ttl_bucket *ttl_bucket = &ttl_buckets[ttl_bucket_idx];
     int32_t curr_seg_id, new_seg_id;
     struct seg *curr_seg = NULL, *new_seg = NULL;
 
@@ -36,9 +29,7 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
     uint32_t offset = 0; /* offset of the reserved item in the seg */
     uint8_t locked = false;
 
-    ttl_bucket = &ttl_buckets[ttl_bucket_idx];
 
-    /* a ttl_bucket has either no seg, or at least one seg that is not sealed */
     curr_seg_id = ttl_bucket->last_seg_id;
 
     if (curr_seg_id != -1) {
@@ -49,16 +40,11 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
         locked = seg_is_locked(curr_seg);
     }
 
-//    log_debug("ttl_bucket_reserve_item: ttl_bucket %u cur seg %d offset %u locked %d",
-//            ttl_bucket_idx, curr_seg_id, offset, locked);
-
     while (curr_seg_id == -1 || offset + sz > heap.seg_size || locked) {
-//        log_debug("ttl_bucket_reserve_item: need new seg ttl_bucket %d cur seg %d %d (%d+%d) locked %d", ttl_bucket_idx,
-//                curr_seg_id, offset + sz > heap.seg_size, offset, sz, locked);
         if (curr_seg_id != -1) {
             /* current seg runs out of space, roll back offset
              *
-             * optimistic design:
+             * optimistic concurrency control:
              * notice that not using lock around add and sub can cause false
              * full problem when it is highly contended, for example,
              * current offset 600K, thread A adds 500K, then offset too large,
@@ -89,8 +75,11 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
             return NULL;
         }
         /* pass the lock, need to double check whether the last_seg
-         * has changed or not (optimistic alloc) */
-        if (curr_seg_id != ttl_bucket->last_seg_id) {
+         * has changed (optimistic alloc) this can change either because
+         * another thread has linked a new segment or
+         * curr_seg is expired and remove */
+        if (curr_seg_id != ttl_bucket->last_seg_id &&
+                ttl_bucket->last_seg_id != -1) {
             /* roll back */
             INCR(seg_metrics, seg_return);
 
@@ -103,8 +92,6 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
 
                 ttl_bucket->first_seg_id = new_seg_id;
             } else {
-                /* I don't atomic load last_seg_id because
-                 * it is only written within critical section */
                 heap.segs[curr_seg_id].next_seg_id = new_seg_id;
             }
             new_seg->prev_seg_id = curr_seg_id;
@@ -118,10 +105,12 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
 
             PERTTL_INCR(ttl_bucket_idx, seg_curr);
 
-            log_verb("link seg %d to ttl bucket %u, now %u segments, prev seg "
-                     "%d (offset %d)",
+            log_verb("link seg %" PRIu32 " to ttl bucket %" PRIu32
+                     ", total %" PRIu32 " segments, prev seg "
+                     "%" PRIu32 " (offset %" PRIu32 ")",
                     new_seg_id, ttl_bucket_idx, ttl_bucket->n_seg, curr_seg_id,
-                    __atomic_load_n(&heap.segs[curr_seg_id].write_offset, __ATOMIC_SEQ_CST));
+                    curr_seg_id == -1 ? -1 : __atomic_load_n(
+                     &heap.segs[curr_seg_id].write_offset, __ATOMIC_SEQ_CST));
         }
 
         pthread_mutex_unlock(&heap.mtx);
@@ -141,7 +130,8 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz)
 #endif
 
     it = (struct item *)(seg_data + offset);
-    it->seg_id = curr_seg->seg_id;
+    //    it->seg_id = curr_seg->seg_id;
+    *seg_id = curr_seg->seg_id;
 
     PERTTL_INCR(ttl_bucket_idx, item_curr);
     PERTTL_INCR_N(ttl_bucket_idx, item_curr_bytes, sz);

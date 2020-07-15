@@ -50,17 +50,10 @@
 #define ITEM_MAGIC                  ((uint32_t) 0x0eedface)
 #define SEG_MAGIC                   ((uint32_t) 0x0eadbeef)
 
-/* TODO(jason) consider making this an option */
-#define LOCKTABLE_HASHPOWER         16u
-#define CAS_TABLE_HASHPOWER         16u
-
 #define SEG_HDR_SIZE            sizeof(struct seg)
 
 #define ITEM_HDR_SIZE           offsetof(struct item, end)
 #define ITEM_CAS_SIZE           (use_cas * sizeof(uint32_t))
 
 
-
-//#define CAS_TABLE_SIZE LOCKTABLE_SIZE
-//#define CAS_HASHMASK    LOCKTABLE_HASHMASK
 

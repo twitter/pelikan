@@ -132,10 +132,10 @@ _rank_seg(void)
             evict.ranked_seg_id[4], evict.ranked_seg_id[5],
             evict.ranked_seg_id[6], evict.ranked_seg_id[7],
             evict.ranked_seg_id[8]);
-    _seg_print(evict.ranked_seg_id[0]);
-    _seg_print(evict.ranked_seg_id[1]);
-    _seg_print(evict.ranked_seg_id[2]);
-    _seg_print(evict.ranked_seg_id[3]);
+    seg_print(evict.ranked_seg_id[0]);
+    seg_print(evict.ranked_seg_id[1]);
+    seg_print(evict.ranked_seg_id[2]);
+    seg_print(evict.ranked_seg_id[3]);
 
     //    log_debug("ranked seg %d - craete at %" PRId32 ", TTL %" PRId32
     //              ", write offset %" PRIu32 ", occupied size %" PRIu32,

@@ -68,23 +68,23 @@ struct item {
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
     uint32_t magic; /* item magic (const) */
 #endif
-    SLIST_ENTRY(item) hash_next; /* link in hash */
 
-    uint32_t seg_id : 24; /* id of the segment the item belongs to, max 16 TiB.
-                           * we can make this field optional if needed,
-                           * we don't need this field if we used a fixed  segment
-                           * size and only use DRAM/PMem for storage,
-                           * in such scenario, we can make the starting address
-                           * of each segment as multiple of 1<<20,
-                           * however, doing so adds several limitations,
-                           * and does not save space if we have cas as uint64_t
-                           * due to struct packing
-                           */
-    uint32_t olen : 8; /* option length */
+//    uint32_t seg_id : 24; /* id of the segment the item belongs to, max 16 TiB.
+//                           * we can make this field optional if needed,
+//                           * we don't need this field if we used a fixed  segment
+//                           * size and only use DRAM/PMem for storage,
+//                           * in such scenario, we can make the starting address
+//                           * of each segment as multiple of 1<<20,
+//                           * however, doing so adds several limitations,
+//                           * and does not save space if we have cas as uint64_t
+//                           * due to struct packing
+//                           */
 
     uint32_t klen : 8; /* key size */
-    uint32_t is_num : 1; /* whether this is a number */
-    uint32_t vlen : 23; /* data size TODO(jason): will this cause memalign? */
+    uint32_t vlen : 24; /* data size */
+    uint8_t is_num : 1; /* whether this is a number */
+
+    uint8_t olen : 7; /* option length */
 
     /* data start needs to be 8-byte aligned for incr/decr */
     char end[1]; /* item data */
@@ -199,26 +199,14 @@ void
 item_release(struct item *it);
 
 
-/* check the existence of an item, this is different from
- * item_get in that this one does not incr ref_count,
- * so we should not use the returned item */
-struct item *
-item_check_existence(const struct bstring *key, uint64_t *cas);
-
 /* acquire an item */
 struct item *
-item_get(const struct bstring *key, uint64_t *cas);
+item_get(const struct bstring *key, uint64_t *cas, bool incr_ref);
 
-/* this function does insert or update,
- * the other function exists simply to reduce one hashtable lookup */
+/* this function does insert or update */
 void
-item_insert_or_update(struct item *it);
+item_insert(struct item *it);
 
-/* insert an item, this functions assumes the item is not the hashtable */
-static inline void
-item_insert(struct item *it) {
-    item_insert_or_update(it);
-}
 
 /* reserve an item, this does not link it or remove existing item with the same
  * key.
@@ -241,17 +229,17 @@ item_update(struct item *it);
 bool
 item_delete(const struct bstring *key);
 
-bool
-item_delete_it(struct item *it_to_del);
+///* remove this specific item from hashtable */
+//bool
+//item_evict(const char *oit_key, const uint32_t oit_klen,
+//               const uint32_t seg_id, const uint32_t offset);
 
-/* remove oit from hashtable and insert nit */
-void
-item_relink(struct item *oit, struct item *nit);
+///* remove oit from hashtable and insert nit */
+//void
+//item_relink(struct item *oit, struct item *nit);
 
-
-void
-item_free(struct item *it);
 
 /* flush the cache */
 void
 item_flush(void);
+

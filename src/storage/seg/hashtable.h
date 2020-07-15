@@ -54,18 +54,5 @@ hashtable_double(struct hash_table *ht); /* best effort expansion */
 void
 hashtable_print_chain_depth_hist(void);
 
-//static inline uint32_t
-//get_cas(struct locktable *ltable, uint32_t hv)
-//{
-//    uint32_t pos      = hv & HASHMASK(ltable->hashpower);
-//    uint32_t *cas_ptr = &(ltable->table[pos]);
-//    return __atomic_load_n(cas_ptr, __ATOMIC_RELAXED);
-//}
-//
-//static inline uint32_t
-//set_cas(struct locktable *ltable, uint32_t hv)
-//{
-//    uint32_t pos      = hv & HASHMASK(ltable->hashpower);
-//    uint32_t *cas_ptr = &(ltable->table[pos]);
-//    return __atomic_add_fetch(cas_ptr, 1, __ATOMIC_RELAXED);
-//}
+void
+hashtable_print_tag_collision_hist(void);

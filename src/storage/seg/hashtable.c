@@ -240,7 +240,6 @@ hashtable_del_and_put(struct item *it, struct hash_table *ht)
     /* now delete */
     for (prev = NULL, curr = SLIST_FIRST(bucket); curr != NULL;
             prev = curr, curr = SLIST_NEXT(curr, hash_next)) {
-
         INCR(seg_metrics, hash_traverse);
 
         /* iterate through bucket to find item to be removed */
@@ -287,7 +286,6 @@ hashtable_delete(
 
     for (prev = NULL, it = SLIST_FIRST(bucket); it != NULL;
             prev = it, it = SLIST_NEXT(it, hash_next)) {
-
         INCR(seg_metrics, hash_traverse);
 
         /* iterate through bucket to find item to be removed */
@@ -449,7 +447,7 @@ hashtable_double(struct hash_table *ht)
 void
 hashtable_print_chain_depth_hist(void)
 {
-#define MAX_DEPTH 20000
+#define MAX_DEPTH 2000
     struct hash_table *ht = hash_table;
     uint64_t n_item = HASHSIZE(ht->hash_power);
     uint64_t n_active_item = 0, n_active_bucket = 0;
@@ -489,4 +487,61 @@ hashtable_print_chain_depth_hist(void)
     }
 
     printf("\n");
+}
+
+
+/*
+ * given a hash value array of items in the same bucket,
+ * check whether there are collisions if we use the first n_bit as tag
+ *
+ */
+static inline bool
+has_duplicate(uint64_t hv, int n_bit)
+{
+}
+
+void
+hashtable_print_tag_collision_hist(void)
+{
+    struct hash_table *ht = hash_table;
+    uint64_t n_item = HASHSIZE(ht->hash_power);
+    uint64_t n_active_item = 0, n_active_bucket = 0;
+    uint64_t i;
+    int tag_size; /* the size of tag in bits */
+    uint32_t depth, max_depth = 0;
+    struct item *it;
+    bool bucket_has_tag_collision;
+    uint32_t hv[MAX_DEPTH];
+    uint64_t tag_collision_cnt[32];
+
+    for (i = 0; i < 32; i++) {
+        tag_collision_cnt[i] = 0;
+    }
+
+    for (i = 0; i < n_item; i++) {
+        depth = 0;
+        for (it = SLIST_FIRST(&ht->table[i]); it != NULL;
+                it = SLIST_NEXT(it, hash_next)) {
+            hv[depth] = _get_hv_xxhash(item_key(it), it->klen);
+            depth += 1;
+        }
+
+        for (tag_size = 1; tag_size < 32; tag_size++) {
+            bucket_has_tag_collision = has_duplicate(hv, tag_size);
+            if (bucket_has_tag_collision) {
+                tag_collision_cnt[tag_size] += 1;
+            }
+        }
+        n_active_bucket += 1;
+    }
+
+    double load = (double)n_active_item / n_item;
+    printf("hashtable tag collision hist, load %.2lf, "
+           "tag size (in bits): fraction of buckets have tag collisions\n",
+            load);
+
+    for (i = 1; i < 32; i++) {
+        printf("%" PRIu64 ": %.4lf, ", i,
+                (double)tag_collision_cnt[i] / n_active_bucket);
+    }
 }

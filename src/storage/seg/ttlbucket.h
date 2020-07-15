@@ -6,7 +6,6 @@
 #include <cc_queue.h>
 #include <limits.h>
 #include <stdint.h>
-//#include <time/time.h>
 #include <pthread.h>
 
 #define likely(x)      __builtin_expect(!!(x), 1)
@@ -167,5 +166,5 @@ ttl_bucket_teardown(void);
  *
  */
 struct item *
-ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz);
+ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz, uint32_t *seg_id);
 
