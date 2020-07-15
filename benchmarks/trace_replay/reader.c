@@ -87,6 +87,7 @@ open_trace(const char *trace_path)
     reader->n_total_req = reader->file_size / item_size;
     reader->e = (struct benchmark_entry *) malloc(sizeof(struct benchmark_entry));
     reader->e->key = malloc(MAX_KEY_LEN);
+    reader->update_time = true;
 
     close(fd);
     return reader;
@@ -127,7 +128,9 @@ read_trace(struct reader *reader, struct benchmark_entry **e)
 
     char *mmap = reader->mmap + offset;
     uint32_t ts = *(uint32_t *)mmap;
-    __atomic_store_n(&proc_sec, ts, __ATOMIC_RELAXED);
+    if (reader->update_time) {
+        __atomic_store_n(&proc_sec, ts, __ATOMIC_RELAXED);
+    }
     mmap += 4;
 
     uint64_t key = *(uint64_t *)mmap;

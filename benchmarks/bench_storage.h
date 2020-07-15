@@ -1,7 +1,7 @@
 #pragma once
 
-#include <time/time.h>
 #include <pthread.h>
+#include <time/time.h>
 
 #define MAX_KEY_LEN 255
 #define ENTRY_SIZE sizeof(struct benchmark_entry)
@@ -45,6 +45,9 @@ struct benchmark {
     void *options;
     void *warmup_reader; /*used in trace_replay */
     void *eval_reader; /* used in trace_replay */
+    uint64_t n_warmup_req; /* used in trace_replay, and no warmup reader is
+                              supplied */
+    delta_time_i default_ttl;
     int64_t op_cnt[op_invalid];
 
     struct operation_latency {
@@ -111,7 +114,6 @@ benchmark_run_operation(
 static inline rstatus_i
 run_op(struct benchmark_entry *e)
 {
-
     switch (e->op) {
     case op_get:
         return bench_storage_get(e);

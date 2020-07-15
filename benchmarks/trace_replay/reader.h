@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 
 #define MAX_TRACE_PATH_LEN 1024
@@ -21,6 +22,7 @@ struct reader {
     uint64_t n_total_req;
     /* used for preloaded reader */
     struct benchmark_entry *e;
+    bool update_time; /* whether this reader is responsible for updating time */
 };
 
 

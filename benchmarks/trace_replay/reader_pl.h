@@ -14,8 +14,9 @@
 
 
 /**
- *  a wrapper for multiple threaded reader,
- *  this is using a multi-producer single consumer model
+ *  a wrapper for preloaded reader, it supports multi-threading
+ *  note that it does not support trace time
+ *
  **/
 struct reader_pl {
     struct benchmark_entry *e;
@@ -24,7 +25,7 @@ struct reader_pl {
 };
 
 
-static struct reader_pl *
+static inline struct reader_pl *
 open_trace_pl(const char *trace_path)
 {
     struct reader *reader = open_trace(trace_path);
@@ -62,10 +63,11 @@ read_trace_pl(struct reader_pl *reader_pl, struct benchmark_entry **e)
         return 1;
 
     *e = &reader_pl->e[read_pos];
+
     return 0;
 }
 
-static void
+static inline void
 close_trace_pl(struct reader_pl *reader_pl)
 {
     for (int64_t i=0; i<reader_pl->n_total_req; i++)

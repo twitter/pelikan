@@ -3,7 +3,6 @@
 #include "reader.h"
 #include "reader_mt.h"
 #include "reader_pl.h"
-#include "storage/seg/hashtable.h"
 
 #include <cc_debug.h>
 #include <cc_define.h>
@@ -21,11 +20,7 @@
 #define MULTI_THREAD_READER 2
 #define PRELOADED_READER 3
 
-//#define READER_TYPE PRELOADED_READER
-//#ifdef __APPLE__
-//#undef READER_TYPE
 #define READER_TYPE NORMAL_READER
-//#endif
 
 
 #if !defined(READER_TYPE) || READER_TYPE == NORMAL_READER
@@ -53,7 +48,9 @@
 #define BENCHMARK_OPTION(ACTION)                                               \
     ACTION(warmup_trace_path, OPTION_TYPE_STR, "", "path to the trace")        \
     ACTION(eval_trace_path, OPTION_TYPE_STR, "trace.bin", "path to the trace") \
-    ACTION(n_thread, OPTION_TYPE_UINT, 2, "the number of threads")             \
+    ACTION(n_warmup_req, OPTION_TYPE_UINT, 0, "#requests from eval trace used to warmup (per thread)") \
+    ACTION(default_ttl, OPTION_TYPE_UINT, 3600, "default ttl for set request with no ttl") \
+    ACTION(n_thread, OPTION_TYPE_UINT, 1, "the number of threads")             \
     ACTION(per_op_latency, OPTION_TYPE_BOOL, true, "Collect latency samples")  \
     ACTION(debug_logging, OPTION_TYPE_BOOL, true, "turn on debug logging")
 
@@ -79,9 +76,6 @@ static rstatus_i
 benchmark_create(struct benchmark *b, const char *config)
 {
     memset(b, 0, sizeof(*b));
-    //    b->entries = cc_zalloc(sizeof(struct benchmark_entry) * 1);
-    //    b->entries->key = cc_zalloc(MAX_KEY_LEN);
-    //    ASSERT(b->entries->key != NULL);
 
     unsigned nopts = OPTION_CARDINALITY(struct replay_specific);
 
@@ -116,6 +110,8 @@ benchmark_create(struct benchmark *b, const char *config)
     }
 
     b->n_thread = O_UINT(b, n_thread);
+    b->n_warmup_req = O_UINT(b, n_warmup_req);
+    b->default_ttl = O_UINT(b, default_ttl);
 
     if (O_BOOL(b, debug_logging)) {
         if (debug_setup(&BENCH_OPTS(b)->debug) != CC_OK) {
@@ -183,7 +179,7 @@ trace_replay_run(struct benchmark *b)
     struct benchmark_entry *e = NULL;
 
     if (wreader != NULL) {
-        printf("start warmup");
+        printf("start warmup using warmup trace");
         struct duration wd;
         duration_start(&wd);
 
@@ -212,14 +208,16 @@ trace_replay_run(struct benchmark *b)
     uint64_t n_req = 0;
 
     while (READ_TRACE(ereader, &e) == 0) {
-        if (n_req < 1000000) 
+        if (n_req < b->n_warmup_req){
             e->op = op_set;
+            e->expire_at = time_proc_sec() + b->default_ttl;
+        }
 
         status = benchmark_run_operation(b, e, per_op_latency);
-        /* we are counting read-after-delete as miss, maybe exclude this */
         if (status == CC_EEMPTY) {
             n_miss += 1;
         }
+
         n_req += 1;
         //        if (n_req % 1000000 == 0)
         //            dump_seg_info();
@@ -229,8 +227,6 @@ trace_replay_run(struct benchmark *b)
 
     printf("%" PRIu64 " req, %" PRIu64 " miss (%.4f)\n", ereader->n_total_req,
             n_miss, (double)n_miss / ereader->n_total_req);
-
-        hashtable_print_chain_depth_hist();
 
     bench_storage_deinit();
 
@@ -259,11 +255,10 @@ _trace_replay_thread(void *arg)
     }
 
     while (READ_TRACE(ereader, &e) == 0) {
-//        if (e->op == op_cas || e->op == op_add)
-//            e->op = op_set;
-
-//        if (e->op != op_get && e->op != op_gets && e->op != op_set && e->op != op_delete)
-//            printf("found %s\n", op_names[e->op]);
+        if (n_req < b->n_warmup_req){
+            e->op = op_set;
+            e->expire_at = time_proc_sec() + b->default_ttl;
+        }
 
         status = run_op(e);
 
