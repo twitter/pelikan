@@ -694,6 +694,8 @@ START_TEST(test_evict_refcount)
      * Given that cas 8,
      * we know: key + val < 12
      *
+     * jason: note that if HAVE_ASSERT_PANIC enabled, this test will fail
+     *
      **/
     struct bstring key, val;
     item_rstatus_e status;
