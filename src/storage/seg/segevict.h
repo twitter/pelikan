@@ -29,9 +29,9 @@ typedef enum evict_rstatus {
 struct seg_evict_info {
     evict_policy_e policy;
     proc_time_i last_update_time;
-    uint32_t nseg;
-    uint32_t *ranked_seg_id;  /* the least valuable to the most valuable */
-    uint32_t idx_rseg;     /* curr index in ranked seg id array */
+    int32_t nseg;
+    int32_t *ranked_seg_id;  /* the least valuable to the most valuable */
+    int32_t idx_rseg;     /* curr index in ranked seg id array */
     pthread_mutex_t mtx;
 };
 
@@ -41,10 +41,10 @@ struct seg_evict_info {
  * return seg_id
  */
 evict_rstatus_e
-least_valuable_seg(uint32_t *seg_id);
+least_valuable_seg(int32_t *seg_id);
 
 
 /* this must be setup update seg_setup has finished */
-void segevict_setup(evict_policy_e ev_policy, uint32_t nseg);
+void segevict_setup(evict_policy_e ev_policy, int32_t nseg);
 
 void segevict_teardown(void);

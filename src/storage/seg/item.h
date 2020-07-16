@@ -56,9 +56,7 @@ typedef enum item_rstatus {
  * - data
  */
 
-/* TODO(jason): we may want to change to open addressing hashtable to
- * save the 8-byte hash pointer,
- *
+/**
  * TODO(jason): if we remove hash_next, we can reduce memory alignment to 4-byte
  * but this still requires val to be uint32_t
  * TODO(jason): consider using vlen as part of val when is_num
@@ -69,30 +67,19 @@ struct item {
     uint32_t magic; /* item magic (const) */
 #endif
 
-//    uint32_t seg_id : 24; /* id of the segment the item belongs to, max 16 TiB.
-//                           * we can make this field optional if needed,
-//                           * we don't need this field if we used a fixed  segment
-//                           * size and only use DRAM/PMem for storage,
-//                           * in such scenario, we can make the starting address
-//                           * of each segment as multiple of 1<<20,
-//                           * however, doing so adds several limitations,
-//                           * and does not save space if we have cas as uint64_t
-//                           * due to struct packing
-//                           */
-
     uint32_t klen : 8; /* key size */
     uint32_t vlen : 24; /* data size */
     uint8_t is_num : 1; /* whether this is a number */
 
     uint8_t olen : 7; /* option length */
 
-    /* data start needs to be 8-byte aligned for incr/decr */
+    /* TODO(jason): how can we align val to 8-byte for incr/decr?
+     * maybe we can place val first then key,
+     * or we can just ignore the alignment */
     char end[1]; /* item data */
 };
 
 SLIST_HEAD(item_slh, item);
-
-extern struct locktable cas_table;
 
 
 /* get key length */
@@ -112,7 +99,7 @@ item_nkey(const struct item *const it)
 static inline uint32_t
 item_nval(const struct item *const it)
 {
-    return it->vlen > sizeof(uint64_t) ? it->vlen : sizeof(uint64_t);
+    return it->vlen;
 }
 
 static inline uint32_t
@@ -153,7 +140,7 @@ item_val(struct item *const it)
 }
 
 /*
- * round up total occupied size in DRAM for memalign
+ * round up total size for alignment
  */
 static inline size_t
 item_size_roundup(const uint32_t sz)
@@ -165,14 +152,15 @@ static inline size_t
 item_size(uint32_t klen, uint32_t vlen, uint32_t olen)
 {
     size_t sz = ITEM_HDR_SIZE + klen + olen;
-    sz += vlen > sizeof(uint64_t) ? vlen : sizeof(uint64_t);
+    sz += vlen >= sizeof(uint64_t) ? vlen : sizeof(uint64_t);
     return item_size_roundup(sz);
 }
 
 static inline size_t
 item_ntotal(const struct item *it)
 {
-    size_t sz = ITEM_HDR_SIZE + it->klen + it->olen + item_nval(it);
+    size_t sz = ITEM_HDR_SIZE + it->klen + it->olen;
+    sz += it->vlen >= sizeof(uint64_t) ? it->vlen : sizeof(uint64_t);
 
     /* we need to make sure memory is aligned at 8-byte boundary */
     return item_size_roundup(sz);
@@ -185,15 +173,6 @@ item_incr(uint64_t *vint, struct item *it, uint64_t delta);
 item_rstatus_e
 item_decr(uint64_t *vint, struct item *it, uint64_t delta);
 
-/* this is for incr/decr,
- * after we parse the val with item_atou32, we set the new value with this
- * func */
-// static inline void
-// item_set_val_uint32(struct item *it, uint32_t vint)
-//{
-//    ASSERT(it->is_num);
-//    *(uint32_t *)item_val(it) = vint;
-//}
 
 void
 item_release(struct item *it);
@@ -229,17 +208,6 @@ item_update(struct item *it);
 bool
 item_delete(const struct bstring *key);
 
-///* remove this specific item from hashtable */
-//bool
-//item_evict(const char *oit_key, const uint32_t oit_klen,
-//               const uint32_t seg_id, const uint32_t offset);
-
-///* remove oit from hashtable and insert nit */
-//void
-//item_relink(struct item *oit, struct item *nit);
-
-
 /* flush the cache */
 void
 item_flush(void);
-

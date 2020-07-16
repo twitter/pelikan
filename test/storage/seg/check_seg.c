@@ -68,7 +68,7 @@ START_TEST(test_ttl_bucket_find)
     ck_assert_int_eq(find_ttl_bucket_idx(200) , 25);
     ck_assert_int_eq(find_ttl_bucket_idx(2000) , 250);
     ck_assert_int_eq(find_ttl_bucket_idx(20000) , 412);
-    ck_assert_int_eq(find_ttl_bucket_idx(200000) , 469);
+    ck_assert_int_eq(find_ttl_bucket_idx(200000) , 609);
     ck_assert_int_eq(find_ttl_bucket_idx(2000000) , 829);
     ck_assert_int_eq(find_ttl_bucket_idx(MAX_TTL - 1) , MAX_TTL_BUCKET_IDX);
     ck_assert_int_eq(find_ttl_bucket_idx(INT32_MAX) , MAX_TTL_BUCKET_IDX);
@@ -88,8 +88,8 @@ START_TEST(test_hashtable_basic)
     struct bstring key, key2, val;
     item_rstatus_e status;
     struct item *it, *it2;
-    uint32_t seg_id, offset;
-    uint32_t seg_id2;
+    int32_t seg_id, offset;
+    int32_t seg_id2;
     uint64_t cas = 0, cas2;
     struct seg *seg;
     int n_hashtable_entries, n_hashtable_extra_array;
@@ -155,7 +155,7 @@ START_TEST(test_hashtable_basic)
     /* mix of insert and updates - make sure don't get staled item */
     for (int i = 0; i < 8; i++) {
         for (int j=0; j<4; j++){
-            key2.len = snprintf(key_char, 24, "%d-%d-test_hashtable_basic", i, j);
+            key2.len = snprintf(key_char, 24, "%d-%d-hashtable_basic", i, j);
             status = item_reserve(&it, &key2, &val, val.len, MLEN, INT32_MAX);
             ck_assert_msg(
                     status == ITEM_OK, "item_reserve not OK return %d", status);
@@ -219,7 +219,7 @@ START_TEST(test_insert_basic)
     ck_assert_int_eq(it->klen, sizeof(KEY) - 1);
     ck_assert_int_eq(item_nkey(it), sizeof(KEY) - 1);
     ck_assert_int_eq(it->vlen, sizeof(VAL) - 1);
-    ck_assert_int_eq(item_nval(it), MAX(sizeof(VAL) - 1, sizeof(uint64_t)));
+    ck_assert_int_eq(item_nval(it), sizeof(VAL) - 1);
     ck_assert_int_eq(item_olen(it), MLEN);
 
     ck_assert_int_eq(item_val(it) - (char *)it,
@@ -227,7 +227,7 @@ START_TEST(test_insert_basic)
     ck_assert_int_eq(cc_memcmp(item_key(it), KEY, key.len), 0);
     ck_assert_int_eq(cc_memcmp(item_val(it), VAL, val.len), 0);
 
-    uint32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
+    int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
     struct seg *seg = &heap.segs[seg_id];
 
     ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
@@ -267,7 +267,7 @@ START_TEST(test_insert_large)
     struct bstring key, val;
     item_rstatus_e status;
     struct item *it, *it2;
-    size_t len;
+    int len;
     char *p;
 
     test_setup();
@@ -295,8 +295,7 @@ START_TEST(test_insert_large)
 
     for (p = item_val(it), len = it->vlen; len > 0 && *p == 'A'; p++, len--)
         ;
-    ck_assert_msg(len == 0, "item_data contains wrong value %.*s", VLEN,
-            item_val(it));
+    ck_assert_msg(len == 0, "item_data contains wrong value len differ by %d", len);
     item_release(it2);
 
     test_teardown();
@@ -343,7 +342,7 @@ START_TEST(test_reserve_backfill_release)
     ck_assert_msg(len == 0, "item_data contains wrong value %.*s", it->vlen,
             item_val(it));
 
-    uint32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
+    int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
     struct seg *seg = &heap.segs[seg_id];
 
     ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
@@ -401,7 +400,7 @@ START_TEST(test_reserve_backfill_link)
     item_backfill(it, &val);
     item_insert(it);
 
-    uint32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
+    int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
     struct seg *seg = &heap.segs[seg_id];
     ck_assert_int_eq(it->vlen, VLEN);
     ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
@@ -548,7 +547,7 @@ START_TEST(test_delete_basic)
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK - return status %d",
             status);
     item_insert(it);
-    uint32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
+    int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
     seg = &heap.segs[seg_id];
 
     it = item_get(&key, NULL, true);
@@ -598,7 +597,7 @@ START_TEST(test_delete_more)
     ck_assert_msg(it != NULL, "item_get could not find key");
     item_release(it);
 
-    uint32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
+    int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
     struct seg *seg = &heap.segs[seg_id];
 
     ck_assert_int_eq(seg->seg_id, 0);
@@ -696,7 +695,7 @@ START_TEST(test_expire_basic)
             status);
     item_insert(it);
 
-    uint32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
+    int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
     struct seg *seg = &heap.segs[seg_id];
 
     it = item_get(&key, NULL, true);
@@ -774,7 +773,6 @@ START_TEST(test_seg_basic)
         ck_assert_int_eq(seg->locked, 1);
         ck_assert_int_eq(seg->prev_seg_id, -1);
         ck_assert_int_eq(seg->next_seg_id, -1);
-        ck_assert_int_eq(seg->in_free_pool, 0);
         ck_assert_int_eq(seg->n_item, 0);
     }
     test_teardown();
@@ -798,7 +796,7 @@ START_TEST(test_seg_more)
     item_rstatus_e status;
     struct item *it;
     struct seg *seg;
-    uint32_t seg_id;
+    int32_t seg_id;
 
     val.data = cc_alloc(VLEN);
     cc_memset(val.data, 'A', VLEN);
@@ -878,7 +876,7 @@ START_TEST(test_segevict_FIFO)
     seg_setup(&options, &metrics);
 
     struct bstring key, val;
-    uint32_t seg_id;
+    int32_t seg_id;
     struct item *it;
     struct seg *seg;
     item_rstatus_e status;
@@ -912,10 +910,10 @@ START_TEST(test_segevict_FIFO)
     ck_assert_int_eq(seg_id, 0);
     ck_assert_msg(seg->r_refcount == 1, "seg refcount incorrect");
     ck_assert_msg(seg->w_refcount == 0, "seg refcount incorrect");
-    ck_assert_msg(seg->write_offset == item_ntotal(it) ||
-                    seg->write_offset == item_ntotal(it) + 8,
-            "write offset error %" PRIu32, seg->write_offset);
-    ck_assert_msg(seg->write_offset == seg->occupied_size);
+//    ck_assert_msg(seg->write_offset == item_ntotal(it) ||
+//                    seg->write_offset == item_ntotal(it) + 8,
+//            "write offset error %" PRIu32, seg->write_offset);
+//    ck_assert_msg(seg->write_offset == seg->occupied_size);
     ck_assert(seg->n_item == 1);
     item_release(it);
 
@@ -968,7 +966,7 @@ START_TEST(test_segevict_CTE)
 
     struct bstring key, val;
     struct item *it;
-    uint32_t seg_id;
+    int32_t seg_id;
     struct seg *seg;
     item_rstatus_e status;
 
@@ -1039,7 +1037,7 @@ START_TEST(test_segevict_UTIL)
 
     struct bstring key, val_small, val_large;
     struct item *it;
-    uint32_t seg_id;
+    int32_t seg_id;
 
     val_small.data = cc_alloc(VLEN_SMALL);
     val_large.data = cc_alloc(VLEN_LARGE);
@@ -1117,7 +1115,7 @@ START_TEST(test_segevict_RAND)
 
     struct bstring key, val;
     struct item *it;
-    uint32_t seg_id;
+    int32_t seg_id;
     struct seg *seg;
 
     val.data = cc_alloc(VLEN);
@@ -1229,7 +1227,7 @@ START_TEST(test_ttl_bucket_basic)
     struct bstring key, val;
     item_rstatus_e status;
     struct item *it, *it2;
-    uint32_t seg_id;
+    int32_t seg_id;
     uint32_t offset, occu_size, item_size;
 
     key = str2bstr(KEY);
@@ -1302,9 +1300,9 @@ START_TEST(test_ttl_bucket_basic)
         occu_size = seg1->occupied_size;
         item_size = item_ntotal(it);
 
-        ck_assert_msg(
-                offset == item_size || offset == item_size + sizeof(uint64_t),
-                "seg write offset is incorrect %d", offset);
+//        ck_assert_msg(
+//                offset == item_size || offset == item_size + sizeof(uint64_t),
+//                "seg write offset is incorrect %d", offset);
         ck_assert_msg(occu_size == 0 || occu_size == sizeof(uint64_t),
                 "seg occupied size is incorrect %", occu_size);
 
@@ -1377,8 +1375,9 @@ main(void)
     option_load_default(
             (struct option *)&debug_opts, OPTION_CARDINALITY(debug_options_st));
     debug_opts.debug_log_level.val.vuint = 6;
+    /* turn on for debug
     debug_setup(&debug_opts);
-
+    */
 
     Suite *suite = seg_suite();
     SRunner *srunner = srunner_create(suite);

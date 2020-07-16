@@ -79,8 +79,13 @@ hashtable_evict(const char *oit_key, const uint32_t oit_klen,
                     uint64_t seg_id, uint64_t offset);
 
 struct item *
-hashtable_get(const char *key, const uint32_t klen, uint32_t *seg_id, uint64_t *cas);
+hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id, uint64_t *cas);
+
+bool
+hashtable_check_it(const char *oit_key, const uint32_t oit_klen,
+                   const uint64_t seg_id, const uint64_t offset);
 
 void
 hashtable_stat(int *n_item, int *n_extra_array);
 
+void scan_hashtable_find_seg(int32_t target_seg_id);

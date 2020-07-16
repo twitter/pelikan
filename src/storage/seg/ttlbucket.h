@@ -89,20 +89,12 @@
 
 /* we can use a timing wheel here or in seg */
 struct ttl_bucket {
-//    struct seg_tqh  seg_q;          /* TODO(jason): I think we don't need a queue here
-//                                     * we can just keep the last unsealed seg */
     int32_t first_seg_id;
     int32_t last_seg_id;
 
-//    pthread_mutex_t mtx;
+    pthread_mutex_t mtx;
+
     delta_time_i    ttl;           /* the min ttl of this bucket */
-//    uint32_t       n_seg_mul_two; /* n_seg_mul_two has two usages,
-//                                   * 1. tracking the number of segments,
-//                                   * which is n_seg_mul_two/2.
-//                                   * 2. used for optimistic locking
-//                                   * when it is odd, indicating the seg_q
-//                                   * is being updated.
-//                                   */
     uint32_t n_seg;
 };
 
@@ -166,5 +158,5 @@ ttl_bucket_teardown(void);
  *
  */
 struct item *
-ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz, uint32_t *seg_id);
+ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id);
 

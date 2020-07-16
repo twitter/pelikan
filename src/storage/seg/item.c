@@ -14,55 +14,6 @@ extern struct hash_table *hash_table;
 extern seg_metrics_st *seg_metrics;
 extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
 
-#define SANITY_CHECK(it)                                                       \
-    do {                                                                       \
-        ASSERT(it->magic == ITEM_MAGIC);                                       \
-        ASSERT(seg_get_data_start(it->seg_id) != NULL);                        \
-        ASSERT(*(uint64_t *)(seg_get_data_start(it->seg_id)) == SEG_MAGIC);    \
-    } while (0)
-
-
-/*
- * verify the integrity of segments, items and hashtable
- */
-static inline void
-_verify_integrity(void)
-{
-    uint32_t seg_id;
-    struct seg *seg;
-    uint8_t *seg_data, *curr;
-    struct item *it, *it2;
-
-    for (seg_id = 0; seg_id < heap.nseg; seg_id++) {
-        seg = &heap.segs[seg_id];
-        ASSERT(seg->seg_id == seg_id);
-        seg_data = curr = seg_get_data_start(seg_id);
-
-#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
-        ASSERT(*(uint64_t *)(curr) == SEG_MAGIC);
-        curr += sizeof(uint64_t);
-#endif
-        while (curr - seg_data < seg->write_offset) {
-            it = (struct item *)curr;
-#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
-            ASSERT(it->magic == ITEM_MAGIC);
-#endif
-
-            struct bstring key = {.data = item_key(it), .len = item_nkey(it)};
-            it2 = item_get(&key, NULL, true);
-            if (it2 != NULL) {
-                /* item might be deleted */
-                ASSERT(item_nkey(it) == item_nkey(it2));
-                ASSERT(item_nval(it) == item_nval(it2));
-                cc_memcmp(item_key(it), item_key(it2), item_nkey(it));
-                cc_memcmp(item_val(it), item_val(it2), item_nval(it));
-                item_release(it2);
-            }
-
-            curr += item_ntotal(it);
-        }
-    }
-}
 
 /*
  * Allocate an item. We allocate an item by consuming the next free item
@@ -71,16 +22,16 @@ _verify_integrity(void)
  * On success we return the pointer to the allocated item.
  */
 static struct item *
-_item_alloc(uint32_t sz, delta_time_i ttl, uint32_t *seg_id)
+_item_alloc(uint32_t sz, delta_time_i ttl, int32_t *seg_id)
 {
-    uint16_t ttl_bucket_idx = find_ttl_bucket_idx(ttl);
+    int32_t ttl_bucket_idx = find_ttl_bucket_idx(ttl);
     struct item *it = ttl_bucket_reserve_item(ttl_bucket_idx, sz, seg_id);
 
     if (it == NULL) {
         INCR(seg_metrics, item_alloc_ex);
         log_error("error alloc it %p of size %" PRIu32 " ttl %" PRIu32
                   " (bucket %" PRIu16 ") in seg %" PRIu32,
-                it, sz, ttl, ttl_bucket_idx);
+                it, sz, ttl, ttl_bucket_idx, seg_id);
 
         return NULL;
     }
@@ -131,8 +82,8 @@ void
 item_insert(struct item *it)
 {
     /* calculate seg_id from it address */
-    uint32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
-    uint32_t offset = ((uint8_t *)it) - heap.base - heap.seg_size * seg_id;
+    int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
+    int32_t offset = ((uint8_t *)it) - heap.base - heap.seg_size * seg_id;
 
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
     ASSERT(it->magic == ITEM_MAGIC);
@@ -142,8 +93,8 @@ item_insert(struct item *it)
     hashtable_put(it, (uint64_t)seg_id, (uint64_t)offset);
 
     seg_w_deref(seg_id);
-
-    log_verb("insert_or_update it %p (%.*s) of key size %u, val size %u, "
+    
+    log_verb("insert it %p (%.*s) of key size %u, val size %u, "
              "total size %zu in seg %d, "
              "seg write-offset %d, occupied size %d",
             it, item_nkey(it), item_key(it), item_nkey(it), item_nval(it),
@@ -163,7 +114,7 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
 {
     struct item *it;
     struct seg *seg;
-    uint32_t seg_id;
+    int32_t seg_id;
 
     it = hashtable_get(key->data, key->len, &seg_id, cas);
     if (it == NULL) {
@@ -175,8 +126,8 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
 
     if (seg_expired(seg_id)) {
         log_warn("item_get found expired item on seg %"
-                PRIu32 ", background thread cannot catch up", seg_id);
-        seg_print(seg_id);
+                PRIu32 ", ttl %" PRId32 " , background thread cannot catch up",
+                seg_id, seg->ttl);
         return NULL;
     }
 
@@ -190,7 +141,6 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
 
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
     ASSERT(it->magic == ITEM_MAGIC);
-    ASSERT(*(uint64_t *)(seg_get_data_start(seg_id)) == SEG_MAGIC);
 #endif
 
     if (incr_ref) {
@@ -207,7 +157,7 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
 void
 item_release(struct item *it)
 {
-    uint32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
+    int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
     seg_r_deref(seg_id);
 }
 
@@ -234,9 +184,13 @@ item_reserve(struct item **it_p, const struct bstring *key,
         proc_time_i expire_at)
 {
     struct item *it;
-    uint32_t seg_id;
+    int32_t seg_id;
     delta_time_i ttl = expire_at - time_proc_sec();
     size_t sz = item_size(key->len, vlen, olen);
+
+    if (ttl <= 0) {
+        log_warn("reserve_item (%.*s) ttl %"PRId32, key->len, key->data, ttl);
+    }
 
     if (sz > heap.seg_size) {
         *it_p = NULL;
@@ -290,6 +244,7 @@ item_incr(uint64_t *vint, struct item *it, uint64_t delta)
         struct bstring vstr = {.data = (char *)item_val(it), .len = it->vlen};
         if (bstring_atou64(vint, &vstr) == CC_OK) {
             it->is_num = true;
+            it->vlen = sizeof(uint64_t);
             *vint = *vint + delta;
         } else {
             return ITEM_ENAN;
@@ -313,6 +268,7 @@ item_decr(uint64_t *vint, struct item *it, uint64_t delta)
         struct bstring vstr = {.data = (char *)item_val(it), .len = it->vlen};
         if (bstring_atou64(vint, &vstr) == CC_OK) {
             it->is_num = true;
+            it->vlen = sizeof(uint64_t);
             *vint = *vint - delta;
         } else {
             return ITEM_ENAN;
@@ -329,18 +285,6 @@ item_delete(const struct bstring *key)
     log_verb("delete it (%.*s)", key->len, key->data);
     return hashtable_delete(key->data, key->len, true);
 }
-
-// bool
-// item_evict(const char *oit_key, const uint32_t oit_klen,
-//               const uint32_t seg_id, const uint32_t offset)
-//{
-//    bool in_cache = hashtable_delete_it(oit_key, oit_klen, seg_id, offset);
-//
-//    log_verb("delete it %.*s from seg %d in_cache %d", oit_klen, oit_key,
-//            seg_id, in_cache);
-//
-//    return in_cache;
-//}
 
 void
 item_flush(void)

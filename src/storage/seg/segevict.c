@@ -19,6 +19,8 @@ _should_rerank(void)
     prev_sec = __atomic_load_n(&evict.last_update_time, __ATOMIC_SEQ_CST);
     rerank = prev_sec == -1 || curr_sec - prev_sec > UPDATE_INTERVAL;
 
+    rerank = rerank || evict.nseg - evict.idx_rseg < 8;
+
     if (rerank) {
         __atomic_store_n(&evict.last_update_time, curr_sec, __ATOMIC_SEQ_CST);
     }
@@ -100,7 +102,6 @@ _rank_seg(void)
         return;
     }
 
-    //    __atomic_store_n(&evict.idx_rseg, 0, __ATOMIC_SEQ_CST);
     evict.idx_rseg = 0;
 
     int (*cmp)(const void *, const void *) = NULL;
@@ -136,19 +137,11 @@ _rank_seg(void)
     seg_print(evict.ranked_seg_id[1]);
     seg_print(evict.ranked_seg_id[2]);
     seg_print(evict.ranked_seg_id[3]);
-
-    //    log_debug("ranked seg %d - craete at %" PRId32 ", TTL %" PRId32
-    //              ", write offset %" PRIu32 ", occupied size %" PRIu32,
-    //            heap.segs[evict.ranked_seg_id[0]].seg_id,
-    //            heap.segs[evict.ranked_seg_id[0]].create_at,
-    //            heap.segs[evict.ranked_seg_id[0]].ttl,
-    //            heap.segs[evict.ranked_seg_id[0]].write_offset,
-    //            heap.segs[evict.ranked_seg_id[0]].occupied_size)
 }
 
 
 evict_rstatus_e
-least_valuable_seg(uint32_t *seg_id)
+least_valuable_seg(int32_t *seg_id)
 {
     ASSERT(heap.nseg == heap.max_nseg);
 
@@ -170,9 +163,6 @@ least_valuable_seg(uint32_t *seg_id)
             log_warn("unable to find a segment that has no writer");
             return EVICT_NO_SEALED_SEG;
         } else {
-//            log_debug("pick seg %d, free pool? %d next_seg %d", *seg_id,
-//                    heap.segs[*seg_id].in_free_pool,
-//                    heap.segs[*seg_id].next_seg_id);
             return EVICT_OK;
         }
     } else {
@@ -198,13 +188,8 @@ least_valuable_seg(uint32_t *seg_id)
             pthread_mutex_unlock(&evict.mtx);
             return EVICT_NO_SEALED_SEG;
         }
-        //        *seg_id = evict.ranked_seg_id[evict.idx_rseg++];
-//        ASSERT(heap.segs[*seg_id].in_free_pool == 0);
 
         pthread_mutex_unlock(&evict.mtx);
-//            log_debug("pick seg %d, free pool? %d next_seg %d", *seg_id,
-//                    heap.segs[*seg_id].in_free_pool,
-//                    heap.segs[*seg_id].next_seg_id);
         return EVICT_OK;
     }
 }
@@ -219,7 +204,7 @@ segevict_teardown(void)
 }
 
 void
-segevict_setup(evict_policy_e ev_policy, uint32_t nseg)
+segevict_setup(evict_policy_e ev_policy, int32_t nseg)
 {
     uint32_t i = 0;
 
@@ -231,7 +216,7 @@ segevict_setup(evict_policy_e ev_policy, uint32_t nseg)
     evict.last_update_time = -1;
     evict.policy = ev_policy;
     evict.nseg = nseg;
-    evict.ranked_seg_id = cc_zalloc(sizeof(uint32_t) * nseg);
+    evict.ranked_seg_id = cc_zalloc(sizeof(int32_t) * nseg);
     evict.idx_rseg = 0;
     pthread_mutex_init(&evict.mtx, NULL);
 

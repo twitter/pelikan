@@ -74,8 +74,7 @@
 
 /* TODO(jason): make sure it is less than one cacheline */
 struct seg {
-    //    TAILQ_ENTRY(seg) seg_tqe;
-    uint32_t seg_id; /* the segment id in segment table,
+    int32_t seg_id; /* the segment id in segment table,
                      * use seg_id instead of uint8_t*
                      * because seg address change after restart,
                      * and this also saves four byte for each seg
@@ -84,35 +83,29 @@ struct seg {
                      * calculated using address between datapool_base
                      * */
 
-    uint32_t write_offset; /* used to calculate the write pos */
-    uint32_t occupied_size; /* used size, less than seg_size because of
+    int32_t write_offset; /* used to calculate the write pos */
+    int32_t occupied_size; /* used size, less than seg_size because of
                              * internal fragmentation and update/deletion */
 
     proc_time_i create_at;
     delta_time_i ttl;
 
-    uint32_t n_item; /* the number of valid items
-                      * TODO (jason): could remove this field */
-    uint32_t w_refcount; /* # concurrent reade accesses, >0 means the seg can't
-                            be evicted */
-    uint32_t r_refcount; /* # concurrent write accesses, >0 means the seg can't
+    int32_t n_item; /* the number of valid items
+                     * TODO (jason): could remove this field */
+    int32_t w_refcount; /* # concurrent reade accesses, >0 means the seg can't
+                           be evicted */
+    int32_t r_refcount; /* # concurrent write accesses, >0 means the seg can't
                           * be evicted */
     int32_t prev_seg_id; /* the id of prev seg in ttl_bucket or free seg list */
     int32_t next_seg_id; /* the id of next seg in ttl_bucket or free seg list */
 
-    uint32_t n_hit; /* only update when the seg is sealed */
-    uint32_t n_hit_last; /* number of hits in the last window */
+    int32_t n_hit; /* only update when the seg is sealed */
+    int32_t n_hit_last; /* number of hits in the last window */
 
     uint8_t locked; /* whether the seg is locked for eviction, used 1 byte
                      * because we need atomic operation on it,
                      * we can reuse refcount for this purpose by setting it
                      * to negative val */
-//    uint8_t linked: 1; /* whether it is linked in ttl_bucket */
-
-    //    uint8_t sealed : 1; /* whether it is full and no longer write to */
-    //    uint8_t in_pmem : 1; /* whether the seg is in PMem, not used */
-//    uint8_t initialized : 1; /* is seg initialized */
-    uint8_t in_free_pool; /* is seg in the free pool */
     uint8_t recovered : 1; /* whether the items on this seg have been
                               recovered*/
 
@@ -245,7 +238,7 @@ seg_is_locked(struct seg *seg)
 
 
 static inline uint8_t *
-seg_get_data_start(uint32_t seg_id)
+seg_get_data_start(int32_t seg_id)
 {
     return heap.base + heap.seg_size * seg_id;
 }
@@ -260,43 +253,41 @@ seg_teardown(void);
 int32_t
 seg_get_new(void);
 
-/* return the seg to global pool
- * this is used when multiple threads are evicting multiple segments
+/* return the seg to free pool
+ * this is used when multiple threads evict multiple segments due to
+ * optimistic concurrency control
  * at the same time, in the end, only one segment will be linked to
  * ttl_bucket, the rest will return to global pool */
 void
-seg_return_seg(uint32_t seg_id);
+seg_return_seg(int32_t seg_id);
 
 
 /*
  * remove all items on this segment
  * make sure segment is locked and ref_cnt 0
- * indicating no other threads are accessing items on the seg
+ * indicating no other threads are accessing and will accesss items on the seg
  */
 bool
-seg_rm_all_item(uint32_t seg_id, int expire);
+seg_rm_all_item(int32_t seg_id, int expire);
 
 void
-seg_rm_expired_seg(uint32_t seg_id);
+seg_rm_expired_seg(int32_t seg_id);
 
 void
-seg_print(uint32_t seg_id);
-
-void
-dump_seg_info(void);
+seg_print(int32_t seg_id);
 
 bool
-seg_expired(uint32_t seg_id);
+seg_expired(int32_t seg_id);
 
 bool
-seg_r_ref(uint32_t seg_id);
+seg_r_ref(int32_t seg_id);
 
 void
-seg_r_deref(uint32_t seg_id);
+seg_r_deref(int32_t seg_id);
 
 bool
-seg_w_ref(uint32_t seg_id);
+seg_w_ref(int32_t seg_id);
 
 void
-seg_w_deref(uint32_t seg_id);
+seg_w_deref(int32_t seg_id);
 

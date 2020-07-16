@@ -42,8 +42,6 @@ _check_seg_expire(void)
             if (next_seg_id == -1)
                 break;
 
-            /* ttl_bucket first_seg can change */
-//            ASSERT(next_seg_id == ttl_buckets[i].first_seg_id);
             seg_id = next_seg_id;
             seg = &heap.segs[seg_id];
         }
@@ -62,13 +60,18 @@ _background_loop(void *data)
 {
     log_info("seg background thread started");
 
-    proc_time_fine_i curr_msec;
+    struct duration d;
     while (!stop) {
-        curr_msec = time_proc_ms();
+        duration_start(&d);
+
         _check_seg_expire();
         _merge_seg();
-//        if (time_proc_ms() - curr_msec < 400)
-//            usleep(100000);
+
+        duration_stop(&d);
+        if (duration_ms(&d) < 400){
+            usleep(100000);
+            /* add a metric here */
+        }
     }
     log_info("seg background thread stopped");
     return NULL;

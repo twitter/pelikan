@@ -14,7 +14,7 @@
 #include <sysexits.h>
 #include <x86intrin.h>
 
-#define MEM_ALIGN_SIZE 64
+#define CACHE_ALIGN_SIZE 64
 
 /* need to be multiple of 8 to make use of 64-byte cache line */
 #define BUCKET_SIZE 8u
@@ -32,9 +32,11 @@
 #define LOCKED 0x0100000000000000ul
 #define UNLOCKED 0x0000000000000000ul
 
+
 extern seg_metrics_st *seg_metrics;
 extern bool use_cas;
-struct hash_table hash_table;
+
+static struct hash_table hash_table;
 static bool hash_table_initialized = false;
 
 static uint32_t murmur3_iv = 0x3ac5d673;
@@ -44,7 +46,9 @@ static uint32_t murmur3_iv = 0x3ac5d673;
 #define HASHMASK(_n) (HASHSIZE(_n) - 1)
 
 #define GET_HV(key, klen) _get_hv_xxhash(key, klen)
-#define GET_TAG(v) ((v)&TAG_MASK)
+/* tag has to start from 1 to avoid differentiate item_info from pointer */
+#define GET_TAG(v) (((v)&TAG_MASK))
+#define CAL_TAG_FROM_HV(hv) (((hv)&TAG_MASK) | 0x0001000000000000ul)
 #define GET_BUCKET(hv) (&hash_table.table[(hv)&hash_table.hash_mask])
 
 /* TODO(jason): change to atomic */
@@ -130,6 +134,8 @@ _info_to_item(uint64_t item_info)
 {
     uint64_t seg_id = ((item_info & SEG_ID_MASK) >> 20u);
     uint64_t offset = (item_info & OFFSET_MASK) << 3u;
+    ASSERT(seg_id < heap.max_nseg);
+    ASSERT(offset < heap.seg_size);
     return (struct item *)(heap.base + heap.seg_size * seg_id + offset);
 }
 
@@ -140,6 +146,7 @@ _item_free(uint64_t item_info)
     uint64_t offset = (item_info & OFFSET_MASK) << 3u;
     uint32_t sz = item_ntotal(
             (struct item *)(heap.base + heap.seg_size * seg_id + offset));
+    
     __atomic_fetch_sub(&heap.segs[seg_id].occupied_size, sz, __ATOMIC_RELAXED);
     __atomic_fetch_sub(&heap.segs[seg_id].n_item, 1, __ATOMIC_RELAXED);
 }
@@ -158,7 +165,8 @@ _same_item(const char *key, uint32_t klen, uint64_t item_info)
 static inline uint64_t *
 _hashtable_alloc(uint64_t n_slot)
 {
-    uint64_t *table = aligned_alloc(MEM_ALIGN_SIZE, sizeof(uint64_t) * n_slot);
+    uint64_t *table =
+            aligned_alloc(CACHE_ALIGN_SIZE, sizeof(uint64_t) * n_slot);
     if (table == NULL) {
         log_crit("cannot create hash table");
         exit(EX_CONFIG);
@@ -187,7 +195,6 @@ hashtable_setup(uint32_t hash_power)
 
     /* init members */
     hash_table.hash_power = hash_power;
-    //    hash_table.effective_hash_power = hash_power - BUCKET_SIZE_BITS;
     n_slot = HASHSIZE(hash_power);
     hash_table.hash_mask =
             (n_slot - 1) & (0xffffffffffffffff << BUCKET_SIZE_BITS);
@@ -334,15 +341,11 @@ hashtable_put(struct item *it, const uint64_t seg_id, const uint64_t offset)
     const uint32_t klen = item_nkey(it);
 
     uint64_t hv = GET_HV(key, klen);
-    uint64_t tag = GET_TAG(hv);
-        uint64_t *bucket = GET_BUCKET(hv);
+    uint64_t tag = CAL_TAG_FROM_HV(hv);
+    uint64_t *bucket = GET_BUCKET(hv);
 
     uint64_t *array = bucket;
     INCR(seg_metrics, hash_insert);
-
-    ASSERT((tag & 0xffff000000000000ul) == tag);
-    ASSERT((offset >> 3u << 3u) == offset);
-
 
     /* 16-bit tag, 28-bit seg id, 20-bit offset (in the unit of 8-byte) */
     uint64_t item_info, insert_item_info = tag;
@@ -429,7 +432,7 @@ hashtable_delete(const char *key, const uint32_t klen, const bool try_del)
     bool deleted = false;
 
     uint64_t hv = GET_HV(key, klen);
-    uint64_t tag = GET_TAG(hv);
+    uint64_t tag = CAL_TAG_FROM_HV(hv);
     uint64_t *bucket = GET_BUCKET(hv);
     uint64_t *array = bucket;
 
@@ -475,6 +478,8 @@ hashtable_delete(const char *key, const uint32_t klen, const bool try_del)
 
 /*
  * delete the hashtable entry only if item is the up-to-date/valid item
+ *
+ * TODO(jason): use version instead of locking might be better
  */
 bool
 hashtable_evict(const char *oit_key, const uint32_t oit_klen,
@@ -485,14 +490,13 @@ hashtable_evict(const char *oit_key, const uint32_t oit_klen,
     bool deleted = false;
 
     uint64_t hv = GET_HV(oit_key, oit_klen);
-    uint64_t tag = GET_TAG(hv);
+    uint64_t tag = CAL_TAG_FROM_HV(hv);
     uint64_t *bucket = GET_BUCKET(hv);
     uint64_t *array = bucket;
 
     /* 16-bit tag, 28-bit seg id, 20-bit offset (in the unit of 8-byte) */
     uint64_t item_info;
     uint64_t oit_info = tag | (seg_id << 20u) | (offset >> 3u);
-
 
     /* we only want to delete entries of the object as old as oit,
      * so we need to find oit first, once we find it, we will delete
@@ -547,10 +551,10 @@ hashtable_evict(const char *oit_key, const uint32_t oit_klen,
 
 struct item *
 hashtable_get(
-        const char *key, const uint32_t klen, uint32_t *seg_id, uint64_t *cas)
+        const char *key, const uint32_t klen, int32_t *seg_id, uint64_t *cas)
 {
     uint64_t hv = GET_HV(key, klen);
-    uint64_t tag = GET_TAG(hv);
+    uint64_t tag = CAL_TAG_FROM_HV(hv);
     uint64_t *bucket = GET_BUCKET(hv);
     uint64_t *array = bucket;
     uint64_t offset;
@@ -592,6 +596,42 @@ hashtable_get(
 
 
     return NULL;
+}
+
+bool
+hashtable_check_it(const char *oit_key, const uint32_t oit_klen,
+        const uint64_t seg_id, const uint64_t offset)
+{
+    INCR(seg_metrics, hash_remove);
+
+    uint64_t hv = GET_HV(oit_key, oit_klen);
+    uint64_t tag = CAL_TAG_FROM_HV(hv);
+    uint64_t *bucket = GET_BUCKET(hv);
+    uint64_t *array = bucket;
+
+    uint64_t oit_info = tag | (seg_id << 20u) | (offset >> 3u);
+
+
+    lock(bucket);
+
+    int extra_array_cnt = GET_ARRAY_CNT(bucket);
+    int array_size;
+    do {
+        array_size = extra_array_cnt > 0 ? BUCKET_SIZE - 1 : BUCKET_SIZE;
+
+        for (int i = 0; i < array_size; i++) {
+            if (oit_info == array[i]) {
+                unlock(bucket);
+                return true;
+            }
+        }
+        extra_array_cnt -= 1;
+        array = (uint64_t *)(array[BUCKET_SIZE - 1]);
+    } while (extra_array_cnt >= 0);
+
+    unlock(bucket);
+
+    return false;
 }
 
 void
@@ -639,6 +679,57 @@ hashtable_stat(int *item_cnt_ptr, int *extra_array_cnt_ptr)
 
     log_info("hashtable %d entries, %d extra_arrays", item_cnt,
             extra_array_cnt_sum);
+
+#undef BUCKET_HEAD
+}
+
+void
+scan_hashtable_find_seg(int32_t target_seg_id)
+{
+#define BUCKET_HEAD(idx) (&hash_table.table[(idx)*BUCKET_SIZE])
+    int extra_array_cnt;
+    uint64_t item_info;
+    uint64_t *bucket, *array;
+    int array_size;
+    uint64_t seg_id;
+    uint64_t offset;
+    struct item *it;
+    int n_bucket = HASHSIZE(hash_table.hash_power - BUCKET_SIZE_BITS);
+
+    for (uint64_t bucket_idx = 0; bucket_idx < n_bucket; bucket_idx++) {
+        bucket = BUCKET_HEAD(bucket_idx);
+        array = bucket;
+        extra_array_cnt = GET_ARRAY_CNT(bucket);
+        int extra_array_cnt0 = extra_array_cnt;
+        do {
+            array_size = extra_array_cnt >= 1 ? BUCKET_SIZE - 1 : BUCKET_SIZE;
+
+            for (int i = 0; i < array_size; i++) {
+                if (array == bucket && i == 0) {
+                    continue;
+                }
+
+                item_info = array[i];
+
+                if (item_info == 0) {
+                    continue;
+                }
+
+                seg_id = ((item_info & SEG_ID_MASK) >> 20u);
+                if (target_seg_id == seg_id) {
+                    offset = (item_info & OFFSET_MASK) << 3u;
+                    it = (struct item *)(heap.base + heap.seg_size * seg_id +
+                            offset);
+                    log_warn("find item (%.*s) len %d on seg %d offset %d, item_info "
+                             "%lu, i %d, extra %d %d",
+                            it->klen, item_key(it), it->klen, seg_id, offset, item_info, i,
+                            extra_array_cnt0, extra_array_cnt);
+                }
+            }
+            extra_array_cnt -= 1;
+            array = (uint64_t *)(array[BUCKET_SIZE - 1]);
+        } while (extra_array_cnt >= 0);
+    }
 
 #undef BUCKET_HEAD
 }

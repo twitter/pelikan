@@ -18,7 +18,7 @@ extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
  * seg_id is used to return the seg
  */
 struct item *
-ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz, uint32_t *seg_id)
+ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 {
     struct item *it;
     struct ttl_bucket *ttl_bucket = &ttl_buckets[ttl_bucket_idx];
@@ -26,11 +26,26 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz, uint32_t *seg_id)
     struct seg *curr_seg = NULL, *new_seg = NULL;
 
     uint8_t *seg_data = NULL;
-    uint32_t offset = 0; /* offset of the reserved item in the seg */
+    int32_t offset = 0; /* offset of the reserved item in the seg */
     uint8_t locked = false;
 
 
+
     curr_seg_id = ttl_bucket->last_seg_id;
+
+    /* rolling back write_offset is a terrible idea, it causes data corruption
+     * in the situation when multiple threads rolling back at the same time
+     * 1. one solution is to use per-ttl lock, but given this is on the
+     * critical path of insert, I would rather not have a big lock,
+     * 2. the other solution is to use cas, but under contended situation,
+     * cas is not significantly better than mutex
+     * (4000 vs 8000 ns on E5 v4 CPU with 64 threads, atomic_add 1000 ns)
+     * 3. another solution is roll back only after linking new seg to ttl,
+     * but it is not clean enough
+     * 4. the solution used here is to not do roll back, since the seg is not
+     * changed after writing, we can safely detect end of seg during eviction
+     */
+//    pthread_mutex_lock(&ttl_bucket->mtx);
 
     if (curr_seg_id != -1) {
         /* optimistic reservation, roll back if failed */
@@ -39,6 +54,7 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz, uint32_t *seg_id)
                 &(curr_seg->write_offset), sz, __ATOMIC_SEQ_CST);
         locked = seg_is_locked(curr_seg);
     }
+
 
     while (curr_seg_id == -1 || offset + sz > heap.seg_size || locked) {
         if (curr_seg_id != -1) {
@@ -54,7 +70,8 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz, uint32_t *seg_id)
              * moving the lock up can solve this problem,
              * but in such highly-contended case, I believe moving the lock
              * will have a large impact on scalability */
-            __atomic_fetch_sub(&(curr_seg->write_offset), sz, __ATOMIC_SEQ_CST);
+
+//            __atomic_fetch_sub(&(curr_seg->write_offset), sz, __ATOMIC_SEQ_CST);
         }
 
         new_seg_id = seg_get_new();
@@ -63,7 +80,6 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz, uint32_t *seg_id)
             log_error("cannot get new segment");
             return NULL;
         }
-
         new_seg = &heap.segs[new_seg_id];
         new_seg->ttl = ttl_bucket->ttl;
 
@@ -78,6 +94,7 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz, uint32_t *seg_id)
          * has changed (optimistic alloc) this can change either because
          * another thread has linked a new segment or
          * curr_seg is expired and remove */
+        /* TODO(jason): we can add to the head instead of tail */
         if (curr_seg_id != ttl_bucket->last_seg_id &&
                 ttl_bucket->last_seg_id != -1) {
             /* roll back */
@@ -122,15 +139,13 @@ ttl_bucket_reserve_item(uint32_t ttl_bucket_idx, size_t sz, uint32_t *seg_id)
         locked = seg_is_locked(curr_seg);
     }
 
+//    pthread_mutex_unlock(&ttl_bucket->mtx);
+
 
     seg_data = seg_get_data_start(curr_seg_id);
     ASSERT(seg_data != NULL);
-#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
-    ASSERT(*(uint64_t *)(seg_data) == SEG_MAGIC);
-#endif
 
     it = (struct item *)(seg_data + offset);
-    //    it->seg_id = curr_seg->seg_id;
     *seg_id = curr_seg->seg_id;
 
     PERTTL_INCR(ttl_bucket_idx, item_curr);
@@ -154,8 +169,7 @@ ttl_bucket_setup(void)
             ttl_bucket->ttl = ttl_bucket_intvls[i] * j + 1;
             ttl_bucket->last_seg_id = -1;
             ttl_bucket->first_seg_id = -1;
-            //            pthread_mutex_init(&ttl_bucket->mtx, NULL);
-            //            TAILQ_INIT(&ttl_bucket->seg_q);
+                        pthread_mutex_init(&ttl_bucket->mtx, NULL);
         }
     }
 }
