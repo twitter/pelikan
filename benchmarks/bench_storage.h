@@ -114,6 +114,11 @@ benchmark_run_operation(
 static inline rstatus_i
 run_op(struct benchmark_entry *e)
 {
+    log_verb("** start a new request ts % " PRId32 " key %.*s, op %s, ttl "
+                                                   "%" PRId32,
+            proc_sec, e->key_len, e->key, op_names[e->op],
+            e->expire_at - proc_sec);
+
     switch (e->op) {
     case op_get:
         return bench_storage_get(e);

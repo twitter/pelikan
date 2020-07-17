@@ -68,9 +68,6 @@ benchmark_run_operation(
     size_t nsample;
     struct operation_latency *latency;
 
-    log_verb("** start a new request key %.*s, op %s, ttl %" PRId32, e->key_len,
-            e->key, op_names[e->op], e->expire_at - proc_sec);
-
     latency = &b->latency;
     nsample = __atomic_fetch_add(&latency->count, 1, __ATOMIC_RELAXED);
 

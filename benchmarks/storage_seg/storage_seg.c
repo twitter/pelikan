@@ -3,8 +3,7 @@
 #include <storage/seg/item.h>
 #include <storage/seg/seg.h>
 
-#include <storage/seg/hashtable.h>
-extern struct hash_table *hash_table;
+#undef VERIFY_DATA
 
 
 static seg_metrics_st metrics = {SEG_METRIC(METRIC_INIT)};
@@ -57,7 +56,12 @@ bench_storage_get(struct benchmark_entry *e)
     rstatus_i status = it != NULL ? CC_OK : CC_EEMPTY;
 
     if (it){
-        /* TODO(jason): copy the data ? */
+#ifdef VERIFY_DATA
+        ASSERT(e->key_len == it->klen);
+        ASSERT(memcmp(e->key, item_key(it), e->key_len) == 0);
+        ASSERT(memcmp(item_val(it), "ABCDEF", MIN(item_nval(it), 6)) == 0);
+#endif
+
         item_release(it);
     }
 
@@ -102,6 +106,7 @@ bench_storage_decr(struct benchmark_entry *e)
 
     struct item *it = item_get(&key, NULL, true);
     rstatus_i status = item_decr(&vint, it, e->delta) == ITEM_OK? CC_OK : CC_ERROR;
+
     item_release(it);
 
     return status;
@@ -117,6 +122,12 @@ bench_storage_set(struct benchmark_entry *e)
     item_rstatus_e status = item_reserve(&it, &key, &val, val.len, 0, e->expire_at);
     if (status != ITEM_OK)
         return CC_ENOMEM;
+
+#ifdef VERIFY_DATA
+    ASSERT(e->key_len == it->klen);
+    ASSERT(memcmp(e->key, item_key(it), e->key_len) == 0);
+    ASSERT(memcmp(item_val(it), "ABCDEF", MIN(item_nval(it), 6)) == 0);
+#endif
 
     item_insert(it);
 

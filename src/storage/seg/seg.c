@@ -19,7 +19,7 @@
 #define SEG_MODULE_NAME "storage::seg"
 
 extern struct setting               setting;
-extern struct seg_evict_info        evict;
+//extern struct seg_evict_info        evict;
 
 struct seg_heapinfo                 heap; /* info of all allocated segs */
 struct ttl_bucket                   ttl_buckets[MAX_TTL_BUCKET];

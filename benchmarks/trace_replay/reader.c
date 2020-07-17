@@ -45,6 +45,8 @@ open_trace(const char *trace_path)
 
     /* init reader module */
     cc_memset(val_array, 'A', MAX_VAL_LEN);
+    for (int i=0; i<MAX_VAL_LEN; i++)
+        val_array[i] = 'A' + i%26;
 
     strcpy(reader->trace_path, trace_path);
 
@@ -148,7 +150,7 @@ read_trace(struct reader *reader, struct benchmark_entry **e)
         return read_trace(reader, e);
     }
 
-    uint32_t op = (op_ttl >> 24) & (0x00000100 - 1);
+    uint32_t op = (op_ttl >> 24u) & (0x00000100 - 1);
     uint32_t ttl = op_ttl & (0x01000000 - 1);
 
     /* used by reader_pl */
@@ -160,7 +162,10 @@ read_trace(struct reader *reader, struct benchmark_entry **e)
             (unsigned long)key, (int)key_len - 13, key_array);
     ASSERT(ret > 0);
 
-//    printf("klen %d vlen %d %s\n", key_len, val_len, e->key);
+    if (val_len == 0 && (op >= 3 && op <= 6)){
+        /* make set to have at least 8 byte val */
+        val_len = 64;
+    }
 
     (*e)->key_len = key_len;
     (*e)->val_len = val_len;

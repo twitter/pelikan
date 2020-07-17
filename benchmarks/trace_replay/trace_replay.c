@@ -211,11 +211,21 @@ trace_replay_run(struct benchmark *b)
         if (n_req < b->n_warmup_req){
             e->op = op_set;
             e->expire_at = time_proc_sec() + b->default_ttl;
+            if (e->val_len == 0){
+                e->val_len = 64;
+            }
         }
+
 
         status = benchmark_run_operation(b, e, per_op_latency);
         if (status == CC_EEMPTY) {
             n_miss += 1;
+//            if (e->op == op_get){
+//                e->op = op_set;
+//                e->expire_at = time_proc_sec() + b->default_ttl;
+//                run_op(e);
+//                n_req += 1;
+//            }
         }
 
         n_req += 1;
@@ -258,6 +268,9 @@ _trace_replay_thread(void *arg)
         if (n_req < b->n_warmup_req){
             e->op = op_set;
             e->expire_at = time_proc_sec() + b->default_ttl;
+            if (e->val_len == 0){
+                e->val_len = 64;
+            }
         }
 
         status = run_op(e);
@@ -267,9 +280,6 @@ _trace_replay_thread(void *arg)
         } else if (status == CC_OK) {
             ;
         }
-//        else {
-//            printf("%p %s other status %d\n", pthread_self(), op_names[e->op], status);
-//        }
         n_req += 1;
     }
 

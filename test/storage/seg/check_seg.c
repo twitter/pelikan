@@ -1,4 +1,4 @@
-#include <storage/seg/hashtable2.h>
+#include <storage/seg/hashtable.h>
 #include <storage/seg/item.h>
 #include <storage/seg/seg.h>
 #include <storage/seg/ttlbucket.h>
@@ -19,6 +19,7 @@
 seg_options_st options = {SEG_OPTION(OPTION_INIT)};
 seg_metrics_st metrics = {SEG_METRIC(METRIC_INIT)};
 
+extern struct ttl_bucket ttl_buckets[MAX_TTL_BUCKET];
 
 /*
  * utilities
@@ -26,7 +27,6 @@ seg_metrics_st metrics = {SEG_METRIC(METRIC_INIT)};
 static void
 test_setup(void)
 {
-    //    time_update();
     proc_sec = 0;
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
     seg_setup(&options, &metrics);
@@ -1375,9 +1375,9 @@ main(void)
     option_load_default(
             (struct option *)&debug_opts, OPTION_CARDINALITY(debug_options_st));
     debug_opts.debug_log_level.val.vuint = 6;
-    /* turn on for debug
+    /* turn on for debug */
     debug_setup(&debug_opts);
-    */
+
 
     Suite *suite = seg_suite();
     SRunner *srunner = srunner_create(suite);
