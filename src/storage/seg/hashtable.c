@@ -140,15 +140,19 @@ _info_to_item(uint64_t item_info)
 }
 
 static inline void
-_item_free(uint64_t item_info)
+_item_free(uint64_t item_info, bool mark_tombstone)
 {
     uint64_t seg_id = ((item_info & SEG_ID_MASK) >> 20u);
     uint64_t offset = (item_info & OFFSET_MASK) << 3u;
-    uint32_t sz = item_ntotal(
-            (struct item *)(heap.base + heap.seg_size * seg_id + offset));
+    struct item *it = (struct item *)(heap.base + heap.seg_size * seg_id + offset);
+    uint32_t sz = item_ntotal(it);
 
     __atomic_fetch_sub(&heap.segs[seg_id].occupied_size, sz, __ATOMIC_RELAXED);
     __atomic_fetch_sub(&heap.segs[seg_id].n_item, 1, __ATOMIC_RELAXED);
+
+    if (mark_tombstone) {
+        it->deleted = true;
+    }
 }
 
 static inline bool
@@ -386,7 +390,7 @@ hashtable_put(struct item *it, const uint64_t seg_id, const uint64_t offset)
             array[i] = insert_item_info;
             insert_item_info = 0;
 
-            _item_free(item_info);
+            _item_free(item_info, false);
 
             goto finish;
         }
@@ -465,7 +469,9 @@ hashtable_delete(const char *key, const uint32_t klen, const bool try_del)
             /* found the item, now delete */
             array[i] = 0;
             deleted = true;
-            _item_free(item_info);
+            /* if this is the first and most up-to-date hash table entry
+             * for this key, we need to mark tombstone */
+            _item_free(item_info, !deleted);
         }
         extra_array_cnt -= 1;
         array = (uint64_t *)(array[BUCKET_SIZE - 1]);
@@ -526,13 +532,13 @@ hashtable_evict(const char *oit_key, const uint32_t oit_klen,
             }
 
             if (item_info == oit_info) {
-                _item_free(item_info);
+                _item_free(item_info, false);
                 deleted = true;
                 delete_rest = true;
                 array[i] = 0;
             } else {
                 if (delete_rest) {
-                    _item_free(item_info);
+                    _item_free(item_info, true);
                     array[i] = 0;
                 } else {
                     /* this is the newest entry */

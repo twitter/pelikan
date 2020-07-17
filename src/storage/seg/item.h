@@ -67,19 +67,17 @@ struct item {
     uint32_t magic; /* item magic (const) */
 #endif
 
-    uint32_t klen : 8; /* key size */
-    uint32_t vlen : 24; /* data size */
-    uint8_t is_num : 1; /* whether this is a number */
-
-    uint8_t olen : 7; /* option length */
+    uint32_t klen : 8;      /* key size */
+    uint32_t vlen : 24;     /* data size */
+    uint8_t  is_num : 1;    /* whether this is a number */
+    uint8_t  deleted : 1;
+    uint8_t  olen : 7;      /* option length */
 
     /* TODO(jason): how can we align val to 8-byte for incr/decr?
      * maybe we can place val first then key,
      * or we can just ignore the alignment */
-    char end[1]; /* item data */
+    char end[1];
 };
-
-SLIST_HEAD(item_slh, item);
 
 
 /* get key length */
