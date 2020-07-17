@@ -2,7 +2,6 @@
 #include "background.h"
 #include "item.h"
 #include "seg.h"
-#include "segevict.h"
 #include "ttlbucket.h"
 
 #include "cc_debug.h"
@@ -15,6 +14,7 @@
 extern volatile bool stop;
 extern volatile proc_time_i flush_at;
 extern pthread_t bg_tid;
+struct ttl_bucket ttl_buckets[MAX_TTL_BUCKET];
 
 
 static void

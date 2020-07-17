@@ -1,11 +1,11 @@
 #include "seg.h"
 #include "background.h"
 #include "constant.h"
-#include "datapool/datapool.h"
-#include "hashtable2.h"
+#include "hashtable.h"
 #include "item.h"
 #include "segevict.h"
 #include "ttlbucket.h"
+#include "datapool/datapool.h"
 
 #include <cc_mm.h>
 #include <cc_util.h>
@@ -17,23 +17,22 @@
 #include <sysexits.h>
 
 #define SEG_MODULE_NAME "storage::seg"
-#define TRIES_MAX 10
 
-extern struct setting setting;
-extern struct seg_evict_info evict;
-pthread_t bg_tid;
+extern struct setting               setting;
+extern struct seg_evict_info        evict;
 
-struct seg_heapinfo heap; /* info of all allocated segs */
-struct ttl_bucket ttl_buckets[MAX_TTL_BUCKET];
+struct seg_heapinfo                 heap; /* info of all allocated segs */
+struct ttl_bucket                   ttl_buckets[MAX_TTL_BUCKET];
 
-static bool seg_initialized = false;
-seg_metrics_st *seg_metrics = NULL;
-seg_options_st *seg_options = NULL;
-seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
+static bool                         seg_initialized = false;
+seg_metrics_st                      *seg_metrics = NULL;
+seg_options_st                      *seg_options = NULL;
+seg_perttl_metrics_st               perttl[MAX_TTL_BUCKET];
 
-proc_time_i flush_at = -1;
-bool use_cas = false;
-volatile bool stop = false;
+proc_time_i                         flush_at = -1;
+bool                                use_cas = false;
+pthread_t                           bg_tid;
+volatile bool                       stop = false;
 
 
 void
@@ -59,8 +58,8 @@ seg_print(int32_t seg_id)
 }
 
 
-/*
- * wait until the seg is available to be freed (refcount == 0)
+/**
+ * wait until no other threads are accessing the seg (refcount == 0)
  */
 static inline void
 _seg_wait_refcnt(int32_t seg_id)
@@ -104,6 +103,9 @@ _seg_wait_refcnt(int32_t seg_id)
 }
 
 
+/**
+ * check whether seg is expired
+ */
 bool
 seg_expired(int32_t seg_id)
 {
@@ -183,8 +185,8 @@ _sync_seg_hdr(void)
  * initialize the seg and seg header
  *
  * we do not use lock in this function, because the seg being initialized either
- * comes from un-allocated heap, freepool or eviction
- * in either case - the seg is only owned by current thread,
+ * comes from un-allocated heap, free pool or eviction
+ * in any case - the seg is only owned by current thread,
  * the one except eviction algorithm may read the seg header,
  * in order to avoid eviction algorithm picking this seg,
  * we do not clear seg->locked until it is linked into ttl_bucket
@@ -256,14 +258,14 @@ _rm_seg_from_ttl_bucket(int32_t seg_id)
     pthread_mutex_unlock(&heap.mtx);
 }
 
-/*
+/**
  * remove all items on this segment,
  * most of the time (common case), the seg should have no writers because
- * the eviction algorithms will avoid the segment with w_refcnt > 0 or
- * next_seg_id == -1 (active segment)
+ * the eviction algorithms will avoid the segment with w_refcnt > 0 and
+ * segment with next_seg_id == -1 (active segment)
  *
- * However, it is possible we are evicting a segment being written to in the
- * following cases:
+ * However, it is possible we are evicting a segment that is
+ * actively being written to when the following happens:
  * 1. it takes too long (longer than its TTL) for the segment to
  *      finish writing and it has expired
  * 2. cache size is too small and the workload uses too many ttl buckets
@@ -424,8 +426,9 @@ seg_rm_expired_seg(int32_t seg_id)
 }
 
 /**
- * allocate a new segment from DRAM heap, advance nseg,
- * return the
+ * allocate an unused segment from heap, this is called before memory is full
+ * TODO(jason): we can add all segments into free pool at start up, then we
+ * don't have to differentiate unused seg from free pool
  */
 static inline int32_t
 _seg_alloc(void)
@@ -448,7 +451,7 @@ _seg_alloc(void)
         return -1;
     }
 
-    INCR(seg_metrics, seg_curr_dram);
+    INCR(seg_metrics, seg_curr);
 
     return seg_id;
 }
@@ -495,8 +498,8 @@ _seg_get_from_free_pool(void)
 
 
 /**
- * return evicted seg to global pool,
- * caller should grab the global lock before calling this function
+ * return evicted seg to free pool,
+ * caller should grab the heap lock before calling this function
  **/
 void
 seg_return_seg(int32_t seg_id)
@@ -524,7 +527,10 @@ seg_return_seg(int32_t seg_id)
 }
 
 /**
- * alloc a seg from the seg pool, if there is no free segment, evict one
+ * get a new segment, we search for a free segment in the following order
+ * 1. unallocated heap
+ * 2. free pool
+ * 3. eviction
  **/
 int32_t
 seg_get_new(void)

@@ -1,8 +1,8 @@
 #pragma once
 
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 
 #define N_BUCKET_PER_STEP_N_BIT     8u
@@ -17,43 +17,27 @@
 #define TTL_BUCKET_INTVL3           (1u << TTL_BUCKET_INTVL_N_BIT3)
 #define TTL_BUCKET_INTVL4           (1u << TTL_BUCKET_INTVL_N_BIT4)
 
-#define TTL_BOUNDARY1               \
+#define TTL_BOUNDARY1                                                          \
     (2u << (TTL_BUCKET_INTVL_N_BIT1 + N_BUCKET_PER_STEP_N_BIT))
-#define TTL_BOUNDARY2               \
+#define TTL_BOUNDARY2                                                          \
     (2u << (TTL_BUCKET_INTVL_N_BIT2 + N_BUCKET_PER_STEP_N_BIT))
-#define TTL_BOUNDARY3               \
+#define TTL_BOUNDARY3                                                          \
     (2u << (TTL_BUCKET_INTVL_N_BIT3 + N_BUCKET_PER_STEP_N_BIT))
-#define TTL_BOUNDARY4               \
+#define TTL_BOUNDARY4                                                          \
     (2u << (TTL_BUCKET_INTVL_N_BIT4 + N_BUCKET_PER_STEP_N_BIT))
 
 
-#ifdef do_not_defind
-#define N_BUCKET_PER_STEP           256
-
-#define TTL_BUCKET_INTVL1           8
-#define TTL_BUCKET_INTVL2           128
-#define TTL_BUCKET_INTVL3           2048
-#define TTL_BUCKET_INTVL4           32576
-
-#define TTL_BOUNDARY1              (TTL_BUCKET_INTVL1* N_BUCKET_PER_STEP)
-#define TTL_BOUNDARY2              (TTL_BUCKET_INTVL2* N_BUCKET_PER_STEP)
-#define TTL_BOUNDARY3              (TTL_BUCKET_INTVL3* N_BUCKET_PER_STEP)
-#define TTL_BOUNDARY4              (TTL_BUCKET_INTVL4* N_BUCKET_PER_STEP)
-#endif
 
 
-#define MAX_TTL                     (TTL_BOUNDARY4 - 1)
-#define MAX_TTL_BUCKET              (N_BUCKET_PER_STEP * 4)
-#define MAX_TTL_BUCKET_IDX          (MAX_TTL_BUCKET - 1)
-#define ITEM_MAX_TTL                MAX_TTL
+#define MAX_TTL                 (TTL_BOUNDARY4 - 1)
+#define MAX_TTL_BUCKET          (N_BUCKET_PER_STEP * 4)
+#define MAX_TTL_BUCKET_IDX      (MAX_TTL_BUCKET - 1)
+#define ITEM_MAX_TTL            MAX_TTL
 
-#define ITEM_MAGIC                  ((uint32_t) 0x0eedface)
-#define SEG_MAGIC                   ((uint32_t) 0x0eadbeef)
+#define ITEM_MAGIC              ((uint32_t)0x0eedface)
+#define SEG_MAGIC               ((uint32_t)0x0eadbeef)
 
 #define SEG_HDR_SIZE            sizeof(struct seg)
 
 #define ITEM_HDR_SIZE           offsetof(struct item, end)
 #define ITEM_CAS_SIZE           (use_cas * sizeof(uint32_t))
-
-
-

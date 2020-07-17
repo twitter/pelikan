@@ -6,8 +6,7 @@
 #include <pthread.h>
 #include <sys/errno.h>
 
-struct ttl_bucket ttl_buckets[MAX_TTL_BUCKET];
-
+extern struct ttl_bucket ttl_buckets[MAX_TTL_BUCKET];
 extern seg_metrics_st *seg_metrics;
 extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
 
@@ -15,7 +14,7 @@ extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
 /* reserve the size of an incoming item in the segment,
  * if the segment size is not large enough,
  * grab a new one and connect to the seg list
- * seg_id is used to return the seg
+ * seg_id is used to return the seg id
  */
 struct item *
 ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
@@ -28,7 +27,6 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
     uint8_t *seg_data = NULL;
     int32_t offset = 0; /* offset of the reserved item in the seg */
     uint8_t locked = false;
-
 
 
     curr_seg_id = ttl_bucket->last_seg_id;
@@ -45,10 +43,8 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
      * 4. the solution used here is to not do roll back, since the seg is not
      * changed after writing, we can safely detect end of seg during eviction
      */
-//    pthread_mutex_lock(&ttl_bucket->mtx);
 
     if (curr_seg_id != -1) {
-        /* optimistic reservation, roll back if failed */
         curr_seg = &heap.segs[curr_seg_id];
         offset = __atomic_fetch_add(
                 &(curr_seg->write_offset), sz, __ATOMIC_SEQ_CST);
@@ -71,7 +67,8 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
              * but in such highly-contended case, I believe moving the lock
              * will have a large impact on scalability */
 
-//            __atomic_fetch_sub(&(curr_seg->write_offset), sz, __ATOMIC_SEQ_CST);
+            //            __atomic_fetch_sub(&(curr_seg->write_offset), sz,
+            //            __ATOMIC_SEQ_CST);
         }
 
         new_seg_id = seg_get_new();
@@ -126,8 +123,11 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
                      ", total %" PRIu32 " segments, prev seg "
                      "%" PRIu32 " (offset %" PRIu32 ")",
                     new_seg_id, ttl_bucket_idx, ttl_bucket->n_seg, curr_seg_id,
-                    curr_seg_id == -1 ? -1 : __atomic_load_n(
-                     &heap.segs[curr_seg_id].write_offset, __ATOMIC_SEQ_CST));
+                    curr_seg_id == -1 ?
+                            -1 :
+                            __atomic_load_n(
+                                    &heap.segs[curr_seg_id].write_offset,
+                                    __ATOMIC_SEQ_CST));
         }
 
         pthread_mutex_unlock(&heap.mtx);
@@ -138,8 +138,6 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
                 &(curr_seg->write_offset), sz, __ATOMIC_SEQ_CST);
         locked = seg_is_locked(curr_seg);
     }
-
-//    pthread_mutex_unlock(&ttl_bucket->mtx);
 
 
     seg_data = seg_get_data_start(curr_seg_id);
@@ -169,7 +167,6 @@ ttl_bucket_setup(void)
             ttl_bucket->ttl = ttl_bucket_intvls[i] * j + 1;
             ttl_bucket->last_seg_id = -1;
             ttl_bucket->first_seg_id = -1;
-                        pthread_mutex_init(&ttl_bucket->mtx, NULL);
         }
     }
 }

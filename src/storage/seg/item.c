@@ -1,5 +1,5 @@
 #include "item.h"
-#include "hashtable2.h"
+#include "hashtable.h"
 #include "seg.h"
 #include "ttlbucket.h"
 
@@ -7,7 +7,6 @@
 
 #include <inttypes.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 extern proc_time_i flush_at;
 extern struct hash_table *hash_table;
@@ -15,12 +14,6 @@ extern seg_metrics_st *seg_metrics;
 extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
 
 
-/*
- * Allocate an item. We allocate an item by consuming the next free item
- * from slab of the item's slab class.
- *
- * On success we return the pointer to the allocated item.
- */
 static struct item *
 _item_alloc(uint32_t sz, delta_time_i ttl, int32_t *seg_id)
 {
@@ -93,7 +86,7 @@ item_insert(struct item *it)
     hashtable_put(it, (uint64_t)seg_id, (uint64_t)offset);
 
     seg_w_deref(seg_id);
-    
+
     log_verb("insert it %p (%.*s) of key size %u, val size %u, "
              "total size %zu in seg %d, "
              "seg write-offset %d, occupied size %d",
@@ -125,27 +118,14 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
     seg = &heap.segs[seg_id];
 
     if (seg_expired(seg_id)) {
-        log_warn("item_get found expired item on seg %"
-                PRIu32 ", ttl %" PRId32 " , background thread cannot catch up",
-                seg_id, seg->ttl);
         return NULL;
     }
-
-    //    if (__atomic_load_n(&seg->locked, __ATOMIC_SEQ_CST)) {
-    //        log_verb("get it %.*s not available because seg is locked for "
-    //                 "eviction/expiration",
-    //                item_nkey(it), item_key(it));
-    //
-    //        return NULL;
-    //    }
 
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
     ASSERT(it->magic == ITEM_MAGIC);
 #endif
 
     if (incr_ref) {
-        /* a seg can be locked between last check and incr refcount, it is fine
-         */
         __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_SEQ_CST);
     }
 
@@ -189,7 +169,7 @@ item_reserve(struct item **it_p, const struct bstring *key,
     size_t sz = item_size(key->len, vlen, olen);
 
     if (ttl <= 0) {
-        log_warn("reserve_item (%.*s) ttl %"PRId32, key->len, key->data, ttl);
+        log_warn("reserve_item (%.*s) ttl %" PRId32, key->len, key->data, ttl);
     }
 
     if (sz > heap.seg_size) {

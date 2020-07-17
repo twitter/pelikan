@@ -9,539 +9,727 @@
 #include <cc_mm.h>
 #include <hash/cc_murmur3.h>
 
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sysexits.h>
 #include <x86intrin.h>
 
+#define CACHE_ALIGN_SIZE 64
+
+/* need to be multiple of 8 to make use of 64-byte cache line */
+#define BUCKET_SIZE 8u
+#define BUCKET_SIZE_BITS 3u
+
+
+#define TAG_MASK 0xffff000000000000ul
+#define SEG_ID_MASK 0x0000fffffff00000ul
+#define OFFSET_MASK 0x00000000000ffffful
+
+#define LOCK_MASK 0xff00000000000000ul
+#define ARRAY_CNT_MASK 0x00ff000000000000ul
+#define CAS_MASK 0x00000000fffffffful
+
+#define LOCKED 0x0100000000000000ul
+#define UNLOCKED 0x0000000000000000ul
+
 
 extern seg_metrics_st *seg_metrics;
 extern bool use_cas;
-extern struct hash_table *hash_table;
+
+static struct hash_table hash_table;
+static bool hash_table_initialized = false;
 
 static uint32_t murmur3_iv = 0x3ac5d673;
 
 
-#define get_hv(key, klen) _get_hv_xxhash(key, klen)
-//#define get_hv(key, klen) _get_hv_murmur3(key, klen)
+#define HASHSIZE(_n) (1ULL << (_n))
+#define HASHMASK(_n) (HASHSIZE(_n) - 1)
 
-#define get_bucket(hv, ht) (&((ht)->table[(hv)&HASHMASK((ht)->hash_power)]))
-#define get_cas(hv, ht) ((ht)->cas_table[(hv)&HASHMASK((ht)->cas_table_hp)])
-#define set_cas(hv, ht)                                                        \
-    __atomic_add_fetch(&((ht)->cas_table[(hv)&HASHMASK((ht)->cas_table_hp)]),  \
-            1, __ATOMIC_RELAXED)
+#define GET_HV(key, klen) _get_hv_xxhash(key, klen)
+/* tag has to start from 1 to avoid differentiate item_info from pointer */
+#define GET_TAG(v) (((v)&TAG_MASK))
+#define CAL_TAG_FROM_HV(hv) (((hv)&TAG_MASK) | 0x0001000000000000ul)
+#define GET_BUCKET(hv) (&hash_table.table[(hv)&hash_table.hash_mask])
 
-#define mtx_lock(hv, ht)                                                       \
+/* TODO(jason): change to atomic */
+#define GET_CAS(bucket_ptr) (*bucket_ptr) & CAS_MASK
+#define GET_ARRAY_CNT(bucket_ptr) (((*bucket_ptr) & ARRAY_CNT_MASK) >> 48u)
+#define INCR_ARRAY_CNT(bucket_ptr) ((*(bucket_ptr)) += 0x0001000000000000ul)
+
+#define CAS_SLOT(slot, expect_ptr, new)                                        \
+    __atomic_compare_exchange_n(                                               \
+            slot, expect_ptr, new, false, __ATOMIC_RELEASE, __ATOMIC_RELAXED)
+
+
+/* TODO(jason): it is better to use id for extra_array instead of pointer
+ * otherwise we have to assume each pointer is 64-byte
+ * add bucket array shrink
+ * */
+
+/* we assume little-endian here */
+#define lock(bucket_ptr)                                                       \
     do {                                                                       \
-        int status = pthread_mutex_lock(                                       \
-                &(ht)->mtx_table[(hv)&HASHMASK((ht)->lock_table_hp)]);         \
-        ASSERT(status == 0);                                                   \
+        uint8_t locked = 0;                                                    \
+        while (!CAS_SLOT(((uint8_t *)bucket_ptr + 7), &locked, 1)) {           \
+            ASSERT(locked == 1);                                               \
+            locked = 0;                                                        \
+            usleep(1);                                                         \
+        }                                                                      \
     } while (0)
 
-#define mtx_unlock(hv, ht)                                                     \
+#define unlock(bucket_ptr)                                                     \
     do {                                                                       \
-        int status = pthread_mutex_unlock(                                     \
-                &(ht)->mtx_table[(hv)&HASHMASK((ht)->lock_table_hp)]);         \
-        ASSERT(status == 0);                                                   \
+        ASSERT(((*bucket_ptr) & LOCK_MASK) == LOCKED);                         \
+        *bucket_ptr ^= LOCKED;                                                 \
     } while (0)
 
-/*
-#undef mtx_lock
-#undef mtx_unlock
-
-#define mtx_lock(hv, ht)                                                       \
+#define unlock_and_update_cas(bucket_ptr)                                      \
     do {                                                                       \
-        pthread_mutex_lock(                                                    \
-                &(ht)->mtx_table[(hv)&HASHMASK((ht)->lock_table_hp)]);         \
-        printf("lock %s:%d\n", __FUNCTION__, __LINE__);                        \
+        ASSERT(((*bucket_ptr) & LOCK_MASK) != 0);                              \
+        *bucket_ptr = (*bucket_ptr + 1) ^ LOCKED;                              \
     } while (0)
-#define mtx_unlock(hv, ht)                                                     \
-    do {                                                                       \
-        pthread_mutex_unlock(                                                  \
-                &(ht)->mtx_table[(hv)&HASHMASK((ht)->lock_table_hp)]);         \
-        printf("unlock %s:%d\n", __FUNCTION__, __LINE__);                      \
-    } while (0)
-*/
+
+#ifdef use_atomic_set
+#    undef lock
+#    undef unlock
+#    undef unlock_and_update_cas
+#    define lock(bucket_ptr)                                                   \
+        do {                                                                   \
+            while (__atomic_test_and_set(((uint8_t *)bucket_ptr + 7)),         \
+                    __ATOMIC_ACQUIRE) {                                        \
+                usleep(1);                                                     \
+            }                                                                  \
+        } while (0)
+
+#    define unlock(bucket_ptr)                                                 \
+        do {                                                                   \
+            __atomic_clear((((uint8_t *)bucket_ptr) + 7), __ATOMIC_RELEASE);   \
+        } while (0)
+
+#    define unlock_and_update_cas(bucket_ptr)                                  \
+        do {                                                                   \
+            *bucket_ptr += 1;                                                  \
+        __atomic_clear(((uint8_t *)bucket_ptr) + 7), __ATOMIC_RELEASE);        \
+        } while (0)
+#endif
+
+#ifdef no_lock
+#    undef lock
+#    undef unlock
+#    undef unlock_and_update_cas
+#    define lock(bucket_ptr)
+#    define unlock(bucket_ptr)
+#    define unlock_and_update_cas(bucket_ptr) ((*(bucket_ptr)) += 1)
+#endif
 
 
-//#define mtx_lock(hv, ht)
-//#define mtx_unlock(hv, ht)
+/**
+ * this is placed here because it is called within bucket lock and it
+ * needs to parse item_info
+ *
+ */
+
+static inline struct item *
+_info_to_item(uint64_t item_info)
+{
+    uint64_t seg_id = ((item_info & SEG_ID_MASK) >> 20u);
+    uint64_t offset = (item_info & OFFSET_MASK) << 3u;
+    ASSERT(seg_id < heap.max_nseg);
+    ASSERT(offset < heap.seg_size);
+    return (struct item *)(heap.base + heap.seg_size * seg_id + offset);
+}
+
+static inline void
+_item_free(uint64_t item_info)
+{
+    uint64_t seg_id = ((item_info & SEG_ID_MASK) >> 20u);
+    uint64_t offset = (item_info & OFFSET_MASK) << 3u;
+    uint32_t sz = item_ntotal(
+            (struct item *)(heap.base + heap.seg_size * seg_id + offset));
+
+    __atomic_fetch_sub(&heap.segs[seg_id].occupied_size, sz, __ATOMIC_RELAXED);
+    __atomic_fetch_sub(&heap.segs[seg_id].n_item, 1, __ATOMIC_RELAXED);
+}
+
+static inline bool
+_same_item(const char *key, uint32_t klen, uint64_t item_info)
+{
+    struct item *oit = _info_to_item(item_info);
+    return ((oit->klen == klen) && cc_memcmp(item_key(oit), key, klen) == 0);
+}
+
 
 /*
  * Allocate table given size
  */
-static struct item_slh *
-_hashtable_alloc(uint64_t size)
+static inline uint64_t *
+_hashtable_alloc(uint64_t n_slot)
 {
-    struct item_slh *table;
-    uint32_t i;
+    uint64_t *table =
+            aligned_alloc(CACHE_ALIGN_SIZE, sizeof(uint64_t) * n_slot);
+    if (table == NULL) {
+        log_crit("cannot create hash table");
+        exit(EX_CONFIG);
+    }
+    cc_memset(table, 0, sizeof(uint64_t) * n_slot);
 
-    table = cc_alloc(sizeof(*table) * size);
 #ifdef MADV_HUGEPAGE
     /* USE_HUGEPAGE */
-    madvise(table, sizeof(*table) * size, MADV_HUGEPAGE);
+    madvise(table, sizeof(uint64_t) * n_slot, MADV_HUGEPAGE);
 #endif
-
-    if (table != NULL) {
-        for (i = 0; i < size; ++i) {
-            SLIST_INIT(&table[i]);
-        }
-    }
 
     return table;
 }
 
-struct hash_table *
-hashtable_create(uint32_t hash_power)
+void
+hashtable_setup(uint32_t hash_power)
 {
-    struct hash_table *ht;
-    uint64_t size;
-    uint32_t n_entry;
+    uint64_t n_slot;
 
     ASSERT(hash_power > 0);
 
-    /* alloc struct */
-    ht = cc_alloc(sizeof(struct hash_table));
-
-    if (ht == NULL) {
-        return NULL;
+    if (hash_table_initialized) {
+        log_warn("hash table has been initialized");
+        hashtable_teardown();
     }
 
     /* init members */
-    ht->table = NULL;
-    ht->hash_power = hash_power;
-    size = HASHSIZE(ht->hash_power);
+    hash_table.hash_power = hash_power;
+    n_slot = HASHSIZE(hash_power);
+    hash_table.hash_mask =
+            (n_slot - 1) & (0xffffffffffffffff << BUCKET_SIZE_BITS);
 
     /* alloc table */
-    ht->table = _hashtable_alloc(size);
-    if (ht->table == NULL) {
-        cc_free(ht);
-        return NULL;
-    }
+    hash_table.table = _hashtable_alloc(n_slot);
 
-    /* create cas table */
-    ht->cas_table_hp = CAS_TABLE_HASHPOWER;
-    n_entry = (uint32_t)HASHSIZE(ht->cas_table_hp);
-    ht->cas_table = cc_zalloc(sizeof(uint32_t) * n_entry);
-    if (ht->cas_table == NULL) {
-        cc_free(ht->table);
-        cc_free(ht);
-        return NULL;
-    }
+    hash_table_initialized = true;
 
-    /* create lock table */
-    ht->lock_table_hp = LOCKTABLE_HASHPOWER;
-    n_entry = (uint32_t)HASHSIZE(ht->lock_table_hp);
-    ht->lock_table = cc_zalloc(sizeof(uint32_t) * n_entry);
-    if (ht->lock_table == NULL) {
-        cc_free(ht->table);
-        cc_free(ht->cas_table);
-        cc_free(ht);
-        return NULL;
-    }
-
-    /* create mtx table */
-    ht->lock_table_hp = LOCKTABLE_HASHPOWER;
-    n_entry = (uint32_t)HASHSIZE(ht->lock_table_hp);
-    ht->mtx_table = cc_alloc(sizeof(pthread_mutex_t) * n_entry);
-    if (ht->mtx_table == NULL) {
-        cc_free(ht->table);
-        cc_free(ht->cas_table);
-        cc_free(ht->lock_table);
-        cc_free(ht);
-        return NULL;
-    }
-
-    for (uint32_t i = 0; i < n_entry; i++) {
-        pthread_mutex_init(&ht->mtx_table[i], NULL);
-    }
-
-
-    log_info("create hash table of size %zu", size);
-    return ht;
+    log_info("create hash table of %" PRIu64 " elements %" PRIu64 " buckets",
+            n_slot, n_slot >> BUCKET_SIZE_BITS);
 }
 
 void
-hashtable_destroy(struct hash_table **ht_p)
+hashtable_teardown(void)
 {
-    struct hash_table *ht = *ht_p;
-    if (ht != NULL && ht->table != NULL) {
-        cc_free(ht->table);
-        cc_free(ht->cas_table);
+    if (!hash_table_initialized) {
+        log_warn("hash table is not initialized");
+        return;
     }
 
-    cc_free(*ht_p);
+    cc_free(hash_table.table);
+    hash_table.table = NULL;
 
-    *ht_p = NULL;
+    hash_table_initialized = false;
 }
 
 static inline uint64_t
 _get_hv_murmur3(const char *key, size_t klen)
 {
-    uint32_t hv;
+    uint64_t hv[2];
 
-    hash_murmur3_32(key, klen, murmur3_iv, &hv);
+    hash_murmur3_128_x64(key, klen, murmur3_iv, hv);
 
-    return (uint64_t)hv;
+    return hv[0];
 }
 
 static inline uint64_t
 _get_hv_xxhash(const char *key, size_t klen)
 {
     return XXH3_64bits(key, klen);
-    //    uint64_t hv = XXH3_64bits_dispatch(key, klen);
+
+    /* maybe this API is preferred
+     *   uint64_t hv = XXH3_64bits_dispatch(key, klen);
+     */
 }
 
+
+static inline void
+_insert_item_in_bucket_array(uint64_t *array, int n_array_item, struct item *it,
+        uint64_t tag, uint64_t insert_item_info, bool *inserted, bool *deleted)
+{
+    uint64_t item_info;
+
+    for (int i = 0; i < n_array_item; i++) {
+        item_info = __atomic_load_n(&array[i], __ATOMIC_ACQUIRE);
+
+        if (GET_TAG(item_info) != tag) {
+            if (!*inserted && item_info == 0) {
+                *inserted = CAS_SLOT(array + i, &item_info, insert_item_info);
+                if (*inserted) {
+                    /* we have inserted, so when we encounter old entry,
+                     * just reset the slot */
+                    insert_item_info = 0;
+                }
+            }
+            continue;
+        }
+        /* a potential hit */
+        if (!_same_item(item_key(it), it->klen, item_info)) {
+            continue;
+        }
+        /* we have found the item, now atomic update */
+        *deleted = CAS_SLOT(array + i, &item_info, insert_item_info);
+        if (*deleted) {
+            /* update successfully */
+            *inserted = true;
+            return;
+        }
+
+        /* the slot has changed, double-check this updated item */
+        if (item_info == 0) {
+            /* the item is evicted */
+            *inserted = CAS_SLOT(array + i, &item_info, insert_item_info);
+            /* whether it succeeds or fails, we return,
+             * see below for why we return when it fails, as an alternative
+             * we can re-start the put here */
+            return;
+        }
+
+        if (!_same_item(item_key(it), it->klen, item_info)) {
+            /* original item evicted, a new item is inserted - rare */
+            continue;
+        }
+        /* the slot has been updated with the same key, replace it */
+        *deleted = CAS_SLOT(array + i, &item_info, insert_item_info);
+        if (*deleted) {
+            /* update successfully */
+            *inserted = true;
+            return;
+        } else {
+            /* AGAIN? this should be very rare, let's give up
+             * the possible consequences of giving up:
+             * 1. current item might not be inserted, not a big deal
+             * because at such high concurrency, we cannot tell whether
+             * current item is the most updated one or the the one in the
+             * slot
+             * 2. current item is inserted in an early slot, then we
+             * will have two entries for the same key, this if fine as
+             * well, because at eviction time, we will remove them
+             **/
+            return;
+        }
+    }
+}
+
+/**
+ * because other threads can update the bucket at the same time,
+ * so we always have to check existence before put
+ *
+ *
+ */
+/**
+ * insert logic
+ * insert has two steps, insert and delete (success or not found)
+ * insert and delete must be completed in the same pass of scanning,
+ * otherwise it cannot guarantee correctness
+ *
+ *
+ * scan through all slots,
+ * 1. if we found the item, cas
+ * 1-1. if cas succeeds, return
+ * 1-2. if cas fails, compare item
+ *          if same, free the item, return, otherwise, continue
+ * 2. if we found an available slot, cas
+ * 2-1. if cas succeeds, continue scanning and delete
+ * 2-2. if cas fails, continue
+ */
 
 void
-hashtable_put(struct item *it, struct hash_table *ht)
+hashtable_put(struct item *it, const uint64_t seg_id, const uint64_t offset)
 {
-    struct item_slh *bucket;
+    const char *key = item_key(it);
+    const uint32_t klen = item_nkey(it);
 
-    uint64_t hv = get_hv(item_key(it), it->klen);
+    uint64_t hv = GET_HV(key, klen);
+    uint64_t tag = CAL_TAG_FROM_HV(hv);
+    uint64_t *bucket = GET_BUCKET(hv);
 
-    bucket = get_bucket(hv, ht);
-
-    if (use_cas) {
-        /* update cas_table */
-        set_cas(hv, ht);
-    }
-
-    mtx_lock(hv, ht);
-
-    SLIST_INSERT_HEAD(bucket, it, hash_next);
-    mtx_unlock(hv, ht);
-
-
+    uint64_t *array = bucket;
     INCR(seg_metrics, hash_insert);
-}
 
+    /* 16-bit tag, 28-bit seg id, 20-bit offset (in the unit of 8-byte) */
+    uint64_t item_info, insert_item_info = tag;
+    insert_item_info |= (seg_id << 20u) | (offset >> 3u);
+    log_vverb("hashtable insert %" PRIu64, insert_item_info);
 
-bool
-hashtable_del_and_put(struct item *it, struct hash_table *ht)
-{
-    struct item_slh *bucket;
-    struct item *curr, *prev;
-    bool found_old = false;
+    ASSERT(((insert_item_info & SEG_ID_MASK) >> 20u) == seg_id);
+    ASSERT(((insert_item_info & OFFSET_MASK) << 3u) == offset);
 
-    uint64_t hv = get_hv(item_key(it), it->klen);
+    lock(bucket);
 
-    bucket = get_bucket(hv, ht);
+    int extra_array_cnt = GET_ARRAY_CNT(bucket);
+    int array_size;
+    do {
+        /* this loop will be executed at least once */
+        array_size = extra_array_cnt > 0 ? BUCKET_SIZE - 1 : BUCKET_SIZE;
 
-    if (use_cas) {
-        /* update cas_table */
-        set_cas(hv, ht);
-    }
-
-    uint32_t klen = item_nkey(it);
-    char *key = item_key(it);
-
-    mtx_lock(hv, ht);
-
-    /* now delete */
-    for (prev = NULL, curr = SLIST_FIRST(bucket); curr != NULL;
-            prev = curr, curr = SLIST_NEXT(curr, hash_next)) {
-        INCR(seg_metrics, hash_traverse);
-
-        /* iterate through bucket to find item to be removed */
-        if ((klen == curr->klen) && cc_memcmp(key, item_key(curr), klen) == 0) {
-            /* found item */
-            if (prev == NULL) {
-                SLIST_REMOVE_HEAD(bucket, hash_next);
-            } else {
-                SLIST_REMOVE_AFTER(prev, hash_next);
+        for (int i = 0; i < array_size; i++) {
+            if (array == bucket && i == 0) {
+                continue;
             }
-            found_old = true;
 
-            item_free(curr);
+            item_info = array[i];
+            if (GET_TAG(item_info) != tag) {
+                if (insert_item_info != 0 && item_info == 0) {
+                    array[i] = insert_item_info;
+                    insert_item_info = 0;
+                }
+                continue;
+            }
+            /* a potential hit */
+            if (!_same_item(key, klen, item_info)) {
+                INCR(seg_metrics, hash_tag_collision);
+                continue;
+            }
+            /* found the item, now atomic update (or delete if already inserted)
+             * x86 read and write 8-byte is always atomic */
+            array[i] = insert_item_info;
+            insert_item_info = 0;
 
-            INCR(seg_metrics, hash_remove);
+            _item_free(item_info);
 
-            break;
+            goto finish;
         }
-    }
 
-    /* now insert */
-    SLIST_INSERT_HEAD(bucket, it, hash_next);
+        if (insert_item_info == 0) {
+            /* item has been inserted, do not check next array */
+            goto finish;
+        }
 
-    mtx_unlock(hv, ht);
+        extra_array_cnt -= 1;
+        if (extra_array_cnt >= 0) {
+            array = (uint64_t *)(array[BUCKET_SIZE - 1]);
+        }
+    } while (extra_array_cnt >= 0);
 
+    /* we have searched every array, but have not found the old item
+     * nor inserted new item - so we need to allocate a new array,
+     * this is very rare */
+    INCR(seg_metrics, hash_array_alloc);
 
-    INCR(seg_metrics, hash_insert);
+    uint64_t *new_array = cc_zalloc(8 * BUCKET_SIZE);
+    new_array[0] = array[BUCKET_SIZE - 1];
+    new_array[1] = insert_item_info;
+    insert_item_info = 0;
 
-    return found_old;
+    __atomic_thread_fence(__ATOMIC_RELEASE);
+
+    array[BUCKET_SIZE - 1] = (uint64_t)new_array;
+
+    INCR_ARRAY_CNT(bucket);
+
+finish:
+    ASSERT(insert_item_info == 0);
+    unlock_and_update_cas(bucket);
 }
+
+
 bool
-hashtable_delete(
-        const char *key, uint32_t klen, struct hash_table *ht, bool try_del)
+hashtable_delete(const char *key, const uint32_t klen, const bool try_del)
 {
-    struct item_slh *bucket;
-    struct item *it, *prev;
+    INCR(seg_metrics, hash_remove);
+
     bool deleted = false;
 
-    uint64_t hv = get_hv(key, klen);
+    uint64_t hv = GET_HV(key, klen);
+    uint64_t tag = CAL_TAG_FROM_HV(hv);
+    uint64_t *bucket = GET_BUCKET(hv);
+    uint64_t *array = bucket;
 
-    bucket = get_bucket(hv, ht);
+    /* 16-bit tag, 28-bit seg id, 20-bit offset (in the unit of 8-byte) */
+    uint64_t item_info;
 
-    mtx_lock(hv, ht);
+    /* 8-bit lock, 8-bit bucket array cnt, 16-bit unused, 32-bit cas */
 
-    for (prev = NULL, it = SLIST_FIRST(bucket); it != NULL;
-            prev = it, it = SLIST_NEXT(it, hash_next)) {
-        INCR(seg_metrics, hash_traverse);
+    lock(bucket);
 
-        /* iterate through bucket to find item to be removed */
-        if ((klen == it->klen) && cc_memcmp(key, item_key(it), klen) == 0) {
-            /* found item */
-            break;
+    int extra_array_cnt = GET_ARRAY_CNT(bucket);
+    int array_size;
+    do {
+        array_size = extra_array_cnt > 0 ? BUCKET_SIZE - 1 : BUCKET_SIZE;
+
+        for (int i = 0; i < array_size; i++) {
+            if (array == bucket && i == 0) {
+                continue;
+            }
+
+            item_info = array[i];
+            if (GET_TAG(item_info) != tag) {
+                continue;
+            }
+            /* a potential hit */
+            if (!_same_item(key, klen, item_info)) {
+                INCR(seg_metrics, hash_tag_collision);
+                continue;
+            }
+            /* found the item, now delete */
+            array[i] = 0;
+            deleted = true;
+            _item_free(item_info);
         }
-    }
+        extra_array_cnt -= 1;
+        array = (uint64_t *)(array[BUCKET_SIZE - 1]);
+    } while (extra_array_cnt >= 0);
 
-    if (it != NULL) {
-        if (prev == NULL) {
-            SLIST_REMOVE_HEAD(bucket, hash_next);
-        } else {
-            SLIST_REMOVE_AFTER(prev, hash_next);
-        }
-        deleted = true;
 
-        /* this has to be done wihtin critical section,
-         * we need to either move the lock to item.c
-         * or do item_free here, I prefer the later because this makes
-         * the critical section shorter */
-
-        item_free(it);
-
-        INCR(seg_metrics, hash_remove);
-
-    } else {
-        ASSERT(try_del);
-    }
-
-    mtx_unlock(hv, ht);
-
+    unlock(bucket);
     return deleted;
 }
 
 /*
  * delete the hashtable entry only if item is the up-to-date/valid item
+ *
+ * TODO(jason): use version instead of locking might be better
  */
 bool
-hashtable_delete_it(struct item *oit, struct hash_table *ht)
+hashtable_evict(const char *oit_key, const uint32_t oit_klen,
+        const uint64_t seg_id, const uint64_t offset)
 {
-    struct item_slh *bucket;
-    struct item *it, *prev;
+    INCR(seg_metrics, hash_remove);
+
     bool deleted = false;
 
-    uint64_t hv = get_hv(item_key(oit), item_nkey(oit));
+    uint64_t hv = GET_HV(oit_key, oit_klen);
+    uint64_t tag = CAL_TAG_FROM_HV(hv);
+    uint64_t *bucket = GET_BUCKET(hv);
+    uint64_t *array = bucket;
 
-    bucket = get_bucket(hv, ht);
+    /* 16-bit tag, 28-bit seg id, 20-bit offset (in the unit of 8-byte) */
+    uint64_t item_info;
+    uint64_t oit_info = tag | (seg_id << 20u) | (offset >> 3u);
 
-    mtx_lock(hv, ht);
+    /* we only want to delete entries of the object as old as oit,
+     * so we need to find oit first, once we find it, we will delete
+     * all entries of this key */
+    bool delete_rest = false;
 
-    for (prev = NULL, it = SLIST_FIRST(bucket); it != NULL;
-            prev = it, it = SLIST_NEXT(it, hash_next)) {
-        INCR(seg_metrics, hash_traverse);
+    lock(bucket);
 
-        /* iterate through bucket to find item to be removed */
-        if (it == oit) {
-            /* found item */
-            if (prev == NULL) {
-                SLIST_REMOVE_HEAD(bucket, hash_next);
-            } else {
-                SLIST_REMOVE_AFTER(prev, hash_next);
+    int extra_array_cnt = GET_ARRAY_CNT(bucket);
+    int array_size;
+    do {
+        array_size = extra_array_cnt > 0 ? BUCKET_SIZE - 1 : BUCKET_SIZE;
+
+        for (int i = 0; i < array_size; i++) {
+            if (array == bucket && i == 0) {
+                continue;
             }
 
-            deleted = true;
+            item_info = array[i];
+            if (GET_TAG(item_info) != tag) {
+                continue;
+            }
+            /* a potential hit */
+            if (!_same_item(oit_key, oit_klen, item_info)) {
+                INCR(seg_metrics, hash_tag_collision);
+                continue;
+            }
 
-            item_free(oit);
-
-            INCR(seg_metrics, hash_remove);
-
-            break;
+            if (item_info == oit_info) {
+                _item_free(item_info);
+                deleted = true;
+                delete_rest = true;
+                array[i] = 0;
+            } else {
+                if (delete_rest) {
+                    _item_free(item_info);
+                    array[i] = 0;
+                } else {
+                    /* this is the newest entry */
+                    delete_rest = true;
+                }
+            }
         }
-    }
+        extra_array_cnt -= 1;
+        array = (uint64_t *)(array[BUCKET_SIZE - 1]);
+    } while (extra_array_cnt >= 0);
 
-    mtx_unlock(hv, ht);
+    unlock(bucket);
 
     return deleted;
 }
 
 struct item *
 hashtable_get(
-        const char *key, uint32_t klen, struct hash_table *ht, uint64_t *cas)
+        const char *key, const uint32_t klen, int32_t *seg_id, uint64_t *cas)
 {
-    struct item_slh *bucket;
-    struct item *it = NULL;
+    uint64_t hv = GET_HV(key, klen);
+    uint64_t tag = CAL_TAG_FROM_HV(hv);
+    uint64_t *bucket = GET_BUCKET(hv);
+    uint64_t *array = bucket;
+    uint64_t offset;
 
-    ASSERT(key != NULL);
-    ASSERT(klen != 0);
+    /* 16-bit tag, 28-bit seg id, 20-bit offset (in the unit of 8-byte) */
+    uint64_t item_info;
 
-    INCR(seg_metrics, hash_lookup);
+    int extra_array_cnt = GET_ARRAY_CNT(bucket);
+    int array_size;
+    do {
+        array_size = extra_array_cnt > 0 ? BUCKET_SIZE - 1 : BUCKET_SIZE;
 
-    uint64_t hv = get_hv(key, klen);
+        for (int i = 0; i < array_size; i++) {
+            if (array == bucket && i == 0) {
+                continue;
+            }
 
-    bucket = get_bucket(hv, ht);
+            item_info = array[i];
+            if (GET_TAG(item_info) != tag) {
+                continue;
+            }
+            /* a potential hit */
+            if (!_same_item(key, klen, item_info)) {
+                INCR(seg_metrics, hash_tag_collision);
+                continue;
+            }
+            if (cas) {
+                *cas = GET_CAS(bucket);
+            }
 
-    if (cas) {
-        *cas = get_cas(hv, ht);
-    }
-
-    mtx_lock(hv, ht);
-
-    /* iterate through bucket looking for item */
-    for (it = SLIST_FIRST(bucket); it != NULL; it = SLIST_NEXT(it, hash_next)) {
-        INCR(seg_metrics, hash_traverse);
-
-        if ((klen == it->klen) && cc_memcmp(key, item_key(it), klen) == 0) {
-            /* found item */
-            break;
+            *seg_id = (item_info & SEG_ID_MASK) >> 20u;
+            offset = (item_info & OFFSET_MASK) << 3u;
+            return (struct item *)(heap.base + heap.seg_size * (*seg_id) +
+                    offset);
         }
-    }
+        extra_array_cnt -= 1;
+        array = (uint64_t *)(array[BUCKET_SIZE - 1]);
+    } while (extra_array_cnt >= 0);
 
-    mtx_unlock(hv, ht);
 
-    return it;
+    return NULL;
 }
 
-/*
- * Expand the hashtable to the next power of 2.
- * This is an expensive operation and should _not_ be used in production or
- * during latency-related tests. It is included mostly for simulation around
- * the storage component.
- */
-struct hash_table *
-hashtable_double(struct hash_table *ht)
+bool
+hashtable_check_it(const char *oit_key, const uint32_t oit_klen,
+        const uint64_t seg_id, const uint64_t offset)
 {
-    struct hash_table *new_ht;
-    uint32_t new_hash_power;
-    uint64_t new_size;
-    uint64_t hv;
+    INCR(seg_metrics, hash_remove);
 
-    new_hash_power = ht->hash_power + 1;
-    new_size = HASHSIZE(new_hash_power);
+    uint64_t hv = GET_HV(oit_key, oit_klen);
+    uint64_t tag = CAL_TAG_FROM_HV(hv);
+    uint64_t *bucket = GET_BUCKET(hv);
+    uint64_t *array = bucket;
 
-    new_ht = hashtable_create(new_size);
-    if (new_ht == NULL) {
-        return ht;
-    }
-
-    /* copy to new hash table */
-    for (uint32_t i = 0; i < HASHSIZE(ht->hash_power); ++i) {
-        struct item *it, *next;
-        struct item_slh *bucket, *new_bucket;
-
-        bucket = &ht->table[i];
-        SLIST_FOREACH_SAFE(it, bucket, hash_next, next)
-        {
-            hv = get_hv(item_key(it), item_nkey(it));
-            new_bucket = get_bucket(hv, new_ht);
-            SLIST_REMOVE(bucket, it, item, hash_next);
-            SLIST_INSERT_HEAD(new_bucket, it, hash_next);
-        }
-    }
-
-    hashtable_destroy(&ht);
-
-    return new_ht;
-}
-
-void
-hashtable_print_chain_depth_hist(void)
-{
-#define MAX_DEPTH 2000
-    struct hash_table *ht = hash_table;
-    uint64_t n_item = HASHSIZE(ht->hash_power);
-    uint64_t n_active_item = 0, n_active_bucket = 0;
-    uint64_t i;
-    uint32_t depth, max_depth = 0;
-    struct item *it;
-    uint32_t hist[MAX_DEPTH];
+    uint64_t oit_info = tag | (seg_id << 20u) | (offset >> 3u);
 
 
-    for (i = 0; i < n_item; i++) {
-        depth = 0;
-        for (it = SLIST_FIRST(&ht->table[i]); it != NULL;
-                it = SLIST_NEXT(it, hash_next)) {
-            depth += 1;
-            n_active_item += 1;
-        }
-        if (depth > max_depth)
-            max_depth = depth;
-        if (depth > MAX_DEPTH)
-            depth = MAX_DEPTH - 1;
-        hist[depth] += 1;
-        n_active_bucket += 1;
-    }
+    lock(bucket);
 
-    double load = (double)n_active_item / n_item;
-    printf("hashtable hash chain depth hist, load %.2lf - depth: count\n",
-            load);
-    uint32_t print_cnt = 0;
-    for (i = 0; i < max_depth; i++) {
-        if (hist[i] != 0) {
-            print_cnt += 1;
-            printf("%" PRIu64 ": %" PRIu32 "(%.4lf), ", i, hist[i],
-                    (double)hist[i] / n_active_bucket);
-            if (print_cnt % 20 == 0)
-                printf("\n");
-        }
-    }
+    int extra_array_cnt = GET_ARRAY_CNT(bucket);
+    int array_size;
+    do {
+        array_size = extra_array_cnt > 0 ? BUCKET_SIZE - 1 : BUCKET_SIZE;
 
-    printf("\n");
-}
-
-
-/*
- * given a hash value array of items in the same bucket,
- * check whether there are collisions if we use the first n_bit as tag
- *
- */
-static inline bool
-has_duplicate(uint64_t hv, int n_bit)
-{
-}
-
-void
-hashtable_print_tag_collision_hist(void)
-{
-    struct hash_table *ht = hash_table;
-    uint64_t n_item = HASHSIZE(ht->hash_power);
-    uint64_t n_active_item = 0, n_active_bucket = 0;
-    uint64_t i;
-    int tag_size; /* the size of tag in bits */
-    uint32_t depth, max_depth = 0;
-    struct item *it;
-    bool bucket_has_tag_collision;
-    uint32_t hv[MAX_DEPTH];
-    uint64_t tag_collision_cnt[32];
-
-    for (i = 0; i < 32; i++) {
-        tag_collision_cnt[i] = 0;
-    }
-
-    for (i = 0; i < n_item; i++) {
-        depth = 0;
-        for (it = SLIST_FIRST(&ht->table[i]); it != NULL;
-                it = SLIST_NEXT(it, hash_next)) {
-            hv[depth] = _get_hv_xxhash(item_key(it), it->klen);
-            depth += 1;
-        }
-
-        for (tag_size = 1; tag_size < 32; tag_size++) {
-            bucket_has_tag_collision = has_duplicate(hv, tag_size);
-            if (bucket_has_tag_collision) {
-                tag_collision_cnt[tag_size] += 1;
+        for (int i = 0; i < array_size; i++) {
+            if (oit_info == array[i]) {
+                unlock(bucket);
+                return true;
             }
         }
-        n_active_bucket += 1;
+        extra_array_cnt -= 1;
+        array = (uint64_t *)(array[BUCKET_SIZE - 1]);
+    } while (extra_array_cnt >= 0);
+
+    unlock(bucket);
+
+    return false;
+}
+
+void
+hashtable_stat(int *item_cnt_ptr, int *extra_array_cnt_ptr)
+{
+#define BUCKET_HEAD(idx) (&hash_table.table[(idx)*BUCKET_SIZE])
+
+    int item_cnt = 0;
+    int extra_array_cnt_sum = 0, extra_array_cnt;
+    int duplicate_item_cnt = 0;
+    uint64_t item_info;
+    uint64_t *bucket, *array;
+    int array_size;
+    int n_bucket = HASHSIZE(hash_table.hash_power - BUCKET_SIZE_BITS);
+
+    for (uint64_t bucket_idx = 0; bucket_idx < n_bucket; bucket_idx++) {
+        bucket = BUCKET_HEAD(bucket_idx);
+        array = bucket;
+        extra_array_cnt = GET_ARRAY_CNT(bucket);
+        extra_array_cnt_sum += extra_array_cnt;
+        do {
+            array_size = extra_array_cnt >= 1 ? BUCKET_SIZE - 1 : BUCKET_SIZE;
+
+            for (int i = 0; i < array_size; i++) {
+                if (array == bucket && i == 0) {
+                    continue;
+                }
+
+                item_info = array[i];
+                if (item_info != 0) {
+                    item_cnt += 1;
+                }
+            }
+            extra_array_cnt -= 1;
+            array = (uint64_t *)(array[BUCKET_SIZE - 1]);
+        } while (extra_array_cnt >= 0);
     }
 
-    double load = (double)n_active_item / n_item;
-    printf("hashtable tag collision hist, load %.2lf, "
-           "tag size (in bits): fraction of buckets have tag collisions\n",
-            load);
-
-    for (i = 1; i < 32; i++) {
-        printf("%" PRIu64 ": %.4lf, ", i,
-                (double)tag_collision_cnt[i] / n_active_bucket);
+    if (item_cnt_ptr != NULL) {
+        *item_cnt_ptr = item_cnt;
     }
+    if (extra_array_cnt_ptr != NULL) {
+        *extra_array_cnt_ptr = extra_array_cnt_sum;
+    }
+
+    log_info("hashtable %d entries, %d extra_arrays", item_cnt,
+            extra_array_cnt_sum);
+
+#undef BUCKET_HEAD
+}
+
+void
+scan_hashtable_find_seg(int32_t target_seg_id)
+{
+#define BUCKET_HEAD(idx) (&hash_table.table[(idx)*BUCKET_SIZE])
+    int extra_array_cnt;
+    uint64_t item_info;
+    uint64_t *bucket, *array;
+    int array_size;
+    uint64_t seg_id;
+    uint64_t offset;
+    struct item *it;
+    int n_bucket = HASHSIZE(hash_table.hash_power - BUCKET_SIZE_BITS);
+
+    for (uint64_t bucket_idx = 0; bucket_idx < n_bucket; bucket_idx++) {
+        bucket = BUCKET_HEAD(bucket_idx);
+        array = bucket;
+        extra_array_cnt = GET_ARRAY_CNT(bucket);
+        int extra_array_cnt0 = extra_array_cnt;
+        do {
+            array_size = extra_array_cnt >= 1 ? BUCKET_SIZE - 1 : BUCKET_SIZE;
+
+            for (int i = 0; i < array_size; i++) {
+                if (array == bucket && i == 0) {
+                    continue;
+                }
+
+                item_info = array[i];
+
+                if (item_info == 0) {
+                    continue;
+                }
+
+                seg_id = ((item_info & SEG_ID_MASK) >> 20u);
+                if (target_seg_id == seg_id) {
+                    offset = (item_info & OFFSET_MASK) << 3u;
+                    it = (struct item *)(heap.base + heap.seg_size * seg_id +
+                            offset);
+                    log_warn("find item (%.*s) len %d on seg %d offset %d, item_info "
+                             "%lu, i %d, extra %d %d",
+                            it->klen, item_key(it), it->klen, seg_id, offset, item_info, i,
+                            extra_array_cnt0, extra_array_cnt);
+                }
+            }
+            extra_array_cnt -= 1;
+            array = (uint64_t *)(array[BUCKET_SIZE - 1]);
+        } while (extra_array_cnt >= 0);
+    }
+
+#undef BUCKET_HEAD
 }

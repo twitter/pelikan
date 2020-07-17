@@ -1,5 +1,5 @@
 set(SOURCE
-        hashtable2.c
+        hashtable.c
         item.c
         seg.c
         background.c
