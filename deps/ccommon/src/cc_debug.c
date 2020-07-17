@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
 
 #define BACKTRACE_DEPTH 64
 #define DEBUG_MODULE_NAME "ccommon::debug"
@@ -72,13 +73,16 @@ debug_stacktrace(int skip_count)
     }
 
     free(symbols);
+    /* when segfault happens, currently it will loop printing
+     * stack trace forever, add abort to stop this */
+    abort();
 #endif
 }
 
 void
 debug_assert(const char *cond, const char *file, int line, int panic)
 {
-    log_stderr("assert '%s' failed @ (%s, %d)", cond, file, line);
+    log_stderr("[tid=%p] assert '%s' failed @ (%s, %d)", pthread_self(), cond, file, line);
     if (panic) {
         debug_stacktrace(1);
         abort();
@@ -198,8 +202,9 @@ _log(struct debug_logger *dl, const char *file, int line, int level, const char 
     local = localtime(&t);
     timestr = asctime(local);
 
-    len += cc_scnprintf(buf + len, size - len, "[%.*s][%s] %s:%d ",
-            strlen(timestr) - 1, timestr, level_str[level], file, line);
+    len += cc_scnprintf(buf + len, size - len, "[%.*s][tid=%p][%s] %s:%d ",
+            strlen(timestr) - 1, timestr, (unsigned long) pthread_self(),
+            level_str[level], file, line);
 
     va_start(args, fmt);
     len += cc_vscnprintf(buf + len, size - len, fmt, args);

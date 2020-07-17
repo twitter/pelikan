@@ -18,7 +18,7 @@ pmem_paths=()
 
 show_help()
 {
-    echo 'generate.sh [-c [-r path/to/rpcperf] [-t target/serverIP]] [-s [-p path/to/pelikan]] [-m "path/to/pmem0 path/to/pmem1 ..."]'
+    echo 'generate.sh [-c [-r absolute/path/to/rpcperf] [-t target/serverIP]] [-s [-p absolute/path/to/pelikan]] [-m "path/to/pmem0 path/to/pmem1 ..."]'
     echo 'Note that the first pmem path is bound to the first numa node, the second path is bound to the next numa node. One or more paths can be provided.'
 }
 

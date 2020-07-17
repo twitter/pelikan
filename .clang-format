@@ -1,0 +1,100 @@
+# global kill switch
+DisableFormat: false
+
+# probably the most important ones
+Language: Cpp
+ColumnLimit: 80
+ContinuationIndentWidth: 8
+IndentWidth: 4
+
+# alphabetically ordering the rest
+
+AlignAfterOpenBracket: DontAlign
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Right
+AlignOperands: false
+AlignTrailingComments: false
+
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+
+AlwaysBreakAfterReturnType: All
+AlwaysBreakBeforeMultilineStrings: false
+
+BinPackArguments: true
+BinPackParameters: true
+
+BraceWrapping:
+  AfterControlStatement: false
+  AfterEnum:       false
+  AfterFunction:   true
+  AfterNamespace:  false
+  AfterStruct:     false
+  AfterUnion:      false
+  AfterExternBlock: false
+  BeforeCatch:     false
+  BeforeElse:      false
+  IndentBraces:    false
+  SplitEmptyFunction: true
+
+BreakBeforeBinaryOperators: None
+BreakBeforeBraces: WebKit
+BreakBeforeTernaryOperators: false
+BreakStringLiterals: true
+
+Cpp11BracedListStyle: true
+DerivePointerAlignment: false
+PointerAlignment: Right
+
+IncludeBlocks:   Preserve
+# IncludeCategories:
+IncludeIsMainRegex: '(check_)?$'
+IndentCaseLabels: false
+IndentPPDirectives: AfterHash
+
+IndentWrappedFunctionNames: false
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 2
+PenaltyBreakAssignment: 2
+PenaltyBreakBeforeFirstCallParameter: 10000
+PenaltyBreakComment: 30
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 10
+PenaltyExcessCharacter: 100000
+PenaltyReturnTypeOnItsOwnLine: 1000000
+
+ReflowComments:  true
+
+SortIncludes:    true
+
+SpaceAfterCStyleCast: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+Standard: Auto
+
+TabWidth: 8
+UseTab: Never
+
+#AlwaysBreakAfterDefinitionReturnType: true
+
+
+# Customize the following for your own project
+
+#CommentPragmas:  '^ IWYU pragma:'
+#ForEachMacros:
+#  - FOREACH
+#
+#MacroBlockBegin: ''
+#MacroBlockEnd:   ''
+#...

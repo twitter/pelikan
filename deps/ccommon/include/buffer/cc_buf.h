@@ -123,7 +123,7 @@ buf_wsize(const struct buf *buf)
 static inline uint32_t
 buf_size(const struct buf *buf)
 {
-    ASSERT(buf->begin < buf->end);
+    ASSERT(buf->begin <= buf->end);
 
     return (uint32_t)(buf->end - (char *)buf);
 }
@@ -132,7 +132,7 @@ buf_size(const struct buf *buf)
 static inline uint32_t
 buf_capacity(const struct buf *buf)
 {
-    ASSERT(buf->begin < buf->end);
+    ASSERT(buf->begin <= buf->end);
 
     return (uint32_t)(buf->end - buf->begin);
 }
