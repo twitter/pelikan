@@ -231,3 +231,7 @@ seg_w_ref(int32_t seg_id);
 void
 seg_w_deref(int32_t seg_id);
 
+/**
+ * merge seg2 into seg1
+ */
+void merge_seg(int32_t seg_id1, int32_t seg_id2);

@@ -247,80 +247,6 @@ _get_hv_xxhash(const char *key, size_t klen)
 }
 
 
-static inline void
-_insert_item_in_bucket_array(uint64_t *array, int n_array_item, struct item *it,
-        uint64_t tag, uint64_t insert_item_info, bool *inserted, bool *deleted)
-{
-    uint64_t item_info;
-
-    for (int i = 0; i < n_array_item; i++) {
-        item_info = __atomic_load_n(&array[i], __ATOMIC_ACQUIRE);
-
-        if (GET_TAG(item_info) != tag) {
-            if (!*inserted && item_info == 0) {
-                *inserted = CAS_SLOT(array + i, &item_info, insert_item_info);
-                if (*inserted) {
-                    /* we have inserted, so when we encounter old entry,
-                     * just reset the slot */
-                    insert_item_info = 0;
-                }
-            }
-            continue;
-        }
-        /* a potential hit */
-        if (!_same_item(item_key(it), it->klen, item_info)) {
-            continue;
-        }
-        /* we have found the item, now atomic update */
-        *deleted = CAS_SLOT(array + i, &item_info, insert_item_info);
-        if (*deleted) {
-            /* update successfully */
-            *inserted = true;
-            return;
-        }
-
-        /* the slot has changed, double-check this updated item */
-        if (item_info == 0) {
-            /* the item is evicted */
-            *inserted = CAS_SLOT(array + i, &item_info, insert_item_info);
-            /* whether it succeeds or fails, we return,
-             * see below for why we return when it fails, as an alternative
-             * we can re-start the put here */
-            return;
-        }
-
-        if (!_same_item(item_key(it), it->klen, item_info)) {
-            /* original item evicted, a new item is inserted - rare */
-            continue;
-        }
-        /* the slot has been updated with the same key, replace it */
-        *deleted = CAS_SLOT(array + i, &item_info, insert_item_info);
-        if (*deleted) {
-            /* update successfully */
-            *inserted = true;
-            return;
-        } else {
-            /* AGAIN? this should be very rare, let's give up
-             * the possible consequences of giving up:
-             * 1. current item might not be inserted, not a big deal
-             * because at such high concurrency, we cannot tell whether
-             * current item is the most updated one or the the one in the
-             * slot
-             * 2. current item is inserted in an early slot, then we
-             * will have two entries for the same key, this if fine as
-             * well, because at eviction time, we will remove them
-             **/
-            return;
-        }
-    }
-}
-
-/**
- * because other threads can update the bucket at the same time,
- * so we always have to check existence before put
- *
- *
- */
 /**
  * insert logic
  * insert has two steps, insert and delete (success or not found)
@@ -429,7 +355,7 @@ finish:
 
 
 bool
-hashtable_delete(const char *key, const uint32_t klen, const bool try_del)
+hashtable_delete(const char *key, const uint32_t klen)
 {
     INCR(seg_metrics, hash_remove);
 
@@ -442,8 +368,6 @@ hashtable_delete(const char *key, const uint32_t klen, const bool try_del)
 
     /* 16-bit tag, 28-bit seg id, 20-bit offset (in the unit of 8-byte) */
     uint64_t item_info;
-
-    /* 8-bit lock, 8-bit bucket array cnt, 16-bit unused, 32-bit cas */
 
     lock(bucket);
 
@@ -468,10 +392,11 @@ hashtable_delete(const char *key, const uint32_t klen, const bool try_del)
             }
             /* found the item, now delete */
             array[i] = 0;
-            deleted = true;
             /* if this is the first and most up-to-date hash table entry
              * for this key, we need to mark tombstone */
             _item_free(item_info, !deleted);
+
+            deleted = true;
         }
         extra_array_cnt -= 1;
         array = (uint64_t *)(array[BUCKET_SIZE - 1]);
@@ -484,16 +409,12 @@ hashtable_delete(const char *key, const uint32_t klen, const bool try_del)
 
 /*
  * delete the hashtable entry only if item is the up-to-date/valid item
- *
- * TODO(jason): use version instead of locking might be better
  */
 bool
 hashtable_evict(const char *oit_key, const uint32_t oit_klen,
-        const uint64_t seg_id, const uint64_t offset)
+                const uint64_t seg_id, const uint64_t offset)
 {
     INCR(seg_metrics, hash_remove);
-
-    bool deleted = false;
 
     uint64_t hv = GET_HV(oit_key, oit_klen);
     uint64_t tag = CAL_TAG_FROM_HV(hv);
@@ -507,7 +428,7 @@ hashtable_evict(const char *oit_key, const uint32_t oit_klen,
     /* we only want to delete entries of the object as old as oit,
      * so we need to find oit first, once we find it, we will delete
      * all entries of this key */
-    bool delete_rest = false;
+    bool first_match = true, item_outdated = true, fount_oit = false;
 
     lock(bucket);
 
@@ -531,20 +452,25 @@ hashtable_evict(const char *oit_key, const uint32_t oit_klen,
                 continue;
             }
 
-            if (item_info == oit_info) {
-                _item_free(item_info, false);
-                deleted = true;
-                delete_rest = true;
-                array[i] = 0;
-            } else {
-                if (delete_rest) {
-                    _item_free(item_info, true);
+            if (first_match) {
+                if (oit_info == array[i]) {
+                    _item_free(item_info, false);
                     array[i] = 0;
-                } else {
-                    /* this is the newest entry */
-                    delete_rest = true;
+                    item_outdated = false;
+                    fount_oit = true;
                 }
+                first_match = false;
+                continue;
             }
+
+            /* not first match, delete entry, mark tombstone if oit is
+             * the most up-to-date entry */
+            if (!fount_oit && array[i] == oit_info) {
+                fount_oit = true;
+            }
+
+            _item_free(array[i], !item_outdated);
+            array[i] = 0;
         }
         extra_array_cnt -= 1;
         array = (uint64_t *)(array[BUCKET_SIZE - 1]);
@@ -552,12 +478,12 @@ hashtable_evict(const char *oit_key, const uint32_t oit_klen,
 
     unlock(bucket);
 
-    return deleted;
+    return fount_oit;
 }
 
 struct item *
-hashtable_get(
-        const char *key, const uint32_t klen, int32_t *seg_id, uint64_t *cas)
+hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
+        uint64_t *cas)
 {
     uint64_t hv = GET_HV(key, klen);
     uint64_t tag = CAL_TAG_FROM_HV(hv);
@@ -603,6 +529,71 @@ hashtable_get(
 
     return NULL;
 }
+
+
+bool
+hashtable_relink_it(const char *oit_key, const uint32_t oit_klen,
+                    const uint64_t old_seg_id, const uint64_t old_offset,
+                    const uint64_t new_seg_id, const uint64_t new_offset)
+{
+    INCR(seg_metrics, hash_remove);
+
+    uint64_t hv = GET_HV(oit_key, oit_klen);
+    uint64_t tag = CAL_TAG_FROM_HV(hv);
+    uint64_t *bucket = GET_BUCKET(hv);
+    uint64_t *array = bucket;
+    uint64_t item_info;
+    bool item_outdated = true, first_match = true;
+
+    uint64_t oit_info = tag | (old_seg_id << 20u) | (old_offset >> 3u);
+    uint64_t nit_info = tag | (new_seg_id << 20u) | (new_offset >> 3u);
+
+
+    lock(bucket);
+
+    int extra_array_cnt = GET_ARRAY_CNT(bucket);
+    int array_size;
+    do {
+        array_size = extra_array_cnt > 0 ? BUCKET_SIZE - 1 : BUCKET_SIZE;
+
+        for (int i = 0; i < array_size; i++) {
+            if (array == bucket && i == 0) {
+                continue;
+            }
+
+            item_info = array[i];
+            if (GET_TAG(item_info) != tag) {
+                continue;
+            }
+
+            /* a potential hit */
+            if (!_same_item(oit_key, oit_klen, item_info)) {
+                INCR(seg_metrics, hash_tag_collision);
+                continue;
+            }
+
+            if (first_match) {
+                if (oit_info == array[i]) {
+                    array[i] = nit_info;
+                    item_outdated = false;
+                }
+                first_match = false;
+                continue;
+            }
+
+            /* not first match, delete */
+            _item_free(array[i], false);
+            array[i] = 0;
+        }
+        extra_array_cnt -= 1;
+        array = (uint64_t *)(array[BUCKET_SIZE - 1]);
+    } while (extra_array_cnt >= 0);
+
+    unlock(bucket);
+
+    return !item_outdated;
+}
+
 
 bool
 hashtable_check_it(const char *oit_key, const uint32_t oit_klen,

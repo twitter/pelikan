@@ -53,23 +53,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
 
     while (curr_seg_id == -1 || offset + sz > heap.seg_size || locked) {
-        if (curr_seg_id != -1) {
-            /* current seg runs out of space, roll back offset
-             *
-             * optimistic concurrency control:
-             * notice that not using lock around add and sub can cause false
-             * full problem when it is highly contended, for example,
-             * current offset 600K, thread A adds 500K, then offset too large,
-             * before A rolls back the offset change, if thread B, C, D ask for
-             * 100K, which should fit in the space, but it will not because
-             * add and sub is not in the critical section
-             * moving the lock up can solve this problem,
-             * but in such highly-contended case, I believe moving the lock
-             * will have a large impact on scalability */
-
-            //            __atomic_fetch_sub(&(curr_seg->write_offset), sz,
-            //            __ATOMIC_SEQ_CST);
-        }
+        /* remove roll back offset due to data race */
 
         new_seg_id = seg_get_new();
 
@@ -108,7 +92,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
             } else {
                 heap.segs[curr_seg_id].next_seg_id = new_seg_id;
             }
-            new_seg->prev_seg_id = curr_seg_id;
+            new_seg->prev_seg_id = ttl_bucket->last_seg_id;
             ttl_bucket->last_seg_id = new_seg_id;
             ASSERT(new_seg->next_seg_id == -1);
 
@@ -119,15 +103,13 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
             PERTTL_INCR(ttl_bucket_idx, seg_curr);
 
-            log_verb("link seg %" PRIu32 " to ttl bucket %" PRIu32
-                     ", total %" PRIu32 " segments, prev seg "
-                     "%" PRIu32 " (offset %" PRIu32 ")",
+            log_debug("link seg %d to ttl bucket %d, total %d segments, "
+                      "prev seg %d/%d (offset %d), first seg %d, last seg %d",
                     new_seg_id, ttl_bucket_idx, ttl_bucket->n_seg, curr_seg_id,
-                    curr_seg_id == -1 ?
-                            -1 :
-                            __atomic_load_n(
-                                    &heap.segs[curr_seg_id].write_offset,
-                                    __ATOMIC_SEQ_CST));
+                    new_seg->prev_seg_id,
+                    curr_seg_id == -1 ? -1 : __atomic_load_n(
+                      &heap.segs[curr_seg_id].write_offset, __ATOMIC_SEQ_CST),
+                    ttl_bucket->first_seg_id, ttl_bucket->last_seg_id);
         }
 
         pthread_mutex_unlock(&heap.mtx);

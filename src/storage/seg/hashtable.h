@@ -122,15 +122,12 @@ hashtable_del_and_put(struct item *it);
 void
 hashtable_put(struct item *it, const uint64_t seg_id, const uint64_t offset);
 
-/* try to delete the item from hashtable, if try_del is false,
- * the item must be in the hashtable
- * stored the ptr to the deleted item in it, this is safe because
- * the item has not been wiped from segment */
+/* delete the item from hashtable */
 bool
-hashtable_delete(const char *key, const uint32_t klen, const bool try_del);
+hashtable_delete(const char *key, const uint32_t klen);
 
 /*
- * delete the hashtable entry belong this specific item and all items
+ * delete the hashtable entry belong to this specific item and all items
  * that are older than this entry
  */
 bool
@@ -138,8 +135,14 @@ hashtable_evict(const char *oit_key, const uint32_t oit_klen, uint64_t seg_id,
         uint64_t offset);
 
 struct item *
-hashtable_get(
-        const char *key, const uint32_t klen, int32_t *seg_id, uint64_t *cas);
+hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
+        uint64_t *cas);
+
+
+bool
+hashtable_relink_it(const char *oit_key, const uint32_t oit_klen,
+        const uint64_t old_seg_id, const uint64_t old_offset,
+        const uint64_t new_seg_id, const uint64_t new_offset);
 
 /**
  * debugging functions

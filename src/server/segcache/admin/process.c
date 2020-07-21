@@ -7,9 +7,9 @@
 #include <cc_print.h>
 #include <cc_stats_log.h>
 
+#include <storage/seg/ttlbucket.h>
 #include <sysexits.h>
 #include <time/time.h>
-#include <storage/seg/ttlbucket.h>
 
 #define SEGCACHE_ADMIN_MODULE_NAME "segcache::admin"
 
@@ -20,6 +20,8 @@ extern struct stats stats;
 extern unsigned int nmetric;
 extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
 static unsigned int nmetric_perttl = METRIC_CARDINALITY(seg_perttl_metrics_st);
+extern struct ttl_bucket ttl_buckets[MAX_TTL_BUCKET];
+
 
 static bool admin_init = false;
 static char *buf = NULL;
@@ -31,12 +33,12 @@ admin_process_setup(void)
     log_info("set up the %s module", SEGCACHE_ADMIN_MODULE_NAME);
     if (admin_init) {
         log_warn("%s has already been setup, overwrite",
-                 SEGCACHE_ADMIN_MODULE_NAME);
+                SEGCACHE_ADMIN_MODULE_NAME);
     }
 
     nmetric_perttl = METRIC_CARDINALITY(perttl[0]);
     cap = MAX(nmetric, nmetric_perttl * MAX_TTL_BUCKET) * METRIC_PRINT_LEN +
-        METRIC_END_LEN;
+            METRIC_END_LEN;
     buf = cc_alloc(cap);
     if (buf == NULL) {
         log_crit("cannot allocate buffer for admin stat string");

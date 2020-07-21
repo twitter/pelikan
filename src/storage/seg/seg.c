@@ -18,21 +18,24 @@
 
 #define SEG_MODULE_NAME "storage::seg"
 
-extern struct setting               setting;
+extern struct setting       setting;
 
-struct seg_heapinfo                 heap; /* info of all allocated segs */
-struct ttl_bucket                   ttl_buckets[MAX_TTL_BUCKET];
+struct seg_heapinfo         heap; /* info of all allocated segs */
+struct ttl_bucket           ttl_buckets[MAX_TTL_BUCKET];
 
-static bool                         seg_initialized = false;
-seg_metrics_st                      *seg_metrics = NULL;
-seg_options_st                      *seg_options = NULL;
-seg_perttl_metrics_st               perttl[MAX_TTL_BUCKET];
+static bool                 seg_initialized = false;
+seg_metrics_st              *seg_metrics = NULL;
+seg_options_st              *seg_options = NULL;
+seg_perttl_metrics_st       perttl[MAX_TTL_BUCKET];
 
-proc_time_i                         flush_at = -1;
-bool                                use_cas = false;
-pthread_t                           bg_tid;
-volatile bool                       stop = false;
+proc_time_i                 flush_at = -1;
+bool                        use_cas = false;
+pthread_t                   bg_tid;
+volatile bool               stop = false;
 
+int32_t                     mergable_seg[MAX_N_MERGEABLE_SEG];
+int32_t                     n_mergeable_seg = 0;
+pthread_mutex_t             misc_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void
 seg_print(int32_t seg_id)
@@ -249,12 +252,13 @@ _rm_seg_from_ttl_bucket(int32_t seg_id)
         heap.segs[next_seg_id].prev_seg_id = prev_seg_id;
     }
 
-    //    seg->next_seg_id = -1;
-
     ttl_bucket->n_seg -= 1;
     ASSERT(ttl_bucket->n_seg >= 0);
 
     pthread_mutex_unlock(&heap.mtx);
+    log_verb("change ttl bucket seg list first %" PRId32 ", last %"PRId32 ", curr %" PRId32 " prev %" PRId32 " next %"PRId32,
+            ttl_bucket->first_seg_id, ttl_bucket->last_seg_id, seg_id,
+            seg->prev_seg_id, seg->next_seg_id);
 }
 
 /**
@@ -298,9 +302,6 @@ seg_rm_all_item(int32_t seg_id, int expire)
                 eviction_reasons[expire], seg_id, seg->ttl);
         INCR(seg_metrics, seg_evict_ex);
 
-        /* if most ttl are very small, during benchmark !expire may not hold */
-        ASSERT((!expire) || seg->ttl < 60);
-
         return false;
     }
 
@@ -310,7 +311,7 @@ seg_rm_all_item(int32_t seg_id, int expire)
      * happen because
      * 1. this seg has been evicted and reused by another thread since it was
      *      picked by eviction algorithm (because there is no lock) - very rare
-     * 2. this seg is expiring, so we have to evict it
+     * 2. this seg is expiring, so another thread is evicting it
      * either case should be rare, it is the effect of
      * optimistic concurrency control - no lock and roll back if needed
      *
@@ -390,10 +391,10 @@ seg_rm_all_item(int32_t seg_id, int expire)
         }
     }
 
-    /* expensive debug commands */
+    /* expensive debug commands
     if (seg->n_item != 0) {
         scan_hashtable_find_seg(seg_id);
-    }
+    } */
 
     ASSERT(seg->n_item == 0);
     ASSERT(seg->occupied_size == 0 || seg->occupied_size == 8);
@@ -487,8 +488,7 @@ _seg_get_from_free_pool(void)
         heap.segs[next_seg_id].prev_seg_id = -1; /* not necessary */
     }
 
-    ASSERT(heap.segs[seg_id_ret].write_offset == 0 ||
-            heap.segs[seg_id_ret].write_offset == 8);
+    ASSERT(heap.segs[seg_id_ret].write_offset == 0);
 
     pthread_mutex_unlock(&heap.mtx);
 
@@ -518,12 +518,15 @@ seg_return_seg(int32_t seg_id)
      * before finishing setup */
     ASSERT(seg->locked == 1);
 
-    /* we don't need to reset this it will be done in seg_init */
+    /* this is needed to make sure the assert
+     * at _seg_get_from_free_pool do not fail */
+//    seg->ttl = 0;
     seg->write_offset = 0;
     seg->occupied_size = 0;
 
     log_vverb("return seg %" PRId32 " to free pool successfully", seg_id);
 }
+
 
 /**
  * get a new segment, we search for a free segment in the following order
@@ -576,7 +579,151 @@ seg_get_new(void)
     }
 
     _seg_init(seg_id_ret);
+
     return seg_id_ret;
+}
+
+static inline void _seg_copy(int32_t seg_id_out, int32_t seg_id_in) {
+
+    struct item *it;
+    struct seg *seg_in = &heap.segs[seg_id_in];
+    uint8_t *seg_data_out = seg_get_data_start(seg_id_out);
+    uint8_t *curr_out = seg_data_out;
+
+    uint8_t *seg_data_in = seg_get_data_start(seg_id_in);
+    uint8_t *curr_in = seg_data_in + seg_in->write_offset;
+    uint32_t offset = heap.seg_size - ITEM_HDR_SIZE;
+
+    int32_t it_sz = 0;
+    bool item_up_to_date;
+
+#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
+    ASSERT(*(uint64_t *)(curr_out) == SEG_MAGIC);
+    curr_out += sizeof(uint64_t);
+#endif
+
+    while (curr_out - seg_data_out < offset) {
+        it = (struct item *)curr_out;
+        if (it->klen == 0 && it->vlen == 0){
+            /* no holes in the segment */
+            break;
+        }
+
+#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
+        ASSERT(it->magic == ITEM_MAGIC);
+#endif
+
+        ASSERT(it->klen >= 0);
+        ASSERT(it->vlen >= 0);
+
+        it_sz = item_ntotal(it);
+
+        if (it->deleted) {
+            curr_out += it_sz;
+            continue;
+        }
+
+        /* first copy data */
+        memcpy(curr_in, curr_out, it_sz);
+
+        /* try to relink */
+        item_up_to_date = hashtable_relink_it(item_key(it), it->klen,
+                seg_id_out, curr_out - seg_data_out,
+                seg_id_in, curr_in - seg_data_in);
+
+        if (item_up_to_date) {
+            curr_in += it_sz;
+            __atomic_fetch_add(&seg_in->write_offset, it_sz, __ATOMIC_RELAXED);
+            __atomic_fetch_add(&seg_in->occupied_size, it_sz, __ATOMIC_RELAXED);
+            __atomic_fetch_add(&seg_in->n_item, 1, __ATOMIC_RELAXED);
+
+            struct item *nit;
+            int32_t seg_id_tmp = 0;
+            nit = hashtable_get(item_key(it), it->klen, &seg_id_tmp, NULL);
+            ASSERT(nit == (struct item *)(curr_in - it_sz));
+        }
+
+
+        curr_out += it_sz;
+    }
+
+    /* reset the unnecessary writes */
+    memset(curr_in, 0, it_sz);
+
+    log_debug("move items from seg %d to seg %d, new seg %d items, offset %d",
+            seg_id_out, seg_id_in, seg_in->n_item, seg_in->write_offset);
+}
+
+/* merge two consecutive segs */
+void merge_seg(int32_t seg_id1, int32_t seg_id2) {
+
+    struct seg *seg1 = &heap.segs[seg_id1];
+    struct seg *seg2 = &heap.segs[seg_id2];
+
+    ASSERT(seg1->next_seg_id == seg_id2);
+
+    int32_t ttl_bucket_idx = find_ttl_bucket_idx(seg1->ttl);
+    struct ttl_bucket *ttl_bucket = &ttl_buckets[ttl_bucket_idx];
+
+
+    int32_t new_seg_id = seg_get_new();
+    struct seg *seg = &heap.segs[new_seg_id];
+
+    ASSERT(seg->locked == 1);
+    /* make sure this will not be picked for eviction */
+    ASSERT(seg->next_seg_id == -1);
+
+    seg->create_at = seg1->create_at;
+    seg->ttl = seg1->ttl;
+    seg->locked = 0;
+
+    seg_r_ref(seg_id1);
+    _seg_copy(seg_id1, new_seg_id);
+    seg_r_deref(seg_id1);
+    __atomic_store_n(&(seg1->locked), 1, __ATOMIC_RELAXED);
+
+    seg_r_ref(seg_id2);
+    _seg_copy(seg_id2, new_seg_id);
+    seg_r_deref(seg_id2);
+    __atomic_store_n(&(seg2->locked), 1, __ATOMIC_RELAXED);
+
+    _seg_wait_refcnt(seg_id1);
+    _seg_wait_refcnt(seg_id2);
+
+    /* change ttl bucket */
+    int status = pthread_mutex_lock(&heap.mtx);
+    ASSERT(status == 0);
+
+    int32_t prev_seg_id = seg1->prev_seg_id;
+    int32_t next_seg_id = seg2->next_seg_id;
+
+    seg->prev_seg_id = prev_seg_id;
+    seg->next_seg_id = next_seg_id;
+
+    /* we should not merge the last seg */
+    ASSERT(next_seg_id != -1);
+
+    if (prev_seg_id == -1) {
+        ASSERT(ttl_bucket->first_seg_id == seg_id1);
+
+        ttl_bucket->first_seg_id = new_seg_id;
+    } else {
+        heap.segs[prev_seg_id].next_seg_id = new_seg_id;
+    }
+
+    heap.segs[next_seg_id].prev_seg_id = new_seg_id;
+
+    ttl_bucket->n_seg -= 1;
+
+    seg_return_seg(seg_id1);
+
+    seg_return_seg(seg_id2);
+
+    pthread_mutex_unlock(&heap.mtx);
+
+    log_debug("merge seg %d and %d to seg %d in ttl bucket %d first %d last %d",
+            seg_id1, seg_id2, new_seg_id, ttl_bucket_idx,
+            ttl_bucket->first_seg_id, ttl_bucket->last_seg_id);
 }
 
 static void

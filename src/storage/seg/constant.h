@@ -41,3 +41,6 @@
 
 #define ITEM_HDR_SIZE           offsetof(struct item, end)
 #define ITEM_CAS_SIZE           (use_cas * sizeof(uint32_t))
+
+#define MAX_N_MERGEABLE_SEG     1024
+#define SEG_MERGE_THRESHOLD     0.5

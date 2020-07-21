@@ -126,8 +126,10 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
 #endif
 
     if (incr_ref) {
-        __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_SEQ_CST);
+        __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_RELAXED);
     }
+
+    __atomic_fetch_add(&seg->n_hit, 1, __ATOMIC_RELAXED);
 
     log_vverb("get it key %.*s", key->len, key->data);
 
@@ -263,7 +265,7 @@ bool
 item_delete(const struct bstring *key)
 {
     log_verb("delete it (%.*s)", key->len, key->data);
-    return hashtable_delete(key->data, key->len, true);
+    return hashtable_delete(key->data, key->len);
 }
 
 void
