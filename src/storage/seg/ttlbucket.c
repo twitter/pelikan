@@ -26,7 +26,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
     uint8_t *seg_data = NULL;
     int32_t offset = 0; /* offset of the reserved item in the seg */
-    uint8_t locked = false;
+    uint8_t accessible = false;
 
 
     curr_seg_id = ttl_bucket->last_seg_id;
@@ -48,17 +48,17 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
         curr_seg = &heap.segs[curr_seg_id];
         offset = __atomic_fetch_add(
                 &(curr_seg->write_offset), sz, __ATOMIC_SEQ_CST);
-        locked = seg_is_locked(curr_seg);
+        accessible = seg_is_accessible(curr_seg);
     }
 
 
-    while (curr_seg_id == -1 || offset + sz > heap.seg_size || locked) {
+    while (curr_seg_id == -1 || offset + sz > heap.seg_size || (!accessible)) {
         /* remove roll back offset due to data race */
 
         new_seg_id = seg_get_new();
 
         if (new_seg_id == -1) {
-            log_error("cannot get new segment");
+            log_warn("cannot get new segment");
             return NULL;
         }
         new_seg = &heap.segs[new_seg_id];
@@ -85,19 +85,23 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
             new_seg_id = ttl_bucket->last_seg_id;
 
         } else {
+            /* last seg id could be -1 */
             if (ttl_bucket->first_seg_id == -1) {
                 ASSERT(ttl_bucket->last_seg_id == -1);
 
                 ttl_bucket->first_seg_id = new_seg_id;
             } else {
+                ASSERT(curr_seg != NULL);
+                bool evictable = __atomic_exchange_n(&curr_seg->evictable,
+                        1, __ATOMIC_RELAXED);
+                ASSERT(evictable == 0);
+
                 heap.segs[curr_seg_id].next_seg_id = new_seg_id;
             }
+
             new_seg->prev_seg_id = ttl_bucket->last_seg_id;
             ttl_bucket->last_seg_id = new_seg_id;
             ASSERT(new_seg->next_seg_id == -1);
-
-            locked = __atomic_exchange_n(&new_seg->locked, 0, __ATOMIC_SEQ_CST);
-            ASSERT(locked == 1);
 
             ttl_bucket->n_seg += 1;
 
@@ -118,7 +122,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
         curr_seg = &heap.segs[curr_seg_id];
         offset = __atomic_fetch_add(
                 &(curr_seg->write_offset), sz, __ATOMIC_SEQ_CST);
-        locked = seg_is_locked(curr_seg);
+        accessible = seg_is_accessible(curr_seg);
     }
 
 

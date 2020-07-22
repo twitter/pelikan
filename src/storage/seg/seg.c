@@ -33,9 +33,6 @@ bool                        use_cas = false;
 pthread_t                   bg_tid;
 volatile bool               stop = false;
 
-int32_t                     mergable_seg[MAX_N_MERGEABLE_SEG];
-int32_t                     n_mergeable_seg = 0;
-pthread_mutex_t             misc_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void
 seg_print(int32_t seg_id)
@@ -43,19 +40,21 @@ seg_print(int32_t seg_id)
     struct seg *seg = &heap.segs[seg_id];
 
     log_debug("seg %" PRId32 " seg size %zu, create_at time %" PRId32
-              ", ttl %" PRId32 ", locked %u, %" PRIu32 " items, write offset "
+              ", ttl %" PRId32 ", evictable %u, accessible %u, %" PRIu32
+              " items, write offset "
               "%" PRIu32 ", occupied size %" PRIu32 ", n_hit %" PRIu32
               ", n_hit_last %" PRIu32 ", read refcount %u, write refcount %u, "
               "prev_seg %" PRId32 ", next_seg %" PRId32,
             seg->seg_id, heap.seg_size, seg->create_at, seg->ttl,
-            __atomic_load_n(&(seg->locked), __ATOMIC_SEQ_CST),
-            __atomic_load_n(&(seg->n_item), __ATOMIC_SEQ_CST),
-            __atomic_load_n(&(seg->write_offset), __ATOMIC_SEQ_CST),
-            __atomic_load_n(&(seg->occupied_size), __ATOMIC_SEQ_CST),
-            __atomic_load_n(&(seg->n_hit), __ATOMIC_SEQ_CST),
-            __atomic_load_n(&(seg->n_hit_last), __ATOMIC_SEQ_CST),
-            __atomic_load_n(&(seg->r_refcount), __ATOMIC_SEQ_CST),
-            __atomic_load_n(&(seg->w_refcount), __ATOMIC_SEQ_CST),
+            __atomic_load_n(&(seg->evictable), __ATOMIC_RELAXED),
+            __atomic_load_n(&(seg->accessible), __ATOMIC_RELAXED),
+            __atomic_load_n(&(seg->n_item), __ATOMIC_RELAXED),
+            __atomic_load_n(&(seg->write_offset), __ATOMIC_RELAXED),
+            __atomic_load_n(&(seg->occupied_size), __ATOMIC_RELAXED),
+            __atomic_load_n(&(seg->n_hit), __ATOMIC_RELAXED),
+            __atomic_load_n(&(seg->n_hit_last), __ATOMIC_RELAXED),
+            __atomic_load_n(&(seg->r_refcount), __ATOMIC_RELAXED),
+            __atomic_load_n(&(seg->w_refcount), __ATOMIC_RELAXED),
             seg->prev_seg_id, seg->next_seg_id);
 }
 
@@ -67,12 +66,12 @@ static inline void
 _seg_wait_refcnt(int32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
-    ASSERT(seg->locked != 0);
+    ASSERT(seg->accessible != 1);
     bool r_log_printed = false, w_log_printed = false;
     int r_ref, w_ref;
 
-    w_ref = __atomic_load_n(&(seg->w_refcount), __ATOMIC_SEQ_CST);
-    r_ref = __atomic_load_n(&(seg->r_refcount), __ATOMIC_SEQ_CST);
+    w_ref = __atomic_load_n(&(seg->w_refcount), __ATOMIC_RELAXED);
+    r_ref = __atomic_load_n(&(seg->r_refcount), __ATOMIC_RELAXED);
 
     if (w_ref) {
         log_verb("wait for seg %d refcount, current read refcount "
@@ -83,7 +82,7 @@ _seg_wait_refcnt(int32_t seg_id)
 
     while (w_ref) {
         sched_yield();
-        w_ref = __atomic_load_n(&(seg->w_refcount), __ATOMIC_SEQ_CST);
+        w_ref = __atomic_load_n(&(seg->w_refcount), __ATOMIC_RELAXED);
     }
 
 
@@ -96,7 +95,7 @@ _seg_wait_refcnt(int32_t seg_id)
 
     while (r_ref) {
         sched_yield();
-        r_ref = __atomic_load_n(&(seg->r_refcount), __ATOMIC_SEQ_CST);
+        r_ref = __atomic_load_n(&(seg->r_refcount), __ATOMIC_RELAXED);
     }
 
 
@@ -106,20 +105,18 @@ _seg_wait_refcnt(int32_t seg_id)
 
 
 /**
- * check whether seg is expired
+ * check whether seg is accessible
  */
 bool
-seg_expired(int32_t seg_id)
+seg_accessible(int32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
-    /* seg->locked == 1 means being evicted, should not read it */
-    uint8_t locked = __atomic_load_n(&seg->locked, __ATOMIC_SEQ_CST);
-    bool expired = (locked) || seg->ttl + seg->create_at < time_proc_sec();
-    expired = expired || seg->create_at <= flush_at;
-
-    if (expired && !locked) {
-        seg_rm_expired_seg(seg_id);
+    if (__atomic_load_n(&seg->accessible, __ATOMIC_RELAXED) == 0) {
+        return false;
     }
+    bool expired = seg->ttl + seg->create_at < time_proc_sec() \
+            || seg->create_at <= flush_at;
+
     return expired;
 }
 
@@ -128,11 +125,11 @@ seg_r_ref(int32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
 
-    if (__atomic_load_n(&seg->locked, __ATOMIC_SEQ_CST) == 0) {
+    if (__atomic_load_n(&seg->accessible, __ATOMIC_RELAXED) == 1) {
         /* this does not strictly prevent race condition, but it is fine
          * because letting one reader passes when the segment is locking
          * has no problem in correctness */
-        __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_SEQ_CST);
+        __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_RELAXED);
         return true;
     }
 
@@ -144,7 +141,7 @@ seg_r_deref(int32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
 
-    uint32_t ref = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_SEQ_CST);
+    uint32_t ref = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
 
     ASSERT(ref >= 0);
 }
@@ -154,11 +151,11 @@ seg_w_ref(int32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
 
-    if (__atomic_load_n(&seg->locked, __ATOMIC_SEQ_CST) == 0) {
+    if (__atomic_load_n(&seg->accessible, __ATOMIC_RELAXED) == 1) {
         /* this does not strictly prevent race condition, but it is fine
          * because letting one reader passes when the segment is locking
          * has no problem in correctness */
-        __atomic_fetch_add(&seg->w_refcount, 1, __ATOMIC_SEQ_CST);
+        __atomic_fetch_add(&seg->w_refcount, 1, __ATOMIC_RELAXED);
         return true;
     }
 
@@ -170,16 +167,9 @@ seg_w_deref(int32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
 
-    uint32_t ref = __atomic_sub_fetch(&seg->w_refcount, 1, __ATOMIC_SEQ_CST);
+    uint32_t ref = __atomic_sub_fetch(&seg->w_refcount, 1, __ATOMIC_RELAXED);
 
     ASSERT(ref >= 0);
-}
-
-
-static inline void
-_sync_seg_hdr(void)
-{
-    log_crit("wait for impl :(");
 }
 
 
@@ -201,25 +191,29 @@ _seg_init(int32_t seg_id)
 
     cc_memset(data_start, 0, heap.seg_size);
 
-    seg->write_offset = 0;
-    seg->occupied_size = 0;
+    seg->write_offset   = 0;
+    seg->occupied_size  = 0;
 
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
     *(uint64_t *)(data_start) = SEG_MAGIC;
-    seg->write_offset = 8;
-    seg->occupied_size = 8;
+    seg->write_offset   = 8;
+    seg->occupied_size  = 8;
 #endif
 
     seg->prev_seg_id = -1;
     seg->next_seg_id = -1;
 
-    seg->n_item = 0;
-    seg->n_hit = 0;
+    seg->n_item     = 0;
+    seg->n_hit      = 0;
     seg->n_hit_last = 0;
 
     seg->create_at = time_proc_sec();
 
-    ASSERT(seg->locked == 1);
+    ASSERT(seg->accessible == 0);
+    ASSERT(seg->evictable == 0);
+
+    seg->accessible = 1;
+
 }
 
 
@@ -284,26 +278,23 @@ seg_rm_all_item(int32_t seg_id, int expire)
     struct seg *seg = &heap.segs[seg_id];
     struct item *it;
 
-    /* lock the seg to prevent other threads accessing and evicting this
-     * segment, this lock is not released until
-     * 1. all hash table entries are removed, so no future access
-     * 2. the next_seg_id becomes -1 (end of evict and init) so that it
-     *      will not be picked for eviction soon
-     *
-     * we do all the computation after lock the seg, this gives two benefits
-     * 1. lock as early as possible to refuse all future accesses and
-     * 2. wait for readers while doing useful work
-     * */
+    /* prevent being picked by eviction algorithm or for merge concurrently */
+    if (__atomic_exchange_n(&seg->evictable, 0, __ATOMIC_RELAXED) == 0) {
+        /* this seg is either expiring or
+         * being evicted by other threads if we use random eviction
+         * or being merged */
 
-    if (__atomic_exchange_n(&seg->locked, 1, __ATOMIC_SEQ_CST) == 1) {
-        /* fail to lock, either because it is in the free pool or
-         * some other thread is expiring/evicting this seg */
-        log_warn("%s seg %" PRIu32 ": unable to lock seg, ttl %" PRId32,
-                eviction_reasons[expire], seg_id, seg->ttl);
-        INCR(seg_metrics, seg_evict_ex);
+        if (!expire) {
+            log_warn("%s seg %" PRId32 ": seg is not evictable , ttl %" PRId32,
+                      eviction_reasons[expire], seg_id, seg->ttl);
 
-        return false;
-    }
+            INCR(seg_metrics, seg_evict_ex);
+            return false;
+        }
+    };
+
+    /* prevent future read and write access */
+    __atomic_store_n(&seg->accessible, 0, __ATOMIC_RELAXED);
 
     /* next_seg_id == -1 indicates this is the last segment of a ttl_bucket
      * or freepool, and we should not evict the seg
@@ -319,7 +310,8 @@ seg_rm_all_item(int32_t seg_id, int expire)
      * threads, so we can check again safely
      */
     if (seg->next_seg_id == -1 && (!expire)) {
-        __atomic_store_n(&seg->locked, 0, __ATOMIC_SEQ_CST);
+        ASSERT("this should not happen");
+        __atomic_store_n(&seg->evictable, 0, __ATOMIC_SEQ_CST);
 
         log_warn("%s seg %" PRIu32 ": next_seg has been changed, give up",
                 eviction_reasons[expire], seg_id);
@@ -335,6 +327,7 @@ seg_rm_all_item(int32_t seg_id, int expire)
     log_debug("proc time %" PRId32 ": %s seg %" PRId32 ", ttl %d",
             time_proc_sec(), eviction_reasons[expire], seg_id, seg->ttl);
     seg_print(seg_id);
+
 
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
     ASSERT(*(uint64_t *)(curr) == SEG_MAGIC);
@@ -355,8 +348,7 @@ seg_rm_all_item(int32_t seg_id, int expire)
 #endif
         ASSERT(it->klen >= 0);
         ASSERT(it->vlen >= 0);
-        hashtable_evict(
-                item_key(it), it->klen, seg_id, curr - seg_data);
+        hashtable_evict(item_key(it), it->klen, seg_id, curr - seg_data);
         curr += item_ntotal(it);
     }
 
@@ -426,9 +418,10 @@ seg_rm_expired_seg(int32_t seg_id)
 }
 
 /**
- * allocate an unused segment from heap, this is called before memory is full
- * TODO(jason): we can add all segments into free pool at start up, then we
- * don't have to differentiate unused seg from free pool
+ * allocate an unused segment from heap,
+ * this is called before all segments are allocated
+ *
+ * not used
  */
 static inline int32_t
 _seg_alloc(void)
@@ -439,15 +432,15 @@ _seg_alloc(void)
      * alloc first, if the seg_id is too large, roll back
      * */
 
-    if (__atomic_load_n(&heap.nseg, __ATOMIC_SEQ_CST) >= heap.max_nseg) {
+    if (__atomic_load_n(&heap.nseg, __ATOMIC_RELAXED) >= heap.max_nseg) {
         return -1;
     }
 
-    int32_t seg_id = __atomic_fetch_add(&heap.nseg, 1, __ATOMIC_SEQ_CST);
+    int32_t seg_id = __atomic_fetch_add(&heap.nseg, 1, __ATOMIC_RELAXED);
 
     if (seg_id >= heap.max_nseg) {
         /* this is very rare, roll back */
-        __atomic_fetch_sub(&heap.nseg, 1, __ATOMIC_SEQ_CST);
+        __atomic_fetch_sub(&heap.nseg, 1, __ATOMIC_RELAXED);
         return -1;
     }
 
@@ -457,14 +450,15 @@ _seg_alloc(void)
 }
 
 
+/**
+ * get a seg from free pool
+ */
 static inline int32_t
 _seg_get_from_free_pool(void)
 {
     int32_t seg_id_ret, next_seg_id;
 
-    int status;
-
-    status = pthread_mutex_lock(&heap.mtx);
+    int status = pthread_mutex_lock(&heap.mtx);
 
     if (status != 0) {
         log_warn("fail to lock seg free pool");
@@ -516,11 +510,11 @@ seg_return_seg(int32_t seg_id)
 
     /* we set all free segs as locked to prevent it being evicted
      * before finishing setup */
-    ASSERT(seg->locked == 1);
+    ASSERT(seg->evictable == 0);
+    seg->accessible = 0;
 
     /* this is needed to make sure the assert
      * at _seg_get_from_free_pool do not fail */
-//    seg->ttl = 0;
     seg->write_offset = 0;
     seg->occupied_size = 0;
 
@@ -543,11 +537,7 @@ seg_get_new(void)
 
     INCR(seg_metrics, seg_req);
 
-    if ((seg_id_ret = _seg_alloc()) != -1) {
-        /* seg is allocated from heap */
-        log_debug("seg_get_new: allocate seg %" PRIu32 " from unused heap",
-                seg_id_ret);
-    } else if ((seg_id_ret = _seg_get_from_free_pool()) != -1) {
+    if ((seg_id_ret = _seg_get_from_free_pool()) != -1) {
         /* free pool has seg */
         log_debug("seg_get_new: allocate seg %" PRIu32 " from free pool",
                 seg_id_ret);
@@ -564,7 +554,6 @@ seg_get_new(void)
 
                 return -1;
             }
-            log_debug("going to evict seg %" PRId32, seg_id_ret);
             if (seg_rm_all_item(seg_id_ret, 0)) {
                 log_debug("seg_get_new: allocate seg %" PRId32 " from eviction",
                         seg_id_ret);
@@ -583,10 +572,12 @@ seg_get_new(void)
     return seg_id_ret;
 }
 
+
 static inline void _seg_copy(int32_t seg_id_out, int32_t seg_id_in) {
 
     struct item *it;
     struct seg *seg_in = &heap.segs[seg_id_in];
+    struct seg *seg_out = &heap.segs[seg_id_out];
     uint8_t *seg_data_out = seg_get_data_start(seg_id_out);
     uint8_t *curr_out = seg_data_out;
 
@@ -657,35 +648,46 @@ static inline void _seg_copy(int32_t seg_id_out, int32_t seg_id_in) {
 /* merge two consecutive segs */
 void merge_seg(int32_t seg_id1, int32_t seg_id2) {
 
+    int accessible, evictable;
     struct seg *seg1 = &heap.segs[seg_id1];
     struct seg *seg2 = &heap.segs[seg_id2];
 
     ASSERT(seg1->next_seg_id == seg_id2);
+
+    /* prevent the seg from being evicted */
+    evictable = __atomic_exchange_n(&(seg1->evictable), 0, __ATOMIC_RELAXED);
+    if (evictable == 0) {
+        /* being evicted by another thread */
+        return;
+    }
+
+    evictable = __atomic_exchange_n(&(seg2->evictable), 0, __ATOMIC_RELAXED);
+    if (evictable == 0) {
+        /* being evicted by another thread */
+        return;
+    }
 
     int32_t ttl_bucket_idx = find_ttl_bucket_idx(seg1->ttl);
     struct ttl_bucket *ttl_bucket = &ttl_buckets[ttl_bucket_idx];
 
 
     int32_t new_seg_id = seg_get_new();
-    struct seg *seg = &heap.segs[new_seg_id];
+    struct seg *new_seg = &heap.segs[new_seg_id];
 
-    ASSERT(seg->locked == 1);
+    ASSERT(new_seg->evictable == 0);
     /* make sure this will not be picked for eviction */
-    ASSERT(seg->next_seg_id == -1);
+    ASSERT(new_seg->next_seg_id == -1);
 
-    seg->create_at = seg1->create_at;
-    seg->ttl = seg1->ttl;
-    seg->locked = 0;
+    new_seg->create_at = seg1->create_at;
+    new_seg->ttl = seg1->ttl;
 
-    seg_r_ref(seg_id1);
     _seg_copy(seg_id1, new_seg_id);
-    seg_r_deref(seg_id1);
-    __atomic_store_n(&(seg1->locked), 1, __ATOMIC_RELAXED);
+    accessible = __atomic_exchange_n(&(seg1->accessible), 0, __ATOMIC_RELAXED);
+    ASSERT(accessible == 1);
 
-    seg_r_ref(seg_id2);
     _seg_copy(seg_id2, new_seg_id);
-    seg_r_deref(seg_id2);
-    __atomic_store_n(&(seg2->locked), 1, __ATOMIC_RELAXED);
+    accessible = __atomic_exchange_n(&(seg2->accessible), 0, __ATOMIC_RELAXED);
+    ASSERT(accessible == 1);
 
     _seg_wait_refcnt(seg_id1);
     _seg_wait_refcnt(seg_id2);
@@ -697,8 +699,8 @@ void merge_seg(int32_t seg_id1, int32_t seg_id2) {
     int32_t prev_seg_id = seg1->prev_seg_id;
     int32_t next_seg_id = seg2->next_seg_id;
 
-    seg->prev_seg_id = prev_seg_id;
-    seg->next_seg_id = next_seg_id;
+    new_seg->prev_seg_id = prev_seg_id;
+    new_seg->next_seg_id = next_seg_id;
 
     /* we should not merge the last seg */
     ASSERT(next_seg_id != -1);
@@ -721,10 +723,14 @@ void merge_seg(int32_t seg_id1, int32_t seg_id2) {
 
     pthread_mutex_unlock(&heap.mtx);
 
+    new_seg->evictable = 1;
+
     log_debug("merge seg %d and %d to seg %d in ttl bucket %d first %d last %d",
             seg_id1, seg_id2, new_seg_id, ttl_bucket_idx,
             ttl_bucket->first_seg_id, ttl_bucket->last_seg_id);
 }
+
+
 
 static void
 _heap_init(void)
@@ -780,10 +786,16 @@ _seg_heap_setup(void)
         /* TODO(jason): recover */
         ;
     } else {
-        for (int32_t i = 0; i < heap.max_nseg; i++) {
+        pthread_mutex_lock(&heap.mtx);
+        for (int32_t i = heap.max_nseg-1; i >= 0; i--) {
             heap.segs[i].seg_id = i;
-            heap.segs[i].locked = 1;
+            heap.segs[i].evictable = 0;
+            heap.segs[i].accessible = 0;
+
+            seg_return_seg(i);
         }
+        heap.nseg = heap.max_nseg;
+        pthread_mutex_unlock(&heap.mtx);
     }
 
     return CC_OK;
@@ -804,7 +816,6 @@ seg_teardown(void)
     }
 
     hashtable_teardown();
-    _sync_seg_hdr();
 
     segevict_teardown();
     ttl_bucket_teardown();

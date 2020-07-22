@@ -9,6 +9,12 @@ static bool segevict_initialized;
 
 struct seg_evict_info evict;
 
+#define NOT_A_GOOD_EVICTION_CANDIDATE(seg)                                     \
+    (seg->w_refcount > 0 || seg->evictable == 0 ||                                  \
+    time_proc_sec() - seg->create_at < 2)
+// || seg->next_seg_id == -1
+
+
 /* maybe we should use # of req instead of real time to make decision */
 static inline bool
 _should_rerank(void)
@@ -36,10 +42,10 @@ _cmp_seg_FIFO(const void *d1, const void *d2)
     struct seg *seg2 = &heap.segs[*(uint32_t *)d2];
 
     /* avoid segments that are currently being written to */
-    if (seg1->w_refcount || seg1->next_seg_id == -1 || seg1->locked == 1) {
+    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg1)) {
         return 1;
     }
-    if (seg2->w_refcount || seg2->next_seg_id == -1 || seg2->locked == 1) {
+    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg2)) {
         return -1;
     }
 
@@ -52,10 +58,10 @@ _cmp_seg_CTE(const void *d1, const void *d2)
     struct seg *seg1 = &heap.segs[*(uint32_t *)d1];
     struct seg *seg2 = &heap.segs[*(uint32_t *)d2];
 
-    if (seg1->w_refcount || seg1->next_seg_id == -1 || seg1->locked == 1) {
+    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg1)) {
         return 1;
     }
-    if (seg2->w_refcount || seg2->next_seg_id == -1 || seg2->locked == 1) {
+    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg2)) {
         return -1;
     }
 
@@ -68,10 +74,10 @@ _cmp_seg_util(const void *d1, const void *d2)
     struct seg *seg1 = &heap.segs[*(uint32_t *)d1];
     struct seg *seg2 = &heap.segs[*(uint32_t *)d2];
 
-    if (seg1->w_refcount || seg1->next_seg_id == -1 || seg1->locked == 1) {
+    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg1)) {
         return 1;
     }
-    if (seg2->w_refcount || seg2->next_seg_id == -1 || seg2->locked == 1) {
+    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg2)) {
         return -1;
     }
 
@@ -151,9 +157,7 @@ least_valuable_seg(int32_t *seg_id)
         uint32_t i = 0;
         *seg_id = rand() % heap.nseg;
         seg = &heap.segs[*seg_id];
-        while ((__atomic_load_n(&seg->w_refcount, __ATOMIC_RELAXED) > 0 ||
-                       seg->next_seg_id == -1 || seg->locked == 1) &&
-                i <= heap.max_nseg) {
+        while ((NOT_A_GOOD_EVICTION_CANDIDATE(seg)) && i <= heap.max_nseg) {
             /* transition to linear search */
             *seg_id = (*seg_id + 1) % heap.max_nseg;
             seg = &heap.segs[*seg_id];
@@ -175,14 +179,16 @@ least_valuable_seg(int32_t *seg_id)
 
         /* it is OK if we read a staled seg.sealed because we will double check
          * when we perform real eviction */
-        while ((__atomic_load_n(&seg->w_refcount, __ATOMIC_RELAXED) > 0 ||
-                seg->next_seg_id == -1 || seg->locked == 1) &&
-                evict.idx_rseg < evict.nseg) {
+        while (NOT_A_GOOD_EVICTION_CANDIDATE(seg) && evict.idx_rseg < evict.nseg) {
             *seg_id = evict.ranked_seg_id[evict.idx_rseg++];
             seg = &heap.segs[*seg_id];
         }
         if (evict.idx_rseg >= evict.nseg) {
-            log_warn("unable to find a segment that is not active");
+            seg = &heap.segs[evict.ranked_seg_id[0]];
+            log_warn("unable to find a segment to evict, top seg %d, "
+                     "ttl %d, accessible %d evictable %d, age %d, w_ref %d",
+                    seg->seg_id, seg->ttl, seg->accessible, seg->evictable,
+                    time_proc_sec() - seg->create_at, seg->w_refcount);
             evict.idx_rseg = 0;
             /* better return a less utilized one */
             pthread_mutex_unlock(&evict.mtx);
@@ -190,6 +196,7 @@ least_valuable_seg(int32_t *seg_id)
         }
 
         pthread_mutex_unlock(&evict.mtx);
+
         return EVICT_OK;
     }
 }

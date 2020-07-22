@@ -59,8 +59,8 @@ _check_seg_expire(void)
 static inline bool _seg_is_mergeable(struct seg *seg) {
     bool is_mergeable;
     is_mergeable = seg->occupied_size <= heap.seg_size * SEG_MERGE_THRESHOLD;
-    is_mergeable = is_mergeable && seg->locked == 0;
-    is_mergeable = is_mergeable && seg->next_seg_id != -1;
+    is_mergeable = is_mergeable && seg->evictable == 1;
+//    is_mergeable = is_mergeable && seg->next_seg_id != -1;
     /* a magic number - we don't want to merge just created seg */
     is_mergeable = is_mergeable && time_proc_sec() - seg->create_at > 60;
     /* don't merge segments that will expire */
@@ -106,7 +106,7 @@ _background_loop(void *data)
         duration_start(&d);
 
         _check_seg_expire();
-        _check_merge_seg();
+//        _check_merge_seg();
 
         duration_stop(&d);
         if (duration_ms(&d) < 400){

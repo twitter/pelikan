@@ -601,7 +601,8 @@ START_TEST(test_delete_more)
     struct seg *seg = &heap.segs[seg_id];
 
     ck_assert_int_eq(seg->seg_id, 0);
-    ck_assert_int_eq(seg->locked, 0);
+    ck_assert_int_eq(seg->accessible, 1);
+    ck_assert_int_eq(seg->evictable, 0);
     ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
     ck_assert_msg(seg->w_refcount == 0, "seg refcount incorrect");
     ck_assert_int_eq(seg->n_item, 1);
@@ -770,7 +771,8 @@ START_TEST(test_seg_basic)
         ck_assert_int_eq(seg_id, i);
 
         seg = &heap.segs[seg_id];
-        ck_assert_int_eq(seg->locked, 1);
+        ck_assert_int_eq(seg->accessible, 1);
+        ck_assert_int_eq(seg->evictable, 0);
         ck_assert_int_eq(seg->prev_seg_id, -1);
         ck_assert_int_eq(seg->next_seg_id, -1);
         ck_assert_int_eq(seg->n_item, 0);
@@ -815,14 +817,16 @@ START_TEST(test_seg_more)
         seg = &heap.segs[seg_id];
 
         ck_assert_int_eq(seg->seg_id, i);
-        ck_assert_int_eq(seg->locked, 0);
+        ck_assert_int_eq(seg->accessible, 1);
         ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
         ck_assert_msg(seg->w_refcount == 0, "seg refcount incorrect");
         ck_assert_int_eq(seg->n_item, 1);
         ck_assert_int_eq(seg->write_offset, seg->occupied_size);
         ck_assert_int_eq(seg->prev_seg_id, i - 1);
-        if (i > 0)
+        if (i > 0){
             ck_assert_int_eq(heap.segs[i - 1].next_seg_id, i);
+            ck_assert_int_eq(heap.segs[i - 1].evictable, 1);
+        }
     }
 
     /* remove all item of seg 2 and return to global pool */
@@ -847,7 +851,7 @@ START_TEST(test_seg_more)
     seg = &heap.segs[seg_id];
 
     ck_assert_int_eq(seg->seg_id, 2);
-    ck_assert_int_eq(seg->locked, 0);
+    ck_assert_int_eq(seg->accessible, 1);
     ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
     ck_assert_msg(seg->w_refcount == 0, "seg refcount incorrect");
     ck_assert_int_eq(seg->n_item, 1);
@@ -958,6 +962,7 @@ START_TEST(test_segevict_CTE)
 
     char *keys[] = {"cte-0", "cte-1", "cte-2", "cte-3", "cte-4", "cte-5",
             "cte-6", "cte-7", "cte-8"};
+    delta_time_i ttls[] = {80000, 80000, 20000, 20000};
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
     option_set(&options.seg_mem, MEM_SIZE);
@@ -975,11 +980,11 @@ START_TEST(test_segevict_CTE)
     val.len = VLEN;
 
     /* insert 4 objects on 4 segments and two ttl_bucket */
-    for (uint32_t i = 0; i < 4; i++) {
-        proc_sec++;
+    for (int32_t i = 0; i < 4; i++) {
+        proc_sec += 3600;
         bstring_set_literal(&key, keys[i]);
-        status = item_reserve(
-                &it, &key, &val, val.len, 0, proc_sec + 63 - 8 * (i / 2));
+        status = item_reserve(&it, &key, &val, val.len, 0,
+                proc_sec + ttls[i]);
         ck_assert(it != NULL);
 
         item_insert(it);
@@ -987,6 +992,10 @@ START_TEST(test_segevict_CTE)
         ck_assert(it != NULL);
         item_release(it);
     }
+
+    /* make all seg evictable */
+    for (int32_t i = 0; i < 4; i++)
+        heap.segs[i].evictable = 1;
 
     /* cache is full at this time, EVICT_CTE should evict seg 2 and item 2 */
     bstring_set_literal(&key, keys[4]);
@@ -1071,6 +1080,7 @@ START_TEST(test_segevict_UTIL)
     ck_assert(heap.segs[1].occupied_size < 200);
     ck_assert(heap.segs[1].n_item == 0);
 
+    proc_sec = 2000;
     /* now we add one large item, seg 3 is too small to fit in,
      * so it will be sealed, and seg 1 will be evicted */
     bstring_set_cstr(&key, keys[4]);
@@ -1123,6 +1133,7 @@ START_TEST(test_segevict_RAND)
     val.len = VLEN;
 
     for (uint32_t i = 0; i < 160; i++) {
+        proc_sec += 3600;
         it = NULL;
         bstring_set_literal(&key, keys[i % 8]);
         item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);

@@ -43,8 +43,8 @@ _item_alloc(uint32_t sz, delta_time_i ttl, int32_t *seg_id)
 
         __atomic_sub_fetch(&curr_seg->write_offset, sz, __ATOMIC_SEQ_CST);
 
-        log_warn("allocated item is about to be evicted, seg info ");
-        seg_print(*seg_id);
+        log_warn("allocated item is not accessible (soon to be evicted), "
+                 "seg ttl %d", curr_seg->ttl);
 
         /* TODO(jason): maybe we should retry here */
         return NULL;
@@ -112,12 +112,15 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
     it = hashtable_get(key->data, key->len, &seg_id, cas);
     if (it == NULL) {
         log_vverb("get it '%.*s' not found", key->len, key->data);
+
         return NULL;
     }
 
     seg = &heap.segs[seg_id];
 
-    if (seg_expired(seg_id)) {
+    if (seg_accessible(seg_id)) {
+        log_verb("get it '%.*s' expired", key->len, key->data);
+
         return NULL;
     }
 
@@ -128,8 +131,6 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
     if (incr_ref) {
         __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_RELAXED);
     }
-
-    __atomic_fetch_add(&seg->n_hit, 1, __ATOMIC_RELAXED);
 
     log_vverb("get it key %.*s", key->len, key->data);
 

@@ -61,7 +61,9 @@ struct seg {
     proc_time_i     create_at;
     delta_time_i    ttl;
 
-    uint8_t         locked;        /* whether the seg is locked for eviction */
+    uint8_t         accessible;    /* indicate the seg is being evicted */
+    uint8_t         evictable;
+
     uint8_t         recovered : 1; /* whether the items on this seg have been
                                     * recovered */
 
@@ -173,9 +175,9 @@ typedef struct {
 
 
 static inline bool
-seg_is_locked(struct seg *seg)
+seg_is_accessible(struct seg *seg)
 {
-    return __atomic_load_n(&seg->locked, __ATOMIC_RELAXED) > 0;
+    return __atomic_load_n(&seg->accessible, __ATOMIC_RELAXED) > 0;
 }
 
 
@@ -217,7 +219,7 @@ void
 seg_print(int32_t seg_id);
 
 bool
-seg_expired(int32_t seg_id);
+seg_accessible(int32_t seg_id);
 
 bool
 seg_r_ref(int32_t seg_id);
