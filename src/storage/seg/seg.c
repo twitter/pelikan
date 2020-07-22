@@ -417,38 +417,6 @@ seg_rm_expired_seg(int32_t seg_id)
     pthread_mutex_unlock(&heap.mtx);
 }
 
-/**
- * allocate an unused segment from heap,
- * this is called before all segments are allocated
- *
- * not used
- */
-static inline int32_t
-_seg_alloc(void)
-{
-    /* in the steady state, nseg should always be equal to max_nseg,
-     * when the heap is not full, we believe concurrent allocating
-     * is rare and we optimize for this assumption by doing optimistically
-     * alloc first, if the seg_id is too large, roll back
-     * */
-
-    if (__atomic_load_n(&heap.nseg, __ATOMIC_RELAXED) >= heap.max_nseg) {
-        return -1;
-    }
-
-    int32_t seg_id = __atomic_fetch_add(&heap.nseg, 1, __ATOMIC_RELAXED);
-
-    if (seg_id >= heap.max_nseg) {
-        /* this is very rare, roll back */
-        __atomic_fetch_sub(&heap.nseg, 1, __ATOMIC_RELAXED);
-        return -1;
-    }
-
-    INCR(seg_metrics, seg_curr);
-
-    return seg_id;
-}
-
 
 /**
  * get a seg from free pool
@@ -474,7 +442,8 @@ _seg_get_from_free_pool(void)
         return -1;
     }
 
-    ASSERT(seg_id_ret >= 0);
+    heap.n_free_seg -= 1;
+    ASSERT(heap.n_free_seg >= 0);
 
     next_seg_id = heap.segs[seg_id_ret].next_seg_id;
     heap.free_seg_id = next_seg_id;
@@ -518,6 +487,7 @@ seg_return_seg(int32_t seg_id)
     seg->write_offset = 0;
     seg->occupied_size = 0;
 
+    heap.n_free_seg += 1;
     log_vverb("return seg %" PRId32 " to free pool successfully", seg_id);
 }
 
@@ -735,7 +705,6 @@ void merge_seg(int32_t seg_id1, int32_t seg_id2) {
 static void
 _heap_init(void)
 {
-    heap.nseg = 0;
     heap.max_nseg = heap.heap_size / heap.seg_size;
     heap.heap_size = heap.max_nseg * heap.seg_size;
     heap.base = NULL;
@@ -794,7 +763,6 @@ _seg_heap_setup(void)
 
             seg_return_seg(i);
         }
-        heap.nseg = heap.max_nseg;
         pthread_mutex_unlock(&heap.mtx);
     }
 

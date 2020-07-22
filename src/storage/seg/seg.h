@@ -75,11 +75,11 @@ struct seg {
  * the order of field is optimized for CPU cacheline,
  * TODO(jason): merge this header with datapool header */
 struct seg_heapinfo {
-    struct seg          *segs;       /* seg headers */
+    struct seg          *segs;          /* seg headers */
     size_t              seg_size;
 
     uint8_t             *base;          /* address where seg data starts */
-    int32_t             nseg;           /* # seg allocated */
+    int32_t             n_free_seg;     /* # seg allocated */
     int32_t             max_nseg;       /* max # seg allowed */
     size_t              heap_size;
 

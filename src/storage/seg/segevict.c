@@ -149,13 +149,11 @@ _rank_seg(void)
 evict_rstatus_e
 least_valuable_seg(int32_t *seg_id)
 {
-    ASSERT(heap.nseg == heap.max_nseg);
-
     struct seg *seg;
 
     if (evict.policy == EVICT_RANDOM) {
         uint32_t i = 0;
-        *seg_id = rand() % heap.nseg;
+        *seg_id = rand() % heap.max_nseg;
         seg = &heap.segs[*seg_id];
         while ((NOT_A_GOOD_EVICTION_CANDIDATE(seg)) && i <= heap.max_nseg) {
             /* transition to linear search */
