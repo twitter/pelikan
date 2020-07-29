@@ -4,6 +4,7 @@
 #include <time/time.h>
 
 #define MAX_KEY_LEN 255
+#define MAX_VAL_LEN 8 * 1024 * 1024
 #define ENTRY_SIZE sizeof(struct benchmark_entry)
 
 // typedef size_t benchmark_key_u;

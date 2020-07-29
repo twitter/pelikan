@@ -6,6 +6,8 @@
 
 static slab_metrics_st metrics = { SLAB_METRIC(METRIC_INIT) };
 
+#define VERIFY_DATA
+
 unsigned
 bench_storage_config_nopts(void)
 {
@@ -51,11 +53,23 @@ bench_storage_deinit(void)
 rstatus_i
 bench_storage_get(struct benchmark_entry *e)
 {
+    static __thread char data[1*MiB];
     struct bstring key = {.data = e->key, .len = e->key_len};
 
     struct item *it = item_get(&key);
 
-    return it != NULL ? CC_OK : CC_EEMPTY;
+    rstatus_i status = it != NULL ? CC_OK : CC_EEMPTY;
+
+    if (it){
+        memcpy(data, item_data(it), item_nval(it));
+#ifdef VERIFY_DATA
+        ASSERT(e->key_len == it->klen);
+        ASSERT(memcmp(e->key, item_key(it), e->key_len) == 0);
+        ASSERT(memcmp(data, "ABCDEF", MIN(item_nval(it), 6)) == 0);
+#endif
+    }
+
+    return status;
 }
 
 rstatus_i

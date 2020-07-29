@@ -8,8 +8,7 @@
 
 
 #define MAX_TRACE_PATH_LEN 1024
-#define MAX_KEY_LEN 255
-#define MAX_VAL_LEN 8 * 1024 * 1024
+//#define MAX_KEY_LEN 255
 
 struct benchmark_entry;
 

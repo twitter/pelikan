@@ -17,6 +17,8 @@
 
 static __thread unsigned int rseed = 1234; /* XXX: make this an option */
 
+static char val_array[MAX_VAL_LEN];
+
 #define RRAND(min, max) (rand_r(&(rseed)) % ((max) - (min) + 1) + (min))
 
 #define SWAP(a, b)                                                             \
@@ -52,6 +54,10 @@ struct benchmark_options {
 static rstatus_i
 benchmark_create(struct benchmark *b, const char *config)
 {
+    cc_memset(val_array, 'A', MAX_VAL_LEN);
+    for (int i=0; i<MAX_VAL_LEN; i++)
+        val_array[i] = 'A' + i % 26;
+
     b->entries = NULL;
 
     unsigned nopts = OPTION_CARDINALITY(struct benchmark_specific);
@@ -139,7 +145,8 @@ benchmark_entry_create(uint32_t key, size_t size)
     int ret = snprintf(e.key, e.key_len, "%"PRIu32, key);
     ASSERT(ret > 0);
 
-    memset(e.val, 'a', e.val_len);
+//    memset(e.val, 'a', e.val_len);
+    memcpy(e.val, val_array, e.val_len);
     e.val[e.val_len - 1] = 0;
 
     e.expire_at = INT32_MAX;

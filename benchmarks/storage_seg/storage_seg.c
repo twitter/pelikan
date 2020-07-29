@@ -3,7 +3,7 @@
 #include <storage/seg/item.h>
 #include <storage/seg/seg.h>
 
-#undef VERIFY_DATA
+#define VERIFY_DATA
 
 
 static seg_metrics_st metrics = {SEG_METRIC(METRIC_INIT)};
@@ -30,7 +30,7 @@ bench_storage_init(void *opts, size_t item_size, size_t nentries)
     if (item_size != 0 && nentries != 0) {
         /* because we don't update in-place, we need to allocate large enough space */
         options->seg_mem.val.vuint =
-                CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries * 40, SEG_SIZE);
+                CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries * 2, SEG_SIZE);
     }
 
     seg_setup(options, &metrics);
@@ -49,6 +49,7 @@ bench_storage_deinit(void)
 rstatus_i
 bench_storage_get(struct benchmark_entry *e)
 {
+    static __thread char data[1 * MiB];
     struct bstring key = {.data=e->key, .len=e->key_len};
 
     struct item *it = item_get(&key, NULL, true);
@@ -56,12 +57,12 @@ bench_storage_get(struct benchmark_entry *e)
     rstatus_i status = it != NULL ? CC_OK : CC_EEMPTY;
 
     if (it){
+        memcpy(data, item_val(it), item_nval(it));
 #ifdef VERIFY_DATA
         ASSERT(e->key_len == it->klen);
         ASSERT(memcmp(e->key, item_key(it), e->key_len) == 0);
-        ASSERT(memcmp(item_val(it), "ABCDEF", MIN(item_nval(it), 6)) == 0);
+        ASSERT(memcmp(data, "ABCDEF", MIN(item_nval(it), 6)) == 0);
 #endif
-
         item_release(it);
     }
 
