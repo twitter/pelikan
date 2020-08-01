@@ -85,6 +85,7 @@ struct response {
     uint64_t                vint;       /* return value for incr/decr, or integer get value */
     uint64_t                vcas;       /* value for cas */
     struct metric           *met;       /* metric, for reporting stats */
+    void                    *item;      /* pointer to item */
 
     uint32_t                flag;
     uint32_t                vlen;

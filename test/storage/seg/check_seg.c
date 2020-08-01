@@ -835,7 +835,7 @@ START_TEST(test_seg_more)
     seg_return_seg(2);
     pthread_mutex_unlock(&heap.mtx);
 
-    ck_assert_msg(heap.free_seg_id == 2);
+    ck_assert_int_eq(heap.free_seg_id, 2);
     heap.segs[2].prev_seg_id = -1;
     heap.segs[2].next_seg_id = -1;
 
@@ -937,7 +937,7 @@ START_TEST(test_segevict_FIFO)
     ck_assert_msg(seg->write_offset == item_ntotal(it) ||
                     seg->write_offset == item_ntotal(it) + 8,
             "write offset error %" PRIu32, seg->write_offset);
-    ck_assert_msg(seg->write_offset == seg->occupied_size);
+    ck_assert_int_eq(seg->write_offset, seg->occupied_size);
     ck_assert(seg->n_item == 1);
 
     /* double check item 1 is not in cache */
@@ -1012,7 +1012,7 @@ START_TEST(test_segevict_CTE)
     ck_assert_msg(seg->write_offset == item_ntotal(it) ||
                     seg->write_offset == item_ntotal(it) + 8,
             "write offset error %" PRIu32, seg->write_offset);
-    ck_assert_msg(seg->write_offset == seg->occupied_size);
+    ck_assert_int_eq(seg->write_offset, seg->occupied_size);
     ck_assert(seg->n_item == 1);
 
     /* double check item 3 is not in cache */
@@ -1149,7 +1149,7 @@ START_TEST(test_segevict_RAND)
         ck_assert_msg(seg->write_offset == item_ntotal(it) ||
                         seg->write_offset == item_ntotal(it) + 8,
                 "write offset error %" PRIu32, seg->write_offset);
-        ck_assert_msg(seg->write_offset == seg->occupied_size);
+        ck_assert_int_eq(seg->write_offset, seg->occupied_size);
         ck_assert_int_eq(seg->n_item, 1);
 
         item_release(it);
@@ -1270,7 +1270,7 @@ START_TEST(test_ttl_bucket_basic)
                 "seg write offset is incorrect %d", offset);
         ck_assert_msg(occu_size == item_size ||
                         occu_size == item_size + sizeof(uint64_t),
-                "seg occupied size is incorrect %", occu_size);
+                "seg occupied size is incorrect %d", occu_size);
 
         item_insert(it);
 
@@ -1303,7 +1303,7 @@ START_TEST(test_ttl_bucket_basic)
                 "seg write offset is incorrect %d", offset);
         ck_assert_msg(occu_size == item_size ||
                         occu_size == item_size + sizeof(uint64_t),
-                "seg occupied size is incorrect %", occu_size);
+                "seg occupied size is incorrect %d", occu_size);
 
         item_insert(it);
 
@@ -1315,7 +1315,7 @@ START_TEST(test_ttl_bucket_basic)
 //                offset == item_size || offset == item_size + sizeof(uint64_t),
 //                "seg write offset is incorrect %d", offset);
         ck_assert_msg(occu_size == 0 || occu_size == sizeof(uint64_t),
-                "seg occupied size is incorrect %", occu_size);
+                "seg occupied size is incorrect %d", occu_size);
 
         it2 = item_get(&key, NULL, true);
         ck_assert_msg(it2 == it, "update item is incorrect");
@@ -1353,7 +1353,6 @@ seg_suite(void)
     tcase_add_test(tc_item, test_flush_basic);
     tcase_add_test(tc_item, test_expire_basic);
     tcase_add_test(tc_item, test_item_numeric);
-
     tcase_add_test(tc_item, test_hashtable_basic);
 
 

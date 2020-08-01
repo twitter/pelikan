@@ -58,6 +58,9 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
         new_seg_id = seg_get_new();
 
         if (new_seg_id == -1) {
+#if defined CC_ASSERT_PANIC
+            ASSERT(0);
+#endif
             log_warn("cannot get new segment");
             return NULL;
         }
@@ -153,6 +156,7 @@ ttl_bucket_setup(void)
             ttl_bucket->ttl = ttl_bucket_intvls[i] * j + 1;
             ttl_bucket->last_seg_id = -1;
             ttl_bucket->first_seg_id = -1;
+            ttl_bucket->next_seg_to_merge = -1;
         }
     }
 }

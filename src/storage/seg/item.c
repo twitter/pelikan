@@ -118,8 +118,8 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
 
     seg = &heap.segs[seg_id];
 
-    if (seg_accessible(seg_id)) {
-        log_verb("get it '%.*s' expired", key->len, key->data);
+    if (!seg_accessible(seg_id)) {
+        log_verb("get it '%.*s' not accessible/expired", key->len, key->data);
 
         return NULL;
     }
@@ -131,6 +131,17 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
     if (incr_ref) {
         __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_RELAXED);
     }
+
+#ifdef TRACK_ADVANCED_STAT
+    __atomic_fetch_add(&seg->n_hit, 1, __ATOMIC_RELAXED);
+    if (time_proc_sec() - seg->create_at >= ACTIVE_ITEM_START_REC_TIME) {
+    int32_t idx = (uint32_t) (((uint8_t*)(it)-seg_get_data_start(seg_id))) >> 3u;
+    ASSERT(idx < 131072);
+        seg->active_obj[idx] = true;
+    }
+//    log_warn("get %.*s idx %d - %d seg %d", it->klen, item_key(it), idx,
+//            seg->active_obj[idx], seg->seg_id);
+#endif
 
     log_vverb("get it key %.*s", key->len, key->data);
 
@@ -194,8 +205,7 @@ item_reserve(struct item **it_p, const struct bstring *key,
              "write offset %d)",
             it, it->klen, item_key(it), item_ntotal(it), ttl, seg_id,
             (uint8_t *)it - seg_get_data_start(seg_id),
-            __atomic_load_n(&heap.segs[seg_id].write_offset, __ATOMIC_SEQ_CST));
-
+            __atomic_load_n(&heap.segs[seg_id].write_offset, __ATOMIC_RELAXED));
 
     return ITEM_OK;
 }

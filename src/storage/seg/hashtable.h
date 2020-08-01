@@ -58,7 +58,7 @@
  *      ┌──────────────────────┐         ┌──────────────────────┐
  *      │      32-bit cas      │         │      16-bit tag      │
  *      │ 8-bit # extra arrays │         │    28-bit seg id     │
- *      │     8-bit unused     │         │    20-bit offset     │
+ *      │     8-bit lock       │         │    20-bit offset     │
  *      │    16-bit unused     │         │                      │
  *      └──────────────────────┘         └──────────────────────┘
  *

@@ -28,10 +28,8 @@ static process_metrics_st   *process_metrics = NULL;
 static bool                 allow_flush = ALLOW_FLUSH;
 static bool                 prefill = PREFILL;
 static uint32_t             prefill_ksize;
-static char                 prefill_kbuf[UINT8_MAX]; /* seg implementation has klen as unint8_t
-                                      */
+static char                 prefill_kbuf[UINT8_MAX];
 static uint32_t             prefill_vsize;
-/* val_buf size is arbitrary , update if want to warm up with larger objects */
 static char                 prefill_vbuf[ITEM_SIZE_MAX];
 static uint64_t             prefill_nkey;
 
@@ -140,6 +138,7 @@ _get_key(struct response *rsp, struct bstring *key, bool cas)
         rsp->vstr.len = it->vlen; /* do not use item_nval here */
         rsp->vstr.data = item_val(it);
         rsp->vcas = cas ? cas_v : 0;
+        rsp->item = (void *) it;
 
         if (hotkey_enabled && hotkey_sample(key)) {
             log_debug("hotkey detected: %.*s", key->len, key->data);
@@ -647,12 +646,22 @@ process_request(struct response *rsp, struct request *req)
 }
 
 static inline void
-_cleanup(struct request *req, struct response *rsp)
+_cleanup(struct request *req, struct response *rsp, int card)
 {
     struct response *nr = STAILQ_NEXT(rsp, next);
 
+    nr = rsp;
+    for (int i = 0; i < card; nr = STAILQ_NEXT(nr, next), ++i) {
+        if (nr->item != NULL) {
+            item_release((struct item *)nr->item);
+            nr->item = NULL;
+        }
+    }
+
+
     request_reset(req);
     /* return all but the first response */
+    nr = STAILQ_NEXT(rsp, next);
     if (nr != NULL) {
         response_return_all(&nr);
     }
@@ -738,7 +747,7 @@ segcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
             if (nr == NULL) {
                 log_error("cannot acquire response: OOM");
                 INCR(process_metrics, process_ex);
-                _cleanup(req, rsp);
+                _cleanup(req, rsp, card);
                 return -1;
             }
         }
@@ -754,7 +763,6 @@ segcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
         /* stage 3: write response(s) if necessary */
 
         /* noreply means no need to write to buffers */
-        /* TODO(jason): I don't understand the logic of card here */
         card++;
         if (!req->noreply) {
             nr = rsp;
@@ -766,17 +774,14 @@ segcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
                 if (compose_rsp(wbuf, nr) < 0) {
                     log_error("composing rsp erred");
                     INCR(process_metrics, process_ex);
-                    _cleanup(req, rsp);
-                    /* we need to add it to rsp so that we can release here*/
+                    _cleanup(req, rsp, card);
                     return -1;
                 }
-                /* we need to add it to rsp so that we can release here*/
             }
         }
-
         /* logging, clean-up */
         klog_write(req, rsp);
-        _cleanup(req, rsp);
+        _cleanup(req, rsp, card);
     }
 
     return 0;
@@ -799,7 +804,7 @@ int
 segcache_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
 {
     struct request *req = *data;
-    struct response *rsp;
+    struct response *rsp, *nr;
 
     log_verb("post-error processing");
 
@@ -817,6 +822,15 @@ segcache_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
             struct bstring key = {.data = item_key(it), .len = item_nkey(it)};
             item_delete(&key);
         }
+
+        nr = rsp;
+        while (nr) {
+            if (nr->item != NULL) {
+                item_release((struct item *) nr->item);
+                nr->item = NULL;
+            }
+            nr = STAILQ_NEXT(nr, next);
+        }
         response_return_all(&rsp);
         request_return(&req);
     }
@@ -825,3 +839,4 @@ segcache_process_error(struct buf **rbuf, struct buf **wbuf, void **data)
 
     return 0;
 }
+

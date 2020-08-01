@@ -10,8 +10,8 @@ static bool segevict_initialized;
 struct seg_evict_info evict;
 
 #define NOT_A_GOOD_EVICTION_CANDIDATE(seg)                                     \
-    (seg->w_refcount > 0 || seg->evictable == 0 ||                                  \
-    time_proc_sec() - seg->create_at < 2)
+    (seg->w_refcount > 0 || seg->evictable == 0 )
+//    || time_proc_sec() - seg->create_at < 30)
 // || seg->next_seg_id == -1
 
 
@@ -49,7 +49,9 @@ _cmp_seg_FIFO(const void *d1, const void *d2)
         return -1;
     }
 
-    return seg1->create_at - seg2->create_at;
+
+    return MAX(seg1->create_at, seg1->merge_at) -
+            MAX(seg2->create_at, seg2->merge_at);
 }
 
 static inline int
@@ -91,7 +93,35 @@ _cmp_seg_smart(const void *d1, const void *d2)
 
     struct seg *seg1 = &heap.segs[*(uint32_t *)d1];
     struct seg *seg2 = &heap.segs[*(uint32_t *)d2];
+
+    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg1)) {
+        return 1;
+    }
+    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg2)) {
+        return -1;
+    }
+
+#ifdef TRACK_ADVANCED_STAT
     return seg1->n_hit - seg2->n_hit;
+
+    if (seg1->n_active == 0) {
+        for (int i = 0; i < 131072; i++) {
+            if (seg1->active_obj[i])
+                seg1->n_active += 1;
+        }
+    }
+
+    if (seg2->n_active == 0) {
+        for (int i = 0; i < 131072; i++) {
+            if (seg2->active_obj[i])
+                seg2->n_active += 1;
+        }
+    }
+
+    return seg1->n_active - seg2->n_active;
+#else
+    return 0;
+#endif
 }
 
 // static inline void
@@ -133,12 +163,25 @@ _rank_seg(void)
     qsort(evict.ranked_seg_id, evict.nseg, sizeof(uint32_t), cmp);
 
 
-    log_debug("ranked seg id %u %u %u %u %u %u %u %u %u ...",
+//#ifdef TRACK_ADVANCED_STAT
+//    static int n_rerank = 0;
+//    n_rerank += 1;
+//    if (n_rerank % 120 == 0) {
+//        /* clear n_active */
+//        for (int32_t i=0; i<heap.max_nseg; i++){
+//            /* TODO (jason): not thread safe */
+//            memset(heap.segs[i].active_obj, 0, sizeof(bool)*131072);
+//            heap.segs[i].n_active = 0;
+//        }
+//    }
+//#endif
+
+    log_debug("ranked seg id %u %u %u %u %u %u %u %u %u %u ...",
             evict.ranked_seg_id[0], evict.ranked_seg_id[1],
             evict.ranked_seg_id[2], evict.ranked_seg_id[3],
             evict.ranked_seg_id[4], evict.ranked_seg_id[5],
             evict.ranked_seg_id[6], evict.ranked_seg_id[7],
-            evict.ranked_seg_id[8]);
+            evict.ranked_seg_id[8], evict.ranked_seg_id[9]);
     seg_print(evict.ranked_seg_id[0]);
     seg_print(evict.ranked_seg_id[1]);
     seg_print(evict.ranked_seg_id[2]);
@@ -184,9 +227,11 @@ least_valuable_seg(int32_t *seg_id)
         if (evict.idx_rseg >= evict.nseg) {
             seg = &heap.segs[evict.ranked_seg_id[0]];
             log_warn("unable to find a segment to evict, top seg %d, "
-                     "ttl %d, accessible %d evictable %d, age %d, w_ref %d",
+                     "ttl %d, accessible %d evictable %d, age %d, w_ref %d, "
+                     "next_seg %d",
                     seg->seg_id, seg->ttl, seg->accessible, seg->evictable,
-                    time_proc_sec() - seg->create_at, seg->w_refcount);
+                    time_proc_sec() - seg->create_at, seg->w_refcount,
+                    seg->next_seg_id);
             evict.idx_rseg = 0;
             /* better return a less utilized one */
             pthread_mutex_unlock(&evict.mtx);
@@ -194,6 +239,14 @@ least_valuable_seg(int32_t *seg_id)
         }
 
         pthread_mutex_unlock(&evict.mtx);
+
+//        log_info("seg %d age %d, ttl %d, %d items, write offset %d, "
+//                 "occupied size %d, n_hit %d, n_hit_last %d, n_active %d, "
+//                 "evictable %d, accessible %d, ",
+//                seg->seg_id, time_proc_sec() - seg->create_at,
+//                seg->ttl, seg->n_item, seg->write_offset, seg->occupied_size,
+//                seg->n_hit, seg->n_hit_last, seg->n_active, seg->evictable,
+//                seg->accessible);
 
         return EVICT_OK;
     }

@@ -103,10 +103,11 @@
 
 
 struct ttl_bucket {
-    int32_t first_seg_id;
-    int32_t last_seg_id;
-    delta_time_i    ttl;           /* the min ttl of this bucket */
-    uint32_t n_seg;
+    int32_t             first_seg_id;
+    int32_t             last_seg_id;
+    delta_time_i        ttl;           /* the min ttl of this bucket */
+    uint32_t            n_seg;
+    int32_t             next_seg_to_merge;
 };
 
 

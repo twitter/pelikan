@@ -41,6 +41,7 @@
 struct seg {
     int32_t         seg_id;
 
+    /* TODO(jason): move write offset to ttl_bucket */
     int32_t         write_offset;  /* used to calculate the write pos */
     int32_t         occupied_size; /* used size, smaller than seg_size due to
                                     * internal fragmentation and
@@ -57,9 +58,14 @@ struct seg {
 
     int32_t         n_hit;         /* only update when the seg is sealed */
     int32_t         n_hit_last;    /* number of hits in the last window */
-
+#ifdef TRACK_ADVANCED_STAT
+    bool            active_obj[131072];
+    int32_t         n_active;
+    int32_t         n_active_byte;
+#endif
     proc_time_i     create_at;
     delta_time_i    ttl;
+    proc_time_i     merge_at;
 
     uint8_t         accessible;    /* indicate the seg is being evicted */
     uint8_t         evictable;
@@ -138,6 +144,7 @@ typedef struct {
     ACTION(seg_evict_retry,     METRIC_COUNTER,     "# retried seg eviction"            )\
     ACTION(seg_evict_ex,        METRIC_COUNTER,     "# segs evict exceptions"           )\
     ACTION(seg_expire,          METRIC_COUNTER,     "# segs removed due to expiration"  )\
+    ACTION(seg_merge,           METRIC_GAUGE,       "# seg merge"                       )\
     ACTION(seg_curr,            METRIC_GAUGE,       "# active segs"                     )\
     ACTION(item_curr,           METRIC_GAUGE,       "# current items"                   )\
     ACTION(item_curr_bytes,     METRIC_GAUGE,       "# used bytes including item header")\
@@ -233,7 +240,19 @@ seg_w_ref(int32_t seg_id);
 void
 seg_w_deref(int32_t seg_id);
 
+bool
+seg_mergeable(int32_t seg_id);
+
 /**
  * merge seg2 into seg1
  */
-void merge_seg(int32_t seg_id1, int32_t seg_id2);
+void
+merge_seg(int32_t seg_id1, int32_t seg_id2);
+
+/**
+ * merge n segs starting from start_seg_id
+ */
+int32_t
+merge_segs(int32_t start_seg_id, int32_t n_seg);
+
+

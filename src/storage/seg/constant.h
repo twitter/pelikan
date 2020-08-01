@@ -42,5 +42,12 @@
 #define ITEM_HDR_SIZE           offsetof(struct item, end)
 #define ITEM_CAS_SIZE           (use_cas * sizeof(uint32_t))
 
-#define MAX_N_MERGEABLE_SEG     1024
-#define SEG_MERGE_THRESHOLD     0.5
+
+//#define TRACK_ADVANCED_STAT
+
+#define SEG_MERGE_THRESHOLD     1
+#define SEG_MERGE_AGE_LIMIT     0
+
+#define N_RESERVED_SEG          1
+#define N_MAX_SEG_MERGE         8
+#define ACTIVE_ITEM_START_REC_TIME  120
