@@ -278,6 +278,11 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
     /* setup shared data structures between server and worker */
     #ifdef USE_EVENT_FD
     event_fd_s2w = eventfd(0 /* intval */, EFD_CLOEXEC | EFD_NONBLOCK);
+    if (event_fd_s2w < 0) {
+        int err = errno;
+        log_error("Could not create event fd %s, abort", strerror(err));
+        goto error;
+    }
     #else
     pipe_new = pipe_conn_create();
     if (pipe_new == NULL) {
