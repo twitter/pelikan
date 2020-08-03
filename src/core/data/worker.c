@@ -93,8 +93,13 @@ static void
 worker_add_stream(void)
 {
     struct buf_sock *s;
+    #ifdef USE_EVENT_FD
+    uint64_t i;
+    #else
     char buf[RING_ARRAY_DEFAULT_CAP]; /* buffer for discarding pipe data */
     int i;
+    #endif
+
     rstatus_i status;
 
     /* server pushes connection on to the ring array before writing to the pipe,
@@ -105,12 +110,15 @@ worker_add_stream(void)
      * connections added to the queue when we are processing, it is OK to wait
      * for the next read event in that case.
      */
-
+    #ifdef USE_EVENT_FD
+    i = read(event_fd_s2w, &i, sizeof(uint64_t));
+    #else
     i = pipe_recv(pipe_new, buf, RING_ARRAY_DEFAULT_CAP);
     if (i < 0) { /* errors, do not read from ring array */
         log_warn("not adding new connections due to pipe error");
         return;
     }
+    #endif
 
     /* each byte in the pipe corresponds to a new connection, which we will
      * now get from the ring array
@@ -266,7 +274,11 @@ core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
     hdl->rid = (channel_id_fn)tcp_read_id;
     hdl->wid = (channel_id_fn)tcp_write_id;
 
+    #ifdef USE_EVENT_FD
+    event_add_read(ctx->evb, event_fd_s2w, NULL);
+    #else
     event_add_read(ctx->evb, pipe_read_id(pipe_new), NULL);
+    #endif
 
     worker_init = true;
 }

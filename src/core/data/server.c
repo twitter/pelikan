@@ -17,9 +17,17 @@
 #include <string.h>
 #include <sysexits.h>
 
+#ifdef USE_EVENT_FD
+#include <sys/eventfd.h>
+#endif
+
 #define SERVER_MODULE_NAME "core::server"
 
+#ifdef USE_EVENT_FD
+int event_fd_s2w = -1;               /* server(w) -> worker(r) */
+#else
 struct pipe_conn *pipe_new = NULL;   /* server(w) -> worker(r) */
+#endif
 struct pipe_conn *pipe_term = NULL;  /* worker(w) -> server(r) */
 struct ring_array *conn_new = NULL;  /* server(w) -> worker(r) */
 struct ring_array *conn_term = NULL; /* worker(w) -> server(r) */
@@ -53,6 +61,24 @@ _server_close(struct buf_sock *s)
     buf_sock_return(&s);
 }
 
+#ifdef USE_EVENT_FD
+static inline void
+_server_notify_worker(void)
+{
+    ASSERT(event_fd_s2w != -1);
+
+    uint64_t u = 1;
+    ssize_t status = write(event_fd_s2w, &u, sizeof(uint64_t));
+
+    if (status == CC_EAGAIN) {
+        /* retry write */
+        log_verb("server core: retry write to eventfd");
+        event_add_write(ctx->evb, event_fd_s2w, NULL);
+    } else if (status == CC_ERROR) {
+        log_error("could not write to eventfd - %d", status);
+    }
+}
+#else
 static inline void
 _server_pipe_write(void)
 {
@@ -68,6 +94,7 @@ _server_pipe_write(void)
         log_error("could not write to pipe - %s", strerror(pipe_new->err));
     }
 }
+#endif
 
 /* pipe_read recycles returned streams from worker thread */
 static inline void
@@ -165,7 +192,11 @@ _tcp_accept(struct buf_sock *ss)
     }
 
     /* notify worker, note this may fail and will be retried via write event */
+    #ifdef USE_EVENT_FD
+    _server_notify_worker();
+    #else
     _server_pipe_write();
+    #endif
 
     return true;
 }
@@ -195,7 +226,11 @@ _server_event(void *arg, uint32_t events)
         if (events & EVENT_WRITE) { /* retrying worker notification */
             log_verb("processing server write event on pipe");
             INCR(server_metrics, server_event_write);
+            #ifdef USE_EVENT_FD
+            _server_notify_worker();
+            #else
             _server_pipe_write();
+            #endif
         }
         if (events & EVENT_ERR) {
             log_debug("processing server error event on pipe");
@@ -241,26 +276,38 @@ core_server_setup(server_options_st *options, server_metrics_st *metrics)
     }
 
     /* setup shared data structures between server and worker */
+    #ifdef USE_EVENT_FD
+    event_fd_s2w = eventfd(0 /* intval */, EFD_CLOEXEC | EFD_NONBLOCK);
+    #else
     pipe_new = pipe_conn_create();
+    if (pipe_new == NULL) {
+        log_error("Could not create connection for pipe, abort");
+        goto error;
+    }
+    #endif
     pipe_term = pipe_conn_create();
-    if (pipe_new == NULL || pipe_term == NULL) {
+    if (pipe_term == NULL) {
         log_error("Could not create connection for pipe, abort");
         goto error;
     }
 
+    #ifndef USE_EVENT_FD
     if (!pipe_open(NULL, pipe_new)) {
         log_error("Could not open pipe for new connection: %s",
                 strerror(pipe_new->err));
         goto error;
     }
+    #endif
     if (!pipe_open(NULL, pipe_term)) {
         log_error("Could not open pipe for terminated connection: %s",
                 strerror(pipe_term->err));
         goto error;
     }
 
-
+    #ifndef USE_EVENT_FD
+    /* event_fd is set to nonblocking during creation */
     pipe_set_nonblocking(pipe_new);
+    #endif
     pipe_set_nonblocking(pipe_term);
 
     conn_new = ring_array_create(sizeof(struct buf_sock *),
@@ -341,7 +388,11 @@ core_server_teardown(void)
     ring_array_destroy(&conn_term);
     ring_array_destroy(&conn_new);
     pipe_conn_destroy(&pipe_term);
+    #ifdef USE_EVENT_FD
+    close(event_fd_s2w);
+    #else
     pipe_conn_destroy(&pipe_new);
+    #endif
     server_metrics = NULL;
     server_init = false;
 }
