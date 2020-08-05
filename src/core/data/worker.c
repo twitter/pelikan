@@ -93,6 +93,7 @@ static void
 worker_add_stream(void)
 {
     struct buf_sock *s;
+
 #ifdef USE_EVENT_FD
     uint64_t i;
 #else
