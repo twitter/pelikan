@@ -93,12 +93,12 @@ static void
 worker_add_stream(void)
 {
     struct buf_sock *s;
-    #ifdef USE_EVENT_FD
+#ifdef USE_EVENT_FD
     uint64_t i;
-    #else
+#else
     char buf[RING_ARRAY_DEFAULT_CAP]; /* buffer for discarding pipe data */
     int i;
-    #endif
+#endif
 
     rstatus_i status;
 
@@ -110,15 +110,19 @@ worker_add_stream(void)
      * connections added to the queue when we are processing, it is OK to wait
      * for the next read event in that case.
      */
-    #ifdef USE_EVENT_FD
-    i = read(event_fd_s2w, &i, sizeof(uint64_t));
-    #else
+#ifdef USE_EVENT_FD
+    int rc = read(efd_server_to_worker, &i, sizeof(uint64_t));
+    if (rc < 0) {
+        log_warn("not adding new connections due to eventfd error");
+        return;
+    }
+#else
     i = pipe_recv(pipe_new, buf, RING_ARRAY_DEFAULT_CAP);
     if (i < 0) { /* errors, do not read from ring array */
         log_warn("not adding new connections due to pipe error");
         return;
     }
-    #endif
+#endif
 
     /* each byte in the pipe corresponds to a new connection, which we will
      * now get from the ring array
@@ -138,6 +142,24 @@ worker_add_stream(void)
     }
 }
 
+#ifdef USE_EVENT_FD
+static inline void
+_worker_write_event_fd(void)
+{
+    ASSERT(efd_worker_to_server != -1);
+
+    uint64_t u = 1;
+    ssize_t status = write(efd_worker_to_server, &u, sizeof(uint64_t));
+
+    if (status == CC_EAGAIN) {
+        /* retry write */
+        log_verb("server core: retry write to eventfd");
+        event_add_write(ctx->evb, efd_server_to_worker, NULL);
+    } else if (status == CC_ERROR) {
+        log_error("could not write to eventfd - %d", status);
+    }
+}
+#else
 static inline void
 _worker_pipe_write(void)
 {
@@ -152,6 +174,17 @@ _worker_pipe_write(void)
     } else if (status == CC_ERROR) {
         log_error("could not write to pipe - %s", strerror(pipe_term->err));
     }
+}
+#endif
+
+static inline void
+_worker_notify_server(void)
+{
+#ifdef USE_EVENT_FD
+    _worker_write_event_fd();
+#else
+    _worker_pipe_write();
+#endif
 }
 
 static void
@@ -177,7 +210,7 @@ worker_ret_stream(struct buf_sock *s)
         return;
     }
     /* conn_term */
-    _worker_pipe_write();
+    _worker_notify_server();
 }
 
 static void
@@ -193,7 +226,7 @@ _worker_event(void *arg, uint32_t events)
         }
         if (events & EVENT_WRITE) { /* retry return notification */
             INCR(worker_metrics, worker_event_write);
-            _worker_pipe_write();
+            _worker_notify_server();
         }
         if (events & EVENT_ERR) {
             INCR(worker_metrics, worker_event_error);
@@ -274,11 +307,11 @@ core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
     hdl->rid = (channel_id_fn)tcp_read_id;
     hdl->wid = (channel_id_fn)tcp_write_id;
 
-    #ifdef USE_EVENT_FD
-    event_add_read(ctx->evb, event_fd_s2w, NULL);
-    #else
+#ifdef USE_EVENT_FD
+    event_add_read(ctx->evb, efd_server_to_worker, NULL);
+#else
     event_add_read(ctx->evb, pipe_read_id(pipe_new), NULL);
-    #endif
+#endif
 
     worker_init = true;
 }
