@@ -248,11 +248,11 @@ _server_event(void *arg, uint32_t events)
         if (events & EVENT_WRITE) { /* retrying worker notification */
             log_verb("processing server write event on pipe");
             INCR(server_metrics, server_event_write);
-            #ifdef USE_EVENT_FD
+#ifdef USE_EVENT_FD
             _server_notify_worker();
-            #else
+#else
             _server_pipe_write();
-            #endif
+#endif
         }
         if (events & EVENT_ERR) {
             log_debug("processing server error event on pipe");
