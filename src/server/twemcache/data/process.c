@@ -684,6 +684,11 @@ process_request(struct response *rsp, struct request *req)
         _process_flush(rsp, req);
         break;
 
+    case REQ_FLUSHALL:
+        _process_flushall(rsp, req);
+        break;
+
+
     default:
         rsp->type = RSP_CLIENT_ERROR;
         rsp->vstr = str2bstr(CMD_ERR_MSG);
