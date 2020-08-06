@@ -241,5 +241,7 @@ bool item_delete(const struct bstring *key);
 /* Relink item */
 void item_relink(struct item *it);
 
+size_t item_expire(struct bstring *prefix);
+
 /* flush the cache */
 void item_flush(void);

@@ -742,6 +742,7 @@ _parse_req_hdr(struct request *req, struct buf *buf)
         break;
 
     case REQ_DELETE:
+    case REQ_FLUSH:
         status = _subrequest_delete(req, buf, &end);
         break;
 
@@ -765,7 +766,7 @@ _parse_req_hdr(struct request *req, struct buf *buf)
         break;
 
     /* flush_all can take a delay e.g. 'flush_all 10\r\n', not implemented */
-    case REQ_FLUSH:
+    case REQ_FLUSHALL:
     case REQ_QUIT:
         break;
 

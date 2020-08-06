@@ -391,3 +391,40 @@ item_flush(void)
     flush_at = time_proc_sec();
     log_info("all keys flushed at %"PRIu32, flush_at);
 }
+
+/* this dumps all keys (matching a prefix if given) regardless of expiry status */
+size_t
+item_expire(struct bstring *prefix)
+{
+    uint32_t nbucket = HASHSIZE(hash_table->hash_power);
+    size_t nkey, klen, vlen;
+
+    log_info("start scanning all %"PRIu32" keys", hash_table->nhash_item);
+
+    nkey = 0;
+    for (uint32_t i = 0; i < nbucket; i++) {
+        struct item_slh *entry = &hash_table->table[i];
+        struct item *it;
+
+        SLIST_FOREACH(it, entry, i_sle) {
+            klen = it->klen;
+            vlen = it->vlen;
+            if (klen >= prefix->len &&
+                    cc_bcmp(prefix->data, item_key(it), prefix->len) == 0) {
+                nkey++;
+                it->expire_at = time_proc_sec();
+                log_verb("item %p flushed at %"PRIu32, it, it->expire_at);
+            }
+        }
+
+        if (i % 1000000 == 0) {
+            log_info("... %"PRIu32" out of %"PRIu32" buckets scanned ...", i,
+                    nbucket);
+        }
+    }
+
+    log_info("finish scanning all keys");
+
+    return nkey;
+}
+
