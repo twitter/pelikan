@@ -609,7 +609,7 @@ _process_flush(struct response *rsp, struct request *req)
     INCR(process_metrics, flush);
 
     rsp->type = RSP_NUMERIC;
-    rsp->vint = item_flush(array_first(req->keys));
+    rsp->vint = item_expire(array_first(req->keys));
 
     log_info("flush req %p processed, rsp type %d", req, rsp->type);
 }
