@@ -90,7 +90,7 @@ _worker_event_read(struct buf_sock *s)
 }
 
 static void
-worker_add_stream(void)
+_worker_read_notification(void)
 {
     struct buf_sock *s;
 
@@ -143,10 +143,11 @@ worker_add_stream(void)
     }
 }
 
-#ifdef USE_EVENT_FD
+
 static inline void
-_worker_write_event_fd(void)
+_worker_write_notification(void)
 {
+#ifdef USE_EVENT_FD
     ASSERT(efd_worker_to_server != -1);
 
     uint64_t u = 1;
@@ -159,11 +160,7 @@ _worker_write_event_fd(void)
     } else if (status == CC_ERROR) {
         log_error("could not write to eventfd - %d", status);
     }
-}
 #else
-static inline void
-_worker_pipe_write(void)
-{
     ASSERT(pipe_term != NULL);
 
     ssize_t status = pipe_send(pipe_term, "", 1);
@@ -175,16 +172,6 @@ _worker_pipe_write(void)
     } else if (status == CC_ERROR) {
         log_error("could not write to pipe - %s", strerror(pipe_term->err));
     }
-}
-#endif
-
-static inline void
-_worker_notify_server(void)
-{
-#ifdef USE_EVENT_FD
-    _worker_write_event_fd();
-#else
-    _worker_pipe_write();
 #endif
 }
 
@@ -211,7 +198,7 @@ worker_ret_stream(struct buf_sock *s)
         return;
     }
     /* conn_term */
-    _worker_notify_server();
+    _worker_write_notification();
 }
 
 static void
@@ -223,11 +210,11 @@ _worker_event(void *arg, uint32_t events)
     if (s == NULL) { /* event on pipe */
         if (events & EVENT_READ) { /* new connection from server */
             INCR(worker_metrics, worker_event_read);
-            worker_add_stream();
+            _worker_read_notification();
         }
         if (events & EVENT_WRITE) { /* retry return notification */
             INCR(worker_metrics, worker_event_write);
-            _worker_notify_server();
+            _worker_write_notification();
         }
         if (events & EVENT_ERR) {
             INCR(worker_metrics, worker_event_error);

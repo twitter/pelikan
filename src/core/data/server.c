@@ -62,10 +62,10 @@ _server_close(struct buf_sock *s)
     buf_sock_return(&s);
 }
 
-#ifdef USE_EVENT_FD
 static inline void
-_server_event_fd_write(void)
+_server_write_notification(void)
 {
+#ifdef USE_EVENT_FD
     ASSERT(efd_server_to_worker != -1);
 
     uint64_t u = 1;
@@ -78,11 +78,7 @@ _server_event_fd_write(void)
     } else if (status == CC_ERROR) {
         log_error("could not write to eventfd - %d", status);
     }
-}
 #else
-static inline void
-_server_pipe_write(void)
-{
     ASSERT(pipe_new != NULL);
 
     ssize_t status = pipe_send(pipe_new, "", 1);
@@ -94,16 +90,6 @@ _server_pipe_write(void)
     } else if (status == CC_ERROR) {
         log_error("could not write to pipe - %s", strerror(pipe_new->err));
     }
-}
-#endif
-
-static inline void
-_server_notify_worker(void)
-{
-#ifdef USE_EVENT_FD
-    _server_event_fd_write();
-#else
-    _server_pipe_write();
 #endif
 }
 
@@ -218,7 +204,7 @@ _tcp_accept(struct buf_sock *ss)
     }
 
     /* notify worker, note this may fail and will be retried via write event */
-    _server_notify_worker();
+    _server_write_notification();
 
     return true;
 }
@@ -248,11 +234,7 @@ _server_event(void *arg, uint32_t events)
         if (events & EVENT_WRITE) { /* retrying worker notification */
             log_verb("processing server write event on pipe");
             INCR(server_metrics, server_event_write);
-#ifdef USE_EVENT_FD
-            _server_notify_worker();
-#else
-            _server_pipe_write();
-#endif
+            _server_write_notification();
         }
         if (events & EVENT_ERR) {
             log_debug("processing server error event on pipe");
