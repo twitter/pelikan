@@ -117,7 +117,7 @@ struct ttl_bucket {
 static inline uint32_t
 find_ttl_bucket_idx(delta_time_i ttl)
 {
-    uint32_t bucket_idx    = 0;
+    uint32_t bucket_idx;
 
     if (unlikely(ttl == 0)) {
         bucket_idx = MAX_TTL_BUCKET_IDX;

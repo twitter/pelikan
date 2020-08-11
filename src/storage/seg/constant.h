@@ -18,13 +18,13 @@
 #define TTL_BUCKET_INTVL4           (1u << TTL_BUCKET_INTVL_N_BIT4)
 
 #define TTL_BOUNDARY1                                                          \
-    (2u << (TTL_BUCKET_INTVL_N_BIT1 + N_BUCKET_PER_STEP_N_BIT))
+    (1u << (TTL_BUCKET_INTVL_N_BIT1 + N_BUCKET_PER_STEP_N_BIT))
 #define TTL_BOUNDARY2                                                          \
-    (2u << (TTL_BUCKET_INTVL_N_BIT2 + N_BUCKET_PER_STEP_N_BIT))
+    (1u << (TTL_BUCKET_INTVL_N_BIT2 + N_BUCKET_PER_STEP_N_BIT))
 #define TTL_BOUNDARY3                                                          \
-    (2u << (TTL_BUCKET_INTVL_N_BIT3 + N_BUCKET_PER_STEP_N_BIT))
+    (1u << (TTL_BUCKET_INTVL_N_BIT3 + N_BUCKET_PER_STEP_N_BIT))
 #define TTL_BOUNDARY4                                                          \
-    (2u << (TTL_BUCKET_INTVL_N_BIT4 + N_BUCKET_PER_STEP_N_BIT))
+    (1u << (TTL_BUCKET_INTVL_N_BIT4 + N_BUCKET_PER_STEP_N_BIT))
 
 
 

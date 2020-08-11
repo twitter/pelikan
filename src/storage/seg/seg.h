@@ -128,7 +128,7 @@ extern struct seg_heapinfo heap;
     ACTION(seg_hash_power,      OPTION_TYPE_UINT,   HASH_POWER,             "Power for lookup hash table"         )\
     ACTION(datapool_path,       OPTION_TYPE_STR,    SEG_DATAPOOL,           "Path to DRAM data pool"              )\
     ACTION(datapool_name,       OPTION_TYPE_STR,    SEG_DATAPOOL_NAME,      "Seg DRAM data pool name"             )\
-    ACTION(prefault,            OPTION_TYPE_BOOL,   SEG_DATAPOOL_PREFAULT,  "Prefault Pmem"                       )
+    ACTION(datapool_prefault,   OPTION_TYPE_BOOL,   SEG_DATAPOOL_PREFAULT,  "Prefault Pmem"                       )
 
 typedef struct {
     SEG_OPTION(OPTION_DECLARE)

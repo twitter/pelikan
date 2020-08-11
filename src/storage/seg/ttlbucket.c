@@ -53,7 +53,14 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
 
     while (curr_seg_id == -1 || offset + sz > heap.seg_size || (!accessible)) {
-        /* remove roll back offset due to data race */
+        if (offset + sz > heap.seg_size) {
+            /* we cannot roll back offset due to data race,
+             * but we need to explicitly clear rest of the segment
+             * so that we know it is the end of segment */
+            seg_data = seg_get_data_start(curr_seg_id);
+            size_t sz = MIN(ITEM_HDR_SIZE, heap.seg_size - offset);
+            memset(seg_data + offset, 0, sz);
+        }
 
         new_seg_id = seg_get_new();
 

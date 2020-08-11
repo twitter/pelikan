@@ -187,7 +187,8 @@ _seg_init(int32_t seg_id)
     struct seg *seg = &heap.segs[seg_id];
     uint8_t *data_start = seg_get_data_start(seg_id);
 
-    cc_memset(data_start, 0, heap.seg_size);
+    /* I think this is not needed */
+//    cc_memset(data_start, 0, heap.seg_size);
 
     seg->write_offset   = 0;
     seg->occupied_size  = 0;
@@ -225,6 +226,7 @@ _rm_seg_from_ttl_bucket(int32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
     struct ttl_bucket *ttl_bucket = &ttl_buckets[find_ttl_bucket_idx(seg->ttl)];
+    ASSERT(seg->ttl == ttl_bucket->ttl);
 
     /* all modification to seg list needs to be protected by lock */
     ASSERT(pthread_mutex_trylock(&heap.mtx) != 0);
@@ -1092,7 +1094,7 @@ _setup_heap_mem(void)
     int datapool_fresh = 1;
 
     heap.pool = datapool_open(heap.poolpath, heap.poolname, heap.heap_size,
-            &datapool_fresh, false);
+            &datapool_fresh, heap.prefault);
 
     if (heap.pool == NULL || datapool_addr(heap.pool) == NULL) {
         log_crit("create datapool failed: %s - %zu bytes for %" PRIu32 " segs",
@@ -1196,7 +1198,7 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
 
     heap.free_seg_id = -1;
     heap.prealloc = option_bool(&seg_options->seg_prealloc);
-    heap.prefault = option_bool(&seg_options->prefault);
+    heap.prefault = option_bool(&seg_options->datapool_prefault);
 
     heap.poolpath = option_str(&seg_options->datapool_path);
     heap.poolname = option_str(&seg_options->datapool_name);
