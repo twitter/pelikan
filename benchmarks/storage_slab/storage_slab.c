@@ -4,9 +4,10 @@
 #include <storage/slab/slab.h>
 #include <cc_print.h>
 
+#include <math.h>
+
 static slab_metrics_st metrics = { SLAB_METRIC(METRIC_INIT) };
 
-#define VERIFY_DATA
 
 unsigned
 bench_storage_config_nopts(void)
@@ -35,6 +36,8 @@ bench_storage_init(void *opts, size_t item_size, size_t nentries)
         options->slab_mem.val.vuint =
                 CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries * 2, SLAB_SIZE);
         options->slab_item_min.val.vuint = item_size;
+
+        options->slab_hash_power.val.vuint = (uint64_t)(ceil(log2(nentries)));
     }
 
     slab_setup(options, &metrics);
@@ -158,7 +161,7 @@ bench_storage_cas(struct benchmark_entry *e)
         return CC_ERROR;
     }
 
-    __attribute__((unused)) uint64_t cas = item_get_cas(it);
+    uint64_t cas = item_get_cas(it);
 
     struct bstring val = {.data = e->val, .len = e->val_len};
     item_rstatus_e status =
@@ -167,6 +170,8 @@ bench_storage_cas(struct benchmark_entry *e)
         return CC_ENOMEM;
 
     item_insert(it, &key);
+
+    ASSERT(cas != item_get_cas(it));
 
     return CC_OK;
 }

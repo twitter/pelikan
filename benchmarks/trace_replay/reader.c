@@ -33,21 +33,33 @@ static const char *const key_array = "1234567890abcdefghijklmnopqrstuvwxyz_"
                                      "1234567890abcdefghijklmnopqrstuvwxyz_"
                                      "1234567890abcdefghijklmnopqrstuvwxyz";
 
-static char val_array[MAX_VAL_LEN];
+static const char val_array[MAX_VAL_LEN] = {'A'};
 
 
+/**
+ * default ttl is an array of 100 elements, if single ttl then the array is
+ * repeat of single element, if multiple TTLs with different weight, it is
+ * reflected in the array
+ *
+ * @param trace_path
+ * @param default_ttls
+ * @return
+ */
 struct reader *
-open_trace(const char *trace_path)
+open_trace(
+        const char *trace_path, const int32_t * default_ttls)
 {
     int fd;
     struct stat st;
     struct reader *reader = cc_zalloc(sizeof(struct reader));
 
     /* init reader module */
-    cc_memset(val_array, 'A', MAX_VAL_LEN);
-    for (int i=0; i<MAX_VAL_LEN; i++)
-        val_array[i] = 'A' + i%26;
+    //    cc_memset(val_array, 'A', MAX_VAL_LEN);
+    //    for (int i=0; i<MAX_VAL_LEN; i++)
+    //        val_array[i] = (char)('A' + i % 26);
 
+    reader->default_ttls = default_ttls;
+    reader->default_ttl_idx = 0;
     strcpy(reader->trace_path, trace_path);
 
     /* get trace file info */
@@ -87,8 +99,10 @@ open_trace(const char *trace_path)
     }
 
     reader->n_total_req = reader->file_size / item_size;
-    reader->e = (struct benchmark_entry *) malloc(sizeof(struct benchmark_entry));
-    reader->e->key = malloc(MAX_KEY_LEN);
+    reader->e =
+            (struct benchmark_entry *)cc_zalloc(sizeof(struct benchmark_entry));
+    reader->e->val = val_array;
+
     reader->update_time = true;
 
     close(fd);
@@ -116,16 +130,11 @@ open_trace(const char *trace_path)
  *
  */
 int
-read_trace(struct reader *reader, struct benchmark_entry **e)
+read_trace(struct reader *reader)
 {
     size_t offset = __atomic_fetch_add(&reader->offset, 20, __ATOMIC_RELAXED);
     if (offset >= reader->file_size) {
         return 1;
-    }
-
-    /* used by normal reader */
-    if (*e == NULL){
-        *e = reader->e;
     }
 
     char *mmap = reader->mmap + offset;
@@ -141,53 +150,45 @@ read_trace(struct reader *reader, struct benchmark_entry **e)
     mmap += 4;
     uint32_t op_ttl = *(uint32_t *)mmap;
 
-    uint_fast16_t key_len = (kv_len >> 22) & (0x00000400 - 1);
+    uint32_t key_len = (kv_len >> 22) & (0x00000400 - 1);
     uint32_t val_len = kv_len & (0x00400000 - 1);
-//    val_len = 300*1024;
+    //    val_len = 300*1024;
 
-    if (key_len == 0){
-        log_warn("trace contains request of key size 0, object id %" PRIu64, key);
-        return read_trace(reader, e);
+    if (key_len == 0) {
+        printf("trace contains request of key size 0, object id %" PRIu64 "\n",
+                key);
+        return read_trace(reader);
     }
 
     uint32_t op = (op_ttl >> 24u) & (0x00000100 - 1);
     uint32_t ttl = op_ttl & (0x01000000 - 1);
+    ttl = ttl == 0 ? reader->default_ttls[(reader->default_ttl_idx++)%100] : ttl;
 
-    /* used by reader_pl */
-    if ((*e)->key == NULL) {
-        (*e)->key = cc_alloc(key_len + 1);
-    }
+    /* it is possible we have overflow here, but it should be rare */
+    snprintf(reader->e->key, key_len, "%.*lu", key_len-1, (unsigned long)key);
 
-    int ret = snprintf((*e)->key, key_len + 1, "%12lu_%.*s",
-            (unsigned long)key, (int)key_len - 13, key_array);
-    ASSERT(ret > 0);
+    //    int ret = snprintf(reader->e->key, key_len + 1, "%12lu_%.*s",
+    //            (unsigned long)key, (int)key_len - 13, key_array);
 
-    if (val_len == 0 && (op >= 3 && op <= 6)){
-        /* make set to have at least 8 byte val */
-        val_len = 64;
-    }
+//    if (val_len == 0 && (op >= 3 && op <= 6)) {
+//        /* make set to have at least 8 byte val */
+//        val_len = reader->default_val_size;
+//    }
 
-    (*e)->key_len = key_len;
-    (*e)->val_len = val_len;
-    (*e)->val = val_array;
-    (*e)->op = op - 1;
-    (*e)->expire_at = ts + ttl;
+    reader->e->key_len = key_len;
+    reader->e->val_len = val_len;
+    reader->e->op = op - 1;
+    reader->e->expire_at = ts + ttl;
 
     return 0;
 }
 
-struct reader * clone_reader(struct reader *reader) {
-    struct reader *cloned_reader = cc_zalloc(sizeof(struct reader));
-    memcpy(cloned_reader, reader, sizeof(struct reader));
-    return cloned_reader;
-}
 
 void
 close_trace(struct reader *reader)
 {
-    free(reader->e->key);
-    free(reader->e);
-
     munmap(reader->mmap, reader->file_size);
+
+    cc_free(reader->e);
     cc_free(reader);
 }

@@ -1,14 +1,14 @@
 #pragma once
 
 
-#include <stddef.h>
 #include <inttypes.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <time/time.h>
 
 
 #define MAX_TRACE_PATH_LEN 1024
-//#define MAX_KEY_LEN 255
 
 struct benchmark_entry;
 
@@ -21,12 +21,14 @@ struct reader {
     uint64_t n_total_req;
     /* used for preloaded reader */
     struct benchmark_entry *e;
+    const int32_t *default_ttls;
+    int default_ttl_idx;
     bool update_time; /* whether this reader is responsible for updating time */
 };
 
 
 struct reader *
-open_trace(const char *trace_path);
+open_trace(const char *trace_path, const int32_t *default_ttls);
 
 
 /*
@@ -47,8 +49,6 @@ open_trace(const char *trace_path);
  *
  */
 int
-read_trace(struct reader *reader, struct benchmark_entry **e);
-
-struct reader *clone_reader(struct reader *reader);
+read_trace(struct reader *reader);
 
 void close_trace(struct reader *reader);

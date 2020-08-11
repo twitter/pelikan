@@ -1,8 +1,6 @@
 
 #include "bench_storage.h"
 #include "reader.h"
-#include "reader_mt.h"
-#include "reader_pl.h"
 #include "storage/seg/checker.h"
 
 #include <cc_debug.h>
@@ -17,43 +15,30 @@
 #include <string.h>
 #include <sysexits.h>
 
-#define NORMAL_READER 1
-#define MULTI_THREAD_READER 2
-#define PRELOADED_READER 3
+#define N_MAX_THREAD        128
 
-#define READER_TYPE NORMAL_READER
+volatile static bool        start = false;
+static char                 val_array[MAX_VAL_LEN];
+//static int32_t              default_ttl;
+//static uint32_t             default_val_size;
+static int                  n_thread;
+static struct reader        *readers[N_MAX_THREAD];
+volatile int64_t            op_cnt[op_invalid];
 
+volatile static uint64_t    n_req = 0;
+volatile static uint64_t    n_get_req = 0;
+volatile static uint64_t    n_miss = 0;
 
-#if !defined(READER_TYPE) || READER_TYPE == NORMAL_READER
-#    define OPEN_TRACE(x) open_trace(x)
-#    define READ_TRACE(x, e) read_trace(x, e)
-#    define CLOSE_TRACE(x) close_trace(x)
-#    define CLONE_READER(reader) clone_reader(reader)
-#    define READER struct reader
+static delta_time_i         default_ttls[100];
 
-#elif READER_TYPE == MULTI_THREAD_READER
-#    define OPEN_TRACE(x) open_trace_mt(x)
-#    define READ_TRACE(x, e) read_trace_mt(x, e)
-#    define CLOSE_TRACE(x) close_trace_mt(x)
-#    define READER struct reader_mt
-
-#elif READER_TYPE == PRELOADED_READER
-#    define OPEN_TRACE(x) open_trace_pl(x)
-#    define READ_TRACE(x, e) read_trace_pl(x, e)
-#    define CLOSE_TRACE(x) close_trace_pl(x)
-#    define READER struct reader_pl
-
-#endif
+extern seg_metrics_st *seg_metrics;
 
 
-#define BENCHMARK_OPTION(ACTION)                                                                                         \
-    ACTION(warmup_trace_path,   OPTION_TYPE_STR, "",            "path to the trace"                                     )\
-    ACTION(eval_trace_path,     OPTION_TYPE_STR, "trace.bin",   "path to the trace"                                     )\
-    ACTION(n_warmup_req,        OPTION_TYPE_UINT, 0,            "#requests from eval trace used to warmup (per thread)" )\
-    ACTION(default_ttl,         OPTION_TYPE_UINT, 86400,         "default ttl for set request with no ttl"               )\
-    ACTION(n_thread,            OPTION_TYPE_UINT, 1,            "the number of threads"                                 )\
-    ACTION(per_op_latency,      OPTION_TYPE_BOOL, true,         "Collect latency samples"                               )\
-    ACTION(debug_logging,       OPTION_TYPE_BOOL, true,         "turn on debug logging"                                 )
+#define BENCHMARK_OPTION(ACTION)                                                                    \
+    ACTION(trace_path,      OPTION_TYPE_STR,    NULL,           "path to the trace")                        \
+    ACTION(default_ttl_list,OPTION_TYPE_STR,    "86400:1",      "a comma separated list of ttl:percent")    \
+    ACTION(n_thread,        OPTION_TYPE_UINT,   1,              "the number of threads")                    \
+    ACTION(debug_logging,   OPTION_TYPE_BOOL,   true,           "turn on debug logging")
 
 
 struct replay_specific {
@@ -65,87 +50,100 @@ struct benchmark_options {
     debug_options_st debug;
     struct option engine[]; /* storage-engine specific options... */
 };
-
-
-volatile static bool start = false;
-
-extern seg_metrics_st              *seg_metrics;
+typedef struct benchmark_options bench_options_st;
 
 
 static rstatus_i
 benchmark_create(struct benchmark *b, const char *config)
 {
-    memset(b, 0, sizeof(*b));
+    cc_memset(val_array, 'A', MAX_VAL_LEN);
+    for (int i = 0; i < MAX_VAL_LEN; i++)
+        val_array[i] = (char)('A' + i % 26);
 
-    unsigned nopts = OPTION_CARDINALITY(struct replay_specific);
-
-    struct replay_specific replay_opts = {BENCHMARK_OPTION(OPTION_INIT)};
-    option_load_default((struct option *)&replay_opts, nopts);
-
+    unsigned n_opts_all, n_opts_bench, n_opts_dbg, n_opts_storage;
+    struct replay_specific bench_opts = {BENCHMARK_OPTION(OPTION_INIT)};
     debug_options_st debug_opts = {DEBUG_OPTION(OPTION_INIT)};
-    nopts += OPTION_CARDINALITY(debug_options_st);
-    option_load_default(
-            (struct option *)&debug_opts, OPTION_CARDINALITY(debug_options_st));
 
-    nopts += bench_storage_config_nopts();
+    n_opts_bench = OPTION_CARDINALITY(struct replay_specific);
+    n_opts_dbg = OPTION_CARDINALITY(debug_options_st);
+    n_opts_storage = bench_storage_config_nopts();
+    n_opts_all = n_opts_bench + n_opts_dbg + n_opts_storage;
 
-    b->options = cc_alloc(sizeof(struct option) * nopts);
+    b->options = cc_alloc(sizeof(struct option) * n_opts_all);
     ASSERT(b->options != NULL);
-    BENCH_OPTS(b)->benchmark = replay_opts;
-    BENCH_OPTS(b)->debug = debug_opts;
 
+    option_load_default((struct option *)&bench_opts, n_opts_bench);
+    option_load_default((struct option *)&debug_opts, n_opts_dbg);
+
+    BENCH_OPTS(b)->benchmark = bench_opts;
+    BENCH_OPTS(b)->debug = debug_opts;
     bench_storage_config_init(BENCH_OPTS(b)->engine);
 
 
     if (config != NULL) {
         FILE *fp = fopen(config, "r");
         if (fp == NULL) {
-            log_crit("failed to open the config file");
-            cc_free(b->options);
-
-            return CC_EINVAL;
+            exit(EX_CONFIG);
         }
-        option_load_file(fp, (struct option *)b->options, nopts);
+        option_load_file(fp, (struct option *)b->options, n_opts_all);
         fclose(fp);
     }
 
-    b->n_thread = O_UINT(b, n_thread);
-    b->n_warmup_req = O_UINT(b, n_warmup_req);
-    b->default_ttl = O_UINT(b, default_ttl);
-
     if (O_BOOL(b, debug_logging)) {
-        if (debug_setup(&BENCH_OPTS(b)->debug) != CC_OK) {
+        if (debug_setup(&(BENCH_OPTS(b)->debug)) != CC_OK) {
             log_stderr("debug log setup failed");
             exit(EX_CONFIG);
         }
     }
 
-    b->eval_reader = OPEN_TRACE(O_STR(b, eval_trace_path));
-    if (b->eval_reader == NULL) {
-        log_stderr("failed to open eval_trace");
-        exit(EX_CONFIG);
+    char *list_start = O_STR(b, default_ttl_list);
+    char *curr = list_start;
+    char *new_pos;
+    delta_time_i ttl;
+    double perc;
+    int ttl_array_idx = 0;
+    while (curr != NULL) {
+        ttl = strtol(curr, &new_pos, 10);
+        curr = new_pos;
+        new_pos = strchr(curr, ':');
+        ASSERT(new_pos != NULL);
+        curr = new_pos + 1;
+        perc = strtod(curr, &new_pos);
+        for (int i = 0; i < (int)(perc*100); i++) {
+            default_ttls[ttl_array_idx + i] = ttl;
+        }
+        ttl_array_idx += (int)(perc*100);
+        printf("find TTL %"PRId32 ": perc %.4lf, ", ttl, perc);
+        curr = new_pos;
+        new_pos = strchr(curr, ',');
+        curr = new_pos == NULL? NULL: new_pos + 1;
+    }
+    printf("\n");
+
+    if (ttl_array_idx != 100) {
+        ASSERT(ttl_array_idx == 99);
+        default_ttls[99] = default_ttls[98];
     }
 
-    b->warmup_reader = NULL;
-    if (strlen(O_STR(b, warmup_trace_path)) > 0) {
-        b->warmup_reader = OPEN_TRACE(O_STR(b, warmup_trace_path));
-        if (b->warmup_reader == NULL) {
-            log_stderr("failed to open warmup_trace");
+    n_thread = O_UINT(b, n_thread);
+
+    if (n_thread > 1) {
+        char path[MAX_TRACE_PATH_LEN];
+        for (int i = 0; i < n_thread; i++) {
+            sprintf(path, "%s.%d", O_STR(b, trace_path), i);
+            readers[i] = open_trace(path, default_ttls);
+            if (readers[i] == NULL) {
+                printf("failed to open trace %s\n", path);
+                exit(EX_CONFIG);
+            }
+        }
+    } else {
+        readers[0] = open_trace(O_STR(b, trace_path), default_ttls);
+        if (readers[0] == NULL) {
+            printf("failed to open trace %s\n", O_STR(b, trace_path));
             exit(EX_CONFIG);
         }
     }
-
-    uint64_t nops = ((READER *)b->eval_reader)->n_total_req;
-
-    if (O_BOOL(b, per_op_latency)) {
-        b->latency.samples = cc_zalloc(nops * sizeof(struct duration));
-        ASSERT(b->latency.samples != NULL);
-
-        b->latency.ops = cc_zalloc(nops * sizeof(op_e));
-        ASSERT(b->latency.ops != NULL);
-    }
-
-    b->latency.count = 0;
 
     return CC_OK;
 }
@@ -153,106 +151,61 @@ benchmark_create(struct benchmark *b, const char *config)
 static void
 benchmark_destroy(struct benchmark *b)
 {
-    if (O_BOOL(b, per_op_latency)) {
-        cc_free(b->latency.samples);
-        cc_free(b->latency.ops);
-    }
-
     cc_free(b->options);
-
-    if (b->warmup_reader) {
-        CLOSE_TRACE(b->warmup_reader);
+    for (int i = 0; i < n_thread; i++) {
+        close_trace(readers[i]);
     }
-    CLOSE_TRACE(b->eval_reader);
 }
 
 
 static struct duration
 trace_replay_run(struct benchmark *b)
 {
-    bool per_op_latency = O_BOOL(b, per_op_latency);
-
-    bench_storage_init(BENCH_OPTS(b)->engine, 0, 0);
-
-    READER *wreader = b->warmup_reader;
-    READER *ereader = b->eval_reader;
-    struct benchmark_entry *e = NULL;
-
-    if (wreader != NULL) {
-        printf("start warmup using warmup trace\n");
-        struct duration wd;
-        duration_start(&wd);
-
-        while (READ_TRACE(wreader, &e) == 0) {
-            if (e->op != op_incr && e->op != op_decr) {
-                e->op = op_set;
-                bench_storage_set(e);
-            } else if (e->op == op_incr) {
-                bench_storage_incr(e);
-            } else if (e->op == op_decr) {
-                bench_storage_decr(e);
-            }
-        }
-        duration_stop(&wd);
-
-        printf("%.2lf sec warmup finished - %lu requests\n", duration_sec(&wd),
-                (unsigned long)wreader->n_total_req);
-    }
-
+    struct reader *reader = readers[0];
+    struct benchmark_entry *e = reader->e;
 
     struct duration d;
     duration_start(&d);
 
     rstatus_i status;
-    uint64_t n_miss = 0;
-    uint64_t n_req = 0, n_trace_req = 0;
+
     uint64_t dump_start = 20000000, dump_intvl = 2000000;
-//    uint64_t dump_start = 1, dump_intvl = 2000000;
-    if (ereader->n_total_req > 20000000 * 100){
+    //    uint64_t dump_start = 1, dump_intvl = 2000000;
+    if (reader->n_total_req > 20000000 * 100) {
         dump_start = 200000000;
         dump_intvl = 20000000;
     }
 
-    while (READ_TRACE(ereader, &e) == 0) {
-        if (n_req < b->n_warmup_req){
-            e->op = op_set;
-            e->expire_at = time_proc_sec() + b->default_ttl;
-            if (e->val_len == 0){
-                e->val_len = 64;
+    while (read_trace(reader) == 0) {
+        status = run_op(e);
+        op_cnt[e->op] += 1;
+
+        if (e->op == op_get) {
+            n_get_req += 1;
+
+            if (status == CC_EEMPTY) {
+                n_miss += 1;
+                if (e->val_len != 0) {
+                    op_cnt[op_set] += 1;
+                    e->op = op_set;
+                    run_op(e);
+                    n_req += 1;
+                }
             }
         }
 
-
-        status = benchmark_run_operation(b, e, per_op_latency);
-        if (status == CC_EEMPTY) {
-            n_miss += 1;
-            if (e->op == op_get && e->val_len != 0){
-                e->op = op_set;
-                e->expire_at = time_proc_sec() + b->default_ttl;
-//                run_op(e);
-                benchmark_run_operation(b, e, per_op_latency);
-                n_req += 1;
-            }
-        }
-
-        n_trace_req += 1;
         n_req += 1;
-//        if (n_req >= dump_start && n_req % dump_intvl == 0){
-//            dump_seg_info();
-//            printf("\n");
-//        }
+        //        if (n_req >= dump_start && n_req % dump_intvl == 0){
+        //            dump_seg_info();
+        //            printf("\n");
+        //        }
     }
 
     duration_stop(&d);
 
-    printf("%" PRIu64 " req, %" PRIu64 " trace req %" PRIu64 " miss (%.4f)\n",
-            n_req, n_trace_req, n_miss, (double) n_miss / n_trace_req);
-
-//    printf("metrics evict %ld merge %ld\n",
-//            seg_metrics->seg_evict.gauge,
-//            seg_metrics->seg_merge.gauge);
-
-    bench_storage_deinit();
+    //    printf("metrics evict %ld merge %ld\n",
+    //            seg_metrics->seg_evict.gauge,
+    //            seg_metrics->seg_merge.gauge);
 
     return d;
 }
@@ -261,55 +214,50 @@ trace_replay_run(struct benchmark *b)
 static void *
 _trace_replay_thread(void *arg)
 {
-    static __thread uint64_t n_miss = 0;
-    static __thread uint64_t n_req = 0;
+    static __thread uint64_t local_n_miss = 0;
+    static __thread uint64_t local_n_get_req = 0;
+    static __thread uint64_t local_n_req = 0;
+    static __thread uint64_t local_op_cnt[op_invalid] = {0};
 
-    struct benchmark *b = arg;
+    int idx = (int) arg;
+    struct reader *reader = readers[idx];
+    struct benchmark_entry *e = reader->e;
 
     rstatus_i status;
 
-    READER *ereader = b->eval_reader;
-//    ereader = CLONE_READER(ereader);
-
-    struct benchmark_entry *e = cc_zalloc(sizeof(struct benchmark_entry));
-    e->key = cc_zalloc(MAX_KEY_LEN);
 
     while (!start) {
         ;
     }
 
-    while (READ_TRACE(ereader, &e) == 0) {
-        if (n_req < b->n_warmup_req){
-            e->op = op_set;
-            e->expire_at = time_proc_sec() + b->default_ttl;
-            if (e->val_len == 0){
-                e->val_len = 64;
-            }
-        }
-
+    while (read_trace(reader) == 0) {
         status = run_op(e);
+        local_op_cnt[e->op] += 1;
 
-        if (status == CC_EEMPTY) {
-            n_miss += 1;
+        if (e->op == op_get) {
+            local_n_get_req += 1;
 
-            if (e->op == op_get && e->val_len != 0){
-                e->op = op_set;
-                e->expire_at = time_proc_sec() + b->default_ttl;
-                run_op(e);
-                n_req += 1;
+            if (status == CC_EEMPTY) {
+                local_n_miss += 1;
+
+                if (e->val_len != 0) {
+                    local_op_cnt[op_set] += 1;
+                    e->op = op_set;
+                    run_op(e);
+                    local_n_req += 1;
+                }
             }
-
-        } else if (status == CC_OK) {
-            ;
         }
-        n_req += 1;
+
+        local_n_req += 1;
     }
 
-    cc_free(e->key);
-    cc_free(e);
-
-    __atomic_add_fetch(&b->n_req, n_req, __ATOMIC_RELAXED);
-    __atomic_add_fetch(&b->n_miss, n_miss, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&n_req, local_n_req, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&n_get_req, local_n_get_req, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&n_miss, local_n_miss, __ATOMIC_RELAXED);
+    for (int i = 0; i < op_invalid; i++) {
+        __atomic_add_fetch(&op_cnt[i], local_op_cnt[i], __ATOMIC_RELAXED);
+    }
 
     return NULL;
 }
@@ -317,36 +265,10 @@ _trace_replay_thread(void *arg)
 static struct duration
 trace_replay_run_mt(struct benchmark *b)
 {
-    /* disable per op latency when we run in multi-threading mode */
-    pthread_t *pids = cc_alloc(sizeof(pthread_t) * b->n_thread);
-    READER *wreader = b->warmup_reader;
-    struct benchmark_entry *e = NULL;
+    pthread_t pids[N_MAX_THREAD];
 
-    bench_storage_init(BENCH_OPTS(b)->engine, 0, 0);
-
-    if (wreader != NULL) {
-        printf("start warmup");
-        struct duration wd;
-        duration_start(&wd);
-
-        while (READ_TRACE(wreader, &e) == 0) {
-            if (e->op != op_incr && e->op != op_decr) {
-                e->op = op_set;
-                bench_storage_set(e);
-            } else if (e->op == op_incr) {
-                bench_storage_incr(e);
-            } else if (e->op == op_decr) {
-                bench_storage_decr(e);
-            }
-        }
-        duration_stop(&wd);
-
-        printf("%.2lf sec warmup finished - %lu requests\n", duration_sec(&wd),
-                (unsigned long)wreader->n_total_req);
-    }
-
-    for (int i = 0; i < b->n_thread; i++) {
-        pthread_create(&pids[i], NULL, _trace_replay_thread, b);
+    for (int i = 0; i < n_thread; i++) {
+        pthread_create(&pids[i], NULL, _trace_replay_thread, (void*) (unsigned long) i);
     }
 
     /* wait for eval thread ready */
@@ -356,7 +278,7 @@ trace_replay_run_mt(struct benchmark *b)
     struct duration d;
     duration_start(&d);
 
-    for (int i = 0; i < b->n_thread; i++) {
+    for (int i = 0; i < n_thread; i++) {
         pthread_join(pids[i], NULL);
     }
     duration_stop(&d);
@@ -375,21 +297,29 @@ main(int argc, char *argv[])
         return -1;
     }
 
-    if (b.n_thread == 1) {
+    bench_storage_init(BENCH_OPTS(&b)->engine, 0, 0);
+
+    if (n_thread == 1) {
         d = trace_replay_run(&b);
-
-        benchmark_print_summary(&b, &d, O_BOOL(&b, per_op_latency));
-
     } else {
         d = trace_replay_run_mt(&b);
+    }
 
-        printf("total benchmark runtime: %f s, throughput %.2f M QPS\n",
-                duration_sec(&d), b.n_req / duration_sec(&d) / 1000000);
-        printf("average operation latency: %f ns, miss ratio %.4lf\n",
-                duration_ns(&d) / b.n_req, (double)b.n_miss / b.n_req);
+
+    printf("%s total benchmark runtime: %f s, throughput %.2f M QPS\n",
+            argv[1], duration_sec(&d), n_req / duration_sec(&d) / 1000000);
+    printf("average operation latency: %f ns, miss ratio %.4lf\n",
+            duration_ns(&d) / n_req, (double)n_miss / n_get_req);
+
+    for (op_e op = op_get; op < op_invalid; op++) {
+        if (op_cnt[op] == 0)
+            continue;
+        printf("op %16s %16"PRIu64 "(%.4lf)\n", op_names[op], op_cnt[op],
+                (double)op_cnt[op]/n_req);
     }
 
     benchmark_destroy(&b);
+    bench_storage_deinit();
 
     return 0;
 }

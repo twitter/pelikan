@@ -101,9 +101,9 @@ benchmark_create(struct benchmark *b, const char *config)
         }
     }
 
-    if (O(b, entry_min_size) <= sizeof(uint32_t)) {
+    if (O(b, entry_min_size) <= KEY_LEN) {
         log_crit(
-                "entry_min_size must larger than %lu", sizeof(uint32_t));
+                "entry_min_size must larger than %lu", KEY_LEN);
         cc_free(b->options);
 
         return CC_EINVAL;
@@ -131,34 +131,17 @@ benchmark_destroy(struct benchmark *b)
     cc_free(b->options);
 }
 
-static struct benchmark_entry
-benchmark_entry_create(uint32_t key, size_t size)
+static void
+benchmark_entry_create(struct benchmark_entry *e, uint32_t key, size_t size)
 {
-    struct benchmark_entry e;
-    e.key_len = 16;      /* this needs to be large enough */
-    e.val_len = size - sizeof(key);
-    e.key = cc_alloc(e.key_len);
-    ASSERT(e.key != NULL);
-    e.val = cc_alloc(e.val_len);
-    ASSERT(e.val != NULL);
+    e->key_len = KEY_LEN;      /* KEY_LEN needs to be large enough */
+    e->val_len = size - KEY_LEN;
 
-    int ret = snprintf(e.key, e.key_len, "%"PRIu32, key);
+    int ret = snprintf(e->key, e->key_len, "%.*u", KEY_LEN-1, key);
     ASSERT(ret > 0);
 
-//    memset(e.val, 'a', e.val_len);
-    memcpy(e.val, val_array, e.val_len);
-    e.val[e.val_len - 1] = 0;
-
-    e.expire_at = INT32_MAX;
-
-    return e;
-}
-
-static void
-benchmark_entry_destroy(struct benchmark_entry *e)
-{
-    cc_free(e->key);
-    cc_free(e->val);
+    e->val = val_array;
+    e->expire_at = INT32_MAX;
 }
 
 static void
@@ -168,18 +151,15 @@ benchmark_entries_populate(struct benchmark *b)
     b->entries = cc_alloc(sizeof(struct benchmark_entry) * nentries);
     ASSERT(b->entries != NULL);
 
-    for (size_t i = 1; i <= nentries; ++i) {
+    for (size_t i = 0; i <= nentries; ++i) {
         size_t size = RRAND(O(b, entry_min_size), O(b, entry_max_size));
-        b->entries[i - 1] = benchmark_entry_create(i, size);
+        benchmark_entry_create(&b->entries[i], i, size);
     }
 }
 
 static void
 benchmark_entries_delete(struct benchmark *b)
 {
-    for (size_t i = 0; i < O(b, nentries); ++i) {
-        benchmark_entry_destroy(&b->entries[i]);
-    }
     cc_free(b->entries);
 }
 
@@ -226,7 +206,6 @@ benchmark_run(struct benchmark *b)
             ASSERT(array_nelem(in) != 0);
             struct benchmark_entry **e = array_pop(in);
             (*e)->op = op_get;
-            log_verb("benchmark get(%.*s)", (*e)->key_len, (*e)->key);
 
             if (benchmark_run_operation(b, *e, per_op_latency) != CC_OK) {
                 log_info("benchmark get(%.*s) failed", (*e)->key_len, (*e)->key);
@@ -245,14 +224,12 @@ benchmark_run(struct benchmark *b)
                 e = array_pop(in);
                 (*e)->op = op_delete;
 
-                log_verb("benchmark rem(%.*s) for set", (*e)->key_len, (*e)->key);
                 if (bench_storage_delete(*e) != CC_OK) {
                     log_info("benchmark rem(%.*s) for set failed", (*e)->key_len, (*e)->key);
                 }
             }
 
             (*e)->op = op_set;
-            log_verb("benchmark set(%.*s)", (*e)->key_len, (*e)->key);
             if (benchmark_run_operation(b, *e, per_op_latency) != CC_OK) {
                 log_info("benchmark put(%.*s) failed", (*e)->key_len, (*e)->key);
             }

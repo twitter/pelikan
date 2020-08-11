@@ -3,11 +3,11 @@
 #include <pthread.h>
 #include <time/time.h>
 
-#define MAX_KEY_LEN 255
+#define KEY_LEN 24
+#define MAX_KEY_LEN 256
 #define MAX_VAL_LEN 8 * 1024 * 1024
-#define ENTRY_SIZE sizeof(struct benchmark_entry)
-
-// typedef size_t benchmark_key_u;
+#define VERIFY_DATA
+#undef VERIFY_DATA
 
 typedef enum {
     op_get = 0,
@@ -32,8 +32,8 @@ static const char *op_names[op_invalid + 1] = {"get", "gets", "set", "add",
 
 
 struct benchmark_entry {
-    char *key;
-    char *val;
+    char key[MAX_KEY_LEN];
+    const char *val;
     uint32_t key_len : 8;
     uint32_t val_len : 24;
     uint64_t delta;
@@ -44,21 +44,14 @@ struct benchmark_entry {
 struct benchmark {
     struct benchmark_entry *entries;
     void *options;
-    void *warmup_reader; /*used in trace_replay */
-    void *eval_reader; /* used in trace_replay */
-    uint64_t n_warmup_req; /* used in trace_replay, and no warmup reader is
-                              supplied */
-    delta_time_i default_ttl;
-    int64_t op_cnt[op_invalid];
+
+    int64_t     op_cnt[op_invalid];
 
     struct operation_latency {
         struct duration *samples;
         op_e *ops; /* can change to uint8_t* to reduce memory footprint */
         size_t count;
     } latency;
-    uint8_t n_thread;
-    uint64_t n_req;
-    uint64_t n_miss;
 };
 
 
@@ -148,3 +141,4 @@ run_op(struct benchmark_entry *e)
     NOT_REACHED();
     return CC_ERROR;
 }
+

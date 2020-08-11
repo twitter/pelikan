@@ -3,7 +3,7 @@
 #include <storage/seg/item.h>
 #include <storage/seg/seg.h>
 
-#define VERIFY_DATA
+#include <math.h>
 
 
 static seg_metrics_st metrics = {SEG_METRIC(METRIC_INIT)};
@@ -28,9 +28,18 @@ bench_storage_init(void *opts, size_t item_size, size_t nentries)
 {
     seg_options_st *options = opts;
     if (item_size != 0 && nentries != 0) {
-        /* because we don't update in-place, we need to allocate large enough space */
+        /* because we don't update in-place, we need to allocate large enough space
+         * note that the old bench does not work well with seg */
         options->seg_mem.val.vuint =
                 CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries * 2, SEG_SIZE);
+        if (options->seg_mem.val.vuint < 1UL * GiB) {
+            options->seg_mem.val.vuint = 1UL * GiB;
+        }
+//        printf("item size max %zu, seg allocate %.2lf GB heap\n",
+//                item_size, (double) options->seg_mem.val.vuint/GiB);
+
+        /* also update hash table hash power */
+        options->seg_hash_power.val.vuint = (uint64_t)(ceil(log2(nentries)));
     }
 
     seg_setup(options, &metrics);
@@ -162,9 +171,9 @@ bench_storage_cas(struct benchmark_entry *e)
 {
     struct bstring key = {.data=e->key, .len=e->key_len};
     struct item *oit, *nit;
-    uint64_t cas;
+    uint64_t old_cas, new_cas;
 
-    oit = item_get(&key, &cas, false);
+    oit = item_get(&key, &old_cas, false);
     if (oit == NULL){
         return CC_ERROR;
     }
@@ -176,6 +185,9 @@ bench_storage_cas(struct benchmark_entry *e)
         return CC_ENOMEM;
 
     item_insert(nit);
+    oit = item_get(&key, &new_cas, false);
+
+    ASSERT(old_cas != new_cas);
 
     return CC_OK;
 }
