@@ -12,6 +12,7 @@ project(pelikan C)
 #   1. make this a .cmake macro and put it under cmake/
 #   2. avoid calling this twice when included by another project, e.g. Pelikan
 
+include(CheckSymbolExists)
 # detect platform
 macro(set_platform system_name)
     if(${system_name} MATCHES "Darwin")
@@ -19,7 +20,11 @@ macro(set_platform system_name)
         add_definitions(-DOS_DARWIN)
     elseif(${system_name} MATCHES "Linux")
         set(OS_PLATFORM "OS_LINUX")
+        check_symbol_exists(EFD_NONBLOCK "sys/eventfd.h" USE_EVENT_FD)
         add_definitions(-DOS_LINUX)
+        if(USE_EVENT_FD)
+            add_definitions(-DUSE_EVENT_FD)
+        endif()
     else()
         set(OS_PLATFORM "OS_UNSUPPORTED")
     endif()
@@ -279,6 +284,7 @@ message(STATUS "=======================================")
 
 message(STATUS "=======Status of system features=======")
 message(STATUS "HAVE_BACKTRACE: " ${HAVE_BACKTRACE})
+message(STATUS "USE_EVENT_FD: " ${USE_EVENT_FD})
 message(STATUS "=======================================")
 
 message(STATUS "======Status of optional features======")
