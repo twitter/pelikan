@@ -288,8 +288,9 @@ pub mod core {
         fn new() -> Self {
             init_option! {
                 Self;
-                ACTION( worker_timeout, OPTION_TYPE_UINT,   WORKER_TIMEOUT as u64, "evwait timeout"               ),
-                ACTION( worker_nevent,  OPTION_TYPE_UINT,   WORKER_NEVENT as u64,  "evwait max nevent returned"   )
+                ACTION( worker_timeout,         OPTION_TYPE_UINT,   WORKER_TIMEOUT as u64, "evwait timeout"                     ),
+                ACTION( worker_nevent,          OPTION_TYPE_UINT,   WORKER_NEVENT as u64,  "evwait max nevent returned"         ),
+                ACTION( worker_binding_core,    OPTION_TYPE_UINT,   WORKER_BINDING_CORE as u64,  "which core pin the worker thread to")
             }
         }
     }
