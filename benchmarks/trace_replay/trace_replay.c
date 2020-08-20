@@ -177,6 +177,9 @@ trace_replay_run(struct benchmark *b)
     }
 
     while (read_trace(reader) == 0) {
+        if (e->op == op_incr || e->op == op_decr) {
+            e->op = op_get;
+        }
         status = run_op(e);
         op_cnt[e->op] += 1;
 
@@ -195,6 +198,8 @@ trace_replay_run(struct benchmark *b)
         }
 
         n_req += 1;
+//        if (n_req % 100000 == 0)
+//            printf("%ld req\n", n_req);
         //        if (n_req >= dump_start && n_req % dump_intvl == 0){
         //            dump_seg_info();
         //            printf("\n");
@@ -306,9 +311,9 @@ main(int argc, char *argv[])
     }
 
 
-    printf("%s total benchmark runtime: %f s, throughput %.2f M QPS\n",
+    printf("%s total benchmark runtime: %.2lf s, throughput %.2lf M QPS\n",
             argv[1], duration_sec(&d), n_req / duration_sec(&d) / 1000000);
-    printf("average operation latency: %f ns, miss ratio %.4lf\n",
+    printf("average operation latency: %.2lf ns, miss ratio %.4lf\n",
             duration_ns(&d) / n_req, (double)n_miss / n_get_req);
 
     for (op_e op = op_get; op < op_invalid; op++) {

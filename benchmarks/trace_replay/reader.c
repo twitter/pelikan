@@ -152,7 +152,6 @@ read_trace(struct reader *reader)
 
     uint32_t key_len = (kv_len >> 22) & (0x00000400 - 1);
     uint32_t val_len = kv_len & (0x00400000 - 1);
-    //    val_len = 300*1024;
 
     if (key_len == 0) {
         printf("trace contains request of key size 0, object id %" PRIu64 "\n",
@@ -166,14 +165,6 @@ read_trace(struct reader *reader)
 
     /* it is possible we have overflow here, but it should be rare */
     snprintf(reader->e->key, key_len, "%.*lu", key_len-1, (unsigned long)key);
-
-    //    int ret = snprintf(reader->e->key, key_len + 1, "%12lu_%.*s",
-    //            (unsigned long)key, (int)key_len - 13, key_array);
-
-//    if (val_len == 0 && (op >= 3 && op <= 6)) {
-//        /* make set to have at least 8 byte val */
-//        val_len = reader->default_val_size;
-//    }
 
     reader->e->key_len = key_len;
     reader->e->val_len = val_len;

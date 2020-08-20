@@ -115,8 +115,6 @@ setup(void)
     timing_wheel_setup(&stats.timing_wheel);
 
     /* setup pelikan modules */
-    /* currently we only support memcached type of time */
-    setting.time.time_type.val.vuint = 2;
     time_setup(&setting.time);
     procinfo_setup(&stats.procinfo);
     request_setup(&setting.request, &stats.request);
@@ -204,6 +202,9 @@ main(int argc, char **argv)
         log_stderr("failed to load default option values");
         exit(EX_CONFIG);
     }
+
+    /* currently we only support memcached type of time */
+    setting.time.time_type.val.vuint = TIME_MEMCACHE;
 
     if (fp != NULL) {
         log_stderr("load config from %s", argv[1]);

@@ -18,9 +18,9 @@
 
 extern struct stats stats;
 extern unsigned int nmetric;
-extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
+extern seg_perttl_metrics_st perttl[MAX_N_TTL_BUCKET];
 static unsigned int nmetric_perttl = METRIC_CARDINALITY(seg_perttl_metrics_st);
-extern struct ttl_bucket ttl_buckets[MAX_TTL_BUCKET];
+extern struct ttl_bucket ttl_buckets[MAX_N_TTL_BUCKET];
 
 
 static bool admin_init = false;
@@ -37,7 +37,7 @@ admin_process_setup(void)
     }
 
     nmetric_perttl = METRIC_CARDINALITY(perttl[0]);
-    cap = MAX(nmetric, nmetric_perttl * MAX_TTL_BUCKET) * METRIC_PRINT_LEN +
+    cap = MAX(nmetric, nmetric_perttl * MAX_N_TTL_BUCKET) * METRIC_PRINT_LEN +
             METRIC_END_LEN;
     buf = cc_alloc(cap);
     if (buf == NULL) {
@@ -66,7 +66,7 @@ _admin_stats_ttl(struct response *rsp, struct request *req)
     uint32_t idx;
     size_t offset = 0;
 
-    for (idx = 0; idx < MAX_TTL_BUCKET; idx++) {
+    for (idx = 0; idx < MAX_N_TTL_BUCKET; idx++) {
         struct ttl_bucket *ttl_bucket = &ttl_buckets[idx];
         if (ttl_bucket->n_seg == 0) {
             /* do not print empty ttl bucket */
