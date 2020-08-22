@@ -16,11 +16,17 @@
 
 #include <stream/cc_sockio.h>
 
+#include <sched.h>
+#include <pthread.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sysexits.h>
 
 #define WORKER_MODULE_NAME "core::worker"
 
 worker_metrics_st *worker_metrics = NULL;
+worker_options_st *worker_options = NULL;
 
 static struct context context;
 static struct context *ctx = &context;
@@ -272,6 +278,7 @@ core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
     }
 
     worker_metrics = metrics;
+    worker_options = options;
 
     if (options != NULL) {
         timeout = option_uint(&options->worker_timeout);
@@ -339,6 +346,31 @@ void *
 core_worker_evloop(void *arg)
 {
     processor = arg;
+
+    int binding_core = option_uint(&worker_options->worker_binding_core);
+
+#ifndef __APPLE__
+    if (binding_core != 0xffffffff) {
+      /* bind worker to the core */
+      cpu_set_t cpuset;
+      pthread_t thread = pthread_self();
+
+      CPU_ZERO(&cpuset);
+      CPU_SET(binding_core, &cpuset);
+
+      if (pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset) != 0) {
+          log_warn("fail to bind worker thread to core %d: %s",
+                 binding_core, strerror(errno));
+      } else {
+        log_info("binding worker thread to core %d", binding_core);
+      }
+    }
+#else
+    if (binding_core != -1) {
+        log_warn("MacOSX does not support pthread_setaffinity_np, "
+               "ignore setting worker thread affinity");
+    }
+#endif
 
     for(;;) {
         if (_worker_evwait() != CC_OK) {
