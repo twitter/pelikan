@@ -6,9 +6,9 @@
 #include <pthread.h>
 #include <sys/errno.h>
 
-extern struct ttl_bucket ttl_buckets[MAX_TTL_BUCKET];
+extern struct ttl_bucket ttl_buckets[MAX_N_TTL_BUCKET];
 extern seg_metrics_st *seg_metrics;
-extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
+extern seg_perttl_metrics_st perttl[MAX_N_TTL_BUCKET];
 
 
 /* reserve the size of an incoming item in the segment,
@@ -27,6 +27,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
     uint8_t *seg_data = NULL;
     int32_t offset = 0; /* offset of the reserved item in the seg */
     uint8_t accessible = false;
+//    bool expired = false;
 
 
     curr_seg_id = ttl_bucket->last_seg_id;
@@ -46,21 +47,24 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
     if (curr_seg_id != -1) {
         curr_seg = &heap.segs[curr_seg_id];
-        offset = __atomic_fetch_add(
-                &(curr_seg->write_offset), sz, __ATOMIC_SEQ_CST);
-        accessible = seg_is_accessible(curr_seg);
+//        expired = curr_seg->create_at + curr_seg->ttl < time_proc_sec();
+        accessible = seg_accessible(curr_seg_id);
+        if (accessible) {
+            offset = __atomic_fetch_add(
+                    &(curr_seg->write_offset), sz, __ATOMIC_SEQ_CST);
+        }
     }
 
 
     while (curr_seg_id == -1 || offset + sz > heap.seg_size || (!accessible)) {
-        if (offset + sz > heap.seg_size) {
-            /* we cannot roll back offset due to data race,
-             * but we need to explicitly clear rest of the segment
-             * so that we know it is the end of segment */
-            seg_data = seg_get_data_start(curr_seg_id);
-            size_t sz = MIN(ITEM_HDR_SIZE, heap.seg_size - offset);
-            memset(seg_data + offset, 0, sz);
-        }
+//        if (offset + sz > heap.seg_size) {
+//            /* we cannot roll back offset due to data race,
+//             * but we need to explicitly clear rest of the segment
+//             * so that we know it is the end of segment */
+//            seg_data = seg_get_data_start(curr_seg_id);
+//            size_t sz = MIN(ITEM_HDR_SIZE, heap.seg_size - offset);
+//            memset(seg_data + offset, 0, sz);
+//        }
 
         new_seg_id = seg_get_new();
 
@@ -102,10 +106,11 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
                 ttl_bucket->first_seg_id = new_seg_id;
             } else {
                 ASSERT(curr_seg != NULL);
-                bool evictable = __atomic_exchange_n(&curr_seg->evictable,
-                        1, __ATOMIC_RELAXED);
-                ASSERT(evictable == 0);
-
+//                if (curr_seg->create_at + curr_seg->ttl > time_proc_sec()) {
+//                    bool evictable = __atomic_exchange_n(&curr_seg->evictable,
+//                            1, __ATOMIC_RELAXED);
+//                    ASSERT(evictable == 0);
+//                }
                 heap.segs[curr_seg_id].next_seg_id = new_seg_id;
             }
 
@@ -115,11 +120,16 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
             ttl_bucket->n_seg += 1;
 
+            bool evictable = __atomic_exchange_n(&new_seg->evictable,
+                    1, __ATOMIC_RELAXED);
+            ASSERT(evictable == 0);
+
             PERTTL_INCR(ttl_bucket_idx, seg_curr);
 
-            log_debug("link seg %d to ttl bucket %d, total %d segments, "
+            log_debug("link seg %d (offset %d occupied_size %d) to ttl bucket %d, total %d segments, "
                       "prev seg %d/%d (offset %d), first seg %d, last seg %d",
-                    new_seg_id, ttl_bucket_idx, ttl_bucket->n_seg, curr_seg_id,
+                    new_seg_id, new_seg->write_offset, new_seg->occupied_size,
+                    ttl_bucket_idx, ttl_bucket->n_seg, curr_seg_id,
                     new_seg->prev_seg_id,
                     curr_seg_id == -1 ? -1 : __atomic_load_n(
                       &heap.segs[curr_seg_id].write_offset, __ATOMIC_SEQ_CST),
@@ -132,7 +142,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
         curr_seg = &heap.segs[curr_seg_id];
         offset = __atomic_fetch_add(
                 &(curr_seg->write_offset), sz, __ATOMIC_SEQ_CST);
-        accessible = seg_is_accessible(curr_seg);
+        accessible = seg_accessible(curr_seg_id);
     }
 
 
@@ -164,6 +174,7 @@ ttl_bucket_setup(void)
             ttl_bucket->last_seg_id = -1;
             ttl_bucket->first_seg_id = -1;
             ttl_bucket->next_seg_to_merge = -1;
+            ttl_bucket->last_cutoff_freq = 0;
         }
     }
 }

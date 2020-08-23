@@ -30,8 +30,8 @@
 
 
 #define MAX_TTL                 (TTL_BOUNDARY4 - 1)
-#define MAX_TTL_BUCKET          (N_BUCKET_PER_STEP * 4)
-#define MAX_TTL_BUCKET_IDX      (MAX_TTL_BUCKET - 1)
+#define MAX_N_TTL_BUCKET        (N_BUCKET_PER_STEP * 4)
+#define MAX_TTL_BUCKET_IDX      (MAX_N_TTL_BUCKET - 1)
 #define ITEM_MAX_TTL            MAX_TTL
 
 #define ITEM_MAGIC              ((uint32_t)0x0eedface)
@@ -43,11 +43,25 @@
 #define ITEM_CAS_SIZE           (use_cas * sizeof(uint32_t))
 
 
-//#define TRACK_ADVANCED_STAT
+#define TRACK_ADVANCED_STAT
+
+#define USE_MERGE
 
 #define SEG_MERGE_THRESHOLD     1
 #define SEG_MERGE_AGE_LIMIT     0
 
 #define N_RESERVED_SEG          1
 #define N_MAX_SEG_MERGE         8
-#define ACTIVE_ITEM_START_REC_TIME  120
+
+#define SEG_MERGE_STOP_RATIO 0.8
+#define SEG_MERGE_MARGIN (int) (heap.seg_size * SEG_MERGE_STOP_RATIO)
+
+#define N_SEG_MERGE             4
+#define SEG_MERGE_TARGET_RATIO  ((1.0/N_SEG_MERGE)*1.05)
+
+////#define ACTIVE_ITEM_START_REC_TIME  120
+//#define ACTIVE_ITEM_START_REC_TIME  60
+//#define ACTIVE_ITEM_START_REC_TIME  20
+//#define ACTIVE_ITEM_START_REC_TIME  0
+//#define ACTIVE_ITEM_START_REC_TIME  5
+

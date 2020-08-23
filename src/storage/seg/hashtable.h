@@ -56,10 +56,10 @@
  *       └──────────┐                                ┌───┘
  *                  ▼                                ▼
  *      ┌──────────────────────┐         ┌──────────────────────┐
- *      │      32-bit cas      │         │      16-bit tag      │
- *      │ 8-bit # extra arrays │         │    28-bit seg id     │
- *      │     8-bit lock       │         │    20-bit offset     │
- *      │    16-bit unused     │         │                      │
+ *      │      32-bit cas      │         │      12-bit tag      │
+ *      │ 8-bit # extra arrays │         │  8-bit freq counter  │
+ *      │      8-bit lock      │         │    24-bit seg id     │
+ *      │    16-bit unused     │         │    20-bit offset     │
  *      └──────────────────────┘         └──────────────────────┘
  *
  * Here is some data backing up the choice of parameters
@@ -167,3 +167,7 @@ hashtable_stat(int *n_item, int *n_extra_array);
  */
 void
 scan_hashtable_find_seg(int32_t target_seg_id);
+
+
+int hashtable_get_it_freq(const char *oit_key, const uint32_t oit_klen,
+                          const uint64_t old_seg_id, const uint64_t old_offset);

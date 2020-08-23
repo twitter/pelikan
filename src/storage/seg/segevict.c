@@ -9,10 +9,8 @@ static bool segevict_initialized;
 
 struct seg_evict_info evict;
 
-#define NOT_A_GOOD_EVICTION_CANDIDATE(seg)                                     \
-    (seg->w_refcount > 0 || seg->evictable == 0 )
-//    || time_proc_sec() - seg->create_at < 30)
-// || seg->next_seg_id == -1
+#define IS_BAD_EVICT_CAN(seg)                                     \
+    (seg->w_refcount > 0 || seg->evictable == 0 || (seg->create_at + seg->ttl) - time_proc_sec() < 5 || seg->next_seg_id == -1)
 
 
 /* maybe we should use # of req instead of real time to make decision */
@@ -42,10 +40,10 @@ _cmp_seg_FIFO(const void *d1, const void *d2)
     struct seg *seg2 = &heap.segs[*(uint32_t *)d2];
 
     /* avoid segments that are currently being written to */
-    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg1)) {
+    if (IS_BAD_EVICT_CAN(seg1)) {
         return 1;
     }
-    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg2)) {
+    if (IS_BAD_EVICT_CAN(seg2)) {
         return -1;
     }
 
@@ -60,10 +58,10 @@ _cmp_seg_CTE(const void *d1, const void *d2)
     struct seg *seg1 = &heap.segs[*(uint32_t *)d1];
     struct seg *seg2 = &heap.segs[*(uint32_t *)d2];
 
-    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg1)) {
+    if (IS_BAD_EVICT_CAN(seg1)) {
         return 1;
     }
-    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg2)) {
+    if (IS_BAD_EVICT_CAN(seg2)) {
         return -1;
     }
 
@@ -76,10 +74,10 @@ _cmp_seg_util(const void *d1, const void *d2)
     struct seg *seg1 = &heap.segs[*(uint32_t *)d1];
     struct seg *seg2 = &heap.segs[*(uint32_t *)d2];
 
-    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg1)) {
+    if (IS_BAD_EVICT_CAN(seg1)) {
         return 1;
     }
-    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg2)) {
+    if (IS_BAD_EVICT_CAN(seg2)) {
         return -1;
     }
 
@@ -94,10 +92,10 @@ _cmp_seg_smart(const void *d1, const void *d2)
     struct seg *seg1 = &heap.segs[*(uint32_t *)d1];
     struct seg *seg2 = &heap.segs[*(uint32_t *)d2];
 
-    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg1)) {
+    if (IS_BAD_EVICT_CAN(seg1)) {
         return 1;
     }
-    if (NOT_A_GOOD_EVICTION_CANDIDATE(seg2)) {
+    if (IS_BAD_EVICT_CAN(seg2)) {
         return -1;
     }
 
@@ -198,16 +196,18 @@ least_valuable_seg(int32_t *seg_id)
         uint32_t i = 0;
         *seg_id = rand() % heap.max_nseg;
         seg = &heap.segs[*seg_id];
-        while ((NOT_A_GOOD_EVICTION_CANDIDATE(seg)) && i <= heap.max_nseg) {
+        while ((IS_BAD_EVICT_CAN(seg)) && i <= heap.max_nseg) {
             /* transition to linear search */
             *seg_id = (*seg_id + 1) % heap.max_nseg;
             seg = &heap.segs[*seg_id];
             i++;
         }
         if (i == heap.max_nseg) {
-            log_warn("unable to find a segment that has no writer");
+            log_warn("unable to find a segment to evict");
             return EVICT_NO_SEALED_SEG;
         } else {
+//            log_warn("%d %d %d %d", *seg_id, seg->seg_id, seg->next_seg_id, i);
+//            seg_print_warn(seg->seg_id);
             return EVICT_OK;
         }
     } else {
@@ -220,7 +220,7 @@ least_valuable_seg(int32_t *seg_id)
 
         /* it is OK if we read a staled seg.sealed because we will double check
          * when we perform real eviction */
-        while (NOT_A_GOOD_EVICTION_CANDIDATE(seg) && evict.idx_rseg < evict.nseg) {
+        while (IS_BAD_EVICT_CAN(seg) && evict.idx_rseg < evict.nseg) {
             *seg_id = evict.ranked_seg_id[evict.idx_rseg++];
             seg = &heap.segs[*seg_id];
         }

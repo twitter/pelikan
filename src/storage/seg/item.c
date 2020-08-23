@@ -11,20 +11,19 @@
 extern proc_time_i flush_at;
 extern struct hash_table *hash_table;
 extern seg_metrics_st *seg_metrics;
-extern seg_perttl_metrics_st perttl[MAX_TTL_BUCKET];
+extern seg_perttl_metrics_st perttl[MAX_N_TTL_BUCKET];
 
 
 static struct item *
-_item_alloc(uint32_t sz, delta_time_i ttl, int32_t *seg_id)
+_item_alloc(uint32_t sz, int32_t ttl_bucket_idx, int32_t *seg_id)
 {
-    int32_t ttl_bucket_idx = find_ttl_bucket_idx(ttl);
     struct item *it = ttl_bucket_reserve_item(ttl_bucket_idx, sz, seg_id);
 
     if (it == NULL) {
         INCR(seg_metrics, item_alloc_ex);
-        log_error("error alloc it %p of size %" PRIu32 " ttl %" PRIu32
+        log_error("error alloc it %p of size %" PRIu32
                   " (bucket %" PRIu16 ") in seg %" PRIu32,
-                it, sz, ttl, ttl_bucket_idx, seg_id);
+                it, sz, ttl_bucket_idx, seg_id);
 
         return NULL;
     }
@@ -41,34 +40,57 @@ _item_alloc(uint32_t sz, delta_time_i ttl, int32_t *seg_id)
 
         INCR(seg_metrics, item_alloc_ex);
 
-        __atomic_sub_fetch(&curr_seg->write_offset, sz, __ATOMIC_SEQ_CST);
+        /* done in ttl bucket */
+//        __atomic_sub_fetch(&curr_seg->write_offset, sz, __ATOMIC_RELEASE);
 
-        log_warn("allocated item is not accessible (soon to be evicted), "
-                 "seg ttl %d", curr_seg->ttl);
+        log_warn("allocated item is not accessible (seg is expiring or "
+                 "being evicted), ttl %d", curr_seg->ttl);
 
         /* TODO(jason): maybe we should retry here */
         return NULL;
     }
 
-    uint32_t occupied_size = __atomic_add_fetch(
-            &(curr_seg->occupied_size), sz, __ATOMIC_SEQ_CST);
-    ASSERT(occupied_size <= heap.seg_size);
-
-    __atomic_add_fetch(&curr_seg->n_item, 1, __ATOMIC_SEQ_CST);
 
     INCR(seg_metrics, item_alloc);
-    INCR(seg_metrics, item_curr);
-    INCR_N(seg_metrics, item_curr_bytes, sz);
-    PERTTL_INCR(ttl_bucket_idx, item_curr);
-    PERTTL_INCR_N(ttl_bucket_idx, item_curr_bytes, sz);
 
-    log_vverb("alloc it %p of size %" PRIu32 " ttl %" PRIu32 " (bucket %" PRIu16
-              ") in seg %" PRIu32,
-            it, sz, ttl, ttl_bucket_idx, *seg_id);
+    log_vverb("alloc it %p of size %" PRIu32 " in TTL bucket %" PRIu16
+              " and seg %" PRIu32,
+            it, sz, ttl_bucket_idx, *seg_id);
 
     return it;
 }
 
+static void
+_item_define(struct item *it, const struct bstring *key,
+             const struct bstring *val, uint8_t olen,
+             int32_t seg_id, int32_t ttl_bucket_idx, size_t sz)
+{
+#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
+    it->magic = ITEM_MAGIC;
+#endif
+
+    it->olen = olen;
+    cc_memcpy(item_key(it), key->data, key->len);
+    it->klen = key->len;
+//    if (val != NULL) {
+//        cc_memcpy(item_val(it), val->data, val->len);
+//    }
+    it->vlen = (val == NULL) ? 0 : val->len;
+
+
+    struct seg *curr_seg = &heap.segs[seg_id];
+
+    int32_t occupied_size = __atomic_add_fetch(
+            &(curr_seg->occupied_size), sz, __ATOMIC_RELAXED);
+    ASSERT(occupied_size <= heap.seg_size);
+
+    __atomic_add_fetch(&curr_seg->n_item, 1, __ATOMIC_RELAXED);
+
+    INCR(seg_metrics, item_curr);
+    INCR_N(seg_metrics, item_curr_bytes, sz);
+    PERTTL_INCR(ttl_bucket_idx, item_curr);
+    PERTTL_INCR_N(ttl_bucket_idx, item_curr_bytes, sz);
+}
 
 /* insert or update */
 void
@@ -134,11 +156,16 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
 
 #ifdef TRACK_ADVANCED_STAT
     __atomic_fetch_add(&seg->n_hit, 1, __ATOMIC_RELAXED);
-    if (time_proc_sec() - seg->create_at >= ACTIVE_ITEM_START_REC_TIME) {
-    int32_t idx = (uint32_t) (((uint8_t*)(it)-seg_get_data_start(seg_id))) >> 3u;
-    ASSERT(idx < 131072);
-        seg->active_obj[idx] = true;
-    }
+//    if (time_proc_sec() - seg->create_at >= ACTIVE_ITEM_START_REC_TIME) {
+        int32_t idx = (uint32_t) (((uint8_t*)(it)-seg_get_data_start(seg_id))) >> 3u;
+        ASSERT(idx < 131072);
+        if (seg->active_obj[idx] == 0) {
+            seg->n_active += 1;
+            seg->n_active_byte += item_ntotal(it);
+        }
+        if (__atomic_load_n(&seg->active_obj[idx], __ATOMIC_RELAXED) < (1 << 16) -1)
+            __atomic_fetch_add(&seg->active_obj[idx], 1, __ATOMIC_RELAXED);
+//    }
 //    log_warn("get %.*s idx %d - %d seg %d", it->klen, item_key(it), idx,
 //            seg->active_obj[idx], seg->seg_id);
 #endif
@@ -155,22 +182,6 @@ item_release(struct item *it)
     seg_r_deref(seg_id);
 }
 
-static void
-_item_define(struct item *it, const struct bstring *key,
-        const struct bstring *val, uint8_t olen)
-{
-#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
-    it->magic = ITEM_MAGIC;
-#endif
-
-    it->olen = olen;
-    cc_memcpy(item_key(it), key->data, key->len);
-    it->klen = key->len;
-    if (val != NULL) {
-        cc_memcpy(item_val(it), val->data, val->len);
-    }
-    it->vlen = (val == NULL) ? 0 : val->len;
-}
 
 item_rstatus_e
 item_reserve(struct item **it_p, const struct bstring *key,
@@ -180,24 +191,26 @@ item_reserve(struct item **it_p, const struct bstring *key,
     struct item *it;
     int32_t seg_id;
     delta_time_i ttl = expire_at - time_proc_sec();
-    size_t sz = item_size(key->len, vlen, olen);
 
     if (ttl <= 0) {
         log_warn("reserve_item (%.*s) ttl %" PRId32, key->len, key->data, ttl);
     }
+
+    int32_t ttl_bucket_idx = find_ttl_bucket_idx(ttl);
+    size_t sz = item_size(key->len, vlen, olen);
 
     if (sz > heap.seg_size) {
         *it_p = NULL;
         return ITEM_EOVERSIZED;
     }
 
-    if ((it = _item_alloc(sz, ttl, &seg_id)) == NULL) {
+    if ((it = _item_alloc(sz, ttl_bucket_idx, &seg_id)) == NULL) {
         log_warn("item reservation failed");
         *it_p = NULL;
         return ITEM_ENOMEM;
     }
 
-    _item_define(it, key, val, olen);
+    _item_define(it, key, val, olen, seg_id, ttl_bucket_idx, sz);
 
     *it_p = it;
 

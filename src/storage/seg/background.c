@@ -16,36 +16,36 @@
 extern volatile bool            stop;
 extern volatile proc_time_i     flush_at;
 extern pthread_t                bg_tid;
-extern struct ttl_bucket        ttl_buckets[MAX_TTL_BUCKET];
-
-/* used for tracking mergeable segments */
-extern int32_t                  mergable_seg[MAX_N_MERGEABLE_SEG];
-extern int32_t                  n_mergeable_seg;
-extern pthread_mutex_t          misc_lock;
-
+extern struct ttl_bucket        ttl_buckets[MAX_N_TTL_BUCKET];
 
 
 static void
 _check_seg_expire(void)
 {
     int i;
+    rstatus_i status;
     proc_time_i curr_sec = time_proc_sec();
     struct seg *seg;
     int32_t seg_id, next_seg_id;
-    for (i = 0; i < MAX_TTL_BUCKET; i++) {
+    for (i = 0; i < MAX_N_TTL_BUCKET; i++) {
         seg_id = ttl_buckets[i].first_seg_id;
         if (seg_id == -1) {
             continue;
         }
         seg = &heap.segs[seg_id];
-        while (seg->create_at + seg->ttl < curr_sec ||
+        /* curr_sec - 2 is to reduce data race when the expiring segment
+         * is being written to */
+        while (seg->create_at + seg->ttl < curr_sec - 2 ||
                 seg->create_at < flush_at) {
             log_debug("curr_sec %" PRId32 ": expire seg %" PRId32 " create "
                       "at %" PRId32 " ttl %" PRId32 " flushed at %" PRId32,
                     curr_sec, seg_id, seg->create_at, seg->ttl, flush_at);
             next_seg_id = seg->next_seg_id;
 
-            seg_rm_expired_seg(seg_id);
+            status = seg_rm_expired_seg(seg_id);
+            if (status != CC_OK) {
+                log_error("error removing expired seg %d", seg_id);
+            }
 
             if (next_seg_id == -1)
                 break;
@@ -56,39 +56,72 @@ _check_seg_expire(void)
     }
 }
 
-static inline bool _seg_is_mergeable(struct seg *seg) {
-    bool is_mergeable;
-    is_mergeable = seg->occupied_size <= heap.seg_size * SEG_MERGE_THRESHOLD;
-    is_mergeable = is_mergeable && seg->evictable == 1;
-//    is_mergeable = is_mergeable && seg->next_seg_id != -1;
-    /* a magic number - we don't want to merge just created seg */
-    is_mergeable = is_mergeable && time_proc_sec() - seg->create_at > 60;
-    /* don't merge segments that will expire */
-    is_mergeable = is_mergeable &&
-            seg->create_at + seg->ttl - time_proc_sec() > 60;
-    return is_mergeable;
-}
-
-
 static inline void
 _check_merge_seg(void)
 {
-    static proc_time_i last_check = 0;
+#define N_SEG_HIGH_WM 8
+#define N_SEG_LOW_WM 2
 
-    if (time_proc_sec() - last_check < CHECK_MERGE_INTVL)
-        return;
 
-    last_check = time_proc_sec();
+    struct seg *seg;
+    int32_t seg_id;
 
-    struct seg *seg, *next_seg;
+    for (int i = 0; i < MAX_N_TTL_BUCKET; i++) {
+        if (heap.n_free_seg > N_SEG_HIGH_WM) {
+            return;
+        }
+
+        seg_id = ttl_buckets[i].first_seg_id;
+        if (seg_id == -1) {
+            continue;
+        }
+        seg = &heap.segs[seg_id];
+        /* TODO (jason): change it to be more efficient - avoid double comp */
+        while (!(seg_mergeable(seg->seg_id) &&
+                seg_mergeable(seg->next_seg_id))) {
+            if (seg->next_seg_id == -1)
+                break;
+            seg = &heap.segs[seg->next_seg_id];
+        }
+
+        /* either found a mergeable seg or reach end of seg list */
+        if (seg->next_seg_id == -1) {
+            continue;
+        }
+        merge_segs(seg->seg_id, -1);
+    }
+
+
+    static proc_time_i last_merge = 0, last_clear = 0;
+    if (last_merge == 0) {
+        last_merge = time_proc_sec();
+        last_clear = time_proc_sec();
+    }
+
+#ifdef TRACK_ADVANCED_STAT
+    if (time_proc_sec() - last_clear > 1200) {
+        last_clear = time_proc_sec();
+        for (int32_t i = 0; i < heap.max_nseg; i++) {
+            heap.segs[i].n_active = 0;
+            memset(heap.segs[i].active_obj, 0, 131072 * sizeof(bool));
+        }
+    }
+#endif
+}
+
+static inline void
+_check_merge_two_seg(void){
+
     int32_t seg_id, next_seg_id;
+    struct seg *seg, *next_seg;
+
     for (seg_id = 0; seg_id < heap.max_nseg; seg_id++) {
         seg = &heap.segs[seg_id];
-        if (!_seg_is_mergeable(seg))
+        if (!seg_mergeable(seg->seg_id))
             continue;
         next_seg_id = seg->next_seg_id;
         next_seg = &heap.segs[next_seg_id];
-        if (!_seg_is_mergeable(next_seg))
+        if (!seg_mergeable(next_seg_id))
             continue;
 
         merge_seg(seg_id, next_seg_id);
@@ -109,8 +142,8 @@ _background_loop(void *data)
 //        _check_merge_seg();
 
         duration_stop(&d);
-        if (duration_ms(&d) < 400){
-            usleep(100000);
+        if (duration_ms(&d) < 20){
+            usleep(20000);
             /* TODO(jason): add a metric here */
         }
     }

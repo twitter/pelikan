@@ -59,9 +59,10 @@ struct seg {
     int32_t         n_hit;         /* only update when the seg is sealed */
     int32_t         n_hit_last;    /* number of hits in the last window */
 #ifdef TRACK_ADVANCED_STAT
-    bool            active_obj[131072];
+    uint16_t         active_obj[131072];
     int32_t         n_active;
     int32_t         n_active_byte;
+    int64_t         last_merge_epoch;
 #endif
     proc_time_i     create_at;
     delta_time_i    ttl;
@@ -121,11 +122,11 @@ extern struct seg_heapinfo heap;
 /*          name                    type            default                 description */
 #define SEG_OPTION(ACTION)                                                                                         \
     ACTION(seg_size,            OPTION_TYPE_UINT,   SEG_SIZE,               "Segment size"                        )\
-    ACTION(seg_mem,             OPTION_TYPE_UINT,   SEG_MEM,                "Max memory used for caching (byte)"  )\
-    ACTION(seg_prealloc,        OPTION_TYPE_BOOL,   SEG_PREALLOC,           "Pre-allocate segs at setup"          )\
-    ACTION(seg_evict_opt,       OPTION_TYPE_UINT,   SEG_EVICT_OPT,          "Eviction strategy"                   )\
-    ACTION(seg_use_cas,         OPTION_TYPE_BOOL,   SEG_USE_CAS,            "Store CAS value in item"             )\
-    ACTION(seg_hash_power,      OPTION_TYPE_UINT,   HASH_POWER,             "Power for lookup hash table"         )\
+    ACTION(heap_mem,            OPTION_TYPE_UINT,   SEG_MEM,                "Max memory used for caching (byte)"  )\
+    ACTION(prealloc,            OPTION_TYPE_BOOL,   SEG_PREALLOC,           "Pre-allocate segs at setup"          )\
+    ACTION(evict_opt,           OPTION_TYPE_UINT,   SEG_EVICT_OPT,          "Eviction strategy"                   )\
+    ACTION(use_cas,             OPTION_TYPE_BOOL,   SEG_USE_CAS,            "Store CAS value in item"             )\
+    ACTION(hash_power,          OPTION_TYPE_UINT,   HASH_POWER,             "Power for lookup hash table"         )\
     ACTION(datapool_path,       OPTION_TYPE_STR,    SEG_DATAPOOL,           "Path to DRAM data pool"              )\
     ACTION(datapool_name,       OPTION_TYPE_STR,    SEG_DATAPOOL_NAME,      "Seg DRAM data pool name"             )\
     ACTION(datapool_prefault,   OPTION_TYPE_BOOL,   SEG_DATAPOOL_PREFAULT,  "Prefault Pmem"                       )
@@ -181,11 +182,11 @@ typedef struct {
 #define PERTTL_DECR_N(idx, metric, delta) DECR_N(&perttl[idx], metric, delta)
 
 
-static inline bool
-seg_is_accessible(struct seg *seg)
-{
-    return __atomic_load_n(&seg->accessible, __ATOMIC_RELAXED) > 0;
-}
+//static inline bool
+//seg_is_accessible(struct seg *seg)
+//{
+//    return __atomic_load_n(&seg->accessible, __ATOMIC_RELAXED) > 0;
+//}
 
 
 static inline uint8_t *
@@ -219,11 +220,14 @@ seg_return_seg(int32_t seg_id);
 bool
 seg_rm_all_item(int32_t seg_id, int expire);
 
-void
+rstatus_i
 seg_rm_expired_seg(int32_t seg_id);
 
 void
 seg_print(int32_t seg_id);
+
+void
+seg_print_warn(int32_t seg_id);
 
 bool
 seg_accessible(int32_t seg_id);
@@ -241,7 +245,7 @@ void
 seg_w_deref(int32_t seg_id);
 
 bool
-seg_mergeable(int32_t seg_id);
+seg_mergeable(struct seg *seg);
 
 /**
  * merge seg2 into seg1

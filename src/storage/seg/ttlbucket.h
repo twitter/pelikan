@@ -108,6 +108,7 @@ struct ttl_bucket {
     delta_time_i        ttl;           /* the min ttl of this bucket */
     uint32_t            n_seg;
     int32_t             next_seg_to_merge;
+    delta_time_i        last_cutoff_freq;
 };
 
 

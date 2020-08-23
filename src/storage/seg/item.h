@@ -12,6 +12,8 @@
 #include <stdint.h>
 
 
+#define SUPPORT_INC
+
 typedef enum item_rstatus {
     ITEM_OK,
     ITEM_EOVERSIZED,
@@ -134,7 +136,7 @@ item_key(struct item *const it)
 static inline char *
 item_val(struct item *const it)
 {
-    return it->end + item_nkey(it) + item_olen(it);
+    return it->end + it->klen + it->olen;
 }
 
 /*
@@ -143,6 +145,7 @@ item_val(struct item *const it)
 static inline size_t
 item_size_roundup(const uint32_t sz)
 {
+//    return (sz - sz % 8 + 8);
     return (((sz - 1) >> 3u) + 1u) << 3u;
 }
 
@@ -150,7 +153,11 @@ static inline size_t
 item_size(uint32_t klen, uint32_t vlen, uint32_t olen)
 {
     size_t sz = ITEM_HDR_SIZE + klen + olen;
+#ifdef SUPPORT_INC
     sz += vlen >= sizeof(uint64_t) ? vlen : sizeof(uint64_t);
+#else
+    sz += vlen;
+#endif
     return item_size_roundup(sz);
 }
 
@@ -158,7 +165,11 @@ static inline size_t
 item_ntotal(const struct item *it)
 {
     size_t sz = ITEM_HDR_SIZE + it->klen + it->olen;
+#ifdef SUPPORT_INC
     sz += it->vlen >= sizeof(uint64_t) ? it->vlen : sizeof(uint64_t);
+#else
+    sz += it->vlen;
+#endif
 
     /* we need to make sure memory is aligned at 8-byte boundary */
     return item_size_roundup(sz);
