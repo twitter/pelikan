@@ -14,17 +14,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
+#include <sched.h>
+#include <pthread.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define N_MAX_THREAD        128
 
 volatile static bool        start = false;
+volatile static bool        stop = false;
 static char                 val_array[MAX_VAL_LEN];
-//static int32_t              default_ttl;
-//static uint32_t             default_val_size;
 static int                  n_thread;
 static struct reader        *readers[N_MAX_THREAD];
-volatile int64_t            op_cnt[op_invalid];
 
+volatile int64_t            op_cnt[op_invalid];
 volatile static uint64_t    n_req = 0;
 volatile static uint64_t    n_get_req = 0;
 volatile static uint64_t    n_miss = 0;
@@ -159,9 +163,10 @@ benchmark_destroy(struct benchmark *b)
 
 
 static struct duration
-trace_replay_run(struct benchmark *b)
+trace_replay_run()
 {
     struct reader *reader = readers[0];
+    reader->update_time = true;
     struct benchmark_entry *e = reader->e;
 
     struct duration d;
@@ -208,11 +213,41 @@ trace_replay_run(struct benchmark *b)
 
     duration_stop(&d);
 
-    //    printf("metrics evict %ld merge %ld\n",
-    //            seg_metrics->seg_evict.gauge,
-    //            seg_metrics->seg_merge.gauge);
+//        printf("metrics evict %ld merge %ld\n",
+//                seg_metrics->seg_evict.gauge,
+//                seg_metrics->seg_merge.gauge);
+
+//    for (int i = 0; i < 1000; i++)
+//        seg_print_warn(i);
 
     return d;
+}
+
+static void *
+_time_update_thread(void *arg)
+{
+    proc_sec = 0;
+    bool stop_local = __atomic_load_n(&stop, __ATOMIC_RELAXED);
+    while (!stop_local) {
+        int32_t min_ts = readers[0]->curr_ts;
+        for (int i = 0; i < n_thread; i++) {
+            if (readers[i]->curr_ts < min_ts) {
+                min_ts = readers[i]->curr_ts;
+            }
+        }
+        if (proc_sec < min_ts) {
+            __atomic_store_n(&proc_sec, min_ts, __ATOMIC_RELAXED);
+            if (min_ts % 200 == 0) {
+                printf("curr sec %d\n", min_ts);
+            }
+        }
+        proc_sec = min_ts;
+        usleep(20);
+        stop_local = __atomic_load_n(&stop, __ATOMIC_RELAXED);
+    }
+
+    printf("end time %d\n", proc_sec);
+    return NULL;
 }
 
 
@@ -225,6 +260,24 @@ _trace_replay_thread(void *arg)
     static __thread uint64_t local_op_cnt[op_invalid] = {0};
 
     int idx = (int) arg;
+
+#ifndef __APPLE__
+      /* bind worker to the core */
+      cpu_set_t cpuset;
+      pthread_t thread = pthread_self();
+
+      CPU_ZERO(&cpuset);
+      CPU_SET(idx, &cpuset);
+
+      if (pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset) != 0) {
+          printf("fail to bind worker thread to core %d: %s\n",
+                 idx, strerror(errno));
+      } else {
+        printf("binding worker thread to core %d\n", idx);
+      }
+
+#endif
+
     struct reader *reader = readers[idx];
     struct benchmark_entry *e = reader->e;
 
@@ -270,9 +323,13 @@ _trace_replay_thread(void *arg)
 static struct duration
 trace_replay_run_mt(struct benchmark *b)
 {
+    pthread_t time_update_tid;
     pthread_t pids[N_MAX_THREAD];
 
+    pthread_create(&time_update_tid, NULL, _time_update_thread, NULL);
+
     for (int i = 0; i < n_thread; i++) {
+        readers[i]->update_time = false;
         pthread_create(&pids[i], NULL, _trace_replay_thread, (void*) (unsigned long) i);
     }
 
@@ -287,6 +344,9 @@ trace_replay_run_mt(struct benchmark *b)
         pthread_join(pids[i], NULL);
     }
     duration_stop(&d);
+
+    stop = true;
+    pthread_join(time_update_tid, NULL);
 
     return d;
 }
@@ -305,7 +365,7 @@ main(int argc, char *argv[])
     bench_storage_init(BENCH_OPTS(&b)->engine, 0, 0);
 
     if (n_thread == 1) {
-        d = trace_replay_run(&b);
+        d = trace_replay_run();
     } else {
         d = trace_replay_run_mt(&b);
     }

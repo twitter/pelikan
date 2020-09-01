@@ -33,7 +33,7 @@ static const char *const key_array = "1234567890abcdefghijklmnopqrstuvwxyz_"
                                      "1234567890abcdefghijklmnopqrstuvwxyz_"
                                      "1234567890abcdefghijklmnopqrstuvwxyz";
 
-static const char val_array[MAX_VAL_LEN] = {'A'};
+static char val_array[MAX_VAL_LEN] = {'A'};
 
 
 /**
@@ -54,9 +54,9 @@ open_trace(
     struct reader *reader = cc_zalloc(sizeof(struct reader));
 
     /* init reader module */
-    //    cc_memset(val_array, 'A', MAX_VAL_LEN);
-    //    for (int i=0; i<MAX_VAL_LEN; i++)
-    //        val_array[i] = (char)('A' + i % 26);
+//    cc_memset(val_array, 'A', MAX_VAL_LEN);
+    for (int i=0; i<MAX_VAL_LEN; i++)
+        val_array[i] = (char)('A' + i % 26);
 
     reader->default_ttls = default_ttls;
     reader->default_ttl_idx = 0;
@@ -89,6 +89,9 @@ open_trace(
     /* USE_HUGEPAGE */
     madvise(reader->mmap, st.st_size, MADV_HUGEPAGE | MADV_SEQUENTIAL);
 #endif
+
+    uint32_t ts = *(uint32_t *) (reader->mmap);
+    reader->start_ts = ts;
 
     /* size of one request, hard-coded for the trace type */
     size_t item_size = 20;
@@ -138,9 +141,10 @@ read_trace(struct reader *reader)
     }
 
     char *mmap = reader->mmap + offset;
-    uint32_t ts = *(uint32_t *)mmap;
+    uint32_t ts = *(uint32_t *)mmap - reader->start_ts;
+    reader->curr_ts = ts;
     if (reader->update_time) {
-        __atomic_store_n(&proc_sec, ts, __ATOMIC_RELAXED);
+        __atomic_store_n(&proc_sec, reader->curr_ts, __ATOMIC_RELAXED);
     }
     mmap += 4;
 

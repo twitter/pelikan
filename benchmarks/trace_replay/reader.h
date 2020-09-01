@@ -24,6 +24,8 @@ struct reader {
     const int32_t *default_ttls;
     int default_ttl_idx;
     bool update_time; /* whether this reader is responsible for updating time */
+    int32_t start_ts;
+    int32_t curr_ts;
 };
 
 

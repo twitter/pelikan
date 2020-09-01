@@ -5,6 +5,7 @@
 
 #include <math.h>
 
+#define VERIFY_DATA
 
 static seg_metrics_st metrics = {SEG_METRIC(METRIC_INIT)};
 
@@ -30,16 +31,16 @@ bench_storage_init(void *opts, size_t item_size, size_t nentries)
     if (item_size != 0 && nentries != 0) {
         /* because we don't update in-place, we need to allocate large enough space
          * note that the old bench does not work well with seg */
-        options->seg_mem.val.vuint =
-                CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries * 2, SEG_SIZE);
-        if (options->seg_mem.val.vuint < 1UL * GiB) {
-            options->seg_mem.val.vuint = 1UL * GiB;
+        options->heap_mem.val.vuint =
+                CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries, SEG_SIZE);
+        if (options->heap_mem.val.vuint < 1UL * GiB) {
+            options->heap_mem.val.vuint = 1UL * GiB;
         }
 //        printf("item size max %zu, seg allocate %.2lf GB heap\n",
 //                item_size, (double) options->seg_mem.val.vuint/GiB);
 
         /* also update hash table hash power */
-        options->seg_hash_power.val.vuint = (uint64_t)(ceil(log2(nentries)));
+        options->hash_power.val.vuint = (uint64_t)(ceil(log2(nentries)));
     }
 
     seg_setup(options, &metrics);
@@ -66,8 +67,8 @@ bench_storage_get(struct benchmark_entry *e)
     rstatus_i status = it != NULL ? CC_OK : CC_EEMPTY;
 
     if (it){
-        memcpy(data, item_val(it), item_nval(it));
 #ifdef VERIFY_DATA
+        memcpy(data, item_val(it), item_nval(it));
         ASSERT(e->key_len == it->klen);
         ASSERT(memcmp(e->key, item_key(it), e->key_len) == 0);
         ASSERT(memcmp(data, "ABCDEF", MIN(item_nval(it), 6)) == 0);

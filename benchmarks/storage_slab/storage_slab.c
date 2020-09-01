@@ -6,6 +6,8 @@
 
 #include <math.h>
 
+#define VERIFY_DATA
+
 static slab_metrics_st metrics = { SLAB_METRIC(METRIC_INIT) };
 
 
@@ -33,11 +35,11 @@ bench_storage_init(void *opts, size_t item_size, size_t nentries)
         /* double the size here because we may need more than
          * (ITEM_HDR_SIZE + item_size) * nentries due to internal fragmentation
          */
-        options->slab_mem.val.vuint =
-                CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries * 2, SLAB_SIZE);
+        options->heap_mem.val.vuint =
+                CC_ALIGN((ITEM_HDR_SIZE + item_size) * nentries, SLAB_SIZE);
         options->slab_item_min.val.vuint = item_size;
 
-        options->slab_hash_power.val.vuint = (uint64_t)(ceil(log2(nentries)));
+        options->hash_power.val.vuint = (uint64_t)(ceil(log2(nentries)));
     }
 
     slab_setup(options, &metrics);
@@ -64,8 +66,8 @@ bench_storage_get(struct benchmark_entry *e)
     rstatus_i status = it != NULL ? CC_OK : CC_EEMPTY;
 
     if (it){
-        memcpy(data, item_data(it), item_nval(it));
 #ifdef VERIFY_DATA
+        memcpy(data, item_data(it), item_nval(it));
         ASSERT(e->key_len == it->klen);
         ASSERT(memcmp(e->key, item_key(it), e->key_len) == 0);
         ASSERT(memcmp(data, "ABCDEF", MIN(item_nval(it), 6)) == 0);
@@ -100,6 +102,12 @@ bench_storage_set(struct benchmark_entry *e)
             item_reserve(&it, &key, &val, val.len, 0, e->expire_at);
     if (status != ITEM_OK)
         return CC_ENOMEM;
+
+#ifdef VERIFY_DATA
+    ASSERT(e->key_len == it->klen);
+    ASSERT(memcmp(e->key, item_key(it), e->key_len) == 0);
+    ASSERT(memcmp(item_data(it), "ABCDEF", MIN(item_nval(it), 6)) == 0);
+#endif
 
     item_insert(it, &key);
 
