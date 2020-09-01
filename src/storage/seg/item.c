@@ -72,9 +72,11 @@ _item_define(struct item *it, const struct bstring *key,
     it->olen = olen;
     cc_memcpy(item_key(it), key->data, key->len);
     it->klen = key->len;
-//    if (val != NULL) {
-//        cc_memcpy(item_val(it), val->data, val->len);
-//    }
+#ifdef REAL_COPY
+    if (val != NULL) {
+        cc_memcpy(item_val(it), val->data, val->len);
+    }
+#endif
     it->vlen = (val == NULL) ? 0 : val->len;
 
 

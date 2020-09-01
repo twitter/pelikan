@@ -5,7 +5,6 @@
 #include "item.h"
 #include "segevict.h"
 #include "ttlbucket.h"
-#include "checker.h"
 #include "datapool/datapool.h"
 
 #include <cc_mm.h>
@@ -37,6 +36,12 @@ volatile bool               stop = false;
 
 static int64_t merge_epoch = 1;
 static int min_mature_time = 5;
+
+
+static inline void
+prep_seg_to_merge(int32_t start_seg_id, struct seg *segs_to_merge[],
+        int *n_seg_to_merge, double *merge_keep_ratio);
+int32_t merge_segs(struct seg *segs_to_merge[], int32_t n_seg_most);
 
 
 void seg_print(int32_t seg_id) {
@@ -168,7 +173,7 @@ seg_r_deref(int32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
 
-    uint32_t ref = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
+    int16_t ref = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
 
     ASSERT(ref >= 0);
 }
@@ -194,7 +199,7 @@ seg_w_deref(int32_t seg_id)
 {
     struct seg *seg = &heap.segs[seg_id];
 
-    uint32_t ref = __atomic_sub_fetch(&seg->w_refcount, 1, __ATOMIC_RELAXED);
+    int16_t ref = __atomic_sub_fetch(&seg->w_refcount, 1, __ATOMIC_RELAXED);
 
     ASSERT(ref >= 0);
 }
@@ -213,6 +218,7 @@ seg_w_deref(int32_t seg_id)
 static void
 _seg_init(int32_t seg_id)
 {
+    ASSERT(seg_id != -1);
     struct seg *seg = &heap.segs[seg_id];
     uint8_t *data_start = seg_get_data_start(seg_id);
 
@@ -220,7 +226,8 @@ _seg_init(int32_t seg_id)
      * when evicting/expiring a segment that is waiting for a super super
      * long write
      **/
-    cc_memset(data_start, 0, heap.seg_size);
+//    cc_memset(data_start, 0, heap.seg_size);
+    cc_memset(data_start + heap.seg_size / 2, 0, heap.seg_size / 2);
 
     seg->write_offset   = 0;
     seg->occupied_size  = 0;
@@ -485,7 +492,7 @@ _seg_get_from_free_pool(bool use_reserved)
     }
 
     if (heap.n_free_seg == 0 ||
-            (!use_reserved && heap.n_free_seg <= N_RESERVED_SEG)) {
+            (!use_reserved && heap.n_free_seg <= heap.n_reserved_seg)) {
         pthread_mutex_unlock(&heap.mtx);
 
         return -1;
@@ -510,192 +517,23 @@ _seg_get_from_free_pool(bool use_reserved)
 }
 
 
-#ifdef TRACK_ADVANCED_STAT
+#ifdef USE_MERGE
 static inline bool
-_check_merge_seg_old(void)
-{
-    struct seg *seg;
-    int32_t seg_id;
-    bool merged = false;
-
-    evict_rstatus_e status = least_valuable_seg(&seg_id);
-    if (status == EVICT_NO_SEALED_SEG) {
-        log_warn("unable to evict seg because no seg can be evicted");
-        INCR(seg_metrics, seg_req_ex);
-
-        abort();
-    }
-    seg = &heap.segs[seg_id];
-    int n_trials = 0;
-
-    while ((!seg_mergeable(seg)) || (!seg_mergeable(&heap.segs[seg->next_seg_id]))) {
-        least_valuable_seg(&seg_id);
-        seg = &heap.segs[seg_id];
-        n_trials += 1;
-        if (n_trials > heap.max_nseg) {
-            log_error("unable to find a seg to merge");
-            return false;
-        }
-    }
-
-    merge_segs(seg_id, -1);
-
-    return true;
-}
-
-static inline bool
-_check_merge_seg1(void)
-{
-    struct seg *seg;
-    int32_t seg_id;
-    static int32_t last_merged_seg_id = -1;
-
-    if (heap.n_free_seg > 8) {
-        return false;
-    }
-
-    /* scan through all seg_id instead of going down ttl_bucket seg list
-     * allows us not to use lock */
-    for (seg_id = last_merged_seg_id + 1; seg_id != last_merged_seg_id; seg_id++) {
-        if (seg_id >= heap.max_nseg) {
-            seg_id = 0;
-            merge_epoch += 1;
-        }
-        seg = &heap.segs[seg_id];
-        if (seg_mergeable(seg) && seg_mergeable(&heap.segs[seg->next_seg_id])) {
-            last_merged_seg_id = seg_id;
-
-            FILE *f = fopen("merge_info", "a");
-            fprintf(f, "start seg %d\n", seg->seg_id);
-
-            merge_segs(seg->seg_id, -1);
-            return true;
-        }
-    }
-    ASSERT(0);
-}
-
-
-
-
-
-
-
-static inline int
-_cmp_seg_FIFO(const void *d1, const void *d2)
-{
-#define IS_BAD_EVICT_CAN(seg)                                     \
-    (seg->w_refcount > 0 || seg->evictable == 0 || (seg->create_at + seg->ttl) - time_proc_sec() < 5 || seg->next_seg_id == -1)
-
-    struct seg *seg1 = &heap.segs[*(int32_t *)d1];
-    struct seg *seg2 = &heap.segs[*(int32_t *)d2];
-
-    /* avoid segments that are currently being written to */
-    if (IS_BAD_EVICT_CAN(seg1)) {
-        return 1;
-    }
-    if (IS_BAD_EVICT_CAN(seg2)) {
-        return -1;
-    }
-
-    int ret = MAX(seg1->create_at, seg1->merge_at) -
-            MAX(seg2->create_at, seg2->merge_at);
-    if (ret == 0) {
-        if (seg1->next_seg_id == seg2->seg_id)
-            ret = -1;
-        else if (seg2->next_seg_id == seg1->seg_id)
-            ret = 1;
-    }
-    return ret;
-}
-
-static inline bool
-_check_merge_seg3(void) {
-    if (heap.n_free_seg > 8) {
-        return false;
-    }
-
-    struct seg *seg, *prev_seg = NULL, *next1_seg, *next2_seg = NULL, *next3_seg = NULL;
-    int32_t new_seg_id;
-
-    static int seg_array_idx = -1;
-    static int32_t *seg_id_array = NULL;
-
-    if (seg_id_array == NULL) {
-        seg_id_array = cc_alloc(sizeof(int32_t) * heap.max_nseg);
-        for (int i = 0; i < heap.max_nseg; i++) {
-            seg_id_array[i] = i;
-        }
-    }
-    if (seg_array_idx == -1 || seg_array_idx == heap.max_nseg) {
-        qsort(seg_id_array, heap.max_nseg, sizeof(int32_t), _cmp_seg_FIFO);
-        seg_array_idx = 0;
-        while (heap.segs[seg_id_array[seg_array_idx]].create_at == 0) {
-            seg_array_idx++;
-        }
-        ASSERT(seg_array_idx < heap.max_nseg);
-    }
-
-    while (1) {
-        ASSERT(seg_array_idx < heap.max_nseg);
-        seg = &heap.segs[seg_id_array[seg_array_idx++]];
-        next1_seg =
-                seg->next_seg_id == -1 ? NULL : &heap.segs[seg->next_seg_id];
-        if (next1_seg != NULL && next1_seg->next_seg_id != -1)
-            next2_seg = &heap.segs[next1_seg->next_seg_id];
-        if (next2_seg != NULL && next2_seg->next_seg_id != -1)
-            next3_seg = &heap.segs[next2_seg->next_seg_id];
-
-//        if (next1_seg && next2_seg && next3_seg)
-//            printf("ttl %d: seg %d(%d) seg %d(%d) seg %d(%d) seg %d(%d)\n", seg->ttl,
-//                    seg->seg_id, seg_mergeable(seg),
-//                    next1_seg->seg_id, seg_mergeable(next1_seg),
-//                    next2_seg->seg_id, seg_mergeable(next2_seg),
-//                    next3_seg->seg_id, seg_mergeable(next3_seg));
-        if (!seg_mergeable(seg)) {
-            ASSERT(!seg_mergeable(next1_seg));
-            ASSERT(!seg_mergeable(next2_seg));
-
-            /* sort */
-        }
-
-
-        if (seg_mergeable(seg) && seg_mergeable(next1_seg) &&
-                seg_mergeable(next2_seg) ) {
-            FILE *f = fopen("merge_info", "a");
-            fprintf(f, "********************* new merge ******************\n");
-
-            printf("seg %d %d %d\n", seg->seg_id, next1_seg->seg_id, next2_seg->seg_id);
-            new_seg_id = merge_segs(seg->seg_id, -1);
-            return true;
-        }
-        if (seg_array_idx == heap.max_nseg) {
-            qsort(seg_id_array, heap.max_nseg, sizeof(int32_t), _cmp_seg_FIFO);
-            seg_array_idx = 0;
-            while (heap.segs[seg_id_array[seg_array_idx]].create_at == 0) {
-                seg_array_idx++;
-            }
-            ASSERT(seg_array_idx < heap.max_nseg);
-        }
-    }
-    ASSERT(0);
-    return false;
-}
-
-
-
-static inline bool
-        _check_merge_seg2(void) {
-    struct seg *seg, *prev_seg = NULL, *next1_seg, *next2_seg = NULL, *next3_seg = NULL;
-    int32_t new_seg_id;
-//    static int32_t last_merged_seg_id = -1;
+_check_merge_seg2(void) {
+    struct seg *seg = NULL, *next1_seg, *next2_seg = NULL;
 
     int32_t ttl_bkt_idx;
-    static int32_t last_ttl_bkt_idx = 0;
-    static proc_time_i last_round_sec = 0;
-    static delta_time_i merge_epoch_sec = 0;
+    struct ttl_bucket *ttl_bkt;
     int i;
     bool found = false;
+
+    static __thread int32_t last_ttl_bkt_idx = 0;
+    static __thread proc_time_i last_round_sec = 0;
+    static __thread delta_time_i merge_epoch_sec = 0;
+
+    static __thread struct seg *segs_to_merge[N_MAX_SEG_MERGE];
+    static __thread double merge_keep_ratio[N_MAX_SEG_MERGE];
+    static __thread int32_t at_most_n_seg;
 
     if (heap.n_free_seg > 8) {
         return false;
@@ -707,6 +545,7 @@ test:
      * ttl bucket again after reaching the end of bucket */
     for (i = 0; i < MAX_N_TTL_BUCKET+1; i++) {
         ttl_bkt_idx = (last_ttl_bkt_idx + i) % MAX_N_TTL_BUCKET;
+        ttl_bkt = &ttl_buckets[ttl_bkt_idx];
         if (ttl_bkt_idx == 0) {
             if (last_round_sec != 0) {
                 merge_epoch_sec = time_proc_sec() - last_round_sec;
@@ -724,6 +563,14 @@ test:
 
         if (ttl_buckets[ttl_bkt_idx].first_seg_id == -1)
             continue;
+
+        if (pthread_mutex_trylock(&ttl_bkt->mtx) != 0) {
+            /* with more than 16 threads and 20% write, this lock becomes
+             * the bottleneck, so for scalability, we just check next TTL bucket
+             */
+            continue;
+        }
+
         if (ttl_buckets[ttl_bkt_idx].next_seg_to_merge != -1) {
             seg = &heap.segs[ttl_buckets[ttl_bkt_idx].next_seg_to_merge];
         } else {
@@ -771,77 +618,43 @@ test:
 
         if (!found) {
             ttl_buckets[ttl_bkt_idx].next_seg_to_merge = -1;
-
-
             int32_t seg_id = ttl_buckets[ttl_bkt_idx].first_seg_id;
             delta_time_i first_seg_age = time_proc_sec() -
                     heap.segs[seg_id].create_at;
-//            if (merge_epoch_sec > 0 && first_seg_age > merge_epoch_sec) {
+            /* the segments in this bucket cannot be merged, but it has been
+             * too old, we evict it */
             if (merge_epoch_sec > 0 && first_seg_age > merge_epoch_sec * N_SEG_MERGE) {
                 seg_rm_all_item(seg_id, true);
                 pthread_mutex_lock(&heap.mtx);
                 seg_return_seg(seg_id);
                 pthread_mutex_unlock(&heap.mtx);
                 last_ttl_bkt_idx = ttl_bkt_idx + 1;
+                pthread_mutex_unlock(&ttl_bkt->mtx);
                 return true;
             }
-
-
-
-
-
-
             /* next ttl bucket please */
+            pthread_mutex_unlock(&ttl_bkt->mtx);
             continue;
         }
 
 
+        /* block the eviction of next N_MAX_SEG_MERGE segments */
+        prep_seg_to_merge(seg->seg_id, segs_to_merge, &at_most_n_seg, merge_keep_ratio);
+        pthread_mutex_unlock(&ttl_bkt->mtx);
 
-//        if (next1_seg && next2_seg && next3_seg)
-//            printf("ttl %d: seg %d(%d) seg %d(%d) seg %d(%d) seg %d(%d)\n", seg->ttl,
-//                    seg->seg_id, seg_mergeable(seg),
-//                    next1_seg->seg_id, seg_mergeable(next1_seg),
-//                    next2_seg->seg_id, seg_mergeable(next2_seg),
-//                    next3_seg->seg_id, seg_mergeable(next3_seg));
-
-        ttl_buckets[ttl_bkt_idx].next_seg_to_merge = merge_segs(seg->seg_id, -1);
+        /* I hope I can move the ttl_bkt lock out of merge_segs
+         * it is not clear when it is in the merge_segs */
+        ttl_buckets[ttl_bkt_idx].next_seg_to_merge = merge_segs(segs_to_merge, at_most_n_seg);
         last_ttl_bkt_idx = ttl_bkt_idx;
-
-
-//        if (time_proc_sec() > 1585701400) {
-//            for (int j=0; j<heap.max_nseg; j++) {
-//                seg_print_warn(j);
-//                log_warn("%d mergeable %d", j, seg_mergeable(&heap.segs[j]));
-//            }
-//
-//            for (i = 0; i < MAX_N_TTL_BUCKET+1; i++) {
-//                if (ttl_buckets[i].first_seg_id == -1)
-//                    continue;
-//                seg = &heap.segs[ttl_buckets[i].first_seg_id];
-//                while (seg != NULL) {
-//                    printf("seg %d (%d), ", seg->seg_id, seg_mergeable(seg));
-//                    if (seg->next_seg_id != -1)
-//                        seg = &heap.segs[seg->next_seg_id];
-//                    else
-//                        seg = NULL;
-//                }
-//            }
-//            printf("\n");
-//        }
-
-
 
 
         return true;
     }
 
-
-
-
-//    for (int j=0; j<heap.max_nseg; j++) {
-//        seg_print_warn(j);
-//        log_warn("%d mergeable %d", j, seg_mergeable(&heap.segs[j]));
-//    }
+    for (int j=0; j<heap.max_nseg; j++) {
+        seg_print_warn(j);
+        log_warn("%d mergeable %d", j, seg_mergeable(&heap.segs[j]));
+    }
 //
 //    for (i = 0; i < MAX_N_TTL_BUCKET+1; i++) {
 //        if (ttl_buckets[i].first_seg_id == -1)
@@ -865,13 +678,12 @@ static inline bool _check_merge_seg(void) {
     return _check_merge_seg2();
 }
 
-
 int32_t seg_get_new_with_merge(void) {
-    static proc_time_i last_merge = 0, last_clear = 0;
-    if (last_merge == 0) {
-        last_merge = time_proc_sec();
-        last_clear = time_proc_sec();
-    }
+//    static proc_time_i last_merge = 0, last_clear = 0;
+//    if (last_merge == 0) {
+//        last_merge = time_proc_sec();
+//        last_clear = time_proc_sec();
+//    }
 
     int32_t seg_id_ret;
 
@@ -885,6 +697,7 @@ int32_t seg_get_new_with_merge(void) {
     return seg_id_ret;
 }
 #endif
+
 
 /**
  * return evicted seg to free pool,
@@ -976,7 +789,7 @@ seg_get_new_no_merge(void)
 }
 
 int32_t seg_get_new(void) {
-#ifdef TRACK_ADVANCED_STAT
+#ifdef USE_MERGE
     return seg_get_new_with_merge();
 #else
     return seg_get_new_no_merge();
@@ -984,59 +797,7 @@ int32_t seg_get_new(void) {
 }
 
 
-#ifdef TRACK_ADVANCED_STAT
-static inline int cmp(const void *d1, const void *d2){
-    return *(uint16_t *) d2 - *(uint16_t *) d1;
-}
-static inline int print_n_hit_distr(int32_t seg_id) {
-    static char buffer[1048576];
-    int pos = 0;
-    uint16_t n_hit_cnt[131072];
-    struct seg *seg = &heap.segs[seg_id];
-    uint8_t *seg_data = seg_get_data_start(seg_id);
-
-    memcpy(n_hit_cnt, heap.segs[seg_id].active_obj, sizeof(uint16_t) * 131072);
-    qsort(n_hit_cnt, 131072, sizeof(uint16_t), cmp);
-    pos += sprintf(buffer, "seg id %8d, create_at %8d, age %8d/%8d, ttl %8d %8d items, ", seg_id,
-           heap.segs[seg_id].create_at,
-            time_proc_sec() - heap.segs[seg_id].create_at,
-            time_proc_sec() - heap.segs[seg_id].merge_at,
-            heap.segs[seg_id].ttl,
-            heap.segs[seg_id].n_item);
-    int i;
-    int n_active = 0;
-    for (i = 0; i < 131072; i++) {
-        if (heap.segs[seg_id].active_obj[i] != 0 && !((struct item*) (seg_data+8*i))->deleted ) {
-            n_active += 1;
-        }
-    }
-    pos += sprintf(buffer + pos, "%d active, 0.2 cut off freq %d: ", n_active,
-            n_hit_cnt[(int)(heap.segs[seg_id].n_item * 0.2)]);
-
-    for (i = 0; i < 240; i++) {
-        if (n_hit_cnt[i] == 0) {
-            break;
-        }
-        pos += sprintf(buffer + pos, "%4d, ", n_hit_cnt[i]);
-    }
-    pos += sprintf(buffer + pos, "\n");
-//    printf("%s", buffer);
-
-    FILE *f = fopen("merge_info", "a");
-    fwrite(buffer, pos, 1, f);
-
-    int cutoff = n_hit_cnt[(int)(0.4 * seg->n_item)]-1;
-    int n_chosen = 0;
-    for (i = 0; i < 131072; i++) {
-        if (heap.segs[seg_id].active_obj[i] > cutoff && !((struct item*) (seg_data+8*i))->deleted ) {
-            n_chosen += 1;
-        }
-    }
-    log_info("cutoff %d, active %d, %d sl", cutoff, n_active, n_chosen);
-
-    return cutoff;
-}
-
+#ifdef USE_MERGE
 static inline void _seg_copy(int32_t seg_id_dest, int32_t seg_id_src,
         double *cutoff_freq, double target_ratio) {
     struct item *it;
@@ -1110,8 +871,9 @@ static inline void _seg_copy(int32_t seg_id_dest, int32_t seg_id_src,
 
 #ifdef TRACK_ADVANCED_STAT
         hit = seg_src->active_obj[(curr_src - seg_data_src) >> 3u];
+#else
         hit = hashtable_get_it_freq(item_key(it), it->klen, seg_id_src, curr_src - seg_data_src);
-
+#endif
         hit = (double) hit / ((double) it_sz/mean_size);
 
         if (hit <= cutoff && (!copy_all_items)) {
@@ -1119,7 +881,6 @@ static inline void _seg_copy(int32_t seg_id_dest, int32_t seg_id_src,
             curr_src += it_sz;
             continue;
         }
-#endif
 
         if (seg_dest->write_offset + it_sz > heap.seg_size) {
             /* TODO(jason): add a new metric */
@@ -1136,8 +897,12 @@ static inline void _seg_copy(int32_t seg_id_dest, int32_t seg_id_src,
             continue;
         }
 
+#ifdef REAL_COPY
         /* first copy data */
         memcpy(seg_data_dest + seg_dest->write_offset, curr_src, it_sz);
+#else
+        memcpy(seg_data_dest + seg_dest->write_offset, curr_src, ITEM_HDR_SIZE + it->klen);
+#endif
 
         /* try to relink */
         item_up_to_date = hashtable_relink_it(item_key(it), it->klen,
@@ -1170,9 +935,6 @@ bool seg_mergeable(struct seg *seg) {
     /* a magic number - we don't want to merge just created seg */
     /* TODO(jason): 600 needs to be adaptive */
     is_mergeable = is_mergeable && time_proc_sec() - seg->create_at >= min_mature_time;
-//    is_mergeable = is_mergeable && seg->last_merge_epoch < merge_epoch;
-//    is_mergeable = is_mergeable &&
-//            (seg->merge_at == 0 || time_proc_sec() - seg->merge_at >= SEG_MERGE_AGE_LIMIT);
     /* don't merge segments that will expire soon */
     is_mergeable = is_mergeable &&
             seg->create_at + seg->ttl - time_proc_sec() > 20;
@@ -1225,7 +987,7 @@ static inline void prep_seg_to_merge(int32_t start_seg_id,
 
 
 static inline void
-_replace_seg_in_list(int32_t new_seg_id, int32_t old_seg_id)
+_replace_seg_in_chain(int32_t new_seg_id, int32_t old_seg_id)
 {
     struct seg *new_seg = &heap.segs[new_seg_id];
     struct seg *old_seg = &heap.segs[old_seg_id];
@@ -1259,22 +1021,17 @@ _replace_seg_in_list(int32_t new_seg_id, int32_t old_seg_id)
  * the return value indicates how many segs are merged
  *
  **/
-int32_t merge_segs(int32_t start_seg_id, int32_t n_seg) {
+int32_t merge_segs(struct seg *segs_to_merge[], int at_most_n_seg) {
 
-    int32_t curr_seg_id = start_seg_id;
+    int32_t curr_seg_id;
     struct seg *curr_seg;
     uint8_t accessible;
+    int n_merged = 0;
 
-    /* block the eviction of next N_MAX_SEG_MERGE segments */
-    struct seg *segs_to_merge[N_MAX_SEG_MERGE];
-    int n_seg_to_merge, n_merged = 0;
-
-    double merge_keep_ratio[N_MAX_SEG_MERGE];
-    prep_seg_to_merge(start_seg_id, segs_to_merge, &n_seg_to_merge, merge_keep_ratio);
     /* this is the next seg_id of the last segment, we keep copy of it
      * in case there are no active objects in all these segments,
      * this is the return value */
-    int32_t last_seg_next_seg_id = segs_to_merge[n_seg_to_merge-1]->next_seg_id;
+    int32_t last_seg_next_seg_id = segs_to_merge[at_most_n_seg-1]->next_seg_id;
 
     /* prepare new seg */
     int32_t new_seg_id = _seg_get_from_free_pool(true);
@@ -1289,12 +1046,11 @@ int32_t merge_segs(int32_t start_seg_id, int32_t n_seg) {
     new_seg->ttl = segs_to_merge[0]->ttl;
     new_seg->accessible = 1;
     new_seg->prev_seg_id = segs_to_merge[0]->prev_seg_id;
-    new_seg->last_merge_epoch = merge_epoch;
     double cutoff_freq = 1;
 
     /* start from start_seg until new_seg is full or no seg can be merged */
     while (new_seg->write_offset < heap.seg_size * SEG_MERGE_STOP_RATIO
-            && n_merged < n_seg_to_merge) {
+            && n_merged < at_most_n_seg) {
 
         curr_seg = segs_to_merge[n_merged++];
         curr_seg_id = curr_seg->seg_id;
@@ -1307,7 +1063,7 @@ int32_t merge_segs(int32_t start_seg_id, int32_t n_seg) {
         _seg_wait_refcnt(curr_seg_id);
         pthread_mutex_lock(&heap.mtx);
         if (n_merged - 1 == 0) {
-            _replace_seg_in_list(new_seg_id, curr_seg_id);
+            _replace_seg_in_chain(new_seg_id, curr_seg_id);
         } else {
             _rm_seg_from_ttl_bucket(curr_seg_id);
         }
@@ -1335,7 +1091,7 @@ int32_t merge_segs(int32_t start_seg_id, int32_t n_seg) {
         return last_seg_next_seg_id;
     } else {
         /* changed the status of un-merged seg */
-        for (int i = n_merged; i < n_seg_to_merge; i++) {
+        for (int i = n_merged; i < at_most_n_seg; i++) {
             uint8_t evictable = __atomic_exchange_n(
                     &segs_to_merge[i]->evictable, 1, __ATOMIC_RELAXED);
             ASSERT(evictable == 0);
@@ -1355,7 +1111,7 @@ int32_t merge_segs(int32_t start_seg_id, int32_t n_seg) {
         log_info("ttl %d, merged %d/%d segs (%s) to seg %d, "
                  "curr #free segs %d, new seg offset %d, occupied size %d, "
                  "%d items",
-                new_seg->ttl, n_merged, n_seg_to_merge, merged_segs, new_seg_id,
+                new_seg->ttl, n_merged, at_most_n_seg, merged_segs, new_seg_id,
                 heap.n_free_seg, new_seg->write_offset,
                 new_seg->occupied_size, new_seg->n_item);
     }
@@ -1366,7 +1122,6 @@ int32_t merge_segs(int32_t start_seg_id, int32_t n_seg) {
     return heap.segs[new_seg_id].next_seg_id;
 }
 #endif
-
 
 
 
@@ -1492,8 +1247,8 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
     stop = false;
 
     seg_options = options;
-    heap.seg_size = option_uint(&options->seg_size);
-    heap.heap_size = option_uint(&options->heap_mem);
+    heap.seg_size = option_uint(&seg_options->seg_size);
+    heap.heap_size = option_uint(&seg_options->heap_mem);
     log_verb("cache size %" PRIu64, heap.heap_size);
 
     heap.free_seg_id = -1;
@@ -1503,7 +1258,10 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
     heap.poolpath = option_str(&seg_options->datapool_path);
     heap.poolname = option_str(&seg_options->datapool_name);
 
-    use_cas = option_bool(&options->use_cas);
+    heap.n_reserved_seg = 1;
+    heap.n_reserved_seg = option_uint(&seg_options->seg_n_thread);
+
+    use_cas = option_bool(&seg_options->use_cas);
 
     hashtable_setup(option_uint(&seg_options->hash_power));
 

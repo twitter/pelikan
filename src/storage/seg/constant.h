@@ -43,9 +43,11 @@
 #define ITEM_CAS_SIZE           (use_cas * sizeof(uint32_t))
 
 
-#define TRACK_ADVANCED_STAT
+// #define USE_MERGE
+// #define TRACK_ADVANCED_STAT
+#define REAL_COPY
+//#define SUPPORT_INCR
 
-#define USE_MERGE
 
 #define SEG_MERGE_THRESHOLD     1
 #define SEG_MERGE_AGE_LIMIT     0
@@ -58,10 +60,4 @@
 
 #define N_SEG_MERGE             4
 #define SEG_MERGE_TARGET_RATIO  ((1.0/N_SEG_MERGE)*1.05)
-
-////#define ACTIVE_ITEM_START_REC_TIME  120
-//#define ACTIVE_ITEM_START_REC_TIME  60
-//#define ACTIVE_ITEM_START_REC_TIME  20
-//#define ACTIVE_ITEM_START_REC_TIME  0
-//#define ACTIVE_ITEM_START_REC_TIME  5
 

@@ -175,6 +175,7 @@ ttl_bucket_setup(void)
             ttl_bucket->first_seg_id = -1;
             ttl_bucket->next_seg_to_merge = -1;
             ttl_bucket->last_cutoff_freq = 0;
+            pthread_mutex_init(&(ttl_bucket->mtx), NULL);
         }
     }
 }

@@ -12,8 +12,6 @@
 #include <stdint.h>
 
 
-#define SUPPORT_INC
-
 typedef enum item_rstatus {
     ITEM_OK,
     ITEM_EOVERSIZED,
@@ -153,7 +151,7 @@ static inline size_t
 item_size(uint32_t klen, uint32_t vlen, uint32_t olen)
 {
     size_t sz = ITEM_HDR_SIZE + klen + olen;
-#ifdef SUPPORT_INC
+#ifdef SUPPORT_INCR
     sz += vlen >= sizeof(uint64_t) ? vlen : sizeof(uint64_t);
 #else
     sz += vlen;
@@ -164,8 +162,9 @@ item_size(uint32_t klen, uint32_t vlen, uint32_t olen)
 static inline size_t
 item_ntotal(const struct item *it)
 {
+    ASSERT(it != NULL);
     size_t sz = ITEM_HDR_SIZE + it->klen + it->olen;
-#ifdef SUPPORT_INC
+#ifdef SUPPORT_INCR
     sz += it->vlen >= sizeof(uint64_t) ? it->vlen : sizeof(uint64_t);
 #else
     sz += it->vlen;

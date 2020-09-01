@@ -109,6 +109,7 @@ struct ttl_bucket {
     uint32_t            n_seg;
     int32_t             next_seg_to_merge;
     delta_time_i        last_cutoff_freq;
+    pthread_mutex_t     mtx;
 };
 
 

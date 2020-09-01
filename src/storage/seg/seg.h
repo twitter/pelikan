@@ -100,6 +100,8 @@ struct seg_heapinfo {
     uint32_t            prealloc : 1;
     uint32_t            prefault : 1;
 
+    int32_t             n_reserved_seg;
+
     pthread_mutex_t     mtx;
 
     proc_time_i         time_started;
@@ -115,6 +117,7 @@ extern struct seg_heapinfo heap;
 #define SEG_USE_CAS true
 #define ITEM_SIZE_MAX (SEG_SIZE - ITEM_HDR_SIZE)
 #define HASH_POWER 16
+#define N_THREAD 1
 #define SEG_DATAPOOL NULL
 #define SEG_DATAPOOL_PREFAULT false
 #define SEG_DATAPOOL_NAME "seg_datapool"
@@ -127,6 +130,7 @@ extern struct seg_heapinfo heap;
     ACTION(evict_opt,           OPTION_TYPE_UINT,   SEG_EVICT_OPT,          "Eviction strategy"                   )\
     ACTION(use_cas,             OPTION_TYPE_BOOL,   SEG_USE_CAS,            "Store CAS value in item"             )\
     ACTION(hash_power,          OPTION_TYPE_UINT,   HASH_POWER,             "Power for lookup hash table"         )\
+    ACTION(seg_n_thread,        OPTION_TYPE_UINT,   N_THREAD,               "number of threads"                   )\
     ACTION(datapool_path,       OPTION_TYPE_STR,    SEG_DATAPOOL,           "Path to DRAM data pool"              )\
     ACTION(datapool_name,       OPTION_TYPE_STR,    SEG_DATAPOOL_NAME,      "Seg DRAM data pool name"             )\
     ACTION(datapool_prefault,   OPTION_TYPE_BOOL,   SEG_DATAPOOL_PREFAULT,  "Prefault Pmem"                       )
@@ -256,7 +260,5 @@ merge_seg(int32_t seg_id1, int32_t seg_id2);
 /**
  * merge n segs starting from start_seg_id
  */
-int32_t
-merge_segs(int32_t start_seg_id, int32_t n_seg);
 
 

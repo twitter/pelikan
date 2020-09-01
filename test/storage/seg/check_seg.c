@@ -19,7 +19,7 @@
 seg_options_st options = {SEG_OPTION(OPTION_INIT)};
 seg_metrics_st metrics = {SEG_METRIC(METRIC_INIT)};
 
-extern struct ttl_bucket ttl_buckets[MAX_TTL_BUCKET];
+extern struct ttl_bucket ttl_buckets[MAX_N_TTL_BUCKET];
 
 /*
  * utilities
@@ -82,7 +82,7 @@ START_TEST(test_hashtable_basic)
 #define MLEN 8
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
-    option_set(&options.seg_hash_power, "3");
+    option_set(&options.hash_power, "3");
     seg_setup(&options, &metrics);
 
     struct bstring key, key2, val;
@@ -788,7 +788,7 @@ START_TEST(test_seg_more)
 #define MEM_SIZE "4194304"
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
-    option_set(&options.seg_mem, MEM_SIZE);
+    option_set(&options.heap_mem, MEM_SIZE);
     seg_setup(&options, &metrics);
 
     char *keys[] = {"seg-0", "seg-1", "seg-2", "seg-3", "seg-4", "seg-5",
@@ -875,8 +875,8 @@ START_TEST(test_segevict_FIFO)
             "fifo-6", "fifo-7", "fifo-8"};
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
-    option_set(&options.seg_mem, MEM_SIZE);
-    option_set(&options.seg_evict_opt, "2");
+    option_set(&options.heap_mem, MEM_SIZE);
+    option_set(&options.evict_opt, "2");
     seg_setup(&options, &metrics);
 
     struct bstring key, val;
@@ -965,8 +965,8 @@ START_TEST(test_segevict_CTE)
     delta_time_i ttls[] = {80000, 80000, 20000, 20000};
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
-    option_set(&options.seg_mem, MEM_SIZE);
-    option_set(&options.seg_evict_opt, "3");
+    option_set(&options.heap_mem, MEM_SIZE);
+    option_set(&options.evict_opt, "3");
     seg_setup(&options, &metrics);
 
     struct bstring key, val;
@@ -1039,8 +1039,8 @@ START_TEST(test_segevict_UTIL)
             "util-6", "util-7", "util-8"};
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
-    option_set(&options.seg_mem, MEM_SIZE);
-    option_set(&options.seg_evict_opt, "4");
+    option_set(&options.heap_mem, MEM_SIZE);
+    option_set(&options.evict_opt, "4");
     seg_setup(&options, &metrics);
     proc_sec = 0;
 
@@ -1119,8 +1119,8 @@ START_TEST(test_segevict_RAND)
             "rand-6", "rand-7", "rand-8"};
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
-    option_set(&options.seg_mem, MEM_SIZE);
-    option_set(&options.seg_evict_opt, "1");
+    option_set(&options.heap_mem, MEM_SIZE);
+    option_set(&options.evict_opt, "1");
     seg_setup(&options, &metrics);
 
     struct bstring key, val;
@@ -1174,8 +1174,8 @@ START_TEST(test_segevict_SMART)
             "smart-6", "smart-7", "smart-8"};
 
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
-    option_set(&options.seg_mem_dram, MEM_SIZE);
-    option_set(&options.seg_evict_opt, "4");
+    option_set(&options.heap_mem_dram, MEM_SIZE);
+    option_set(&options.evict_opt, "4");
     seg_setup(&options, &metrics);
 
     struct bstring key, val;

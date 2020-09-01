@@ -106,6 +106,7 @@ static uint64_t* GET_BUCKET(uint64_t hv)
  * otherwise we have to assume each pointer is 64-byte
  * TODO(jason): add bucket array shrink
  * */
+#define use_atomic_set
 
 /* we assume little-endian here */
 #define lock(bucket_ptr)                                                       \
@@ -114,7 +115,7 @@ static uint64_t* GET_BUCKET(uint64_t hv)
         while (!CAS_SLOT(((uint8_t *)bucket_ptr + 7), &locked, 1)) {           \
             ASSERT(locked == 1);                                               \
             locked = 0;                                                        \
-            usleep(1);                                                         \
+            ;                                                         \
         }                                                                      \
     } while (0)
 
@@ -136,21 +137,20 @@ static uint64_t* GET_BUCKET(uint64_t hv)
 #    undef unlock_and_update_cas
 #    define lock(bucket_ptr)                                                   \
         do {                                                                   \
-            while (__atomic_test_and_set(((uint8_t *)bucket_ptr + 7)),         \
-                    __ATOMIC_ACQUIRE) {                                        \
-                usleep(1);                                                     \
+            while (__atomic_test_and_set(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_ACQUIRE)) {                                        \
+                ;                                                     \
             }                                                                  \
         } while (0)
 
 #    define unlock(bucket_ptr)                                                 \
         do {                                                                   \
-            __atomic_clear((((uint8_t *)bucket_ptr) + 7), __ATOMIC_RELEASE);   \
+            __atomic_clear(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_RELEASE);   \
         } while (0)
 
 #    define unlock_and_update_cas(bucket_ptr)                                  \
         do {                                                                   \
             *bucket_ptr += 1;                                                  \
-        __atomic_clear(((uint8_t *)bucket_ptr) + 7), __ATOMIC_RELEASE);        \
+            __atomic_clear(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_RELEASE);   \
         } while (0)
 #endif
 
@@ -450,7 +450,7 @@ hashtable_put(struct item *it, const uint64_t seg_id, const uint64_t offset)
 
     INCR_BUCKET_CHAIN_LEN(first_bkt);
     ASSERT(GET_BUCKET_CHAIN_LEN(first_bkt) <= 8);
-    
+
 finish:
     ASSERT(insert_item_info == 0);
     unlock_and_update_cas(first_bkt);
@@ -624,6 +624,7 @@ hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
             offset = GET_OFFSET(item_info);
             it = (struct item *)(heap.base + heap.seg_size * (*seg_id) + offset);
 
+#ifdef USE_MERGE
             /* we need to increase frequency counter */
             item_info_incr_freq = _incr_freq(item_info);
             if (item_info_incr_freq != item_info) {
@@ -634,7 +635,7 @@ hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
                 }
                 unlock(first_bkt);
             }
-
+#endif
 
 
             return it;
@@ -647,6 +648,7 @@ hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
     return NULL;
 }
 
+#ifdef USE_MERGE
 int hashtable_get_it_freq(const char *oit_key, const uint32_t oit_klen,
                       const uint64_t old_seg_id, const uint64_t old_offset)
 {
@@ -678,9 +680,12 @@ int hashtable_get_it_freq(const char *oit_key, const uint32_t oit_klen,
         bkt = (uint64_t *)(bkt[N_SLOT_PER_BUCKET - 1]);
     } while (extra_array_cnt >= 0);
 
-    ASSERT(0);
+    /* disable this because an item can be evicted by other threads */
+//    ASSERT(0);
     return 0;
 }
+#endif
+
 
 /*
  * relink is used when the item is moved from one segment to another
