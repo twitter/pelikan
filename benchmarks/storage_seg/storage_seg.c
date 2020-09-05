@@ -5,7 +5,7 @@
 
 #include <math.h>
 
-#define VERIFY_DATA
+//#define VERIFY_DATA
 
 static seg_metrics_st metrics = {SEG_METRIC(METRIC_INIT)};
 

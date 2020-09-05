@@ -102,21 +102,7 @@ _cmp_seg_smart(const void *d1, const void *d2)
 #ifdef TRACK_ADVANCED_STAT
     return seg1->n_hit - seg2->n_hit;
 
-    if (seg1->n_active == 0) {
-        for (int i = 0; i < 131072; i++) {
-            if (seg1->active_obj[i])
-                seg1->n_active += 1;
-        }
-    }
-
-    if (seg2->n_active == 0) {
-        for (int i = 0; i < 131072; i++) {
-            if (seg2->active_obj[i])
-                seg2->n_active += 1;
-        }
-    }
-
-    return seg1->n_active - seg2->n_active;
+    return seg1->n_active_byte - seg2->n_active_byte;
 #else
     return 0;
 #endif

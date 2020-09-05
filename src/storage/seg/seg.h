@@ -57,13 +57,10 @@ struct seg {
                                     * cannot be evicted */
 
     int32_t         n_hit;         /* only update when the seg is sealed */
-    int32_t         n_hit_last;    /* number of hits in the last window */
-#ifdef TRACK_ADVANCED_STAT
-    uint16_t         active_obj[131072];
     int32_t         n_active;
     int32_t         n_active_byte;
     int64_t         last_merge_epoch;
-#endif
+
     proc_time_i     create_at;
     delta_time_i    ttl;
     proc_time_i     merge_at;
@@ -96,7 +93,6 @@ struct seg_heapinfo {
     char                *poolname;
     struct datapool     *pool;
 
-    uint32_t            concat_seg : 1;
     uint32_t            prealloc : 1;
     uint32_t            prefault : 1;
 

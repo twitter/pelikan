@@ -47,7 +47,6 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
     if (curr_seg_id != -1) {
         curr_seg = &heap.segs[curr_seg_id];
-//        expired = curr_seg->create_at + curr_seg->ttl < time_proc_sec();
         accessible = seg_accessible(curr_seg_id);
         if (accessible) {
             offset = __atomic_fetch_add(
@@ -55,21 +54,21 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
         }
     }
 
-
     while (curr_seg_id == -1 || offset + sz > heap.seg_size || (!accessible)) {
-//        if (offset + sz > heap.seg_size) {
-//            /* we cannot roll back offset due to data race,
-//             * but we need to explicitly clear rest of the segment
-//             * so that we know it is the end of segment */
-//            seg_data = seg_get_data_start(curr_seg_id);
-//            size_t sz = MIN(ITEM_HDR_SIZE, heap.seg_size - offset);
-//            memset(seg_data + offset, 0, sz);
-//        }
+        if (offset + sz > heap.seg_size && offset < heap.seg_size) {
+            /* we cannot roll back offset due to data race,
+             * but we need to explicitly clear rest of the segment
+             * so that we know it is the end of segment */
+            seg_data = seg_get_data_start(curr_seg_id);
+//            int sz2 = MIN(sz, heap.seg_size - offset);
+//            memset(seg_data + offset, 0, sz2);
+            memset(seg_data + offset, 0, heap.seg_size - offset);
+        }
 
         new_seg_id = seg_get_new();
 
         if (new_seg_id == -1) {
-#if defined CC_ASSERT_PANIC
+#if defined CC_ASSERT_PANIC || defined(CC_ASSERT_LOG)
             ASSERT(0);
 #endif
             log_warn("cannot get new segment");

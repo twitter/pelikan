@@ -355,6 +355,7 @@ trace_replay_run_mt(struct benchmark *b)
 int
 main(int argc, char *argv[])
 {
+    printf("item header %d bytes\n", ITEM_HDR_SIZE);
     struct benchmark b;
     struct duration d;
     if (benchmark_create(&b, argv[1]) != 0) {

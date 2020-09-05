@@ -70,8 +70,11 @@ _item_define(struct item *it, const struct bstring *key,
 #endif
 
     it->olen = olen;
-    cc_memcpy(item_key(it), key->data, key->len);
+    it->deleted = 0;
+    it->is_num = 0;
     it->klen = key->len;
+    cc_memcpy(item_key(it), key->data, key->len);
+
 #ifdef REAL_COPY
     if (val != NULL) {
         cc_memcpy(item_val(it), val->data, val->len);
@@ -79,6 +82,9 @@ _item_define(struct item *it, const struct bstring *key,
 #endif
     it->vlen = (val == NULL) ? 0 : val->len;
 
+#if defined(USE_PRECISE_FREQ) || defined(DUMP_FOR_ANALYSIS)
+    it->n_hit = 0;
+#endif
 
     struct seg *curr_seg = &heap.segs[seg_id];
 
@@ -156,20 +162,20 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
         __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_RELAXED);
     }
 
-#ifdef TRACK_ADVANCED_STAT
-    __atomic_fetch_add(&seg->n_hit, 1, __ATOMIC_RELAXED);
-//    if (time_proc_sec() - seg->create_at >= ACTIVE_ITEM_START_REC_TIME) {
-        int32_t idx = (uint32_t) (((uint8_t*)(it)-seg_get_data_start(seg_id))) >> 3u;
-        ASSERT(idx < 131072);
-        if (seg->active_obj[idx] == 0) {
-            seg->n_active += 1;
-            seg->n_active_byte += item_ntotal(it);
-        }
-        if (__atomic_load_n(&seg->active_obj[idx], __ATOMIC_RELAXED) < (1 << 16) -1)
-            __atomic_fetch_add(&seg->active_obj[idx], 1, __ATOMIC_RELAXED);
+#if defined(USE_PRECISE_FREQ) || defined(DUMP_FOR_ANALYSIS)
+    int cnt;
+    cnt = __atomic_fetch_add(&it->n_hit, 1, __ATOMIC_RELAXED);
+
+    if (cnt == 0) {
+        __atomic_fetch_add(&seg->n_active, 1, __ATOMIC_RELAXED);
+        __atomic_fetch_add(&seg->n_active_byte, item_ntotal(it), __ATOMIC_RELAXED);
+    }
+
+//    if (cnt < 18) {
+//        int32_t offset = ((uint8_t *)it) - heap.base - heap.seg_size * seg_id;
+//        int cnt2 = hashtable_get_it_freq(item_key(it), it->klen, seg_id, offset);
+//        ASSERT(cnt + 1 == cnt2);
 //    }
-//    log_warn("get %.*s idx %d - %d seg %d", it->klen, item_key(it), idx,
-//            seg->active_obj[idx], seg->seg_id);
 #endif
 
     log_vverb("get it key %.*s", key->len, key->data);

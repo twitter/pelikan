@@ -43,21 +43,24 @@
 #define ITEM_CAS_SIZE           (use_cas * sizeof(uint32_t))
 
 
-// #define USE_MERGE
-// #define TRACK_ADVANCED_STAT
-#define REAL_COPY
+#define USE_MERGE
+// #define REAL_COPY
 //#define SUPPORT_INCR
+//#define DUMP_FOR_ANALYSIS
 
+#define OPTIMIZE_PMEM
 
-#define SEG_MERGE_THRESHOLD     1
-#define SEG_MERGE_AGE_LIMIT     0
+// #define USE_APFC
+#define USE_PRECISE_FREQ
 
-#define N_RESERVED_SEG          1
+//#define NO_BACKGROUND_EXPIRATION
+
 #define N_MAX_SEG_MERGE         8
 
 #define SEG_MERGE_STOP_RATIO 0.8
 #define SEG_MERGE_MARGIN (int) (heap.seg_size * SEG_MERGE_STOP_RATIO)
 
 #define N_SEG_MERGE             4
-#define SEG_MERGE_TARGET_RATIO  ((1.0/N_SEG_MERGE)*1.05)
+#define SEG_MERGE_TARGET_RATIO  ((1.0/N_SEG_MERGE))
 
+#define REPLAY_SPEEDUP 20

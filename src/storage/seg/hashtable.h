@@ -14,13 +14,13 @@
  *
  *           hash table
  *       ┌─┬─┬─┬─┬─┬─┬─┬─┐      ┌───────────────┐
- *       │ │ │ │ │ │ │ │ ├─────▶│  extra array  │
+ *       │ │ │ │ │ │ │ │ ├─────▶│  extra bucket │
  *       ├─┼─┼─┼─┼─┼─┼─┼─┤      └───────────────┘
  *       │ │ │ │ │ │ │ │ │
  *       ├─┼─┼─┼─┼─┼─┼─┼─┤
  *       │ │ │ │ │ │ │ │ │
  *       ├─┼─┼─┼─┼─┼─┼─┼─┤      ┌───────────────┐
- *       │ │ │ │ │ │ │ │ ├─────▶│  extra array  │
+ *       │ │ │ │ │ │ │ │ ├─────▶│  extra bucket │
  *       ├─┼─┼─┼─┼─┼─┼─┼─┤      └───────────────┘
  *       │ │ │ │ │ │ │ │ │
  *       ├─┼─┼─┼─┼─┼─┼─┼─┤
@@ -126,6 +126,9 @@ hashtable_put(struct item *it, const uint64_t seg_id, const uint64_t offset);
 bool
 hashtable_delete(const char *key, const uint32_t klen);
 
+bool
+hashtable_delete_it(const char *oit_key, const uint32_t oit_klen,
+                    const uint64_t seg_id, const uint64_t offset);
 /*
  * delete the hashtable entry belong to this specific item and all items
  * that are older than this entry
@@ -171,3 +174,7 @@ scan_hashtable_find_seg(int32_t target_seg_id);
 
 int hashtable_get_it_freq(const char *oit_key, const uint32_t oit_klen,
                           const uint64_t old_seg_id, const uint64_t old_offset);
+
+struct item *
+hashtable_get_no_incr(const char *key, const uint32_t klen, int32_t *seg_id,
+                      uint64_t *cas);

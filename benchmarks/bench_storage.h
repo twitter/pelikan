@@ -133,9 +133,8 @@ run_op(struct benchmark_entry *e)
     case op_decr:
         return bench_storage_decr(e);
     default:
-        break;
-        log_crit("op %s not implemented", op_names[e->op]);
-        NOT_REACHED();
+        printf("op %d not implemented\n", e->op);
+        exit(1);
     }
 
     NOT_REACHED();

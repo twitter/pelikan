@@ -145,32 +145,47 @@ static void warm_up(struct benchmark *b, bool val_num) {
     }
 }
 
+static void log_msg(char *msg) {
+    time_t timer = time(NULL);
+    struct tm* tm_info = localtime(&timer);
+    static char buffer[128];
+    strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+    printf("%s %s\n", buffer, msg);
+}
+
 static struct duration
 benchmark_run(struct benchmark *b)
 {
+//    log_msg("bechmark start");
 
-    bench_storage_init(BENCH_OPTS(b)->engine, entry_size, n_entries);
     rstatus_i (*bench_func)(struct benchmark_entry*);
     struct benchmark_entry *e = b->entries;
 
     switch (op) {
     case op_get:
+        /* make sure we do not get cache miss */
+        bench_storage_init(BENCH_OPTS(b)->engine, entry_size, n_entries * 2);
         bench_func = bench_storage_get;
         warm_up(b, false);
         break;
     case op_set:
+        bench_storage_init(BENCH_OPTS(b)->engine, entry_size, n_entries);
         bench_func = bench_storage_set;
+        warm_up(b, false);
         break;
     case op_cas:
+        bench_storage_init(BENCH_OPTS(b)->engine, entry_size, n_entries);
         bench_func = bench_storage_cas;
         warm_up(b, false);
         break;
     case op_incr:
+        bench_storage_init(BENCH_OPTS(b)->engine, entry_size, n_entries);
         bench_func = bench_storage_incr;
         warm_up(b, true);
         e->delta = 1;
         break;
     case op_delete:
+        bench_storage_init(BENCH_OPTS(b)->engine, entry_size, n_entries);
         bench_func = bench_storage_delete;
 //        if (n_ops > n_entries) {
 //            printf("delete nops larger than nentries %zu > %zu\n", n_ops, n_entries);
@@ -183,14 +198,25 @@ benchmark_run(struct benchmark *b)
         exit(EX_CONFIG);
     }
 
+//    log_msg("warmup finish");
+
     struct duration d;
     duration_start(&d);
+    rstatus_i status;
+    uint64_t n_fail = 0;
 
     for (size_t i = 0; i < n_ops; ++i) {
         snprintf(e->key, e->key_len, "%.*"PRIu64, KEY_LEN-1, prand() % n_entries+1);
 //        snprintf(e->key, e->key_len, "%.*"PRIu64, KEY_LEN-1, i+1);
-        bench_func(e);
+        status = bench_func(e);
+        if (status != CC_OK) {
+            n_fail += 1;
+        }
     }
+
+    if (n_fail  > 200)
+        printf("%d %.4lf failed\n", n_fail, (double) n_fail/n_ops);
+
 
     duration_stop(&d);
 
