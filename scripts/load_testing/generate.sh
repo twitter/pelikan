@@ -12,7 +12,7 @@ threads=2
 client=false
 server=false
 rpcperf="rpc-perf"
-pelikan="pelikan_twemcache"
+pelikan="pelikan_segcache"
 target="127.0.0.1"
 pmem_paths=()
 
@@ -59,9 +59,9 @@ gen_pelikan()
         vsize=$((size - ksize))
         for mem in "${mem_configs[@]}"
         do
-            slab_mem=$((mem * 1024 * 1024 * 1024))
+            mem_byte=$((mem * 1024 * 1024 * 1024))
             prefix=pelikan_${size}_${mem}
-            python server_config.py --prefix="$prefix" --binary="$pelikan" --instances="$instances" --slab_mem "$slab_mem" --vsize "$vsize" --pmem_paths ${pmem_paths[@]}
+            python3 server_config.py --prefix="$prefix" --binary="$pelikan" --instances="$instances" --mem "$mem_byte" --vsize "$vsize" --pmem_paths ${pmem_paths[@]}
         done
     done
 }
@@ -76,9 +76,9 @@ gen_rpcperf()
             vsize=$((size - ksize))
             for mem in "${mem_configs[@]}"
             do
-                slab_mem=$((mem * 1024 * 1024 * 1024))
+                mem_byte=$((mem * 1024 * 1024 * 1024))
                 prefix=rpcperf_${conn}_${size}_${mem}
-                python client_config.py --prefix="$prefix" --binary="$rpcperf" --server_ip="$target" --instances="$instances" --rate="$rate" --connections="$conn" --vsize "$vsize" --slab_mem="$slab_mem" --threads="$threads"
+                python3 client_config.py --prefix="$prefix" --binary="$rpcperf" --server_ip="$target" --instances="$instances" --rate="$rate" --connections="$conn" --vsize "$vsize" --mem="$mem_byte" --threads="$threads"
             done
         done
     done

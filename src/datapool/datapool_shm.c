@@ -7,6 +7,9 @@
 #include <cc_debug.h>
 #include <cc_mm.h>
 
+#include <sys/mman.h>
+
+
 struct datapool *
 datapool_open(const char *path, const char *user_signature, size_t size, int *fresh, bool prefault)
 {
@@ -20,7 +23,12 @@ datapool_open(const char *path, const char *user_signature, size_t size, int *fr
         *fresh = 1;
     }
 
-    return cc_zalloc(size);
+    struct datapool *ret = cc_zalloc(size);
+#ifdef MADV_HUGEPAGE
+    /* USE_HUGEPAGE */
+    madvise(ret, size, MADV_HUGEPAGE);
+#endif
+    return ret;
 }
 
 void

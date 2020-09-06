@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+#set -euo pipefail
 IFS=$'\n\t'
 
 die() { echo "fatal: $*" >&2; exit 1; }
@@ -18,9 +18,6 @@ cleanup() { [[ -n "${TEMP:-}" ]] && rm -rf "${TEMP}"; }
 trap cleanup EXIT
 
 realpath() { python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$1"; }
-
-TOPLEVEL="$(cd "$(dirname "$(realpath "$0" >/dev/null || exit 1)")" && git rev-parse --show-toplevel)" || die 'failed to find TOPLEVEL'
-
 
 FLUXCAP_VERSION=0.1
 FLUXCAP_TARBALL="${FLUXCAP_VERSION}.tar.gz"

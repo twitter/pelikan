@@ -47,7 +47,7 @@ admin_process_teardown(void)
     if (!admin_init) {
         log_warn("%s has never been setup", TWEMCACHE_ADMIN_MODULE_NAME);
     }
-
+    /* TODO(jason): free buf? */
     admin_init = false;
 }
 

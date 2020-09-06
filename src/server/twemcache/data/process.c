@@ -117,6 +117,7 @@ _get_dataflag(struct item *it)
 static inline void
 _set_dataflag(struct item *it, uint32_t flag)
 {
+    /* TODO(jason): what if item has no optional field ? */
     *((uint32_t *)item_optional(it)) = flag;
 }
 

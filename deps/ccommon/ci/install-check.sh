@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+#set -euo pipefail
 IFS=$'\n\t'
 
 die() { echo "fatal: $*" >&2; exit 1; }
@@ -19,8 +19,6 @@ trap cleanup EXIT
 
 realpath() { python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$1"; }
 
-TOPLEVEL="$(cd "$(dirname "$(realpath "$0" >/dev/null || exit 1)")" && git rev-parse --show-toplevel)" || die 'failed to find TOPLEVEL'
-
 
 CHECK_VERSION="0.14.0"
 CHECK_TARBALL="check-${CHECK_VERSION}.tar.gz"
@@ -29,16 +27,12 @@ CHECK_LOG="build-check.log"
 
 echo "building and installing check" >&2
 
-echo "building and installing check" >&2
-
 (
   cd "$TEMP" &&
     wget "https://github.com/libcheck/check/releases/download/${CHECK_VERSION}/${CHECK_TARBALL}" &&
     tar xfz "${CHECK_TARBALL}" &&
     cd "${CHECK_DIR}" &&
-    mkdir build &&
-    cd build &&
-    cmake -DCMAKE_INSTALL_PREFIX="${CHECK_PREFIX}" .. &&
+    ./configure --prefix="${CHECK_PREFIX}" &&
     make -j &&
     make install
 ) >$TEMP/${CHECK_LOG} 2>&1

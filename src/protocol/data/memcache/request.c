@@ -21,6 +21,7 @@ static bool reqp_init = false;
 void
 request_reset(struct request *req)
 {
+  /* TODO (jason) it might be slightly faster and more readable if we do memset ?*/
     ASSERT(req != NULL && req->keys != NULL);
 
     STAILQ_NEXT(req, next) = NULL;
@@ -77,6 +78,7 @@ request_create(void)
 void
 request_destroy(struct request **request)
 {
+  /* TODO(jason): consider renaming request? it is confusing when we have both req and request of different types */
     struct request *req = *request;
     ASSERT(req != NULL);
 

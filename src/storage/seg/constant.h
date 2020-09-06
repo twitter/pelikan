@@ -50,8 +50,8 @@
 
 #define OPTIMIZE_PMEM
 
-// #define USE_APFC
-#define USE_PRECISE_FREQ
+#define USE_APFC
+//#define USE_PRECISE_FREQ
 
 //#define NO_BACKGROUND_EXPIRATION
 

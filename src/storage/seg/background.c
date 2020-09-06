@@ -37,7 +37,7 @@ _check_seg_expire(void)
          * is being written to */
         while (seg->create_at + seg->ttl < curr_sec - 2 ||
                 seg->create_at < flush_at) {
-            log_debug("curr_sec %" PRId32 ": expire seg %" PRId32 " create "
+            log_info("curr_sec %" PRId32 ": expire seg %" PRId32 " create "
                       "at %" PRId32 " ttl %" PRId32 " flushed at %" PRId32,
                     curr_sec, seg_id, seg->create_at, seg->ttl, flush_at);
             next_seg_id = seg->next_seg_id;

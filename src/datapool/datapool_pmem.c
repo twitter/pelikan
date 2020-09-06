@@ -8,59 +8,18 @@
 #include <cc_mm.h>
 #include <cc_debug.h>
 
-#include <inttypes.h>
 #include <libpmem.h>
 #include <errno.h>
 
-#define DATAPOOL_SIGNATURE ("PELIKAN") /* 8 bytes */
-#define DATAPOOL_SIGNATURE_LEN (sizeof(DATAPOOL_SIGNATURE))
-
-/*
- * Size of the data pool header.
- * Big enough to fit all necessary metadata, but most of this size is left
- * unused for future expansion.
- */
-
-#define DATAPOOL_INTERNAL_HEADER_LEN 2048
-#define DATAPOOL_USER_LAYOUT_LEN       48
-#define DATAPOOL_USER_HEADER_LEN     2048
-#define DATAPOOL_HEADER_LEN (DATAPOOL_INTERNAL_HEADER_LEN + DATAPOOL_USER_HEADER_LEN)
-#define DATAPOOL_VERSION 1
-
-#define DATAPOOL_FLAG_DIRTY (1 << 0)
-#define DATAPOOL_VALID_FLAGS (DATAPOOL_FLAG_DIRTY)
-
-#define PAGE_SIZE 4096
-
-/*
- * Header at the beginning of the file, it's verified every time the pool is
- * opened.
- */
-struct datapool_header {
-    uint8_t signature[DATAPOOL_SIGNATURE_LEN];
-    uint64_t version;
-    uint64_t size;
-    uint64_t flags;
-    uint8_t unused[DATAPOOL_INTERNAL_HEADER_LEN - 32];
-
-    uint8_t user_signature[DATAPOOL_USER_LAYOUT_LEN];
-    uint8_t user_data[DATAPOOL_USER_HEADER_LEN - DATAPOOL_USER_LAYOUT_LEN];
-};
-
-struct datapool {
-    void *addr;
-
-    struct datapool_header *hdr;
-    void *user_addr;
-    size_t mapped_len;
-    int is_pmem;
-    int file_backed;
-};
 
 static void
 datapool_sync_hdr(struct datapool *pool)
 {
     int ret = pmem_msync(pool->hdr, DATAPOOL_HEADER_LEN);
+    if (ret != 0) {
+        printf("%s\n", pmem_errormsg());
+        log_error(pmem_errormsg());
+    }
     ASSERT(ret == 0);
 }
 
@@ -83,6 +42,9 @@ datapool_valid_user_signature(struct datapool *pool, const char *user_name)
 static bool
 datapool_valid(struct datapool *pool)
 {
+    return false;
+
+
     if (cc_memcmp(pool->hdr->signature,
           DATAPOOL_SIGNATURE, DATAPOOL_SIGNATURE_LEN) != 0) {
         log_info("no signature found in datapool");
@@ -126,14 +88,12 @@ datapool_initialize(struct datapool *pool, const char *user_name)
 
     /* 1. clear the header from any leftovers */
     cc_memset(pool->hdr, 0, DATAPOOL_HEADER_LEN);
-    datapool_sync_hdr(pool);
 
     /* 2. fill in the data */
     pool->hdr->version = DATAPOOL_VERSION;
     pool->hdr->size = pool->mapped_len;
     pool->hdr->flags = 0;
     cc_memcpy(pool->hdr->user_signature, user_name, cc_strlen(user_name));
-    datapool_sync_hdr(pool);
 
     /* 3. set the signature */
     cc_memcpy(pool->hdr->signature, DATAPOOL_SIGNATURE, DATAPOOL_SIGNATURE_LEN);
@@ -183,13 +143,19 @@ datapool_open(const char *path, const char *user_signature, size_t size, int *fr
     size_t map_size = size + sizeof(struct datapool_header);
 
     if (path == NULL) { /* fallback to DRAM if pmem is not configured */
+        log_error("compiled with PMem, but no path provided, fall back to DRAM");
         pool->addr = cc_zalloc(map_size);
         pool->mapped_len = map_size;
         pool->is_pmem = 0;
         pool->file_backed = 0;
     } else {
         pool->addr = pmem_map_file(path, map_size, PMEM_FILE_CREATE, 0600,
-            &pool->mapped_len, &pool->is_pmem);
+                &pool->mapped_len, &pool->is_pmem);
+        if (pool->addr == NULL) {
+            log_warn("%s, now create file with size %zu", pmem_errormsg(), map_size);
+            pool->addr = pmem_map_file(path, 0, PMEM_FILE_CREATE, 0600,
+                    &pool->mapped_len, &pool->is_pmem);
+        }
         pool->file_backed = 1;
     }
 

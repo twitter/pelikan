@@ -203,6 +203,9 @@ main(int argc, char **argv)
         exit(EX_CONFIG);
     }
 
+    /* set the default time type to memcached before loading config */
+    setting.time.time_type.val.vuint = TIME_MEMCACHE;
+
     if (fp != NULL) {
         log_stderr("load config from %s", argv[1]);
         status = option_load_file(fp, (struct option *)&setting, nopt);

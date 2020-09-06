@@ -105,6 +105,7 @@ open_trace(
     reader->e =
             (struct benchmark_entry *)cc_zalloc(sizeof(struct benchmark_entry));
     reader->e->val = val_array;
+    memset(reader->e->key, 0, MAX_KEY_LEN);
 
     reader->update_time = true;
 
@@ -165,10 +166,27 @@ read_trace(struct reader *reader)
 
     uint32_t op = (op_ttl >> 24u) & (0x00000100 - 1);
     uint32_t ttl = op_ttl & (0x01000000 - 1);
-    ttl = ttl == 0 ? reader->default_ttls[(reader->default_ttl_idx++)%100] : ttl;
+    if (ttl == 0) {
+        ttl = reader->default_ttls[reader->default_ttl_idx];
+        reader->default_ttl_idx = (reader->default_ttl_idx + 1) % 100;
+    }
+    if (ttl == 0) {
+        printf("TTL 0, index %d\n", reader->default_ttl_idx);
+        for (int i=0; i<100; i++){
+            printf("%d\n", reader->default_ttls[i]);
+        }
+        exit(1);
+    }
+
+    if (op <= 0 || op >= 12) {
+        printf("unknown op %d\n", op);
+        op = 1;
+    }
+
+    *(uint64_t *) (reader->e->key) = key;
 
     /* it is possible we have overflow here, but it should be rare */
-    snprintf(reader->e->key, key_len, "%.*lu", key_len-1, (unsigned long)key);
+//    snprintf(reader->e->key, key_len, "%.*lu", key_len-1, (unsigned long)key);
 
     reader->e->key_len = key_len;
     reader->e->val_len = val_len;
