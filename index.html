@@ -20,7 +20,7 @@ layout: default
       <div align="center">
         <h2>Discussion</h3>
         <p><a href="https://groups.google.com/forum/#!forum/pelikan-cache">Google group</a></p>
-        <span><a href="https://gitter.im/twitter/pelikan?utm_source=badge&amp;utm_medium=badge&amp;utm_campaign=pr-badge"><img src="https://camo.githubusercontent.com/7b1e52d06d50c8a484f2c8a994ac191dca4cc618/68747470733a2f2f6261646765732e6769747465722e696d2f747769747465722f70656c696b616e2e737667" alt="Gitter" data-canonical-src="https://badges.gitter.im/twitter/pelikan.svg" style="max-width:100%;"></a></span>
+        <span><a href="https://pelikan.zulipchat.com"><img src="https://raw.githubusercontent.com/zulip/zulip/master/static/images/logo/zulip-org-logo.svg" alt="Zulip Chat" style="max-width:50%;"></a></span>
       </div>
     </div>
     <div class="page-col">
@@ -32,15 +32,6 @@ layout: default
       </div>
     </div>
   </div>
-
-  <h1 class="page-heading">News</h1>
-  <ul class="news-list">
-    {% for news in site.news reversed  %}
-      <li>
-        <span class="news-meta">{{ news.date | date: "%b %-d, %Y" }}</span> {{ news.content }}
-      </li>
-    {% endfor %}
-  </ul>
 
   <h1 class="page-heading">Talks</h1>
   <ul class="video-list">

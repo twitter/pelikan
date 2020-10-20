@@ -10,22 +10,21 @@ title: Pelikan Cache
 email: pelikan-cache@googlegroups.com
 description: > # this means to ignore newlines until "baseurl:"
   Pelikan is a framework for building cache services.
-  It is part of Twitter's unified cache project.
 baseurl: "/pelikan"
 url: "https://twitter.github.io"
 githuburl: "https://github.com/twitter/pelikan"
+discussurl: "https://pelikan.zulipchat.com"
 twitter_username: pelikan_cache
 github_username: twitter
 
 # Build settings
 markdown: kramdown
 
-permalink: /:year/:month/:day/:title.html
+# permalink: /:year/:month/:day/:title.html
+permalink: /:year/:title.html
 
 # Other collection
 collections:
   talks:
     output: true
     permalink: /talks/:path/
-  news:
-    output: false
