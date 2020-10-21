@@ -20,13 +20,13 @@ be the result of an earlier computation or a copy of data stored elsewhere.”)
 
 I have long held the belief that predictable latency is more important than
 throughput in a production environment for several reasons. Among them is the
-observation that you can horizontally [scale](https://cacm.acm.org/magazines/2013/2/160173-the-tail-at-scale/fulltext)
-your way toward any throughput target, but there is no easy fix for latency
-spikes. The importance of tail latency also increases with scale, in particular,
-the width of request fanouts. Production caches at Twitter adhere to a strict
-service-level objective (SLO) of p999 < 5 milliseconds (ms). In other words, our
-goal is to serve 99.9 percent of the requests under this amount of time.
-
+observation that you can horizontally scale your way toward any throughput
+target, but there is no easy fix for latency spikes. The importance of tail
+latency also [increases with scale](https://cacm.acm.org/magazines/2013/2/160173-the-tail-at-scale/fulltext),
+in particular, the width of request fanouts. Production caches at Twitter adhere
+to a strict service-level objective (SLO) of p999 < 5 milliseconds (ms). In
+other words, our goal is to serve 99.9 percent of the requests under this amount
+of time.
 
 ## Cache at Twitter
 Twitter has been using and developing a variety of cache services for many
