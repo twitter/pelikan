@@ -127,6 +127,8 @@ concurrent connections per host. Third, we wanted to test a wide range of
 payload sizes. Knowing the network bottlenecks from experience, we expected the
 payload size to also play a role in both throughput and latency.
 
+<div style="text-align: center; padding: 20px 0px 5px; font-size: large"><p>Table 1: Master Test Plan</p></div>
+
 | Key Parameter     | Value(s)                   |
 |-------------------|----------------------------|
 | Instance per host | 24                         |
@@ -227,7 +229,8 @@ written with assistance from Todd Koelling at Intel and Kaia Communications.
 
 ## Appendix
 
-#### Test Configuration
+
+<div style="text-align: center; padding: 20px 0px 5px; font-size: large"><p>Table 2: Test Configuration</p></div>
 
 |                                                | System under Test (SUT)                                  | Client                                    |
 |------------------------------------------------|----------------------------------------------------------|-------------------------------------------|
@@ -263,7 +266,7 @@ written with assistance from Todd Koelling at Intel and Kaia Communications.
 | Compiler                                       | gcc (GCC)                                                | rustc                                     |
 | Network Adapter  Driver                        | ice 1.0.4                                                | mlx4_en 4.0-0                             |
 
-#### ADQ Related
+<div style="text-align: center; padding: 20px 0px 5px; font-size: large"><p>Table 2: ADQ Related</p></div>
 
 |                                          | ADQ “Off” Baseline | ADQ “On” |
 |------------------------------------------|--------------------|----------|
