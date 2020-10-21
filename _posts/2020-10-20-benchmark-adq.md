@@ -39,10 +39,10 @@ scalable, and it needs to be operationally stable and flexible.
 
 ## An Open Source Cache Framework: Pelikan Cache
 Based on our production observations about cache performance and how it is
-closely tied to network performance, we built Pelikan Cache—a modular caching
-framework that provides an expanding collection of cache services, and includes
-a common library for building those services. This framework approach allows us
-to quickly develop new features and protocols.
+closely tied to network performance, we built [Pelikan Cache](http://twitter.github.io/pelikan/)—
+a modular caching framework that provides an expanding collection of cache
+services, and includes a common library for building those services. This
+framework approach allows us to quickly develop new features and protocols.
 
 Pelikan Cache separates performance-sensitive processing from the less
 performance sensitive processing, and it separates different types of
@@ -93,6 +93,16 @@ and enabling greater predictability in application response times. It is
 supported by Linux kernel 4.19 or later. ADQ lets software applications reserve
 queues (“express lanes”) explicitly on the network adapter. It also provides
 interfaces that application threads leverage to access the preserved queues.
+
+The purpose of ADQ is to increase application response time predictability
+within the realm of the network and networking software stack—especially as
+systems scale—with an easy-to-use interface. ADQ offers flow segregation at the
+network adapter queue level by offloading some aspects of flow management to
+hardware, and it allows the application to directly poll reserved queues with
+little or no code changes. The ease-of-use aspect is just as important. For the
+vast majority of businesses, including Twitter, benchmark advantages are easily
+overruled by operational constraints. A technology that can be readily deployed
+is one that can have actual impact.
 
 To learn more about how ADQ works with Linux, refer to my notes [here](https://github.com/twitter/pelikan/wiki/Notes-on-ADQ).
 
