@@ -16,10 +16,14 @@ githuburl: "https://github.com/twitter/pelikan"
 discussurl: "https://pelikan.zulipchat.com"
 twitter_username: pelikan_cache
 github_username: twitter
-favicon: "/asset/img/round_icon.jpg"
+favicon: "/pelikan/asset/img/round_icon.jpg"
 
 # Build settings
 markdown: kramdown
+
+sass:
+  sass_dir: _sass
+  style: compressed
 
 # permalink: /:year/:month/:day/:title.html
 permalink: /:year/:title.html
