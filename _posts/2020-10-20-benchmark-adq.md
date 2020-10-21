@@ -266,7 +266,7 @@ written with assistance from Todd Koelling at Intel and Kaia Communications.
 | Compiler                                       | gcc (GCC)                                                | rustc                                     |
 | Network Adapter  Driver                        | ice 1.0.4                                                | mlx4_en 4.0-0                             |
 
-<div style="text-align: center; padding: 20px 0px 5px; font-size: large"><p>Table 2: ADQ Related</p></div>
+<div style="text-align: center; padding: 20px 0px 5px; font-size: large"><p>Table 3: ADQ Related</p></div>
 
 |                                          | ADQ “Off” Baseline | ADQ “On” |
 |------------------------------------------|--------------------|----------|
