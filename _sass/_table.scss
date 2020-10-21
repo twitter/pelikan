@@ -1,0 +1,23 @@
+table {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+table,
+td,
+th {
+    border-collapse: collapse;
+}
+
+th,
+td {
+    padding: 3px 10px 3px;
+    border: 1px solid #e1e8ed;
+    text-align: center;
+}
+
+thead,
+tfoot {
+    background-color: #1da1f2;
+    color: #f5f8fa;
+}

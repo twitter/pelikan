@@ -1,3 +1,5 @@
 _bin
 _build
 _site
+
+.DS_Store

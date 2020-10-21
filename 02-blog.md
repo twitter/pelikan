@@ -21,7 +21,6 @@ permalink: /blog/
         <hr>
 
     {% endfor %}
-  </div>
 
   <div class="page-info" align="right">
     <p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>

@@ -1,0 +1,37 @@
+img.single {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 85%;
+}
+
+img.w60 {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 60%;
+}
+
+img.left {
+    float:left;
+    width: 48%;
+}
+img.right {
+    float:right;
+    width: 48%;
+}
+
+figure {
+    display: table;
+    flex-flow: column;
+    padding: 15px 0px 30px;
+    margin: auto;
+}
+
+figcaption {
+    display: table-caption;
+    caption-side: top;
+    font-style: normal;
+    font-size-adjust: 0.7;
+    text-align: center;
+}

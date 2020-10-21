@@ -16,6 +16,7 @@ githuburl: "https://github.com/twitter/pelikan"
 discussurl: "https://pelikan.zulipchat.com"
 twitter_username: pelikan_cache
 github_username: twitter
+favicon: "/asset/img/round_icon.jpg"
 
 # Build settings
 markdown: kramdown
