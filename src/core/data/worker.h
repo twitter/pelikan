@@ -4,13 +4,16 @@
 #include <cc_metric.h>
 #include <cc_option.h>
 
-#define WORKER_TIMEOUT   100     /* in ms */
-#define WORKER_NEVENT    1024
 
-/*          name            type                default         description */
-#define WORKER_OPTION(ACTION)                                                                   \
-    ACTION( worker_timeout, OPTION_TYPE_UINT,   WORKER_TIMEOUT, "evwait timeout"               )\
-    ACTION( worker_nevent,  OPTION_TYPE_UINT,   WORKER_NEVENT,  "evwait max nevent returned"   )
+#define WORKER_TIMEOUT        100     /* in ms */
+#define WORKER_NEVENT         1024
+#define WORKER_BINDING_CORE   0xffffffff
+
+/*          name                  type                default               description */
+#define WORKER_OPTION(ACTION)                                                                                      \
+    ACTION( worker_timeout,       OPTION_TYPE_UINT,   WORKER_TIMEOUT,       "evwait timeout"                      )\
+    ACTION( worker_nevent,        OPTION_TYPE_UINT,   WORKER_NEVENT,        "evwait max nevent returned"          )\
+    ACTION( worker_binding_core,  OPTION_TYPE_UINT,   WORKER_BINDING_CORE,  "which core pin the worker thread to" )
 
 typedef struct {
     WORKER_OPTION(OPTION_DECLARE)

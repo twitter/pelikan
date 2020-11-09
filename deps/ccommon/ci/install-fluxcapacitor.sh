@@ -6,11 +6,11 @@ IFS=$'\n\t'
 die() { echo "fatal: $*" >&2; exit 1; }
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 check-install-path"
+  echo "Usage: $0 fluxcap-install-path"
   exit 1
 fi
 
-CHECK_PREFIX="$1"
+FLUXCAP_PREFIX="$1"
 shift
 
 TEMP="$(mktemp -d -t TEMP.XXXXXXX)" || die "failed to make tmpdir"
@@ -22,34 +22,33 @@ realpath() { python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$
 TOPLEVEL="$(cd "$(dirname "$(realpath "$0" >/dev/null || exit 1)")" && git rev-parse --show-toplevel)" || die 'failed to find TOPLEVEL'
 
 
-CHECK_VERSION="0.14.0"
-CHECK_TARBALL="check-${CHECK_VERSION}.tar.gz"
-CHECK_DIR="check-${CHECK_VERSION}"
-CHECK_LOG="build-check.log"
+FLUXCAP_VERSION=0.1
+FLUXCAP_TARBALL="${FLUXCAP_VERSION}.tar.gz"
+FLUXCAP_DIR="fluxcapacitor-${FLUXCAP_VERSION}"
+FLUXCAP_LOG="build-fluxcapacitor.log"
 
-echo "building and installing check" >&2
+echo "building fluxcapacitor" >&2
 
 (
   cd "$TEMP" &&
-    wget "https://github.com/libcheck/check/releases/download/${CHECK_VERSION}/${CHECK_TARBALL}" &&
-    tar xfz "${CHECK_TARBALL}" &&
-    cd "${CHECK_DIR}" &&
-    mkdir build &&
-    cd build &&
-    cmake -DCMAKE_INSTALL_PREFIX="${CHECK_PREFIX}" .. &&
-    make -j &&
-    make install
-) >$TEMP/${CHECK_LOG} 2>&1
+    wget "https://github.com/thinkingfish/fluxcapacitor/archive/${FLUXCAP_TARBALL}" &&
+    tar xfz "${FLUXCAP_TARBALL}" &&
+    pwd &&
+    ls . &&
+    cd "${FLUXCAP_DIR}" &&
+    make build
+) >$TEMP/${FLUXCAP_LOG} 2>&1
 
 RESULT=$?
 if [[ $RESULT -ne 0 ]]; then
   cat >&2 <<EOS
-check build failed! log below:
+fluxcapacitor build failed! log below:
 
 EOS
 
-  cat $TEMP/${CHECK_LOG}
+  cat $TEMP/${FLUXCAP_LOG}
 else
+  rsync -a "$TEMP/${FLUXCAP_DIR}/fluxcapacitor" ${FLUXCAP_PREFIX}/
   echo "Success!" >&2
 fi
 
