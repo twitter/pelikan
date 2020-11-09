@@ -8,9 +8,15 @@ execute_process(
     ERROR_VARIABLE CARGO_CONFIG_OUT)
 
 if(HAVE_RUST)
-	add_subdirectory(ccommon-backend)
-	add_subdirectory(ccommon-derive)
+    add_subdirectory(ccommon-array)
+    add_subdirectory(ccommon-backend)
+    add_subdirectory(ccommon-buffer)
+    add_subdirectory(ccommon-channel)
+    add_subdirectory(ccommon-derive)
+    add_subdirectory(ccommon-log)
     add_subdirectory(ccommon-rs)
+    add_subdirectory(ccommon-stats)
+    add_subdirectory(ccommon-stream)
     add_subdirectory(ccommon-sys)
     
 endif()

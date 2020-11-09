@@ -43,18 +43,12 @@ typedef int (*array_compare_fn)(const void *, const void *);
 typedef rstatus_i (*array_each_fn)(void *, void *);
 
 struct array {
-    uint32_t nalloc;    /* # allocated element */
     size_t   size;      /* element size */
+    uint32_t nalloc;    /* # allocated element */
     uint32_t nelem;     /* # element */
     uint8_t  *data;     /* elements */
 };
 
-
-static inline uint32_t
-array_nalloc(const struct array *arr)
-{
-    return arr->nalloc;
-}
 
 static inline size_t
 array_size(const struct array *arr)
@@ -63,17 +57,29 @@ array_size(const struct array *arr)
 }
 
 static inline uint32_t
+array_nalloc(const struct array *arr)
+{
+    return arr->nalloc;
+}
+
+static inline uint32_t
 array_nelem(const struct array *arr)
 {
     return arr->nelem;
+}
+
+static inline size_t
+array_nfree(const struct array *arr)
+{
+    return arr->nalloc - arr->nelem;
 }
 
 /* resets all fields in array to zero w/o freeing up any memory */
 static inline void
 array_reset(struct array *arr)
 {
-    arr->nalloc = 0;
     arr->size = 0;
+    arr->nalloc = 0;
     arr->nelem = 0;
     arr->data = NULL;
 }
@@ -82,8 +88,8 @@ array_reset(struct array *arr)
 static inline void
 array_data_assign(struct array *arr, uint32_t nalloc, size_t size, void *data)
 {
-    arr->nalloc = nalloc;
     arr->size = size;
+    arr->nalloc = nalloc;
     arr->nelem = 0;
     arr->data = data;
 }

@@ -29,8 +29,6 @@ CHECK_LOG="build-check.log"
 
 echo "building and installing check" >&2
 
-echo "building and installing check" >&2
-
 (
   cd "$TEMP" &&
     wget "https://github.com/libcheck/check/releases/download/${CHECK_VERSION}/${CHECK_TARBALL}" &&
