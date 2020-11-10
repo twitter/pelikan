@@ -1,5 +1,5 @@
 [package]
-name = "pingserver-rs"
+name = "pelikan_pingserver_rs"
 version = "0.0.1"
 authors = ["Brian Martin <bmartin@twitter.com>"]
 edition = "2018"
