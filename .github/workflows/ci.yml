@@ -6,14 +6,14 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  MAKEFLAGS: -j 2
 
 jobs:
   linux:
-    name: gcc-7 on Linux
+    name: bionic / gcc-7
     runs-on: ubuntu-18.04
     env:
-      - CC: gcc
-      - MAKEFLAGS: -j 2
+      CC: gcc
     steps:
     - uses: actions/checkout@v2
     - name: Prepare
@@ -21,12 +21,11 @@ jobs:
     - name: Run
       run: bash ci/run.sh
   linux_rust_enabled:
-    name: gcc-7 on Linux, Rust enabled
+    name: bionic / gcc-7 / rust enabled
     runs-on: ubuntu-18.04
     env:
-      - CC: gcc
-      - MAKEFLAGS: -j 2
-      - RUST_ENABLED: 1
+      CC: gcc
+      RUST_ENABLED: 1
     steps:
     - uses: actions/checkout@v2
     - name: Prepare
@@ -34,12 +33,11 @@ jobs:
     - name: Run
       run: bash ci/run.sh
   linux_cargo_build:
-    name: cargo build
+    name: bionic / gcc-7 / cargo build
     runs-on: ubuntu-18.04
     env:
-      - CC: gcc
-      - MAKEFLAGS: -j 2
-      - RUST_ENABLED: 1
+      CC: gcc
+      RUST_ENABLED: 1
     steps:
     - uses: actions/checkout@v2
     - name: Prepare
@@ -47,24 +45,33 @@ jobs:
     - name: Run
       run: bash ci/cargo.sh
   macos:
-    name: macos
+    name: macos / clang
     runs-on: macos-10.15
     env:
-      - CC: clang
-      - MAKEFLAGS: -j 2
-      - RUST_ENABLED: 1
+      CC: clang
     steps:
     - uses: actions/checkout@v2
     - name: Run
-      run: bash build/ci.sh
+      continue-on-error: true
+      run: bash ci/run.sh
+  macos_rust_enabled:
+    name: macos / clang / rust enabled
+    runs-on: macos-10.15
+    env:
+      CC: clang
+      RUST_ENABLED: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run
+      continue-on-error: true
+      run: bash ci/run.sh
   macos_cargo_build:
-    name: macos cargo build
+    name: macos / clang / cargo build
     runs-on: macos-10.15
     env:
-      - CC: clang
-      - MAKEFLAGS: -j 2
-      - RUST_ENABLED: 1
+      CC: clang
+      RUST_ENABLED: 1
     steps:
     - uses: actions/checkout@v2
     - name: Run
-      run: bash build/ci.sh
+      run: bash ci/cargo.sh
