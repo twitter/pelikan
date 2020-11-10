@@ -1,0 +1,77 @@
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+  MAKEFLAGS: -j 2
+
+jobs:
+  linux:
+    name: bionic / gcc-7
+    runs-on: ubuntu-18.04
+    env:
+      CC: gcc
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prepare
+      run: bash ci/before-install.sh
+    - name: Run
+      run: bash ci/run.sh
+  linux_rust_enabled:
+    name: bionic / gcc-7 / rust enabled
+    runs-on: ubuntu-18.04
+    env:
+      CC: gcc
+      RUST_ENABLED: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prepare
+      run: bash ci/before-install.sh
+    - name: Run
+      run: bash ci/run.sh
+  linux_cargo_build:
+    name: bionic / gcc-7 / cargo build
+    runs-on: ubuntu-18.04
+    env:
+      CC: gcc
+      RUST_ENABLED: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prepare
+      run: bash ci/before-install.sh
+    - name: Run
+      run: bash ci/cargo.sh
+  macos:
+    name: macos / clang
+    runs-on: macos-10.15
+    env:
+      CC: clang
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run
+      continue-on-error: true
+      run: bash ci/run.sh
+  macos_rust_enabled:
+    name: macos / clang / rust enabled
+    runs-on: macos-10.15
+    env:
+      CC: clang
+      RUST_ENABLED: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run
+      continue-on-error: true
+      run: bash ci/run.sh
+  macos_cargo_build:
+    name: macos / clang / cargo build
+    runs-on: macos-10.15
+    env:
+      CC: clang
+      RUST_ENABLED: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run
+      run: bash ci/cargo.sh
