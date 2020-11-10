@@ -1,0 +1,70 @@
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux:
+    name: gcc-7 on Linux
+    runs-on: ubuntu-18.04
+    env:
+      - CC: gcc
+      - MAKEFLAGS: -j 2
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prepare
+      run: bash ci/before-install.sh
+    - name: Run
+      run: bash ci/run.sh
+  linux_rust_enabled:
+    name: gcc-7 on Linux, Rust enabled
+    runs-on: ubuntu-18.04
+    env:
+      - CC: gcc
+      - MAKEFLAGS: -j 2
+      - RUST_ENABLED: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prepare
+      run: bash ci/before-install.sh
+    - name: Run
+      run: bash ci/run.sh
+  linux_cargo_build:
+    name: cargo build
+    runs-on: ubuntu-18.04
+    env:
+      - CC: gcc
+      - MAKEFLAGS: -j 2
+      - RUST_ENABLED: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prepare
+      run: bash ci/before-install.sh
+    - name: Run
+      run: bash ci/cargo.sh
+  macos:
+    name: macos
+    runs-on: macos-10.15
+    env:
+      - CC: clang
+      - MAKEFLAGS: -j 2
+      - RUST_ENABLED: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run
+      run: bash build/ci.sh
+  macos_cargo_build:
+    name: macos cargo build
+    runs-on: macos-10.15
+    env:
+      - CC: clang
+      - MAKEFLAGS: -j 2
+      - RUST_ENABLED: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run
+      run: bash build/ci.sh
