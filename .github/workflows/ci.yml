@@ -12,8 +12,8 @@ jobs:
     name: gcc-7 on Linux
     runs-on: ubuntu-18.04
     env:
-      - CC: gcc
-      - MAKEFLAGS: -j 2
+      CC: gcc
+      MAKEFLAGS: -j 2
     steps:
     - uses: actions/checkout@v2
     - name: Prepare
@@ -24,9 +24,9 @@ jobs:
     name: gcc-7 on Linux, Rust enabled
     runs-on: ubuntu-18.04
     env:
-      - CC: gcc
-      - MAKEFLAGS: -j 2
-      - RUST_ENABLED: 1
+      CC: gcc
+      MAKEFLAGS: -j 2
+      RUST_ENABLED: 1
     steps:
     - uses: actions/checkout@v2
     - name: Prepare
@@ -37,9 +37,9 @@ jobs:
     name: cargo build
     runs-on: ubuntu-18.04
     env:
-      - CC: gcc
-      - MAKEFLAGS: -j 2
-      - RUST_ENABLED: 1
+      CC: gcc
+      MAKEFLAGS: -j 2
+      RUST_ENABLED: 1
     steps:
     - uses: actions/checkout@v2
     - name: Prepare
@@ -50,9 +50,9 @@ jobs:
     name: macos
     runs-on: macos-10.15
     env:
-      - CC: clang
-      - MAKEFLAGS: -j 2
-      - RUST_ENABLED: 1
+      CC: clang
+      MAKEFLAGS: -j 2
+      RUST_ENABLED: 1
     steps:
     - uses: actions/checkout@v2
     - name: Run
@@ -61,9 +61,9 @@ jobs:
     name: macos cargo build
     runs-on: macos-10.15
     env:
-      - CC: clang
-      - MAKEFLAGS: -j 2
-      - RUST_ENABLED: 1
+      CC: clang
+      MAKEFLAGS: -j 2
+      RUST_ENABLED: 1
     steps:
     - uses: actions/checkout@v2
     - name: Run
