@@ -56,7 +56,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Run
-      run: bash build/ci.sh
+      run: bash ci/run.sh
   macos_cargo_build:
     name: macos cargo build
     runs-on: macos-10.15
@@ -67,4 +67,4 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Run
-      run: bash build/ci.sh
+      run: bash ci/cargo.sh
