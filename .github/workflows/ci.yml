@@ -52,6 +52,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Run
+      continue-on-error: true
       run: bash ci/run.sh
   macos_rust_enabled:
     name: macos / clang / rust enabled
@@ -62,6 +63,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Run
+      continue-on-error: true
       run: bash ci/run.sh
   macos_cargo_build:
     name: macos / clang / cargo build
