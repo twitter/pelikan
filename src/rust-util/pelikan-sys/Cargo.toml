@@ -44,6 +44,6 @@ package = "ccommon-rs"
 
 [build-dependencies]
 bindgen = "0.53.2"
-cmake = "*"
+cmake = "0.1.44"
 lazy_static = "1.4.0"
 glob = "0.3.0"
