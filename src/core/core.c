@@ -12,7 +12,7 @@
 void
 core_run(void *arg_worker)
 {
-    pthread_t worker, server;
+    pthread_t worker, server, debug;
     int ret;
 
     if (!admin_init || !server_init || !worker_init) {
@@ -24,12 +24,27 @@ core_run(void *arg_worker)
     if (ret != 0) {
         log_crit("pthread create failed for worker thread: %s", strerror(ret));
         goto error;
+    } else {
+        log_info("worker thread of ID %d has been created", worker);
     }
+
 
     ret = pthread_create(&server, NULL, core_server_evloop, NULL);
     if (ret != 0) {
         log_crit("pthread create failed for server thread: %s", strerror(ret));
         goto error;
+    } else {
+        log_info("server thread of ID %d has been created", server);
+    }
+
+    if (debug_init) {
+        ret = pthread_create(&debug, NULL, core_debug_evloop, NULL);
+        if (ret != 0) {
+            log_crit("pthread create failed for debug thread: %s", strerror(ret));
+            goto error;
+        } else {
+            log_info("debug thread of ID %d has been created", debug);
+        }
     }
 
     core_admin_evloop();

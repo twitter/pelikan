@@ -26,10 +26,16 @@ _get_req_type(struct request *req, struct bstring *type)
 {
     ASSERT(req->type == REQ_UNKNOWN);
 
+    /* use loop + bcmp() to simplify this function, perf doesn't matter */
     switch (type->len) {
     case 4:
         if (str4cmp(type->data, 'q', 'u', 'i', 't')) {
             req->type = REQ_QUIT;
+            break;
+        }
+
+        if (str4cmp(type->data, 'd', 'u', 'm', 'p')) {
+            req->type = REQ_DUMP;
             break;
         }
 
@@ -38,6 +44,14 @@ _get_req_type(struct request *req, struct bstring *type)
     case 5:
         if (str5cmp(type->data, 's', 't', 'a', 't', 's')) {
             req->type = REQ_STATS;
+            break;
+        }
+
+        break;
+
+    case 6:
+        if (str6cmp(type->data, 'c', 'e', 'n', 's', 'u', 's')) {
+            req->type = REQ_CENSUS;
             break;
         }
 
@@ -60,8 +74,8 @@ _get_req_type(struct request *req, struct bstring *type)
     return PARSE_OK;
 }
 
-parse_rstatus_e
-admin_parse_req(struct request *req, struct buf *buf)
+static parse_rstatus_e
+_parse_req(struct request *req, struct buf *buf)
 {
     char *p, *q;
     struct bstring type;
@@ -91,4 +105,25 @@ admin_parse_req(struct request *req, struct buf *buf)
     req->state = REQ_PARSED;
     buf->rpos = p + CRLF_LEN;
     return _get_req_type(req, &type);
+}
+
+parse_rstatus_e
+admin_parse_req(struct request *req, struct buf *buf)
+{
+    parse_rstatus_e status;
+
+    status = _parse_req(req, buf);
+
+    if (status == PARSE_OK &&
+            (req->type == REQ_CENSUS || req->type == REQ_DUMP)) {
+        return PARSE_EINVALID;
+    } else {
+        return status;
+    }
+}
+
+parse_rstatus_e
+debug_parse_req(struct request *req, struct buf *buf)
+{
+    return _parse_req(req, buf);
 }

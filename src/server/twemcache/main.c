@@ -52,6 +52,7 @@ teardown(void)
 {
     core_worker_teardown();
     core_server_teardown();
+    core_debug_teardown();
     core_admin_teardown();
     admin_process_teardown();
     process_teardown();
@@ -127,6 +128,7 @@ setup(void)
     process_setup(&setting.process, &stats.process);
     admin_process_setup();
     core_admin_setup(&setting.admin);
+    core_debug_setup(&setting.core_debug);
     core_server_setup(&setting.server, &stats.server);
     core_worker_setup(&setting.worker, &stats.worker);
 

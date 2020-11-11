@@ -21,11 +21,19 @@
  * whole blob.
  */
 
-#define REQ_TYPE_MSG(ACTION)                \
+#define ADMIN_TYPE_MSG(ACTION)              \
     ACTION( REQ_UNKNOWN,       ""          )\
     ACTION( REQ_STATS,         "stats"     )\
     ACTION( REQ_VERSION,       "version"   )\
     ACTION( REQ_QUIT,          "quit"      )
+
+#define DEBUG_TYPE_MSG(ACTION)              \
+    ACTION( REQ_CENSUS,        "census"    )\
+    ACTION( REQ_DUMP,          "dump"      )\
+
+#define REQ_TYPE_MSG(ACTION)                \
+    ADMIN_TYPE_MSG(ACTION)                  \
+    DEBUG_TYPE_MSG(ACTION)
 
 #define GET_TYPE(_name, _str) _name,
 typedef enum request_type {
@@ -41,8 +49,8 @@ typedef enum request_state {
 } request_state_t;
 
 struct request {
-    request_state_t      state; /* request state */
-    request_type_t       type;
+    request_state_t state; /* request state */
+    request_type_t  type;
     struct bstring  arg;
 };
 

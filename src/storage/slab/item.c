@@ -1,7 +1,9 @@
 #include "slab.h"
 
 #include <cc_debug.h>
+#include <cc_log.h>
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -390,4 +392,97 @@ item_flush(void)
     time_update();
     flush_at = time_proc_sec();
     log_info("all keys flushed at %"PRIu32, flush_at);
+}
+
+/* this dumps all keys (matching a prefix if given) regardless of expiry status */
+void
+item_census(size_t *nkey, size_t *ktotal, size_t *kmin, size_t *kmax,
+        size_t *vtotal, size_t *vmin, size_t *vmax, struct bstring *prefix)
+{
+    uint32_t nbucket = HASHSIZE(hash_table->hash_power);
+    size_t klen, vlen;
+
+    log_info("start scanning all %"PRIu32" keys", hash_table->nhash_item);
+
+    *nkey = 0;
+    *ktotal = 0;
+    *vtotal = 0;
+    *kmin = SIZE_MAX;
+    *kmax = 0;
+    *vmin = SIZE_MAX;
+    *vmax = 0;
+    for (uint32_t i = 0; i < nbucket; i++) {
+        struct item_slh *entry = &hash_table->table[i];
+        struct item *it;
+
+        SLIST_FOREACH(it, entry, i_sle) {
+            klen = it->klen;
+            vlen = it->vlen;
+            if (klen >= prefix->len &&
+                    cc_bcmp(prefix->data, item_key(it), prefix->len) == 0) {
+                *nkey += 1;
+                *ktotal += klen;
+                *vtotal += vlen;
+                *kmin = MIN(*kmin, klen);
+                *kmax = MAX(*kmax, klen);
+                *vmin = MIN(*vmin, vlen);
+                *vmax = MAX(*vmax, vlen);
+            }
+        }
+
+        if (i % 1000000 == 0) {
+            log_info("... %"PRIu32" out of %"PRIu32" buckets scanned ...", i,
+                    nbucket);
+        }
+    }
+
+    if (*nkey == 0) { /* report 0 on all fields if no match has been found */
+        *kmin = *vmin = 0;
+    }
+
+    log_info("finish scanning all keys");
+}
+
+bool
+item_dump(struct bstring *prefix)
+{
+    int fd;
+    uint32_t nbucket = HASHSIZE(hash_table->hash_power);
+
+    log_info("start scanning all %"PRIu32" keys", hash_table->nhash_item);
+
+    fd = open("key.dump", O_WRONLY | O_TRUNC | O_CREAT, 0644);
+    if (fd < 0) {
+        log_stderr("Could not create key dump - cannot open file");
+        return false;
+    }
+
+    for (uint32_t i = 0; i < nbucket; i++) {
+        struct item_slh *entry = &hash_table->table[i];
+        struct item *it;
+
+        SLIST_FOREACH(it, entry, i_sle) {
+            if (it->klen >= prefix->len &&
+                    cc_bcmp(prefix->data, item_key(it), prefix->len) == 0) {
+                if (write(fd, item_key(it), it->klen) < it->klen) {
+                    log_error("write error, aborting at hash bucket %"PRIu32, i);
+                    return false;
+                }
+                if  (write(fd, CRLF, CRLF_LEN) < CRLF_LEN) {
+                    log_error("write error, aborting at hash bucket %"PRIu32, i);
+                    return false;
+                }
+            }
+        }
+
+        if (i % 1000000 == 0) {
+            log_info("... %"PRIu32" out of %"PRIu32" buckets scanned ...", i,
+                    nbucket);
+        }
+    }
+    close(fd);
+
+    log_info("finish scanning all keys");
+
+    return true;
 }
