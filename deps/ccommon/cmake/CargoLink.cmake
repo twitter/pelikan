@@ -1,64 +1,105 @@
+# ccommon - a cache common library.
+# Copyright (C) 2019 Twitter, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-function(cargo_print)
-	execute_process(COMMAND ${CMAKE_COMMAND} -E echo "${ARGN}")
-endfunction()
+# Ensure that empty elements in lists aren't deleted
+cmake_policy(SET CMP0007 NEW)
 
-function(cargo_link)
-	cmake_parse_arguments(CARGO_LINK "" "NAME" "TARGETS;EXCLUDE" ${ARGN})
+# Ignore the first 3 arguments since they will always be cmake -P <some path>/LinkRust.cmake
+set(ARGI 3)
+# This flips once we see -- in the arguments
+set(PARSING_ENV_VARS OFF)
+# Arguments to be passed directly to the build command
+set(PASSTHROUGH_VARS )
 
-	file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/cargo-link.c" "void cargo_link() {}")
-	add_library(${CARGO_LINK_NAME} "${CMAKE_CURRENT_BINARY_DIR}/cargo-link.c")
-	target_link_libraries(${CARGO_LINK_NAME} ${CARGO_LINK_TARGETS})
+# Split up the command-line arguments to this script
+# into two groups
+#
+# Arguments before '--' are cmake variables that we set
+# in this script. These are parameters which control the
+# behaviour here.
+#
+# Arguments after '--' are environment variables to pass
+# through to the cargo invocation, they are used by build
+# scripts and to control cargo behaviour.
+while(ARGI LESS ${CMAKE_ARGC})
+    set(CURRENT_ARG ${CMAKE_ARGV${ARGI}})
 
-	get_target_property(LINK_LIBRARIES ${CARGO_LINK_NAME} LINK_LIBRARIES)
+    if(NOT PARSING_ENV_VARS)
+        if(CURRENT_ARG STREQUAL "--")
+            set(PARSING_ENV_VARS ON)
+        else()
+            string(REPLACE "=" ";" ARGLIST "${CURRENT_ARG}")
 
-	foreach(LINK_LIBRARY ${LINK_LIBRARIES})
-		get_target_property(_INTERFACE_LINK_LIBRARIES ${LINK_LIBRARY} INTERFACE_LINK_LIBRARIES)
-		list(APPEND LINK_LIBRARIES ${_INTERFACE_LINK_LIBRARIES})
-	endforeach()
-	list(REMOVE_DUPLICATES LINK_LIBRARIES)
+            list(GET ARGLIST 0 VAR)
+            list(REMOVE_AT ARGLIST 0)
+            string(REPLACE ";" "=" VALUE "${ARGLIST}")
 
-	if(CARGO_LINK_EXCLUDE)
-		list(REMOVE_ITEM LINK_LIBRARIES ${CARGO_LINK_EXCLUDE})
-	endif()
+            set(${VAR} "${VALUE}")
+        endif()
+    else()
+        list(APPEND PASSTHROUGH_VARS "${CURRENT_ARG}")
+    endif()
 
-	set(LINK_DIRECTORIES "")
-	foreach(LINK_LIBRARY ${LINK_LIBRARIES})
-		if(TARGET ${LINK_LIBRARY})
-			get_target_property(_IMPORTED_CONFIGURATIONS ${LINK_LIBRARY} IMPORTED_CONFIGURATIONS)
-			list(FIND _IMPORTED_CONFIGURATIONS "RELEASE" _IMPORTED_CONFIGURATION_INDEX)
-			if (NOT (${_IMPORTED_CONFIGURATION_INDEX} GREATER -1))
-				set(_IMPORTED_CONFIGURATION_INDEX 0)
-			endif()
-			list(GET _IMPORTED_CONFIGURATIONS ${_IMPORTED_CONFIGURATION_INDEX} _IMPORTED_CONFIGURATION)
-			get_target_property(_IMPORTED_LOCATION ${LINK_LIBRARY} "IMPORTED_LOCATION_${_IMPORTED_CONFIGURATION}")
-			get_filename_component(_IMPORTED_DIR ${_IMPORTED_LOCATION} DIRECTORY)
-			get_filename_component(_IMPORTED_NAME ${_IMPORTED_LOCATION} NAME_WE)
-			if(NOT WIN32)
-				string(REGEX REPLACE "^lib" "" _IMPORTED_NAME ${_IMPORTED_NAME})
-			endif()
-			list(APPEND LINK_DIRECTORIES ${_IMPORTED_DIR})
-			cargo_print("cargo:rustc-link-lib=static=${_IMPORTED_NAME}")
-		else()
-			if("${LINK_LIBRARY}" MATCHES "^.*/(.+)\\.framework$")
-				set(FRAMEWORK_NAME ${CMAKE_MATCH_1})
-				cargo_print("cargo:rustc-link-lib=framework=${FRAMEWORK_NAME}")
-			elseif("${LINK_LIBRARY}" MATCHES "^(.*)/(.+)\\.so$")
-				set(LIBRARY_DIR ${CMAKE_MATCH_1})
-				set(LIBRARY_NAME ${CMAKE_MATCH_2})
-				if(NOT WIN32)
-					string(REGEX REPLACE "^lib" "" LIBRARY_NAME ${LIBRARY_NAME})
-				endif()
-				list(APPEND LINK_DIRECTORIES ${LIBRARY_DIR})
-				cargo_print("cargo:rustc-link-lib=${LIBRARY_NAME}")
-			else()
-				cargo_print("cargo:rustc-link-lib=${LINK_LIBRARY}")
-			endif()
-		endif()
-	endforeach()
-	list(REMOVE_DUPLICATES LINK_DIRECTORIES)
+    math(EXPR ARGI "${ARGI} + 1")
+endwhile()
 
-	foreach(LINK_DIRECTORY ${LINK_DIRECTORIES})
-		cargo_print("cargo:rustc-link-search=native=${LINK_DIRECTORY}")
-	endforeach()
-endfunction()
+file(
+    WRITE
+    "${LINK_FLAGS_FILE}"
+    ${LINK_FLAGS} ${LINK_LIBRARIES}
+)
+
+# This converts a space-delimited string to a cmake list
+string(REPLACE " " ";" LINK_FLAGS_LIST "${LINK_LIBRARIES}" "${LINK_FLAGS}")
+set(LINK_FLAGS )
+
+# To pass linker args through cargo we need to use
+# the -Clink-arg=<flag> syntax.
+foreach(FLAG ${LINK_FLAGS_LIST})
+    if(EXISTS "${FLAG}")
+        get_filename_component(FLAG "${FLAG}" ABSOLUTE)
+    endif()
+
+    list(APPEND LINK_FLAGS "-Clink-arg=${FLAG}")
+endforeach()
+
+string(REPLACE ";" " " LINK_FLAGS "${LINK_FLAGS}")
+string(REPLACE " " ";" FLAGS "${FLAGS}")
+
+# TODO(sean): We don't always want to colour the output. Is
+#             there a way to autodetect this properly?
+set(CARGO_COMMAND cargo build --color always ${FLAGS})
+
+execute_process(
+    COMMAND ${CMAKE_COMMAND} -E env ${PASSTHROUGH_VARS} "RUSTFLAGS=${LINK_FLAGS}" ${CARGO_COMMAND}
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    RESULT_VARIABLE STATUS
+)
+
+# Ensure that our script exits with the correct error code.
+# The only way to get a cmake script to exit with an error
+# code is to print a message so that's what we do here.
+if(NOT STATUS EQUAL 0)
+    message(FATAL_ERROR "Cargo build failed")
+endif()
+
+# Get the directory above TARGET since file(COPY ...)
+# uses a directory as the destination
+get_filename_component(
+    TARGET "${TARGET}/.."
+    ABSOLUTE
+)
+
+file(COPY "${OUTPUT}" DESTINATION "${TARGET}")

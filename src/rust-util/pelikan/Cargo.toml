@@ -1,0 +1,28 @@
+[package]
+name = "pelikan"
+version = "0.1.0"
+authors = ["Sean Lynch <slynch@twitter.com>"]
+edition = "2018"
+
+[features]
+protocol_admin = [ "pelikan-sys/protocol_admin" ]
+protocol_ping  = [ "pelikan-sys/protocol_ping" ]
+protocol_memcache = [ "pelikan-sys/protocol_memcache" ]
+
+slab = [ "pelikan-sys/slab" ]
+hotkey = [ "pelikan-sys/hotkey" ]
+
+default = [ ]
+
+[dependencies]
+pelikan-sys = { path = "../pelikan-sys" }
+libc = "0.2.0"
+log = "0.4.0"
+
+[dependencies.ccommon-sys]
+path = "../../../deps/ccommon/rust/ccommon-sys"
+package = "ccommon-sys"
+
+[dependencies.ccommon]
+path = "../../../deps/ccommon/rust/ccommon-rs"
+package = "ccommon-rs"

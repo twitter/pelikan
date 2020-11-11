@@ -20,6 +20,8 @@
 #include <cc_debug.h>
 #include <cc_mm.h>
 
+#include <ctype.h>
+
 /*
  * Byte string (struct bstring) is a sequence of unsigned char
  * The length of the string is pre-computed and explicitly available.
@@ -114,6 +116,46 @@ bstring_compare(const struct bstring *s1, const struct bstring *s2)
 }
 
 rstatus_i
+bstring_atoi64(int64_t *i64, struct bstring *str)
+{
+    uint32_t offset = 0;
+    uint8_t c;
+    int64_t sign = 1;
+
+    if (str->len == 0 || str->len >= CC_INT64_MAXLEN) {
+        return CC_ERROR;
+    }
+
+    if (*str->data == '-') {
+        offset = 1;
+        sign = -1;
+    }
+
+    for (*i64 = 0LL; offset < str->len; offset++) {
+        c = *(str->data + offset);
+        if (isdigit(c) == 0) {
+            return CC_ERROR;
+        }
+
+        // overflow check
+        if (offset == CC_INT64_MAXLEN - 2) {
+            if (sign < 0 && *i64 == INT64_MIN / 10 &&
+                    c - '0' > -(INT64_MIN % 10)) {
+                return CC_ERROR;
+            }
+            if (sign > 0 && *i64 == INT64_MAX / 10 &&
+                    c - '0' > INT64_MAX % 10) {
+                return CC_ERROR;
+            }
+        }
+
+        *i64 = *i64 * 10LL + sign * (int64_t)(c - '0');
+    }
+
+    return CC_OK;
+}
+
+rstatus_i
 bstring_atou64(uint64_t *u64, struct bstring *str)
 {
     uint32_t offset;
@@ -127,7 +169,7 @@ bstring_atou64(uint64_t *u64, struct bstring *str)
 
     for (offset = 0; offset < str->len; offset++) {
         c = *(str->data + offset);
-        if (c < '0' || c > '9') {
+        if (isdigit(c) == 0) {
             return CC_ERROR;
         }
 

@@ -46,5 +46,12 @@ cdb.rs
 compile_commands.json
 
 *.cmd
-core
+/core
 CMAKE_BINARY_DIR
+
+# CMake generates a .cargo/config which is specific to the local
+# setup. We don't want to include it within the repo
+.cargo
+
+# Cargo build directory
+/target

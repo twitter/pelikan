@@ -1,0 +1,9 @@
+[package]
+name = "check_twemcache_http"
+version = "0.1.0"
+authors = ["Sean Lynch <slynch@twitter.com>"]
+edition = "2018"
+
+[dependencies]
+httparse = "1.3"
+httpencode = { git="https://github.com/swlynch99/httpencode" }

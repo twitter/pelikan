@@ -2,7 +2,7 @@
 
 #include "hashtable.h"
 #include "item.h"
-
+#include <datapool/datapool.h>
 #include <cc_mm.h>
 #include <cc_util.h>
 
@@ -25,6 +25,13 @@ struct slab_heapinfo {
     struct slab_tqh slab_lruq;   /* lru slab q */
 };
 
+struct slab_pool_metadata {
+    void        *usr_pool_addr; /* previous pool address */
+    struct slab *slab_lruq_head;/* lru slab q head */
+};
+
+static struct datapool *pool_slab;              /* data pool mapping for the slabs */
+static int pool_slab_state;                     /* data pool state */
 perslab_metrics_st perslab[SLABCLASS_MAX_ID];
 uint8_t profile_last_id; /* last id in slab profile */
 size_t slab_profile[SLABCLASS_MAX_ID + 1];        /* slab profile */
@@ -41,6 +48,9 @@ static size_t item_min = ITEM_SIZE_MIN; /* min item size */
 static size_t item_max = ITEM_SIZE_MAX; /* max item size */
 static double item_growth = ITEM_FACTOR;/* item size growth factor */
 static uint32_t hash_power = HASH_POWER;/* power (of 2) entries for hashtable */
+static char *slab_datapool = SLAB_DATAPOOL;   /* slab datapool path */
+static bool prefault = SLAB_PREFAULT;         /* slab datapool prefault option */
+static char *slab_datapool_name = SLAB_DATAPOOL_NAME;   /* slab datapool name */
 
 bool use_cas = SLAB_USE_CAS;
 struct hash_table *hash_table = NULL;
@@ -50,6 +60,9 @@ delta_time_i max_ttl = ITEM_MAX_TTL;
 
 static bool slab_init = false;
 slab_metrics_st *slab_metrics = NULL;
+
+cc_declare_itt_function(,slab_malloc);
+cc_declare_itt_function(,slab_free);
 
 void
 slab_print(void)
@@ -126,6 +139,136 @@ slab_id(size_t size)
 }
 
 /*
+ * Put an item back into the slab by inserting into the item free Q.
+ */
+static void
+_slab_put_item_into_freeq(struct item *it, uint8_t id)
+{
+    struct slabclass *p = &slabclass[id];
+
+    ASSERT(id >= SLABCLASS_MIN_ID && id <= profile_last_id);
+    ASSERT(item_to_slab(it)->id == id);
+    ASSERT(!(it->is_linked));
+    ASSERT(it->offset != 0);
+
+    log_verb("put free q it %p at offset %"PRIu32" with id %"PRIu8, it,
+            it->offset, it->id);
+
+    it->in_freeq = 1;
+
+    p->nfree_itemq++;
+    SLIST_INSERT_HEAD(&p->free_itemq, it, i_sle);
+
+    PERSLAB_INCR(id, item_free);
+}
+
+/*
+ * Because a slab can have a reserved item (claimed but not linked), which is
+ * requested when a write command does not have the entirety of value in the
+ * buffer, eviction will fail if the slab has a non-zero refcount. True is
+ * returned if the slab got no reserved items, otherwise False.
+ */
+static inline bool
+_slab_check_no_refcount(struct slab *slab)
+{
+    return (slab->refcount == 0);
+}
+
+/*
+ * Recreate items
+ */
+static void
+_slab_recreate_items(struct slab *slab)
+{
+    struct slabclass *p;
+    struct item *it;
+    uint32_t i;
+
+    p = &slabclass[slab->id];
+    p->nfree_item = p->nitem;
+    for (i = 0; i < p->nitem; i++) {
+        it = _slab_to_item(slab, i, p->size);
+        if (it->is_linked) {
+            p->next_item_in_slab = (struct item *)&slab->data[0];
+            INCR(slab_metrics, item_curr);
+            INCR(slab_metrics, item_alloc);
+            PERSLAB_INCR(slab->id, item_curr);
+            item_relink(it);
+            if (--p->nfree_item != 0) {
+                p->next_item_in_slab = (struct item *)((char *)p->next_item_in_slab + p->size);
+            } else {
+                p->next_item_in_slab = NULL;
+            }
+        } else if (it->in_freeq) {
+            _slab_put_item_into_freeq(it, slab->id);
+        } else if (it->klen && !_slab_check_no_refcount(slab)) {
+           /* before reset, item could be only reserved
+            * ensure that slab has a reserved item(s)
+            */
+           item_release(&it);
+        }
+    }
+}
+
+static void
+_slab_table_update(struct slab *slab)
+{
+    ASSERT(heapinfo.nslab < heapinfo.max_nslab);
+
+    heapinfo.slab_table[heapinfo.nslab] = slab;
+    heapinfo.nslab++;
+
+    log_verb("new slab %p allocated at pos %u", slab,
+              heapinfo.nslab - 1);
+}
+
+/*
+ * Recreate lru slab q
+ * After restart mapping from datapool could be different
+ * and all addresses must be updated
+ */
+static void
+_slab_lruq_rebuild(const uint8_t *heap_start)
+{
+    struct slab_pool_metadata heap_metadata;
+
+    datapool_get_user_data(pool_slab, &heap_metadata, sizeof(struct slab_pool_metadata));
+
+    if (heap_metadata.slab_lruq_head) {
+        ptrdiff_t offset = heap_start - (uint8_t *)heap_metadata.usr_pool_addr;
+
+        struct slab *slab = (void *)((uint8_t *)heap_metadata.slab_lruq_head + offset);
+
+        TAILQ_REINIT(&heapinfo.slab_lruq, slab, s_tqe, offset);
+    }
+}
+
+/*
+ * Recreate slabs structure when persistent memory features are enabled (USE_PMEM)
+ */
+static void
+_slab_recovery(void)
+{
+    uint32_t i;
+    uint8_t *heap_start = heapinfo.curr;
+
+    _slab_lruq_rebuild(heap_start);
+    for (i = 0; i < heapinfo.max_nslab; i++) {
+        struct slab *slab = (struct slab *) heap_start;
+        if (slab->initialized) {
+            INCR(slab_metrics, slab_req);
+            _slab_table_update(slab);
+            INCR(slab_metrics, slab_curr);
+            PERSLAB_INCR(slab->id, slab_curr);
+            INCR_N(slab_metrics, slab_memory, slab_size);
+            _slab_recreate_items(slab);
+            heapinfo.curr += slab_size;
+        }
+        heap_start += slab_size;
+    }
+}
+
+/*
  * Initialize all slabclasses.
  *
  * Every slabclass is a collection of slabs of fixed size specified by
@@ -169,6 +312,10 @@ _slab_slabclass_setup(void)
         p->next_item_in_slab = NULL;
     }
 
+    if (pool_slab_state == 0) {
+        _slab_recovery();
+    }
+
     return CC_OK;
 }
 
@@ -193,7 +340,13 @@ _slab_heapinfo_setup(void)
 
     heapinfo.base = NULL;
     if (prealloc) {
-        heapinfo.base = cc_alloc(heapinfo.max_nslab * slab_size);
+        pool_slab = datapool_open(slab_datapool, slab_datapool_name,
+                 heapinfo.max_nslab * slab_size, &pool_slab_state, prefault);
+        if (pool_slab == NULL) {
+            log_crit("Could not create pool_slab");
+            exit(EX_CONFIG);
+        }
+        heapinfo.base = datapool_addr(pool_slab);
         if (heapinfo.base == NULL) {
             log_error("pre-alloc %zu bytes for %"PRIu32" slabs failed: %s",
                       heapinfo.max_nslab * slab_size, heapinfo.max_nslab,
@@ -203,6 +356,9 @@ _slab_heapinfo_setup(void)
 
         log_info("pre-allocated %zu bytes for %"PRIu32" slabs",
                   slab_mem, heapinfo.max_nslab);
+    } else if (slab_datapool) {
+        log_error("PMEM is supported only for prealloc option");
+        return CC_EINVAL;
     }
     heapinfo.curr = heapinfo.base;
 
@@ -223,6 +379,16 @@ _slab_heapinfo_setup(void)
 static void
 _slab_heapinfo_teardown(void)
 {
+    if (pool_slab) {
+        struct slab_pool_metadata pool_metadata =
+        {
+            datapool_addr(pool_slab),
+            TAILQ_FIRST(&heapinfo.slab_lruq)
+        };
+
+        datapool_set_user_data(pool_slab, &pool_metadata, sizeof(struct slab_pool_metadata));
+        datapool_close(pool_slab);
+    }
 }
 
 static rstatus_i
@@ -387,7 +553,7 @@ slab_teardown(void)
         log_warn("%s has never been set up", SLAB_MODULE_NAME);
     }
 
-    hashtable_destroy(hash_table);
+    hashtable_destroy(&hash_table);
     _slab_heapinfo_teardown();
     _slab_slabclass_teardown();
     slab_metrics = NULL;
@@ -425,6 +591,9 @@ slab_setup(slab_options_st *options, slab_metrics_st *metrics)
         max_ttl = option_uint(&options->slab_item_max_ttl);
         use_cas = option_bool(&options->slab_use_cas);
         hash_power = option_uint(&options->slab_hash_power);
+        slab_datapool = option_str(&options->slab_datapool);
+        slab_datapool_name = option_str(&options->slab_datapool_name);
+        prefault = option_bool(&options->slab_datapool_prefault);
     }
 
     hash_table = hashtable_create(hash_power);
@@ -448,6 +617,9 @@ slab_setup(slab_options_st *options, slab_metrics_st *metrics)
         goto error;
     }
 
+     cc_create_itt_malloc(slab_malloc);
+     cc_create_itt_free(slab_free);
+
     slab_init = true;
 
     return;
@@ -466,7 +638,8 @@ _slab_hdr_init(struct slab *slab, uint8_t id)
     slab->magic = SLAB_MAGIC;
 #endif
     slab->id = id;
-    slab->padding = 0;
+    slab->initialized = 1;
+    slab->unused = 0;
     slab->refcount = 0;
 }
 
@@ -489,18 +662,6 @@ _slab_heap_create(void)
     }
 
     return slab;
-}
-
-static void
-_slab_table_update(struct slab *slab)
-{
-    ASSERT(heapinfo.nslab < heapinfo.max_nslab);
-
-    heapinfo.slab_table[heapinfo.nslab] = slab;
-    heapinfo.nslab++;
-
-    log_verb("new slab %p allocated at pos %u", slab,
-              heapinfo.nslab - 1);
 }
 
 static struct slab *
@@ -555,19 +716,6 @@ _slab_get_new(void)
     INCR_N(slab_metrics, slab_memory, slab_size);
 
     return slab;
-}
-
-
-/*
- * Because a slab can have a reserved item (claimed but not linked), which is
- * requested when a write command does not have the entirety of value in the
- * buffer, eviction will fail if the slab has a non-zero refcount. True is
- * returned if the slab is successfully evicted, False if eviction is denied.
- */
-static inline bool
-_slab_evict_ok(struct slab *slab)
-{
-    return (slab->refcount == 0);
 }
 
 /*
@@ -633,7 +781,7 @@ _slab_evict_rand(void)
 
     do {
         slab = _slab_table_rand();
-    } while (slab != NULL && ++i < TRIES_MAX && !_slab_evict_ok(slab));
+    } while (slab != NULL && ++i < TRIES_MAX && !_slab_check_no_refcount(slab));
 
     if (slab == NULL) {
         /* warning here because eviction failure should be rare. This can
@@ -658,7 +806,7 @@ _slab_evict_lru(int id)
     struct slab *slab = _slab_lruq_head();
     int i = 0;
 
-    while (slab != NULL && ++i < TRIES_MAX && !_slab_evict_ok(slab)) {
+    while (slab != NULL && ++i < TRIES_MAX && !_slab_check_no_refcount(slab)) {
         slab = TAILQ_NEXT(slab, s_tqe);
     };
 
@@ -834,35 +982,11 @@ slab_get_item(uint8_t id)
 }
 
 /*
- * Put an item back into the slab by inserting into the item free Q.
- */
-static void
-_slab_put_item_into_freeq(struct item *it, uint8_t id)
-{
-    struct slabclass *p = &slabclass[id];
-
-    ASSERT(id >= SLABCLASS_MIN_ID && id <= profile_last_id);
-    ASSERT(item_to_slab(it)->id == id);
-    ASSERT(!(it->is_linked));
-    ASSERT(!(it->in_freeq));
-    ASSERT(it->offset != 0);
-
-    log_verb("put free q it %p at offset %"PRIu32" with id %"PRIu8, it,
-            it->offset, it->id);
-
-    it->in_freeq = 1;
-
-    p->nfree_itemq++;
-    SLIST_INSERT_HEAD(&p->free_itemq, it, i_sle);
-
-    PERSLAB_INCR(id, item_free);
-}
-
-/*
  * Put an item back into the slab
  */
 void
 slab_put_item(struct item *it, uint8_t id)
 {
+     ASSERT(!(it->in_freeq));
     _slab_put_item_into_freeq(it, id);
 }

@@ -558,7 +558,7 @@ END_TEST
  * test suite
  */
 static Suite *
-zipmap_suite(void)
+ziplist_suite(void)
 {
     Suite *s = suite_create(SUITE_NAME);
     int i;
@@ -608,7 +608,7 @@ main(void)
 {
     int nfail;
 
-    Suite *suite = zipmap_suite();
+    Suite *suite = ziplist_suite();
     SRunner *srunner = srunner_create(suite);
     srunner_set_log(srunner, DEBUG_LOG);
     srunner_run_all(srunner, CK_ENV); /* set CK_VEBOSITY in ENV to customize */

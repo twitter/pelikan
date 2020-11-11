@@ -1,19 +1,33 @@
-extern crate bindgen;
+// Copyright (C) 2018-2020 Twitter, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use std::env;
 use std::fs;
-use std::io;
-use std::io::prelude::*;
 use std::path::PathBuf;
+use std::env::VarError;
 
-fn get_cmake_binary_dir() -> io::Result<String> {
-    // this file is written by cmake on each run, updated with the location of
-    // the build directory.
-    let mut fp = fs::File::open("CMAKE_BINARY_DIR")?;
-    let mut buf = String::new();
-    let n = fp.read_to_string(&mut buf)?;
-    assert!(n > 0, "file was empty");
-    Ok(String::from(buf.trim_right()))
+fn get_cmake_binary_dir() -> Result<String,VarError> {
+    match env::var("CMAKE_BINARY_DIR") {
+        Ok(var) => Ok(var),
+        Err(e) => match e {
+            VarError::NotPresent => {
+                eprintln!("CMAKE_BINARY_DIR environment variable was not set!");
+                Err(e)
+            }
+            VarError::NotUnicode(_) => panic!("CMAKE_BINARY_DIR contained invalid unicode!"),
+        },
+    }
 }
 
 fn main() {
@@ -26,21 +40,27 @@ fn main() {
     eprintln!("ccommon_include: {}", ccommon_include.to_str().unwrap());
     eprintln!("include_path: {}", include_path.to_str().unwrap());
 
-    let cmake_binary_dir = match get_cmake_binary_dir() {
-        Ok(p) => p,
-        Err(err) => panic!("Failed locating the CMAKE_BINARY_DIR file: {:#?}", err),
+    let cbd = match get_cmake_binary_dir() {
+        Ok(dir) => PathBuf::from(dir),
+        Err(_) => {
+            // build is being driven by Cargo
+            cmake::Config::new("../../../../deps/ccommon").no_build_target(true).build()
+        }
     };
-
-    let cbd = PathBuf::from(cmake_binary_dir);
 
     let mut config_h_dir = cbd.clone();
     config_h_dir.push("ccommon");
 
     let bindings = bindgen::Builder::default()
         .clang_args(vec![
-            "-I", include_path.to_str().unwrap(),
-            "-I", config_h_dir.to_str().unwrap(),
-            "-I", ccommon_include.to_str().unwrap(),
+            "-I",
+            include_path.to_str().unwrap(),
+            "-I",
+            config_h_dir.to_str().unwrap(),
+            "-I",
+            ccommon_include.to_str().unwrap(),
+            "-I",
+            &format!("{}/build", env::var("OUT_DIR").unwrap()),
         ])
         .header("wrapper.h")
         .blacklist_type("max_align_t") // https://github.com/rust-lang-nursery/rust-bindgen/issues/550

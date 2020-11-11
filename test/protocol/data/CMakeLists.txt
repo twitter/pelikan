@@ -1,2 +1,2 @@
 add_subdirectory(memcache)
-add_subdirectory(redis)
+add_subdirectory(resp)

@@ -1,13 +1,21 @@
 if(TARGET_PINGSERVER)
     add_subdirectory(pingserver)
+
+    if (HAVE_RUST)
+        add_subdirectory(pingserver-rs)
+    endif()
 endif()
 
-if(TARGET_DS)
-    add_subdirectory(ds)
+if(TARGET_HTTP)
+    add_subdirectory(twemcache-http)
 endif()
 
-if(TARGET_SLIMDS)
-    add_subdirectory(slimds)
+if(TARGET_RDS)
+    add_subdirectory(rds)
+endif()
+
+if(TARGET_SLIMRDS)
+    add_subdirectory(slimrds)
 endif()
 
 if(TARGET_SLIMCACHE)

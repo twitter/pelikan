@@ -1,0 +1,36 @@
+
+[workspace]
+members = [
+    "deps/ccommon/rust/ccommon-array",
+    "deps/ccommon/rust/ccommon-backend",
+    "deps/ccommon/rust/ccommon-buffer",
+    "deps/ccommon/rust/ccommon-channel",
+    "deps/ccommon/rust/ccommon-derive",
+    "deps/ccommon/rust/ccommon-log",
+    "deps/ccommon/rust/ccommon-rs",
+    "deps/ccommon/rust/ccommon-stats",
+    "deps/ccommon/rust/ccommon-stream",
+    "deps/ccommon/rust/ccommon-sys",
+    "src/rust-util/httpencode",
+    "src/rust-util/pelikan",
+    "src/rust-util/pelikan-sys",
+    "src/rustcore",
+    "src/server/pingserver-rs",
+    "src/server/twemcache-http",
+    "src/storage/cdb/cdbgen",
+    "src/storage/cdb/cdb_rs",
+    "test/server/pingserver-rs",
+    "test/server/twemcache-http"
+]
+
+[profile.release]
+opt-level = 3
+debug = true
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+
+[profile.dev]
+debug = true
+opt-level = 0

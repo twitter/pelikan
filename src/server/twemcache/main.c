@@ -68,11 +68,11 @@ teardown(void)
 
     timing_wheel_teardown();
     tcp_teardown();
+    stats_log_teardown();
     sockio_teardown();
     event_teardown();
     dbuf_teardown();
     buf_teardown();
-    stats_log_teardown();
 
     debug_teardown();
     log_teardown();
@@ -107,11 +107,11 @@ setup(void)
     }
 
     /* setup library modules */
-    stats_log_setup(&setting.stats_log);
     buf_setup(&setting.buf, &stats.buf);
     dbuf_setup(&setting.dbuf, &stats.dbuf);
     event_setup(&stats.event);
     sockio_setup(&setting.sockio, &stats.sockio);
+    stats_log_setup(&setting.stats_log);
     tcp_setup(&setting.tcp, &stats.tcp);
     timing_wheel_setup(&stats.timing_wheel);
 

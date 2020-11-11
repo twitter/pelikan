@@ -16,11 +16,17 @@
 
 #include <stream/cc_sockio.h>
 
+#include <sched.h>
+#include <pthread.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sysexits.h>
 
 #define WORKER_MODULE_NAME "core::worker"
 
 worker_metrics_st *worker_metrics = NULL;
+worker_options_st *worker_options = NULL;
 
 static struct context context;
 static struct context *ctx = &context;
@@ -90,11 +96,17 @@ _worker_event_read(struct buf_sock *s)
 }
 
 static void
-worker_add_stream(void)
+_worker_read_notification(void)
 {
     struct buf_sock *s;
+
+#ifdef USE_EVENT_FD
+    uint64_t i;
+#else
     char buf[RING_ARRAY_DEFAULT_CAP]; /* buffer for discarding pipe data */
     int i;
+#endif
+
     rstatus_i status;
 
     /* server pushes connection on to the ring array before writing to the pipe,
@@ -105,12 +117,19 @@ worker_add_stream(void)
      * connections added to the queue when we are processing, it is OK to wait
      * for the next read event in that case.
      */
-
+#ifdef USE_EVENT_FD
+    int rc = read(efd_server_to_worker, &i, sizeof(uint64_t));
+    if (rc < 0) {
+        log_warn("not adding new connections due to eventfd error");
+        return;
+    }
+#else
     i = pipe_recv(pipe_new, buf, RING_ARRAY_DEFAULT_CAP);
     if (i < 0) { /* errors, do not read from ring array */
         log_warn("not adding new connections due to pipe error");
         return;
     }
+#endif
 
     /* each byte in the pipe corresponds to a new connection, which we will
      * now get from the ring array
@@ -122,6 +141,7 @@ worker_add_stream(void)
                     i);
             return;
         }
+        INCR(worker_metrics, worker_add_stream);
         log_verb("Adding new buf_sock %p to worker thread", s);
         s->owner = ctx;
         s->hdl = hdl;
@@ -129,9 +149,24 @@ worker_add_stream(void)
     }
 }
 
+
 static inline void
-_worker_pipe_write(void)
+_worker_write_notification(void)
 {
+#ifdef USE_EVENT_FD
+    ASSERT(efd_worker_to_server != -1);
+
+    uint64_t u = 1;
+    ssize_t status = write(efd_worker_to_server, &u, sizeof(uint64_t));
+
+    if (status == CC_EAGAIN) {
+        /* retry write */
+        log_verb("server core: retry write to eventfd");
+        event_add_write(ctx->evb, efd_server_to_worker, NULL);
+    } else if (status == CC_ERROR) {
+        log_error("could not write to eventfd - %d", status);
+    }
+#else
     ASSERT(pipe_term != NULL);
 
     ssize_t status = pipe_send(pipe_term, "", 1);
@@ -143,6 +178,7 @@ _worker_pipe_write(void)
     } else if (status == CC_ERROR) {
         log_error("could not write to pipe - %s", strerror(pipe_term->err));
     }
+#endif
 }
 
 static void
@@ -157,9 +193,18 @@ worker_ret_stream(struct buf_sock *s)
     event_del(ctx->evb, hdl->rid(s->ch));
 
     /* push buf_sock to queue */
-    ring_array_push(&s, conn_term);
+    INCR(worker_metrics, worker_ret_stream);
+    if (ring_array_push(&s, conn_term) != CC_OK) {
+        /* here we have no choice but to clean up the stream to avoid leak */
+        log_error("term connection queue is full");
+        hdl->term(s->ch);
+        buf_sock_reset(s);
+        buf_sock_return(&s);
+
+        return;
+    }
     /* conn_term */
-    _worker_pipe_write();
+    _worker_write_notification();
 }
 
 static void
@@ -171,11 +216,13 @@ _worker_event(void *arg, uint32_t events)
     if (s == NULL) { /* event on pipe */
         if (events & EVENT_READ) { /* new connection from server */
             INCR(worker_metrics, worker_event_read);
-            worker_add_stream();
-        } else if (events & EVENT_WRITE) { /* retry return notification */
+            _worker_read_notification();
+        }
+        if (events & EVENT_WRITE) { /* retry return notification */
             INCR(worker_metrics, worker_event_write);
-            _worker_pipe_write();
-        } else { /* EVENT_ERR */
+            _worker_write_notification();
+        }
+        if (events & EVENT_ERR) {
             INCR(worker_metrics, worker_event_error);
             log_error("error event received on pipe");
         }
@@ -186,7 +233,8 @@ _worker_event(void *arg, uint32_t events)
             log_verb("processing worker read event on buf_sock %p", s);
             INCR(worker_metrics, worker_event_read);
             _worker_event_read(s);
-        } else if (events & EVENT_WRITE) {
+        }
+        if (events & EVENT_WRITE) {
             /* got here only when a previous write was incompleted/retried */
             log_verb("processing worker write event on buf_sock %p", s);
             INCR(worker_metrics, worker_event_write);
@@ -195,11 +243,10 @@ _worker_event(void *arg, uint32_t events)
                 event_del(ctx->evb, hdl->wid(s->ch));
                 event_add_read(ctx->evb, hdl->rid(s->ch), s);
             }
-        } else if (events & EVENT_ERR) {
+        }
+        if (events & EVENT_ERR) {
             s->ch->state = CHANNEL_TERM;
             INCR(worker_metrics, worker_event_error);
-        } else {
-            NOT_REACHED();
         }
 
         /* TODO(yao): come up with a robust policy about channel connection
@@ -231,6 +278,7 @@ core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
     }
 
     worker_metrics = metrics;
+    worker_options = options;
 
     if (options != NULL) {
         timeout = option_uint(&options->worker_timeout);
@@ -248,13 +296,17 @@ core_worker_setup(worker_options_st *options, worker_metrics_st *metrics)
     hdl->accept = NULL;
     hdl->reject = NULL;
     hdl->open = NULL;
-    hdl->term = NULL;
+    hdl->term = (channel_term_fn)tcp_close;
     hdl->recv = (channel_recv_fn)tcp_recv;
     hdl->send = (channel_send_fn)tcp_send;
     hdl->rid = (channel_id_fn)tcp_read_id;
     hdl->wid = (channel_id_fn)tcp_write_id;
 
+#ifdef USE_EVENT_FD
+    event_add_read(ctx->evb, efd_server_to_worker, NULL);
+#else
     event_add_read(ctx->evb, pipe_read_id(pipe_new), NULL);
+#endif
 
     worker_init = true;
 }
@@ -294,6 +346,31 @@ void *
 core_worker_evloop(void *arg)
 {
     processor = arg;
+
+    int binding_core = option_uint(&worker_options->worker_binding_core);
+
+#ifndef __APPLE__
+    if (binding_core != 0xffffffff) {
+      /* bind worker to the core */
+      cpu_set_t cpuset;
+      pthread_t thread = pthread_self();
+
+      CPU_ZERO(&cpuset);
+      CPU_SET(binding_core, &cpuset);
+
+      if (pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset) != 0) {
+          log_warn("fail to bind worker thread to core %d: %s",
+                 binding_core, strerror(errno));
+      } else {
+        log_info("binding worker thread to core %d", binding_core);
+      }
+    }
+#else
+    if (binding_core != -1) {
+        log_warn("MacOSX does not support pthread_setaffinity_np, "
+               "ignore setting worker thread affinity");
+    }
+#endif
 
     for(;;) {
         if (_worker_evwait() != CC_OK) {

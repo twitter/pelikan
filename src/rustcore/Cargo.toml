@@ -1,0 +1,22 @@
+[package]
+name = "rustcore"
+version = "0.1.0"
+authors = ["Sean Lynch <slynch@twitter.com>"]
+edition = "2018"
+
+[dependencies]
+ccommon = { path="../../deps/ccommon/rust/ccommon-rs", package="ccommon-rs" }
+ccommon-sys = { path="../../deps/ccommon/rust/ccommon-sys", package="ccommon-sys" }
+pelikan-sys = { path="../rust-util/pelikan-sys" }
+
+bytes = "0.5.0"
+futures = "0.3.1"
+log = "0.4.8"
+parking_lot = "0.10.0"
+thiserror = "1.0.6"
+tokio = { version = "0.2.3", features = [ "signal", "net", "sync", "time", "tcp", "uds", "rt-util" ] }
+
+[dependencies.pelikan]
+path = "../rust-util/pelikan"
+features = [ "protocol_admin" ]
+

@@ -1,12 +1,24 @@
+// Copyright (C) 2018-2020 Twitter, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use std::env;
+use std::io::BufWriter;
 use std::ops::Range;
 use std::path::PathBuf;
 use tempfile::NamedTempFile;
-use std::io::{BufWriter};
 
 use cdb_rs::*;
-
 
 fn parent_dir(pb: &PathBuf) -> Result<PathBuf> {
     if pb.is_relative() {
@@ -21,8 +33,7 @@ fn parent_dir(pb: &PathBuf) -> Result<PathBuf> {
 const ASCII: Range<u8> = 32u8..127u8;
 
 pub fn create(path: &PathBuf) -> Result<()> {
-    let mut bw = BufWriter::new(
-        NamedTempFile::new_in(parent_dir(path)?)?);
+    let mut bw = BufWriter::new(NamedTempFile::new_in(parent_dir(path)?)?);
 
     {
         let mut w = Writer::new(&mut bw)?;
@@ -42,18 +53,15 @@ pub fn create(path: &PathBuf) -> Result<()> {
 
     let tf = bw.into_inner()?;
     tf.as_file().sync_all()?;
-    tf.persist(path)
-        .map(|_| ())
-        .map_err(|e| e.into())
+    tf.persist(path).map(|_| ()).map_err(|e| e.into())
 }
-
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use tempfile;
     use std::fs::File;
     use std::io::prelude::*;
+    use tempfile;
 
     #[test]
     fn create_and_read() {

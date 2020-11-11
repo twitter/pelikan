@@ -20,7 +20,7 @@ show_usage(void)
             "Description:" CRLF
             "  pelikan_resp-cli is a CLI for talking to RESP-supporting" CRLF
             "  backends. It understands the RESP protocol only, not the" CRLF
-            "  reportoire of Redis commands." CRLF
+            "  repertoire of Redis commands." CRLF
             );
     log_stdout(
             "Command-line options:" CRLF

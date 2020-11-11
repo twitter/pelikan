@@ -1,0 +1,16 @@
+[package]
+name = "ccommon-sys"
+version = "0.1.0"
+authors = [
+	"Brian Martin <bmartin@twitter.com>",
+	"Jonathan Simms <jsimms@twitter.com>",
+	"Sean Lynch <slynch@twitter.com>"
+]
+edition = "2018"
+
+[dependencies]
+libc = "0.2.68"
+
+[build-dependencies]
+bindgen = "0.53.2"
+cmake = "0.1.42"

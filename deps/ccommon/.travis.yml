@@ -1,6 +1,6 @@
 sudo: false
 language: c
-dist: xenial
+dist: bionic
 
 # using anchor to import sources into linux builds
 addons:
@@ -11,39 +11,47 @@ addons:
 # important for allowed-to-fail matching
 # see https://docs.travis-ci.com/user/customizing-the-build#Rows-that-are-Allowed-to-Fail
 env:
-  - ALLOWED_TO_FAIL=0
+  global:
+  - MAKEFLAGS="-j 2"
 
 # travis currently does not support directly setting gcc/clang with versions
 # (e.g. gcc-4.8) as value for the compiler key. So we will have to manually
 # request these packages and use environment varibles to create the matrix.
-matrix:
+jobs:
+  fast_finish: true
   include:
-    - name: "gcc-5 on Linux"
+    - name: "gcc-7 on Linux"
       compiler: gcc
-      addons:
-        apt:
-          <<: *apt
-          packages:
-            - libsubunit-dev
 
-    - name: "gcc-5 on Linux, Rust enabled"
+    - name: "gcc-7 on Linux, Rust enabled"
       compiler: gcc
       env:
         - RUST_ENABLED=1
-      addons:
-        apt:
-          <<: *apt
-          packages:
-            - libsubunit-dev
+
+    - name: "cargo build"
+      language: rust
+      script:
+        - ./ci/cargo.sh
 
     - os: osx
-      osx_image: xcode10.1
+      osx_image: xcode11.4
       compiler: clang
+
+    - os: osx
+      osx_image: xcode11.4
+      language: rust
+      script:
+        - ./ci/cargo.sh
 
   allow_failures:
     - os: osx
-      osx_image: xcode10.1
+      osx_image: xcode11.4
       compiler: clang
+    - os: osx
+      osx_image: xcode11.4
+      language: rust
+      script:
+        - ./ci/cargo.sh
 
 before_install:
   - ./ci/before-install.sh

@@ -101,7 +101,7 @@
  * RUNTIME
  * =======
  * All lookups generally gets more expensive as the number of entries increases,
- * roughly linearlly (not considering various cache size cutoffs). For the same
+ * roughly linearly (not considering various cache size cutoffs). For the same
  * list, looking up entries at the beginning are generally cheaper than entries
  * in the middle; for index-based lookup, both ends are cheaper than somewhere
  * in the middle, but for value-based lookup (where a match is performed), it
@@ -233,7 +233,7 @@ ziplist_rstatus_e ziplist_find(zipentry_p *ze, int64_t *idx, const ziplist_p zl,
 ziplist_rstatus_e ziplist_reset(ziplist_p zl);
 /* remove `count' entries starting from index idx
  * a negative idx means the offset is from the end (last entry == -1);
- * a netaive count means deleting forward
+ * a negative count means deleting forward
  * count cannot be 0
  */
 ziplist_rstatus_e ziplist_remove(ziplist_p zl, int64_t idx, int64_t count);

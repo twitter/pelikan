@@ -282,6 +282,12 @@ tcp_listen(struct addrinfo *ai, struct tcp_conn *c)
         goto error;
     }
 
+    ret = tcp_set_tcpnodelay(sd);
+    if (ret < 0) {
+        log_warn("set tcp nodelay on listening sd %d failed, ignored: %s", sd,
+                 strerror(errno));
+    }
+
     c->level = CHANNEL_META;
     c->state = CHANNEL_LISTEN;
     log_info("server listen setup on socket descriptor %d", c->sd);
@@ -319,33 +325,63 @@ _tcp_accept(struct tcp_conn *sc)
 {
     int sd;
 
-    ASSERT(sc->sd > 0);
+    ASSERT(sc->sd >= 0);
 
-    for (;;) { /* we accept at most one tcp_conn with the 'break' at the end */
+    /* How does tcp accept work when a separate thread is used to accept new
+     * connections?
+     *
+     * In general, we want to accept a new connection at a time (on the server
+     * thread), then hand this connection over to be put on some other event
+     * loop (e.g. on a worker thread's), and some additional preparation may
+     * be necessary (e.g. allocating R/W buffers). This is why we break after
+     * completing a single `accept' successfully.
+     *
+     * There are several ways `accept' could "fail", and they need to be
+     * treated differently. The most common case, which isn't really a failure
+     * on a non-blocking socket, is receiving EAGAIN/EWOULDBLOCK. This simply
+     * means there is no new connection to accept and the function should
+     * return.
+     * EINTR is another common error which means the call was terminated by
+     * a signal. This type of interruption is almost always transient, so
+     * an immediate retry is likely to succeed.
+     * The rest of the exceptions likely to occur on a SOCK_STREAM socket are
+     * often due to exhaustion of some resources (e.g. fd, memory), and there
+     * is no guarantee they will recover immediately. For example, to free
+     * up another fd requires an existing connection to be closed. In such
+     * cases, the connection in the backlog will sit there (as fully
+     * established as far as TCP stack is concerned) until accept in application
+     * becomes possible again, and any new connections arriving will be added
+     * to the back of the queue until it's full, at which point the client
+     * will receive an exception and the connect attempt will fail.
+     */
+    for (;;) {
 #ifdef CC_ACCEPT4
         sd = accept4(sc->sd, NULL, NULL, SOCK_NONBLOCK);
 #else
         sd = accept(sc->sd, NULL, NULL);
 #endif /* CC_ACCEPT4 */
         if (sd < 0) {
-            if (errno == EINTR) {
-                log_debug("accept on sd %d not ready: eintr", sc->sd);
-                continue;
-            }
-
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 log_debug("accept on sd %d not ready: eagain", sc->sd);
                 return -1;
             }
 
+            if (errno == EINTR) {
+                log_debug("accept on sd %d not ready: eintr", sc->sd);
+
+                continue;
+            }
+
             log_error("accept on sd %d failed: %s", sc->sd, strerror(errno));
             INCR(tcp_metrics, tcp_accept_ex);
+
             return -1;
         }
 
         break;
     }
 
+    ASSERT(sd >= 0);
     return sd;
 }
 
@@ -372,12 +408,6 @@ tcp_accept(struct tcp_conn *sc, struct tcp_conn *c)
                 strerror(errno));
     }
 #endif
-
-    ret = tcp_set_tcpnodelay(sd);
-    if (ret < 0) {
-        log_warn("set tcp nodelay on sd %d failed, ignored: %s", sd,
-                 strerror(errno));
-    }
 
     log_info("accepted c %d on sd %d", c->sd, sc->sd);
 
@@ -423,18 +453,20 @@ tcp_reject_all(struct tcp_conn *sc)
     for (;;) {
         sd = accept(sc->sd, NULL, NULL);
         if (sd < 0) {
-            if (errno == EINTR) {
-                log_debug("sd %d not ready: eintr", sc->sd);
-                continue;
-            }
-
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 log_debug("sd %d has no more outstanding connections", sc->sd);
                 return;
             }
 
+            if (errno == EINTR) {
+                log_debug("accept on sd %d not ready: eintr", sc->sd);
+
+                continue;
+            }
+
             log_error("accept on sd %d failed: %s", sc->sd, strerror(errno));
             INCR(tcp_metrics, tcp_reject_ex);
+
             return;
         }
 

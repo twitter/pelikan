@@ -1,0 +1,49 @@
+[package]
+name = "pelikan-sys"
+version = "0.0.0"
+authors = ["Sean Lynch <slynch@twitter.com>"]
+edition = "2018"
+
+# Feature dependencies should mirror cmake library dependencies
+[features]
+cdb = [ "cdb_rs" ]
+client-network = []
+core = []
+cuckoo = [ "datapool", "time" ]
+datapool = []
+ds_bitmap = []
+ds_sarray = []
+ds_ziplist = []
+hotkey = [ "datapool" ]
+protocol_resp = []
+protocol_resp_tw = []
+protocol_memcache = []
+protocol_ping = []
+protocol_admin = []
+slab = [ "datapool" ]
+time = []
+util = [ "time" ]
+
+default = [ "core", "time", "util" ]
+
+[dependencies]
+libc = "0.2.0"
+memoffset = "0.5.3"
+
+[dependencies.cdb_rs]
+path = "../../storage/cdb/cdb_rs"
+optional = true
+
+[dependencies.ccommon-sys]
+path = "../../../deps/ccommon/rust/ccommon-sys"
+package = "ccommon-sys"
+
+[dependencies.ccommon]
+path = "../../../deps/ccommon/rust/ccommon-rs"
+package = "ccommon-rs"
+
+[build-dependencies]
+bindgen = "0.53.2"
+cmake = "*"
+lazy_static = "1.4.0"
+glob = "0.3.0"

@@ -139,6 +139,12 @@ item_nval(const struct item *it)
 }
 
 static inline size_t
+item_npayload(struct item *it)
+{
+    return item_cas_size() + it->olen + it->klen + it->vlen;
+}
+
+static inline size_t
 item_ntotal(uint8_t klen, uint32_t vlen, uint8_t olen)
 {
     return ITEM_HDR_SIZE + item_cas_size() + olen + klen + vlen;
@@ -159,7 +165,7 @@ item_optional(struct item *it)
 }
 
 /*
- * Get start location of item payload
+ * Get start location of item value
  */
 static inline char *
 item_data(struct item *it)
@@ -230,6 +236,9 @@ void item_update(struct item *it, const struct bstring *val);
 
 /* Remove item from cache */
 bool item_delete(const struct bstring *key);
+
+/* Relink item */
+void item_relink(struct item *it);
 
 /* flush the cache */
 void item_flush(void);

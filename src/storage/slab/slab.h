@@ -5,6 +5,7 @@
 #include "slabclass.h"
 
 #include <cc_define.h>
+#include <cc_itt.h>
 #include <cc_metric.h>
 #include <cc_option.h>
 #include <cc_util.h>
@@ -28,6 +29,9 @@
 #define ITEM_FACTOR     1.25
 #define ITEM_MAX_TTL    (30 * 24 * 60 * 60) /* 30 days */
 #define HASH_POWER      16
+#define SLAB_DATAPOOL   NULL
+#define SLAB_PREFAULT   false
+#define SLAB_DATAPOOL_NAME "slab_datapool"
 
 /* Eviction options */
 #define EVICT_NONE    0 /* throw OOM, no eviction */
@@ -37,20 +41,24 @@
 
 /* The defaults here are placeholder values for now */
 /* TODO: consider moving item options to item.[h|c] */
-/*          name                type                default         description */
-#define SLAB_OPTION(ACTION)                                                                          \
-    ACTION( slab_size,          OPTION_TYPE_UINT,   SLAB_SIZE,      "Slab size"                     )\
-    ACTION( slab_mem,           OPTION_TYPE_UINT,   SLAB_MEM,       "Max memory by slabs (byte)"    )\
-    ACTION( slab_prealloc,      OPTION_TYPE_BOOL,   SLAB_PREALLOC,  "Pre-allocate slabs at setup"   )\
-    ACTION( slab_evict_opt,     OPTION_TYPE_UINT,   SLAB_EVICT_OPT, "Eviction strategy"             )\
-    ACTION( slab_use_freeq,     OPTION_TYPE_BOOL,   SLAB_USE_FREEQ, "Use items in free queue?"      )\
-    ACTION( slab_profile,       OPTION_TYPE_STR,    SLAB_PROFILE,   "Specify entire slab profile"   )\
-    ACTION( slab_item_min,      OPTION_TYPE_UINT,   ITEM_SIZE_MIN,  "Minimum item size"             )\
-    ACTION( slab_item_max,      OPTION_TYPE_UINT,   ITEM_SIZE_MAX,  "Maximum item size"             )\
-    ACTION( slab_item_growth,   OPTION_TYPE_FPN,    ITEM_FACTOR,    "Slab class growth factor"      )\
-    ACTION( slab_item_max_ttl,  OPTION_TYPE_UINT,   ITEM_MAX_TTL,   "Max ttl in seconds"            )\
-    ACTION( slab_use_cas,       OPTION_TYPE_BOOL,   SLAB_USE_CAS,   "Store CAS value in item"       )\
-    ACTION( slab_hash_power,    OPTION_TYPE_UINT,   HASH_POWER,     "Power for lookup hash table"   )
+/*          name                    type                default              description */
+#define SLAB_OPTION(ACTION)                                                                                   \
+    ACTION( slab_size,              OPTION_TYPE_UINT,   SLAB_SIZE,           "Slab size"                     )\
+    ACTION( slab_mem,               OPTION_TYPE_UINT,   SLAB_MEM,            "Max memory by slabs (byte)"    )\
+    ACTION( slab_prealloc,          OPTION_TYPE_BOOL,   SLAB_PREALLOC,       "Pre-allocate slabs at setup"   )\
+    ACTION( slab_evict_opt,         OPTION_TYPE_UINT,   SLAB_EVICT_OPT,      "Eviction strategy"             )\
+    ACTION( slab_use_freeq,         OPTION_TYPE_BOOL,   SLAB_USE_FREEQ,      "Use items in free queue?"      )\
+    ACTION( slab_profile,           OPTION_TYPE_STR,    SLAB_PROFILE,        "Specify entire slab profile"   )\
+    ACTION( slab_item_min,          OPTION_TYPE_UINT,   ITEM_SIZE_MIN,       "Minimum item size"             )\
+    ACTION( slab_item_max,          OPTION_TYPE_UINT,   ITEM_SIZE_MAX,       "Maximum item size"             )\
+    ACTION( slab_item_growth,       OPTION_TYPE_FPN,    ITEM_FACTOR,         "Slab class growth factor"      )\
+    ACTION( slab_item_max_ttl,      OPTION_TYPE_UINT,   ITEM_MAX_TTL,        "Max ttl in seconds"            )\
+    ACTION( slab_use_cas,           OPTION_TYPE_BOOL,   SLAB_USE_CAS,        "Store CAS value in item"       )\
+    ACTION( slab_hash_power,        OPTION_TYPE_UINT,   HASH_POWER,          "Power for lookup hash table"   )\
+    ACTION( slab_datapool,          OPTION_TYPE_STR,    SLAB_DATAPOOL,       "Path to data pool"             )\
+    ACTION( slab_datapool_name,     OPTION_TYPE_STR,    SLAB_DATAPOOL_NAME,  "Slab data pool name"           )\
+    ACTION( slab_datapool_prefault, OPTION_TYPE_BOOL,   SLAB_PREFAULT,       "Prefault data pool"            )
+
 
 typedef struct {
     SLAB_OPTION(OPTION_DECLARE)
@@ -71,7 +79,11 @@ typedef struct {
     ACTION( item_link,          METRIC_COUNTER, "# items inserted to HT"   )\
     ACTION( item_unlink,        METRIC_COUNTER, "# items removed from HT"  )\
     ACTION( item_keyval_byte,   METRIC_GAUGE,   "key+val in bytes, linked" )\
-    ACTION( item_val_byte,      METRIC_GAUGE,   "value only in bytes"      )
+    ACTION( item_val_byte,      METRIC_GAUGE,   "value only in bytes"      )\
+    ACTION( hash_lookup,        METRIC_COUNTER, "# of hash lookups"        )\
+    ACTION( hash_insert,        METRIC_COUNTER, "# of hash inserts"        )\
+    ACTION( hash_remove,        METRIC_COUNTER, "# of hash deletes"        )\
+    ACTION( hash_traverse,      METRIC_COUNTER, "# of nodes touched"       )
 
 typedef struct {
     SLAB_METRIC(METRIC_DECLARE)
@@ -126,7 +138,8 @@ struct slab {
     TAILQ_ENTRY(slab) s_tqe;        /* link in slab lruq */
 
     uint8_t           id;           /* slabclass id */
-    uint32_t          padding:24;   /* unused */
+    uint8_t           initialized;  /* flag is slab initialized*/
+    uint16_t          unused;       /* unused, must be 0 */
     uint32_t          refcount;     /* # items that can't be evicted */
     uint8_t           data[1];      /* opaque data */
 };
@@ -138,6 +151,8 @@ TAILQ_HEAD(slab_tqh, slab);
 extern struct hash_table *hash_table;
 extern size_t slab_size;
 extern slab_metrics_st *slab_metrics;
+cc_declare_itt_function(extern, slab_malloc);
+cc_declare_itt_function(extern, slab_free);
 
 /*
  * Return the usable space for item sized chunks that would be carved out

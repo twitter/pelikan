@@ -1,6 +1,0 @@
-#include "redis/compose.h"
-#include "redis/token.h"
-#include "redis/parse.h"
-#include "redis/process.h"
-#include "redis/request.h"
-#include "redis/response.h"

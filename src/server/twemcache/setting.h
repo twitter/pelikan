@@ -51,8 +51,8 @@ struct setting {
     buf_options_st          buf;
     dbuf_options_st         dbuf;
     debug_options_st        debug;
-    stats_log_options_st    stats_log;
     sockio_options_st       sockio;
+    stats_log_options_st    stats_log;
     tcp_options_st          tcp;
 };
 

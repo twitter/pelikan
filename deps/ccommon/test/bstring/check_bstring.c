@@ -119,6 +119,37 @@ START_TEST(test_strcmp)
 END_TEST
 
 
+START_TEST(test_atoi64)
+{
+    int64_t val;
+    struct bstring bstr;
+    char int64[CC_INT64_MAXLEN];
+
+    test_reset();
+
+    ck_assert_int_eq(bstring_atoi64(&val, &str2bstr("foo")), CC_ERROR);
+
+    ck_assert_int_eq(bstring_atoi64(&val, &str2bstr("123")), CC_OK);
+    ck_assert_uint_eq(val, 123);
+    ck_assert_int_eq(bstring_atoi64(&val, &str2bstr("-123")), CC_OK);
+    ck_assert_uint_eq(val, -123);
+
+    sprintf(int64, "%"PRIi64, INT64_MAX);
+    bstring_init(&bstr);
+    ck_assert_int_eq(bstring_copy(&bstr, int64, strlen(int64)), CC_OK);
+    ck_assert_int_eq(bstring_atoi64(&val, &bstr), CC_OK);
+    ck_assert_int_eq(val, INT64_MAX);
+    bstring_deinit(&bstr);
+
+    sprintf(int64, "%"PRIi64, INT64_MIN);
+    bstring_init(&bstr);
+    ck_assert_int_eq(bstring_copy(&bstr, int64, strlen(int64)), CC_OK);
+    ck_assert_int_eq(bstring_atoi64(&val, &bstr), CC_OK);
+    ck_assert_int_eq(val, INT64_MIN);
+    bstring_deinit(&bstr);
+}
+END_TEST
+
 START_TEST(test_atou64)
 {
     uint64_t val;
@@ -189,6 +220,7 @@ bstring_suite(void)
     tcase_add_test(tc_bstring, test_copy);
     tcase_add_test(tc_bstring, test_compare);
     tcase_add_test(tc_bstring, test_strcmp);
+    tcase_add_test(tc_bstring, test_atoi64);
     tcase_add_test(tc_bstring, test_atou64);
     tcase_add_test(tc_bstring, test_bstring_alloc_and_free);
 

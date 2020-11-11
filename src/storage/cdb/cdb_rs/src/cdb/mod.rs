@@ -1,3 +1,17 @@
+// Copyright (C) 2018-2020 Twitter, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 pub use self::backend::Backend;
 pub use self::errors::CDBError;
 use self::ffi::gen;
@@ -147,7 +161,7 @@ pub struct KVRef<'a> {
 struct IndexEntry {
     hash: CDBHash,
     // the hash of the stored key
-    ptr: u32,      // pointer to the absolute position of the data in the db
+    ptr: u32, // pointer to the absolute position of the data in the db
 }
 
 enum LoadMethod {
@@ -188,10 +202,12 @@ impl CDBHandleConfig {
 
     pub fn into_cdb_handle(self) -> Result<cdb_handle> {
         match self.load_method {
-            LoadMethod::HEAP => self.path()
+            LoadMethod::HEAP => self
+                .path()
                 .and_then(backend::Backend::load_path)
                 .map(cdb_handle::from),
-            LoadMethod::MMAP => self.path()
+            LoadMethod::MMAP => self
+                .path()
                 .and_then(backend::Backend::mmap_path)
                 .map(cdb_handle::from),
         }
@@ -348,16 +364,16 @@ mod tests {
     use super::*;
     use tempfile::NamedTempFile;
 
-
     fn kvs() -> Vec<(String, String)> {
         vec![
             ("abc", "def"),
             ("pink", "red"),
             ("apple", "grape"),
             ("q", "burp"),
-        ].iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect()
+        ]
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
     }
 
     fn validate(pairs: &Vec<(String, String)>, cdb: &Reader) -> Result<()> {
@@ -379,9 +395,9 @@ mod tests {
     }
 
     fn load_and_validate_cdb<'a, F, T>(kvs: &Vec<(String, String)>, f: F) -> Result<()>
-        where
-            F: FnOnce(&mut NamedTempFile) -> Result<T>,
-            T: AsRef<[u8]>,
+    where
+        F: FnOnce(&mut NamedTempFile) -> Result<T>,
+        T: AsRef<[u8]>,
     {
         let mut ntf = NamedTempFile::new()?;
 
@@ -406,25 +422,22 @@ mod tests {
             let mut buf = Vec::new();
             ntf.read_to_end(&mut buf)?;
             Ok(buf.into_boxed_slice())
-        }).unwrap()
+        })
+        .unwrap()
     }
 
     #[test]
     fn round_trip_heap_backend() {
         let pairs = kvs();
 
-        load_and_validate_cdb(&pairs, |ntf| {
-            Backend::load(ntf.as_file_mut())
-        }).unwrap()
+        load_and_validate_cdb(&pairs, |ntf| Backend::load(ntf.as_file_mut())).unwrap()
     }
 
     #[test]
     fn round_trip_mmap_backend() {
         let pairs = kvs();
 
-        load_and_validate_cdb(&pairs, |ntf| {
-            Backend::mmap(ntf.as_file_mut())
-        }).unwrap()
+        load_and_validate_cdb(&pairs, |ntf| Backend::mmap(ntf.as_file_mut())).unwrap()
     }
 }
 
@@ -435,16 +448,16 @@ fn ready_buf(size: usize) -> BytesMut {
 }
 
 pub struct Writer<'a, F>
-    where
-        F: Write + Seek + 'a,
+where
+    F: Write + Seek + 'a,
 {
     file: &'a mut F,
     index: Vec<Vec<IndexEntry>>,
 }
 
 impl<'a, F> Writer<'a, F>
-    where
-        F: Write + Seek + 'a,
+where
+    F: Write + Seek + 'a,
 {
     pub fn new(file: &'a mut F) -> Result<Writer<'a, F>> {
         file.seek(SeekFrom::Start(0))?;
@@ -536,8 +549,8 @@ impl<'a, F> Writer<'a, F>
 }
 
 impl<'a, F> Drop for Writer<'a, F>
-    where
-        F: Write + Seek + 'a,
+where
+    F: Write + Seek + 'a,
 {
     fn drop(&mut self) {
         self.finalize().unwrap();

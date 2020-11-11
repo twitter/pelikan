@@ -25,7 +25,7 @@ def generate_config(rate, connections, vsize, slab_mem, threads):
   config_str = '''
 [general]
 clients = {threads}
-tcp-nodelay = true
+tcp_nodelay = true
 poolsize = {connections} # this specifies number of connection per thread
 # runtime ~= windows x duration
 windows = 2
@@ -60,7 +60,7 @@ def generate_runscript(binary, server_ip, instances):
       the_file.write(' --waterfall latency-waterfall-{server_port}.png'.format(server_port=server_port))
       the_file.write(' > rpcperf_{server_port}.log'.format(server_port=server_port))
       the_file.write(' 2>&1 &\n')
-  os.chmod(fname, 0777)
+  os.chmod(fname, 0o777)
 
 
 if __name__ == "__main__":

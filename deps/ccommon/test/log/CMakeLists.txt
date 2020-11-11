@@ -3,12 +3,7 @@ set(test_name check_${suite})
 
 set(source check_${suite}.c)
 
-if(HAVE_RUST)
-    set(CCOMMON_LIBS ccommon_rs) # common_rs_static staticly links common-static
-else()
-    set(CCOMMON_LIBS ccommon-static)
-endif()
-
+set(CCOMMON_LIBS ccommon-static)
 
 add_executable(${test_name} ${source})
 target_link_libraries(
@@ -24,5 +19,4 @@ if(OS_PLATFORM STREQUAL "OS_DARWIN")
     set_target_properties(${test_name} PROPERTIES LINK_FLAGS "-Wl,-F/System/Library/Frameworks")
 endif()
 
-add_dependencies(check ${test_name} ccommon-static)
 add_test(${test_name} ${test_name})

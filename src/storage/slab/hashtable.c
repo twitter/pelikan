@@ -1,4 +1,4 @@
-#include "hashtable.h"
+#include "slab.h"
 
 #include <hash/cc_murmur3.h>
 #include <cc_mm.h>
@@ -57,11 +57,14 @@ hashtable_create(uint32_t hash_power)
 }
 
 void
-hashtable_destroy(struct hash_table *ht)
+hashtable_destroy(struct hash_table **ht_p)
 {
+    struct hash_table *ht = *ht_p;
     if (ht != NULL && ht->table != NULL) {
         cc_free(ht->table);
     }
+
+    *ht_p = NULL;
 }
 
 static struct item_slh *
@@ -85,6 +88,7 @@ hashtable_put(struct item *it, struct hash_table *ht)
     SLIST_INSERT_HEAD(bucket, it, i_sle);
 
     ++(ht->nhash_item);
+    INCR(slab_metrics, hash_insert);
 }
 
 void
@@ -98,6 +102,8 @@ hashtable_delete(const char *key, uint32_t klen, struct hash_table *ht)
     bucket = _get_bucket(key, klen, ht);
     for (prev = NULL, it = SLIST_FIRST(bucket); it != NULL;
         prev = it, it = SLIST_NEXT(it, i_sle)) {
+        INCR(slab_metrics, hash_traverse);
+
         /* iterate through bucket to find item to be removed */
         if ((klen == it->klen) && cc_memcmp(key, item_key(it), klen) == 0) {
             /* found item */
@@ -112,6 +118,7 @@ hashtable_delete(const char *key, uint32_t klen, struct hash_table *ht)
     }
 
     --(ht->nhash_item);
+    INCR(slab_metrics, hash_remove);
 }
 
 struct item *
@@ -123,9 +130,13 @@ hashtable_get(const char *key, uint32_t klen, struct hash_table *ht)
     ASSERT(key != NULL);
     ASSERT(klen != 0);
 
+    INCR(slab_metrics, hash_lookup);
+
     bucket = _get_bucket(key, klen, ht);
     /* iterate through bucket looking for item */
     for (it = SLIST_FIRST(bucket); it != NULL; it = SLIST_NEXT(it, i_sle)) {
+        INCR(slab_metrics, hash_traverse);
+
         if ((klen == it->klen) && cc_memcmp(key, item_key(it), klen) == 0) {
             /* found item */
             return it;
@@ -134,3 +145,43 @@ hashtable_get(const char *key, uint32_t klen, struct hash_table *ht)
 
     return NULL;
 }
+
+/*
+ * Expand the hashtable to the next power of 2.
+ * This is an expensive operation and should _not_ be used in production or
+ * during latency-related tests. It is included mostly for simulation around
+ * the storage component.
+ */
+struct hash_table *
+hashtable_double(struct hash_table *ht)
+{
+    struct hash_table *new_ht;
+    uint32_t new_hash_power;
+    uint64_t new_size;
+
+    new_hash_power = ht->hash_power + 1;
+    new_size = HASHSIZE(new_hash_power);
+
+    new_ht = hashtable_create(new_size);
+    if (new_ht == NULL) {
+        return ht;
+    }
+
+    /* copy to new hash table */
+    for  (uint32_t i = 0; i < HASHSIZE(ht->hash_power); ++i) {
+        struct item *it, *next;
+        struct item_slh *bucket, *new_bucket;
+
+        bucket = &ht->table[i];
+        SLIST_FOREACH_SAFE(it, bucket, i_sle, next) {
+            new_bucket = _get_bucket(item_key(it), it->klen, new_ht);
+            SLIST_REMOVE(bucket, it, item, i_sle);
+            SLIST_INSERT_HEAD(new_bucket, it, i_sle);
+        }
+    }
+
+    hashtable_destroy(&ht);
+
+    return new_ht;
+}
+

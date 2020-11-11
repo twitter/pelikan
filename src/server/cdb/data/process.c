@@ -85,7 +85,7 @@ static bool
 _get_key(struct response *rsp, struct bstring *key)
 {
     /* this is a slight abuse of the bstring API. we're setting
-     * the data pointer to point to the vbuf that was staticly allocated
+     * the data pointer to point to the vbuf that was statically allocated
      * and we're setting the len of the buffer to the allocation size. This is
      * so that we can create a rust slice from this information. */
     rsp->vstr.data = value_buf.data;

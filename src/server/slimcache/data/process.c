@@ -453,6 +453,12 @@ _cleanup(struct request **req, struct response **rsp)
     response_return_all(rsp);
 }
 
+static inline void
+_cleanup_req(struct request **req)
+{
+    request_return(req);
+}
+
 int
 slimcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
 {
@@ -485,6 +491,7 @@ slimcache_process_read(struct buf **rbuf, struct buf **wbuf, void **data)
         if (status == PARSE_EUNFIN || req->partial) { /* ignore partial */
             (*rbuf)->rpos = old_rpos;
             buf_lshift(*rbuf);
+            _cleanup_req(&req);
             return 0;
         }
         if (status != PARSE_OK) {

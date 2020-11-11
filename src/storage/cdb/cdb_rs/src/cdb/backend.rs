@@ -1,11 +1,25 @@
+// Copyright (C) 2018-2020 Twitter, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use super::{Result, MAIN_TABLE_SIZE_BYTES};
+
 use memmap;
-use std::ops::Deref;
-use super::Result;
+
 use std::fs::File;
 use std::io::{Cursor, Read};
+use std::ops::Deref;
 use std::path::Path;
-use cdb::MAIN_TABLE_SIZE_BYTES;
-
 
 pub enum Backend {
     Heap(Box<[u8]>),
@@ -24,13 +38,15 @@ impl Deref for Backend {
 }
 
 impl AsRef<[u8]> for Backend {
-    fn as_ref(&self) -> &[u8] { &self[..] }
+    fn as_ref(&self) -> &[u8] {
+        &self[..]
+    }
 }
 
 impl Backend {
     pub fn noop() -> Result<Backend> {
         let v = {
-            let mut buf  = Vec::with_capacity(MAIN_TABLE_SIZE_BYTES as usize);
+            let buf = Vec::with_capacity(MAIN_TABLE_SIZE_BYTES as usize);
             let mut cur = Cursor::new(buf);
             super::Writer::new(&mut cur)?;
             cur.into_inner()
@@ -56,8 +72,8 @@ impl Backend {
     }
 
     pub fn mmap(fp: &File) -> Result<Backend> {
-        Ok(Backend::MMap(
-            unsafe { memmap::MmapOptions::new().map(&fp)? }
-        ))
+        Ok(Backend::MMap(unsafe {
+            memmap::MmapOptions::new().map(&fp)?
+        }))
     }
 }

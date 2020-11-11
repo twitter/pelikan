@@ -2,7 +2,7 @@
 
 #include "core/data/server.h"
 
-#include "protocol/data/redis_include.h"
+#include "protocol/data/resp_include.h"
 
 #include <buffer/cc_buf.h>
 #include <buffer/cc_dbuf.h>

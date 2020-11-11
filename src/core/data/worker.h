@@ -4,13 +4,16 @@
 #include <cc_metric.h>
 #include <cc_option.h>
 
-#define WORKER_TIMEOUT   100     /* in ms */
-#define WORKER_NEVENT    1024
 
-/*          name            type                default         description */
-#define WORKER_OPTION(ACTION)                                                                   \
-    ACTION( worker_timeout, OPTION_TYPE_UINT,   WORKER_TIMEOUT, "evwait timeout"               )\
-    ACTION( worker_nevent,  OPTION_TYPE_UINT,   WORKER_NEVENT,  "evwait max nevent returned"   )
+#define WORKER_TIMEOUT        100     /* in ms */
+#define WORKER_NEVENT         1024
+#define WORKER_BINDING_CORE   0xffffffff
+
+/*          name                  type                default               description */
+#define WORKER_OPTION(ACTION)                                                                                      \
+    ACTION( worker_timeout,       OPTION_TYPE_UINT,   WORKER_TIMEOUT,       "evwait timeout"                      )\
+    ACTION( worker_nevent,        OPTION_TYPE_UINT,   WORKER_NEVENT,        "evwait max nevent returned"          )\
+    ACTION( worker_binding_core,  OPTION_TYPE_UINT,   WORKER_BINDING_CORE,  "which core pin the worker thread to" )
 
 typedef struct {
     WORKER_OPTION(OPTION_DECLARE)
@@ -22,7 +25,9 @@ typedef struct {
     ACTION( worker_event_loop,      METRIC_COUNTER, "# worker event loops returned" )\
     ACTION( worker_event_read,      METRIC_COUNTER, "# worker core_read events"     )\
     ACTION( worker_event_write,     METRIC_COUNTER, "# worker core_write events"    )\
-    ACTION( worker_event_error,     METRIC_COUNTER, "# worker core_error events"    )
+    ACTION( worker_event_error,     METRIC_COUNTER, "# worker core_error events"    )\
+    ACTION( worker_add_stream,      METRIC_COUNTER, "# worker adding a stream"      )\
+    ACTION( worker_ret_stream,      METRIC_COUNTER, "# worker returning a stream"   )
 
 typedef struct {
     CORE_WORKER_METRIC(METRIC_DECLARE)
