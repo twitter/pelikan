@@ -42,7 +42,7 @@ fn fragmented_ping() -> IOResult<()> {
     let expected_res: &[u8] = b"PONG\r\n";
     let mut buf = [0u8; b"PONG\r\n".len()];
 
-    let mut stream = TcpStream::connect("localhost:12321")?;
+    let mut stream = TcpStream::connect("127.0.0.1:12321")?;
     stream.set_nodelay(true)?;
     stream.set_nonblocking(false)?;
 
@@ -77,7 +77,7 @@ fn multiping() -> IOResult<()> {
     const expected_res: &[u8] = b"PONG\r\nPONG\r\n";
     let mut buf = [0u8; expected_res.len()];
 
-    let mut stream = TcpStream::connect("localhost:12321")?;
+    let mut stream = TcpStream::connect("127.0.0.1:12321")?;
     stream.set_nodelay(true)?;
     stream.set_nonblocking(false)?;
 
@@ -96,7 +96,7 @@ fn multiping() -> IOResult<()> {
 }
 
 fn partial_ping() -> IOResult<()> {
-    let mut stream = TcpStream::connect("localhost:12321")?;
+    let mut stream = TcpStream::connect("127.0.0.1:12321")?;
     stream.set_nodelay(true)?;
     stream.set_nonblocking(false)?;
 
@@ -104,7 +104,7 @@ fn partial_ping() -> IOResult<()> {
 }
 
 fn large_ping() -> IOResult<()> {
-    let mut stream = TcpStream::connect("localhost:12321")?;
+    let mut stream = TcpStream::connect("127.0.0.1:12321")?;
     stream.set_nodelay(true)?;
     stream.set_nonblocking(false)?;
 
@@ -130,7 +130,7 @@ fn large_ping() -> IOResult<()> {
 }
 
 fn admin_crash() -> IOResult<()> {
-    let mut stream = TcpStream::connect("localhost:9999")?;
+    let mut stream = TcpStream::connect("127.0.0.1:9999")?;
     stream.set_nodelay(true)?;
     stream.set_nonblocking(false)?;
 
