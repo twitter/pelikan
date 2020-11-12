@@ -1079,6 +1079,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pelikan_pingserver_rs"
+version = "0.0.1"
+dependencies = [
+ "bytes 0.4.12",
+ "chrono",
+ "config",
+ "log",
+ "mio 0.7.5",
+ "slab",
+]
+
+[[package]]
 name = "pelikan_twemcache_http"
 version = "0.1.0"
 dependencies = [
@@ -1132,18 +1144,6 @@ name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
-
-[[package]]
-name = "pingserver-rs"
-version = "0.0.1"
-dependencies = [
- "bytes 0.4.12",
- "chrono",
- "config",
- "log",
- "mio 0.7.5",
- "slab",
-]
 
 [[package]]
 name = "plotters"
