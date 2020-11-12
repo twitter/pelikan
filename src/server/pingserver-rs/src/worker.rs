@@ -12,6 +12,8 @@ pub struct Worker {
     waker_token: Token,
 }
 
+pub const WAKER_TOKEN: usize = usize::MAX;
+
 impl Worker {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(
@@ -22,8 +24,8 @@ impl Worker {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
-        let mut sessions = Slab::<Session>::new();
-        let waker_token = Token(sessions.vacant_entry().key());
+        let sessions = Slab::<Session>::new();
+        let waker_token = Token(WAKER_TOKEN);
         let waker = Arc::new(Waker::new(&poll.registry(), waker_token)?);
 
         Ok(Self {
