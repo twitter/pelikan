@@ -192,6 +192,7 @@ pub fn main() {
     };
 
     let mut server = Command::new(bindir.join("_bin/pelikan_pingserver_rs"))
+        .arg("config/pingserver.toml")
         .spawn()
         .expect("Failed to start server process");
 
