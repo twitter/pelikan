@@ -37,6 +37,29 @@ impl fmt::Display for EscapedByteString<'_> {
     }
 }
 
+fn ping() -> IOResult<()> {
+    #[allow(non_upper_case_globals)]
+    const expected_res: &[u8] = b"PONG\r\n";
+    let mut buf = [0u8; expected_res.len()];
+
+    let mut stream = TcpStream::connect("localhost:12321")?;
+    stream.set_nodelay(true)?;
+    stream.set_nonblocking(false)?;
+
+    stream.write_all(b"PING\r\n")?;
+    stream.read_exact(&mut buf)?;
+
+    assert_eq!(
+        buf,
+        expected_res,
+        "'{}' != '{}'",
+        EscapedByteString(&buf),
+        EscapedByteString(expected_res)
+    );
+
+    Ok(())
+}
+
 /// Test that a fragmented ping is properly handled.
 fn fragmented_ping() -> IOResult<()> {
     let expected_res: &[u8] = b"PONG\r\n";
@@ -156,14 +179,19 @@ fn admin_crash() -> IOResult<()> {
 }
 
 fn run_tests() {
+    println!("Running test ping");
+    if let Err(e) = ping() {
+        panic!("test ping failed: {}", e);
+    }
+
     println!("Running test multiping");
     if let Err(e) = multiping() {
-        panic!("test multiping failed: {}", e);
+        eprintln!("test multiping failed: {}", e);
     }
 
     println!("Running test fragmented_ping");
     if let Err(e) = fragmented_ping() {
-        panic!("test fragmented_ping failed: {}", e);
+        eprintln!("test fragmented_ping failed: {}", e);
     }
 
     println!("Running test partial_ping");
@@ -173,12 +201,12 @@ fn run_tests() {
 
     println!("Running test large_ping");
     if let Err(e) = large_ping() {
-        panic!("test large_ping failed: {}", e);
+        eprintln!("test large_ping failed: {}", e);
     }
 
     println!("Running test admin_crash");
     if let Err(e) = admin_crash() {
-        panic!("test admin_crash failed: {}", e);
+        eprintln!("test admin_crash failed: {}", e);
     }
 }
 
