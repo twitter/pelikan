@@ -16,7 +16,7 @@ nevent = 1024
 [worker]
 # epoll timeout in milliseconds
 timeout = 100
-#epoll max events returned
+# epoll max events returned
 nevent = 1024
 
 # NOTE: not currently implemented
