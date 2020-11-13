@@ -606,12 +606,23 @@ _process_prepend(struct response *rsp, struct request *req)
 static void
 _process_flush(struct response *rsp, struct request *req)
 {
+    INCR(process_metrics, flush);
+
+    rsp->type = RSP_NUMERIC;
+    rsp->vint = item_expire(array_first(req->keys));
+
+    log_info("flush req %p processed, rsp type %d", req, rsp->type);
+}
+
+static void
+_process_flushall(struct response *rsp, struct request *req)
+{
     if (allow_flush) {
-        INCR(process_metrics, flush);
+        INCR(process_metrics, flushall);
         item_flush();
         rsp->type = RSP_OK;
 
-        log_info("flush req %p processed, rsp type %d", req, rsp->type);
+        log_info("flush_all req %p processed, rsp type %d", req, rsp->type);
     } else {
         rsp->type = RSP_CLIENT_ERROR;
         rsp->vstr = str2bstr(CMD_ERR_MSG);
@@ -672,6 +683,11 @@ process_request(struct response *rsp, struct request *req)
     case REQ_FLUSH:
         _process_flush(rsp, req);
         break;
+
+    case REQ_FLUSHALL:
+        _process_flushall(rsp, req);
+        break;
+
 
     default:
         rsp->type = RSP_CLIENT_ERROR;

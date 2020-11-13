@@ -85,7 +85,8 @@ typedef struct {
     ACTION( prepend_stored,    METRIC_COUNTER, "# prepend successes"   )\
     ACTION( prepend_notstored, METRIC_COUNTER, "# prepend not_founds"  )\
     ACTION( prepend_ex,        METRIC_COUNTER, "# prepend errors"      )\
-    ACTION( flush,             METRIC_COUNTER, "# flush_all requests"  )
+    ACTION( flush,             METRIC_COUNTER, "# flush requests"      )\
+    ACTION( flushall,          METRIC_COUNTER, "# flush_all requests"  )
 
 typedef struct {
     PROCESS_METRIC(METRIC_DECLARE)

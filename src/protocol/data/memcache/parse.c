@@ -374,6 +374,14 @@ _check_req_type(struct request *req, struct buf *buf, bool *end, struct bstring 
 
             break;
 
+        case 5:
+            if (str5cmp(t->data, 'f', 'l', 'u', 's', 'h')) {
+                req->type = REQ_FLUSH;
+                break;
+            }
+
+            break;
+
         case 6:
             if (str6cmp(t->data, 'd', 'e', 'l', 'e', 't', 'e')) {
                 req->type = REQ_DELETE;
@@ -402,7 +410,7 @@ _check_req_type(struct request *req, struct buf *buf, bool *end, struct bstring 
 
         case 9:
             if (str9cmp(t->data, 'f', 'l', 'u', 's', 'h', '_', 'a', 'l', 'l')) {
-                req->type = REQ_FLUSH;
+                req->type = REQ_FLUSHALL;
                 break;
             }
 
@@ -742,6 +750,7 @@ _parse_req_hdr(struct request *req, struct buf *buf)
         break;
 
     case REQ_DELETE:
+    case REQ_FLUSH:
         status = _subrequest_delete(req, buf, &end);
         break;
 
@@ -765,7 +774,7 @@ _parse_req_hdr(struct request *req, struct buf *buf)
         break;
 
     /* flush_all can take a delay e.g. 'flush_all 10\r\n', not implemented */
-    case REQ_FLUSH:
+    case REQ_FLUSHALL:
     case REQ_QUIT:
         break;
 

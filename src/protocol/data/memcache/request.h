@@ -47,7 +47,8 @@ typedef struct {
     ACTION( REQ_PREPEND,        "prepend "         )\
     ACTION( REQ_INCR,           "incr "            )\
     ACTION( REQ_DECR,           "decr "            )\
-    ACTION( REQ_FLUSH,          "flush_all\r\n"    )\
+    ACTION( REQ_FLUSH,          "flush "           )\
+    ACTION( REQ_FLUSHALL,       "flush_all\r\n"    )\
     ACTION( REQ_QUIT,           "quit\r\n"         )\
 
 #define GET_TYPE(_name, _str) _name,
