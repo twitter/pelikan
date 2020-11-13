@@ -38,7 +38,6 @@ impl Logger {
     }
 
     pub fn init(self) -> Result<(), SetLoggerError> {
-        println!("log level: {:?}", self.level);
         let level = self.level;
         log::set_boxed_logger(Box::new(self)).map(|()| log::set_max_level(level.to_level_filter()))
     }

@@ -2,25 +2,26 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use config::PingserverConfig;
+#[macro_use]
+extern crate log;
+
 use std::net::SocketAddr;
 use std::sync::mpsc::*;
 use std::sync::Arc;
 
+use config::PingserverConfig;
 use log::*;
-// use mio::net::*;
-// use mio::unix::*;
 use mio::*;
 use slab::Slab;
 
-mod buffer;
-mod server;
+mod event_loop;
 mod logger;
+mod server;
 mod session;
 mod worker;
 
-use crate::server::Server;
 use crate::logger::*;
+use crate::server::Server;
 use crate::worker::Worker;
 
 fn main() {

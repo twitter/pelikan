@@ -1,0 +1,43 @@
+daemonize = false
+
+# NOTE: not currently implemented
+[admin]
+
+[server]
+# interfaces listening on
+host = "0.0.0.0"
+# port listening on
+port = "12321"
+# epoll timeout in milliseconds
+timeout = 100
+# epoll max events returned
+nevent = 1024
+
+[worker]
+# epoll timeout in milliseconds
+timeout = 100
+# epoll max events returned
+nevent = 1024
+
+# NOTE: not currently implemented
+[time]
+
+# NOTE: not currently implemented
+[buf]
+
+# NOTE: not currently implemented
+[debug]
+
+# NOTE: not currently implemented
+[sockio]
+
+# NOTE: not currently implemented
+[tcp]
+
+[tls]
+# certificate chain used to validate client certificate
+certificate_chain = "client.chain"
+# server certificate
+certificate = "server.crt"
+# server private key
+private_key = "server.key"

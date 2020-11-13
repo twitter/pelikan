@@ -77,6 +77,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "base64"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
+
+[[package]]
 name = "bindgen"
 version = "0.53.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -134,6 +140,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "buffer"
+version = "0.1.0"
+dependencies = [
+ "bytes 0.6.0",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -160,6 +173,12 @@ name = "bytes"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e4cec68f03f32e44924783795810fa50a7035d8c8ebe78580ad7e6c703fba38"
+
+[[package]]
+name = "bytes"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0dcbc35f504eb6fc275a6d20e4ebcda18cf50d40ba6fabff8c711fa16cb3b16"
 
 [[package]]
 name = "cast"
@@ -1079,14 +1098,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pelikan_pingclient_rs"
+version = "0.1.0"
+dependencies = [
+ "buffer",
+ "clap",
+ "mio 0.7.5",
+ "rustcommon-atomics",
+ "rustcommon-histogram",
+ "rustcommon-logger",
+ "rustls",
+ "slab",
+ "webpki",
+]
+
+[[package]]
 name = "pelikan_pingserver_rs"
 version = "0.0.1"
 dependencies = [
- "bytes 0.4.12",
+ "buffer",
  "chrono",
  "config",
  "log",
  "mio 0.7.5",
+ "rustls",
  "slab",
 ]
 
@@ -1452,6 +1487,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ring"
+version = "0.16.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "952cd6b98c85bbc30efa1ba5783b8abf12fec8b3287ffa52605b9432313e34e4"
+dependencies = [
+ "cc",
+ "libc",
+ "once_cell",
+ "spin",
+ "untrusted",
+ "web-sys",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1473,6 +1523,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustcommon-atomics"
+version = "1.0.0"
+source = "git+https://github.com/twitter/rustcommon#1fa5045c2ebc83afa8705bb5f09c95e7f4e62c73"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "rustcommon-histogram"
+version = "1.0.0"
+source = "git+https://github.com/twitter/rustcommon#1fa5045c2ebc83afa8705bb5f09c95e7f4e62c73"
+dependencies = [
+ "rustcommon-atomics",
+ "thiserror",
+]
+
+[[package]]
+name = "rustcommon-logger"
+version = "1.0.0"
+source = "git+https://github.com/twitter/rustcommon#1fa5045c2ebc83afa8705bb5f09c95e7f4e62c73"
+dependencies = [
+ "log",
+ "time",
+]
+
+[[package]]
 name = "rustcore"
 version = "0.1.0"
 dependencies = [
@@ -1486,6 +1562,19 @@ dependencies = [
  "pelikan-sys",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "rustls"
+version = "0.18.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d1126dcf58e93cee7d098dbda643b5f92ed724f1f6a63007c1116eed6700c81"
+dependencies = [
+ "base64",
+ "log",
+ "ring",
+ "sct",
+ "webpki",
 ]
 
 [[package]]
@@ -1520,6 +1609,16 @@ name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
+
+[[package]]
+name = "sct"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3042af939fca8c3453b7af0f1c66e533a15a86169e39de2657310ade8f98d3c"
+dependencies = [
+ "ring",
+ "untrusted",
+]
 
 [[package]]
 name = "semver"
@@ -1615,6 +1714,12 @@ dependencies = [
  "redox_syscall",
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "spin"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "strsim"
@@ -1768,6 +1873,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
+name = "untrusted"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a156c684c91ea7d62626509bce3cb4e1d9ed5c4d978f7b4352658f96a4c26b4a"
+
+[[package]]
 name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1873,6 +1984,16 @@ checksum = "4bf6ef87ad7ae8008e15a355ce696bed26012b7caa21605188cfd8214ab51e2d"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "webpki"
+version = "0.21.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab146130f5f790d45f82aeeb09e55a256573373ec64409fc19a6fb82fb1032ae"
+dependencies = [
+ "ring",
+ "untrusted",
 ]
 
 [[package]]
