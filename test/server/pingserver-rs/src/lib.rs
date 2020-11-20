@@ -186,25 +186,25 @@ fn run_tests() {
         panic!("test ping failed: {}", e);
     }
 
-    println!("Running test multiping");
-    if let Err(e) = multiping() {
-        eprintln!("test multiping failed: {}", e);
-    }
+    // println!("Running test multiping");
+    // if let Err(e) = multiping() {
+    //     eprintln!("test multiping failed: {}", e);
+    // }
 
-    println!("Running test partial_ping");
-    if let Err(e) = partial_ping() {
-        panic!("test partial_ping failed: {}", e);
-    }
+    // println!("Running test partial_ping");
+    // if let Err(e) = partial_ping() {
+    //     panic!("test partial_ping failed: {}", e);
+    // }
 
-    println!("Running test large_ping");
-    if let Err(e) = large_ping() {
-        eprintln!("test large_ping failed: {}", e);
-    }
+    // println!("Running test large_ping");
+    // if let Err(e) = large_ping() {
+    //     eprintln!("test large_ping failed: {}", e);
+    // }
 
-    println!("Running test admin_crash");
-    if let Err(e) = admin_crash() {
-        eprintln!("test admin_crash failed: {}", e);
-    }
+    // println!("Running test admin_crash");
+    // if let Err(e) = admin_crash() {
+    //     eprintln!("test admin_crash failed: {}", e);
+    // }
 }
 
 pub fn main() {
