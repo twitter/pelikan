@@ -1,0 +1,16 @@
+[package]
+name = "pelikan_pingclient_rs"
+version = "0.1.0"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+edition = "2018"
+
+[dependencies]
+buffer = { path = "../../rust/buffer" }
+clap = "2.33.3"
+mio = { version = "0.7.5", features = ["os-poll", "tcp"] }
+rustcommon-atomics = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-histogram = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
+rustls = { version = "0.18.1", features = ["dangerous_configuration"] }
+slab = "0.4.2"
+webpki = "0.21.3"

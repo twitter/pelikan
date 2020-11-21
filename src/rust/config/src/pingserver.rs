@@ -46,6 +46,8 @@ pub struct PingserverConfig {
     worker: WorkerConfig,
     #[serde(default)]
     time: TimeConfig,
+    #[serde(default)]
+    tls: TlsConfig,
 
     // ccommon
     #[serde(default)]
@@ -119,6 +121,10 @@ impl PingserverConfig {
     pub fn tcp(&self) -> &TcpConfig {
         &self.tcp
     }
+
+    pub fn tls(&self) -> &TlsConfig {
+        &self.tls
+    }
 }
 
 // trait implementations
@@ -138,6 +144,7 @@ impl Default for PingserverConfig {
             debug: Default::default(),
             sockio: Default::default(),
             tcp: Default::default(),
+            tls: Default::default(),
         }
     }
 }
