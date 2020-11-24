@@ -7,10 +7,10 @@ description = "an over-engineered ping server written in Rust"
 license = "Apache-2.0"
 
 [dependencies]
-buffer = { path = "../../rust/buffer" }
 chrono = "0.4.11"
 config = { path = "../../rust/config" }
 log = { version = "0.4.8", features = ["std"] }
 mio = { version = "0.7.0", features = ["os-poll", "tcp"] }
+rustcommon-buffer = { git = "http://github.com/twitter/rustcommon" }
 rustls = "0.18.1"
 slab = "0.4.2"

@@ -12,7 +12,6 @@ members = [
     "deps/ccommon/rust/ccommon-stream",
     "deps/ccommon/rust/ccommon-sys",
     "src/client/pingclient-rs",
-    "src/rust/buffer",
     "src/rust/config",
     "src/rust-util/httpencode",
     "src/rust-util/pelikan",
