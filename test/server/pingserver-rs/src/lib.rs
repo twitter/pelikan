@@ -60,6 +60,19 @@ fn ping() -> IOResult<()> {
     Ok(())
 }
 
+fn invalid_command() -> IOResult<()> {
+    let mut buf = [0u8; 1024];
+    let mut stream = TcpStream::connect("localhost:12321")?;
+    stream.set_nodelay(true)?;
+    stream.set_nonblocking(false)?;
+
+    stream.write_all(b"INVALID_COMMAND\r\n")?;
+    let bytes = stream.read(&mut buf)?;
+    assert_eq!(bytes, 0);
+
+    Ok(())
+}
+
 #[allow(dead_code)]
 // TODO(brian): fix this test, it hangs currently
 /// Test that a fragmented ping is properly handled.
@@ -128,6 +141,8 @@ fn partial_ping() -> IOResult<()> {
     stream.write_all(b"PI")
 }
 
+#[allow(dead_code)]
+// TODO(brian): fix this test, it hangs currently
 fn large_ping() -> IOResult<()> {
     let mut stream = TcpStream::connect("localhost:12321")?;
     stream.set_nodelay(true)?;
@@ -181,30 +196,30 @@ fn admin_crash() -> IOResult<()> {
 }
 
 fn run_tests() {
-    println!("Running test ping");
+    println!("Running test: ping");
     if let Err(e) = ping() {
-        panic!("test ping failed: {}", e);
+        panic!("\tfailed: {}", e);
     }
 
-    // println!("Running test multiping");
-    // if let Err(e) = multiping() {
-    //     eprintln!("test multiping failed: {}", e);
-    // }
+    println!("Running test: invalid command");
+    if let Err(e) = invalid_command() {
+        panic!("\tfailed: {}", e);
+    }
 
-    // println!("Running test partial_ping");
-    // if let Err(e) = partial_ping() {
-    //     panic!("test partial_ping failed: {}", e);
-    // }
+    println!("Running test: multiping");
+    if let Err(e) = multiping() {
+        eprintln!("\tfailed: {}", e);
+    }
 
-    // println!("Running test large_ping");
-    // if let Err(e) = large_ping() {
-    //     eprintln!("test large_ping failed: {}", e);
-    // }
+    println!("Running test: partial ping");
+    if let Err(e) = partial_ping() {
+        panic!("\tfailed: {}", e);
+    }
 
-    // println!("Running test admin_crash");
-    // if let Err(e) = admin_crash() {
-    //     eprintln!("test admin_crash failed: {}", e);
-    // }
+    println!("Running test: admin crash");
+    if let Err(e) = admin_crash() {
+        eprintln!("\tfailed: {}", e);
+    }
 }
 
 pub fn main() {
