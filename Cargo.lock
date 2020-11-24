@@ -140,13 +140,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "buffer"
-version = "0.1.0"
-dependencies = [
- "bytes 0.6.0",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1121,6 +1114,7 @@ dependencies = [
  "log",
  "mio 0.7.5",
  "rustcommon-buffer",
+ "rustcommon-logger",
  "rustls",
  "slab",
 ]

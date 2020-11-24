@@ -3,24 +3,22 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 #[macro_use]
-extern crate log;
+extern crate rustcommon_logger;
 
 use std::net::SocketAddr;
 use std::sync::mpsc::*;
 use std::sync::Arc;
 
 use config::PingserverConfig;
-use log::*;
 use mio::*;
+use rustcommon_logger::{Level, Logger};
 use slab::Slab;
 
 mod event_loop;
-mod logger;
 mod server;
 mod session;
 mod worker;
 
-use crate::logger::*;
 use crate::server::Server;
 use crate::worker::Worker;
 
