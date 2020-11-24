@@ -4,8 +4,8 @@
 
 use std::io::{Error, ErrorKind, Write};
 
-use buffer::Buffer;
 use mio::net::TcpStream;
+use rustcommon_buffer::*;
 use rustls::ServerSession;
 use rustls::Session as TlsSession;
 

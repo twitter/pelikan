@@ -1101,10 +1101,10 @@ dependencies = [
 name = "pelikan_pingclient_rs"
 version = "0.1.0"
 dependencies = [
- "buffer",
  "clap",
  "mio 0.7.5",
  "rustcommon-atomics",
+ "rustcommon-buffer",
  "rustcommon-histogram",
  "rustcommon-logger",
  "rustls",
@@ -1116,11 +1116,11 @@ dependencies = [
 name = "pelikan_pingserver_rs"
 version = "0.0.1"
 dependencies = [
- "buffer",
  "chrono",
  "config",
  "log",
  "mio 0.7.5",
+ "rustcommon-buffer",
  "rustls",
  "slab",
 ]
@@ -1525,15 +1525,23 @@ dependencies = [
 [[package]]
 name = "rustcommon-atomics"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#1fa5045c2ebc83afa8705bb5f09c95e7f4e62c73"
+source = "git+https://github.com/twitter/rustcommon#74ed808b81129ab0b694d72bf36737f621751d96"
 dependencies = [
  "serde",
 ]
 
 [[package]]
+name = "rustcommon-buffer"
+version = "0.1.0"
+source = "git+https://github.com/twitter/rustcommon#74ed808b81129ab0b694d72bf36737f621751d96"
+dependencies = [
+ "bytes 0.6.0",
+]
+
+[[package]]
 name = "rustcommon-histogram"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#1fa5045c2ebc83afa8705bb5f09c95e7f4e62c73"
+source = "git+https://github.com/twitter/rustcommon#74ed808b81129ab0b694d72bf36737f621751d96"
 dependencies = [
  "rustcommon-atomics",
  "thiserror",
@@ -1542,7 +1550,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-logger"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#1fa5045c2ebc83afa8705bb5f09c95e7f4e62c73"
+source = "git+https://github.com/twitter/rustcommon#74ed808b81129ab0b694d72bf36737f621751d96"
 dependencies = [
  "log",
  "time",

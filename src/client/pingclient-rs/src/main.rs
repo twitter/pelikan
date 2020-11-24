@@ -3,11 +3,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use buffer::Buffer;
 use clap::{App, Arg, ArgMatches};
 use mio::net::TcpStream;
 use mio::*;
 use rustcommon_atomics::*;
+use rustcommon_buffer::*;
 use rustcommon_histogram::*;
 use rustcommon_logger::*;
 use rustls::{ClientConfig, ClientSession, Session as TlsSession};
