@@ -35,9 +35,13 @@ impl Session {
             addr: addr,
             stream: stream,
             state,
-            buffer: Buffer::new(1024, 1024),
+            buffer: Buffer::with_capacity(1024, 1024),
             tls,
         }
+    }
+
+    pub fn buffer(&mut self) -> &mut Buffer {
+        &mut self.buffer
     }
 
     /// Register the `Session` with the event loop
@@ -140,19 +144,9 @@ impl Session {
         }
     }
 
-    /// Get a reference to the contents of the receive buffer
-    pub fn rx_buffer(&self) -> &[u8] {
-        self.buffer.rx_buffer()
-    }
-
     /// Return true if there are still bytes in the tx buffer
     pub fn tx_pending(&self) -> bool {
-        self.buffer.tx_pending() > 0
-    }
-
-    /// Clear the buffer
-    pub fn clear_buffer(&mut self) {
-        self.buffer.clear()
+        self.buffer.write_pending() > 0
     }
 
     /// Write to the session buffer
@@ -222,7 +216,6 @@ impl Session {
         trace!("closing session");
         let _ = self.stream.shutdown(std::net::Shutdown::Both);
         self.tls = None;
-        self.buffer.clear();
     }
 }
 

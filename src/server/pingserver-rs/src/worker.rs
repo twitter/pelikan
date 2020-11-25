@@ -5,6 +5,8 @@
 use crate::event_loop::EventLoop;
 use crate::session::*;
 use crate::*;
+
+use std::io::BufRead;
 use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
@@ -71,8 +73,8 @@ impl Worker {
                         self.do_write(token);
                     }
 
-                    if let Some(session) = self.sessions.get(token.0) {
-                        let pending = session.rx_buffer().len();
+                    if let Some(session) = self.sessions.get_mut(token.0) {
+                        let pending = session.buffer().read_pending();
                         trace!(
                             "{} bytes pending in rx buffer for session: {}",
                             pending,
@@ -85,7 +87,7 @@ impl Worker {
                         .receiver
                         .recv_timeout(std::time::Duration::from_millis(1))
                     {
-                        let pending = s.rx_buffer().len();
+                        let pending = s.buffer().read_pending();
                         trace!("{} bytes pending in rx buffer for new session", pending);
 
                         // reserve vacant slab
@@ -125,39 +127,63 @@ impl EventLoop for Worker {
 
     fn handle_data(&mut self, token: Token) {
         trace!("handling request for session: {}", token.0);
-        if let Some(session) = self.get_mut_session(token) {
-            // parse buffer contents
-            let buf = session.rx_buffer();
-            if buf.len() < 6 || &buf[buf.len() - 2..buf.len()] != b"\r\n" {
-                // Shortest request is "PING\r\n" at 6 bytes
-                // All complete responses end in CRLF
+        loop {
+            if let Some(session) = self.get_mut_session(token) {
+                if let Ok(buf) = session.buffer().fill_buf() {
+                    if buf.len() < 6 {
+                        // Shortest request is "PING\r\n" at 6 bytes
+                        // All complete responses end in CRLF
 
-                // incomplete request, stay in reading
-            } else if buf.len() == 6 && &buf[..] == b"PING\r\n" {
-                session.clear_buffer();
-                if session.write(b"PONG\r\n").is_ok() {
-                    if session.flush().is_ok() {
-                        if session.tx_pending() {
-                            // wait to write again
-                            session.set_state(State::Writing);
-                            self.reregister(token);
+                        // incomplete request, stay in reading
+                        break;
+                    } else if &buf[0..6] == b"PING\r\n" {
+                        session.buffer().consume(6);
+                        if session.write(b"PONG\r\n").is_ok() {
+                            if session.flush().is_ok() {
+                                let rx_pending = session.buffer().read_pending();
+                                if session.tx_pending() {
+                                    // wait to write again
+                                    session.set_state(State::Writing);
+                                    if rx_pending < 6 {
+                                        break;
+                                    }
+                                } else {
+                                    if session.buffer().read_pending() < 6 {
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // error flushing session
+                                self.handle_error(token);
+                                return;
+                            }
+                        } else {
+                            // error writing
+                            self.handle_error(token);
+                            return;
                         }
                     } else {
+                        // invalid command
+                        debug!("error");
                         self.handle_error(token);
+                        return;
                     }
                 } else {
+                    // couldn't get buffer contents
+                    debug!("error");
                     self.handle_error(token);
+                    return;
                 }
             } else {
-                debug!("error");
-                self.handle_error(token);
+                // no session for the token
+                trace!(
+                    "attempted to handle data for non-existent session: {}",
+                    token.0
+                );
+                return;
             }
-        } else {
-            trace!(
-                "attempted to handle data for non-existent session: {}",
-                token.0
-            );
         }
+        self.reregister(token);
     }
 
     /// Reregister the session given its token
