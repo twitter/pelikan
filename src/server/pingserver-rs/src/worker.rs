@@ -74,12 +74,16 @@ impl Worker {
                     }
 
                     if let Some(session) = self.sessions.get_mut(token.0) {
-                        let pending = session.buffer().read_pending();
                         trace!(
                             "{} bytes pending in rx buffer for session: {}",
-                            pending,
+                            session.buffer().read_pending(),
                             token.0
                         );
+                        trace!(
+                            "{} bytes pending in tx buffer for session: {}",
+                            session.buffer().write_pending(),
+                            token.0
+                        )
                     }
                 } else {
                     // handle new connections
@@ -129,42 +133,45 @@ impl EventLoop for Worker {
         trace!("handling request for session: {}", token.0);
         if let Some(session) = self.get_mut_session(token) {
             loop {
-                if let Ok(buf) = session.buffer().fill_buf() {
-                    if buf.len() < 6 {
-                        // Shortest request is "PING\r\n" at 6 bytes
-                        // All complete responses end in CRLF
+                // TODO(bmartin): buffer should allow us to check remaining
+                // write capacity.
+                if session.buffer().write_pending() > (1024 - 6) {
+                    // if the write buffer is over-full, skip processing
+                    break;
+                }
+                match session.buffer().fill_buf() {
+                    Ok(buf) => {
+                        if buf.len() < 6 {
+                            // Shortest request is "PING\r\n" at 6 bytes
+                            // All complete responses end in CRLF
 
-                        // incomplete request, stay in reading
-                        break;
-                    } else if &buf[0..6] == b"PING\r\n" {
-                        session.buffer().consume(6);
-                        if session.write(b"PONG\r\n").is_err() {
-                            // error writing
+                            // incomplete request, stay in reading
+                            break;
+                        } else if &buf[0..6] == b"PING\r\n" {
+                            session.buffer().consume(6);
+                            if session.write(b"PONG\r\n").is_err() {
+                                // error writing
+                                self.handle_error(token);
+                                return;
+                            }
+                        } else {
+                            // invalid command
+                            debug!("error");
                             self.handle_error(token);
                             return;
                         }
-                    } else {
-                        // invalid command
-                        debug!("error");
-                        self.handle_error(token);
-                        return;
                     }
-                } else {
-                    // couldn't get buffer contents
-                    debug!("error");
-                    self.handle_error(token);
-                    return;
+                    Err(e) => {
+                        if e.kind() == std::io::ErrorKind::WouldBlock {
+                            break;
+                        } else {
+                            // couldn't get buffer contents
+                            debug!("error");
+                            self.handle_error(token);
+                            return;
+                        }
+                    }
                 }
-            }
-            if session.flush().is_ok() {
-                if session.tx_pending() {
-                    // wait to write again
-                    session.set_state(State::Writing);
-                }
-            } else {
-                // error flushing session
-                self.handle_error(token);
-                return;
             }
         } else {
             // no session for the token
