@@ -127,8 +127,8 @@ impl EventLoop for Worker {
 
     fn handle_data(&mut self, token: Token) {
         trace!("handling request for session: {}", token.0);
-        loop {
-            if let Some(session) = self.get_mut_session(token) {
+        if let Some(session) = self.get_mut_session(token) {
+            loop {
                 if let Ok(buf) = session.buffer().fill_buf() {
                     if buf.len() < 6 {
                         // Shortest request is "PING\r\n" at 6 bytes
@@ -138,26 +138,7 @@ impl EventLoop for Worker {
                         break;
                     } else if &buf[0..6] == b"PING\r\n" {
                         session.buffer().consume(6);
-                        if session.write(b"PONG\r\n").is_ok() {
-                            if session.flush().is_ok() {
-                                let rx_pending = session.buffer().read_pending();
-                                if session.tx_pending() {
-                                    // wait to write again
-                                    session.set_state(State::Writing);
-                                    if rx_pending < 6 {
-                                        break;
-                                    }
-                                } else {
-                                    if session.buffer().read_pending() < 6 {
-                                        break;
-                                    }
-                                }
-                            } else {
-                                // error flushing session
-                                self.handle_error(token);
-                                return;
-                            }
-                        } else {
+                        if session.write(b"PONG\r\n").is_err() {
                             // error writing
                             self.handle_error(token);
                             return;
@@ -174,14 +155,24 @@ impl EventLoop for Worker {
                     self.handle_error(token);
                     return;
                 }
+            }
+            if session.flush().is_ok() {
+                if session.tx_pending() {
+                    // wait to write again
+                    session.set_state(State::Writing);
+                }
             } else {
-                // no session for the token
-                trace!(
-                    "attempted to handle data for non-existent session: {}",
-                    token.0
-                );
+                // error flushing session
+                self.handle_error(token);
                 return;
             }
+        } else {
+            // no session for the token
+            trace!(
+                "attempted to handle data for non-existent session: {}",
+                token.0
+            );
+            return;
         }
         self.reregister(token);
     }
