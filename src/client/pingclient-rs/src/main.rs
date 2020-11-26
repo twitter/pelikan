@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{BufRead, Write};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -321,7 +321,7 @@ impl Session {
         } else {
             State::Writing
         };
-        let buffer = Buffer::new(4096, 4096);
+        let buffer = Buffer::with_capacity(4096, 4096);
         Self {
             stream,
             state,
@@ -384,16 +384,18 @@ impl Session {
                         Err(())
                     } else {
                         let _ = self.buffer.read_from(tls);
-                        if self.buffer.rx_buffer() == b"PONG\r\n" {
-                            let elapsed = self.t0.elapsed();
-                            let nanos = elapsed.as_secs() as u64 * 1_000_000_000
-                                + elapsed.subsec_nanos() as u64;
-                            self.histogram.increment(nanos, 1);
-                            self.responses.fetch_add(1, Ordering::Relaxed);
-                            self.buffer.clear();
-                            self.state = State::Writing;
-                            self.t0 = Instant::now();
-                            let _ = tls.write(b"PING\r\n");
+                        if let Ok(buf) = self.buffer.fill_buf() {
+                            if &buf[0..6] == b"PONG\r\n" {
+                                let elapsed = self.t0.elapsed();
+                                let nanos = elapsed.as_secs() as u64 * 1_000_000_000
+                                    + elapsed.subsec_nanos() as u64;
+                                self.histogram.increment(nanos, 1);
+                                self.responses.fetch_add(1, Ordering::Relaxed);
+                                self.buffer.consume(6);
+                                self.state = State::Writing;
+                                self.t0 = Instant::now();
+                                let _ = tls.write(b"PING\r\n");
+                            }
                         }
                         Ok(())
                     }
@@ -401,14 +403,16 @@ impl Session {
             }
         } else {
             let _ = self.buffer.read_from(&mut self.stream);
-            if self.buffer.rx_buffer() == b"PONG\r\n" {
-                let elapsed = self.t0.elapsed();
-                let nanos =
-                    elapsed.as_secs() as u64 * 1_000_000_000 + elapsed.subsec_nanos() as u64;
-                self.histogram.increment(nanos, 1);
-                self.responses.fetch_add(1, Ordering::Relaxed);
-                self.buffer.clear();
-                self.state = State::Writing;
+            if let Ok(buf) = self.buffer.fill_buf() {
+                if &buf[0..6] == b"PONG\r\n" {
+                    let elapsed = self.t0.elapsed();
+                    let nanos =
+                        elapsed.as_secs() as u64 * 1_000_000_000 + elapsed.subsec_nanos() as u64;
+                    self.histogram.increment(nanos, 1);
+                    self.responses.fetch_add(1, Ordering::Relaxed);
+                    self.buffer.clear();
+                    self.state = State::Writing;
+                }
             }
             Ok(())
         }

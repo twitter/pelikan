@@ -102,7 +102,7 @@ impl Server {
                             let _ = session.register(&self.poll);
                             s.insert(session);
                         } else {
-                            let session = Session::new(addr, stream, State::Reading, None);
+                            let session = Session::new(addr, stream, State::Established, None);
                             trace!("accepted new session: {}", addr);
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
@@ -130,7 +130,7 @@ impl Server {
                         if !handshaking {
                             let mut session = self.sessions.remove(token.0);
                             let _ = session.deregister(&self.poll);
-                            session.set_state(State::Reading);
+                            session.set_state(State::Established);
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
                             } else {

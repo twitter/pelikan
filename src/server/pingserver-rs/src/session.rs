@@ -35,9 +35,13 @@ impl Session {
             addr: addr,
             stream: stream,
             state,
-            buffer: Buffer::new(1024, 1024),
+            buffer: Buffer::with_capacity(1024, 1024),
             tls,
         }
+    }
+
+    pub fn buffer(&mut self) -> &mut Buffer {
+        &mut self.buffer
     }
 
     /// Register the `Session` with the event loop
@@ -140,21 +144,6 @@ impl Session {
         }
     }
 
-    /// Get a reference to the contents of the receive buffer
-    pub fn rx_buffer(&self) -> &[u8] {
-        self.buffer.rx_buffer()
-    }
-
-    /// Return true if there are still bytes in the tx buffer
-    pub fn tx_pending(&self) -> bool {
-        self.buffer.tx_pending() > 0
-    }
-
-    /// Clear the buffer
-    pub fn clear_buffer(&mut self) {
-        self.buffer.clear()
-    }
-
     /// Write to the session buffer
     pub fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
         self.buffer.write(buf)
@@ -188,24 +177,16 @@ impl Session {
     /// Get the set of readiness events the session is waiting for
     fn readiness(&self) -> Interest {
         if let Some(ref tls) = self.tls {
-            if tls.wants_read() && !tls.wants_write() {
-                match self.state {
-                    State::Reading => Interest::READABLE,
-                    _ => Interest::READABLE | Interest::WRITABLE,
-                }
-            } else if tls.wants_write() && !tls.wants_read() {
-                match self.state {
-                    State::Writing => Interest::WRITABLE,
-                    _ => Interest::READABLE | Interest::WRITABLE,
-                }
-            } else {
+            if tls.wants_write() || self.buffer.write_pending() != 0 {
                 Interest::READABLE | Interest::WRITABLE
+            } else {
+                Interest::READABLE
             }
         } else {
-            match self.state {
-                State::Reading => Interest::READABLE,
-                State::Writing => Interest::WRITABLE,
-                State::Handshaking => Interest::READABLE | Interest::WRITABLE,
+            if self.buffer.write_pending() != 0 {
+                Interest::READABLE | Interest::WRITABLE
+            } else {
+                Interest::READABLE
             }
         }
     }
@@ -222,12 +203,11 @@ impl Session {
         trace!("closing session");
         let _ = self.stream.shutdown(std::net::Shutdown::Both);
         self.tls = None;
-        self.buffer.clear();
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum State {
     Handshaking,
-    Reading,
-    Writing,
+    Established,
 }

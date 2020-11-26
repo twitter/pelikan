@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::session::{Session, State};
+use crate::session::Session;
 use crate::Token;
 use mio::Poll;
 
@@ -53,11 +53,13 @@ pub trait EventLoop {
         if let Some(session) = self.get_mut_session(token) {
             match session.flush() {
                 Ok(Some(_)) => {
-                    if !session.tx_pending() {
-                        // done writing, transition to reading
-                        session.set_state(State::Reading);
-                        self.reregister(token);
+                    // if we wrote data but still have data in the read buffer
+                    // attempt to process that data
+                    if session.buffer().read_pending() != 0 {
+                        self.handle_data(token);
                     }
+                    // interests may have changed, so reregister
+                    self.reregister(token);
                 }
                 Ok(None) => {
                     // spurious write

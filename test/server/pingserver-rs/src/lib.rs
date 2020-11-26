@@ -73,8 +73,6 @@ fn invalid_command() -> IOResult<()> {
     Ok(())
 }
 
-#[allow(dead_code)]
-// TODO(brian): fix this test, it hangs currently
 /// Test that a fragmented ping is properly handled.
 fn fragmented_ping() -> IOResult<()> {
     let expected_res: &[u8] = b"PONG\r\n";
@@ -141,8 +139,6 @@ fn partial_ping() -> IOResult<()> {
     stream.write_all(b"PI")
 }
 
-#[allow(dead_code)]
-// TODO(brian): fix this test, it hangs currently
 fn large_ping() -> IOResult<()> {
     let mut stream = TcpStream::connect("localhost:12321")?;
     stream.set_nodelay(true)?;
@@ -206,9 +202,19 @@ fn run_tests() {
         panic!("\tfailed: {}", e);
     }
 
+    println!("Running test: fragmented ping");
+    if let Err(e) = fragmented_ping() {
+        panic!("\tfailed: {}", e);
+    }
+
     println!("Running test: multiping");
     if let Err(e) = multiping() {
-        eprintln!("\tfailed: {}", e);
+        panic!("\tfailed: {}", e);
+    }
+
+    println!("Running test: large ping");
+    if let Err(e) = large_ping() {
+        panic!("\tfailed: {}", e);
     }
 
     println!("Running test: partial ping");

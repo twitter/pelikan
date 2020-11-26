@@ -1519,15 +1519,15 @@ dependencies = [
 [[package]]
 name = "rustcommon-atomics"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#74ed808b81129ab0b694d72bf36737f621751d96"
+source = "git+https://github.com/twitter/rustcommon#6a963460a9b363e02d6782ff5a5cbefb1db035ef"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "rustcommon-buffer"
-version = "0.1.0"
-source = "git+https://github.com/twitter/rustcommon#74ed808b81129ab0b694d72bf36737f621751d96"
+version = "0.2.0"
+source = "git+https://github.com/twitter/rustcommon#6a963460a9b363e02d6782ff5a5cbefb1db035ef"
 dependencies = [
  "bytes 0.6.0",
 ]
@@ -1535,7 +1535,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-histogram"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#74ed808b81129ab0b694d72bf36737f621751d96"
+source = "git+https://github.com/twitter/rustcommon#6a963460a9b363e02d6782ff5a5cbefb1db035ef"
 dependencies = [
  "rustcommon-atomics",
  "thiserror",
@@ -1544,7 +1544,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-logger"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#74ed808b81129ab0b694d72bf36737f621751d96"
+source = "git+https://github.com/twitter/rustcommon#6a963460a9b363e02d6782ff5a5cbefb1db035ef"
 dependencies = [
  "log",
  "time",
