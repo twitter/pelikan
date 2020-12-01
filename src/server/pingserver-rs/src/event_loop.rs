@@ -3,22 +3,35 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::session::Session;
+use crate::Stat;
 use crate::Token;
 use mio::Poll;
+use rustcommon_metrics::AtomicU64;
+use rustcommon_metrics::Metrics;
+use std::sync::Arc;
 
 pub trait EventLoop {
+    fn metrics(&self) -> &Arc<Metrics<AtomicU64, AtomicU64>>;
     fn poll(&self) -> &Poll;
     fn get_mut_session<'a>(&'a mut self, token: Token) -> Option<&'a mut Session>;
     fn take_session(&mut self, token: Token) -> Option<Session>;
     fn reregister(&mut self, token: Token);
     fn handle_data(&mut self, token: Token);
 
+    // stats helper functions
+    fn increment_count(&self, stat: &Stat) {
+        self.increment_count_n(stat, 1)
+    }
+    fn increment_count_n(&self, stat: &Stat, count: u64) {
+        let _ = self.metrics().increment_counter(stat, count);
+    }
+
     /// Handle a read event for the session given its token
     fn do_read(&mut self, token: Token) -> Result<(), ()> {
         trace!("handling read for session: {}", token.0);
 
         if let Some(session) = self.get_mut_session(token) {
-            // read from stream to buffer
+            // read from session to buffer
             match session.read() {
                 Ok(Some(0)) => {
                     self.handle_hup(token);

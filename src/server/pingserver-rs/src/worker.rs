@@ -6,6 +6,7 @@ use crate::event_loop::EventLoop;
 use crate::session::*;
 use crate::*;
 
+use std::convert::TryInto;
 use std::io::BufRead;
 use std::sync::Arc;
 
@@ -17,6 +18,7 @@ pub struct Worker {
     receiver: Receiver<Session>,
     waker: Arc<Waker>,
     waker_token: Token,
+    metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
 }
 
 pub const WAKER_TOKEN: usize = usize::MAX;
@@ -25,6 +27,7 @@ impl Worker {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(
         config: Arc<PingserverConfig>,
+        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
         receiver: Receiver<Session>,
     ) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
@@ -42,6 +45,7 @@ impl Worker {
             sessions,
             waker,
             waker_token,
+            metrics,
         })
     }
 
@@ -53,23 +57,38 @@ impl Worker {
         ));
 
         loop {
-            // get client events with timeout
+            let _ = self.metrics.increment_counter(&Stat::WorkerEventLoop, 1);
+
+            // get events with timeout
             if self.poll.poll(&mut events, timeout).is_err() {
                 error!("Error polling");
             }
+
+            let _ = self.metrics.increment_counter(
+                &Stat::WorkerEventTotal,
+                events.iter().count().try_into().unwrap(),
+            );
 
             // process all events
             for event in events.iter() {
                 let token = event.token();
 
                 if token != self.waker_token {
+                    // event for existing session
                     trace!("got event for session: {}", token.0);
 
+                    if event.is_error() {
+                        self.increment_count(&Stat::WorkerEventError);
+                        self.handle_error(token);
+                    }
+
                     if event.is_readable() {
+                        self.increment_count(&Stat::WorkerEventRead);
                         let _ = self.do_read(token);
                     }
 
                     if event.is_writable() {
+                        self.increment_count(&Stat::WorkerEventWrite);
                         self.do_write(token);
                     }
 
@@ -86,6 +105,7 @@ impl Worker {
                         )
                     }
                 } else {
+                    self.increment_count(&Stat::WorkerEventWake);
                     // handle new connections
                     while let Ok(mut s) = self
                         .receiver
@@ -125,11 +145,17 @@ impl Worker {
 }
 
 impl EventLoop for Worker {
+    fn metrics(&self) -> &Arc<Metrics<AtomicU64, AtomicU64>> {
+        &self.metrics
+    }
+
     fn get_mut_session<'a>(&'a mut self, token: Token) -> Option<&'a mut Session> {
         self.sessions.get_mut(token.0)
     }
 
     fn handle_data(&mut self, token: Token) {
+        // TODO(bmartin): find a better solution to multiple borrow issue
+        let metrics = self.metrics.clone();
         trace!("handling request for session: {}", token.0);
         if let Some(session) = self.get_mut_session(token) {
             loop {
@@ -148,15 +174,20 @@ impl EventLoop for Worker {
                             // incomplete request, stay in reading
                             break;
                         } else if &buf[0..6] == b"PING\r\n" {
+                            let _ = metrics.increment_counter(&Stat::RequestParse, 1);
                             session.buffer().consume(6);
                             if session.write(b"PONG\r\n").is_err() {
                                 // error writing
+                                let _ = metrics.increment_counter(&Stat::ResponseComposeEx, 1);
                                 self.handle_error(token);
                                 return;
+                            } else {
+                                let _ = metrics.increment_counter(&Stat::ResponseCompose, 1);
                             }
                         } else {
                             // invalid command
                             debug!("error");
+                            let _ = self.metrics.increment_counter(&Stat::RequestParseEx, 1);
                             self.handle_error(token);
                             return;
                         }
@@ -173,6 +204,11 @@ impl EventLoop for Worker {
                     }
                 }
             }
+            if session.buffer().write_pending() > 0 {
+                if session.flush().is_ok() && session.buffer().write_pending() > 0 {
+                    self.reregister(token);
+                }
+            }
         } else {
             // no session for the token
             trace!(
@@ -181,7 +217,6 @@ impl EventLoop for Worker {
             );
             return;
         }
-        self.reregister(token);
     }
 
     /// Reregister the session given its token

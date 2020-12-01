@@ -13,5 +13,6 @@ log = { version = "0.4.8", features = ["std"] }
 mio = { version = "0.7.0", features = ["os-poll", "tcp"] }
 rustcommon-buffer = { git = "http://github.com/twitter/rustcommon" }
 rustcommon-logger = { git = "http://github.com/twitter/rustcommon" }
+rustcommon-metrics = { git = "http://github.com/twitter/rustcommon" }
 rustls = "0.18.1"
 slab = "0.4.2"
