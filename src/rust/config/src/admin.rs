@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::net::{AddrParseError, SocketAddr};
+
 use serde::{Deserialize, Serialize};
 
 // constants to define default values
@@ -89,6 +91,11 @@ impl AdminConfig {
 
     pub fn tw_ntick(&self) -> usize {
         self.tw_ntick
+    }
+
+    /// Return the result of parsing the host and port
+    pub fn socket_addr(&self) -> Result<SocketAddr, AddrParseError> {
+        format!("{}:{}", self.host(), self.port()).parse()
     }
 }
 

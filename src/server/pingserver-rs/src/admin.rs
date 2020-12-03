@@ -8,17 +8,15 @@ use crate::*;
 use mio::net::TcpListener;
 
 use std::convert::TryInto;
+use std::io::BufRead;
 
-/// A `Server` is used to bind to a given socket address and accept new
-/// sessions. These sessions are moved onto a MPSC queue, where they can be
-/// handled by a `Worker`.
-pub struct Server {
+/// A `Admin` is used to bind to a given socket address and handle out-of-band
+/// admin requests.
+pub struct Admin {
     addr: SocketAddr,
     config: Arc<PingserverConfig>,
     listener: TcpListener,
     poll: Poll,
-    sender: SyncSender<Session>,
-    waker: Arc<Waker>,
     tls_config: Option<Arc<rustls::ServerConfig>>,
     sessions: Slab<Session>,
     metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
@@ -26,16 +24,13 @@ pub struct Server {
 
 pub const LISTENER_TOKEN: usize = usize::MAX;
 
-impl Server {
-    /// Creates a new `Server` that will bind to a given `addr` and push new
-    /// `Session`s over the `sender`
+impl Admin {
+    /// Creates a new `Admin` event loop.
     pub fn new(
         config: Arc<PingserverConfig>,
         metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
-        sender: SyncSender<Session>,
-        waker: Arc<Waker>,
     ) -> Result<Self, std::io::Error> {
-        let addr = config.server().socket_addr().map_err(|e| {
+        let addr = config.admin().socket_addr().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
         })?;
@@ -68,8 +63,6 @@ impl Server {
             config,
             listener,
             poll,
-            sender,
-            waker,
             tls_config,
             sessions,
             metrics,
@@ -79,7 +72,7 @@ impl Server {
     /// Runs the `Server` in a loop, accepting new sessions and moving them to
     /// the queue
     pub fn run(&mut self) {
-        info!("running server on: {}", self.addr);
+        info!("running admin on: {}", self.addr);
 
         let mut events = Events::with_capacity(self.config.server().nevent());
         let timeout = Some(std::time::Duration::from_millis(
@@ -88,12 +81,12 @@ impl Server {
 
         // repeatedly run accepting new connections and moving them to the worker
         loop {
-            let _ = self.metrics.increment_counter(&Stat::ServerEventLoop, 1);
+            self.increment_count(&Stat::AdminEventLoop);
             if self.poll.poll(&mut events, timeout).is_err() {
                 error!("Error polling server");
             }
-            let _ = self.metrics.increment_counter(
-                &Stat::ServerEventTotal,
+            self.increment_count_n(
+                &Stat::AdminEventTotal,
                 events.iter().count().try_into().unwrap(),
             );
             for event in events.iter() {
@@ -110,62 +103,41 @@ impl Server {
                             let s = self.sessions.vacant_entry();
                             let token = s.key();
                             session.set_token(Token(token));
-                            if session.register(&self.poll).is_ok() {
-                                s.insert(session);
-                            } else {
-                                let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
-                            }
+                            let _ = session.register(&self.poll);
+                            s.insert(session);
                         } else {
-                            let session = Session::new(
+                            let mut session = Session::new(
                                 addr,
                                 stream,
                                 State::Established,
                                 None,
                                 self.metrics.clone(),
                             );
-                            trace!("accepted new session: {}", addr);
-                            if self.sender.send(session).is_err() {
-                                error!("error sending session to worker");
-                                let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
-                            } else {
-                                let _ = self.waker.wake();
-                            }
+                            trace!("accepted new admin session: {}", addr);
+                            let s = self.sessions.vacant_entry();
+                            let token = s.key();
+                            session.set_token(Token(token));
+                            let _ = session.register(&self.poll);
+                            s.insert(session);
                         };
                     }
                 } else {
                     let token = event.token();
-                    trace!("got event for session: {}", token.0);
+                    trace!("got event for admin session: {}", token.0);
 
                     if event.is_error() {
-                        let _ = self.metrics().increment_counter(&Stat::ServerEventError, 1);
+                        self.increment_count(&Stat::AdminEventError);
                         self.handle_error(token);
                     }
 
                     if event.is_readable() {
-                        let _ = self.metrics.increment_counter(&Stat::ServerEventRead, 1);
+                        self.increment_count(&Stat::AdminEventRead);
                         let _ = self.do_read(token);
-                    }
+                    };
 
                     if event.is_writable() {
-                        let _ = self.metrics.increment_counter(&Stat::ServerEventWrite, 1);
+                        self.increment_count(&Stat::AdminEventWrite);
                         self.do_write(token);
-                    }
-
-                    if let Some(handshaking) =
-                        self.sessions.get(token.0).map(|v| v.is_handshaking())
-                    {
-                        if !handshaking {
-                            let mut session = self.sessions.remove(token.0);
-                            let _ = session.deregister(&self.poll);
-                            session.set_state(State::Established);
-                            if self.sender.send(session).is_err() {
-                                error!("error sending session to worker");
-                                let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
-                            } else {
-                                trace!("moving established session to worker");
-                                let _ = self.waker.wake();
-                            }
-                        }
                     }
                 }
             }
@@ -173,7 +145,7 @@ impl Server {
     }
 }
 
-impl EventLoop for Server {
+impl EventLoop for Admin {
     fn metrics(&self) -> &Arc<Metrics<AtomicU64, AtomicU64>> {
         &self.metrics
     }
@@ -182,7 +154,84 @@ impl EventLoop for Server {
         self.sessions.get_mut(token.0)
     }
 
-    fn handle_data(&mut self, _token: Token) {}
+    fn handle_data(&mut self, token: Token) {
+        trace!("handling request for admin session: {}", token.0);
+        if let Some(session) = self.sessions.get_mut(token.0) {
+            loop {
+                // TODO(bmartin): buffer should allow us to check remaining
+                // write capacity.
+                if session.buffer().write_pending() > (1024 - 6) {
+                    // if the write buffer is over-full, skip processing
+                    break;
+                }
+                match session.buffer().fill_buf() {
+                    Ok(buf) => {
+                        if buf.len() < 7 {
+                            // Shortest request is "PING\r\n" at 6 bytes
+                            // All complete responses end in CRLF
+
+                            // incomplete request, stay in reading
+                            break;
+                        } else if &buf[0..7] == b"STATS\r\n" || &buf[0..7] == b"stats\r\n" {
+                            let _ = self.metrics.increment_counter(&Stat::AdminRequestParse, 1);
+                            session.buffer().consume(7);
+                            let snapshot = self.metrics.snapshot();
+                            let mut data = Vec::new();
+                            for (metric, value) in snapshot {
+                                let label = metric.statistic().name();
+                                let output = metric.output();
+                                match output {
+                                    Output::Reading => {
+                                        data.push(format!("STAT {} {}", label, value));
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            data.sort();
+                            let mut content = data.join("\r\n");
+                            content += "\r\n";
+                            if session.write(content.as_bytes()).is_err() {
+                                // error writing
+                                let _ = self
+                                    .metrics
+                                    .increment_counter(&Stat::AdminResponseComposeEx, 1);
+                                self.handle_error(token);
+                                return;
+                            } else {
+                                let _ = self
+                                    .metrics
+                                    .increment_counter(&Stat::AdminResponseCompose, 1);
+                            }
+                        } else {
+                            // invalid command
+                            debug!("error");
+                            self.increment_count(&Stat::AdminRequestParseEx);
+                            self.handle_error(token);
+                            return;
+                        }
+                    }
+                    Err(e) => {
+                        if e.kind() == std::io::ErrorKind::WouldBlock {
+                            break;
+                        } else {
+                            // couldn't get buffer contents
+                            debug!("error");
+                            self.handle_error(token);
+                            return;
+                        }
+                    }
+                }
+            }
+        } else {
+            // no session for the token
+            trace!(
+                "attempted to handle data for non-existent session: {}",
+                token.0
+            );
+            return;
+        }
+        self.reregister(token);
+    }
 
     fn take_session(&mut self, token: Token) -> Option<Session> {
         if self.sessions.contains(token.0) {

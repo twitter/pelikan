@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Write};
 
 use mio::net::TcpStream;
@@ -20,6 +21,7 @@ pub struct Session {
     state: State,
     buffer: Buffer,
     tls: Option<ServerSession>,
+    metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
 }
 
 impl Session {
@@ -29,7 +31,9 @@ impl Session {
         stream: TcpStream,
         state: State,
         tls: Option<ServerSession>,
+        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
     ) -> Self {
+        let _ = metrics.increment_counter(&Stat::TcpAccept, 1);
         Self {
             token: Token(0),
             addr: addr,
@@ -37,6 +41,7 @@ impl Session {
             state,
             buffer: Buffer::with_capacity(1024, 1024),
             tls,
+            metrics,
         }
     }
 
@@ -65,6 +70,7 @@ impl Session {
 
     /// Reads from the stream into the session buffer
     pub fn read(&mut self) -> Result<Option<usize>, std::io::Error> {
+        let _ = self.metrics.increment_counter(&Stat::TcpRecv, 1);
         if let Some(ref mut tls) = self.tls {
             match tls.read_tls(&mut self.stream) {
                 Ok(0) => {
@@ -74,6 +80,7 @@ impl Session {
                 Err(e) => {
                     if e.kind() == ErrorKind::WouldBlock {
                         trace!("would block, but might have data anyway...");
+                        let _ = self.metrics.increment_counter(&Stat::SessionRecv, 1);
                         if tls.process_new_packets().is_ok() {
                             trace!("tls packet processing successful");
                             // now we read from the session
@@ -84,6 +91,10 @@ impl Session {
                                 }
                                 Ok(Some(bytes)) => {
                                     trace!("session had: {} bytes to read", bytes);
+                                    let _ = self.metrics.increment_counter(
+                                        &Stat::SessionRecvByte,
+                                        bytes.try_into().unwrap(),
+                                    );
                                     Ok(Some(bytes))
                                 }
                                 Ok(None) => {
@@ -92,17 +103,20 @@ impl Session {
                                 }
                                 Err(e) => {
                                     trace!("error reading from session");
+                                    let _ = self.metrics.increment_counter(&Stat::SessionRecvEx, 1);
                                     Err(e)
                                 }
                             }
                         } else {
                             trace!("tls error processing packets");
+                            let _ = self.metrics.increment_counter(&Stat::SessionRecvEx, 1);
                             // try to write an error back to the client
                             let _ = tls.write_tls(&mut self.stream);
                             Err(Error::new(ErrorKind::Other, "tls error"))
                         }
                     } else {
-                        trace!("tls read error: {}", e);
+                        trace!("tcp read error: {}", e);
+                        let _ = self.metrics.increment_counter(&Stat::TcpRecvEx, 1);
                         // try to write an error back to the client
                         let _ = tls.write_tls(&mut self.stream);
                         Err(Error::new(ErrorKind::Other, "tls read error"))
@@ -110,6 +124,10 @@ impl Session {
                 }
                 Ok(bytes) => {
                     trace!("got {} bytes from tcpstream", bytes);
+                    let _ = self
+                        .metrics
+                        .increment_counter(&Stat::TcpRecvByte, bytes.try_into().unwrap());
+                    let _ = self.metrics.increment_counter(&Stat::SessionRecv, 1);
                     if tls.process_new_packets().is_ok() {
                         trace!("tls packet processing successful");
                         // now we read from the session
@@ -120,6 +138,10 @@ impl Session {
                             }
                             Ok(Some(bytes)) => {
                                 trace!("session had: {} bytes to read", bytes);
+                                let _ = self.metrics.increment_counter(
+                                    &Stat::SessionRecvByte,
+                                    bytes.try_into().unwrap(),
+                                );
                                 Ok(Some(bytes))
                             }
                             Ok(None) => {
@@ -128,11 +150,13 @@ impl Session {
                             }
                             Err(e) => {
                                 trace!("error reading from session");
+                                let _ = self.metrics.increment_counter(&Stat::SessionRecvEx, 1);
                                 Err(e)
                             }
                         }
                     } else {
                         trace!("tls error processing packets");
+                        let _ = self.metrics.increment_counter(&Stat::SessionRecvEx, 1);
                         // try to write an error back to the client
                         let _ = tls.write_tls(&mut self.stream);
                         Err(Error::new(ErrorKind::Other, "tls error"))
@@ -140,7 +164,20 @@ impl Session {
                 }
             }
         } else {
-            self.buffer.read_from(&mut self.stream)
+            match self.buffer.read_from(&mut self.stream) {
+                Ok(Some(0)) => Ok(Some(0)),
+                Ok(Some(bytes)) => {
+                    let _ = self
+                        .metrics
+                        .increment_counter(&Stat::TcpRecvByte, bytes.try_into().unwrap());
+                    Ok(Some(bytes))
+                }
+                Ok(None) => Ok(None),
+                Err(e) => {
+                    let _ = self.metrics.increment_counter(&Stat::TcpRecvEx, 1);
+                    Err(e)
+                }
+            }
         }
     }
 
@@ -152,14 +189,52 @@ impl Session {
     /// Flush the session buffer to the stream
     pub fn flush(&mut self) -> Result<Option<usize>, std::io::Error> {
         if let Some(ref mut tls) = self.tls {
-            self.buffer.write_to(tls)?;
+            let _ = self.metrics.increment_counter(&Stat::SessionSend, 1);
+            match self.buffer.write_to(tls) {
+                Ok(Some(bytes)) => {
+                    let _ = self
+                        .metrics
+                        .increment_counter(&Stat::SessionSendByte, bytes.try_into().unwrap());
+                    Ok(Some(bytes))
+                }
+                Ok(None) => Ok(None),
+                Err(e) => {
+                    let _ = self.metrics.increment_counter(&Stat::SessionSendEx, 1);
+                    Err(e)
+                }
+            }?;
             if tls.wants_write() {
-                tls.write_tls(&mut self.stream).map(|v| Some(v))
+                let _ = self.metrics.increment_counter(&Stat::TcpSend, 1);
+                match tls.write_tls(&mut self.stream) {
+                    Ok(bytes) => {
+                        let _ = self
+                            .metrics
+                            .increment_counter(&Stat::TcpSendByte, bytes.try_into().unwrap());
+                        Ok(Some(bytes))
+                    }
+                    Err(e) => {
+                        let _ = self.metrics.increment_counter(&Stat::TcpSendEx, 1);
+                        Err(e)
+                    }
+                }
             } else {
                 Ok(None)
             }
         } else {
-            self.buffer.write_to(&mut self.stream)
+            let _ = self.metrics.increment_counter(&Stat::TcpSend, 1);
+            match self.buffer.write_to(&mut self.stream) {
+                Ok(Some(bytes)) => {
+                    let _ = self
+                        .metrics
+                        .increment_counter(&Stat::TcpSendByte, bytes.try_into().unwrap());
+                    Ok(Some(bytes))
+                }
+                Ok(None) => Ok(None),
+                Err(e) => {
+                    let _ = self.metrics.increment_counter(&Stat::TcpSendEx, 1);
+                    Err(e)
+                }
+            }
         }
     }
 
@@ -201,6 +276,7 @@ impl Session {
 
     pub fn close(&mut self) {
         trace!("closing session");
+        let _ = self.metrics.increment_counter(&Stat::TcpClose, 1);
         let _ = self.stream.shutdown(std::net::Shutdown::Both);
         self.tls = None;
     }
