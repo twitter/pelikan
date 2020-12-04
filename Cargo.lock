@@ -1190,6 +1190,7 @@ version = "0.0.1"
 dependencies = [
  "chrono",
  "config",
+ "criterion",
  "log",
  "mio 0.7.5",
  "rustcommon-buffer",
