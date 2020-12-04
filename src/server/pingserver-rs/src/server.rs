@@ -5,9 +5,11 @@
 use crate::event_loop::EventLoop;
 use crate::session::*;
 use crate::*;
+
 use mio::net::TcpListener;
 
 use std::convert::TryInto;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// A `Server` is used to bind to a given socket address and accept new
 /// sessions. These sessions are moved onto a MPSC queue, where they can be
@@ -78,7 +80,7 @@ impl Server {
 
     /// Runs the `Server` in a loop, accepting new sessions and moving them to
     /// the queue
-    pub fn run(&mut self) {
+    pub fn run(&mut self, running: Arc<AtomicBool>) {
         info!("running server on: {}", self.addr);
 
         let mut events = Events::with_capacity(self.config.server().nevent());
@@ -87,7 +89,7 @@ impl Server {
         ));
 
         // repeatedly run accepting new connections and moving them to the worker
-        loop {
+        while running.load(Ordering::Relaxed) {
             let _ = self.metrics.increment_counter(&Stat::ServerEventLoop, 1);
             if self.poll.poll(&mut events, timeout).is_err() {
                 error!("Error polling server");

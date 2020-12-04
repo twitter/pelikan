@@ -8,6 +8,7 @@ use crate::*;
 
 use std::convert::TryInto;
 use std::io::BufRead;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
@@ -50,13 +51,13 @@ impl Worker {
     }
 
     /// Run the `Worker` in a loop, handling new session events
-    pub fn run(&mut self) -> Self {
+    pub fn run(&mut self, running: Arc<AtomicBool>) {
         let mut events = Events::with_capacity(self.config.worker().nevent());
         let timeout = Some(std::time::Duration::from_millis(
             self.config.worker().timeout() as u64,
         ));
 
-        loop {
+        while running.load(Ordering::Relaxed) {
             let _ = self.metrics.increment_counter(&Stat::WorkerEventLoop, 1);
 
             // get events with timeout

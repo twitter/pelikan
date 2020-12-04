@@ -3,11 +3,11 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::session::Session;
-use crate::Stat;
-use crate::Token;
+use crate::{Stat, Token};
+
 use mio::Poll;
-use rustcommon_metrics::AtomicU64;
-use rustcommon_metrics::Metrics;
+use rustcommon_metrics::{AtomicU64, Metrics};
+
 use std::sync::Arc;
 
 pub trait EventLoop {

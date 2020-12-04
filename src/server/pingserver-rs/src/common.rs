@@ -3,6 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use config::PingserverConfig;
+
 use std::sync::Arc;
 
 pub fn load_tls_config(

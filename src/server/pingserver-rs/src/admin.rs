@@ -5,10 +5,12 @@
 use crate::event_loop::EventLoop;
 use crate::session::*;
 use crate::*;
+
 use mio::net::TcpListener;
 
 use std::convert::TryInto;
 use std::io::BufRead;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// A `Admin` is used to bind to a given socket address and handle out-of-band
 /// admin requests.
@@ -71,7 +73,7 @@ impl Admin {
 
     /// Runs the `Server` in a loop, accepting new sessions and moving them to
     /// the queue
-    pub fn run(&mut self) {
+    pub fn run(&mut self, running: Arc<AtomicBool>) {
         info!("running admin on: {}", self.addr);
 
         let mut events = Events::with_capacity(self.config.server().nevent());
@@ -80,7 +82,7 @@ impl Admin {
         ));
 
         // repeatedly run accepting new connections and moving them to the worker
-        loop {
+        while running.load(Ordering::Relaxed) {
             self.increment_count(&Stat::AdminEventLoop);
             if self.poll.poll(&mut events, timeout).is_err() {
                 error!("Error polling server");
