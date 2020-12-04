@@ -12,7 +12,6 @@ use rustls::Session as TlsSession;
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind, Write};
 
-
 #[allow(dead_code)]
 /// A `Session` is the complete state of a TCP stream
 pub struct Session {

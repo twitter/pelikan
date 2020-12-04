@@ -10,23 +10,48 @@ use rustcommon_metrics::{AtomicU64, Metrics};
 
 use std::sync::Arc;
 
+/// An `EventLoop` describes the functions which must be implemented for a basic
+/// event loop and provides some default implementations and helper functions.
 pub trait EventLoop {
+    // the following functions must be implemented
+
+    /// Provides access to an atomic-reference counted `Metrics` structure. This
+    /// is used to allow consistent access to the `Metrics` structure and allow
+    /// the default implementation of the related helper functions.
     fn metrics(&self) -> &Arc<Metrics<AtomicU64, AtomicU64>>;
+
+    /// Provides access to the `Poll` structure which allows polling for new
+    /// readiness events and managing registration for event sources.
     fn poll(&self) -> &Poll;
+
+    /// Mutably borrow a `Session` from the event loop if a `Session` with that
+    /// `Token` exists.
     fn get_mut_session<'a>(&'a mut self, token: Token) -> Option<&'a mut Session>;
+
+    /// Takes the `Session` out of the event loop if a `Session` with that
+    /// `Token` exists.
     fn take_session(&mut self, token: Token) -> Option<Session>;
+
+    /// Re-register the session with the provided `Token`.
     fn reregister(&mut self, token: Token);
+
+    /// Handle new data received for the `Session` with the provided `Token`.
+    /// This will include parsing the incoming data and composing a response.
     fn handle_data(&mut self, token: Token);
 
     // stats helper functions
+
+    /// Increment the statistic counter.
     fn increment_count(&self, stat: &Stat) {
         self.increment_count_n(stat, 1)
     }
+
+    /// Increment the statistic counter by a provided count.
     fn increment_count_n(&self, stat: &Stat, count: u64) {
         let _ = self.metrics().increment_counter(stat, count);
     }
 
-    /// Handle a read event for the session given its token
+    /// Handle a read event for the `Session` with the `Token`.
     fn do_read(&mut self, token: Token) -> Result<(), ()> {
         trace!("handling read for session: {}", token.0);
 
@@ -60,7 +85,7 @@ pub trait EventLoop {
         }
     }
 
-    /// Handle a write event for a session given its token
+    /// Handle a write event for a `Session` with the `Token`.
     fn do_write(&mut self, token: Token) {
         trace!("handling write for session: {}", token.0);
         if let Some(session) = self.get_mut_session(token) {
@@ -87,21 +112,23 @@ pub trait EventLoop {
         }
     }
 
-    /// Handle errors
+    /// Handle errors for the `Session` with the `Token` by logging a message
+    /// and closing the session.
     fn handle_error(&mut self, token: Token) {
         trace!("handling error for session: {}", token.0);
         debug!("Error handling event");
         self.close(token);
     }
 
-    /// Handle HUP and zero-length reads
+    /// Handle HUP (zero-length reads) for the `Session` with the `Token` by
+    /// logging a message and closing the session.
     fn handle_hup(&mut self, token: Token) {
         trace!("handling hup for session: {}", token.0);
         debug!("Session closed by client");
         self.close(token);
     }
 
-    /// Close a session given its token
+    /// Close the `Session` with the `Token`.
     fn close(&mut self, token: Token) {
         trace!("closing session: {}", token.0);
         if let Some(mut session) = self.take_session(token) {

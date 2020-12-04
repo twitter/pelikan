@@ -2,62 +2,62 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use crate::common::Message;
 use crate::event_loop::EventLoop;
 use crate::session::*;
 use crate::*;
 
 use std::convert::TryInto;
 use std::io::BufRead;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
 pub struct Worker {
     config: Arc<PingserverConfig>,
-    sessions: Slab<Session>,
-    poll: Poll,
-    receiver: Receiver<Session>,
-    waker: Arc<Waker>,
-    waker_token: Token,
+    message_receiver: Receiver<Message>,
+    message_sender: SyncSender<Message>,
     metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
+    poll: Poll,
+    session_receiver: Receiver<Session>,
+    session_sender: SyncSender<Session>,
+    sessions: Slab<Session>,
 }
-
-pub const WAKER_TOKEN: usize = usize::MAX;
 
 impl Worker {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(
         config: Arc<PingserverConfig>,
         metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
-        receiver: Receiver<Session>,
     ) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
         let sessions = Slab::<Session>::new();
-        let waker_token = Token(WAKER_TOKEN);
-        let waker = Arc::new(Waker::new(&poll.registry(), waker_token)?);
+
+        let (session_sender, session_receiver) = sync_channel(128);
+        let (message_sender, message_receiver) = sync_channel(128);
 
         Ok(Self {
             config,
             poll,
-            receiver,
+            message_receiver,
+            message_sender,
+            session_receiver,
+            session_sender,
             sessions,
-            waker,
-            waker_token,
             metrics,
         })
     }
 
     /// Run the `Worker` in a loop, handling new session events
-    pub fn run(&mut self, running: Arc<AtomicBool>) {
+    pub fn run(&mut self) {
         let mut events = Events::with_capacity(self.config.worker().nevent());
         let timeout = Some(std::time::Duration::from_millis(
             self.config.worker().timeout() as u64,
         ));
 
-        while running.load(Ordering::Relaxed) {
+        loop {
             let _ = self.metrics.increment_counter(&Stat::WorkerEventLoop, 1);
 
             // get events with timeout
@@ -74,74 +74,81 @@ impl Worker {
             for event in events.iter() {
                 let token = event.token();
 
-                if token != self.waker_token {
-                    // event for existing session
-                    trace!("got event for session: {}", token.0);
+                // event for existing session
+                trace!("got event for session: {}", token.0);
 
-                    if event.is_error() {
-                        self.increment_count(&Stat::WorkerEventError);
-                        self.handle_error(token);
+                if event.is_error() {
+                    self.increment_count(&Stat::WorkerEventError);
+                    self.handle_error(token);
+                }
+
+                if event.is_readable() {
+                    self.increment_count(&Stat::WorkerEventRead);
+                    let _ = self.do_read(token);
+                }
+
+                if event.is_writable() {
+                    self.increment_count(&Stat::WorkerEventWrite);
+                    self.do_write(token);
+                }
+
+                if let Some(session) = self.sessions.get_mut(token.0) {
+                    trace!(
+                        "{} bytes pending in rx buffer for session: {}",
+                        session.buffer().read_pending(),
+                        token.0
+                    );
+                    trace!(
+                        "{} bytes pending in tx buffer for session: {}",
+                        session.buffer().write_pending(),
+                        token.0
+                    )
+                }
+            }
+
+            // poll queue to receive new sessions
+            while let Ok(mut session) = self.session_receiver.try_recv() {
+                let pending = session.buffer().read_pending();
+                trace!("{} bytes pending in rx buffer for new session", pending);
+
+                // reserve vacant slab
+                let session_entry = self.sessions.vacant_entry();
+                let token = Token(session_entry.key());
+
+                // set client token to match slab
+                session.set_token(token);
+
+                // register tcp stream and insert into slab if successful
+                match session.register(&self.poll) {
+                    Ok(_) => {
+                        session_entry.insert(session);
+                        if pending > 0 {
+                            self.handle_data(token);
+                        }
                     }
-
-                    if event.is_readable() {
-                        self.increment_count(&Stat::WorkerEventRead);
-                        let _ = self.do_read(token);
+                    Err(_) => {
+                        error!("Error registering new socket");
                     }
+                };
+            }
 
-                    if event.is_writable() {
-                        self.increment_count(&Stat::WorkerEventWrite);
-                        self.do_write(token);
-                    }
-
-                    if let Some(session) = self.sessions.get_mut(token.0) {
-                        trace!(
-                            "{} bytes pending in rx buffer for session: {}",
-                            session.buffer().read_pending(),
-                            token.0
-                        );
-                        trace!(
-                            "{} bytes pending in tx buffer for session: {}",
-                            session.buffer().write_pending(),
-                            token.0
-                        )
-                    }
-                } else {
-                    self.increment_count(&Stat::WorkerEventWake);
-                    // handle new connections
-                    while let Ok(mut s) = self
-                        .receiver
-                        .recv_timeout(std::time::Duration::from_millis(1))
-                    {
-                        let pending = s.buffer().read_pending();
-                        trace!("{} bytes pending in rx buffer for new session", pending);
-
-                        // reserve vacant slab
-                        let session = self.sessions.vacant_entry();
-                        let token = Token(session.key());
-
-                        // set client token to match slab
-                        s.set_token(token);
-
-                        // register tcp stream and insert into slab if successful
-                        match s.register(&self.poll) {
-                            Ok(_) => {
-                                session.insert(s);
-                                if pending > 0 {
-                                    self.handle_data(token);
-                                }
-                            }
-                            Err(_) => {
-                                error!("Error registering new socket");
-                            }
-                        };
+            // poll queue to receive new messages
+            while let Ok(message) = self.message_receiver.try_recv() {
+                match message {
+                    Message::Shutdown => {
+                        return;
                     }
                 }
             }
         }
     }
 
-    pub fn waker(&self) -> Arc<Waker> {
-        self.waker.clone()
+    pub fn message_sender(&self) -> SyncSender<Message> {
+        self.message_sender.clone()
+    }
+
+    pub fn session_sender(&self) -> SyncSender<Session> {
+        self.session_sender.clone()
     }
 }
 

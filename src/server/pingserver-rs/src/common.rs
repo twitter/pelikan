@@ -6,6 +6,10 @@ use config::PingserverConfig;
 
 use std::sync::Arc;
 
+pub enum Message {
+    Shutdown,
+}
+
 pub fn load_tls_config(
     config: &Arc<PingserverConfig>,
 ) -> Result<Option<Arc<rustls::ServerConfig>>, std::io::Error> {

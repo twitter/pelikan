@@ -9,7 +9,6 @@ use crate::*;
 use mio::net::TcpListener;
 
 use std::convert::TryInto;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 /// A `Server` is used to bind to a given socket address and accept new
 /// sessions. These sessions are moved onto a MPSC queue, where they can be
@@ -20,10 +19,11 @@ pub struct Server {
     listener: TcpListener,
     poll: Poll,
     sender: SyncSender<Session>,
-    waker: Arc<Waker>,
     tls_config: Option<Arc<rustls::ServerConfig>>,
     sessions: Slab<Session>,
     metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
+    message_receiver: Receiver<Message>,
+    message_sender: SyncSender<Message>,
 }
 
 pub const LISTENER_TOKEN: usize = usize::MAX;
@@ -35,7 +35,6 @@ impl Server {
         config: Arc<PingserverConfig>,
         metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
         sender: SyncSender<Session>,
-        waker: Arc<Waker>,
     ) -> Result<Self, std::io::Error> {
         let addr = config.server().socket_addr().map_err(|e| {
             error!("{}", e);
@@ -51,6 +50,8 @@ impl Server {
         })?;
 
         let tls_config = crate::common::load_tls_config(&config)?;
+
+        let (message_sender, message_receiver) = sync_channel(128);
 
         // register listener to event loop
         poll.registry()
@@ -71,16 +72,17 @@ impl Server {
             listener,
             poll,
             sender,
-            waker,
             tls_config,
             sessions,
             metrics,
+            message_sender,
+            message_receiver,
         })
     }
 
     /// Runs the `Server` in a loop, accepting new sessions and moving them to
     /// the queue
-    pub fn run(&mut self, running: Arc<AtomicBool>) {
+    pub fn run(&mut self) {
         info!("running server on: {}", self.addr);
 
         let mut events = Events::with_capacity(self.config.server().nevent());
@@ -89,7 +91,7 @@ impl Server {
         ));
 
         // repeatedly run accepting new connections and moving them to the worker
-        while running.load(Ordering::Relaxed) {
+        loop {
             let _ = self.metrics.increment_counter(&Stat::ServerEventLoop, 1);
             if self.poll.poll(&mut events, timeout).is_err() {
                 error!("Error polling server");
@@ -98,6 +100,8 @@ impl Server {
                 &Stat::ServerEventTotal,
                 events.iter().count().try_into().unwrap(),
             );
+
+            // handle all events
             for event in events.iter() {
                 if event.token() == Token(LISTENER_TOKEN) {
                     while let Ok((stream, addr)) = self.listener.accept() {
@@ -129,8 +133,6 @@ impl Server {
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
                                 let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
-                            } else {
-                                let _ = self.waker.wake();
                             }
                         };
                     }
@@ -163,15 +165,25 @@ impl Server {
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
                                 let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
-                            } else {
-                                trace!("moving established session to worker");
-                                let _ = self.waker.wake();
                             }
                         }
                     }
                 }
             }
+
+            // poll queue to receive new messages
+            while let Ok(message) = self.message_receiver.try_recv() {
+                match message {
+                    Message::Shutdown => {
+                        return;
+                    }
+                }
+            }
         }
+    }
+
+    pub fn message_sender(&self) -> SyncSender<Message> {
+        self.message_sender.clone()
     }
 }
 

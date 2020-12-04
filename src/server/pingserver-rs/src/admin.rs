@@ -10,7 +10,6 @@ use mio::net::TcpListener;
 
 use std::convert::TryInto;
 use std::io::BufRead;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 /// A `Admin` is used to bind to a given socket address and handle out-of-band
 /// admin requests.
@@ -22,6 +21,8 @@ pub struct Admin {
     tls_config: Option<Arc<rustls::ServerConfig>>,
     sessions: Slab<Session>,
     metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
+    message_receiver: Receiver<Message>,
+    message_sender: SyncSender<Message>,
 }
 
 pub const LISTENER_TOKEN: usize = usize::MAX;
@@ -60,6 +61,8 @@ impl Admin {
 
         let sessions = Slab::<Session>::new();
 
+        let (message_sender, message_receiver) = sync_channel(128);
+
         Ok(Self {
             addr,
             config,
@@ -68,12 +71,14 @@ impl Admin {
             tls_config,
             sessions,
             metrics,
+            message_sender,
+            message_receiver,
         })
     }
 
-    /// Runs the `Server` in a loop, accepting new sessions and moving them to
-    /// the queue
-    pub fn run(&mut self, running: Arc<AtomicBool>) {
+    /// Runs the `Admin` in a loop, accepting new sessions for the admin
+    /// listener and handling events on existing sessions.
+    pub fn run(&mut self) {
         info!("running admin on: {}", self.addr);
 
         let mut events = Events::with_capacity(self.config.server().nevent());
@@ -81,17 +86,22 @@ impl Admin {
             self.config.server().timeout() as u64,
         ));
 
-        // repeatedly run accepting new connections and moving them to the worker
-        while running.load(Ordering::Relaxed) {
+        // run in a loop, accepting new sessions and events on existing sessions
+        loop {
             self.increment_count(&Stat::AdminEventLoop);
+
             if self.poll.poll(&mut events, timeout).is_err() {
-                error!("Error polling server");
+                error!("Error polling");
             }
+
             self.increment_count_n(
                 &Stat::AdminEventTotal,
                 events.iter().count().try_into().unwrap(),
             );
+
+            // handle all events
             for event in events.iter() {
+                // handle new sessions
                 if event.token() == Token(LISTENER_TOKEN) {
                     while let Ok((stream, addr)) = self.listener.accept() {
                         if let Some(tls_config) = &self.tls_config {
@@ -124,6 +134,7 @@ impl Admin {
                         };
                     }
                 } else {
+                    // handle events on existing sessions
                     let token = event.token();
                     trace!("got event for admin session: {}", token.0);
 
@@ -143,7 +154,22 @@ impl Admin {
                     }
                 }
             }
+
+            // poll queue to receive new messages
+            while let Ok(message) = self.message_receiver.try_recv() {
+                match message {
+                    Message::Shutdown => {
+                        return;
+                    }
+                }
+            }
         }
+    }
+
+    /// Returns a `SyncSender` which can be used to send `Message`s to the
+    /// `Admin` component.
+    pub fn message_sender(&self) -> SyncSender<Message> {
+        self.message_sender.clone()
     }
 }
 

@@ -5,12 +5,12 @@
 #[macro_use]
 extern crate rustcommon_logger;
 
+use pelikan_pingserver_rs::PingserverBuilder;
+
 use rustcommon_logger::{Level, Logger};
 
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use std::time::Duration;
 
 fn main() {
@@ -22,11 +22,7 @@ fn main() {
         .expect("Failed to initialize logger");
 
     debug!("launching server");
-    let running = Arc::new(AtomicBool::new(true));
-    let pingserver = {
-        let running = running.clone();
-        std::thread::spawn(|| pelikan_pingserver_rs::run(None, running))
-    };
+    let pingserver = PingserverBuilder::new(None).spawn();
     std::thread::sleep(Duration::from_millis(100));
 
     debug!("beginning tests");
@@ -43,11 +39,11 @@ fn main() {
 
     // shutdown server and join
     debug!("shutdown");
-    running.store(false, Ordering::SeqCst);
-    let _ = pingserver.join();
-    std::thread::sleep(Duration::from_millis(100));
+    let _ = pingserver.shutdown();
 }
 
+// opens a new connection, operating on request + response pairs from the
+// provided data.
 fn test(name: &str, data: &[(&str, Option<&str>)]) {
     info!("testing: {}", name);
     debug!("connecting to server");
