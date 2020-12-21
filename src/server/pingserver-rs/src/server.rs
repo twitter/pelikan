@@ -145,14 +145,14 @@ impl Server {
                         self.handle_error(token);
                     }
 
-                    if event.is_readable() {
-                        let _ = self.metrics.increment_counter(&Stat::ServerEventRead, 1);
-                        let _ = self.do_read(token);
-                    }
-
                     if event.is_writable() {
                         let _ = self.metrics.increment_counter(&Stat::ServerEventWrite, 1);
                         self.do_write(token);
+                    }
+
+                    if event.is_readable() {
+                        let _ = self.metrics.increment_counter(&Stat::ServerEventRead, 1);
+                        let _ = self.do_read(token);
                     }
 
                     if let Some(handshaking) =
