@@ -138,20 +138,24 @@ impl Admin {
                     let token = event.token();
                     trace!("got event for admin session: {}", token.0);
 
+                    // handle error events first
                     if event.is_error() {
                         self.increment_count(&Stat::AdminEventError);
                         self.handle_error(token);
                     }
 
-                    if event.is_readable() {
-                        self.increment_count(&Stat::AdminEventRead);
-                        let _ = self.do_read(token);
-                    };
-
+                    // handle write events before read events to reduce write
+                    // buffer growth if there is also a readable event
                     if event.is_writable() {
                         self.increment_count(&Stat::AdminEventWrite);
                         self.do_write(token);
                     }
+
+                    // read events are handled last
+                    if event.is_readable() {
+                        self.increment_count(&Stat::AdminEventRead);
+                        let _ = self.do_read(token);
+                    };
                 }
             }
 

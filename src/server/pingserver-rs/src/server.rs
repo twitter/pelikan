@@ -140,16 +140,20 @@ impl Server {
                     let token = event.token();
                     trace!("got event for session: {}", token.0);
 
+                    // handle error events first
                     if event.is_error() {
                         let _ = self.metrics().increment_counter(&Stat::ServerEventError, 1);
                         self.handle_error(token);
                     }
 
+                    // handle write events before read events to reduce write
+                    // buffer growth if there is also a readable event
                     if event.is_writable() {
                         let _ = self.metrics.increment_counter(&Stat::ServerEventWrite, 1);
                         self.do_write(token);
                     }
 
+                    // read events are handled last
                     if event.is_readable() {
                         let _ = self.metrics.increment_counter(&Stat::ServerEventRead, 1);
                         let _ = self.do_read(token);
