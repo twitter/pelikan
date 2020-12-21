@@ -23,7 +23,10 @@ fn main() {
 
     debug!("launching server");
     let pingserver = PingserverBuilder::new(None).spawn();
-    std::thread::sleep(Duration::from_millis(100));
+
+    // wait for server to startup. duration is chosen to be longer than we'd
+    // expect startup to take in a slow ci environment.
+    std::thread::sleep(Duration::from_secs(10));
 
     debug!("beginning tests");
     println!("");

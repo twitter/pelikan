@@ -77,19 +77,23 @@ impl Worker {
                 // event for existing session
                 trace!("got event for session: {}", token.0);
 
+                // handle error events first
                 if event.is_error() {
                     self.increment_count(&Stat::WorkerEventError);
                     self.handle_error(token);
                 }
 
-                if event.is_readable() {
-                    self.increment_count(&Stat::WorkerEventRead);
-                    let _ = self.do_read(token);
-                }
-
+                // handle write events before read events to reduce write buffer
+                // growth if there is also a readable event
                 if event.is_writable() {
                     self.increment_count(&Stat::WorkerEventWrite);
                     self.do_write(token);
+                }
+
+                // read events are handled last
+                if event.is_readable() {
+                    self.increment_count(&Stat::WorkerEventRead);
+                    let _ = self.do_read(token);
                 }
 
                 if let Some(session) = self.sessions.get_mut(token.0) {
@@ -123,6 +127,7 @@ impl Worker {
                     Ok(_) => {
                         session_entry.insert(session);
                         if pending > 0 {
+                            // handle any pending data immediately
                             self.handle_data(token);
                         }
                     }
