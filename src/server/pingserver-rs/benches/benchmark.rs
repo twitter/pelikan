@@ -10,9 +10,12 @@ use std::net::TcpStream;
 use std::time::Duration;
 
 fn pingserver_benchmark(c: &mut Criterion) {
-    // launch the pingserver and wait until its ready
+    // launch the pingserver
     let pingserver = PingserverBuilder::new(None).spawn();
-    std::thread::sleep(Duration::from_millis(100));
+
+    // wait for server to startup. duration is chosen to be longer than we'd
+    // expect startup to take in a slow ci environment.
+    std::thread::sleep(Duration::from_secs(10));
 
     // connect and initialize an empty buffer
     let mut stream = TcpStream::connect("127.0.0.1:12321").expect("failed to connect");
