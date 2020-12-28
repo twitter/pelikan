@@ -3,7 +3,12 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use config::PingserverConfig;
+
 use std::sync::Arc;
+
+pub enum Message {
+    Shutdown,
+}
 
 pub fn load_tls_config(
     config: &Arc<PingserverConfig>,

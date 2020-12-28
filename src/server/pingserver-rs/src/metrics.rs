@@ -3,9 +3,11 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use rustcommon_metrics::*;
+
 use std::sync::Arc;
 use std::time::Instant;
 
+/// Defines various statistics
 pub enum Stat {
     AdminEventError,
     AdminEventLoop,

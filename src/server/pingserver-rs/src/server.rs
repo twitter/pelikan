@@ -5,6 +5,7 @@
 use crate::event_loop::EventLoop;
 use crate::session::*;
 use crate::*;
+
 use mio::net::TcpListener;
 
 use std::convert::TryInto;
@@ -18,10 +19,11 @@ pub struct Server {
     listener: TcpListener,
     poll: Poll,
     sender: SyncSender<Session>,
-    waker: Arc<Waker>,
     tls_config: Option<Arc<rustls::ServerConfig>>,
     sessions: Slab<Session>,
     metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
+    message_receiver: Receiver<Message>,
+    message_sender: SyncSender<Message>,
 }
 
 pub const LISTENER_TOKEN: usize = usize::MAX;
@@ -33,7 +35,6 @@ impl Server {
         config: Arc<PingserverConfig>,
         metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
         sender: SyncSender<Session>,
-        waker: Arc<Waker>,
     ) -> Result<Self, std::io::Error> {
         let addr = config.server().socket_addr().map_err(|e| {
             error!("{}", e);
@@ -49,6 +50,8 @@ impl Server {
         })?;
 
         let tls_config = crate::common::load_tls_config(&config)?;
+
+        let (message_sender, message_receiver) = sync_channel(128);
 
         // register listener to event loop
         poll.registry()
@@ -69,10 +72,11 @@ impl Server {
             listener,
             poll,
             sender,
-            waker,
             tls_config,
             sessions,
             metrics,
+            message_sender,
+            message_receiver,
         })
     }
 
@@ -96,6 +100,8 @@ impl Server {
                 &Stat::ServerEventTotal,
                 events.iter().count().try_into().unwrap(),
             );
+
+            // handle all events
             for event in events.iter() {
                 if event.token() == Token(LISTENER_TOKEN) {
                     while let Ok((stream, addr)) = self.listener.accept() {
@@ -127,8 +133,6 @@ impl Server {
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
                                 let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
-                            } else {
-                                let _ = self.waker.wake();
                             }
                         };
                     }
@@ -136,19 +140,23 @@ impl Server {
                     let token = event.token();
                     trace!("got event for session: {}", token.0);
 
+                    // handle error events first
                     if event.is_error() {
                         let _ = self.metrics().increment_counter(&Stat::ServerEventError, 1);
                         self.handle_error(token);
                     }
 
-                    if event.is_readable() {
-                        let _ = self.metrics.increment_counter(&Stat::ServerEventRead, 1);
-                        let _ = self.do_read(token);
-                    }
-
+                    // handle write events before read events to reduce write
+                    // buffer growth if there is also a readable event
                     if event.is_writable() {
                         let _ = self.metrics.increment_counter(&Stat::ServerEventWrite, 1);
                         self.do_write(token);
+                    }
+
+                    // read events are handled last
+                    if event.is_readable() {
+                        let _ = self.metrics.increment_counter(&Stat::ServerEventRead, 1);
+                        let _ = self.do_read(token);
                     }
 
                     if let Some(handshaking) =
@@ -161,15 +169,25 @@ impl Server {
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
                                 let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
-                            } else {
-                                trace!("moving established session to worker");
-                                let _ = self.waker.wake();
                             }
                         }
                     }
                 }
             }
+
+            // poll queue to receive new messages
+            while let Ok(message) = self.message_receiver.try_recv() {
+                match message {
+                    Message::Shutdown => {
+                        return;
+                    }
+                }
+            }
         }
+    }
+
+    pub fn message_sender(&self) -> SyncSender<Message> {
+        self.message_sender.clone()
     }
 }
 

@@ -2,15 +2,15 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::convert::TryInto;
-use std::io::{Error, ErrorKind, Write};
+use crate::*;
 
 use mio::net::TcpStream;
 use rustcommon_buffer::*;
 use rustls::ServerSession;
 use rustls::Session as TlsSession;
 
-use crate::*;
+use std::convert::TryInto;
+use std::io::{Error, ErrorKind, Write};
 
 #[allow(dead_code)]
 /// A `Session` is the complete state of a TCP stream

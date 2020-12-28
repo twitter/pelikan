@@ -21,7 +21,6 @@ members = [
     "src/server/twemcache-http",
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",
-    "test/server/pingserver-rs",
     "test/server/twemcache-http"
 ]
 

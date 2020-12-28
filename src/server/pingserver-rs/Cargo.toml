@@ -6,6 +6,26 @@ edition = "2018"
 description = "an over-engineered ping server written in Rust"
 license = "Apache-2.0"
 
+[lib]
+name = "pelikan_pingserver_rs"
+path = "src/lib.rs"
+doc = true
+
+[[bin]]
+name = "pelikan_pingserver_rs"
+path = "src/main.rs"
+doc = false
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+harness = false
+
+[[bench]]
+name = "benchmark"
+path = "benches/benchmark.rs"
+harness = false
+
 [dependencies]
 chrono = "0.4.11"
 config = { path = "../../rust/config" }
@@ -16,3 +36,6 @@ rustcommon-logger = { git = "http://github.com/twitter/rustcommon" }
 rustcommon-metrics = { git = "http://github.com/twitter/rustcommon" }
 rustls = "0.18.1"
 slab = "0.4.2"
+
+[dev-dependencies]
+criterion = "0.3"
