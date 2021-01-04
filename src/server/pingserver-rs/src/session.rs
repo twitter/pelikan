@@ -36,8 +36,8 @@ impl Session {
         let _ = metrics.increment_counter(&Stat::TcpAccept, 1);
         Self {
             token: Token(0),
-            addr: addr,
-            stream: stream,
+            addr,
+            stream,
             state,
             buffer: Buffer::with_capacity(1024, 1024),
             tls,
@@ -251,6 +251,7 @@ impl Session {
 
     /// Get the set of readiness events the session is waiting for
     fn readiness(&self) -> Interest {
+        #[allow(clippy::collapsible_if)]
         if let Some(ref tls) = self.tls {
             if tls.wants_write() || self.buffer.write_pending() != 0 {
                 Interest::READABLE | Interest::WRITABLE

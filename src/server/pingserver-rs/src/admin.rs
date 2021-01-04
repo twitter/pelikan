@@ -160,6 +160,7 @@ impl Admin {
             }
 
             // poll queue to receive new messages
+            #[allow(clippy::never_loop)]
             while let Ok(message) = self.message_receiver.try_recv() {
                 match message {
                     Message::Shutdown => {
@@ -182,7 +183,7 @@ impl EventLoop for Admin {
         &self.metrics
     }
 
-    fn get_mut_session<'a>(&'a mut self, token: Token) -> Option<&'a mut Session> {
+    fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
     }
 
@@ -212,11 +213,8 @@ impl EventLoop for Admin {
                             for (metric, value) in snapshot {
                                 let label = metric.statistic().name();
                                 let output = metric.output();
-                                match output {
-                                    Output::Reading => {
-                                        data.push(format!("STAT {} {}", label, value));
-                                    }
-                                    _ => {}
+                                if let Output::Reading = output {
+                                    data.push(format!("STAT {} {}", label, value));
                                 }
                             }
                             data.sort();

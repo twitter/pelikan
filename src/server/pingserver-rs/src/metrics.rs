@@ -106,8 +106,8 @@ impl Statistic<AtomicU64, AtomicU64> for Stat {
     }
 
     fn source(&self) -> Source {
-        match self {
-            &Stat::Pid => Source::Gauge,
+        match *self {
+            Stat::Pid => Source::Gauge,
             _ => Source::Counter,
         }
     }

@@ -26,7 +26,7 @@ pub trait EventLoop {
 
     /// Mutably borrow a `Session` from the event loop if a `Session` with that
     /// `Token` exists.
-    fn get_mut_session<'a>(&'a mut self, token: Token) -> Option<&'a mut Session>;
+    fn get_mut_session(&mut self, token: Token) -> Option<&mut Session>;
 
     /// Takes the `Session` out of the event loop if a `Session` with that
     /// `Token` exists.
