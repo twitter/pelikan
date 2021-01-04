@@ -36,6 +36,8 @@ rustcommon-logger = { git = "http://github.com/twitter/rustcommon" }
 rustcommon-metrics = { git = "http://github.com/twitter/rustcommon" }
 rustls = "0.18.1"
 slab = "0.4.2"
+strum = "0.20.0"
+strum_macros = "0.20.1"
 
 [dev-dependencies]
 criterion = "0.3"
