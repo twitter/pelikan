@@ -1,0 +1,64 @@
+[package]
+name = "pelikan_twemcache_rs"
+version = "0.0.1"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+edition = "2018"
+description = "a memcache compatible unified cache backend written in Rust"
+license = "Apache-2.0"
+
+[lib]
+name = "pelikan_twemcache_rs"
+path = "src/lib.rs"
+doc = true
+
+[[bin]]
+name = "pelikan_twemcache_rs"
+path = "src/main.rs"
+doc = false
+
+# uncomment this bin target for fuzzing
+# TODO(bmartin): fix this, it causes errors when uncommented for normal testing
+# [[bin]]
+# name = "fuzz_protocol_data"
+# path = "fuzz/data.rs"
+# doc = false
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+harness = false
+
+[[bench]]
+name = "benchmark"
+path = "benches/benchmark.rs"
+harness = false
+
+[features]
+
+[dependencies]
+ahash = "0.6.2"
+backtrace = "0.3.56"
+boring = "1.0.3"
+bytes = "1.0.0"
+chrono = "0.4.19"
+config = { path = "../../rust/config" }
+crossbeam-channel = "0.5.0"
+libc = "0.2.83"
+metrics = { path = "../../rust/metrics" }
+mio = { version = "0.7.7", features = ["os-poll", "tcp"] }
+rand = "0.8.0"
+rtrb = "*"
+rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-fastmetrics = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
+segcache = { path = "../../storage/segcache" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "*"
+slab = "0.4.2"
+strum = "0.20.0"
+strum_macros = "0.20.1"
+sysconf = "0.3.4"
+thiserror = "1.0.23"
+
+[dev-dependencies]
+criterion = "0.3"

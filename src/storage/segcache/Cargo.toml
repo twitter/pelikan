@@ -1,0 +1,39 @@
+[package]
+name = "segcache"
+version = "0.1.0"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bench]]
+name = "benchmark"
+path = "benches/benchmark.rs"
+harness = false
+
+[features]
+
+# enables setting/checking magic strings
+magic = []
+
+# metafeatures
+debug = ["magic"]
+
+# default set of enabled features
+default = []
+
+[dependencies]
+metrics = { path = "../../rust/metrics" }
+rand = { version = "*", features = ["small_rng", "getrandom"] }
+rand_xoshiro = { version = "0.6.0" }
+rand_chacha = { version = "0.3.0" }
+rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
+thiserror = "1.0.24"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "*"
+
+[dev-dependencies]
+ahash = "0.6.2"
+criterion = "0.3.4"
+fasthash = "0.4.0"

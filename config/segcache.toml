@@ -1,0 +1,53 @@
+daemonize = false
+
+[admin]
+port = "9999"
+
+[server]
+# interfaces listening on
+host = "0.0.0.0"
+# port listening on
+port = "12321"
+# epoll timeout in milliseconds
+timeout = 100
+# epoll max events returned
+nevent = 1024
+
+[worker]
+# epoll timeout in milliseconds
+timeout = 100
+# epoll max events returned
+nevent = 1024
+# number of worker threads
+threads = 1
+
+# storage configuration
+[segcache]
+# hashtable can hold: 7 * (2^N - 3) items
+hash_power = 26
+# hashtable can reserve additional item slots, percent extra items (0.0-1.0)
+hash_extra_capacity = 0.0
+# size of each segment in bytes
+seg_size = 1048576
+# number of segments
+segments = 4096
+# target number of segments to merge in one pass
+merge_target = 4
+# max number of segments to merge in one pass
+merge_max = 8
+# use merge based eviction
+eviction = "Merge"
+
+[time]
+
+time_type = "Memcache"
+
+[buf]
+
+[debug]
+
+[sockio]
+
+[tcp]
+
+[tls]

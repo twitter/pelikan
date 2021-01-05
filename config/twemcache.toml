@@ -1,0 +1,45 @@
+daemonize = false
+
+[admin]
+port = "9999"
+
+[server]
+# interfaces listening on
+host = "0.0.0.0"
+# port listening on
+port = "12321"
+# epoll timeout in milliseconds
+timeout = 100
+# epoll max events returned
+nevent = 1024
+
+[worker]
+# epoll timeout in milliseconds
+timeout = 100
+# epoll max events returned
+nevent = 1024
+# number of worker threads
+threads = 1
+
+[seg_cache]
+# hash power
+hash_power = 22
+# size of each segment in bytes
+seg_size = 1048576
+# number of segments
+segments = 4096
+# eviction policy is segment random - similar to slab random
+eviction = "Random"
+
+[time]
+time_type = "Memcache"
+
+[buf]
+
+[debug]
+
+[sockio]
+
+[tcp]
+
+[tls]

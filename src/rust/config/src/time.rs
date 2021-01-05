@@ -18,7 +18,6 @@ pub enum TimeType {
     Unix = 0,
     Delta = 1,
     Memcache = 2,
-    Sentinel = 3,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
