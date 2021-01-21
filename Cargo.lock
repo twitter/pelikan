@@ -137,6 +137,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
+name = "boring"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a1d6957e9fd6e628e1afa5dad9cfe7bb8aac9cc04237aac77f3f6c20fef864e"
+dependencies = [
+ "bitflags",
+ "boring-sys",
+ "foreign-types",
+ "lazy_static",
+ "libc",
+]
+
+[[package]]
+name = "boring-sys"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62c740af8563e42bc34d809e67bd5728d9aa83851d0e7d0611ed21d2f0ed939f"
+dependencies = [
+ "cmake",
+ "libc",
+]
+
+[[package]]
 name = "bstr"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -629,6 +652,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
+name = "foreign-types"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6f339eb8adc052cd2ca78910fda869aefa38d22d5cb648e6485e4d3fc06f3b1"
+dependencies = [
+ "foreign-types-shared",
+]
+
+[[package]]
+name = "foreign-types-shared"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
+
+[[package]]
 name = "fuchsia-cprng"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1112,9 +1150,9 @@ checksum = "8d3b63360ec3cb337817c2dbd47ab4a0f170d285d8e5a2064600f3def1402397"
 
 [[package]]
 name = "once_cell"
-version = "1.4.1"
+version = "1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "260e51e7efe62b592207e9e13a68e43692a7a279171d6ba57abd208bf23645ad"
+checksum = "13bd41f508810a131401606d54ac32a467c97172d74ba7662562ebba5ad07fa0"
 
 [[package]]
 name = "oorandom"
@@ -1197,6 +1235,8 @@ dependencies = [
 name = "pelikan_pingserver_rs"
 version = "0.0.1"
 dependencies = [
+ "boring",
+ "boring-sys",
  "chrono",
  "config",
  "criterion",
@@ -1205,7 +1245,6 @@ dependencies = [
  "rustcommon-buffer",
  "rustcommon-logger",
  "rustcommon-metrics",
- "rustls",
  "slab",
  "strum",
  "strum_macros",

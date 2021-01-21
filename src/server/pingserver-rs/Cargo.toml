@@ -27,14 +27,14 @@ path = "benches/benchmark.rs"
 harness = false
 
 [dependencies]
+boring = "1.0.3"
 chrono = "0.4.11"
 config = { path = "../../rust/config" }
 log = { version = "0.4.8", features = ["std"] }
 mio = { version = "0.7.0", features = ["os-poll", "tcp"] }
-rustcommon-buffer = { git = "http://github.com/twitter/rustcommon" }
-rustcommon-logger = { git = "http://github.com/twitter/rustcommon" }
-rustcommon-metrics = { git = "http://github.com/twitter/rustcommon" }
-rustls = "0.18.1"
+rustcommon-buffer = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 slab = "0.4.2"
 strum = "0.20.0"
 strum_macros = "0.20.1"
