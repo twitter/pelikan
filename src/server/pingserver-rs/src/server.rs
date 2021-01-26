@@ -7,7 +7,7 @@ use crate::session::*;
 use crate::*;
 
 use boring::ssl::{HandshakeError, Ssl, SslContext};
-use mio::net::{TcpListener};
+use mio::net::TcpListener;
 
 use std::convert::TryInto;
 
@@ -112,11 +112,8 @@ impl Server {
                                 // handle case where we have a fully-negotiated
                                 // TLS stream on accept()
                                 Ok(Ok(tls_stream)) => {
-                                    let session = Session::tls(
-                                        addr,
-                                        tls_stream,
-                                        self.metrics.clone(),
-                                    );
+                                    let session =
+                                        Session::tls(addr, tls_stream, self.metrics.clone());
                                     trace!("accepted new session: {}", addr);
                                     if self.sender.send(session).is_err() {
                                         error!("error sending session to worker");
@@ -149,8 +146,7 @@ impl Server {
                                 }
                             }
                         } else {
-                            let session =
-                                Session::plain(addr, stream, self.metrics.clone());
+                            let session = Session::plain(addr, stream, self.metrics.clone());
                             trace!("accepted new session: {}", addr);
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");

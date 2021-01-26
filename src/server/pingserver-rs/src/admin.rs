@@ -111,7 +111,8 @@ impl Admin {
                                 // handle case where we have a fully-negotiated
                                 // TLS stream on accept()
                                 Ok(Ok(tls_stream)) => {
-                                    let mut session = Session::tls(addr, tls_stream, self.metrics.clone());
+                                    let mut session =
+                                        Session::tls(addr, tls_stream, self.metrics.clone());
                                     trace!("accepted new session: {}", addr);
                                     let s = self.sessions.vacant_entry();
                                     let token = s.key();
@@ -149,8 +150,7 @@ impl Admin {
                             }
                         } else {
                             // handle plain sessions
-                            let mut session =
-                                Session::plain(addr, stream, self.metrics.clone());
+                            let mut session = Session::plain(addr, stream, self.metrics.clone());
                             trace!("accepted new session: {}", addr);
                             let s = self.sessions.vacant_entry();
                             let token = s.key();

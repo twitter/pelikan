@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use mio::net::TcpStream;
 use crate::*;
+use mio::net::TcpStream;
 
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
 use rustcommon_buffer::*;
@@ -29,26 +29,34 @@ pub struct Session {
 
 impl Session {
     /// Create a new `Session` representing a plain `TcpStream`
-    pub fn plain(addr: SocketAddr, stream: TcpStream, metrics: Arc<Metrics<AtomicU64, AtomicU64>>) -> Self {
+    pub fn plain(
+        addr: SocketAddr,
+        stream: TcpStream,
+        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
+    ) -> Self {
         Self::new(addr, Stream::Plain(stream), metrics)
     }
 
     /// Create a new `Session` representing a negotiated `SslStream`
-    pub fn tls(addr: SocketAddr, stream: SslStream<TcpStream>, metrics: Arc<Metrics<AtomicU64, AtomicU64>>) -> Self {
+    pub fn tls(
+        addr: SocketAddr,
+        stream: SslStream<TcpStream>,
+        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
+    ) -> Self {
         Self::new(addr, Stream::Tls(stream), metrics)
     }
 
     /// Create a new `Session` representing a `MidHandshakeSslStream`
-    pub fn handshaking(addr: SocketAddr, stream: MidHandshakeSslStream<TcpStream>, metrics: Arc<Metrics<AtomicU64, AtomicU64>>) -> Self {
+    pub fn handshaking(
+        addr: SocketAddr,
+        stream: MidHandshakeSslStream<TcpStream>,
+        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
+    ) -> Self {
         Self::new(addr, Stream::Handshaking(stream), metrics)
     }
 
     /// Create a new `Session` from an address, stream, and state
-    fn new(
-        addr: SocketAddr,
-        stream: Stream,
-        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
-    ) -> Self {
+    fn new(addr: SocketAddr, stream: Stream, metrics: Arc<Metrics<AtomicU64, AtomicU64>>) -> Self {
         let _ = metrics.increment_counter(&Stat::TcpAccept, 1);
         Self {
             token: Token(0),
@@ -227,7 +235,7 @@ impl Session {
             };
             return ret;
         } else {
-            panic!("corrupted session");
+            Err(Error::new(ErrorKind::Other, "session contains no stream"))
         }
     }
 

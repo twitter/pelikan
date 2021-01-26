@@ -1236,7 +1236,6 @@ name = "pelikan_pingserver_rs"
 version = "0.0.1"
 dependencies = [
  "boring",
- "boring-sys",
  "chrono",
  "config",
  "criterion",
