@@ -15,19 +15,19 @@ pub fn ssl_context(config: &Arc<PingserverConfig>) -> Result<Option<SslContext>,
     let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())?;
 
     if let Some(f) = config.tls().certificate_chain() {
-        builder.set_ca_file(f);
+        builder.set_ca_file(f)?;
     } else {
         return Ok(None);
     }
 
     if let Some(f) = config.tls().certificate() {
-        builder.set_certificate_file(f, SslFiletype::PEM);
+        builder.set_certificate_file(f, SslFiletype::PEM)?;
     } else {
         return Ok(None);
     }
 
     if let Some(f) = config.tls().private_key() {
-        builder.set_private_key_file(f, SslFiletype::PEM);
+        builder.set_private_key_file(f, SslFiletype::PEM)?;
     } else {
         return Ok(None);
     }

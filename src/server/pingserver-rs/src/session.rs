@@ -60,7 +60,7 @@ impl Session {
         let _ = metrics.increment_counter(&Stat::TcpAccept, 1);
         Self {
             token: Token(0),
-            addr: addr,
+            addr,
             stream: Some(stream),
             buffer: Buffer::with_capacity(1024, 1024),
             metrics,
@@ -208,11 +208,7 @@ impl Session {
     }
 
     pub fn is_handshaking(&self) -> bool {
-        if let Some(Stream::Handshaking(_)) = self.stream {
-            true
-        } else {
-            false
-        }
+        matches!(self.stream, Some(Stream::Handshaking(_)))
     }
 
     pub fn do_handshake(&mut self) -> Result<(), std::io::Error> {
@@ -233,7 +229,7 @@ impl Session {
                     None
                 }
             };
-            return ret;
+            ret
         } else {
             Err(Error::new(ErrorKind::Other, "session contains no stream"))
         }

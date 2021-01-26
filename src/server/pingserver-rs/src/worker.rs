@@ -138,6 +138,7 @@ impl Worker {
             }
 
             // poll queue to receive new messages
+            #[allow(clippy::never_loop)]
             while let Ok(message) = self.message_receiver.try_recv() {
                 match message {
                     Message::Shutdown => {
@@ -162,7 +163,7 @@ impl EventLoop for Worker {
         &self.metrics
     }
 
-    fn get_mut_session<'a>(&'a mut self, token: Token) -> Option<&'a mut Session> {
+    fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
     }
 
@@ -215,6 +216,7 @@ impl EventLoop for Worker {
                     }
                 }
             }
+            #[allow(clippy::collapsible_if)]
             if session.buffer().write_pending() > 0 {
                 if session.flush().is_ok() && session.buffer().write_pending() > 0 {
                     self.reregister(token);
@@ -226,7 +228,6 @@ impl EventLoop for Worker {
                 "attempted to handle data for non-existent session: {}",
                 token.0
             );
-            return;
         }
     }
 
