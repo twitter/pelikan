@@ -29,28 +29,38 @@ fn main() {
     std::thread::sleep(Duration::from_secs(10));
 
     debug!("beginning tests");
-    println!("");
+    println!();
 
-    test("ping", &[("PING\r\n", Some("PONG\r\n"))]);
-    test(
+    data("ping", &[("PING\r\n", Some("PONG\r\n"))]);
+    data(
         "multiping",
         &[("PING\r\nPING\r\n", Some("PONG\r\nPONG\r\n"))],
     );
-    test("partial", &[("PI", None)]);
-    test("fragmented", &[("PI", None), ("NG\r\n", Some("PONG\r\n"))]);
-    test("quit", &[("QUIT\r\n", Some(""))]);
+    data("partial", &[("PI", None)]);
+    data("fragmented", &[("PI", None), ("NG\r\n", Some("PONG\r\n"))]);
+    data("quit", &[("QUIT\r\n", Some(""))]);
+
+    admin("admin invalid", &[("INVALID REQUEST\r\n", Some(""))]);
 
     // shutdown server and join
     debug!("shutdown");
     let _ = pingserver.shutdown();
 }
 
+fn data(name: &str, data: &[(&str, Option<&str>)]) {
+    test("127.0.0.1:12321", name, data)
+}
+
+fn admin(name: &str, data: &[(&str, Option<&str>)]) {
+    test("127.0.0.1:9999", name, data)
+}
+
 // opens a new connection, operating on request + response pairs from the
 // provided data.
-fn test(name: &str, data: &[(&str, Option<&str>)]) {
+fn test(endpoint: &str, name: &str, data: &[(&str, Option<&str>)]) {
     info!("testing: {}", name);
     debug!("connecting to server");
-    let mut stream = TcpStream::connect("127.0.0.1:12321").expect("failed to connect");
+    let mut stream = TcpStream::connect(endpoint).expect("failed to connect");
     stream
         .set_read_timeout(Some(Duration::from_millis(250)))
         .expect("failed to set read timeout");

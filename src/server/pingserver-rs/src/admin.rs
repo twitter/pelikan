@@ -106,61 +106,39 @@ impl Admin {
                 if event.token() == Token(LISTENER_TOKEN) {
                     while let Ok((stream, addr)) = self.listener.accept() {
                         // handle TLS if it is configured
-                        if let Some(ssl_context) = &self.ssl_context {
+                        let mut session = if let Some(ssl_context) = &self.ssl_context {
                             match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
                                 // handle case where we have a fully-negotiated
                                 // TLS stream on accept()
                                 Ok(Ok(tls_stream)) => {
-                                    let mut session =
-                                        Session::tls(addr, tls_stream, self.metrics.clone());
-                                    trace!("accepted new session: {}", addr);
-                                    let s = self.sessions.vacant_entry();
-                                    let token = s.key();
-                                    session.set_token(Token(token));
-                                    if session.register(&self.poll).is_ok() {
-                                        s.insert(session);
-                                    } else {
-                                        let _ =
-                                            self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
-                                    }
+                                    Session::tls(addr, tls_stream, self.metrics.clone())
                                 }
-                                // handle case where further negotiation is
-                                // needed
                                 Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
-                                    let mut session = Session::handshaking(
+                                    Session::handshaking(
                                         addr,
                                         tls_stream,
                                         self.metrics.clone(),
-                                    );
-                                    let s = self.sessions.vacant_entry();
-                                    let token = s.key();
-                                    session.set_token(Token(token));
-                                    if session.register(&self.poll).is_ok() {
-                                        s.insert(session);
-                                    } else {
-                                        let _ =
-                                            self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
-                                    }
+                                    )
                                 }
-                                // some other error has occurred and we drop the
-                                // stream
                                 Ok(Err(_)) | Err(_) => {
                                     let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                    continue;
                                 }
                             }
                         } else {
-                            // handle plain sessions
-                            let mut session = Session::plain(addr, stream, self.metrics.clone());
-                            trace!("accepted new session: {}", addr);
-                            let s = self.sessions.vacant_entry();
-                            let token = s.key();
-                            session.set_token(Token(token));
-                            if session.register(&self.poll).is_ok() {
-                                s.insert(session);
-                            } else {
-                                let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
-                            }
+                            Session::plain(addr, stream, self.metrics.clone())
                         };
+
+                        trace!("accepted new session: {}", addr);
+                        let s = self.sessions.vacant_entry();
+                        let token = s.key();
+                        session.set_token(Token(token));
+                        if session.register(&self.poll).is_ok() {
+                            s.insert(session);
+                        } else {
+                            let _ =
+                                self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                        }
                     }
                 } else {
                     // handle events on existing sessions
@@ -243,11 +221,9 @@ impl EventLoop for Admin {
                 }
                 match session.buffer().fill_buf() {
                     Ok(buf) => {
+                        // TODO(bmartin): improve the request parsing here to
+                        // match twemcache-rs
                         if buf.len() < 7 {
-                            // Shortest request is "PING\r\n" at 6 bytes
-                            // All complete responses end in CRLF
-
-                            // incomplete request, stay in reading
                             break;
                         } else if &buf[0..7] == b"STATS\r\n" || &buf[0..7] == b"stats\r\n" {
                             let _ = self.metrics.increment_counter(&Stat::AdminRequestParse, 1);
