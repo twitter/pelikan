@@ -105,15 +105,15 @@ impl Admin {
                 // handle new sessions
                 if event.token() == Token(LISTENER_TOKEN) {
                     while let Ok((stream, addr)) = self.listener.accept() {
-                        // handle TLS if it is configured
                         let mut session = if let Some(ssl_context) = &self.ssl_context {
+                            // handle TLS if it is configured
                             match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
-                                // handle case where we have a fully-negotiated
-                                // TLS stream on accept()
                                 Ok(Ok(tls_stream)) => {
+                                    // fully-negotiated session on accept()
                                     Session::tls(addr, tls_stream, self.metrics.clone())
                                 }
                                 Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
+                                    // session needs additional handshaking
                                     Session::handshaking(
                                         addr,
                                         tls_stream,
@@ -121,11 +121,13 @@ impl Admin {
                                     )
                                 }
                                 Ok(Err(_)) | Err(_) => {
+                                    // unrecoverable error
                                     let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
                                     continue;
                                 }
                             }
                         } else {
+                            // plaintext session
                             Session::plain(addr, stream, self.metrics.clone())
                         };
 
