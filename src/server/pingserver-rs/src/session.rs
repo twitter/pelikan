@@ -74,77 +74,68 @@ impl Session {
     /// Register the `Session` with the event loop
     pub fn register(&mut self, poll: &Poll) -> Result<(), std::io::Error> {
         let interest = self.readiness();
-        match &mut self.stream {
-            Some(Stream::Plain(s)) => poll.registry().register(s, self.token, interest),
-            Some(Stream::Tls(s)) => poll.registry().register(s.get_mut(), self.token, interest),
-            Some(Stream::Handshaking(s)) => {
-                poll.registry().register(s.get_mut(), self.token, interest)
+        let tcp_stream = match &mut self.stream {
+            Some(Stream::Plain(s)) => s,
+            Some(Stream::Tls(s)) => s.get_mut(),
+            Some(Stream::Handshaking(s)) => s.get_mut(),
+            None => {
+                return Err(Error::new(ErrorKind::Other, "session has no stream"));
             }
-            None => Err(Error::new(ErrorKind::Other, "session has no stream")),
-        }
+        };
+        poll.registry().register(tcp_stream, self.token, interest)
     }
 
     /// Deregister the `Session` from the event loop
     pub fn deregister(&mut self, poll: &Poll) -> Result<(), std::io::Error> {
-        match &mut self.stream {
-            Some(Stream::Plain(s)) => poll.registry().deregister(s),
-            Some(Stream::Tls(s)) => poll.registry().deregister(s.get_mut()),
-            Some(Stream::Handshaking(s)) => poll.registry().deregister(s.get_mut()),
-            None => Err(Error::new(ErrorKind::Other, "session has no stream")),
-        }
+        let tcp_stream = match &mut self.stream {
+            Some(Stream::Plain(s)) => s,
+            Some(Stream::Tls(s)) => s.get_mut(),
+            Some(Stream::Handshaking(s)) => s.get_mut(),
+            None => {
+                return Err(Error::new(ErrorKind::Other, "session has no stream"));
+            }
+        };
+        poll.registry().deregister(tcp_stream)
     }
 
     /// Reregister the `Session` with the event loop
     pub fn reregister(&mut self, poll: &Poll) -> Result<(), std::io::Error> {
         let interest = self.readiness();
-        match &mut self.stream {
-            Some(Stream::Plain(s)) => poll.registry().reregister(s, self.token, interest),
-            Some(Stream::Tls(s)) => poll
-                .registry()
-                .reregister(s.get_mut(), self.token, interest),
-            Some(Stream::Handshaking(s)) => {
-                poll.registry()
-                    .reregister(s.get_mut(), self.token, interest)
+        let tcp_stream = match &mut self.stream {
+            Some(Stream::Plain(s)) => s,
+            Some(Stream::Tls(s)) => s.get_mut(),
+            Some(Stream::Handshaking(s)) => s.get_mut(),
+            None => {
+                return Err(Error::new(ErrorKind::Other, "session has no stream"));
             }
-            None => Err(Error::new(ErrorKind::Other, "session has no stream")),
-        }
+        };
+        poll.registry().reregister(tcp_stream, self.token, interest)
     }
 
     /// Reads from the stream into the session buffer
     pub fn read(&mut self) -> Result<Option<usize>, std::io::Error> {
         let _ = self.metrics.increment_counter(&Stat::TcpRecv, 1);
 
-        match &mut self.stream {
-            Some(Stream::Plain(s)) => match self.buffer.read_from(s) {
-                Ok(Some(0)) => Ok(Some(0)),
-                Ok(Some(bytes)) => {
-                    let _ = self
-                        .metrics
-                        .increment_counter(&Stat::TcpRecvByte, bytes.try_into().unwrap());
-                    Ok(Some(bytes))
-                }
-                Ok(None) => Ok(None),
-                Err(e) => {
-                    let _ = self.metrics.increment_counter(&Stat::TcpRecvEx, 1);
-                    Err(e)
-                }
-            },
-            Some(Stream::Tls(s)) => match self.buffer.read_from(s) {
-                Ok(Some(0)) => Ok(Some(0)),
-                Ok(Some(bytes)) => {
-                    let _ = self
-                        .metrics
-                        .increment_counter(&Stat::TcpRecvByte, bytes.try_into().unwrap());
-                    Ok(Some(bytes))
-                }
-                Ok(None) => Ok(None),
-                Err(e) => {
-                    let _ = self.metrics.increment_counter(&Stat::TcpRecvEx, 1);
-                    Err(e)
-                }
-            },
+        let read_result = match &mut self.stream {
+            Some(Stream::Plain(s)) => self.buffer.read_from(s),
+            Some(Stream::Tls(s)) => self.buffer.read_from(s),
             Some(Stream::Handshaking(_)) => Ok(None),
             None => Err(Error::new(ErrorKind::Other, "session has no stream")),
+        };
+
+        match read_result {
+            Ok(Some(0)) => Ok(Some(0)),
+            Ok(Some(bytes)) => {
+                let _ = self
+                    .metrics
+                    .increment_counter(&Stat::TcpRecvByte, bytes.try_into().unwrap());
+                Ok(Some(bytes))
+            }
+            Ok(None) => Ok(None),
+            Err(e) => {
+                let _ = self.metrics.increment_counter(&Stat::TcpRecvEx, 1);
+                Err(e)
+            }
         }
     }
 
@@ -155,41 +146,25 @@ impl Session {
 
     /// Flush the session buffer to the stream
     pub fn flush(&mut self) -> Result<Option<usize>, std::io::Error> {
-        match &mut self.stream {
-            Some(Stream::Plain(s)) => {
-                let _ = self.metrics.increment_counter(&Stat::TcpSend, 1);
-                match self.buffer.write_to(s) {
-                    Ok(Some(bytes)) => {
-                        let _ = self
-                            .metrics
-                            .increment_counter(&Stat::TcpSendByte, bytes.try_into().unwrap());
-                        Ok(Some(bytes))
-                    }
-                    Ok(None) => Ok(None),
-                    Err(e) => {
-                        let _ = self.metrics.increment_counter(&Stat::TcpSendEx, 1);
-                        Err(e)
-                    }
-                }
-            }
-            Some(Stream::Tls(s)) => {
-                let _ = self.metrics.increment_counter(&Stat::TcpSend, 1);
-                match self.buffer.write_to(s) {
-                    Ok(Some(bytes)) => {
-                        let _ = self
-                            .metrics
-                            .increment_counter(&Stat::TcpSendByte, bytes.try_into().unwrap());
-                        Ok(Some(bytes))
-                    }
-                    Ok(None) => Ok(None),
-                    Err(e) => {
-                        let _ = self.metrics.increment_counter(&Stat::TcpSendEx, 1);
-                        Err(e)
-                    }
-                }
-            }
+        let write_result = match &mut self.stream {
+            Some(Stream::Plain(s)) => self.buffer.write_to(s),
+            Some(Stream::Tls(s)) => self.buffer.write_to(s),
             Some(Stream::Handshaking(_)) => Ok(None),
             None => Err(Error::new(ErrorKind::Other, "session has no stream")),
+        };
+
+        match write_result {
+            Ok(Some(bytes)) => {
+                let _ = self
+                    .metrics
+                    .increment_counter(&Stat::TcpSendByte, bytes.try_into().unwrap());
+                Ok(Some(bytes))
+            }
+            Ok(None) => Ok(None),
+            Err(e) => {
+                let _ = self.metrics.increment_counter(&Stat::TcpSendEx, 1);
+                Err(e)
+            }
         }
     }
 
