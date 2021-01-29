@@ -5,11 +5,12 @@
 use crate::event_loop::EventLoop;
 use crate::session::*;
 use crate::*;
+use boring::ssl::{HandshakeError, Ssl, SslContext};
 
 use mio::net::TcpListener;
 
 use std::convert::TryInto;
-use std::io::BufRead;
+use std::io::{BufRead, ErrorKind};
 
 /// A `Admin` is used to bind to a given socket address and handle out-of-band
 /// admin requests.
@@ -18,7 +19,7 @@ pub struct Admin {
     config: Arc<PingserverConfig>,
     listener: TcpListener,
     poll: Poll,
-    tls_config: Option<Arc<rustls::ServerConfig>>,
+    ssl_context: Option<SslContext>,
     sessions: Slab<Session>,
     metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
     message_receiver: Receiver<Message>,
@@ -46,7 +47,7 @@ impl Admin {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
 
-        let tls_config = crate::common::load_tls_config(&config)?;
+        let ssl_context = crate::common::ssl_context(&config)?;
 
         // register listener to event loop
         poll.registry()
@@ -68,7 +69,7 @@ impl Admin {
             config,
             listener,
             poll,
-            tls_config,
+            ssl_context,
             sessions,
             metrics,
             message_sender,
@@ -104,34 +105,42 @@ impl Admin {
                 // handle new sessions
                 if event.token() == Token(LISTENER_TOKEN) {
                     while let Ok((stream, addr)) = self.listener.accept() {
-                        if let Some(tls_config) = &self.tls_config {
-                            let mut session = Session::new(
-                                addr,
-                                stream,
-                                State::Handshaking,
-                                Some(rustls::ServerSession::new(&tls_config)),
-                                self.metrics.clone(),
-                            );
-                            let s = self.sessions.vacant_entry();
-                            let token = s.key();
-                            session.set_token(Token(token));
-                            let _ = session.register(&self.poll);
+                        let mut session = if let Some(ssl_context) = &self.ssl_context {
+                            // handle TLS if it is configured
+                            match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
+                                Ok(Ok(tls_stream)) => {
+                                    // fully-negotiated session on accept()
+                                    Session::tls(addr, tls_stream, self.metrics.clone())
+                                }
+                                Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
+                                    // session needs additional handshaking
+                                    Session::handshaking(
+                                        addr,
+                                        tls_stream,
+                                        self.metrics.clone(),
+                                    )
+                                }
+                                Ok(Err(_)) | Err(_) => {
+                                    // unrecoverable error
+                                    let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                    continue;
+                                }
+                            }
+                        } else {
+                            // plaintext session
+                            Session::plain(addr, stream, self.metrics.clone())
+                        };
+
+                        trace!("accepted new session: {}", addr);
+                        let s = self.sessions.vacant_entry();
+                        let token = s.key();
+                        session.set_token(Token(token));
+                        if session.register(&self.poll).is_ok() {
                             s.insert(session);
                         } else {
-                            let mut session = Session::new(
-                                addr,
-                                stream,
-                                State::Established,
-                                None,
-                                self.metrics.clone(),
-                            );
-                            trace!("accepted new admin session: {}", addr);
-                            let s = self.sessions.vacant_entry();
-                            let token = s.key();
-                            session.set_token(Token(token));
-                            let _ = session.register(&self.poll);
-                            s.insert(session);
-                        };
+                            let _ =
+                                self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                        }
                     }
                 } else {
                     // handle events on existing sessions
@@ -142,6 +151,21 @@ impl Admin {
                     if event.is_error() {
                         self.increment_count(&Stat::AdminEventError);
                         self.handle_error(token);
+                    }
+
+                    // handle handshaking
+                    if let Some(session) = self.sessions.get_mut(token.0) {
+                        if session.is_handshaking() {
+                            if let Err(e) = session.do_handshake() {
+                                if e.kind() == ErrorKind::WouldBlock {
+                                    // the session is still handshaking
+                                    continue;
+                                } else {
+                                    // some error occured while handshaking
+                                    self.close(token);
+                                }
+                            }
+                        }
                     }
 
                     // handle write events before read events to reduce write
@@ -160,6 +184,7 @@ impl Admin {
             }
 
             // poll queue to receive new messages
+            #[allow(clippy::never_loop)]
             while let Ok(message) = self.message_receiver.try_recv() {
                 match message {
                     Message::Shutdown => {
@@ -182,7 +207,7 @@ impl EventLoop for Admin {
         &self.metrics
     }
 
-    fn get_mut_session<'a>(&'a mut self, token: Token) -> Option<&'a mut Session> {
+    fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
     }
 
@@ -198,11 +223,9 @@ impl EventLoop for Admin {
                 }
                 match session.buffer().fill_buf() {
                     Ok(buf) => {
+                        // TODO(bmartin): improve the request parsing here to
+                        // match twemcache-rs
                         if buf.len() < 7 {
-                            // Shortest request is "PING\r\n" at 6 bytes
-                            // All complete responses end in CRLF
-
-                            // incomplete request, stay in reading
                             break;
                         } else if &buf[0..7] == b"STATS\r\n" || &buf[0..7] == b"stats\r\n" {
                             let _ = self.metrics.increment_counter(&Stat::AdminRequestParse, 1);
@@ -211,12 +234,8 @@ impl EventLoop for Admin {
                             let mut data = Vec::new();
                             for (metric, value) in snapshot {
                                 let label = metric.statistic().name();
-                                let output = metric.output();
-                                match output {
-                                    Output::Reading => {
-                                        data.push(format!("STAT {} {}", label, value));
-                                    }
-                                    _ => {}
+                                if let Output::Reading = metric.output() {
+                                    data.push(format!("STAT {} {}", label, value));
                                 }
                             }
                             data.sort();

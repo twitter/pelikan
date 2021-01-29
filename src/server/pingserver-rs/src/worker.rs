@@ -138,6 +138,7 @@ impl Worker {
             }
 
             // poll queue to receive new messages
+            #[allow(clippy::never_loop)]
             while let Ok(message) = self.message_receiver.try_recv() {
                 match message {
                     Message::Shutdown => {
@@ -162,15 +163,13 @@ impl EventLoop for Worker {
         &self.metrics
     }
 
-    fn get_mut_session<'a>(&'a mut self, token: Token) -> Option<&'a mut Session> {
+    fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
     }
 
     fn handle_data(&mut self, token: Token) {
-        // TODO(bmartin): find a better solution to multiple borrow issue
-        let metrics = self.metrics.clone();
         trace!("handling request for session: {}", token.0);
-        if let Some(session) = self.get_mut_session(token) {
+        if let Some(session) = self.sessions.get_mut(token.0) {
             loop {
                 // TODO(bmartin): buffer should allow us to check remaining
                 // write capacity.
@@ -187,15 +186,15 @@ impl EventLoop for Worker {
                             // incomplete request, stay in reading
                             break;
                         } else if &buf[0..6] == b"PING\r\n" {
-                            let _ = metrics.increment_counter(&Stat::RequestParse, 1);
+                            let _ = self.metrics.increment_counter(&Stat::RequestParse, 1);
                             session.buffer().consume(6);
                             if session.write(b"PONG\r\n").is_err() {
                                 // error writing
-                                let _ = metrics.increment_counter(&Stat::ResponseComposeEx, 1);
+                                let _ = self.metrics.increment_counter(&Stat::ResponseComposeEx, 1);
                                 self.handle_error(token);
                                 return;
                             } else {
-                                let _ = metrics.increment_counter(&Stat::ResponseCompose, 1);
+                                let _ = self.metrics.increment_counter(&Stat::ResponseCompose, 1);
                             }
                         } else {
                             // invalid command
@@ -217,6 +216,7 @@ impl EventLoop for Worker {
                     }
                 }
             }
+            #[allow(clippy::collapsible_if)]
             if session.buffer().write_pending() > 0 {
                 if session.flush().is_ok() && session.buffer().write_pending() > 0 {
                     self.reregister(token);
@@ -228,7 +228,6 @@ impl EventLoop for Worker {
                 "attempted to handle data for non-existent session: {}",
                 token.0
             );
-            return;
         }
     }
 
