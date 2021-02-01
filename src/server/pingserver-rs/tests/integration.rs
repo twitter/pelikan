@@ -13,6 +13,12 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 
+pub const ADMIN_ENDPOINT: &str = "127.0.0.1:9999";
+pub const SERVER_ENDPOINT: &str = "127.0.0.1:12321";
+
+pub const STARTUP_DELAY: Duration = Duration::from_secs(10);
+pub const TIMEOUT: Duration = Duration::from_millis(250);
+
 fn main() {
     // initialize logging
     Logger::new()
@@ -26,7 +32,7 @@ fn main() {
 
     // wait for server to startup. duration is chosen to be longer than we'd
     // expect startup to take in a slow ci environment.
-    std::thread::sleep(Duration::from_secs(10));
+    std::thread::sleep(STARTUP_DELAY);
 
     debug!("beginning tests");
     println!();
@@ -49,25 +55,27 @@ fn main() {
 }
 
 fn data(name: &str, data: &[(&str, Option<&str>)]) {
-    test("127.0.0.1:12321", name, data)
+    test(SERVER_ENDPOINT, name, data)
 }
 
 fn admin(name: &str, data: &[(&str, Option<&str>)]) {
-    test("127.0.0.1:9999", name, data)
+    test(ADMIN_ENDPOINT, name, data)
 }
 
-fn admin_stats() {
-    info!("testing: admin stats");
+fn connect(endpoint: &str) -> TcpStream {
     debug!("connecting to server");
-    let mut stream = TcpStream::connect("127.0.0.1:9999").expect("failed to connect");
+    let stream = TcpStream::connect(endpoint).expect("failed to connect");
     stream
-        .set_read_timeout(Some(Duration::from_millis(250)))
+        .set_read_timeout(Some(TIMEOUT))
         .expect("failed to set read timeout");
     stream
-        .set_write_timeout(Some(Duration::from_millis(250)))
+        .set_write_timeout(Some(TIMEOUT))
         .expect("failed to set write timeout");
+    stream
+}
+
+fn send_request(stream: &mut TcpStream, request: &[u8]) {
     debug!("sending request");
-    let request = b"stats\r\n";
     match stream.write(request) {
         Ok(bytes) => {
             if bytes == request.len() {
@@ -82,28 +90,61 @@ fn admin_stats() {
             fatal!("status: failed\n");
         }
     }
-    std::thread::sleep(Duration::from_millis(10));
-    let mut buf = vec![0; 4096];
-    match stream.read(&mut buf) {
-        Ok(bytes) => {
-            if bytes == 0 {
-                error!("server hangup");
-                fatal!("status: failed\n");
-            } else if bytes < 5 {
-                error!("response too short");
-                fatal!("status: failed\n");
-            } else if buf[bytes - 5..bytes] != *b"END\r\n" {
-                error!("incorrectly terminated response");
-                fatal!("status: failed\n");
-            } else {
-                debug!("correctly terminated response");
-                info!("status: passed\n")
-            }
-        }
-        Err(_) => {
-            error!("error reading response");
+}
+
+fn get_response(stream: &mut TcpStream, buf: &mut [u8]) -> usize {
+    match stream.read(buf) {
+        Ok(0) => {
+            error!("server hangup");
             fatal!("status: failed\n");
         }
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::WouldBlock {
+                debug!("got no response");
+                0
+            } else {
+                error!("error reading response");
+                fatal!("status: failed\n");
+            }
+        }
+        Ok(n) => n,
+    }
+}
+
+fn did_hangup(stream: &mut TcpStream, buf: &mut [u8]) -> bool {
+    match stream.read(buf) {
+        Ok(0) => {
+            true
+        }
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::WouldBlock {
+                debug!("got no response");
+                false
+            } else {
+                error!("error reading response");
+                fatal!("status: failed\n");
+            }
+        }
+        Ok(_) => false,
+    }
+}
+
+fn admin_stats() {
+    info!("testing: admin stats");
+    let mut stream = connect(ADMIN_ENDPOINT);
+    send_request(&mut stream, b"stats\r\n");
+    std::thread::sleep(Duration::from_millis(10));
+    let mut buf = vec![0; 4096];
+    let bytes = get_response(&mut stream, &mut buf);
+    if buf.len() < 7 {
+        error!("response too short");
+        fatal!("status: failed\n");
+    } else if buf[bytes - 5..bytes] != *b"END\r\n" {
+        error!("incorrectly terminated response");
+        fatal!("status: failed\n");
+    } else {
+        debug!("correctly terminated response");
+        info!("status: passed\n")
     }
 }
 
@@ -112,38 +153,22 @@ fn admin_stats() {
 fn test(endpoint: &str, name: &str, data: &[(&str, Option<&str>)]) {
     info!("testing: {}", name);
     debug!("connecting to server");
-    let mut stream = TcpStream::connect(endpoint).expect("failed to connect");
-    stream
-        .set_read_timeout(Some(Duration::from_millis(250)))
-        .expect("failed to set read timeout");
-    stream
-        .set_write_timeout(Some(Duration::from_millis(250)))
-        .expect("failed to set write timeout");
+    let mut stream = connect(endpoint);
 
-    debug!("sending request");
     for (request, response) in data {
-        match stream.write(request.as_bytes()) {
-            Ok(bytes) => {
-                if bytes == request.len() {
-                    debug!("full request sent");
-                } else {
-                    error!("incomplete write");
-                    fatal!("status: failed\n");
-                }
-            }
-            Err(_) => {
-                error!("error sending request");
-                fatal!("status: failed\n");
-            }
-        }
+        send_request(&mut stream, request.as_bytes());
 
         std::thread::sleep(Duration::from_millis(10));
         let mut buf = vec![0; 4096];
 
         if let Some(response) = response {
-            if stream.read(&mut buf).is_err() {
-                fatal!("error reading response");
+            if response.is_empty() {
+                if !did_hangup(&mut stream, &mut buf) {
+                    error!("server didn't hangup");
+                    fatal!("status: failed");
+                }
             } else {
+                let _ = get_response(&mut stream, &mut buf);
                 if response.as_bytes() != &buf[0..response.len()] {
                     error!("expected: {:?}", response.as_bytes());
                     error!("received: {:?}", &buf[0..response.len()]);
@@ -152,21 +177,10 @@ fn test(endpoint: &str, name: &str, data: &[(&str, Option<&str>)]) {
                     debug!("correct response");
                 }
             }
-            assert_eq!(response.as_bytes(), &buf[0..response.len()]);
-        } else {
-            if let Err(e) = stream.read(&mut buf) {
-                if e.kind() == std::io::ErrorKind::WouldBlock {
-                    debug!("got no response");
-                } else {
-                    error!("error reading response");
-                    fatal!("status: failed\n");
-                }
-            } else {
-                error!("expected no response");
-                fatal!("status: failed\n");
-            }
+        } else if get_response(&mut stream, &mut buf) != 0 {
+            error!("expected nothing but got a response");
+            fatal!("status: failed\n");
         }
-
         if data.len() > 1 {
             std::thread::sleep(Duration::from_millis(10));
         }
