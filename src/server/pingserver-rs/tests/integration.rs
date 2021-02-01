@@ -41,6 +41,7 @@ fn main() {
     data("quit", &[("QUIT\r\n", Some(""))]);
 
     admin("admin invalid", &[("INVALID REQUEST\r\n", Some(""))]);
+    admin_stats();
 
     // shutdown server and join
     debug!("shutdown");
@@ -53,6 +54,57 @@ fn data(name: &str, data: &[(&str, Option<&str>)]) {
 
 fn admin(name: &str, data: &[(&str, Option<&str>)]) {
     test("127.0.0.1:9999", name, data)
+}
+
+fn admin_stats() {
+    info!("testing: admin stats");
+    debug!("connecting to server");
+    let mut stream = TcpStream::connect("127.0.0.1:9999").expect("failed to connect");
+    stream
+        .set_read_timeout(Some(Duration::from_millis(250)))
+        .expect("failed to set read timeout");
+    stream
+        .set_write_timeout(Some(Duration::from_millis(250)))
+        .expect("failed to set write timeout");
+    debug!("sending request");
+    let request = b"stats\r\n";
+    match stream.write(request) {
+        Ok(bytes) => {
+            if bytes == request.len() {
+                debug!("full request sent");
+            } else {
+                error!("incomplete write");
+                fatal!("status: failed\n");
+            }
+        }
+        Err(_) => {
+            error!("error sending request");
+            fatal!("status: failed\n");
+        }
+    }
+    std::thread::sleep(Duration::from_millis(10));
+    let mut buf = vec![0; 4096];
+    match stream.read(&mut buf) {
+        Ok(bytes) => {
+            if bytes == 0 {
+                error!("server hangup");
+                fatal!("status: failed\n");
+            } else if bytes < 5 {
+                error!("response too short");
+                fatal!("status: failed\n");
+            } else if buf[bytes - 5..bytes] != *b"END\r\n" {
+                error!("incorrectly terminated response");
+                fatal!("status: failed\n");
+            } else {
+                debug!("correctly terminated response");
+                info!("status: passed\n")
+            }
+        }
+        Err(_) => {
+            error!("error reading response");
+            fatal!("status: failed\n");
+        }
+    }
 }
 
 // opens a new connection, operating on request + response pairs from the
