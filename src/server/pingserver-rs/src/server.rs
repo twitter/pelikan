@@ -3,6 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::event_loop::EventLoop;
+use crate::metrics::Metrics;
 use crate::session::*;
 use crate::*;
 
@@ -22,7 +23,7 @@ pub struct Server {
     sender: SyncSender<Session>,
     ssl_context: Option<SslContext>,
     sessions: Slab<Session>,
-    metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
+    metrics: Arc<Metrics<Stat>>,
     message_receiver: Receiver<Message>,
     message_sender: SyncSender<Message>,
 }
@@ -34,7 +35,7 @@ impl Server {
     /// `Session`s over the `sender`
     pub fn new(
         config: Arc<PingserverConfig>,
-        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
+        metrics: Arc<Metrics<Stat>>,
         sender: SyncSender<Session>,
     ) -> Result<Self, std::io::Error> {
         let addr = config.server().socket_addr().map_err(|e| {
@@ -93,12 +94,12 @@ impl Server {
 
         // repeatedly run accepting new connections and moving them to the worker
         loop {
-            let _ = self.metrics.increment_counter(&Stat::ServerEventLoop, 1);
+            let _ = self.metrics.increment_counter(Stat::ServerEventLoop, 1);
             if self.poll.poll(&mut events, timeout).is_err() {
                 error!("Error polling server");
             }
             let _ = self.metrics.increment_counter(
-                &Stat::ServerEventTotal,
+                Stat::ServerEventTotal,
                 events.iter().count().try_into().unwrap(),
             );
 
@@ -118,7 +119,7 @@ impl Server {
                                     if self.sender.send(session).is_err() {
                                         error!("error sending session to worker");
                                         let _ =
-                                            self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                            self.metrics().increment_counter(Stat::TcpAcceptEx, 1);
                                     }
                                 }
                                 // handle case where further negotiation is
@@ -136,13 +137,13 @@ impl Server {
                                         s.insert(session);
                                     } else {
                                         let _ =
-                                            self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                            self.metrics().increment_counter(Stat::TcpAcceptEx, 1);
                                     }
                                 }
                                 // some other error has occurred and we drop the
                                 // stream
                                 Ok(Err(_)) | Err(_) => {
-                                    let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                    let _ = self.metrics().increment_counter(Stat::TcpAcceptEx, 1);
                                 }
                             }
                         } else {
@@ -150,7 +151,7 @@ impl Server {
                             trace!("accepted new session: {}", addr);
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
-                                let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                let _ = self.metrics().increment_counter(Stat::TcpAcceptEx, 1);
                             }
                         };
                     }
@@ -161,7 +162,7 @@ impl Server {
 
                     // handle error events first
                     if event.is_error() {
-                        let _ = self.metrics().increment_counter(&Stat::ServerEventError, 1);
+                        let _ = self.metrics().increment_counter(Stat::ServerEventError, 1);
                         self.handle_error(token);
                     }
 
@@ -171,7 +172,7 @@ impl Server {
                             let _ = session.deregister(&self.poll);
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
-                                let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                let _ = self.metrics().increment_counter(Stat::TcpAcceptEx, 1);
                             }
                         }
                     }
@@ -196,7 +197,7 @@ impl Server {
 }
 
 impl EventLoop for Server {
-    fn metrics(&self) -> &Arc<Metrics<AtomicU64, AtomicU64>> {
+    fn metrics(&self) -> &Arc<Metrics<Stat>> {
         &self.metrics
     }
 

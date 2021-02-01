@@ -4,6 +4,7 @@
 
 use crate::common::Message;
 use crate::event_loop::EventLoop;
+use crate::metrics::Metrics;
 use crate::session::*;
 use crate::*;
 
@@ -16,7 +17,7 @@ pub struct Worker {
     config: Arc<PingserverConfig>,
     message_receiver: Receiver<Message>,
     message_sender: SyncSender<Message>,
-    metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
+    metrics: Arc<Metrics<Stat>>,
     poll: Poll,
     session_receiver: Receiver<Session>,
     session_sender: SyncSender<Session>,
@@ -27,7 +28,7 @@ impl Worker {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(
         config: Arc<PingserverConfig>,
-        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
+        metrics: Arc<Metrics<Stat>>,
     ) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
@@ -58,7 +59,7 @@ impl Worker {
         ));
 
         loop {
-            let _ = self.metrics.increment_counter(&Stat::WorkerEventLoop, 1);
+            let _ = self.metrics.increment_counter(Stat::WorkerEventLoop, 1);
 
             // get events with timeout
             if self.poll.poll(&mut events, timeout).is_err() {
@@ -66,7 +67,7 @@ impl Worker {
             }
 
             let _ = self.metrics.increment_counter(
-                &Stat::WorkerEventTotal,
+                Stat::WorkerEventTotal,
                 events.iter().count().try_into().unwrap(),
             );
 
@@ -79,20 +80,20 @@ impl Worker {
 
                 // handle error events first
                 if event.is_error() {
-                    self.increment_count(&Stat::WorkerEventError);
+                    self.increment_count(Stat::WorkerEventError);
                     self.handle_error(token);
                 }
 
                 // handle write events before read events to reduce write buffer
                 // growth if there is also a readable event
                 if event.is_writable() {
-                    self.increment_count(&Stat::WorkerEventWrite);
+                    self.increment_count(Stat::WorkerEventWrite);
                     self.do_write(token);
                 }
 
                 // read events are handled last
                 if event.is_readable() {
-                    self.increment_count(&Stat::WorkerEventRead);
+                    self.increment_count(Stat::WorkerEventRead);
                     let _ = self.do_read(token);
                 }
 
@@ -159,7 +160,7 @@ impl Worker {
 }
 
 impl EventLoop for Worker {
-    fn metrics(&self) -> &Arc<Metrics<AtomicU64, AtomicU64>> {
+    fn metrics(&self) -> &Arc<Metrics<Stat>> {
         &self.metrics
     }
 
@@ -186,20 +187,20 @@ impl EventLoop for Worker {
                             // incomplete request, stay in reading
                             break;
                         } else if &buf[0..6] == b"PING\r\n" {
-                            let _ = self.metrics.increment_counter(&Stat::RequestParse, 1);
+                            let _ = self.metrics.increment_counter(Stat::RequestParse, 1);
                             session.buffer().consume(6);
                             if session.write(b"PONG\r\n").is_err() {
                                 // error writing
-                                let _ = self.metrics.increment_counter(&Stat::ResponseComposeEx, 1);
+                                let _ = self.metrics.increment_counter(Stat::ResponseComposeEx, 1);
                                 self.handle_error(token);
                                 return;
                             } else {
-                                let _ = self.metrics.increment_counter(&Stat::ResponseCompose, 1);
+                                let _ = self.metrics.increment_counter(Stat::ResponseCompose, 1);
                             }
                         } else {
                             // invalid command
                             debug!("error");
-                            let _ = self.metrics.increment_counter(&Stat::RequestParseEx, 1);
+                            let _ = self.metrics.increment_counter(Stat::RequestParseEx, 1);
                             self.handle_error(token);
                             return;
                         }

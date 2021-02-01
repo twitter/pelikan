@@ -12,7 +12,6 @@ use std::thread::JoinHandle;
 
 use config::PingserverConfig;
 use mio::*;
-use rustcommon_metrics::*;
 use slab::Slab;
 
 mod admin;

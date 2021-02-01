@@ -2,11 +2,11 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use crate::metrics::Metrics;
 use crate::session::Session;
 use crate::{Stat, Token};
 
 use mio::Poll;
-use rustcommon_metrics::{AtomicU64, Metrics};
 
 use std::sync::Arc;
 
@@ -18,7 +18,7 @@ pub trait EventLoop {
     /// Provides access to an atomic-reference counted `Metrics` structure. This
     /// is used to allow consistent access to the `Metrics` structure and allow
     /// the default implementation of the related helper functions.
-    fn metrics(&self) -> &Arc<Metrics<AtomicU64, AtomicU64>>;
+    fn metrics(&self) -> &Arc<Metrics<Stat>>;
 
     /// Provides access to the `Poll` structure which allows polling for new
     /// readiness events and managing registration for event sources.
@@ -42,12 +42,12 @@ pub trait EventLoop {
     // stats helper functions
 
     /// Increment the statistic counter.
-    fn increment_count(&self, stat: &Stat) {
+    fn increment_count(&self, stat: Stat) {
         self.increment_count_n(stat, 1)
     }
 
     /// Increment the statistic counter by a provided count.
-    fn increment_count_n(&self, stat: &Stat, count: u64) {
+    fn increment_count_n(&self, stat: Stat, count: u64) {
         let _ = self.metrics().increment_counter(stat, count);
     }
 
