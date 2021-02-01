@@ -240,7 +240,7 @@ impl EventLoop for Admin {
                             }
                             data.sort();
                             let mut content = data.join("\r\n");
-                            content += "\r\n";
+                            content += "\r\nEND\r\n";
                             if session.write(content.as_bytes()).is_err() {
                                 // error writing
                                 let _ = self
