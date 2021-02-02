@@ -269,19 +269,15 @@ impl EventLoop for Admin {
                             session.buffer().consume(7);
                             let mut data = Vec::new();
                             for metric in Stat::iter() {
-                                match metric {
-                                    Stat::Pid
-                                    | Stat::RuMaxrss
-                                    | Stat::RuIxrss
-                                    | Stat::RuIdrss
-                                    | Stat::RuIsrss => {
+                                match metric.source() {
+                                    Source::Gauge => {
                                         data.push(format!(
                                             "STAT {} {}\r\n",
                                             metric,
                                             get_gauge!(&metric).unwrap_or(0)
                                         ));
                                     }
-                                    _ => {
+                                    Source::Counter => {
                                         data.push(format!(
                                             "STAT {} {}\r\n",
                                             metric,
