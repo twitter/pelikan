@@ -4,11 +4,10 @@
 
 use crate::common::Message;
 use crate::event_loop::EventLoop;
-use crate::metrics::Metrics;
 use crate::session::*;
 use crate::*;
+use rustcommon_fastmetrics::metrics;
 
-use std::convert::TryInto;
 use std::io::BufRead;
 use std::sync::Arc;
 
@@ -17,7 +16,6 @@ pub struct Worker {
     config: Arc<PingserverConfig>,
     message_receiver: Receiver<Message>,
     message_sender: SyncSender<Message>,
-    metrics: Arc<Metrics<Stat>>,
     poll: Poll,
     session_receiver: Receiver<Session>,
     session_sender: SyncSender<Session>,
@@ -26,10 +24,7 @@ pub struct Worker {
 
 impl Worker {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(
-        config: Arc<PingserverConfig>,
-        metrics: Arc<Metrics<Stat>>,
-    ) -> Result<Self, std::io::Error> {
+    pub fn new(config: Arc<PingserverConfig>) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
@@ -47,7 +42,6 @@ impl Worker {
             session_receiver,
             session_sender,
             sessions,
-            metrics,
         })
     }
 
@@ -59,17 +53,13 @@ impl Worker {
         ));
 
         loop {
-            let _ = self.metrics.increment_counter(Stat::WorkerEventLoop, 1);
+            increment_counter!(&Stat::WorkerEventLoop);
 
             // get events with timeout
             if self.poll.poll(&mut events, timeout).is_err() {
                 error!("Error polling");
             }
-
-            let _ = self.metrics.increment_counter(
-                Stat::WorkerEventTotal,
-                events.iter().count().try_into().unwrap(),
-            );
+            increment_counter_by!(&Stat::WorkerEventTotal, events.iter().count() as u64);
 
             // process all events
             for event in events.iter() {
@@ -80,20 +70,20 @@ impl Worker {
 
                 // handle error events first
                 if event.is_error() {
-                    self.increment_count(Stat::WorkerEventError);
+                    increment_counter!(&Stat::WorkerEventError);
                     self.handle_error(token);
                 }
 
                 // handle write events before read events to reduce write buffer
                 // growth if there is also a readable event
                 if event.is_writable() {
-                    self.increment_count(Stat::WorkerEventWrite);
+                    increment_counter!(&Stat::WorkerEventWrite);
                     self.do_write(token);
                 }
 
                 // read events are handled last
                 if event.is_readable() {
-                    self.increment_count(Stat::WorkerEventRead);
+                    increment_counter!(&Stat::WorkerEventRead);
                     let _ = self.do_read(token);
                 }
 
@@ -160,10 +150,6 @@ impl Worker {
 }
 
 impl EventLoop for Worker {
-    fn metrics(&self) -> &Arc<Metrics<Stat>> {
-        &self.metrics
-    }
-
     fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
     }
@@ -187,20 +173,20 @@ impl EventLoop for Worker {
                             // incomplete request, stay in reading
                             break;
                         } else if &buf[0..6] == b"PING\r\n" {
-                            let _ = self.metrics.increment_counter(Stat::RequestParse, 1);
+                            increment_counter!(&Stat::RequestParse);
                             session.buffer().consume(6);
                             if session.write(b"PONG\r\n").is_err() {
                                 // error writing
-                                let _ = self.metrics.increment_counter(Stat::ResponseComposeEx, 1);
+                                increment_counter!(&Stat::ResponseComposeEx);
                                 self.handle_error(token);
                                 return;
                             } else {
-                                let _ = self.metrics.increment_counter(Stat::ResponseCompose, 1);
+                                increment_counter!(&Stat::ResponseCompose);
                             }
                         } else {
                             // invalid command
                             debug!("error");
-                            let _ = self.metrics.increment_counter(Stat::RequestParseEx, 1);
+                            increment_counter!(&Stat::RequestParseEx);
                             self.handle_error(token);
                             return;
                         }

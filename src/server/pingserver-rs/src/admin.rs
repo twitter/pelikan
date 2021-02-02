@@ -9,10 +9,8 @@ use crate::*;
 use boring::ssl::{HandshakeError, Ssl, SslContext};
 
 use mio::net::TcpListener;
-use strum::IntoEnumIterator;
-
-use std::convert::TryInto;
 use std::io::{BufRead, ErrorKind};
+use strum::IntoEnumIterator;
 
 /// A `Admin` is used to bind to a given socket address and handle out-of-band
 /// admin requests.
@@ -23,7 +21,6 @@ pub struct Admin {
     poll: Poll,
     ssl_context: Option<SslContext>,
     sessions: Slab<Session>,
-    metrics: Arc<Metrics<Stat>>,
     message_receiver: Receiver<Message>,
     message_sender: SyncSender<Message>,
 }
@@ -32,10 +29,7 @@ pub const LISTENER_TOKEN: usize = usize::MAX;
 
 impl Admin {
     /// Creates a new `Admin` event loop.
-    pub fn new(
-        config: Arc<PingserverConfig>,
-        metrics: Arc<Metrics<Stat>>,
-    ) -> Result<Self, std::io::Error> {
+    pub fn new(config: Arc<PingserverConfig>) -> Result<Self, std::io::Error> {
         let addr = config.admin().socket_addr().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
@@ -73,7 +67,6 @@ impl Admin {
             poll,
             ssl_context,
             sessions,
-            metrics,
             message_sender,
             message_receiver,
         })
@@ -91,16 +84,13 @@ impl Admin {
 
         // run in a loop, accepting new sessions and events on existing sessions
         loop {
-            self.increment_count(Stat::AdminEventLoop);
+            increment_counter!(&Stat::AdminEventLoop);
 
             if self.poll.poll(&mut events, timeout).is_err() {
                 error!("Error polling");
             }
 
-            self.increment_count_n(
-                Stat::AdminEventTotal,
-                events.iter().count().try_into().unwrap(),
-            );
+            increment_counter_by!(&Stat::AdminEventTotal, events.iter().count() as u64,);
 
             // handle all events
             for event in events.iter() {
@@ -112,21 +102,21 @@ impl Admin {
                             match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
                                 Ok(Ok(tls_stream)) => {
                                     // fully-negotiated session on accept()
-                                    Session::tls(addr, tls_stream, self.metrics.clone())
+                                    Session::tls(addr, tls_stream)
                                 }
                                 Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
                                     // session needs additional handshaking
-                                    Session::handshaking(addr, tls_stream, self.metrics.clone())
+                                    Session::handshaking(addr, tls_stream)
                                 }
                                 Ok(Err(_)) | Err(_) => {
                                     // unrecoverable error
-                                    let _ = self.metrics().increment_counter(Stat::TcpAcceptEx, 1);
+                                    increment_counter!(&Stat::TcpAcceptEx);
                                     continue;
                                 }
                             }
                         } else {
                             // plaintext session
-                            Session::plain(addr, stream, self.metrics.clone())
+                            Session::plain(addr, stream)
                         };
 
                         trace!("accepted new session: {}", addr);
@@ -136,7 +126,7 @@ impl Admin {
                         if session.register(&self.poll).is_ok() {
                             s.insert(session);
                         } else {
-                            let _ = self.metrics().increment_counter(Stat::TcpAcceptEx, 1);
+                            increment_counter!(&Stat::TcpAcceptEx);
                         }
                     }
                 } else {
@@ -146,7 +136,7 @@ impl Admin {
 
                     // handle error events first
                     if event.is_error() {
-                        self.increment_count(Stat::AdminEventError);
+                        increment_counter!(&Stat::AdminEventError);
                         self.handle_error(token);
                     }
 
@@ -168,13 +158,13 @@ impl Admin {
                     // handle write events before read events to reduce write
                     // buffer growth if there is also a readable event
                     if event.is_writable() {
-                        self.increment_count(Stat::AdminEventWrite);
+                        increment_counter!(&Stat::AdminEventWrite);
                         self.do_write(token);
                     }
 
                     // read events are handled last
                     if event.is_readable() {
-                        self.increment_count(Stat::AdminEventRead);
+                        increment_counter!(&Stat::AdminEventRead);
                         let _ = self.do_read(token);
                     };
                 }
@@ -227,48 +217,33 @@ impl Admin {
         };
 
         if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut rusage) } == 0 {
-            self.metrics().record_counter(
-                Stat::RuUtime,
+            set_counter!(
+                &Stat::RuUtime,
                 rusage.ru_utime.tv_sec as u64 * 1000000000 + rusage.ru_utime.tv_usec as u64 * 1000,
             );
-            self.metrics().record_counter(
-                Stat::RuStime,
+            set_counter!(
+                &Stat::RuStime,
                 rusage.ru_stime.tv_sec as u64 * 1000000000 + rusage.ru_stime.tv_usec as u64 * 1000,
             );
-            self.metrics()
-                .record_gauge(Stat::RuMaxrss, rusage.ru_maxrss);
-            self.metrics().record_gauge(Stat::RuIxrss, rusage.ru_ixrss);
-            self.metrics().record_gauge(Stat::RuIdrss, rusage.ru_idrss);
-            self.metrics().record_gauge(Stat::RuIsrss, rusage.ru_isrss);
-            self.metrics()
-                .record_counter(Stat::RuMinflt, rusage.ru_minflt as u64);
-            self.metrics()
-                .record_counter(Stat::RuMajflt, rusage.ru_majflt as u64);
-            self.metrics()
-                .record_counter(Stat::RuNswap, rusage.ru_nswap as u64);
-            self.metrics()
-                .record_counter(Stat::RuInblock, rusage.ru_inblock as u64);
-            self.metrics()
-                .record_counter(Stat::RuOublock, rusage.ru_oublock as u64);
-            self.metrics()
-                .record_counter(Stat::RuMsgsnd, rusage.ru_msgsnd as u64);
-            self.metrics()
-                .record_counter(Stat::RuMsgrcv, rusage.ru_msgrcv as u64);
-            self.metrics()
-                .record_counter(Stat::RuNsignals, rusage.ru_nsignals as u64);
-            self.metrics()
-                .record_counter(Stat::RuNvcsw, rusage.ru_nvcsw as u64);
-            self.metrics()
-                .record_counter(Stat::RuNivcsw, rusage.ru_nivcsw as u64);
+            set_gauge!(&Stat::RuMaxrss, rusage.ru_maxrss);
+            set_gauge!(&Stat::RuIxrss, rusage.ru_ixrss);
+            set_gauge!(&Stat::RuIdrss, rusage.ru_idrss);
+            set_gauge!(&Stat::RuIsrss, rusage.ru_isrss);
+            set_counter!(&Stat::RuMinflt, rusage.ru_minflt as u64);
+            set_counter!(&Stat::RuMajflt, rusage.ru_majflt as u64);
+            set_counter!(&Stat::RuNswap, rusage.ru_nswap as u64);
+            set_counter!(&Stat::RuInblock, rusage.ru_inblock as u64);
+            set_counter!(&Stat::RuOublock, rusage.ru_oublock as u64);
+            set_counter!(&Stat::RuMsgsnd, rusage.ru_msgsnd as u64);
+            set_counter!(&Stat::RuMsgrcv, rusage.ru_msgrcv as u64);
+            set_counter!(&Stat::RuNsignals, rusage.ru_nsignals as u64);
+            set_counter!(&Stat::RuNvcsw, rusage.ru_nvcsw as u64);
+            set_counter!(&Stat::RuNivcsw, rusage.ru_nivcsw as u64);
         }
     }
 }
 
 impl EventLoop for Admin {
-    fn metrics(&self) -> &Arc<Metrics<Stat>> {
-        &self.metrics
-    }
-
     fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
     }
@@ -290,7 +265,7 @@ impl EventLoop for Admin {
                         if buf.len() < 7 {
                             break;
                         } else if &buf[0..7] == b"STATS\r\n" || &buf[0..7] == b"stats\r\n" {
-                            let _ = self.metrics.increment_counter(Stat::AdminRequestParse, 1);
+                            let _ = increment_counter!(&Stat::AdminRequestParse);
                             session.buffer().consume(7);
                             let mut data = Vec::new();
                             for metric in Stat::iter() {
@@ -303,14 +278,14 @@ impl EventLoop for Admin {
                                         data.push(format!(
                                             "STAT {} {}\r\n",
                                             metric,
-                                            self.metrics.get_gauge(metric)
+                                            get_gauge!(&metric).unwrap_or(0)
                                         ));
                                     }
                                     _ => {
                                         data.push(format!(
                                             "STAT {} {}\r\n",
                                             metric,
-                                            self.metrics.get_counter(metric)
+                                            get_counter!(&metric).unwrap_or(0)
                                         ));
                                     }
                                 }
@@ -320,20 +295,16 @@ impl EventLoop for Admin {
                             content += "\r\nEND\r\n";
                             if session.write(content.as_bytes()).is_err() {
                                 // error writing
-                                let _ = self
-                                    .metrics
-                                    .increment_counter(Stat::AdminResponseComposeEx, 1);
+                                increment_counter!(&Stat::AdminResponseComposeEx);
                                 self.handle_error(token);
                                 return;
                             } else {
-                                let _ = self
-                                    .metrics
-                                    .increment_counter(Stat::AdminResponseCompose, 1);
+                                increment_counter!(&Stat::AdminResponseCompose);
                             }
                         } else {
                             // invalid command
                             debug!("error");
-                            self.increment_count(Stat::AdminRequestParseEx);
+                            increment_counter!(&Stat::AdminRequestParseEx);
                             self.handle_error(token);
                             return;
                         }

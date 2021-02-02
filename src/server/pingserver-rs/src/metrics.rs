@@ -7,7 +7,6 @@ use strum::IntoEnumIterator;
 use strum_macros::{AsRefStr, EnumIter};
 
 use std::fmt::Display;
-use std::sync::Arc;
 
 /// Defines various statistics
 #[derive(Debug, Clone, Copy, AsRefStr, EnumIter)]
@@ -87,23 +86,27 @@ impl Display for Stat {
     }
 }
 
-impl rustcommon_fastmetrics::Metric for Stat {}
-
-pub fn init() -> Arc<Metrics<Stat>> {
-    let mut builder = MetricsBuilder::new();
-    for stat in Stat::iter() {
-        match stat {
+impl rustcommon_fastmetrics::Metric for Stat {
+    fn source(&self) -> Source {
+        match self {
             Stat::Pid | Stat::RuMaxrss | Stat::RuIxrss | Stat::RuIdrss | Stat::RuIsrss => {
-                builder = builder.gauge(stat);
+                Source::Gauge
             }
-            _ => {
-                builder = builder.counter(stat);
-            }
+            _ => Source::Counter,
         }
     }
-    let metrics = builder.build();
 
-    metrics.record_gauge(Stat::Pid, std::process::id().into());
+    fn index(&self) -> usize {
+        (*self).into()
+    }
+}
 
-    Arc::new(metrics)
+pub fn init() {
+    let metrics: Vec<Stat> = Stat::iter().collect();
+    MetricsBuilder::<Stat>::new()
+        .metrics(&metrics)
+        .build()
+        .unwrap();
+
+    set_gauge!(&Stat::Pid, std::process::id().into());
 }
