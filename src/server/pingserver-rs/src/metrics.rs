@@ -93,7 +93,7 @@ pub fn init() -> Arc<Metrics<Stat>> {
     let mut builder = MetricsBuilder::new();
     for stat in Stat::iter() {
         match stat {
-            Stat::Pid => {
+            Stat::Pid | Stat::RuMaxrss | Stat::RuIxrss | Stat::RuIdrss | Stat::RuIsrss => {
                 builder = builder.gauge(stat);
             }
             _ => {
