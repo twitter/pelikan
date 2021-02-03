@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use crate::common::timeval_to_ns;
 use crate::event_loop::EventLoop;
 use crate::metrics::*;
 use crate::session::*;
@@ -217,14 +218,8 @@ impl Admin {
         };
 
         if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut rusage) } == 0 {
-            set_counter!(
-                &Stat::RuUtime,
-                rusage.ru_utime.tv_sec as u64 * 1000000000 + rusage.ru_utime.tv_usec as u64 * 1000,
-            );
-            set_counter!(
-                &Stat::RuStime,
-                rusage.ru_stime.tv_sec as u64 * 1000000000 + rusage.ru_stime.tv_usec as u64 * 1000,
-            );
+            set_counter!(&Stat::RuUtime, timeval_to_ns(rusage.ru_utime));
+            set_counter!(&Stat::RuStime, timeval_to_ns(rusage.ru_stime));
             set_gauge!(&Stat::RuMaxrss, rusage.ru_maxrss);
             set_gauge!(&Stat::RuIxrss, rusage.ru_ixrss);
             set_gauge!(&Stat::RuIdrss, rusage.ru_idrss);
@@ -267,28 +262,7 @@ impl EventLoop for Admin {
                         } else if &buf[0..7] == b"STATS\r\n" || &buf[0..7] == b"stats\r\n" {
                             let _ = increment_counter!(&Stat::AdminRequestParse);
                             session.buffer().consume(7);
-                            let mut data = Vec::new();
-                            for metric in Stat::iter() {
-                                match metric.source() {
-                                    Source::Gauge => {
-                                        data.push(format!(
-                                            "STAT {} {}\r\n",
-                                            metric,
-                                            get_gauge!(&metric).unwrap_or(0)
-                                        ));
-                                    }
-                                    Source::Counter => {
-                                        data.push(format!(
-                                            "STAT {} {}\r\n",
-                                            metric,
-                                            get_counter!(&metric).unwrap_or(0)
-                                        ));
-                                    }
-                                }
-                            }
-                            data.sort();
-                            let mut content = data.join("");
-                            content += "\r\nEND\r\n";
+                            let content = stats_response();
                             if session.write(content.as_bytes()).is_err() {
                                 // error writing
                                 increment_counter!(&Stat::AdminResponseComposeEx);
@@ -353,4 +327,23 @@ impl EventLoop for Admin {
     fn poll(&self) -> &Poll {
         &self.poll
     }
+}
+
+fn stats_response() -> String {
+    let mut data = Vec::new();
+    for metric in Stat::iter() {
+        let line = match metric.source() {
+            Source::Gauge => {
+                format!("STAT {} {}", metric, get_gauge!(&metric).unwrap_or(0))
+            }
+            Source::Counter => {
+                format!("STAT {} {}", metric, get_counter!(&metric).unwrap_or(0))
+            }
+        };
+        data.push(line);
+    }
+    data.sort();
+    let mut content = data.join("\r\n");
+    content += "\r\nEND\r\n";
+    content
 }
