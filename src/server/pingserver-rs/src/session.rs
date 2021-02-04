@@ -3,12 +3,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::*;
-use mio::net::TcpStream;
-
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
+use mio::net::TcpStream;
 use rustcommon_buffer::*;
-
-use std::convert::TryInto;
+use rustcommon_fastmetrics::metrics;
 use std::io::{Error, ErrorKind, Write};
 
 pub enum Stream {
@@ -24,46 +22,32 @@ pub struct Session {
     addr: SocketAddr,
     stream: Option<Stream>,
     buffer: Buffer,
-    metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
 }
 
 impl Session {
     /// Create a new `Session` representing a plain `TcpStream`
-    pub fn plain(
-        addr: SocketAddr,
-        stream: TcpStream,
-        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
-    ) -> Self {
-        Self::new(addr, Stream::Plain(stream), metrics)
+    pub fn plain(addr: SocketAddr, stream: TcpStream) -> Self {
+        Self::new(addr, Stream::Plain(stream))
     }
 
     /// Create a new `Session` representing a negotiated `SslStream`
-    pub fn tls(
-        addr: SocketAddr,
-        stream: SslStream<TcpStream>,
-        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
-    ) -> Self {
-        Self::new(addr, Stream::Tls(stream), metrics)
+    pub fn tls(addr: SocketAddr, stream: SslStream<TcpStream>) -> Self {
+        Self::new(addr, Stream::Tls(stream))
     }
 
     /// Create a new `Session` representing a `MidHandshakeSslStream`
-    pub fn handshaking(
-        addr: SocketAddr,
-        stream: MidHandshakeSslStream<TcpStream>,
-        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
-    ) -> Self {
-        Self::new(addr, Stream::Handshaking(stream), metrics)
+    pub fn handshaking(addr: SocketAddr, stream: MidHandshakeSslStream<TcpStream>) -> Self {
+        Self::new(addr, Stream::Handshaking(stream))
     }
 
     /// Create a new `Session` from an address, stream, and state
-    fn new(addr: SocketAddr, stream: Stream, metrics: Arc<Metrics<AtomicU64, AtomicU64>>) -> Self {
-        let _ = metrics.increment_counter(&Stat::TcpAccept, 1);
+    fn new(addr: SocketAddr, stream: Stream) -> Self {
+        increment_counter!(&Stat::TcpAccept);
         Self {
             token: Token(0),
             addr,
             stream: Some(stream),
             buffer: Buffer::with_capacity(1024, 1024),
-            metrics,
         }
     }
 
@@ -114,7 +98,7 @@ impl Session {
 
     /// Reads from the stream into the session buffer
     pub fn read(&mut self) -> Result<Option<usize>, std::io::Error> {
-        let _ = self.metrics.increment_counter(&Stat::TcpRecv, 1);
+        increment_counter!(&Stat::TcpRecv);
 
         let read_result = match &mut self.stream {
             Some(Stream::Plain(s)) => self.buffer.read_from(s),
@@ -126,14 +110,12 @@ impl Session {
         match read_result {
             Ok(Some(0)) => Ok(Some(0)),
             Ok(Some(bytes)) => {
-                let _ = self
-                    .metrics
-                    .increment_counter(&Stat::TcpRecvByte, bytes.try_into().unwrap());
+                increment_counter_by!(&Stat::TcpRecvByte, bytes as u64);
                 Ok(Some(bytes))
             }
             Ok(None) => Ok(None),
             Err(e) => {
-                let _ = self.metrics.increment_counter(&Stat::TcpRecvEx, 1);
+                increment_counter!(&Stat::TcpRecvEx);
                 Err(e)
             }
         }
@@ -155,14 +137,12 @@ impl Session {
 
         match write_result {
             Ok(Some(bytes)) => {
-                let _ = self
-                    .metrics
-                    .increment_counter(&Stat::TcpSendByte, bytes.try_into().unwrap());
+                increment_counter_by!(&Stat::TcpSendByte, bytes as u64);
                 Ok(Some(bytes))
             }
             Ok(None) => Ok(None),
             Err(e) => {
-                let _ = self.metrics.increment_counter(&Stat::TcpSendEx, 1);
+                increment_counter!(&Stat::TcpSendEx);
                 Err(e)
             }
         }
@@ -212,7 +192,7 @@ impl Session {
 
     pub fn close(&mut self) {
         trace!("closing session");
-        let _ = self.metrics.increment_counter(&Stat::TcpClose, 1);
+        increment_counter!(&Stat::TcpClose);
         if let Some(stream) = self.stream.take() {
             self.stream = match stream {
                 Stream::Plain(s) => {

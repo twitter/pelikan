@@ -2,15 +2,14 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use rustcommon_metrics::*;
+pub use rustcommon_fastmetrics::*;
 use strum::IntoEnumIterator;
 use strum_macros::{AsRefStr, EnumIter};
 
-use std::sync::Arc;
-use std::time::Instant;
+use std::fmt::Display;
 
 /// Defines various statistics
-#[derive(Debug, AsRefStr, EnumIter)]
+#[derive(Debug, Clone, Copy, AsRefStr, EnumIter)]
 #[strum(serialize_all = "snake_case")]
 pub enum Stat {
     AdminEventError,
@@ -27,6 +26,22 @@ pub enum Stat {
     RequestParseEx,
     ResponseCompose,
     ResponseComposeEx,
+    RuUtime,
+    RuStime,
+    RuMaxrss,
+    RuIxrss,
+    RuIdrss,
+    RuIsrss,
+    RuMinflt,
+    RuMajflt,
+    RuNswap,
+    RuInblock,
+    RuOublock,
+    RuMsgsnd,
+    RuMsgrcv,
+    RuNsignals,
+    RuNvcsw,
+    RuNivcsw,
     ServerEventError,
     ServerEventLoop,
     ServerEventRead,
@@ -59,33 +74,39 @@ pub enum Stat {
     WorkerEventWrite,
 }
 
-impl Statistic<AtomicU64, AtomicU64> for Stat {
-    fn name(&self) -> &str {
-        self.as_ref()
+impl Into<usize> for Stat {
+    fn into(self) -> usize {
+        self as usize
     }
+}
 
+impl Display for Stat {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
+    }
+}
+
+impl rustcommon_fastmetrics::Metric for Stat {
     fn source(&self) -> Source {
-        match *self {
-            Stat::Pid => Source::Gauge,
+        match self {
+            Stat::Pid | Stat::RuMaxrss | Stat::RuIxrss | Stat::RuIdrss | Stat::RuIsrss => {
+                Source::Gauge
+            }
             _ => Source::Counter,
         }
     }
 
-    fn summary(&self) -> Option<Summary<AtomicU64, AtomicU64>> {
-        None
+    fn index(&self) -> usize {
+        (*self).into()
     }
 }
 
-pub fn init() -> Arc<Metrics<AtomicU64, AtomicU64>> {
-    let metrics = Arc::new(Metrics::<AtomicU64, AtomicU64>::new());
+pub fn init() {
+    let metrics: Vec<Stat> = Stat::iter().collect();
+    MetricsBuilder::<Stat>::new()
+        .metrics(&metrics)
+        .build()
+        .unwrap();
 
-    metrics.add_output(&Stat::Pid, Output::Reading);
-    let _ = metrics.record_gauge(&Stat::Pid, Instant::now(), std::process::id().into());
-
-    for metric in Stat::iter() {
-        metrics.add_output(&metric, Output::Reading);
-        let _ = metrics.record_counter(&metric, Instant::now(), 0);
-    }
-
-    metrics
+    set_gauge!(&Stat::Pid, std::process::id().into());
 }

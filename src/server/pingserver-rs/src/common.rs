@@ -7,6 +7,15 @@ use config::PingserverConfig;
 
 use std::sync::Arc;
 
+const SECOND: u64 = 1_000 * MILLISECOND;
+const MILLISECOND: u64 = 1_000 * MICROSECOND;
+const MICROSECOND: u64 = 1_000 * NANOSECOND;
+const NANOSECOND: u64 = 1;
+
+pub fn timeval_to_ns(timeval: libc::timeval) -> u64 {
+    timeval.tv_sec as u64 * SECOND + timeval.tv_usec as u64 * MICROSECOND
+}
+
 pub enum Message {
     Shutdown,
 }

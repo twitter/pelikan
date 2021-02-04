@@ -113,9 +113,7 @@ fn get_response(stream: &mut TcpStream, buf: &mut [u8]) -> usize {
 
 fn did_hangup(stream: &mut TcpStream, buf: &mut [u8]) -> bool {
     match stream.read(buf) {
-        Ok(0) => {
-            true
-        }
+        Ok(0) => true,
         Err(e) => {
             if e.kind() == std::io::ErrorKind::WouldBlock {
                 debug!("got no response");

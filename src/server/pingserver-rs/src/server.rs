@@ -3,13 +3,13 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::event_loop::EventLoop;
+use rustcommon_fastmetrics::metrics;
+
 use crate::session::*;
 use crate::*;
 
 use boring::ssl::{HandshakeError, Ssl, SslContext};
 use mio::net::TcpListener;
-
-use std::convert::TryInto;
 
 /// A `Server` is used to bind to a given socket address and accept new
 /// sessions. These sessions are moved onto a MPSC queue, where they can be
@@ -22,7 +22,6 @@ pub struct Server {
     sender: SyncSender<Session>,
     ssl_context: Option<SslContext>,
     sessions: Slab<Session>,
-    metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
     message_receiver: Receiver<Message>,
     message_sender: SyncSender<Message>,
 }
@@ -34,7 +33,6 @@ impl Server {
     /// `Session`s over the `sender`
     pub fn new(
         config: Arc<PingserverConfig>,
-        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
         sender: SyncSender<Session>,
     ) -> Result<Self, std::io::Error> {
         let addr = config.server().socket_addr().map_err(|e| {
@@ -75,7 +73,6 @@ impl Server {
             sender,
             ssl_context,
             sessions,
-            metrics,
             message_sender,
             message_receiver,
         })
@@ -93,14 +90,11 @@ impl Server {
 
         // repeatedly run accepting new connections and moving them to the worker
         loop {
-            let _ = self.metrics.increment_counter(&Stat::ServerEventLoop, 1);
+            increment_counter!(&Stat::ServerEventLoop);
             if self.poll.poll(&mut events, timeout).is_err() {
                 error!("Error polling server");
             }
-            let _ = self.metrics.increment_counter(
-                &Stat::ServerEventTotal,
-                events.iter().count().try_into().unwrap(),
-            );
+            increment_counter_by!(&Stat::ServerEventTotal, events.iter().count() as u64,);
 
             // handle all events
             for event in events.iter() {
@@ -112,45 +106,38 @@ impl Server {
                                 // handle case where we have a fully-negotiated
                                 // TLS stream on accept()
                                 Ok(Ok(tls_stream)) => {
-                                    let session =
-                                        Session::tls(addr, tls_stream, self.metrics.clone());
+                                    let session = Session::tls(addr, tls_stream);
                                     trace!("accepted new session: {}", addr);
                                     if self.sender.send(session).is_err() {
                                         error!("error sending session to worker");
-                                        let _ =
-                                            self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                        let _ = increment_counter!(&Stat::TcpAcceptEx);
                                     }
                                 }
                                 // handle case where further negotiation is
                                 // needed
                                 Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
-                                    let mut session = Session::handshaking(
-                                        addr,
-                                        tls_stream,
-                                        self.metrics.clone(),
-                                    );
+                                    let mut session = Session::handshaking(addr, tls_stream);
                                     let s = self.sessions.vacant_entry();
                                     let token = s.key();
                                     session.set_token(Token(token));
                                     if session.register(&self.poll).is_ok() {
                                         s.insert(session);
                                     } else {
-                                        let _ =
-                                            self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                        let _ = increment_counter!(&Stat::TcpAcceptEx);
                                     }
                                 }
                                 // some other error has occurred and we drop the
                                 // stream
                                 Ok(Err(_)) | Err(_) => {
-                                    let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                    increment_counter!(&Stat::TcpAcceptEx);
                                 }
                             }
                         } else {
-                            let session = Session::plain(addr, stream, self.metrics.clone());
+                            let session = Session::plain(addr, stream);
                             trace!("accepted new session: {}", addr);
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
-                                let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                increment_counter!(&Stat::TcpAcceptEx);
                             }
                         };
                     }
@@ -161,7 +148,7 @@ impl Server {
 
                     // handle error events first
                     if event.is_error() {
-                        let _ = self.metrics().increment_counter(&Stat::ServerEventError, 1);
+                        increment_counter!(&Stat::ServerEventError);
                         self.handle_error(token);
                     }
 
@@ -171,7 +158,7 @@ impl Server {
                             let _ = session.deregister(&self.poll);
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
-                                let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                increment_counter!(&Stat::TcpAcceptEx);
                             }
                         }
                     }
@@ -196,10 +183,6 @@ impl Server {
 }
 
 impl EventLoop for Server {
-    fn metrics(&self) -> &Arc<Metrics<AtomicU64, AtomicU64>> {
-        &self.metrics
-    }
-
     fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
     }

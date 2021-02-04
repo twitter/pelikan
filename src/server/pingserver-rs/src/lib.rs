@@ -5,6 +5,9 @@
 #[macro_use]
 extern crate rustcommon_logger;
 
+#[macro_use]
+extern crate rustcommon_fastmetrics;
+
 use std::net::SocketAddr;
 use std::sync::mpsc::*;
 use std::sync::Arc;
@@ -12,7 +15,6 @@ use std::thread::JoinHandle;
 
 use config::PingserverConfig;
 use mio::*;
-use rustcommon_metrics::*;
 use slab::Slab;
 
 mod admin;
@@ -57,7 +59,7 @@ impl PingserverBuilder {
     /// issues encountered while initializing the components.
     pub fn new(config_file: Option<String>) -> Self {
         // initialize metrics
-        let metrics = crate::metrics::init();
+        crate::metrics::init();
 
         // load config from file
         let config = if let Some(file) = config_file {
@@ -74,19 +76,19 @@ impl PingserverBuilder {
         };
 
         // initialize admin
-        let admin = Admin::new(config.clone(), metrics.clone()).unwrap_or_else(|e| {
+        let admin = Admin::new(config.clone()).unwrap_or_else(|e| {
             error!("{}", e);
             std::process::exit(1);
         });
 
         // initialize worker
-        let worker = Worker::new(config.clone(), metrics.clone()).unwrap_or_else(|e| {
+        let worker = Worker::new(config.clone()).unwrap_or_else(|e| {
             error!("{}", e);
             std::process::exit(1);
         });
 
         // initialize server
-        let server = Server::new(config, metrics, worker.session_sender()).unwrap_or_else(|e| {
+        let server = Server::new(config, worker.session_sender()).unwrap_or_else(|e| {
             error!("{}", e);
             std::process::exit(1);
         });
