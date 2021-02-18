@@ -32,7 +32,7 @@ _validate_range(uint32_t esize, uint64_t val)
     }
 }
 
-static inline uint64_t
+static uint64_t
 _get_value(char *p, uint32_t esize)
 {
     switch (esize) {
