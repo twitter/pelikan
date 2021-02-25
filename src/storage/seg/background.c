@@ -58,7 +58,7 @@ check_seg_expire(void)
 static void *
 background_main(void *data)
 {
-    pthread_setname_np("segBg");
+    pthread_setname_np(pthread_self(), "segBg");
 
     log_info("Segcache background thread started");
 
