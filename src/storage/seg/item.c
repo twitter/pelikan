@@ -18,13 +18,6 @@ extern struct hash_table *hash_table;
 extern seg_metrics_st *seg_metrics;
 extern seg_perttl_metrics_st perttl[MAX_N_TTL_BUCKET];
 
-//static __thread __uint128_t g_lehmer64_state = 1;
-//static inline uint64_t prand(void) {
-//    g_lehmer64_state *= 0xda942042e4dd58b5;
-////    return (uint64_t) (g_lehmer64_state >> 64u);
-//    return (uint64_t) g_lehmer64_state;
-//}
-
 
 static struct item *
 _item_alloc(uint32_t sz, int32_t ttl_bucket_idx, int32_t *seg_id)
@@ -52,9 +45,6 @@ _item_alloc(uint32_t sz, int32_t ttl_bucket_idx, int32_t *seg_id)
 
         INCR(seg_metrics, item_alloc_ex);
 
-        /* done in ttl bucket */
-//        __atomic_sub_fetch(&curr_seg->write_offset, sz, __ATOMIC_RELEASE);
-
         log_warn("allocated item is not accessible (seg is expiring or "
                  "being evicted), ttl %d", curr_seg->ttl);
 
@@ -81,10 +71,6 @@ _item_define(struct item *it, const struct bstring *key,
     it->magic = ITEM_MAGIC;
 #endif
 
-#ifdef APFC_IN_OBJ
-    it->last_update_ts = 0;
-    it->freq = 0;
-#endif
     it->olen = olen;
     it->deleted = 0;
     it->is_num = 0;
@@ -95,7 +81,6 @@ _item_define(struct item *it, const struct bstring *key,
     cc_memcpy(item_key(it), key->data, key->len);
 #endif
 
-#ifdef REAL_COPY
     if (val != NULL) {
 #ifdef USE_PMEM
         pmem_memcpy_nodrain(item_val(it), val->data, val->len);
@@ -103,12 +88,8 @@ _item_define(struct item *it, const struct bstring *key,
         cc_memcpy(item_val(it), val->data, val->len);
 #endif
     }
-#endif
     it->vlen = (val == NULL) ? 0 : val->len;
 
-#if defined(USE_PRECISE_FREQ) || defined(DUMP_FOR_ANALYSIS)
-    it->n_hit = 0;
-#endif
 
     struct seg *curr_seg = &heap.segs[seg_id];
 
@@ -143,8 +124,7 @@ item_insert(struct item *it)
     seg_w_deref(seg_id);
 
     log_verb("insert it %p (%.*s) of key size %u, val size %u, "
-             "total size %zu in seg %d, "
-             "seg write-offset %d, occupied size %d",
+             "total size %zu in seg %d, seg write-offset %d, occupied size %d",
             it, item_nkey(it), item_key(it), item_nkey(it), item_nval(it),
             item_ntotal(it), seg_id,
             __atomic_load_n(&heap.segs[seg_id].write_offset, __ATOMIC_RELAXED),
@@ -187,44 +167,6 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
         __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_RELAXED);
     }
 
-#if defined(USE_PRECISE_FREQ) || defined(DUMP_FOR_ANALYSIS)
-    int cnt;
-    cnt = __atomic_fetch_add(&it->n_hit, 1, __ATOMIC_RELAXED);
-
-    if (cnt == 0) {
-        __atomic_fetch_add(&seg->n_active, 1, __ATOMIC_RELAXED);
-        __atomic_fetch_add(&seg->n_active_byte, item_ntotal(it), __ATOMIC_RELAXED);
-    }
-
-//    if (cnt < 18) {
-//        int32_t offset = ((uint8_t *)it) - heap.base - heap.seg_size * seg_id;
-//        int cnt2 = hashtable_get_it_freq(item_key(it), it->klen, seg_id, offset);
-//        ASSERT(cnt + 1 == cnt2);
-//    }
-#endif
-
-#ifdef APFC_IN_OBJ
-    if ((((uint32_t) time_proc_sec()) & 0xffu) !=
-            __atomic_load_n(&it->last_update_ts, __ATOMIC_RELAXED) &&
-            it->freq < 255) {
-        uint16_t ts = ((uint32_t) time_proc_sec()) & 0xffu;
-        __atomic_store_n(&it->last_update_ts, ts, __ATOMIC_RELAXED);
-        if (it->freq <= 16 || prand() % it->freq == 0) {
-            it->freq += 1;
-        }
-    } else if (it->last_update_ts == 0 && it->freq == 0) {
-        it->freq += 1;
-    }
-
-//    if (it->freq < 255) {
-//        if (it->freq <= 16 || prand() % it->freq == 0) {
-//            it->freq += 1;
-//            uint16_t ts = ((uint32_t) time_proc_sec()) & 0xffu;
-//            __atomic_store_n(&it->last_update_ts, ts, __ATOMIC_RELAXED);
-//        }
-//    }
-
-#endif
     log_vverb("get it key %.*s", key->len, key->data);
 
     return it;
@@ -282,7 +224,6 @@ item_reserve(struct item **it_p, const struct bstring *key,
     return ITEM_OK;
 }
 
-
 void
 item_backfill(struct item *it, const struct bstring *val)
 {
@@ -295,9 +236,6 @@ item_backfill(struct item *it, const struct bstring *val)
     log_verb("backfill it %p (%.*s) with %" PRIu32 " bytes, now total %" PRIu16,
             it, it->klen, item_key(it), val->len, it->vlen);
 }
-
-/* TODO(jason): better change the interface to use bstring key and do item_get
- * inside function, so that we can manage refcount within function */
 
 item_rstatus_e
 item_incr(uint64_t *vint, struct item *it, uint64_t delta)

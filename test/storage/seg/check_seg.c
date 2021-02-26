@@ -770,7 +770,7 @@ START_TEST(test_seg_basic)
     struct seg *seg;
 
     for (uint32_t i = 0; i < 8; i++) {
-        seg_id = get_new_seg();
+        seg_id = seg_get_new();
         ck_assert_int_eq(seg_id, i);
 
         seg = &heap.segs[seg_id];
@@ -835,7 +835,7 @@ START_TEST(test_seg_more)
     /* remove all item of seg 2 and return to global pool */
     rm_all_item_on_seg(2, SEG_EVICTION);
     pthread_mutex_lock(&heap.mtx);
-    add_seg_to_freepool(2, SEG_EVICTION);
+    seg_add_to_freepool(2, SEG_EVICTION);
     pthread_mutex_unlock(&heap.mtx);
 
     ck_assert_int_eq(heap.free_seg_id, 2);
@@ -880,6 +880,7 @@ START_TEST(test_segevict_FIFO)
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
     option_set(&options.heap_mem, MEM_SIZE);
     option_set(&options.seg_evict_opt, "2");
+    option_set(&options.seg_mature_time, "0");
     seg_setup(&options, &metrics);
 
     struct bstring key, val;
@@ -917,10 +918,6 @@ START_TEST(test_segevict_FIFO)
     ck_assert_int_eq(seg_id, 0);
     ck_assert_msg(seg->r_refcount == 1, "seg refcount incorrect");
     ck_assert_msg(seg->w_refcount == 0, "seg refcount incorrect");
-//    ck_assert_msg(seg->write_offset == item_ntotal(it) ||
-//                    seg->write_offset == item_ntotal(it) + 8,
-//            "write offset error %" PRIu32, seg->write_offset);
-//    ck_assert_msg(seg->write_offset == seg->occupied_size);
     ck_assert(seg->n_item == 1);
     item_release(it);
 
@@ -970,6 +967,7 @@ START_TEST(test_segevict_CTE)
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
     option_set(&options.heap_mem, MEM_SIZE);
     option_set(&options.seg_evict_opt, "3");
+    option_set(&options.seg_mature_time, "0");
     seg_setup(&options, &metrics);
 
     struct bstring key, val;
@@ -1044,6 +1042,7 @@ START_TEST(test_segevict_UTIL)
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
     option_set(&options.heap_mem, MEM_SIZE);
     option_set(&options.seg_evict_opt, "4");
+    option_set(&options.seg_mature_time, "0");
     seg_setup(&options, &metrics);
     proc_sec = 0;
 
@@ -1124,6 +1123,7 @@ START_TEST(test_segevict_RAND)
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
     option_set(&options.heap_mem, MEM_SIZE);
     option_set(&options.seg_evict_opt, "1");
+    option_set(&options.seg_mature_time, "0");
     seg_setup(&options, &metrics);
 
     struct bstring key, val;
@@ -1324,7 +1324,7 @@ main(void)
     debug_options_st debug_opts = {DEBUG_OPTION(OPTION_INIT)};
     option_load_default(
             (struct option *)&debug_opts, OPTION_CARDINALITY(debug_options_st));
-    debug_opts.debug_log_level.val.vuint = 6;
+    debug_opts.debug_log_level.val.vuint = 4;
     debug_setup(&debug_opts);
 
 

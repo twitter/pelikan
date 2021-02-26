@@ -4,6 +4,7 @@ set(SOURCE
         seg.c
         background.c
         segevict.c
+        segmerge.c
         ttlbucket.c)
 
 add_library(seg ${SOURCE})

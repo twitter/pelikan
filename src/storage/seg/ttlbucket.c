@@ -68,7 +68,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
             memset(seg_data + offset, 0, heap.seg_size - offset);
         }
 
-        new_seg_id = get_new_seg();
+        new_seg_id = seg_get_new();
 
         if (new_seg_id == -1) {
 #if defined CC_ASSERT_PANIC || defined(CC_ASSERT_LOG)
@@ -97,7 +97,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
             /* roll back */
             INCR(seg_metrics, seg_return);
 
-            add_seg_to_freepool(new_seg_id, SEG_CONCURRENT_GET);
+            seg_add_to_freepool(new_seg_id, SEG_CONCURRENT_GET);
             new_seg_id = ttl_bucket->last_seg_id;
 
         }

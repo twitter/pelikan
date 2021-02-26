@@ -107,7 +107,6 @@ struct seg_heapinfo {
     proc_time_i         time_started;
 };
 
-extern struct seg_heapinfo heap;
 
 enum seg_state_change {
     SEG_ALLOCATION = 0,
@@ -134,18 +133,26 @@ enum seg_state_change {
 #define SEG_DATAPOOL_PREFAULT true
 #define SEG_DATAPOOL_NAME "seg_datapool"
 
+#define SEG_MATURE_TIME 20
+#define SEG_N_MAX_MERGE 8
+#define SEG_N_MERGE     4
+
+
 /*          name                    type            default                 description */
-#define SEG_OPTION(ACTION)                                                                                         \
-    ACTION(seg_size,            OPTION_TYPE_UINT,   SEG_SIZE,               "Segment size"                        )\
-    ACTION(heap_mem,            OPTION_TYPE_UINT,   SEG_MEM,                "Max memory used for caching (byte)"  )\
-    ACTION(seg_prealloc,        OPTION_TYPE_BOOL,   SEG_PREALLOC,           "Pre-allocate segs at setup"          )\
-    ACTION(seg_evict_opt,       OPTION_TYPE_UINT,   SEG_EVICT_OPT,          "Eviction strategy"                   )\
-    ACTION(seg_use_cas,         OPTION_TYPE_BOOL,   SEG_USE_CAS,            "Store CAS value in item"             )\
-    ACTION(hash_power,          OPTION_TYPE_UINT,   HASH_POWER,             "Power for lookup hash table"         )\
-    ACTION(seg_n_thread,        OPTION_TYPE_UINT,   N_THREAD,               "number of threads"                   )\
-    ACTION(datapool_path,       OPTION_TYPE_STR,    SEG_DATAPOOL,           "Path to DRAM data pool"              )\
-    ACTION(datapool_name,       OPTION_TYPE_STR,    SEG_DATAPOOL_NAME,      "Seg DRAM data pool name"             )\
-    ACTION(datapool_prefault,   OPTION_TYPE_BOOL,   SEG_DATAPOOL_PREFAULT,  "Prefault Pmem"                       )
+#define SEG_OPTION(ACTION)                                                                                                                                                               \
+    ACTION(seg_size,            OPTION_TYPE_UINT,   SEG_SIZE,               "Segment size"                                                                                              )\
+    ACTION(heap_mem,            OPTION_TYPE_UINT,   SEG_MEM,                "Max memory used for caching (byte)"                                                                        )\
+    ACTION(seg_prealloc,        OPTION_TYPE_BOOL,   SEG_PREALLOC,           "Pre-allocate segs at setup"                                                                                )\
+    ACTION(seg_evict_opt,       OPTION_TYPE_UINT,   SEG_EVICT_OPT,          "Eviction strategy (0: no eviction, 1: random, 2: FIFO, 3: close to expire, 4: utilization, 5: merge fifo"  )\
+    ACTION(seg_use_cas,         OPTION_TYPE_BOOL,   SEG_USE_CAS,            "whether use cas, should be true"                                                                           )\
+    ACTION(seg_mature_time,     OPTION_TYPE_UINT,   SEG_MATURE_TIME,        "min time before a segment can be considered for eviction"                                                  )\
+    ACTION(seg_n_max_merge,     OPTION_TYPE_UINT,   SEG_N_MAX_MERGE,        "max number of segments can be evicted/merged in one eviction"                                              )\
+    ACTION(seg_n_merge,         OPTION_TYPE_UINT,   SEG_N_MERGE,            "the target number of segment to be evicted/merge in one eviction"                                          )\
+    ACTION(hash_power,          OPTION_TYPE_UINT,   HASH_POWER,             "Power for lookup hash table"                                                                               )\
+    ACTION(seg_n_thread,        OPTION_TYPE_UINT,   N_THREAD,               "number of threads"                                                                                         )\
+    ACTION(datapool_path,       OPTION_TYPE_STR,    SEG_DATAPOOL,           "Path to DRAM data pool"                                                                                    )\
+    ACTION(datapool_name,       OPTION_TYPE_STR,    SEG_DATAPOOL_NAME,      "Seg DRAM data pool name"                                                                                   )\
+    ACTION(datapool_prefault,   OPTION_TYPE_BOOL,   SEG_DATAPOOL_PREFAULT,  "Prefault Pmem"                                                                                             )
 
 typedef struct {
     SEG_OPTION(OPTION_DECLARE)
@@ -154,9 +161,9 @@ typedef struct {
 
 /*          name                    type            description */
 #define SEG_METRIC(ACTION)                                                                   \
-    ACTION(seg_req,             METRIC_COUNTER,     "# req for new seg"                     )\
+    ACTION(seg_get,             METRIC_COUNTER,     "# req for new seg"                     )\
+    ACTION(seg_get_ex,          METRIC_COUNTER,     "# seg get exceptions"                  )\
     ACTION(seg_return,          METRIC_COUNTER,     "# segment returns"                     )\
-    ACTION(seg_req_ex,          METRIC_COUNTER,     "# seg get exceptions"                  )\
     ACTION(seg_evict,           METRIC_COUNTER,     "# segs evicted"                        )\
     ACTION(seg_evict_retry,     METRIC_COUNTER,     "# retried seg eviction"                )\
     ACTION(seg_evict_ex,        METRIC_COUNTER,     "# segs evict exceptions"               )\
@@ -197,6 +204,7 @@ typedef struct {
 #define PERTTL_INCR_N(idx, metric, delta) INCR_N(&perttl[idx], metric, delta)
 #define PERTTL_DECR_N(idx, metric, delta) DECR_N(&perttl[idx], metric, delta)
 
+extern struct seg_heapinfo heap; /* info of all allocated segs */
 
 void
 seg_setup(seg_options_st *options, seg_metrics_st *metrics);
@@ -211,7 +219,7 @@ seg_teardown(void);
  * @return id of the new segment
  */
 int32_t
-get_new_seg(void);
+seg_get_new(void);
 
 /**
  * add the seg to free pool, the seg can be allocated (during setup) or
@@ -229,7 +237,7 @@ get_new_seg(void);
  * @param segment state change reason
  * */
 void
-add_seg_to_freepool(int32_t seg_id, enum seg_state_change reason);
+seg_add_to_freepool(int32_t seg_id, enum seg_state_change reason);
 
 
 /**
@@ -253,14 +261,6 @@ rstatus_i
 expire_seg(int32_t seg_id);
 
 
-
-//void
-//seg_print(int32_t seg_id);
-
-//void
-//seg_print_warn(int32_t seg_id);
-
-
 /**
  * because a segment can be locked for expiration or eviction,
  * during which data cannot be read
@@ -275,48 +275,19 @@ seg_is_accessible(int32_t seg_id);
 
 /**
  * increase write ref_counter on the segment, a segment being actively
- * written to cannot be evicted
- *
- * @param seg_id
- * @return true if the thread write ref_counter is incremented successfully
+ * written to cannot be expired/evicted
  */
 bool
 seg_w_ref(int32_t seg_id);
 
 /**
  * decrease write ref_counter on the segment
- *
- * @param seg_id
  */
 void
 seg_w_deref(int32_t seg_id);
 
-/**
- * check whether a segment can be evicted,
- * a segment cannot be evicted if
- * 1. it is expired or expiring soon
- * 2. is is being evicted by another thread
- * 3. it is the last segment of the chain (active be written to)
- * 4. it is too young
- *
- * @param seg
- * @return
- */
-bool
-seg_mergeable(struct seg *seg);
 
-
-/**
- * merge seg2 into seg1
- */
-void
-merge_seg(int32_t seg_id1, int32_t seg_id2);
-
-/**
- * merge n segs starting from start_seg_id
- */
-
-
+/* get the data start of the segment */
 static inline uint8_t *
 get_seg_data_start(int32_t seg_id)
 {
@@ -324,24 +295,50 @@ get_seg_data_start(int32_t seg_id)
 }
 
 
+void
+seg_init(int32_t seg_id);
+
+
+/**
+ * get a seg from free pool,
+ *
+ * use_reserved: merge-based eviction reserves one seg per thread
+ * return the segment id if there are free segment, -1 if not
+ */
+int32_t
+seg_get_from_freepool(bool use_reserved);
+
+/**
+ * wait until no other threads are accessing the seg (refcount == 0)
+ */
+void
+seg_wait_refcnt(int32_t seg_id);
+
+/**
+ * remove the segment from the TTL bucket and segment chain
+ */
+void
+rm_seg_from_ttl_bucket(int32_t seg_id);
+
+
 #define SEG_PRINT(id, msg, log) do {                                            \
-    struct seg *sp = &heap.segs[id];                                            \
         log("%s, seg %d seg size %zu, create_at time %d, merge at %d, age %d"   \
         ", ttl %d, evictable %u, accessible %u"                                 \
         ", write offset %d, occupied size %d"                                   \
         ", %d items, n_hit %d, read refcount %d, write refcount %d"             \
         ", prev_seg %d, next_seg %d",                                           \
-        msg, sp->seg_id, heap.seg_size, sp->create_at, sp->merge_at,            \
-        sp->merge_at > 0 ? time_proc_sec() - sp->merge_at : time_proc_sec()     \
-        - sp->create_at, sp->ttl,                                               \
-        __atomic_load_n(&(sp->evictable), __ATOMIC_RELAXED),                    \
-        __atomic_load_n(&(sp->accessible), __ATOMIC_RELAXED),                   \
-        __atomic_load_n(&(sp->write_offset), __ATOMIC_RELAXED),                 \
-        __atomic_load_n(&(sp->occupied_size), __ATOMIC_RELAXED),                \
-        __atomic_load_n(&(sp->n_item), __ATOMIC_RELAXED),                       \
-        __atomic_load_n(&(sp->n_hit), __ATOMIC_RELAXED),                        \
-        __atomic_load_n(&(sp->r_refcount), __ATOMIC_RELAXED),                   \
-        __atomic_load_n(&(sp->w_refcount), __ATOMIC_RELAXED),                   \
-        sp->prev_seg_id, sp->next_seg_id);                                      \
+        msg, id, heap.seg_size, heap.segs[id].create_at, heap.segs[id].merge_at,\
+        heap.segs[id].merge_at > 0 ?                                            \
+        time_proc_sec() - heap.segs[id].merge_at :                              \
+        time_proc_sec() - heap.segs[id].create_at, heap.segs[id].ttl,           \
+        __atomic_load_n(&(heap.segs[id].evictable), __ATOMIC_RELAXED),          \
+        __atomic_load_n(&(heap.segs[id].accessible), __ATOMIC_RELAXED),         \
+        __atomic_load_n(&(heap.segs[id].write_offset), __ATOMIC_RELAXED),       \
+        __atomic_load_n(&(heap.segs[id].occupied_size), __ATOMIC_RELAXED),      \
+        __atomic_load_n(&(heap.segs[id].n_item), __ATOMIC_RELAXED),             \
+        __atomic_load_n(&(heap.segs[id].n_hit), __ATOMIC_RELAXED),              \
+        __atomic_load_n(&(heap.segs[id].r_refcount), __ATOMIC_RELAXED),         \
+        __atomic_load_n(&(heap.segs[id].w_refcount), __ATOMIC_RELAXED),         \
+        heap.segs[id].prev_seg_id, heap.segs[id].next_seg_id);                  \
     } while (0)
 

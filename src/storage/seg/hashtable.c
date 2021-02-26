@@ -453,18 +453,15 @@ hashtable_put(struct item *it, const uint64_t seg_id, const uint64_t offset)
             /* now mark the old item as deleted, update stat */
             _item_free(item_info, false);
 
-#ifdef OPTIMIZE_PMEM
             goto finish;
-#endif
         }
 
-//#ifdef OPTIMIZE_PMEM
         if (insert_item_info == 0) {
             /* item has been inserted, do not check next bucket to delete
              * old item, the info will be gc when item is evicted */
             goto finish;
         }
-//#endif
+
         /* if there are overflown buckets, we continue to check */
         bkt_chain_len -= 1;
         if (bkt_chain_len > 0) {
@@ -685,7 +682,6 @@ hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
     int extra_array_cnt = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
     int array_size;
 
-#ifdef USE_ASFC
     uint64_t cur_ts = (uint64_t) time_proc_sec() & 0xfffful;
     if (cur_ts != GET_TS(first_bkt)) {
         lock(first_bkt);
@@ -716,7 +712,6 @@ hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
         bkt             = first_bkt;
         extra_array_cnt = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
     }
-#endif
 
     do {
         array_size = extra_array_cnt > 0 ? N_SLOT_PER_BUCKET - 1 :
@@ -745,43 +740,25 @@ hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
             it     = (struct item *) (heap.base + heap.seg_size * (*seg_id)
                 + offset);
 
-#ifdef USE_ASFC
             uint64_t freq = GET_FREQ(item_info);
 
-#if defined(SAMPLE_PER_SEC) && SAMPLE_PER_SEC == 1
-//            if (it->freq < 16)
-//                ASSERT(it->freq == freq || it->freq == freq - 128);
-
             if (freq < 127) {
-                /* the highest bit of freq is not set
-                 * and add one does not overflow */
+                /* counter caps at 127 */
                 if (freq <= 16 || prand() % freq == 0) {
+                    /* increase frequency by 1 */
                     freq = ((freq + 1) | 0x80ul) << 44ul;
-                }
-                else {
+                } else {
+                    /* we do not increase frequency, but mark that
+                     * we have already tried at current sec */
                     freq = (freq | 0x80ul) << 44ul;
                 }
-                {
-                    lock(first_bkt);
-                    if (bkt[i] == item_info) {
-                        bkt[i] = (item_info & (~FREQ_MASK)) | freq;
-                    }
-                    unlock(first_bkt);
+                lock(first_bkt);
+                if (bkt[i] == item_info) {
+                    bkt[i] = (item_info & (~FREQ_MASK)) | freq;
                 }
+                unlock(first_bkt);
             }
-#else
-            if (freq < 127) {
-                if (freq <= 8 || prand() % freq == 0) {
-                    freq = ((freq + 1) | 0x80ul) << 44ul;
-                    lock(first_bkt);
-                    if (bkt[i] == item_info) {
-                        bkt[i] = (item_info & (~FREQ_MASK)) | freq;
-                    }
-                    unlock(first_bkt);
-                }
-            }
-#endif
-#endif
+
             return it;
         }
         extra_array_cnt -= 1;
@@ -843,7 +820,6 @@ hashtable_get_no_incr(const char *key, const uint32_t klen, int32_t *seg_id,
     return NULL;
 }
 
-#ifdef USE_ASFC
 int
 hashtable_get_it_freq(const char *oit_key, const uint32_t oit_klen,
                       const uint64_t old_seg_id, const uint64_t old_offset)
@@ -896,7 +872,6 @@ hashtable_get_it_freq(const char *oit_key, const uint32_t oit_klen,
 //    ASSERT(0);
     return 0;
 }
-#endif
 
 
 /*

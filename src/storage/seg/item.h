@@ -69,14 +69,6 @@ struct item {
 
     uint32_t klen : 8;      /* key size */
     uint32_t vlen : 24;     /* data size */
-#if defined(USE_PRECISE_FREQ) || defined(DUMP_FOR_ANALYSIS)
-    uint32_t  n_hit;
-#endif
-#ifdef APFC_IN_OBJ
-    uint8_t  last_update_ts;
-    uint8_t  freq;
-#endif
-
     uint8_t  is_num : 1;    /* whether this is a number */
     uint8_t  deleted : 1;
     uint8_t  olen : 6;      /* option length */
@@ -151,32 +143,39 @@ item_val(struct item *const it)
 static inline size_t
 item_size_roundup(const uint32_t sz)
 {
-//    return (sz - sz % 8 + 8);
+    /* align to 8 bytes boundary */
     return (((sz - 1) >> 3u) + 1u) << 3u;
 }
 
+/*
+ * calculate the size of item from key, value, optional size
+ */
 static inline size_t
 item_size(uint32_t klen, uint32_t vlen, uint32_t olen)
 {
     size_t sz = ITEM_HDR_SIZE + klen + olen;
-#ifdef SUPPORT_INCR
+
+    /* value is at least 8 bytes so that incr/decr does not need to  copied */
     sz += vlen >= sizeof(uint64_t) ? vlen : sizeof(uint64_t);
-#else
-    sz += vlen;
-#endif
+
+    /* we need to make sure memory is aligned at 8-byte boundary */
     return item_size_roundup(sz);
 }
 
+/*
+ * calculate the size of item
+ */
 static inline size_t
 item_ntotal(const struct item *it)
 {
-    ASSERT(it != NULL);
+    if (it == NULL) {
+        ASSERT(0);
+
+        return 0;
+    }
+
     size_t sz = ITEM_HDR_SIZE + it->klen + it->olen;
-#ifdef SUPPORT_INCR
     sz += it->vlen >= sizeof(uint64_t) ? it->vlen : sizeof(uint64_t);
-#else
-    sz += it->vlen;
-#endif
 
     /* we need to make sure memory is aligned at 8-byte boundary */
     return item_size_roundup(sz);
@@ -189,7 +188,9 @@ item_incr(uint64_t *vint, struct item *it, uint64_t delta);
 item_rstatus_e
 item_decr(uint64_t *vint, struct item *it, uint64_t delta);
 
-
+/*
+ * decrement the ref counter
+ */
 void
 item_release(struct item *it);
 

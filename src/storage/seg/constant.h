@@ -42,36 +42,20 @@
 #define ITEM_CAS_SIZE           (use_cas * sizeof(uint32_t))
 
 
-/* whether turning on merge-based eviction, if not, segment eviction is used */
-//#define USE_MERGE
-#define REAL_COPY
-//#define SUPPORT_INCR
-//#define DUMP_FOR_ANALYSIS
-
-//#define OPTIMIZE_PMEM
+/* use some PMEM specific functions */
 //#define USE_PMEM
-
-#define USE_ASFC                    // use approximate and smoothed counter
-#define SAMPLE_PER_SEC          1   // counter random once per second
-//#define USE_PRECISE_FREQ          // use precise frequency counter
-//#define APFC_IN_OBJ           1   // store ASFC in obj
 
 //#define USE_THREAD_LOCAL_SEG    1
 
-//#define NO_BACKGROUND_EXPIRATION
 
-#define N_MAX_SEG_MERGE         8
-#define N_SEG_MERGE             4
-
+//#define N_MAX_SEG_MERGE         8
+//#define N_SEG_MERGE             4
 
 
+//#define SEG_MERGE_STOP_RATIO    (((double) (N_SEG_MERGE-1))/N_SEG_MERGE + 0.05)
+//#define SEG_MERGE_MARGIN (int) (heap.seg_size * SEG_MERGE_STOP_RATIO)
+
+//#define SEG_MERGE_TARGET_RATIO  ((1.0/N_SEG_MERGE))
 
 
-
-#define SEG_MERGE_STOP_RATIO    (((double) (N_SEG_MERGE-1))/N_SEG_MERGE + 0.05)
-#define SEG_MERGE_MARGIN (int) (heap.seg_size * SEG_MERGE_STOP_RATIO)
-
-#define SEG_MERGE_TARGET_RATIO  ((1.0/N_SEG_MERGE))
-
-
-#define REPLAY_SPEEDUP 20
+//#define REPLAY_SPEEDUP 20
