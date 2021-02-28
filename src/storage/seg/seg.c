@@ -41,10 +41,10 @@ pthread_t     bg_tid;
 volatile bool stop     = false;
 
 static char *seg_state_change_str[] = {
-    "allocated",
+    "allocation",
     "concurrent_get",
-    "evicted",
-    "expired",
+    "eviction",
+    "expiration",
     "invalid_reason",
 };
 
@@ -317,7 +317,7 @@ rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
         }
         else {
             /* TODO(jason): why */
-//            hashtable_delete_it(item_key(it), it->klen, seg_id, curr - seg_data);
+//            hashtable_delete_it(it, seg_id, curr - seg_data);
         }
 
         ASSERT(seg->n_item >= 0);

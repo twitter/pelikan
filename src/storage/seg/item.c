@@ -286,7 +286,7 @@ bool
 item_delete(const struct bstring *key)
 {
     log_verb("delete it (%.*s)", key->len, key->data);
-    return hashtable_delete(key->data, key->len);
+    return hashtable_delete(key);
 }
 
 void

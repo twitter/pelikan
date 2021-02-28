@@ -168,7 +168,7 @@ typedef struct {
     ACTION(seg_evict_retry,     METRIC_COUNTER,     "# retried seg eviction"                )\
     ACTION(seg_evict_ex,        METRIC_COUNTER,     "# segs evict exceptions"               )\
     ACTION(seg_expire,          METRIC_COUNTER,     "# segs removed due to expiration"      )\
-    ACTION(seg_merge,           METRIC_GAUGE,       "# seg merge"                           )\
+    ACTION(seg_merge,           METRIC_COUNTER,     "# seg merge"                           )\
     ACTION(seg_curr,            METRIC_GAUGE,       "# active segs"                         )\
     ACTION(item_curr,           METRIC_GAUGE,       "# current items"                       )\
     ACTION(item_curr_bytes,     METRIC_GAUGE,       "# used bytes including item header"    )\
@@ -177,7 +177,10 @@ typedef struct {
     ACTION(hash_lookup,         METRIC_COUNTER,     "# hash lookups"                        )\
     ACTION(hash_insert,         METRIC_COUNTER,     "# hash inserts"                        )\
     ACTION(hash_remove,         METRIC_COUNTER,     "# hash deletes"                        )\
+    ACTION(hash_remove_it,      METRIC_COUNTER,     "# hash item deletes"                   )\
+    ACTION(hash_evict,          METRIC_COUNTER,     "# hash evicts"                         )\
     ACTION(hash_bucket_alloc,   METRIC_COUNTER,     "# overflown hash bucket allocations"   )\
+    ACTION(hash_relink,         METRIC_COUNTER,     "# relink operations"                   )\
     ACTION(hash_tag_collision,  METRIC_COUNTER,     "# tag collision"                       )
 
 typedef struct {

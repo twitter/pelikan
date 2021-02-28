@@ -136,40 +136,38 @@ struct hash_table {
 
 void
 hashtable_setup(uint32_t hash_power);
+
 void
 hashtable_teardown(void);
 
 
-bool
-hashtable_del_and_put(struct item *it);
-
 void
-hashtable_put(struct item *it, const uint64_t seg_id, const uint64_t offset);
+hashtable_put(struct item *it, uint64_t seg_id, uint64_t offset);
 
 /* delete the item from hashtable */
 bool
-hashtable_delete(const char *key, const uint32_t klen);
+hashtable_delete(const struct bstring *key);
 
 bool
-hashtable_delete_it(const char *oit_key, const uint32_t oit_klen,
-                    const uint64_t seg_id, const uint64_t offset);
+hashtable_delete_it(struct item *it, uint64_t seg_id, uint64_t offset);
+
 /*
- * delete the hashtable entry belong to this specific item and all items
- * that are older than this entry
+ * delete the hashtable entry of to this item and all entries
+ * of older versions of this item
  */
 bool
-hashtable_evict(const char *oit_key, const uint32_t oit_klen, uint64_t seg_id,
+hashtable_evict(const char *oit_key, uint32_t oit_klen, uint64_t seg_id,
         uint64_t offset);
 
 struct item *
-hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
+hashtable_get(const char *key, uint32_t klen, int32_t *seg_id,
         uint64_t *cas);
 
 
 bool
-hashtable_relink_it(const char *oit_key, const uint32_t oit_klen,
-        const uint64_t old_seg_id, const uint64_t old_offset,
-        const uint64_t new_seg_id, const uint64_t new_offset);
+hashtable_relink_it(const char *oit_key, uint32_t oit_klen,
+        uint64_t old_seg_id, uint64_t old_offset,
+        uint64_t new_seg_id, uint64_t new_offset);
 
 /**
  * debugging functions
@@ -177,8 +175,8 @@ hashtable_relink_it(const char *oit_key, const uint32_t oit_klen,
  * in the hashtable
  */
 bool
-hashtable_check_it(const char *oit_key, const uint32_t oit_klen,
-        const uint64_t seg_id, const uint64_t offset);
+hashtable_check_it(const char *oit_key, uint32_t oit_klen,
+        uint64_t seg_id, uint64_t offset);
 
 
 /**
@@ -199,9 +197,9 @@ void
 scan_hashtable_find_seg(int32_t target_seg_id);
 
 
-int hashtable_get_it_freq(const char *oit_key, const uint32_t oit_klen,
-                          const uint64_t old_seg_id, const uint64_t old_offset);
+int hashtable_get_it_freq(const char *oit_key, uint32_t oit_klen,
+                          uint64_t old_seg_id, uint64_t old_offset);
 
 struct item *
-hashtable_get_no_incr(const char *key, const uint32_t klen, int32_t *seg_id,
-                      uint64_t *cas);
+hashtable_get_no_freq_incr(const char *key, uint32_t klen, int32_t *seg_id,
+                           uint64_t *cas);

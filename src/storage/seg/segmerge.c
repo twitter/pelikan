@@ -304,7 +304,6 @@ seg_copy(int32_t seg_id_dest, int32_t seg_id_src,
         }
 
         if (it->deleted) {
-//            hashtable_delete_it(item_key(it), it->klen, seg_id_src, curr_src - seg_data_src);
             curr_src += it_sz;
             continue;
         }

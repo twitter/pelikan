@@ -14,13 +14,18 @@
 #include <sysexits.h>
 #include <x86intrin.h>
 
-#define CACHE_ALIGN_SIZE                    64
+/* TODO(jason): use static allocated array
+ * TODO(jason): add bucket array shrink
+ * */
 
-/* the number of slots in one bucket,
- * need to be multiple of 8 to make use of 64-byte cache line */
+
+/* the size of bucket in bytes, used in malloc alignment */
+#define N_BYTE_PER_BUCKET                    64
+
+/* the number of slots in one bucket */
 #define N_SLOT_PER_BUCKET                   8u
-/* the number of slots in one bucket, expressed in terms of number of bits
- * for example 8 == 2^3 */
+
+/* the number of slots expressed in number of bits  8 == 2^3 */
 #define N_SLOT_PER_BUCKET_LOG2           3u
 
 /* mask for item_info */
@@ -29,61 +34,72 @@
 #define SEG_ID_MASK             0x00000ffffff00000ul
 #define OFFSET_MASK             0x00000000000ffffful
 
+#define TAG_BIT_SHIFT           52ul
+#define FREQ_BIT_SHIFT          44ul
+#define SEG_ID_BIT_SHIFT        20ul
+#define OFFSET_UNIT_IN_BIT      3ul     /* offset is in 8-byte unit */
+
+/* this bit indicates whether the frequency has increased in the current sec */
+#define FREQ_INC_INDICATOR_MASK  0x0008000000000000ul
+#define CLEAR_FREQ_SMOOTH_MASK   0xfff7fffffffffffful
+
 /* mast for bucket info */
 #define LOCK_MASK               0xff00000000000000ul
 #define BUCKET_CHAIN_LEN_MASK   0x00ff000000000000ul
+#define TS_MASK                 0x0000ffff00000000ul  /* ts in bucket info */
 #define CAS_MASK                0x00000000fffffffful
-#define TS_MASK                 0x0000ffff00000000ul
+
+#define LOCK_BIT_SHIFT              56ul
+#define BUCKET_CHAIN_LEN_BIT_SHIFT  48ul
+#define TS_BIT_SHIFT                32ul
+
+
+/* ts from proc ts, we only need 16-bit */
+#define PROC_TS_MASK            0x000000000000fffful
 
 /* a per-bucket spin lock */
 #define LOCKED                  0x0100000000000000ul
 #define UNLOCKED                0x0000000000000000ul
 
-extern seg_metrics_st    *seg_metrics;
-static struct hash_table hash_table;
-static bool              hash_table_initialized = false;
+extern seg_metrics_st *seg_metrics;
 
-//static uint32_t             murmur3_iv       = 0x3ac5d673;
-static __thread __uint128_t g_lehmer64_state = 1;
-
-///* keep a cache of time stamp here to avoid repeated fetch */
-//static __thread int32_t last_sec_update = -1;
-///* this is used when calculating whether we should increase frequency
-// * counter at curr time, range 1-8, see _incr_freq */
-//static __thread unsigned int cur_sec_freq_bit = 0;
-
+static struct hash_table    hash_table;
+static bool                 hash_table_initialized = false;
+static __thread __uint128_t g_lehmer64_state       = 1;
 
 #define HASHSIZE(_n)        (1ULL << (_n))
 #define HASHMASK(_n)        (HASHSIZE(_n) - 1)
-
 #define CAL_HV(key, klen)   _get_hv_xxhash(key, klen)
+
 /* tags is calculated in two places,
- * one is calculated from hash value, the other is using item info,
- * we use the top 2 byte of hash value as tag and
- * store it in the top two bytes of item info,
- * note that we make tag to start from 1, so when we calculate true tag
- * we perform or with 0x0001000000000000ul */
-#define GET_TAG(item_info)          ((item_info) & TAG_MASK)
-#define GET_FREQ(item_info)         (((item_info) & FREQ_MASK) >> 44u)
-#define GET_SEG_ID(item_info)       (((item_info) & SEG_ID_MASK) >> 20ul)
-#define GET_OFFSET(item_info)       (((item_info) & OFFSET_MASK) << 3ul)
-#define CLEAR_FREQ(item_info)       ((item_info) & (~FREQ_MASK))
+ * one is extracted from hash value, the other is extracted from item info,
+ * we use the top 12 bits of hash value as tag and
+ * store it in the top 12 bits of item info,
+ * note that we make tag to start from 1, so when we calculate the true tag
+ * we perform OR with 0x0001000000000000ul */
+#define GET_TAG(item_info)      ((item_info) & TAG_MASK)
+#define GET_FREQ(item_info)     (((item_info) & FREQ_MASK) >> FREQ_BIT_SHIFT)
+#define GET_SEG_ID(item_info)   (((item_info) & SEG_ID_MASK) >> SEG_ID_BIT_SHIFT)
+#define GET_OFFSET(item_info)   (((item_info) & OFFSET_MASK) << OFFSET_UNIT_IN_BIT)
+#define CLEAR_FREQ(item_info)   ((item_info) & (~FREQ_MASK))
 
 #define CAL_TAG_FROM_HV(hv) (((hv) & TAG_MASK) | 0x0010000000000000ul)
-#define GET_BUCKET(hv)      (&hash_table.table[((hv) & hash_table.hash_mask)])
+#define GET_BUCKET(hv)      (&hash_table.table[((hv) & (hash_table.hash_mask))])
 
-#define GET_TS(bucket_ptr)          (((*(bucket_ptr)) & TS_MASK) >> 32u)
+#define GET_TS(bucket_ptr)          (((*(bucket_ptr)) & TS_MASK) >> TS_BIT_SHIFT)
 #define GET_CAS(bucket_ptr)         ((*(bucket_ptr)) & CAS_MASK)
 
 /* calculate the number of buckets in the bucket chain */
 #define GET_BUCKET_CHAIN_LEN(bucket_ptr)                                       \
-                ((((*(bucket_ptr)) & BUCKET_CHAIN_LEN_MASK) >> 48ul) + 1)
+    ((((*(bucket_ptr)) & BUCKET_CHAIN_LEN_MASK) >> BUCKET_CHAIN_LEN_BIT_SHIFT) + 1)
 #define INCR_BUCKET_CHAIN_LEN(bucket_ptr)                                      \
                 ((*(bucket_ptr)) += 0x0001000000000000ul)
 
 #define CAS_SLOT(slot_ptr, expect_ptr, new_val)                                \
     __atomic_compare_exchange_n(                                               \
-        (slot_ptr), (expect_ptr), (new_val), false, __ATOMIC_RELEASE, __ATOMIC_RELAXED)
+        (slot_ptr), (expect_ptr), (new_val), false,                            \
+        __ATOMIC_RELEASE, __ATOMIC_RELAXED                                     \
+    )
 
 #if defined HASHTABLE_DBG
 #define SET_BUCKET_MAGIC(bucket_ptr)                                           \
@@ -104,15 +120,7 @@ static uint64_t* GET_BUCKET(uint64_t hv)
 #define CHECK_BUCKET_MAGIC(bucket_ptr)
 #endif
 
-
-
-
-/* TODO(jason): it is better to use id for extra_array instead of pointer
- * otherwise we have to assume each pointer is 64-byte
- * TODO(jason): add bucket array shrink
- * */
 #define use_atomic_set
-
 /* we assume little-endian here */
 #define lock(bucket_ptr)                                                       \
     do {                                                                       \
@@ -137,35 +145,36 @@ static uint64_t* GET_BUCKET(uint64_t hv)
     } while (0)
 
 #ifdef use_atomic_set
-#    undef lock
-#    undef unlock
-#    undef unlock_and_update_cas
-#    define lock(bucket_ptr)                                                   \
-        do {                                                                   \
-            while (__atomic_test_and_set(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_ACQUIRE)) {                                        \
-                ;                                                     \
-            }                                                                  \
-        } while (0)
+#undef lock
+#undef unlock
+#undef unlock_and_update_cas
+#define lock(bucket_ptr)                                                        \
+    do {                                                                        \
+        while (__atomic_test_and_set(                                           \
+            ((uint8_t *)(bucket_ptr) + 7), __ATOMIC_ACQUIRE)) {                 \
+            ;                                                                   \
+        }                                                                       \
+    } while (0)
 
-#    define unlock(bucket_ptr)                                                 \
-        do {                                                                   \
-            __atomic_clear(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_RELEASE);   \
-        } while (0)
+#define unlock(bucket_ptr)                                                      \
+    do {                                                                        \
+        __atomic_clear(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_RELEASE);        \
+    } while (0)
 
-#    define unlock_and_update_cas(bucket_ptr)                                  \
-        do {                                                                   \
-            *bucket_ptr += 1;                                                  \
-            __atomic_clear(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_RELEASE);   \
-        } while (0)
+#define unlock_and_update_cas(bucket_ptr)                                       \
+    do {                                                                        \
+        *bucket_ptr += 1;                                                       \
+        __atomic_clear(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_RELEASE);        \
+    } while (0)
 #endif
 
 #ifdef no_lock
-#    undef lock
-#    undef unlock
-#    undef unlock_and_update_cas
-#    define lock(bucket_ptr)
-#    define unlock(bucket_ptr)
-#    define unlock_and_update_cas(bucket_ptr) ((*(bucket_ptr)) += 1)
+#undef lock
+#undef unlock
+#undef unlock_and_update_cas
+#define lock(bucket_ptr)
+#define unlock(bucket_ptr)
+#define unlock_and_update_cas(bucket_ptr) ((*(bucket_ptr)) += 1)
 #endif
 
 /**
@@ -181,7 +190,7 @@ _info_to_item(uint64_t item_info)
     uint64_t offset = GET_OFFSET(item_info);
     ASSERT(seg_id < heap.max_nseg);
     ASSERT(offset < heap.seg_size);
-//    ASSERT(offset < __atomic_load_n(&heap.segs[seg_id].write_offset, __ATOMIC_SEQ_CST));
+
     return (struct item *) (heap.base + heap.seg_size * seg_id + offset);
 }
 
@@ -231,8 +240,14 @@ prand(void)
 {
     g_lehmer64_state *= 0xda942042e4dd58b5;
     return (uint64_t) g_lehmer64_state;
-//    return g_lehmer64_state >> 64u;
 }
+
+static inline uint64_t
+_get_hv_xxhash(const char *key, size_t klen)
+{
+    return XXH3_64bits(key, klen);
+}
+
 
 /*
  * we use an approximate and probabilistic frequency counter
@@ -246,34 +261,34 @@ prand(void)
  *      the i-th bit is set with probability 1/(1<<i)
  *
  */
-#ifdef COMMENT
-static inline uint64_t
-_incr_freq(uint64_t item_info)
-{
-#define FREQ_BIT_START 44u
-    if (last_sec_update != time_proc_sec()) {
-        last_sec_update = time_proc_sec();
-        cur_sec_freq_bit = 0;
-        while (((last_sec_update >> (cur_sec_freq_bit)) & 1u) == 0 && cur_sec_freq_bit < 8) {
-            cur_sec_freq_bit += 1;
-        }
-        cur_sec_freq_bit += 1;
-        ASSERT(FREQ_BIT_START + cur_sec_freq_bit <= 63);
-    }
-
-
-    for (unsigned int i = 0; i < cur_sec_freq_bit; i++) {
-        if (GET_BIT(item_info, FREQ_BIT_START + i) == 0) {
-            /* current bit is not set */
-            item_info = SET_BIT(item_info, FREQ_BIT_START + i);
-            /* set one bit at a time */
-            break;
-        }
-    }
-
-    return item_info;
-}
-#endif
+//#ifdef COMMENT
+//static inline uint64_t
+//_incr_freq(uint64_t item_info)
+//{
+//#define FREQ_BIT_START 44u
+//    if (last_sec_update != time_proc_sec()) {
+//        last_sec_update = time_proc_sec();
+//        cur_sec_freq_bit = 0;
+//        while (((last_sec_update >> (cur_sec_freq_bit)) & 1u) == 0 && cur_sec_freq_bit < 8) {
+//            cur_sec_freq_bit += 1;
+//        }
+//        cur_sec_freq_bit += 1;
+//        ASSERT(FREQ_BIT_START + cur_sec_freq_bit <= 63);
+//    }
+//
+//
+//    for (unsigned int i = 0; i < cur_sec_freq_bit; i++) {
+//        if (GET_BIT(item_info, FREQ_BIT_START + i) == 0) {
+//            /* current bit is not set */
+//            item_info = SET_BIT(item_info, FREQ_BIT_START + i);
+//            /* set one bit at a time */
+//            break;
+//        }
+//    }
+//
+//    return item_info;
+//}
+//#endif
 
 //static inline uint64_t
 //_incr_freq(uint64_t item_info)
@@ -295,7 +310,7 @@ static inline uint64_t *
 _hashtable_alloc(uint64_t n_slot)
 {
     uint64_t *table =
-                 aligned_alloc(CACHE_ALIGN_SIZE, sizeof(uint64_t) * n_slot);
+                 aligned_alloc(N_BYTE_PER_BUCKET, sizeof(uint64_t) * n_slot);
     if (table == NULL) {
         log_crit("cannot create hash table");
         exit(EX_CONFIG);
@@ -313,7 +328,6 @@ _hashtable_alloc(uint64_t n_slot)
 void
 hashtable_setup(uint32_t hash_power)
 {
-    uint64_t n_slot;
 
     ASSERT(hash_power > 0);
 
@@ -324,7 +338,9 @@ hashtable_setup(uint32_t hash_power)
 
     /* init members */
     hash_table.hash_power = hash_power;
-    n_slot = HASHSIZE(hash_power);
+    uint64_t n_slot = HASHSIZE(hash_power);
+    /* N_SLOT_PER_BUCKET slots are in one bucket, so hash_mask last
+     * N_SLOT_PER_BUCKET_LOG2 bits should be zero */
     hash_table.hash_mask =
         (n_slot - 1) & (0xfffffffffffffffful << N_SLOT_PER_BUCKET_LOG2);
 
@@ -367,31 +383,21 @@ hashtable_teardown(void)
 //    return hv[0];
 //}
 
-static inline uint64_t
-_get_hv_xxhash(const char *key, size_t klen)
-{
-    return XXH3_64bits(key, klen);
-
-    /* maybe this API is preferred
-     *   uint64_t hv = XXH3_64bits_dispatch(key, klen);
-     */
-}
 
 /**
  * insert an item into hash table
- * insert has two steps, insert and delete (success or not found)
- * insert and delete must be completed in the same pass of scanning,
+ * insert has two steps, insert and possibly delete
+ * insert and delete must be completed in the same pass (atomic or locked),
  * otherwise it cannot guarantee correctness
  *
- *
- * scan through all slots of the first bucket,
- * 1. if we found the item, replace with new item_info
- * 2. if we found an empty slot before the old item info, we place
- *      new item_info in empty slots and
- * 2-1. reset the old item info if the old item is in the first bucket,
- * 2-2. otherwise we simply return with the possibility that old item_info
- *      in a later bucket
- * 3. if oit item info is not found in the first bucket nor empty bucket,
+ * procedure:
+ * scan through all slots of the head bucket,
+ * 1. if we found the item, replace with new item
+ * 2. if we found an empty slot first, we store new item in empty slots and
+ *      2-1. remove the old item if the old item is in the head bucket,
+ *      2-2. if we do not find it in the head bucket, we stop searching, and
+ *          let the clean up to eviction time
+ * 3. if old item is not found in the first bucket nor empty bucket,
  *      we continue to search
  */
 
@@ -404,8 +410,8 @@ hashtable_put(struct item *it, const uint64_t seg_id, const uint64_t offset)
     uint64_t hv        = CAL_HV(key, klen);
     uint64_t tag       = CAL_TAG_FROM_HV(hv);
     uint64_t *head_bkt = GET_BUCKET(hv);
+    uint64_t *bkt      = head_bkt;
 
-    uint64_t *bkt = head_bkt;
     INCR(seg_metrics, hash_insert);
 
     /* 12-bit tag, 8-bit counter,
@@ -486,9 +492,8 @@ hashtable_put(struct item *it, const uint64_t seg_id, const uint64_t offset)
     bkt[N_SLOT_PER_BUCKET - 1] = (uint64_t) new_bkt;
 
     INCR_BUCKET_CHAIN_LEN(head_bkt);
-    /* this is for debugging, bucket chain length in production should not
-     * be so high */
     log_verb("increase bucket chain to len %d", GET_BUCKET_CHAIN_LEN(head_bkt));
+    /* this is for debugging, chain length in production should not so large */
     ASSERT(GET_BUCKET_CHAIN_LEN(head_bkt) <= 16);
 
     finish:
@@ -497,29 +502,30 @@ hashtable_put(struct item *it, const uint64_t seg_id, const uint64_t offset)
 }
 
 bool
-hashtable_delete(const char *key, const uint32_t klen)
+hashtable_delete(const struct bstring *key)
 {
     INCR(seg_metrics, hash_remove);
 
-    bool deleted = false;
-
-    uint64_t hv         = CAL_HV(key, klen);
-    uint64_t tag        = CAL_TAG_FROM_HV(hv);
-    uint64_t *first_bkt = GET_BUCKET(hv);
-    uint64_t *bkt       = first_bkt;
-
+    bool     deleted = false;
     uint64_t item_info;
 
-    lock(first_bkt);
+    uint64_t hv        = CAL_HV(key->data, key->len);
+    uint64_t tag       = CAL_TAG_FROM_HV(hv);
+    uint64_t *head_bkt = GET_BUCKET(hv);
+    uint64_t *bkt      = head_bkt;
 
-    int bkt_chain_len = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
+    lock(head_bkt);
+
+    int bkt_chain_len = GET_BUCKET_CHAIN_LEN(head_bkt) - 1;
     int n_item_slot;
     do {
         n_item_slot =
-            bkt_chain_len > 0 ? N_SLOT_PER_BUCKET - 1 : N_SLOT_PER_BUCKET;
+            bkt_chain_len > 0 ?
+            N_SLOT_PER_BUCKET - 1 :
+            N_SLOT_PER_BUCKET;
 
         for (int i = 0; i < n_item_slot; i++) {
-            if (bkt == first_bkt && i == 0) {
+            if (bkt == head_bkt && i == 0) {
                 continue;
             }
 
@@ -528,13 +534,13 @@ hashtable_delete(const char *key, const uint32_t klen)
                 continue;
             }
             /* a potential hit */
-            if (!_same_item(key, klen, item_info)) {
+            if (!_same_item(key->data, key->len, item_info)) {
                 INCR(seg_metrics, hash_tag_collision);
                 continue;
             }
             /* found the item, now delete */
             /* if this is the first and most up-to-date hash table entry
-             * for this key, we need to mark tombstone */
+             * we need to mark tombstone, this is for recovery */
             _item_free(item_info, !deleted);
             bkt[i] = 0;
 
@@ -544,23 +550,29 @@ hashtable_delete(const char *key, const uint32_t klen)
         bkt        = (uint64_t *) (bkt[N_SLOT_PER_BUCKET - 1]);
     } while (bkt_chain_len >= 0);
 
-    unlock(first_bkt);
+    unlock(head_bkt);
     return deleted;
 }
 
 /*
  * the difference between delete and evict is that
  * delete needs to mark tombstone on the most recent object,
- * evict  does not need to mark tombstone if the item being evicted is not
- *          up to date, otherwise, it needs to mark tombstone on the second
- *          most recent object
+ * evict: if the item being evicted
+ *      is the most recent version (not updated),
+ *          evict needs to mark tombstone on the second most recent object
+ *      is not the up-to-date version
+ *          evict does not need to mark tombstone
+ *
+ * The decision on tombstone is used for recovery, normal usage does not need
+ * to mark tombstone, while tombstone is used to find out which an object is
+ * an up-to-date object
  *
  */
 bool
 hashtable_evict(const char *oit_key, const uint32_t oit_klen,
                 const uint64_t seg_id, const uint64_t offset)
 {
-    INCR(seg_metrics, hash_remove);
+    INCR(seg_metrics, hash_evict);
 
     uint64_t hv         = CAL_HV(oit_key, oit_klen);
     uint64_t tag        = CAL_TAG_FROM_HV(hv);
@@ -625,13 +637,21 @@ hashtable_evict(const char *oit_key, const uint32_t oit_klen,
     return fount_oit;
 }
 
+/**
+ * delete a specific item from the hash table
+ * this is needed because an updated object can have its old version
+ * in object store and hash table, hashtable_delete_it deletes the specific
+ * object, for example, delete an outdated object while not affecting the
+ * up-to-date object
+ *
+ */
 bool
-hashtable_delete_it(const char *oit_key, const uint32_t oit_klen,
+hashtable_delete_it(struct item *it,
                     const uint64_t seg_id, const uint64_t offset)
 {
-    INCR(seg_metrics, hash_remove);
+    INCR(seg_metrics, hash_remove_it);
 
-    uint64_t hv         = CAL_HV(oit_key, oit_klen);
+    uint64_t hv         = CAL_HV(item_key(it), it->klen);
     uint64_t tag        = CAL_TAG_FROM_HV(hv);
     uint64_t *first_bkt = GET_BUCKET(hv);
     uint64_t *bkt       = first_bkt;
@@ -666,10 +686,19 @@ hashtable_delete_it(const char *oit_key, const uint32_t oit_klen,
     return found_oit;
 }
 
+static inline void
+hashtable_clear_freq_inc_indicator(uint64_t *first_bkt, uint64_t curr_ts)
+{
+
+}
+
 struct item *
-hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
+hashtable_get(const char *key, const uint32_t klen,
+              int32_t *seg_id,
               uint64_t *cas)
 {
+    INCR(seg_metrics, hash_lookup);
+
     uint64_t    hv         = CAL_HV(key, klen);
     uint64_t    tag        = CAL_TAG_FROM_HV(hv);
     uint64_t    *first_bkt = GET_BUCKET(hv);
@@ -679,45 +708,49 @@ hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
 
     uint64_t item_info;
 
-    int extra_array_cnt = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
-    int array_size;
+    int bkt_chain_len = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
+    int n_item_slot;
 
-    uint64_t cur_ts = (uint64_t) time_proc_sec() & 0xfffful;
-    if (cur_ts != GET_TS(first_bkt)) {
+    //    uint64_t curr_ts = (uint64_t) time_proc_sec() & 0xfffful;
+    uint64_t curr_ts = ((uint64_t) time_proc_sec()) & PROC_TS_MASK;
+    if (curr_ts != GET_TS(first_bkt)) {
+        /* clear the indicator of all items in the bucket that
+         * the frequency has increased in curr sec */
         lock(first_bkt);
 
-        if (cur_ts != GET_TS(first_bkt)) {
-            *first_bkt = ((*first_bkt) & (~TS_MASK)) | (cur_ts << 32ul);
+        if (curr_ts != GET_TS(first_bkt)) {
+            *first_bkt =
+                ((*first_bkt) & (~TS_MASK)) | (curr_ts << TS_BIT_SHIFT);
             do {
-                array_size = extra_array_cnt > 0 ? N_SLOT_PER_BUCKET - 1 :
-                             N_SLOT_PER_BUCKET;
-                for (int i = 0; i < array_size; i++) {
+                n_item_slot = bkt_chain_len > 0 ?
+                              N_SLOT_PER_BUCKET - 1 :
+                              N_SLOT_PER_BUCKET;
+                for (int i = 0; i < n_item_slot; i++) {
                     if (bkt == first_bkt && i == 0) {
                         continue;
                     }
                     /* clear the bit */
-                    bkt[i] = bkt[i] & 0xfff7fffffffffffful;
-
-                    int old_freq = GET_FREQ(bkt[i]);
-                    ASSERT(old_freq == GET_FREQ(bkt[i])
-                        || old_freq - 128 == GET_FREQ(bkt[i]));
+                    bkt[i] = bkt[i] & CLEAR_FREQ_SMOOTH_MASK;
                 }
-                extra_array_cnt -= 1;
+                bkt_chain_len -= 1;
                 bkt        = (uint64_t *) (bkt[N_SLOT_PER_BUCKET - 1]);
-            } while (extra_array_cnt >= 0);
+            } while (bkt_chain_len >= 0);
         }
 
         unlock(first_bkt);
 
-        bkt             = first_bkt;
-        extra_array_cnt = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
+        /* reset bucket and bucket chain length */
+        bkt           = first_bkt;
+        bkt_chain_len = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
     }
 
+    /* try to find the item in the hash table */
     do {
-        array_size = extra_array_cnt > 0 ? N_SLOT_PER_BUCKET - 1 :
-                     N_SLOT_PER_BUCKET;
+        n_item_slot = bkt_chain_len > 0 ?
+                      N_SLOT_PER_BUCKET - 1 :
+                      N_SLOT_PER_BUCKET;
 
-        for (int i = 0; i < array_size; i++) {
+        for (int i = 0; i < n_item_slot; i++) {
             if (bkt == first_bkt && i == 0) {
                 continue;
             }
@@ -737,40 +770,51 @@ hashtable_get(const char *key, const uint32_t klen, int32_t *seg_id,
 
             *seg_id = GET_SEG_ID(item_info);
             offset = GET_OFFSET(item_info);
-            it     = (struct item *) (heap.base + heap.seg_size * (*seg_id)
-                + offset);
 
+            it = (struct item *) (heap.base + heap.seg_size * *seg_id + offset);
+
+            /* item found, try to update the frequency */
             uint64_t freq = GET_FREQ(item_info);
-
             if (freq < 127) {
                 /* counter caps at 127 */
                 if (freq <= 16 || prand() % freq == 0) {
-                    /* increase frequency by 1 */
-                    freq = ((freq + 1) | 0x80ul) << 44ul;
-                } else {
+                    /* increase frequency by 1
+                     * if freq <= 16 or with prob 1/freq */
+                    freq = ((freq + 1) | 0x80ul) << FREQ_BIT_SHIFT;
+                }
+                else {
                     /* we do not increase frequency, but mark that
                      * we have already tried at current sec */
-                    freq = (freq | 0x80ul) << 44ul;
+                    freq = (freq | 0x80ul) << FREQ_BIT_SHIFT;
                 }
+                /* there can be benign data race where other items in the same
+                 * hash bucket increases it frequency, but it is OK */
                 lock(first_bkt);
                 if (bkt[i] == item_info) {
+                    /* make sure it is not updated by other threads */
                     bkt[i] = (item_info & (~FREQ_MASK)) | freq;
                 }
                 unlock(first_bkt);
             }
+            /* done frequency update section */
 
             return it;
         }
-        extra_array_cnt -= 1;
+        bkt_chain_len -= 1;
         bkt        = (uint64_t *) (bkt[N_SLOT_PER_BUCKET - 1]);
-    } while (extra_array_cnt >= 0);
+    } while (bkt_chain_len >= 0);
 
     return NULL;
 }
 
+/**
+ * get but not increase item frequency
+ *
+ **/
 struct item *
-hashtable_get_no_incr(const char *key, const uint32_t klen, int32_t *seg_id,
-                      uint64_t *cas)
+hashtable_get_no_freq_incr(const char *key, const uint32_t klen,
+                           int32_t *seg_id,
+                           uint64_t *cas)
 {
     uint64_t    hv         = CAL_HV(key, klen);
     uint64_t    tag        = CAL_TAG_FROM_HV(hv);
@@ -782,13 +826,14 @@ hashtable_get_no_incr(const char *key, const uint32_t klen, int32_t *seg_id,
     /* 16-bit tag, 28-bit seg id, 20-bit offset (in the unit of 8-byte) */
     uint64_t item_info;
 
-    int extra_array_cnt = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
-    int array_size;
+    int bkt_chain_len = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
+    int n_item_slot;
     do {
-        array_size =
-            extra_array_cnt > 0 ? N_SLOT_PER_BUCKET - 1 : N_SLOT_PER_BUCKET;
+        n_item_slot = bkt_chain_len > 0 ?
+                      N_SLOT_PER_BUCKET - 1 :
+                      N_SLOT_PER_BUCKET;
 
-        for (int i = 0; i < array_size; i++) {
+        for (int i = 0; i < n_item_slot; i++) {
             if (bkt == first_bkt && i == 0) {
                 continue;
             }
@@ -813,63 +858,66 @@ hashtable_get_no_incr(const char *key, const uint32_t klen, int32_t *seg_id,
 
             return it;
         }
-        extra_array_cnt -= 1;
+        bkt_chain_len -= 1;
         bkt        = (uint64_t *) (bkt[N_SLOT_PER_BUCKET - 1]);
-    } while (extra_array_cnt >= 0);
+    } while (bkt_chain_len >= 0);
 
     return NULL;
 }
 
+/**
+ * get item frequency
+ *
+ **/
 int
-hashtable_get_it_freq(const char *oit_key, const uint32_t oit_klen,
-                      const uint64_t old_seg_id, const uint64_t old_offset)
+hashtable_get_it_freq(const char *it_key, const uint32_t it_klen,
+                      const uint64_t seg_id, const uint64_t offset)
 {
-    uint64_t hv  = CAL_HV(oit_key, oit_klen);
+    uint64_t hv  = CAL_HV(it_key, it_klen);
     uint64_t tag = CAL_TAG_FROM_HV(hv);
 
-    uint64_t *first_bkt = GET_BUCKET(hv);
-    uint64_t *curr_bkt  = first_bkt;
-    uint64_t item_info;
-    uint64_t oit_info   = _build_item_info(tag, old_seg_id, old_offset);
-    int      freq       = 0;
+    uint64_t *first_bkt        = GET_BUCKET(hv);
+    uint64_t *curr_bkt         = first_bkt;
+    uint64_t curr_item_info;
+    uint64_t item_info_to_find = _build_item_info(tag, seg_id, offset);
+    int      freq              = 0;
 
-    int extra_array_cnt = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
-    int array_size;
+    int bkt_chain_len = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
+    int n_item_slot;
     do {
-        array_size =
-            extra_array_cnt > 0 ? N_SLOT_PER_BUCKET - 1 : N_SLOT_PER_BUCKET;
+        n_item_slot = bkt_chain_len > 0 ?
+                      N_SLOT_PER_BUCKET - 1 :
+                      N_SLOT_PER_BUCKET;
 
-        for (int i = 0; i < array_size; i++) {
+        for (int i = 0; i < n_item_slot; i++) {
             if (curr_bkt == first_bkt && i == 0) {
                 continue;
             }
 
-            item_info = CLEAR_FREQ(curr_bkt[i]);
-            if (GET_TAG(item_info) != tag) {
+            curr_item_info = CLEAR_FREQ(curr_bkt[i]);
+            if (GET_TAG(curr_item_info) != tag) {
                 continue;
             }
 
-            if (item_info == oit_info) {
+            if (curr_item_info == item_info_to_find) {
                 freq = GET_FREQ(curr_bkt[i]) & 0x7Ful;
                 return freq;
             }
 
             /* a potential hit */
-            if (!_same_item(oit_key, oit_klen, item_info)) {
+            if (!_same_item(it_key, it_klen, curr_item_info)) {
                 INCR(seg_metrics, hash_tag_collision);
                 continue;
             }
 
-            /* the oit is outdated */
+            /* the item to find is outdated */
             return 0;
 
         }
-        extra_array_cnt -= 1;
+        bkt_chain_len -= 1;
         curr_bkt   = (uint64_t *) (curr_bkt[N_SLOT_PER_BUCKET - 1]);
-    } while (extra_array_cnt >= 0);
+    } while (bkt_chain_len >= 0);
 
-    /* disable this because an item can be evicted by other threads */
-//    ASSERT(0);
     return 0;
 }
 
@@ -887,7 +935,7 @@ hashtable_relink_it(const char *oit_key, const uint32_t oit_klen,
                     const uint64_t old_seg_id, const uint64_t old_offset,
                     const uint64_t new_seg_id, const uint64_t new_offset)
 {
-    INCR(seg_metrics, hash_remove);
+    INCR(seg_metrics, hash_relink);
 
     uint64_t hv         = CAL_HV(oit_key, oit_klen);
     uint64_t tag        = CAL_TAG_FROM_HV(hv);
@@ -902,12 +950,13 @@ hashtable_relink_it(const char *oit_key, const uint32_t oit_klen,
     lock(first_bkt);
 
     int bkt_chain_len = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
-    int array_size;
+    int n_item_slot;
     do {
-        array_size =
-            bkt_chain_len > 0 ? N_SLOT_PER_BUCKET - 1 : N_SLOT_PER_BUCKET;
+        n_item_slot = bkt_chain_len > 0 ?
+                      N_SLOT_PER_BUCKET - 1 :
+                      N_SLOT_PER_BUCKET;
 
-        for (int i = 0; i < array_size; i++) {
+        for (int i = 0; i < n_item_slot; i++) {
             if (curr_bkt == first_bkt && i == 0) {
                 continue;
             }
@@ -946,42 +995,6 @@ hashtable_relink_it(const char *oit_key, const uint32_t oit_klen,
     return !item_outdated;
 }
 
-bool
-hashtable_check_it(const char *oit_key, const uint32_t oit_klen,
-                   const uint64_t seg_id, const uint64_t offset)
-{
-    INCR(seg_metrics, hash_remove);
-
-    uint64_t hv         = CAL_HV(oit_key, oit_klen);
-    uint64_t tag        = CAL_TAG_FROM_HV(hv);
-    uint64_t *first_bkt = GET_BUCKET(hv);
-    uint64_t *curr_bkt  = first_bkt;
-
-    uint64_t oit_info = _build_item_info(tag, seg_id, offset);
-
-    lock(first_bkt);
-
-    int extra_array_cnt = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
-    int array_size;
-    do {
-        array_size =
-            extra_array_cnt > 0 ? N_SLOT_PER_BUCKET - 1 : N_SLOT_PER_BUCKET;
-
-        for (int i = 0; i < array_size; i++) {
-            if (oit_info == curr_bkt[i]) {
-                unlock(first_bkt);
-                return true;
-            }
-        }
-        extra_array_cnt -= 1;
-        curr_bkt   = (uint64_t *) (curr_bkt[N_SLOT_PER_BUCKET - 1]);
-    } while (extra_array_cnt >= 0);
-
-    unlock(first_bkt);
-
-    return false;
-}
-
 void
 hashtable_stat(int *item_cnt_ptr, int *bucket_cnt_ptr)
 {
@@ -990,7 +1003,7 @@ hashtable_stat(int *item_cnt_ptr, int *bucket_cnt_ptr)
     *item_cnt_ptr   = 0;
     *bucket_cnt_ptr = 0;
 
-    int n_used_slots; /* the number of used slot in current bucket */
+    int n_item_slots; /* the number of used slot in current bucket */
     int bkt_chain_len; /* the number of buckets in current bucket chain */
 
     uint64_t item_info, *head_bkt, *curr_bkt;
@@ -1003,11 +1016,11 @@ hashtable_stat(int *item_cnt_ptr, int *bucket_cnt_ptr)
         bkt_chain_len = GET_BUCKET_CHAIN_LEN(head_bkt);
         *bucket_cnt_ptr += bkt_chain_len;
         do {
-            n_used_slots = bkt_chain_len > 1 ?
+            n_item_slots = bkt_chain_len > 1 ?
                            N_SLOT_PER_BUCKET - 1 :
                            N_SLOT_PER_BUCKET;
 
-            for (int i = 0; i < n_used_slots; i++) {
+            for (int i = 0; i < n_item_slots; i++) {
                 /* this is bucket info */
                 if (curr_bkt == head_bkt && i == 0) {
                     continue;
@@ -1030,61 +1043,77 @@ hashtable_stat(int *item_cnt_ptr, int *bucket_cnt_ptr)
 #undef BUCKET_HEAD
 }
 
+
 void
 scan_hashtable_find_seg(int32_t target_seg_id)
 {
-#define BUCKET_HEAD(idx) (&hash_table.table[(idx)*N_SLOT_PER_BUCKET])
-    log_warn("expensive debug");
+#define BUCKET_HEAD(idx) (&hash_table.table[(idx) * N_SLOT_PER_BUCKET])
+    /* expensive debug */
 
-    int         extra_array_cnt;
+    int         bkt_chain_len;
     uint64_t    item_info;
-    uint64_t    *bucket, *array;
-    int         array_size;
+    uint64_t    *head_bkt, *curr_bkt;
+    int         n_item_slot;
     uint64_t    seg_id;
     uint64_t    offset;
     struct item *it;
-    int         n_bucket =
-                    HASHSIZE(hash_table.hash_power - N_SLOT_PER_BUCKET_LOG2);
 
-    for (uint64_t bucket_idx = 0; bucket_idx < n_bucket; bucket_idx++) {
-        bucket          = BUCKET_HEAD(bucket_idx);
-        array           = bucket;
-        extra_array_cnt = GET_BUCKET_CHAIN_LEN(bucket);
-        int extra_array_cnt0 = extra_array_cnt;
+    int n_bkt_in_table =
+            HASHSIZE(hash_table.hash_power - N_SLOT_PER_BUCKET_LOG2);
+
+    for (uint64_t bucket_idx = 0; bucket_idx < n_bkt_in_table; bucket_idx++) {
+        curr_bkt      = head_bkt = BUCKET_HEAD(bucket_idx);
+        bkt_chain_len = GET_BUCKET_CHAIN_LEN(head_bkt);
         do {
-            array_size = extra_array_cnt >= 1 ? N_SLOT_PER_BUCKET - 1 :
-                         N_SLOT_PER_BUCKET;
+            n_item_slot = bkt_chain_len >= 1 ?
+                          N_SLOT_PER_BUCKET - 1 :
+                          N_SLOT_PER_BUCKET;
 
-            for (int i = 0; i < array_size; i++) {
-                if (array == bucket && i == 0) {
+            for (int i = 0; i < n_item_slot; i++) {
+                if (curr_bkt == head_bkt && i == 0) {
                     continue;
                 }
 
-                item_info = array[i];
+                item_info = curr_bkt[i];
 
                 if (item_info == 0) {
                     continue;
                 }
 
-                seg_id = ((item_info & SEG_ID_MASK) >> 20u);
+                seg_id = ((item_info & SEG_ID_MASK) >> SEG_ID_BIT_SHIFT);
                 if (target_seg_id == seg_id) {
-                    offset = (item_info & OFFSET_MASK) << 3u;
+                    offset = (item_info & OFFSET_MASK) << OFFSET_UNIT_IN_BIT;
                     it =
                         (struct item *) (heap.base + heap.seg_size * seg_id +
                             offset);
-                    log_warn(
-                        "find item (%.*s) len %d on seg %d offset %d, item_info "
-                        "%lu, i %d, extra %d %d",
+                    log_warn("find item (%.*s) klen %d on seg %d offset %d, "
+                        "item_info %lu, slot %d, bkt_len %d, bkt_len left %d",
                         it->klen, item_key(it), it->klen, seg_id, offset,
                         item_info, i,
-                        extra_array_cnt0, extra_array_cnt);
+                        GET_BUCKET_CHAIN_LEN(head_bkt), bkt_chain_len);
                     ASSERT(0);
                 }
             }
-            extra_array_cnt -= 1;
-            array      = (uint64_t *) (array[N_SLOT_PER_BUCKET - 1]);
-        } while (extra_array_cnt >= 0);
+            bkt_chain_len -= 1;
+            curr_bkt   = (uint64_t *) (curr_bkt[N_SLOT_PER_BUCKET - 1]);
+        } while (bkt_chain_len >= 0);
     }
 
 #undef BUCKET_HEAD
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
