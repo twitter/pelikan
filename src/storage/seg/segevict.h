@@ -1,7 +1,6 @@
 #pragma once
 
 #include "constant.h"
-#include "segmerge.h"
 
 #include <time/time.h>
 #include <cc_mm.h>
@@ -27,6 +26,19 @@ typedef enum evict_rstatus {
     EVICT_OTHER,
 } evict_rstatus_e;
 
+
+struct merge_opts {
+
+    int32_t seg_n_merge;
+    int32_t seg_n_max_merge;
+
+    double  target_ratio;
+    /* if the bytes on the merged seg is more than the threshold,
+     * we stop merge process */
+    double  stop_ratio;
+    int32_t stop_bytes;
+
+};
 
 struct seg_evict_info {
     evict_policy_e      policy;
@@ -58,9 +70,13 @@ struct seg;
 bool
 seg_evictable(struct seg *seg);
 
+/* evict one segment, return the id of the evicted segment in evicted_seg_id,
+ * this function can fail if it cannot find an evictable segment */
 evict_rstatus_e
 seg_evict(int32_t *evicted_seg_id);
 
+evict_rstatus_e
+seg_merge_evict(int32_t *seg_id_ret);
 
 void
 segevict_setup(evict_policy_e ev_policy, uintmax_t seg_mature_time);

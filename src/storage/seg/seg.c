@@ -4,7 +4,6 @@
 #include "hashtable.h"
 #include "item.h"
 #include "segevict.h"
-#include "segmerge.h"
 #include "ttlbucket.h"
 #include "datapool/datapool.h"
 
@@ -44,6 +43,7 @@ static char *seg_state_change_str[] = {
     "allocation",
     "concurrent_get",
     "eviction",
+    "force_eviction",
     "expiration",
     "invalid_reason",
 };
@@ -236,7 +236,6 @@ rm_seg_from_ttl_bucket(int32_t seg_id)
 bool
 rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
 {
-//    static char *eviction_reasons[] = {"evict", "expire"};
     struct seg  *seg = &heap.segs[seg_id];
     struct item *it;
 
@@ -268,7 +267,8 @@ rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
      * since we have already "locked" the seg, it will not be held by other
      * threads, so we can check again safely
      */
-    if (seg->next_seg_id == -1 && reason != SEG_EXPIRATION) {
+    if (seg->next_seg_id == -1 &&
+                reason != SEG_EXPIRATION && reason != SEG_FORCE_EVICTION) {
         /* "this should not happen" */
         ASSERT(0);
 //        __atomic_store_n(&seg->evictable, 0, __ATOMIC_SEQ_CST);
@@ -314,8 +314,7 @@ rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
 
         if (!it->deleted) {
             hashtable_evict(item_key(it), it->klen, seg_id, curr - seg_data);
-        }
-        else {
+        } else {
             /* TODO(jason): why */
 //            hashtable_delete_it(it, seg_id, curr - seg_data);
         }
@@ -365,9 +364,10 @@ rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
 
     /* expensive debug commands */
     if (seg->n_item != 0) {
-        log_warn("removing all items from segment, but %d items left",
-            seg->n_item);
+        log_warn("removed all items from segment, but %d items left", seg->n_item);
+#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
         scan_hashtable_find_seg(seg_id);
+#endif
     }
 
     ASSERT(seg->n_item == 0);
@@ -473,26 +473,10 @@ seg_add_to_freepool(int32_t seg_id, enum seg_state_change reason)
 
     heap.n_free_seg += 1;
 
-    if (reason != SEG_ALLOCATION)
-        log_verb("add %s seg %d to free pool, %d free segs",
+    log_vverb("add %s seg %d to free pool, %d free segs",
             seg_state_change_str[reason], seg_id, heap.n_free_seg);
 }
 
-//static int32_t
-//seg_get_new_using_merge(void)
-//{
-//    int32_t seg_id_ret;
-//
-//    while ((seg_id_ret = seg_get_from_freepool(false)) == -1) {
-//        if (!check_merge_seg()) {
-//            /* better evict a random one */
-//            return -1;
-//        }
-//    }
-//    seg_init(seg_id_ret);
-//
-//    return seg_id_ret;
-//}
 
 /**
  * get a new segment, search for a free segment in the following order
@@ -516,17 +500,13 @@ seg_get_new(void)
     while (seg_id_ret == -1 && n_retries_left >= 0) {
         /* evict seg */
         if (evict_info.policy == EVICT_MERGE_FIFO) {
-            if (!check_merge_seg()) {
-                /* better evict a random one */
-                return -1;
-            }
-            seg_id_ret = seg_get_from_freepool(false);
-
+            status = seg_merge_evict(&seg_id_ret);
         } else {
             status = seg_evict(&seg_id_ret);
-            if (status == EVICT_OK || status == EVICT_NO_AVAILABLE_SEG) {
-                break;
-            }
+        }
+
+        if (status == EVICT_OK || status == EVICT_NO_AVAILABLE_SEG) {
+            break;
         }
 
         if (n_retries_left-- < MAX_RETRIES) {
@@ -642,7 +622,6 @@ seg_teardown(void)
 void
 seg_setup(seg_options_st *options, seg_metrics_st *metrics)
 {
-    printf("item header %d bytes\n", (int) ITEM_HDR_SIZE);
     log_info("set up the %s module", SEG_MODULE_NAME);
 
     if (seg_initialized) {
@@ -650,8 +629,8 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
         seg_teardown();
     }
 
-    log_info("Seg header size: %d, item header size: %d", SEG_HDR_SIZE,
-        ITEM_HDR_SIZE);
+    log_info("Seg header size: %d, item header size: %d",
+        SEG_HDR_SIZE, ITEM_HDR_SIZE);
 
     seg_metrics = metrics;
 

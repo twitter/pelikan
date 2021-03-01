@@ -115,6 +115,7 @@ enum seg_state_change {
                              * success, the other threads will return the
                              * seg to free pool */
     SEG_EVICTION,
+    SEG_FORCE_EVICTION,
     SEG_EXPIRATION,
 
     SEG_INVALID_CHANGE,
@@ -164,11 +165,13 @@ typedef struct {
     ACTION(seg_get,             METRIC_COUNTER,     "# req for new seg"                     )\
     ACTION(seg_get_ex,          METRIC_COUNTER,     "# seg get exceptions"                  )\
     ACTION(seg_return,          METRIC_COUNTER,     "# segment returns"                     )\
-    ACTION(seg_evict,           METRIC_COUNTER,     "# segs evicted"                        )\
+    ACTION(seg_evict,           METRIC_COUNTER,     "# seg evictions"                       )\
     ACTION(seg_evict_retry,     METRIC_COUNTER,     "# retried seg eviction"                )\
     ACTION(seg_evict_ex,        METRIC_COUNTER,     "# segs evict exceptions"               )\
     ACTION(seg_expire,          METRIC_COUNTER,     "# segs removed due to expiration"      )\
     ACTION(seg_merge,           METRIC_COUNTER,     "# seg merge"                           )\
+    ACTION(seg_evict_age_sum,   METRIC_COUNTER,     "sum of ages of all evicted seg"        )\
+    ACTION(seg_evict_seg_cnt,   METRIC_COUNTER,     "# evicted segs"                        )\
     ACTION(seg_curr,            METRIC_GAUGE,       "# active segs"                         )\
     ACTION(item_curr,           METRIC_GAUGE,       "# current items"                       )\
     ACTION(item_curr_bytes,     METRIC_GAUGE,       "# used bytes including item header"    )\
@@ -325,11 +328,11 @@ rm_seg_from_ttl_bucket(int32_t seg_id);
 
 
 #define SEG_PRINT(id, msg, log) do {                                            \
-        log("%s, seg %d seg size %zu, create_at time %d, merge at %d, age %d"   \
-        ", ttl %d, evictable %u, accessible %u"                                 \
-        ", write offset %d, occupied size %d"                                   \
-        ", %d items, n_hit %d, read refcount %d, write refcount %d"             \
-        ", prev_seg %d, next_seg %d",                                           \
+        log("%12s, seg %6d seg size %8zu, create_at time %8d, merge at %8d"        \
+        ", age %6d, ttl %8d, evictable %u, accessible %u"                       \
+        ", write offset %8d, occupied size %8d"                                 \
+        ", %6d items, n_hit %6d, read refcount %2d, write refcount %2d"         \
+        ", prev_seg %6d, next_seg %6d",                                         \
         msg, id, heap.seg_size, heap.segs[id].create_at, heap.segs[id].merge_at,\
         heap.segs[id].merge_at > 0 ?                                            \
         time_proc_sec() - heap.segs[id].merge_at :                              \
@@ -344,4 +347,3 @@ rm_seg_from_ttl_bucket(int32_t seg_id);
         __atomic_load_n(&(heap.segs[id].w_refcount), __ATOMIC_RELAXED),         \
         heap.segs[id].prev_seg_id, heap.segs[id].next_seg_id);                  \
     } while (0)
-

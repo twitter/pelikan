@@ -19,6 +19,9 @@ __thread int32_t             local_last_seg[MAX_N_TTL_BUCKET] = {0};
  * written to
  */
 #ifndef USE_THREAD_LOCAL_SEG
+/* use thread local seg requires reserving one seg per thread per active TTL
+ * bucket, which is expensive when there is no need for high scalability,
+ * Segcache can scale to 8 cores without turning this on */
 struct item *
 ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 {
@@ -30,7 +33,6 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
     uint8_t *seg_data  = NULL;
     int32_t offset     = 0; /* offset of the reserved item in the seg */
     uint8_t accessible = false;
-
 
     curr_seg_id = ttl_bucket->last_seg_id;
 
@@ -102,14 +104,16 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
         }
         else {
-            /* last seg id could be -1 */
+            /* last seg has not changed */
             if (ttl_bucket->first_seg_id == -1) {
+                /* the first seg of the bucket */
                 ASSERT(ttl_bucket->last_seg_id == -1);
 
                 ttl_bucket->first_seg_id = new_seg_id;
             }
             else {
                 ASSERT(curr_seg != NULL);
+                ASSERT(ttl_bucket->last_seg_id != -1);
 //                if (curr_seg->create_at + curr_seg->ttl > time_proc_sec()) {
 //                    bool evictable = __atomic_exchange_n(&curr_seg->evictable,
 //                            1, __ATOMIC_RELAXED);
@@ -124,21 +128,19 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
             ttl_bucket->n_seg += 1;
 
-            /* Q(junchengy): why new seg is made evictable? */
-            bool evictable = __atomic_exchange_n(&new_seg->evictable,
-                1, __ATOMIC_RELAXED);
+            /* Q(juncheng): can we make it evictable when the seg finishes? */
+            bool evictable = __atomic_exchange_n(
+                &new_seg->evictable, 1, __ATOMIC_RELAXED);
             ASSERT(evictable == 0);
 
             PERTTL_INCR(ttl_bucket_idx, seg_curr);
 
-            /* new 0218 */
             ASSERT(curr_seg_id == new_seg->prev_seg_id);
-            log_debug(
-                "link seg %d (offset %d occupied_size %d) to ttl bucket %d, total %d segments, "
-                "prev seg %d (offset %d), first seg %d, last seg %d",
+            log_debug("link seg %d (offset %d occupied_size %d) to "
+                      "ttl bucket %d, total %d segments, "
+                      "prev seg %d (offset %d), first seg %d, last seg %d",
                 new_seg_id, new_seg->write_offset, new_seg->occupied_size,
-                ttl_bucket_idx, ttl_bucket->n_seg,
-                new_seg->prev_seg_id,
+                ttl_bucket_idx, ttl_bucket->n_seg, new_seg->prev_seg_id,
                 curr_seg_id == -1 ? -1 : __atomic_load_n(
                     &heap.segs[curr_seg_id].write_offset, __ATOMIC_SEQ_CST),
                 ttl_bucket->first_seg_id, ttl_bucket->last_seg_id);
@@ -168,20 +170,20 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 struct item *
 ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 {
-    struct item *it;
+    struct item       *it;
     struct ttl_bucket *ttl_bucket = &ttl_buckets[ttl_bucket_idx];
-    int32_t curr_seg_id, new_seg_id;
-    struct seg *curr_seg = NULL, *new_seg = NULL;
+    int32_t           curr_seg_id;
+    struct seg        *curr_seg   = NULL;
 
-    uint8_t *seg_data = NULL;
-    int32_t offset = 0; /* offset of the reserved item in the seg */
+    uint8_t *seg_data  = NULL;
+    int32_t offset     = 0; /* offset of the reserved item in the seg */
     uint8_t accessible = false;
 
     curr_seg_id = local_last_seg[ttl_bucket_idx] - 1;
 
     if (curr_seg_id != -1) {
-        curr_seg = &heap.segs[curr_seg_id];
-        accessible = seg_accessible(curr_seg_id);
+        curr_seg   = &heap.segs[curr_seg_id];
+        accessible = seg_is_accessible(curr_seg_id);
         if (accessible) {
             offset = curr_seg->write_offset;
         }
@@ -190,11 +192,13 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
     if (curr_seg_id == -1 || offset + sz > heap.seg_size || (!accessible)) {
         if (offset + sz > heap.seg_size) {
             ASSERT(offset <= heap.seg_size);
-            seg_data = seg_get_data_start(curr_seg_id);
+            seg_data = get_seg_data_start(curr_seg_id);
             memset(seg_data + offset, 0, heap.seg_size - offset);
         }
 
         if (curr_seg_id != -1) {
+            /* curr seg is not linked to segment chain at this time,
+             * link it now */
             if (pthread_mutex_lock(&heap.mtx) != 0) {
                 log_error("unable to lock mutex");
                 return NULL;
@@ -205,31 +209,32 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
                 ASSERT(ttl_bucket->last_seg_id == -1);
 
                 ttl_bucket->first_seg_id = curr_seg_id;
-            } else {
+            }
+            else {
                 heap.segs[ttl_bucket->last_seg_id].next_seg_id = curr_seg_id;
             }
 
-            curr_seg->prev_seg_id = ttl_bucket->last_seg_id;
+            curr_seg->prev_seg_id   = ttl_bucket->last_seg_id;
             ttl_bucket->last_seg_id = curr_seg_id;
             ASSERT(curr_seg->next_seg_id == -1);
 
             ttl_bucket->n_seg += 1;
 
-            bool evictable =
-                         __atomic_exchange_n(&curr_seg->evictable, 1, __ATOMIC_RELAXED);
+            bool evictable = __atomic_exchange_n(
+                &curr_seg->evictable, 1, __ATOMIC_RELAXED);
             ASSERT(evictable == 0);
 
             PERTTL_INCR(ttl_bucket_idx, seg_curr);
 
-            log_debug("link seg %d (offset %d occupied_size %d) to ttl bucket %d, total %d segments, "
-                     "prev seg %d, first seg %d, last seg %d",
-                    curr_seg_id, curr_seg->write_offset, curr_seg->occupied_size,
-                    ttl_bucket_idx, ttl_bucket->n_seg, curr_seg->prev_seg_id,
-                    ttl_bucket->first_seg_id, ttl_bucket->last_seg_id);
+            log_debug("link seg %d (offset %d occupied_size %d) to "
+                      "ttl bucket %d, total %d segments, "
+                      "prev seg %d, first seg %d, last seg %d",
+                curr_seg_id, curr_seg->write_offset, curr_seg->occupied_size,
+                ttl_bucket_idx, ttl_bucket->n_seg, curr_seg->prev_seg_id,
+                ttl_bucket->first_seg_id, ttl_bucket->last_seg_id);
 
             pthread_mutex_unlock(&heap.mtx);
         }
-
 
         curr_seg_id = seg_get_new();
         if (curr_seg_id == -1) {
@@ -242,19 +247,14 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
         local_last_seg[ttl_bucket_idx] = curr_seg_id + 1;
         curr_seg = &heap.segs[curr_seg_id];
-        curr_seg->ttl = ttl_bucket->ttl;
+        curr_seg->ttl         = ttl_bucket->ttl;
         curr_seg->next_seg_id = -1;
-
         offset = curr_seg->write_offset;
-        accessible = seg_accessible(curr_seg_id);
     }
 
-
     curr_seg->write_offset += sz;
-    seg_data = seg_get_data_start(curr_seg_id);
-    ASSERT(seg_data != NULL);
-
-    it = (struct item *)(seg_data + offset);
+    seg_data = get_seg_data_start(curr_seg_id);
+    it       = (struct item *) (seg_data + offset);
     *seg_id = curr_seg->seg_id;
 
     PERTTL_INCR(ttl_bucket_idx, item_curr);

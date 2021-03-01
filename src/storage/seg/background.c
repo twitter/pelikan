@@ -35,7 +35,7 @@ check_seg_expire(void)
          * the expiring segment  */
         while (seg->create_at + seg->ttl < time_proc_sec() - 2 ||
             seg->create_at < flush_at) {
-            log_info("expire seg %"PRId32 ", create at %"PRId32 ", ttl %"PRId32
+            log_debug("expire seg %"PRId32 ", create at %"PRId32 ", ttl %"PRId32
             ", flushed at %"PRId32, seg_id, seg->create_at, seg->ttl, flush_at);
 
             next_seg_id = seg->next_seg_id;
@@ -67,7 +67,7 @@ background_main(void *data)
         check_seg_expire();
 
         // do we want to enable background eviction?
-        // check_merge_seg();
+        // merge_based_eviction();
 
         usleep(200000);
     }

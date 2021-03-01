@@ -686,12 +686,6 @@ hashtable_delete_it(struct item *it,
     return found_oit;
 }
 
-static inline void
-hashtable_clear_freq_inc_indicator(uint64_t *first_bkt, uint64_t curr_ts)
-{
-
-}
-
 struct item *
 hashtable_get(const char *key, const uint32_t klen,
               int32_t *seg_id,
@@ -1096,7 +1090,7 @@ scan_hashtable_find_seg(int32_t target_seg_id)
             }
             bkt_chain_len -= 1;
             curr_bkt   = (uint64_t *) (curr_bkt[N_SLOT_PER_BUCKET - 1]);
-        } while (bkt_chain_len >= 0);
+        } while (bkt_chain_len > 0);
     }
 
 #undef BUCKET_HEAD
