@@ -25,7 +25,7 @@ export CTEST_OUTPUT_ON_FAILURE=1
 
 # build CDB in CI or else stuff breaks
 if [[ -n "${RUST_ENABLED:-}" ]]; then
-  cmake_cmd+=( -DTARGET_CDB=yes -DTARGET_HTTP=yes -DHAVE_RUST=yes -DRUST_VERBOSE_BUILD=yes )
+  cmake_cmd+=( -DTARGET_CDB=yes -DHAVE_RUST=yes -DRUST_VERBOSE_BUILD=yes )
 fi
 
 mkdir -p _build && ( cd _build && "${cmake_cmd[@]}" .. && make && make test ) || die 'make failed'
