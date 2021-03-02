@@ -67,9 +67,9 @@ enum {
     TIME_SENTINEL = 3
 };
 
-/*          name          type                default       description */
+/*          name          type                default           description */
 #define TIME_OPTION(ACTION) \
-    ACTION( time_type,    OPTION_TYPE_UINT,   TIME_UNIX,    "Expiry timestamp mode" )
+    ACTION( time_type,    OPTION_TYPE_UINT,   TIME_MEMCACHE,    "Expiry timestamp mode" )
 
 typedef struct {
     TIME_OPTION(OPTION_DECLARE)
