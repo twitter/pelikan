@@ -32,7 +32,7 @@ Currently Pelikan yields three main products, all of which are backends/servers.
   compared to Memcached/Redis, the per-key overhead is reduced by up to 90%
 - `pelikan_pingserver`: an over-engineered, production-ready ping server useful
   as a tutorial and for measuring baseline RPC performance
-- [Experimental]`pelikan_segcache`: a Memcached-like server with extremely high
+- **[Experimental]**`pelikan_segcache`: a Memcached-like server with extremely high
   memory efficiency and excellent core scalability. See our [NSDI'21 paper](https://www.usenix.org/conference/nsdi21/presentation/yang-juncheng)
   for design and evaluation details.
 
