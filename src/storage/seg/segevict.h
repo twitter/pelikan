@@ -13,7 +13,6 @@ typedef enum {
     EVICT_CTE,     /* Closet To Expiration */
     EVICT_UTIL,
     EVICT_MERGE_FIFO,
-    EVICT_SMART,
 
     EVICT_INVALID
 } evict_policy_e;

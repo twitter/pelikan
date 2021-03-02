@@ -58,8 +58,11 @@ check_seg_expire(void)
 static void *
 background_main(void *data)
 {
-
-//    pthread_setname_np(pthread_self(), "segBg");
+#ifdef __APPLE__
+    pthread_setname_np("segBg");
+#else
+    pthread_setname_np(pthread_self(), "segBg");
+#endif
 
     log_info("Segcache background thread started");
 

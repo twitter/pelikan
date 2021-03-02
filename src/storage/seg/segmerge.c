@@ -327,6 +327,11 @@ seg_merge_evict(int32_t *seg_id_ret)
 
         last_bkt_idx = bkt_idx;
 
+//        *seg_id_ret = seg_get_from_freepool(false);
+//        log_warn("get seg %d", *seg_id_ret);
+//        if (*seg_id_ret == -1)
+//            return EVICT_NO_AVAILABLE_SEG;
+
         *seg_id_ret = segs_to_merge[0]->seg_id;
         return EVICT_OK;
     }

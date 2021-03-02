@@ -328,12 +328,12 @@ rm_seg_from_ttl_bucket(int32_t seg_id);
 
 
 #define SEG_PRINT(id, msg, log) do {                                            \
-        log("%12s, seg %6d seg size %8zu, create_at time %8d, merge at %8d"        \
+        log("%12s, seg %6d create_at time %8d, merge at %8d"                    \
         ", age %6d, ttl %8d, evictable %u, accessible %u"                       \
         ", write offset %8d, occupied size %8d"                                 \
         ", %6d items, n_hit %6d, read refcount %2d, write refcount %2d"         \
         ", prev_seg %6d, next_seg %6d",                                         \
-        msg, id, heap.seg_size, heap.segs[id].create_at, heap.segs[id].merge_at,\
+        msg, id, heap.segs[id].create_at, heap.segs[id].merge_at,               \
         heap.segs[id].merge_at > 0 ?                                            \
         time_proc_sec() - heap.segs[id].merge_at :                              \
         time_proc_sec() - heap.segs[id].create_at, heap.segs[id].ttl,           \

@@ -25,6 +25,7 @@
 
 extern struct setting        setting;
 extern struct seg_evict_info evict_info;
+extern char *eviction_policy_names[];
 
 struct seg_heapinfo heap; /* info of all allocated segs */
 struct ttl_bucket   ttl_buckets[MAX_N_TTL_BUCKET];
@@ -147,6 +148,10 @@ seg_init(int32_t seg_id)
     struct seg *seg        = &heap.segs[seg_id];
     uint8_t    *data_start = get_seg_data_start(seg_id);
 
+    ASSERT(seg->accessible == 0);
+    ASSERT(seg->evictable == 0);
+
+
 //    cc_memset(data_start, 0, heap.seg_size);
 
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
@@ -166,9 +171,6 @@ seg_init(int32_t seg_id)
     seg->create_at = time_proc_sec();
     seg->merge_at  = 0;
 
-    ASSERT(seg->accessible == 0);
-    ASSERT(seg->evictable == 0);
-
     seg->accessible = 1;
 
     seg->n_hit         = 0;
@@ -183,7 +185,8 @@ rm_seg_from_ttl_bucket(int32_t seg_id)
     struct ttl_bucket *ttl_bucket = &ttl_buckets[find_ttl_bucket_idx(seg->ttl)];
     ASSERT(seg->ttl == ttl_bucket->ttl);
 
-    /* all modification to seg chain needs to be protected by lock */
+    /* all modification to seg chain needs to be protected by lock
+     * TODO(juncheng): can change to the TTL lock? */
     ASSERT(pthread_mutex_trylock(&heap.mtx) != 0);
 
     int32_t prev_seg_id = seg->prev_seg_id;
@@ -272,9 +275,6 @@ rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
         /* "this should not happen" */
         ASSERT(0);
 //        __atomic_store_n(&seg->evictable, 0, __ATOMIC_SEQ_CST);
-//
-//        log_warn("%s seg %" PRIu32 ": next_seg has been changed, give up",
-//            seg_state_change_str[reason], seg_id);
 //        INCR(seg_metrics, seg_evict_ex);
 
         return false;
@@ -301,8 +301,9 @@ rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
          * and have a slow writer on it, we could observe n_item == 0,
          * but we haven't reached offset */
         it = (struct item *) curr;
-        if (it->klen == 0
-            && __atomic_load_n(&seg->n_item, __ATOMIC_SEQ_CST) == 0) {
+        if (it->klen == 0 && it->vlen == 0) {
+            ASSERT(__atomic_load_n(&seg->n_item, __ATOMIC_SEQ_CST) == 0);
+
             break;
         }
 
@@ -505,11 +506,12 @@ seg_get_new(void)
             status = seg_evict(&seg_id_ret);
         }
 
-        if (status == EVICT_OK || status == EVICT_NO_AVAILABLE_SEG) {
+        if (status == EVICT_OK) {
             break;
         }
 
         if (n_retries_left-- < MAX_RETRIES) {
+            log_warn("retry %d", n_retries_left);
             INCR(seg_metrics, seg_evict_retry);
         }
     }
@@ -629,9 +631,6 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
         seg_teardown();
     }
 
-    log_info("Seg header size: %d, item header size: %d",
-        SEG_HDR_SIZE, ITEM_HDR_SIZE);
-
     seg_metrics = metrics;
 
     if (options == NULL) {
@@ -680,6 +679,9 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
     start_background_thread(NULL);
 
     seg_initialized = true;
+
+    log_info("Seg header size: %d, item header size: %d, eviction algorithm %s",
+        SEG_HDR_SIZE, ITEM_HDR_SIZE, eviction_policy_names[evict_info.policy]);
 
     return;
 

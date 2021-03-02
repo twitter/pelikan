@@ -1043,6 +1043,7 @@ scan_hashtable_find_seg(int32_t target_seg_id)
 {
 #define BUCKET_HEAD(idx) (&hash_table.table[(idx) * N_SLOT_PER_BUCKET])
     /* expensive debug */
+    log_warn("scan_hashtable_find_seg is expensive func");
 
     int         bkt_chain_len;
     uint64_t    item_info;
