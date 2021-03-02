@@ -38,25 +38,25 @@ extern "C" {
 
 
 /*          name            type                default             description */
-#define BUF_OPTION(ACTION)                                                                              \
-    ACTION( buf_init_size,  OPTION_TYPE_UINT,   BUF_DEFAULT_SIZE,   "default size when buf is created" )\
-    ACTION( buf_poolsize,   OPTION_TYPE_UINT,   BUF_POOLSIZE,       "buf pool size"                    )
+#define BUF_OPTION(ACTION)                                                                       \
+    ACTION( buf_init_size,  OPTION_TYPE_UINT,   BUF_DEFAULT_SIZE,   "init buf size incl header" )\
+    ACTION( buf_poolsize,   OPTION_TYPE_UINT,   BUF_POOLSIZE,       "buf pool size"             )
 
 typedef struct {
     BUF_OPTION(OPTION_DECLARE)
 } buf_options_st;
 
 /*          name              type            description */
-#define BUF_METRIC(ACTION)                                              \
-    ACTION( buf_curr,         METRIC_GAUGE,   "# buf allocated"        )\
-    ACTION( buf_active,       METRIC_GAUGE,   "# buf in use/borrowed"  )\
-    ACTION( buf_create,       METRIC_COUNTER, "# buf creates"          )\
-    ACTION( buf_create_ex,    METRIC_COUNTER, "# buf create exceptions")\
-    ACTION( buf_destroy,      METRIC_COUNTER, "# buf destroys"         )\
-    ACTION( buf_borrow,       METRIC_COUNTER, "# buf borrows"          )\
-    ACTION( buf_borrow_ex,    METRIC_COUNTER, "# buf borrow exceptions")\
-    ACTION( buf_return,       METRIC_COUNTER, "# buf returns"          )\
-    ACTION( buf_memory,       METRIC_GAUGE,   "memory allocated to buf")
+#define BUF_METRIC(ACTION)                                                              \
+    ACTION( buf_curr,         METRIC_GAUGE,   "# buf allocated"                        )\
+    ACTION( buf_active,       METRIC_GAUGE,   "# buf in use/borrowed"                  )\
+    ACTION( buf_create,       METRIC_COUNTER, "# buf creates"                          )\
+    ACTION( buf_create_ex,    METRIC_COUNTER, "# buf create exceptions"                )\
+    ACTION( buf_destroy,      METRIC_COUNTER, "# buf destroys"                         )\
+    ACTION( buf_borrow,       METRIC_COUNTER, "# buf borrows"                          )\
+    ACTION( buf_borrow_ex,    METRIC_COUNTER, "# buf borrow exceptions"                )\
+    ACTION( buf_return,       METRIC_COUNTER, "# buf returns"                          )\
+    ACTION( buf_memory,       METRIC_GAUGE,   "memory alloc'd to buf including header" )
 
 typedef struct {
     BUF_METRIC(METRIC_DECLARE)
@@ -68,7 +68,7 @@ struct buf {
     char              *wpos;    /* write marker */
     char              *end;     /* end of buffer */
     bool              free;     /* is this buf free? */
-    char              begin[1]; /* beginning of buffer */
+    char              begin[];  /* beginning of buffer */
 };
 
 #define BUF_HDR_SIZE       offsetof(struct buf, begin)
@@ -103,7 +103,7 @@ void buf_destroy(struct buf **buf);
 
 /* Size of data that has yet to be read */
 static inline uint32_t
-buf_rsize(struct buf *buf)
+buf_rsize(const struct buf *buf)
 {
     ASSERT(buf->rpos <= buf->wpos);
 
@@ -112,37 +112,38 @@ buf_rsize(struct buf *buf)
 
 /* Amount of room left in buffer for writing new data */
 static inline uint32_t
-buf_wsize(struct buf *buf)
+buf_wsize(const struct buf *buf)
 {
     ASSERT(buf->wpos <= buf->end);
 
     return (uint32_t)(buf->end - buf->wpos);
 }
 
-/* Total capacity of given buf */
+/* Total size of given buf, including header */
 static inline uint32_t
-buf_size(struct buf *buf)
+buf_size(const struct buf *buf)
 {
     ASSERT(buf->begin < buf->end);
 
-    return (uint32_t)(buf->end - (char*)buf);
+    return (uint32_t)(buf->end - (char *)buf);
 }
 
+/* Size of given buf, not including header */
 static inline uint32_t
-buf_capacity(struct buf *buf)
+buf_capacity(const struct buf *buf)
 {
     ASSERT(buf->begin < buf->end);
 
     return (uint32_t)(buf->end - buf->begin);
 }
 
-/* new capacity needed to append count bytes to the buffer */
+/* new capacity needed to write count bytes to the buffer */
 static inline uint32_t
-buf_new_cap(struct buf *buf, uint32_t count)
+buf_new_cap(const struct buf *buf, uint32_t count)
 {
     ASSERT(buf->begin <= buf->wpos);
 
-    return buf->wpos - buf->begin + count;
+    return count <= buf_wsize(buf) ? 0 : count - buf_wsize(buf);
 }
 
 static inline void

@@ -26,8 +26,6 @@ extern "C" {
 
 #include <inttypes.h>
 
-#define EVENT_SIZE  1024
-
 #define EVENT_READ  0x0000ff
 #define EVENT_WRITE 0x00ff00
 #define EVENT_ERR   0xff0000
@@ -51,7 +49,7 @@ void event_setup(event_metrics_st *metrics);
 void event_teardown(void);
 
 /* event base */
-struct event_base *event_base_create(int size, event_cb_fn cb);
+struct event_base *event_base_create(int nevent, event_cb_fn cb);
 void event_base_destroy(struct event_base **evb);
 
 /* event control */

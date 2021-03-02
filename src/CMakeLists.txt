@@ -19,13 +19,13 @@ set(SOURCE
     cc_ring_array.c
     cc_signal.c)
 
-# targets to build: here we have both static and dynmaic libs
+# targets to build: here we have both static and dynamic libs
 set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 add_library(${PROJECT_NAME}-static STATIC ${SOURCE})
 add_library(${PROJECT_NAME}-shared SHARED ${SOURCE})
 if (OS_PLATFORM STREQUAL "OS_LINUX")
-  target_link_libraries(${PROJECT_NAME}-static rt)
-  target_link_libraries(${PROJECT_NAME}-shared rt)
+  target_link_libraries(${PROJECT_NAME}-static rt m pthread)
+  target_link_libraries(${PROJECT_NAME}-shared rt m pthread)
 endif(OS_PLATFORM STREQUAL "OS_LINUX")
 set_target_properties(${PROJECT_NAME}-static
     PROPERTIES

@@ -22,3 +22,5 @@
  * Boston, MA 02111-1307, USA.
  */
 
+We use the CMakeRust project (https://github.com/Devolutions/CMakeRust) under
+the Apache 2.0 License.

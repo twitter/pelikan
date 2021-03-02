@@ -24,9 +24,12 @@
 #include <string.h>
 #include <sys/mman.h>
 
-/* TODO(yao): detect OS in one place and use one variable everywhere */
-#if defined(__APPLE__) && defined(__MACH__)
+#ifdef OS_DARWIN
 #   define MAP_ANONYMOUS MAP_ANON
+#include <malloc/malloc.h>
+#define malloc_usable_size malloc_size
+#else
+#include <malloc.h>
 #endif
 
 void *
@@ -166,4 +169,11 @@ _cc_munmap(void *p, size_t size, const char *name, int line)
     }
 
     return status;
+}
+
+size_t
+_cc_alloc_usable_size(void *ptr, const char *name, int line)
+{
+    log_vverb("malloc_usable_size(%p) @ %s:%d", ptr, name, line);
+    return malloc_usable_size(ptr);
 }
