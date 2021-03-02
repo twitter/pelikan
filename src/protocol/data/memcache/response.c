@@ -36,6 +36,7 @@ response_reset(struct response *rsp)
     rsp->vcas = 0;
     rsp->met = NULL;
     rsp->flag = 0;
+    rsp->item = NULL;
 
     rsp->cas = 0;
     rsp->num = 0;
