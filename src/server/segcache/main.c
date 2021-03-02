@@ -14,9 +14,9 @@
 #include <sysexits.h>
 
 struct data_processor worker_processor = {
-    twemcache_process_read,
-    twemcache_process_write,
-    twemcache_process_error,
+    segcache_process_read,
+    segcache_process_write,
+    segcache_process_error,
 };
 
 static void
@@ -24,13 +24,13 @@ show_usage(void)
 {
     log_stdout(
             "Usage:" CRLF
-            "  pelikan_twemcache [option|config]" CRLF
+            "  pelikan_segcache [option|config]" CRLF
             );
     log_stdout(
             "Description:" CRLF
-            "  pelikan_twemcache is one of the unified cache backends. " CRLF
-            "  It uses a slab-based storage to cache key/val pairs. " CRLF
-            "  It speaks the memcached ASCII protocol and supports almost " CRLF
+            "  pelikan_segcache is one of the unified cache backends. " CRLF
+            "  It uses a segment-based storage to cache key/val pairs. " CRLF
+            "  It speaks the memcached ASCII protocol and supports " CRLF
             "  all ASCII memcached commands." CRLF
             );
     log_stdout(
@@ -42,7 +42,7 @@ show_usage(void)
             );
     log_stdout(
             "Example:" CRLF
-            "  pelikan_twemcache twemcache.conf" CRLF CRLF
+            "  pelikan_segcache segcache.conf" CRLF CRLF
             "Sample config files can be found under the config dir." CRLF
             );
 }
@@ -55,7 +55,7 @@ teardown(void)
     core_admin_teardown();
     admin_process_teardown();
     process_teardown();
-    slab_teardown();
+    seg_teardown();
     klog_teardown();
     hotkey_teardown();
     compose_teardown();
@@ -96,10 +96,10 @@ setup(void)
     }
 
     /* setup top-level application options */
-    if (option_bool(&setting.twemcache.daemonize)) {
+    if (option_bool(&setting.segcache.daemonize)) {
         daemonize();
     }
-    fname = option_str(&setting.twemcache.pid_filename);
+    fname = option_str(&setting.segcache.pid_filename);
     if (fname != NULL) {
         /* to get the correct pid, call create_pidfile after daemonize */
         create_pidfile(fname);
@@ -123,7 +123,7 @@ setup(void)
     compose_setup(NULL, &stats.compose_rsp);
     klog_setup(&setting.klog, &stats.klog);
     hotkey_setup(&setting.hotkey);
-    slab_setup(&setting.slab, &stats.slab);
+    seg_setup(&setting.seg, &stats.seg);
     process_setup(&setting.process, &stats.process);
     admin_process_setup();
     core_admin_setup(&setting.admin);
@@ -131,19 +131,19 @@ setup(void)
     core_worker_setup(&setting.worker, &stats.worker);
 
     /* adding recurring events to maintenance/admin thread */
-    intvl = option_uint(&setting.twemcache.dlog_intvl);
+    intvl = option_uint(&setting.segcache.dlog_intvl);
     if (core_admin_register(intvl, debug_log_flush, NULL) == NULL) {
         log_stderr("Could not register timed event to flush debug log");
         goto error;
     }
 
-    intvl = option_uint(&setting.twemcache.klog_intvl);
+    intvl = option_uint(&setting.segcache.klog_intvl);
     if (core_admin_register(intvl, klog_flush, NULL) == NULL) {
         log_error("Could not register timed event to flush command log");
         goto error;
     }
 
-    intvl = option_uint(&setting.twemcache.stats_intvl);
+    intvl = option_uint(&setting.segcache.stats_intvl);
     if (core_admin_register(intvl, stats_dump, NULL) == NULL) {
         log_error("Could not register timed event to dump stats");
         goto error;
@@ -203,7 +203,7 @@ main(int argc, char **argv)
         exit(EX_CONFIG);
     }
 
-    /* set the default time type to memcached before loading config */
+    /* currently we only support memcached type of time */
     setting.time.time_type.val.vuint = TIME_MEMCACHE;
 
     if (fp != NULL) {
