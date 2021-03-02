@@ -1,4 +1,4 @@
 
-if(HAVE_RUST)
+if(TARGET_HTTP)
     add_subdirectory(twemcache-http)
 endif()

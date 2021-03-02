@@ -783,10 +783,10 @@ checksum = "494b4d60369511e7dea41cf646832512a94e542f68bb9c49e54518e0f468eb47"
 [[package]]
 name = "httpencode"
 version = "0.1.0"
+source = "git+https://github.com/swlynch99/httpencode#54e1dca723442b745c8db467ab4fb6b9205c7f64"
 dependencies = [
  "arrayvec",
  "bytes 0.5.6",
- "criterion",
  "httpdate",
  "memchr",
 ]
@@ -794,10 +794,10 @@ dependencies = [
 [[package]]
 name = "httpencode"
 version = "0.1.0"
-source = "git+https://github.com/swlynch99/httpencode#54e1dca723442b745c8db467ab4fb6b9205c7f64"
 dependencies = [
  "arrayvec",
  "bytes 0.5.6",
+ "criterion",
  "httpdate",
  "memchr",
 ]
