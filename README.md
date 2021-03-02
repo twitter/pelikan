@@ -32,6 +32,9 @@ Currently Pelikan yields three main products, all of which are backends/servers.
   compared to Memcached/Redis, the per-key overhead is reduced by up to 90%
 - `pelikan_pingserver`: an over-engineered, production-ready ping server useful
   as a tutorial and for measuring baseline RPC performance
+- **[Experimental]**`pelikan_segcache`: a Memcached-like server with extremely high
+  memory efficiency and excellent core scalability. See our [NSDI'21 paper](https://www.usenix.org/conference/nsdi21/presentation/yang-juncheng)
+  for design and evaluation details.
 
 ## Features
 - runtime separation of control and data plane
@@ -138,8 +141,7 @@ _bin/pelikan_twemcache -c
 # Community
 
 ## Stay in touch
-- Join our [mailinglist](https://groups.google.com/forum/#!forum/pelikan-cache)
-  or [![Gitter](https://badges.gitter.im/twitter/pelikan.svg)](https://gitter.im/twitter/pelikan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+- Join our project chat on [![Zulip](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://pelikan.zulipchat.com/)
   for questions and discussions
 - Follow us on Twitter: [@pelikan_cache](https://twitter.com/pelikan_cache)
 - Visit <http://pelikan.io>
@@ -148,9 +150,6 @@ _bin/pelikan_twemcache -c
 
 Please take a look at our [community manifesto](https://github.com/twitter/pelikan/blob/master/docs/manifesto.rst)
 and [coding style guide](https://github.com/twitter/pelikan/blob/master/docs/coding_style.rst).
-
-To get a sense of where things are going next, please visit our
-[Roadmap wiki](https://github.com/twitter/pelikan/wiki/Roadmap).
 
 If you want to submit a patch, please follow these steps:
 
@@ -164,10 +163,6 @@ If you want to submit a patch, please follow these steps:
 # Documentation
 We have made progress and are actively working on documentation, and will put it
 on our website. Meanwhile, check out the current material under `docs/`
-
-We also maintain a [list of topics](https://github.com/twitter/pelikan/wiki/Blog-Post-lineup)
-for upcoming [blog posts](http://pelikan.io/blog). Please let us know what
-(else) interests you.
 
 ## License
 This software is licensed under the Apache 2.0 license, see [LICENSE](LICENSE) for details.
