@@ -116,10 +116,11 @@ START_TEST(test_hashtable_basic)
 
         it2 = hashtable_get(key.data, key.len, &seg_id2, &cas2);
         ck_assert_ptr_eq(it2, it);
-        ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
+        ck_assert_msg(seg->r_refcount == 1, "seg refcount incorrect");
         ck_assert_int_eq(cas+1, cas2);
         ck_assert_int_eq(seg_id, seg_id2);
         cas = cas2;
+        item_release(it2);
     }
 
     hashtable_stat(&n_hashtable_entries, &n_hashtable_buckets);
@@ -149,7 +150,8 @@ START_TEST(test_hashtable_basic)
 
         it2 = hashtable_get(key2.data, key2.len, &seg_id2, &cas2);
         ck_assert_ptr_eq(it2, it);
-        ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
+        ck_assert_msg(seg->r_refcount == 1, "seg refcount incorrect");
+        item_release(it2);
     }
 
     hashtable_stat(&n_hashtable_entries, &n_hashtable_buckets);
@@ -171,6 +173,7 @@ START_TEST(test_hashtable_basic)
 
             it2 = hashtable_get(key2.data, key2.len, &seg_id2, &cas2);
             ck_assert_ptr_eq(it2, it);
+            item_release(it2);
         }
 
         for (int j=0; j<4; j++){
@@ -186,6 +189,7 @@ START_TEST(test_hashtable_basic)
 
             it2 = hashtable_get(key.data, key.len, &seg_id2, &cas2);
             ck_assert_ptr_eq(it2, it);
+            item_release(it2);
         }
     }
 
@@ -240,7 +244,7 @@ START_TEST(test_insert_basic)
     ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
     ck_assert_msg(seg->w_refcount == 0, "seg refcount incorrect");
 
-    it2 = item_get(&key, NULL, true);
+    it2 = item_get(&key, NULL);
     ck_assert_msg(
             it2 != NULL, "item_get could not find key %.*s", key.len, key.data);
     ck_assert_msg(
@@ -287,7 +291,7 @@ START_TEST(test_insert_large)
             status);
     item_insert(it);
 
-    it2 = item_get(&key, NULL, true);
+    it2 = item_get(&key, NULL);
     ck_assert_msg(
             it2 != NULL, "item_get could not find key %.*s", key.len, key.data);
     ck_assert_msg(
@@ -445,7 +449,7 @@ START_TEST(test_update_basic)
             status);
     item_insert(oit);
 
-    oit = item_get(&key, NULL, true);
+    oit = item_get(&key, NULL);
     ck_assert_msg(
             oit != NULL, "item_get could not find key %.*s", key.len, key.data);
     item_release(oit);
@@ -455,12 +459,14 @@ START_TEST(test_update_basic)
             status);
     item_insert(nit);
 
-    nit = item_get(&key, NULL, true);
+    nit = item_get(&key, NULL);
     ck_assert_msg(
             nit != NULL, "item_get could not find key %.*s", key.len, key.data);
     ck_assert_int_eq(nit->vlen, new_val.len);
     ck_assert_int_eq(nit->klen, sizeof(KEY) - 1);
     ck_assert_int_eq(cc_memcmp(item_val(nit), NEW_VAL, new_val.len), 0);
+
+    item_release(nit);
 
     test_teardown();
 
@@ -493,7 +499,7 @@ START_TEST(test_insert_or_update_basic)
             status);
     item_insert(oit);
 
-    oit = item_get(&key, NULL, true);
+    oit = item_get(&key, NULL);
     ck_assert_msg(
             oit != NULL, "item_get could not find key %.*s", key.len, key.data);
 
@@ -508,7 +514,7 @@ START_TEST(test_insert_or_update_basic)
             status);
     item_insert(nit);
 
-    nit = item_get(&key, NULL, true);
+    nit = item_get(&key, NULL);
     ck_assert_msg(
             nit != NULL, "item_get could not find key %.*s", key.len, key.data);
     ck_assert_int_eq(nit->vlen, new_val.len);
@@ -553,19 +559,19 @@ START_TEST(test_delete_basic)
     int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
     seg = &heap.segs[seg_id];
 
-    it = item_get(&key, NULL, true);
+    it = item_get(&key, NULL);
     ck_assert_msg(
             it != NULL, "item_get could not find key %.*s", key.len, key.data);
     item_release(it);
 
     ck_assert_msg(item_delete(&key), "item_delete for key %.*s not successful",
             key.len, key.data);
-    it = item_get(&key, NULL, true);
+    it = item_get(&key, NULL);
     ck_assert_msg(it == NULL, "item with key %.*s still exists after delete",
             key.len, key.data);
-    ck_assert(seg->n_item == 0);
+    ck_assert(seg->n_live_item == 0);
     ck_assert(seg->write_offset >= cc_strlen(VAL));
-    ck_assert(seg->occupied_size <= sizeof(uint64_t));
+    ck_assert(seg->live_bytes <= sizeof(uint64_t));
     ck_assert(seg->r_refcount == 0);
     ck_assert(seg->w_refcount == 0);
 
@@ -596,7 +602,7 @@ START_TEST(test_delete_more)
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK status %d", status);
     item_insert(it);
 
-    it = item_get(&key, NULL, true);
+    it = item_get(&key, NULL);
     ck_assert_msg(it != NULL, "item_get could not find key");
     item_release(it);
 
@@ -608,11 +614,11 @@ START_TEST(test_delete_more)
 //    ck_assert_int_eq(seg->evictable, 0);
     ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
     ck_assert_msg(seg->w_refcount == 0, "seg refcount incorrect");
-    ck_assert_int_eq(seg->n_item, 1);
-    ck_assert_int_eq(seg->write_offset, seg->occupied_size);
+    ck_assert_int_eq(seg->n_live_item, 1);
+    ck_assert_int_eq(seg->write_offset, seg->live_bytes);
 
     in_cache = item_delete(&key);
-    it = item_get(&key, NULL, true);
+    it = item_get(&key, NULL);
     ck_assert_msg(in_cache, "item_delete return False on successful deletion");
     ck_assert_msg(it == NULL, "item still exists after delete");
     in_cache = item_delete(&key);
@@ -662,11 +668,11 @@ START_TEST(test_flush_basic)
 
     item_flush();
     sleep(1); // allow background thread to clean expired segments
-    it = item_get(&key1, NULL, true);
+    it = item_get(&key1, NULL);
     ck_assert_msg(it == NULL, "item with key %.*s still exists after flush",
             key1.len, key1.data);
 
-    it = item_get(&key2, NULL, true);
+    it = item_get(&key2, NULL);
     ck_assert_msg(it == NULL, "item with key %.*s still exists after flush",
             key2.len, key2.data);
 
@@ -702,7 +708,7 @@ START_TEST(test_expire_basic)
     int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
     struct seg *seg = &heap.segs[seg_id];
 
-    it = item_get(&key, NULL, true);
+    it = item_get(&key, NULL);
     ck_assert_msg(it != NULL, "item_get on unexpired item not successful");
     ck_assert_msg(seg->r_refcount == 1, "seg refcount incorrect");
     ck_assert_msg(seg->w_refcount == 0, "seg refcount incorrect");
@@ -713,7 +719,7 @@ START_TEST(test_expire_basic)
 
     proc_sec += 2;
     sleep(1);
-    it = item_get(&key, NULL, true);
+    it = item_get(&key, NULL);
     ck_assert_msg(it == NULL, "item_get returned not NULL after expiration");
 
     test_teardown();
@@ -778,7 +784,7 @@ START_TEST(test_seg_basic)
         ck_assert_int_eq(seg->evictable, 0);
         ck_assert_int_eq(seg->prev_seg_id, -1);
         ck_assert_int_eq(seg->next_seg_id, -1);
-        ck_assert_int_eq(seg->n_item, 0);
+        ck_assert_int_eq(seg->n_live_item, 0);
     }
     test_teardown();
 }
@@ -812,7 +818,7 @@ START_TEST(test_seg_more)
         status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
         ck_assert_msg(status == ITEM_OK, "item_reserve not OK %d", status);
         item_insert(it);
-        it = item_get(&key, NULL, true);
+        it = item_get(&key, NULL);
         ck_assert_msg(it != NULL, "item_get could not find key");
         item_release(it);
 
@@ -823,8 +829,8 @@ START_TEST(test_seg_more)
         ck_assert_int_eq(seg->accessible, 1);
         ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
         ck_assert_msg(seg->w_refcount == 0, "seg refcount incorrect");
-        ck_assert_int_eq(seg->n_item, 1);
-        ck_assert_int_eq(seg->write_offset, seg->occupied_size);
+        ck_assert_int_eq(seg->n_live_item, 1);
+        ck_assert_int_eq(seg->write_offset, seg->live_bytes);
         ck_assert_int_eq(seg->prev_seg_id, i - 1);
         if (i > 0){
             ck_assert_int_eq(heap.segs[i - 1].next_seg_id, i);
@@ -846,7 +852,7 @@ START_TEST(test_seg_more)
     status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
     ck_assert_msg(status == ITEM_OK, "item_reserve not OK status %d", status);
     item_insert(it);
-    it = item_get(&key, NULL, true);
+    it = item_get(&key, NULL);
     ck_assert_msg(it != NULL, "item_get could not find key");
     item_release(it);
 
@@ -857,8 +863,8 @@ START_TEST(test_seg_more)
     ck_assert_int_eq(seg->accessible, 1);
     ck_assert_msg(seg->r_refcount == 0, "seg refcount incorrect");
     ck_assert_msg(seg->w_refcount == 0, "seg refcount incorrect");
-    ck_assert_int_eq(seg->n_item, 1);
-    ck_assert_int_eq(seg->write_offset, seg->occupied_size);
+    ck_assert_int_eq(seg->n_live_item, 1);
+    ck_assert_int_eq(seg->write_offset, seg->live_bytes);
 
     test_teardown();
 
@@ -902,14 +908,14 @@ START_TEST(test_segevict_FIFO)
         status = item_reserve(&it, &key, &val, val.len, 0, INT32_MAX);
         ck_assert(it != NULL);
         item_insert(it);
-        it = item_get(&key, NULL, true);
+        it = item_get(&key, NULL);
         ck_assert(it != NULL);
         item_release(it);
     }
 
     /* cache is full at this time, check before next insert (and evict) */
     bstring_set_literal(&key, keys[0]);
-    it = item_get(&key, NULL, true);
+    it = item_get(&key, NULL);
     ck_assert(it != NULL);
 
     seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
@@ -918,7 +924,7 @@ START_TEST(test_segevict_FIFO)
     ck_assert_int_eq(seg_id, 0);
     ck_assert_msg(seg->r_refcount == 1, "seg refcount incorrect");
     ck_assert_msg(seg->w_refcount == 0, "seg refcount incorrect");
-    ck_assert(seg->n_item == 1);
+    ck_assert(seg->n_live_item == 1);
     item_release(it);
 
     /* cache is full at this time, EVICT_FIFO should evict seg 0 and item 0 */
@@ -937,12 +943,12 @@ START_TEST(test_segevict_FIFO)
     ck_assert_msg(seg->write_offset == item_ntotal(it) ||
                     seg->write_offset == item_ntotal(it) + 8,
             "write offset error %" PRIu32, seg->write_offset);
-    ck_assert_int_eq(seg->write_offset, seg->occupied_size);
-    ck_assert(seg->n_item == 1);
+    ck_assert_int_eq(seg->write_offset, seg->live_bytes);
+    ck_assert(seg->n_live_item == 1);
 
     /* double check item 1 is not in cache */
     bstring_set_literal(&key, keys[0]);
-    it = item_get(&key, NULL, true);
+    it = item_get(&key, NULL);
     ck_assert_msg(it == NULL, "item should have been evicted");
 
     test_teardown();
@@ -989,7 +995,7 @@ START_TEST(test_segevict_CTE)
         ck_assert(it != NULL);
 
         item_insert(it);
-        it = item_get(&key, NULL, true);
+        it = item_get(&key, NULL);
         ck_assert(it != NULL);
         item_release(it);
     }
@@ -1013,12 +1019,12 @@ START_TEST(test_segevict_CTE)
     ck_assert_msg(seg->write_offset == item_ntotal(it) ||
                     seg->write_offset == item_ntotal(it) + 8,
             "write offset error %" PRIu32, seg->write_offset);
-    ck_assert_int_eq(seg->write_offset, seg->occupied_size);
-    ck_assert(seg->n_item == 1);
+    ck_assert_int_eq(seg->write_offset, seg->live_bytes);
+    ck_assert(seg->n_live_item == 1);
 
     /* double check item 3 is not in cache */
     bstring_set_literal(&key, keys[2]);
-    it = item_get(&key, NULL, true);
+    it = item_get(&key, NULL);
     ck_assert_msg(it == NULL, "item should have been evicted");
 
     test_teardown();
@@ -1079,8 +1085,8 @@ START_TEST(test_segevict_UTIL)
      * seg 2 has small item 1 and 2;
      * seg 3 has small item 3 */
     ck_assert(heap.segs[1].write_offset > VLEN_SMALL);
-    ck_assert(heap.segs[1].occupied_size < 200);
-    ck_assert(heap.segs[1].n_item == 0);
+    ck_assert(heap.segs[1].live_bytes < 200);
+    ck_assert(heap.segs[1].n_live_item == 0);
 
     proc_sec = 2000;
     /* now we add one large item, seg 3 is too small to fit in,
@@ -1091,15 +1097,15 @@ START_TEST(test_segevict_UTIL)
     item_insert(it);
 
     /* check seg 3 */
-    ck_assert(heap.segs[3].n_item == 1);
+    ck_assert(heap.segs[3].n_live_item == 1);
 
     /* check whether reserved item is on seg 1 */
     seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
 
     ck_assert_int_eq(seg_id, 1);
     ck_assert(heap.segs[1].write_offset < heap.seg_size);
-    ck_assert(heap.segs[1].occupied_size < heap.seg_size);
-    ck_assert_int_eq(heap.segs[1].n_item, 1);
+    ck_assert(heap.segs[1].live_bytes < heap.seg_size);
+    ck_assert_int_eq(heap.segs[1].n_live_item, 1);
 
     test_teardown();
 
@@ -1143,7 +1149,7 @@ START_TEST(test_segevict_RAND)
         ck_assert(it != NULL);
         item_insert(it);
 
-        it = item_get(&key, NULL, true);
+        it = item_get(&key, NULL);
         ck_assert_msg(it != NULL, "inserted %s but not found", keys[i % 8]);
 
         seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
@@ -1152,8 +1158,8 @@ START_TEST(test_segevict_RAND)
         ck_assert_msg(seg->write_offset == item_ntotal(it) ||
                         seg->write_offset == item_ntotal(it) + 8,
                 "write offset error %" PRIu32, seg->write_offset);
-        ck_assert_int_eq(seg->write_offset, seg->occupied_size);
-        ck_assert_int_eq(seg->n_item, 1);
+        ck_assert_int_eq(seg->write_offset, seg->live_bytes);
+        ck_assert_int_eq(seg->n_live_item, 1);
 
         item_release(it);
     }
@@ -1203,7 +1209,7 @@ START_TEST(test_ttl_bucket_basic)
         ck_assert_int_eq(seg1->seg_id, i * 2);
 
         offset = seg1->write_offset;
-        occu_size = seg1->occupied_size;
+        occu_size = seg1->live_bytes;
         item_size = item_ntotal(it);
 
         ck_assert_msg(
@@ -1236,7 +1242,7 @@ START_TEST(test_ttl_bucket_basic)
         ck_assert_int_eq(seg2->seg_id, i * 2 + 1);
 
         offset = seg2->write_offset;
-        occu_size = seg2->occupied_size;
+        occu_size = seg2->live_bytes;
         item_size = item_ntotal(it);
 
         ck_assert_msg(
@@ -1249,7 +1255,7 @@ START_TEST(test_ttl_bucket_basic)
         item_insert(it);
 
         offset = seg1->write_offset;
-        occu_size = seg1->occupied_size;
+        occu_size = seg1->live_bytes;
         item_size = item_ntotal(it);
 
 //        ck_assert_msg(
@@ -1258,7 +1264,7 @@ START_TEST(test_ttl_bucket_basic)
         ck_assert_msg(occu_size == 0 || occu_size == sizeof(uint64_t),
                 "seg occupied size is incorrect %d", occu_size);
 
-        it2 = item_get(&key, NULL, true);
+        it2 = item_get(&key, NULL);
         ck_assert_msg(it2 == it, "update item is incorrect");
         item_release(it2);
     }
@@ -1319,6 +1325,10 @@ int
 main(void)
 {
     int nfail;
+#ifdef DEBUG_MODE
+    printf("check_seg does not support debug mode");
+    return EXIT_FAILURE;
+#endif
 
     /* turn on during debug */
     debug_options_st debug_opts = {DEBUG_OPTION(OPTION_INIT)};

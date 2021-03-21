@@ -32,7 +32,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
     uint8_t *seg_data  = NULL;
     int32_t offset     = 0; /* offset of the reserved item in the seg */
-    uint8_t accessible = false;
+    uint8_t accessible = true;
 
     curr_seg_id = ttl_bucket->last_seg_id;
 
@@ -73,6 +73,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
         new_seg_id = seg_get_new();
 
         if (new_seg_id == -1) {
+            dump_seg_info();
 #if defined CC_ASSERT_PANIC || defined(CC_ASSERT_LOG)
             ASSERT(0);
 #endif
@@ -82,9 +83,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
         new_seg = &heap.segs[new_seg_id];
         new_seg->ttl = ttl_bucket->ttl;
 
-        /* TODO(jason): we can check the offset again to reduce the chance
-         * of false full problem */
-
+        /* TODO(juncheng): update to TTL lock */
         if (pthread_mutex_lock(&heap.mtx) != 0) {
             log_error("unable to lock mutex");
             return NULL;
@@ -114,19 +113,18 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
             else {
                 ASSERT(curr_seg != NULL);
                 ASSERT(ttl_bucket->last_seg_id != -1);
-//                if (curr_seg->create_at + curr_seg->ttl > time_proc_sec()) {
-//                    bool evictable = __atomic_exchange_n(&curr_seg->evictable,
-//                            1, __ATOMIC_RELAXED);
-//                    ASSERT(evictable == 0);
-//                }
+
                 heap.segs[curr_seg_id].next_seg_id = new_seg_id;
             }
 
+            /* it prev seg has a short TTL and has expired,
+             * ttl_bucket->last_seg_id would be -1,
+             * different from curr_seg_id */
             new_seg->prev_seg_id    = ttl_bucket->last_seg_id;
             ttl_bucket->last_seg_id = new_seg_id;
             ASSERT(new_seg->next_seg_id == -1);
 
-            ttl_bucket->n_seg += 1;
+            ttl_bucket->n_seg++;
 
             /* Q(juncheng): can we make it evictable when the seg finishes? */
             bool evictable = __atomic_exchange_n(
@@ -135,12 +133,14 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
 
             PERTTL_INCR(ttl_bucket_idx, seg_curr);
 
-            ASSERT(curr_seg_id == new_seg->prev_seg_id);
-            log_debug("link seg %d (offset %d occupied_size %d) to "
-                      "ttl bucket %d, total %d segments, "
+            ASSERT(new_seg->prev_seg_id == curr_seg_id ||
+                            new_seg->prev_seg_id == -1);
+            log_debug("link seg %6d (offset %d live_bytes %d) to "
+                      "ttl bucket %d, ttl %8d, total %d segments, "
                       "prev seg %d (offset %d), first seg %d, last seg %d",
-                new_seg_id, new_seg->write_offset, new_seg->occupied_size,
-                ttl_bucket_idx, ttl_bucket->n_seg, new_seg->prev_seg_id,
+                new_seg_id, new_seg->write_offset, new_seg->live_bytes,
+                ttl_bucket_idx,ttl_bucket->ttl,
+                ttl_bucket->n_seg, new_seg->prev_seg_id,
                 curr_seg_id == -1 ? -1 : __atomic_load_n(
                     &heap.segs[curr_seg_id].write_offset, __ATOMIC_SEQ_CST),
                 ttl_bucket->first_seg_id, ttl_bucket->last_seg_id);
@@ -229,7 +229,7 @@ ttl_bucket_reserve_item(int32_t ttl_bucket_idx, size_t sz, int32_t *seg_id)
             log_debug("link seg %d (offset %d occupied_size %d) to "
                       "ttl bucket %d, total %d segments, "
                       "prev seg %d, first seg %d, last seg %d",
-                curr_seg_id, curr_seg->write_offset, curr_seg->occupied_size,
+                curr_seg_id, curr_seg->write_offset, curr_seg->live_bytes,
                 ttl_bucket_idx, ttl_bucket->n_seg, curr_seg->prev_seg_id,
                 ttl_bucket->first_seg_id, ttl_bucket->last_seg_id);
 

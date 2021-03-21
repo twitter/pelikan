@@ -148,9 +148,6 @@ hashtable_put(struct item *it, uint64_t seg_id, uint64_t offset);
 bool
 hashtable_delete(const struct bstring *key);
 
-bool
-hashtable_delete_it(struct item *it, uint64_t seg_id, uint64_t offset);
-
 /*
  * delete the hashtable entry of to this item and all entries
  * of older versions of this item
@@ -188,6 +185,16 @@ void
 hashtable_stat(int *item_cnt_ptr, int *bucket_cnt_ptr);
 
 
+int hashtable_get_it_freq(const char *oit_key, uint32_t oit_klen,
+                          uint64_t old_seg_id, uint64_t old_offset);
+
+/* each hashtable get will incr item frequency,
+ * this function does not incr item frequency */
+struct item *
+hashtable_get_no_freq_incr(const char *key, uint32_t klen, int32_t *seg_id,
+                           uint64_t *cas);
+
+
 /**
  * debugging functions
  * find whether there are any items from a certain segment
@@ -196,10 +203,5 @@ hashtable_stat(int *item_cnt_ptr, int *bucket_cnt_ptr);
 void
 scan_hashtable_find_seg(int32_t target_seg_id);
 
-
-int hashtable_get_it_freq(const char *oit_key, uint32_t oit_klen,
-                          uint64_t old_seg_id, uint64_t old_offset);
-
-struct item *
-hashtable_get_no_freq_incr(const char *key, uint32_t klen, int32_t *seg_id,
-                           uint64_t *cas);
+void
+verify_hashtable(void);

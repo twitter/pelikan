@@ -130,7 +130,7 @@ _get_key(struct response *rsp, struct bstring *key, bool cas)
     struct item *it;
     uint64_t cas_v;
 
-    it = item_get(key, &cas_v, true);
+    it = item_get(key, &cas_v);
     if (it != NULL) {
         rsp->type = RSP_VALUE;
         rsp->key = *key;
@@ -348,7 +348,9 @@ _process_add(struct response *rsp, struct request *req)
     if (req->first) {
         INCR(process_metrics, add);
         key_p = array_first(req->keys);
-        if (item_get(key_p, NULL, false) != NULL) {
+        it = item_get(key_p, NULL);
+        if (it != NULL) {
+            item_release(it);
             rsp->type = RSP_NOT_STORED;
             req->swallow = 1;
             INCR(process_metrics, add_notstored);
@@ -359,8 +361,8 @@ _process_add(struct response *rsp, struct request *req)
         /* segments left */
         it = req->reserved;
         ASSERT(it != NULL);
-        struct bstring key = (struct bstring){it->klen, item_key(it)};
-        ASSERT(item_get(&key, NULL, false) == NULL);
+//        struct bstring key = (struct bstring){it->klen, item_key(it)};
+//        ASSERT(item_get(&key, NULL) == NULL);
         status = _put(&istatus, req);
     }
 
@@ -395,12 +397,14 @@ _process_replace(struct response *rsp, struct request *req)
     if (req->first) {
         INCR(process_metrics, add);
         key_p = array_first(req->keys);
-        if (item_get(key_p, NULL, false) == NULL) {
+        it = item_get(key_p, NULL);
+        if (it == NULL) {
             rsp->type = RSP_NOT_STORED;
             req->swallow = 1;
             INCR(process_metrics, replace_notstored);
             return;
         }
+        item_release(it);
         status = _put(&istatus, req);
     } else {
         /* segments left */
@@ -438,13 +442,14 @@ _process_cas(struct response *rsp, struct request *req)
     if (req->first) {
         INCR(process_metrics, add);
         key_p = array_first(req->keys);
-        it = item_get(key_p, &cas, false);
+        it = item_get(key_p, &cas);
         if (it == NULL) {
             rsp->type = RSP_NOT_FOUND;
             req->swallow = 1;
             INCR(process_metrics, cas_notfound);
             return;
         }
+        item_release(it);
 
         if (cas != req->vcas) {
             req->swallow = 1;
@@ -511,7 +516,7 @@ _process_incr(struct response *rsp, struct request *req)
 
     INCR(process_metrics, incr);
     key = array_first(req->keys);
-    it = item_get(key, NULL, true);
+    it = item_get(key, NULL);
     if (it != NULL) {
         status = _process_delta(rsp, it, req, true);
         if (status == ITEM_OK) {
@@ -538,7 +543,7 @@ _process_decr(struct response *rsp, struct request *req)
 
     INCR(process_metrics, decr);
     key = array_first(req->keys);
-    it = item_get(key, NULL, true);
+    it = item_get(key, NULL);
     if (it != NULL) {
         status = _process_delta(rsp, it, req, false);
         if (status == ITEM_OK) {

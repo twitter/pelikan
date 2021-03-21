@@ -25,7 +25,7 @@
 
 extern struct setting        setting;
 extern struct seg_evict_info evict_info;
-extern char *eviction_policy_names[];
+extern char                  *eviction_policy_names[];
 
 struct seg_heapinfo heap; /* info of all allocated segs */
 struct ttl_bucket   ttl_buckets[MAX_N_TTL_BUCKET];
@@ -38,6 +38,7 @@ seg_perttl_metrics_st perttl[MAX_N_TTL_BUCKET];
 proc_time_i   flush_at = -1;
 bool use_cas = false;
 pthread_t     bg_tid;
+int           n_thread = 1;
 volatile bool stop     = false;
 
 static char *seg_state_change_str[] = {
@@ -48,6 +49,36 @@ static char *seg_state_change_str[] = {
     "expiration",
     "invalid_reason",
 };
+
+void
+dump_seg_info(void)
+{
+    struct seg *seg;
+    int32_t    seg_id;
+
+    for (int32_t i = 0; i < MAX_N_TTL_BUCKET; i++) {
+        seg_id = ttl_buckets[i].first_seg_id;
+        if (seg_id != -1) {
+            printf("ttl bucket %4d: ", i);
+        }
+        else {
+            continue;
+        }
+        while (seg_id != -1) {
+            seg = &heap.segs[seg_id];
+            printf("seg %d (%d), ", seg_id, seg_evictable(seg));
+            seg_id = seg->next_seg_id;
+        }
+        printf("\n");
+    }
+
+    char         s[64];
+    for (int32_t j = 0; j < heap.max_nseg; j++) {
+        snprintf(s, 64, "seg %4d evictable %d", j,
+            seg_evictable(&heap.segs[j]));
+        SEG_PRINT(j, s, log_warn);
+    }
+}
 
 /**
  * wait until no other threads are accessing the seg (refcount == 0)
@@ -101,10 +132,9 @@ seg_is_accessible(int32_t seg_id)
     if (__atomic_load_n(&seg->accessible, __ATOMIC_RELAXED) == 0) {
         return false;
     }
-    bool       expired = seg->ttl + seg->create_at < time_proc_sec() \
- || seg->create_at <= flush_at;
 
-    return !expired;
+    return seg->ttl + seg->create_at > time_proc_sec()
+        && seg->create_at > flush_at;
 }
 
 bool
@@ -145,28 +175,39 @@ void
 seg_init(int32_t seg_id)
 {
     ASSERT(seg_id != -1);
-    struct seg *seg        = &heap.segs[seg_id];
-    uint8_t    *data_start = get_seg_data_start(seg_id);
+    struct seg *seg = &heap.segs[seg_id];
+
+#if defined DEBUG_MODE
+    seg->seg_id_non_decr += heap.max_nseg;
+    if (seg->seg_id_non_decr > 1ul << 23ul) {
+        seg->seg_id_non_decr = seg->seg_id % heap.max_nseg;
+    }
+    seg->n_rm_item = 0;
+    seg->n_rm_bytes = 0;
+#endif
+
+    uint8_t *data_start = get_seg_data_start(seg_id);
 
     ASSERT(seg->accessible == 0);
     ASSERT(seg->evictable == 0);
 
-
-//    cc_memset(data_start, 0, heap.seg_size);
+    cc_memset(data_start, 0, heap.seg_size);
 
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
     *(uint64_t *) (data_start) = SEG_MAGIC;
-    seg->write_offset  = 8;
-    seg->occupied_size = 8;
+    seg->write_offset = 8;
+    seg->live_bytes   = 8;
+    seg->total_bytes  = 8;
 #else
     seg->write_offset   = 0;
-    seg->occupied_size  = 0;
+    seg->live_bytes  = 0;
 #endif
 
     seg->prev_seg_id = -1;
     seg->next_seg_id = -1;
 
-    seg->n_item = 0;
+    seg->n_live_item = 0;
+    seg->n_total_item = 0;
 
     seg->create_at = time_proc_sec();
     seg->merge_at  = 0;
@@ -271,7 +312,7 @@ rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
      * threads, so we can check again safely
      */
     if (seg->next_seg_id == -1 &&
-                reason != SEG_EXPIRATION && reason != SEG_FORCE_EVICTION) {
+        reason != SEG_EXPIRATION && reason != SEG_FORCE_EVICTION) {
         /* "this should not happen" */
         ASSERT(0);
 //        __atomic_store_n(&seg->evictable, 0, __ATOMIC_SEQ_CST);
@@ -297,12 +338,20 @@ rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
     pthread_mutex_unlock(&heap.mtx);
 
     while (curr - seg_data < offset) {
-        /* check both offset and n_item is because when a segment is expiring
-         * and have a slow writer on it, we could observe n_item == 0,
+        /* check both offset and n_live_item is because when a segment is expiring
+         * and have a slow writer on it, we could observe n_live_item == 0,
          * but we haven't reached offset */
         it = (struct item *) curr;
+        if (seg->n_live_item == 0) {
+            ASSERT(seg->live_bytes == 0 || seg->live_bytes == 8);
+
+            break;
+        }
         if (it->klen == 0 && it->vlen == 0) {
-            ASSERT(__atomic_load_n(&seg->n_item, __ATOMIC_SEQ_CST) == 0);
+#if defined(CC_ASSERT_PANIC) && defined(DEBUG_MODE)
+            scan_hashtable_find_seg(seg->seg_id_non_decr);
+#endif
+            ASSERT(__atomic_load_n(&seg->n_live_item, __ATOMIC_SEQ_CST) == 0);
 
             break;
         }
@@ -313,23 +362,23 @@ rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
         ASSERT(it->klen > 0);
         ASSERT(it->vlen >= 0);
 
-        if (!it->deleted) {
-            hashtable_evict(item_key(it), it->klen, seg_id, curr - seg_data);
-        } else {
-            /* TODO(jason): why */
-//            hashtable_delete_it(it, seg_id, curr - seg_data);
-        }
+#if defined DEBUG_MODE
+        hashtable_evict(item_key(it), it->klen, seg->seg_id_non_decr,
+            curr - seg_data);
+#else
+        hashtable_evict(item_key(it), it->klen, seg->seg_id, curr - seg_data);
+#endif
 
-        ASSERT(seg->n_item >= 0);
-        ASSERT(seg->occupied_size >= 0);
+        ASSERT(seg->n_live_item >= 0);
+        ASSERT(seg->live_bytes >= 0);
 
         curr += item_ntotal(it);
     }
 
-    /* at this point, seg->n_item could be negative
+    /* at this point, seg->n_live_item could be negative
      * if it is an expired segment and a new item is being wriiten very slowly,
      * and not inserted into hash table */
-//    ASSERT(__atomic_load_n(&seg->n_item, __ATOMIC_ACQUIRE) >= 0);
+//    ASSERT(__atomic_load_n(&seg->n_live_item, __ATOMIC_ACQUIRE) >= 0);
 
     /* all operation up till here does not require refcount to be 0
      * because the data on the segment is not cleared yet,
@@ -345,7 +394,7 @@ rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
      * writing (_item_define) and insert after we clear the hashtable entries,
      * so we need to double check, in most cases, this should not happen */
 
-    if (__atomic_load_n(&seg->n_item, __ATOMIC_SEQ_CST) > 0) {
+    if (__atomic_load_n(&seg->n_live_item, __ATOMIC_SEQ_CST) > 0) {
         INCR(seg_metrics, seg_evict_retry);
         /* because we don't know which item is newly written, so we
          * have to remove all items again */
@@ -355,28 +404,30 @@ rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
 #endif
         while (curr - seg_data < offset) {
             it = (struct item *) curr;
-            if (!it->deleted) {
-                hashtable_evict(item_key(it), it->klen, seg_id,
-                    curr - seg_data);
-            }
+#if defined DEBUG_MODE
+            hashtable_evict(item_key(it), it->klen, seg->seg_id_non_decr,
+                curr - seg_data);
+#else
+            hashtable_evict(item_key(it), it->klen, seg->seg_id, curr - seg_data);
+#endif
             curr += item_ntotal(it);
         }
     }
 
     /* expensive debug commands */
-    if (seg->n_item != 0) {
-        log_warn("removed all items from segment, but %d items left", seg->n_item);
-#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
-        scan_hashtable_find_seg(seg_id);
+    if (seg->n_live_item != 0) {
+        log_warn("removed all items from segment, but %d items left",
+            seg->n_live_item);
+#if defined(CC_ASSERT_PANIC) && defined(DEBUG_MODE)
+        scan_hashtable_find_seg(heap.segs[seg_id].seg_id_non_decr);
 #endif
     }
 
-    ASSERT(seg->n_item == 0);
-    ASSERT(seg->occupied_size == 0 || seg->occupied_size == 8);
+    ASSERT(seg->n_live_item == 0);
+    ASSERT(seg->live_bytes == 0 || seg->live_bytes == 8);
 
     return true;
 }
-
 
 rstatus_i
 expire_seg(int32_t seg_id)
@@ -469,15 +520,14 @@ seg_add_to_freepool(int32_t seg_id, enum seg_state_change reason)
 
     /* this is needed to make sure the assert
      * at seg_get_from_freepool do not fail */
-    seg->write_offset  = 0;
-    seg->occupied_size = 0;
+    seg->write_offset = 0;
+    seg->live_bytes   = 0;
 
     heap.n_free_seg += 1;
 
     log_vverb("add %s seg %d to free pool, %d free segs",
-            seg_state_change_str[reason], seg_id, heap.n_free_seg);
+        seg_state_change_str[reason], seg_id, heap.n_free_seg);
 }
-
 
 /**
  * get a new segment, search for a free segment in the following order
@@ -510,8 +560,9 @@ seg_get_new(void)
             break;
         }
 
-        if (n_retries_left-- < MAX_RETRIES) {
+        if (--n_retries_left < MAX_RETRIES) {
             log_warn("retry %d", n_retries_left);
+
             INCR(seg_metrics, seg_evict_retry);
         }
     }
@@ -584,9 +635,12 @@ seg_heap_setup(void)
         pthread_mutex_lock(&heap.mtx);
         heap.n_free_seg = 0;
         for (int32_t i = heap.max_nseg - 1; i >= 0; i--) {
-            heap.segs[i].seg_id     = i;
-            heap.segs[i].evictable  = 0;
-            heap.segs[i].accessible = 0;
+            heap.segs[i].seg_id          = i;
+#ifdef DEBUG_MODE
+            heap.segs[i].seg_id_non_decr = i;
+#endif
+            heap.segs[i].evictable       = 0;
+            heap.segs[i].accessible      = 0;
 
             seg_add_to_freepool(i, SEG_ALLOCATION);
         }
@@ -642,6 +696,8 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
     stop     = false;
 
     seg_options = options;
+    n_thread    = option_uint(&seg_options->seg_n_thread);
+
     heap.seg_size  = option_uint(&seg_options->seg_size);
     heap.heap_size = option_uint(&seg_options->heap_mem);
     log_verb("cache size %" PRIu64, heap.heap_size);
@@ -673,7 +729,7 @@ seg_setup(seg_options_st *options, seg_metrics_st *metrics)
     segevict_setup(option_uint(&options->seg_evict_opt),
         option_uint(&seg_options->seg_mature_time));
     if (evict_info.policy == EVICT_MERGE_FIFO) {
-        heap.n_reserved_seg = option_uint(&seg_options->seg_n_thread);
+        heap.n_reserved_seg = n_thread;
     }
 
     start_background_thread(NULL);
