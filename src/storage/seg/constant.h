@@ -42,7 +42,7 @@
 #define ITEM_CAS_SIZE           (use_cas * sizeof(uint32_t))
 
 
-#define DEBUG_MODE
+//#define DEBUG_MODE
 
 
 /* use some PMEM specific functions */
