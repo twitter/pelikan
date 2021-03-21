@@ -45,15 +45,17 @@
 struct seg {
     int32_t         seg_id;
 
-    int32_t         write_offset;  /* current write pos */
-    int32_t         occupied_size; /* the number of live bytes,
-                                    * smaller than seg_size due to
-                                    * internal fragmentation and
-                                    * item update/deletion */
+    int32_t write_offset;   /* current write pos */
+    int32_t live_bytes;     /* the number of live bytes, smaller than seg_size
+                             * due to fragmentation and item update/deletion */
 
-    int32_t         n_item;        /* # live items in the segment */
-    int32_t         prev_seg_id;   /* prev seg in ttl_bucket or free pool */
-    int32_t         next_seg_id;   /* next seg in ttl_bucket or free pool */
+    int32_t n_live_item;   /* # live items in the segment */
+
+    int32_t total_bytes;   /* total used bytes, including delete bytes */
+    int32_t n_total_item;  /* # total items (including deleted) in the segment */
+
+    int32_t prev_seg_id;   /* prev seg in ttl_bucket or free pool */
+    int32_t next_seg_id;   /* next seg in ttl_bucket or free pool */
 
     int16_t         w_refcount;    /* # concurrent reads, >0 means the seg
                                     * cannot be evicted */
@@ -67,6 +69,13 @@ struct seg {
     proc_time_i     create_at;
     delta_time_i    ttl;
     proc_time_i     merge_at;
+
+#if defined DEBUG_MODE
+    int32_t         seg_id_non_decr;/* a keep increasing seg id, and wraps
+                                     * only when it overflows, debug used */
+    int32_t         n_rm_item;      /* keep track of removed items */
+    int32_t         n_rm_bytes;      /* keep track of removed bytes */
+#endif
 
     uint8_t         accessible;    /* indicate the seg is being evicted */
     uint8_t         evictable;     /* not evictable when it is evicted by
@@ -326,13 +335,18 @@ seg_wait_refcnt(int32_t seg_id);
 void
 rm_seg_from_ttl_bucket(int32_t seg_id);
 
+/**
+ * internal use
+ */
+void
+dump_seg_info(void);
 
 #define SEG_PRINT(id, msg, log) do {                                            \
-        log("%12s, seg %6d create_at time %8d, merge at %8d"                    \
-        ", age %6d, ttl %8d, evictable %u, accessible %u"                       \
-        ", write offset %8d, occupied size %8d"                                 \
-        ", %6d items, n_hit %6d, read refcount %2d, write refcount %2d"         \
-        ", prev_seg %6d, next_seg %6d",                                         \
+        log("%12s, seg %6d create_at time %6d, merge at %6d"                    \
+        ", age %4d, ttl %6d, evictable %u, accessible %u"                       \
+        ", write offset %7d, occupied size %7d"                                 \
+        ", %4d items, n_hit %6d, read refcount %2d, write refcount %2d"         \
+        ", prev_seg %4d, next_seg %4d",                                         \
         msg, id, heap.segs[id].create_at, heap.segs[id].merge_at,               \
         heap.segs[id].merge_at > 0 ?                                            \
         time_proc_sec() - heap.segs[id].merge_at :                              \
@@ -340,10 +354,11 @@ rm_seg_from_ttl_bucket(int32_t seg_id);
         __atomic_load_n(&(heap.segs[id].evictable), __ATOMIC_RELAXED),          \
         __atomic_load_n(&(heap.segs[id].accessible), __ATOMIC_RELAXED),         \
         __atomic_load_n(&(heap.segs[id].write_offset), __ATOMIC_RELAXED),       \
-        __atomic_load_n(&(heap.segs[id].occupied_size), __ATOMIC_RELAXED),      \
-        __atomic_load_n(&(heap.segs[id].n_item), __ATOMIC_RELAXED),             \
+        __atomic_load_n(&(heap.segs[id].live_bytes), __ATOMIC_RELAXED),         \
+        __atomic_load_n(&(heap.segs[id].n_live_item), __ATOMIC_RELAXED),        \
         __atomic_load_n(&(heap.segs[id].n_hit), __ATOMIC_RELAXED),              \
         __atomic_load_n(&(heap.segs[id].r_refcount), __ATOMIC_RELAXED),         \
         __atomic_load_n(&(heap.segs[id].w_refcount), __ATOMIC_RELAXED),         \
         heap.segs[id].prev_seg_id, heap.segs[id].next_seg_id);                  \
     } while (0)
+

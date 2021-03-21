@@ -93,11 +93,15 @@ _item_define(struct item *it, const struct bstring *key,
 
     struct seg *curr_seg = &heap.segs[seg_id];
 
-    int32_t occupied_size = __atomic_add_fetch(
-            &(curr_seg->occupied_size), sz, __ATOMIC_RELAXED);
-    ASSERT(occupied_size <= heap.seg_size);
+    __atomic_add_fetch(&curr_seg->n_total_item, 1, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&curr_seg->n_live_item, 1, __ATOMIC_RELAXED);
 
-    __atomic_add_fetch(&curr_seg->n_item, 1, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&(curr_seg->live_bytes), sz, __ATOMIC_RELAXED);
+    int32_t total_bytes = __atomic_add_fetch(&(curr_seg->total_bytes),
+                                                sz, __ATOMIC_RELAXED);
+    ASSERT(total_bytes <= heap.seg_size);
+
+    ASSERT(curr_seg->w_refcount > 0);
 
     INCR(seg_metrics, item_curr);
     INCR_N(seg_metrics, item_curr_bytes, sz);
@@ -119,7 +123,11 @@ item_insert(struct item *it)
     ASSERT(*(uint64_t *)(get_seg_data_start(seg_id)) == SEG_MAGIC);
 #endif
 
+#if defined DEBUG_MODE
+    hashtable_put(it, (uint64_t)heap.segs[seg_id].seg_id_non_decr, (uint64_t)offset);
+#else
     hashtable_put(it, (uint64_t)seg_id, (uint64_t)offset);
+#endif
 
     seg_w_deref(seg_id);
 
@@ -129,7 +137,7 @@ item_insert(struct item *it)
             item_ntotal(it), seg_id,
             __atomic_load_n(&heap.segs[seg_id].write_offset, __ATOMIC_RELAXED),
             __atomic_load_n(
-                    &heap.segs[seg_id].occupied_size, __ATOMIC_RELAXED));
+                    &heap.segs[seg_id].live_bytes, __ATOMIC_RELAXED));
 }
 
 /**
@@ -138,34 +146,32 @@ item_insert(struct item *it)
  *
  */
 struct item *
-item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
+item_get(const struct bstring *key, uint64_t *cas)
 {
     struct item *it;
-    struct seg *seg;
     int32_t seg_id;
 
+#if defined DEBUG_MODE
+    int32_t seg_id_non_decr;
+    it = hashtable_get(key->data, key->len, &seg_id_non_decr, cas);
+    if (it != NULL) {
+        seg_id = seg_id_non_decr % heap.max_nseg;
+        ASSERT(seg_id_non_decr == heap.segs[seg_id].seg_id_non_decr);
+    }
+#else
     it = hashtable_get(key->data, key->len, &seg_id, cas);
+#endif
+
     if (it == NULL) {
         log_vverb("get it '%.*s' not found", key->len, key->data);
 
         return NULL;
     }
 
-    seg = &heap.segs[seg_id];
-
-    if (!seg_is_accessible(seg_id)) {
-        log_verb("get it '%.*s' not accessible/expired", key->len, key->data);
-
-        return NULL;
-    }
 
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
     ASSERT(it->magic == ITEM_MAGIC);
 #endif
-
-    if (incr_ref) {
-        __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_RELAXED);
-    }
 
     log_vverb("get it key %.*s", key->len, key->data);
 
@@ -178,9 +184,9 @@ item_release(struct item *it)
     int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
     struct seg *seg = &heap.segs[seg_id];
 
-    int16_t ref = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
+    int16_t ref_cnt = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
 
-    ASSERT(ref >= 0);
+    ASSERT(ref_cnt >= 0);
 }
 
 

@@ -197,7 +197,7 @@ item_release(struct item *it);
 
 /* acquire an item */
 struct item *
-item_get(const struct bstring *key, uint64_t *cas, bool incr_ref);
+item_get(const struct bstring *key, uint64_t *cas);
 
 /* this function does insert or update */
 void
