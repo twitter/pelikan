@@ -191,7 +191,7 @@ seg_init(int32_t seg_id)
     ASSERT(seg->accessible == 0);
     ASSERT(seg->evictable == 0);
 
-    cc_memset(data_start, 0, heap.seg_size);
+//    cc_memset(data_start, 0, heap.seg_size);
 
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
     *(uint64_t *) (data_start) = SEG_MAGIC;
