@@ -113,25 +113,6 @@ static __thread __uint128_t g_lehmer64_state       = 1;
         __ATOMIC_RELEASE, __ATOMIC_RELAXED                                     \
     )
 
-#if defined HASHTABLE_DBG
-#define SET_BUCKET_MAGIC(bucket_ptr)                                           \
-    (*(bucket_ptr)) = ((*(bucket_ptr)) | 0x0000ffff00000000ul)
-#define CHECK_BUCKET_MAGIC(bucket_ptr)                                         \
-    ASSERT(((*(bucket_ptr)) & 0x0000ffff00000000ul) == 0x0000ffff00000000ul)
-
-#undef GET_BUCKET
-static uint64_t* GET_BUCKET(uint64_t hv)
-{
-    uint64_t *bucket_ptr = (&hash_table.table[((hv) & hash_table.hash_mask)]);
-    CHECK_BUCKET_MAGIC(bucket_ptr);
-    return bucket_ptr;
-}
-
-#else
-#define SET_BUCKET_MAGIC(bucket_ptr)
-#define CHECK_BUCKET_MAGIC(bucket_ptr)
-#endif
-
 #define use_atomic_set
 /* we assume little-endian here */
 #define lock(bucket_ptr)                                                       \
@@ -163,20 +144,20 @@ static uint64_t* GET_BUCKET(uint64_t hv)
 #define lock(bucket_ptr)                                                        \
     do {                                                                        \
         while (__atomic_test_and_set(                                           \
-            ((uint8_t *)(bucket_ptr) + 7), __ATOMIC_ACQUIRE)) {                 \
+            ((uint8_t *)(bucket_ptr) + 7), __ATOMIC_RELAXED)) {                 \
             ;                                                                   \
         }                                                                       \
     } while (0)
 
 #define unlock(bucket_ptr)                                                      \
     do {                                                                        \
-        __atomic_clear(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_RELEASE);        \
+        __atomic_clear(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_RELAXED);        \
     } while (0)
 
 #define unlock_and_update_cas(bucket_ptr)                                       \
     do {                                                                        \
         *bucket_ptr += 1;                                                       \
-        __atomic_clear(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_RELEASE);        \
+        __atomic_clear(((uint8_t *)(bucket_ptr) + 7), __ATOMIC_RELAXED);        \
     } while (0)
 #endif
 
@@ -313,12 +294,6 @@ hashtable_setup(uint32_t hash_power)
 
     /* alloc table */
     hash_table.table = _hashtable_alloc(n_slot);
-
-#if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
-    for (uint64_t i = 0; i < n_slot / N_SLOT_PER_BUCKET; i++) {
-        SET_BUCKET_MAGIC(hash_table.table + i * N_SLOT_PER_BUCKET);
-    }
-#endif
 
     hash_table_initialized = true;
 
@@ -599,6 +574,8 @@ hashtable_evict(const char *oit_key, const uint32_t oit_klen,
     return found_oit;
 }
 
+
+#ifdef STORE_FREQ_IN_HASHTABLE
 struct item *
 hashtable_get(const char *key, const uint32_t klen,
               int32_t *seg_id,
@@ -626,12 +603,7 @@ hashtable_get(const char *key, const uint32_t klen,
 
         if (curr_ts != GET_TS(first_bkt)) {
             /* update ts */
-//            uint64_t new_val = __atomic_load_n(first_bkt, __ATOMIC_RELAXED);
-//            new_val = (new_val & (~TS_MASK)) | (curr_ts << TS_BIT_SHIFT);
-//            __atomic_store_n(first_bkt, new_val, __ATOMIC_RELAXED);
-
-            *first_bkt =
-                ((*first_bkt) & (~TS_MASK)) | (curr_ts << TS_BIT_SHIFT);
+            *first_bkt = ((*first_bkt) & (~TS_MASK)) | (curr_ts << TS_BIT_SHIFT);
             do {
                 n_item_slot = bkt_chain_len > 0 ?
                               N_SLOT_PER_BUCKET - 1 :
@@ -686,6 +658,7 @@ hashtable_get(const char *key, const uint32_t klen,
 #else
             *seg_id = GET_SEG_ID(item_info);
 #endif
+
             struct seg *seg = &heap.segs[GET_SEG_ID(item_info)];
             int ref_cnt = __atomic_add_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
             ASSERT(ref_cnt <= n_thread);
@@ -740,6 +713,88 @@ hashtable_get(const char *key, const uint32_t klen,
     unlock(first_bkt);
     return NULL;
 }
+#else
+struct item *
+hashtable_get(const char *key, const uint32_t klen,
+              int32_t *seg_id,
+              uint64_t *cas)
+{
+    INCR(seg_metrics, hash_lookup);
+
+    uint64_t    hv         = CAL_HV(key, klen);
+    uint64_t    tag        = CAL_TAG_FROM_HV(hv);
+    uint64_t    *first_bkt = GET_BUCKET(hv);
+    uint64_t    *bkt       = first_bkt;
+    struct item *it;
+    int i;
+
+    uint64_t item_info;
+    lock(first_bkt);
+
+    int bkt_chain_len = GET_BUCKET_CHAIN_LEN(first_bkt) - 1;
+    int n_item_slot;
+
+    /* try to find the item in the hash table */
+    do {
+        n_item_slot = bkt_chain_len > 0 ?
+                      N_SLOT_PER_BUCKET - 1 :
+                      N_SLOT_PER_BUCKET;
+
+        for (i = 0; i < n_item_slot; i++) {
+            if (bkt == first_bkt && i == 0) {
+                continue;
+            }
+
+            item_info = bkt[i];
+            if (GET_TAG(item_info) != tag) {
+                continue;
+            }
+            /* a potential hit */
+            if (!_same_item(key, klen, item_info)) {
+                INCR(seg_metrics, hash_tag_collision);
+                continue;
+            }
+            if (cas) {
+                *cas = GET_CAS(first_bkt);
+            }
+
+#if defined DEBUG_MODE
+            *seg_id = GET_SEG_ID_NON_DECR(item_info);
+            ASSERT(heap.segs[GET_SEG_ID(item_info)].seg_id_non_decr == *seg_id);
+#else
+            *seg_id = GET_SEG_ID(item_info);
+#endif
+
+            struct seg *seg = &heap.segs[GET_SEG_ID(item_info)];
+            int ref_cnt = __atomic_add_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
+            ASSERT(ref_cnt <= n_thread);
+
+            if (!seg_is_accessible(GET_SEG_ID(item_info)) ||
+                __atomic_load_n(&bkt[i], __ATOMIC_RELAXED) != item_info) {
+                /* not accessible: it will be removed by other threads,
+                 * item_info change: updated/deleted/accessed by other thread */
+
+                __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
+
+                unlock(first_bkt);
+                return NULL;
+            }
+
+            it = (struct item *) (heap.base + heap.seg_size *
+                        GET_SEG_ID(item_info) + GET_OFFSET(item_info));
+
+            unlock(first_bkt);
+            return it;
+        }
+        bkt_chain_len -= 1;
+        bkt        = (uint64_t *) (bkt[N_SLOT_PER_BUCKET - 1]);
+    } while (bkt_chain_len >= 0);
+
+    unlock(first_bkt);
+    return NULL;
+}
+#endif
+
 
 /**
  * get but not increase item frequency
@@ -1019,7 +1074,6 @@ scan_hashtable_find_seg(int32_t target_seg_id)
                     continue;
                 }
 
-//                item_info = curr_bkt[i];
                 item_info = __atomic_load_n(&curr_bkt[i], __ATOMIC_RELAXED);
 
                 if (item_info == 0) {
@@ -1028,13 +1082,14 @@ scan_hashtable_find_seg(int32_t target_seg_id)
 
                 seg_id = GET_SEG_ID_NON_DECR(item_info);
                 if (target_seg_id == seg_id) {
+                    ASSERT(item_info == __atomic_load_n(&curr_bkt[i], __ATOMIC_RELAXED));
                     offset = (item_info & OFFSET_MASK) << OFFSET_UNIT_IN_BIT;
                     it =
                         (struct item *) (heap.base + heap.seg_size * seg_id +
                             offset);
-                    log_warn("find item klen %d on seg %d offset %d, "
+                    log_warn("find item on seg %d offset %d, "
                              "item_info %x, slot %d, bkt_len %d, bkt_len left %d",
-                        it->klen, seg_id, offset, item_info, i,
+                        seg_id, offset, item_info, i,
                         GET_BUCKET_CHAIN_LEN(head_bkt), bkt_chain_len);
                     ASSERT(0);
                 }

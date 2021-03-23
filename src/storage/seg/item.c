@@ -18,6 +18,14 @@ extern struct hash_table *hash_table;
 extern seg_metrics_st *seg_metrics;
 extern seg_perttl_metrics_st perttl[MAX_N_TTL_BUCKET];
 
+static __thread __uint128_t g_lehmer64_state       = 1;
+
+static inline uint64_t
+prand(void)
+{
+    g_lehmer64_state *= 0xda942042e4dd58b5;
+    return (uint64_t) g_lehmer64_state;
+}
 
 static struct item *
 _item_alloc(uint32_t sz, int32_t ttl_bucket_idx, int32_t *seg_id)
@@ -140,6 +148,22 @@ item_insert(struct item *it)
                     &heap.segs[seg_id].live_bytes, __ATOMIC_RELAXED));
 }
 
+#ifndef STORE_FREQ_IN_HASHTABLE
+static void
+_item_freq_incr(struct item *it) {
+    uint8_t curr_ts = (uint32_t)(time_proc_sec()) & 0xffu;
+    if (it->freq == 255 || curr_ts == it->last_access_time)
+        return;
+
+    if (it->freq < 32 || prand() % it->freq == 0) {
+        /* increase frequency by 1
+         * if freq <= 16 or with prob 1/freq */
+        __atomic_fetch_add(&(it->freq), 1, __ATOMIC_RELAXED);
+        it->last_access_time = curr_ts;
+    }
+}
+#endif
+
 /**
  * find the key in the cache and return,
  * return NULL if not in the cache (never added or evicted, or expired)
@@ -168,9 +192,12 @@ item_get(const struct bstring *key, uint64_t *cas)
         return NULL;
     }
 
-
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
     ASSERT(it->magic == ITEM_MAGIC);
+#endif
+
+#ifndef STORE_FREQ_IN_HASHTABLE
+    _item_freq_incr(it);
 #endif
 
     log_vverb("get it key %.*s", key->len, key->data);
@@ -187,6 +214,47 @@ item_release(struct item *it)
     int16_t ref_cnt = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
 
     ASSERT(ref_cnt >= 0);
+}
+
+/* add this function because in multi-threaded benchmarks, the time may jump and
+ * cause TTL to shift */
+item_rstatus_e
+item_reserve_with_ttl(struct item **it_p, const struct bstring *key,
+             const struct bstring *val, uint32_t vlen, uint8_t olen,
+             delta_time_i ttl)
+{
+    struct item *it;
+    int32_t seg_id;
+
+    if (ttl <= 0) {
+        log_warn("reserve_item (%.*s) ttl %" PRId32, key->len, key->data, ttl);
+    }
+
+    int32_t ttl_bucket_idx = find_ttl_bucket_idx(ttl);
+    size_t sz = item_size(key->len, vlen, olen);
+
+    if (sz > heap.seg_size) {
+        *it_p = NULL;
+        return ITEM_EOVERSIZED;
+    }
+
+    if ((it = _item_alloc(sz, ttl_bucket_idx, &seg_id)) == NULL) {
+        log_warn("item reservation failed");
+        *it_p = NULL;
+        return ITEM_ENOMEM;
+    }
+
+    _item_define(it, key, val, olen, seg_id, ttl_bucket_idx, sz);
+
+    *it_p = it;
+
+    log_verb("reserve it %p (%.*s) of size %u ttl %d in seg %d "
+             "(start offset %d, seg write offset %d)",
+        it, it->klen, item_key(it), item_ntotal(it), ttl, seg_id,
+        (uint8_t *)it - get_seg_data_start(seg_id),
+        __atomic_load_n(&heap.segs[seg_id].write_offset, __ATOMIC_RELAXED));
+
+    return ITEM_OK;
 }
 
 

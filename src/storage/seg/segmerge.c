@@ -111,8 +111,6 @@ prep_seg_to_merge(int32_t start_seg_id,
     int32_t    curr_seg_id = start_seg_id;
     struct seg *curr_seg;
 
-    uint8_t evictable;
-
     /* TODO(juncheng): do we need lock */
     pthread_mutex_lock(&heap.mtx);
     for (int i = 0; i < evict_info.merge_opt.seg_n_max_merge; i++) {
@@ -125,20 +123,11 @@ prep_seg_to_merge(int32_t start_seg_id,
 //            curr_seg_id = curr_seg->next_seg_id;
 //            continue;
         }
-        evictable        = __atomic_exchange_n(
-            &curr_seg->evictable, 0, __ATOMIC_RELAXED);
+        uint8_t evictable = __atomic_exchange_n(&curr_seg->evictable, 0, __ATOMIC_RELAXED);
+#ifdef CC_ASSERT_PANIC
         ASSERT(evictable = 1);
-//        if (evictable == 0) {
-//            log_warn("concurrent merge picking the same seg");
-//            ASSERT(0);
-//            /* concurrent merge and evict */
-//            curr_seg_id = curr_seg->next_seg_id;
-//            continue;
-//        }
+#endif
         segs_to_merge[(*n_evictable_seg)++] = curr_seg;
-//        __atomic_fetch_add(&n_merge_seg, 1, __ATOMIC_RELAXED);
-//        __atomic_fetch_add(&merge_seg_age_sum, proc_sec - curr_seg->create_at,
-//            __ATOMIC_RELAXED);
         curr_seg_id = curr_seg->next_seg_id;
     }
     pthread_mutex_unlock(&heap.mtx);
@@ -197,8 +186,8 @@ seg_merge_evict(int32_t *seg_id_ret)
     struct ttl_bucket *ttl_bkt;
     int               i;
 
-    int32_t      seg_id;
-    delta_time_i first_seg_age;
+    int32_t     seg_id;
+    int32_t     first_seg_age;
 
     /* they are thread local because each thread keeps its own merge progress */
     static __thread int32_t last_bkt_idx = -1;
@@ -261,23 +250,25 @@ seg_merge_evict(int32_t *seg_id_ret)
             /* cannot find enough evictable seg in this TTL bucket */
             ttl_buckets[bkt_idx].next_seg_to_merge = -1;
             seg_id        = ttl_buckets[bkt_idx].first_seg_id;
-            first_seg_age = time_proc_sec() - heap.segs[seg_id].create_at;
-            if (heap.segs[seg_id].merge_at > 0) {
-                first_seg_age = time_proc_sec() - heap.segs[seg_id].merge_at;
-            }
-            /* the first segment in this bucket has not been evicted for a long time,
-             * this can happen if there is a corner case we have not considered,
-             * so evict it, one magic parameter here */
-            bool seg_too_old = first_seg_age > (cal_mean_eviction_age() * 10);
+            if (seg_id != -1) {
+                first_seg_age = time_proc_sec() - heap.segs[seg_id].create_at;
+                if (heap.segs[seg_id].merge_at > 0) {
+                    first_seg_age = time_proc_sec() - heap.segs[seg_id].merge_at;
+                }
+                /* the first segment in this bucket has not been evicted for a long time,
+                 * this can happen if there is a corner case we have not considered,
+                 * so evict it, one magic parameter here */
+                bool seg_too_old = first_seg_age > (cal_mean_eviction_age() * 10);
 
-            if (n_evicted_seg() > 100 && seg_too_old) {
-                bool success = rm_all_item_on_seg(seg_id, SEG_FORCE_EVICTION);
-                if (success) {
-                    last_bkt_idx = bkt_idx + 1;
-                    pthread_mutex_unlock(&ttl_bkt->mtx);
+                if (n_evicted_seg() > 100 && seg_too_old) {
+                    bool success = rm_all_item_on_seg(seg_id, SEG_FORCE_EVICTION);
+                    if (success) {
+                        last_bkt_idx = bkt_idx + 1;
+                        pthread_mutex_unlock(&ttl_bkt->mtx);
 
-                    *seg_id_ret = seg_id;
-                    return EVICT_OK;
+                        *seg_id_ret = seg_id;
+                        return EVICT_OK;
+                    }
                 }
             }
 
@@ -390,7 +381,7 @@ seg_copy(int32_t seg_id_dest, int32_t seg_id_src,
 
         if (it->klen == 0 && it->vlen == 0) {
 #if defined CC_ASSERT_PANIC || defined CC_ASSERT_LOG
-            ASSERT(it->magic == 0);
+            ASSERT(__atomic_load_n(&it->magic, __ATOMIC_SEQ_CST) == 0);
 #endif
             if (seg_src->n_live_item > 0) {
                 log_warn("seg %d: end of merge: %d items left",
@@ -442,8 +433,12 @@ seg_copy(int32_t seg_id_dest, int32_t seg_id_src,
 
         it_offset = curr_src - seg_data_src;
 
+#ifdef STORE_FREQ_IN_HASHTABLE
         it_freq = (double) hashtable_get_it_freq(item_key(it), it->klen,
             seg_id_src_ht, it_offset);
+#else
+        it_freq = (double) it->freq;
+#endif
         ASSERT(it_freq >= 0);
         it_freq = it_freq / ((double) it_sz / mean_size);
 
@@ -539,7 +534,6 @@ merge_segs(struct seg *segs_to_merge[],
      * in case there are no active objects in all evictable segments (so no merged seg),
      * we return this seg */
     int32_t last_seg_next_seg_id = segs_to_merge[n_evictable - 1]->next_seg_id;
-//    int32_t first_seg_prev_seg_id = segs_to_merge[0]->prev_seg_id;
 
     /* get a reserved seg as the new seg for storing the copied objects */
     int32_t new_seg_id = seg_get_from_freepool(true);
@@ -636,7 +630,7 @@ merge_segs(struct seg *segs_to_merge[],
          * set the part that written to 0 */
         memset(get_seg_data_start(new_seg_id) + new_seg->write_offset,
             0, heap.seg_size - new_seg->write_offset);
-        new_seg->evictable = 1;
+        __atomic_store_n(&new_seg->evictable, 1, __ATOMIC_RELAXED);
         successful_merge += 1;
 
         /* print stat */

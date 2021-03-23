@@ -43,6 +43,8 @@
 
 
 //#define DEBUG_MODE
+#define STORE_FREQ_IN_HASHTABLE
+//#undef STORE_FREQ_IN_HASHTABLE
 
 
 /* use some PMEM specific functions */

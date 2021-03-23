@@ -280,6 +280,8 @@ rm_seg_from_ttl_bucket(int32_t seg_id)
 bool
 rm_all_item_on_seg(int32_t seg_id, enum seg_state_change reason)
 {
+    ASSERT(seg_id >= 0);
+
     struct seg  *seg = &heap.segs[seg_id];
     struct item *it;
 

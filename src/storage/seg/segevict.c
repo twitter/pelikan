@@ -48,8 +48,6 @@ seg_evictable(struct seg *seg)
     is_evictable = is_evictable
         && (time_proc_sec() - seg->create_at >= evict_info.seg_mature_time);
 
-//    is_evictable = is_evictable && (time_proc_sec() - seg->create_at) > 2;
-
     /* don't merge segments that will expire soon */
     is_evictable = is_evictable &&
         seg->create_at + seg->ttl - time_proc_sec() > 20;
@@ -269,6 +267,7 @@ segevict_setup(evict_policy_e ev_policy, uintmax_t seg_mature_time)
     evict_info.policy           = ev_policy;
     evict_info.ranked_seg_id    = cc_zalloc(sizeof(int32_t) * heap.max_nseg);
     evict_info.idx_rseg         = 0;
+    evict_info.seg_mature_time  = seg_mature_time;
     pthread_mutex_init(&evict_info.mtx, NULL);
 
     for (i = 0; i < heap.max_nseg; i++) {
