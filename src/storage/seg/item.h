@@ -69,6 +69,10 @@ struct item {
 
     uint32_t klen : 8;      /* key size */
     uint32_t vlen : 24;     /* data size */
+#ifndef STORE_FREQ_IN_HASHTABLE
+    uint8_t  last_access_time;
+    uint8_t  freq;
+#endif
     uint8_t  is_num : 1;    /* whether this is a number */
     uint8_t  deleted : 1;
     uint8_t  olen : 6;      /* option length */
@@ -197,7 +201,7 @@ item_release(struct item *it);
 
 /* acquire an item */
 struct item *
-item_get(const struct bstring *key, uint64_t *cas, bool incr_ref);
+item_get(const struct bstring *key, uint64_t *cas);
 
 /* this function does insert or update */
 void
@@ -213,6 +217,11 @@ item_rstatus_e
 item_reserve(struct item **it_p, const struct bstring *key,
         const struct bstring *val, uint32_t vlen, uint8_t olen,
         proc_time_i expire_at);
+
+item_rstatus_e
+item_reserve_with_ttl(struct item **it_p, const struct bstring *key,
+                      const struct bstring *val, uint32_t vlen, uint8_t olen,
+                      delta_time_i ttl);
 
 void
 item_backfill(struct item *it, const struct bstring *val);

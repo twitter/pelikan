@@ -18,6 +18,14 @@ extern struct hash_table *hash_table;
 extern seg_metrics_st *seg_metrics;
 extern seg_perttl_metrics_st perttl[MAX_N_TTL_BUCKET];
 
+static __thread __uint128_t g_lehmer64_state       = 1;
+
+static inline uint64_t
+prand(void)
+{
+    g_lehmer64_state *= 0xda942042e4dd58b5;
+    return (uint64_t) g_lehmer64_state;
+}
 
 static struct item *
 _item_alloc(uint32_t sz, int32_t ttl_bucket_idx, int32_t *seg_id)
@@ -93,11 +101,15 @@ _item_define(struct item *it, const struct bstring *key,
 
     struct seg *curr_seg = &heap.segs[seg_id];
 
-    int32_t occupied_size = __atomic_add_fetch(
-            &(curr_seg->occupied_size), sz, __ATOMIC_RELAXED);
-    ASSERT(occupied_size <= heap.seg_size);
+    __atomic_add_fetch(&curr_seg->n_total_item, 1, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&curr_seg->n_live_item, 1, __ATOMIC_RELAXED);
 
-    __atomic_add_fetch(&curr_seg->n_item, 1, __ATOMIC_RELAXED);
+    __atomic_add_fetch(&(curr_seg->live_bytes), sz, __ATOMIC_RELAXED);
+    int32_t total_bytes = __atomic_add_fetch(&(curr_seg->total_bytes),
+                                                sz, __ATOMIC_RELAXED);
+    ASSERT(total_bytes <= heap.seg_size);
+
+    ASSERT(curr_seg->w_refcount > 0);
 
     INCR(seg_metrics, item_curr);
     INCR_N(seg_metrics, item_curr_bytes, sz);
@@ -119,7 +131,11 @@ item_insert(struct item *it)
     ASSERT(*(uint64_t *)(get_seg_data_start(seg_id)) == SEG_MAGIC);
 #endif
 
+#if defined DEBUG_MODE
+    hashtable_put(it, (uint64_t)heap.segs[seg_id].seg_id_non_decr, (uint64_t)offset);
+#else
     hashtable_put(it, (uint64_t)seg_id, (uint64_t)offset);
+#endif
 
     seg_w_deref(seg_id);
 
@@ -129,8 +145,24 @@ item_insert(struct item *it)
             item_ntotal(it), seg_id,
             __atomic_load_n(&heap.segs[seg_id].write_offset, __ATOMIC_RELAXED),
             __atomic_load_n(
-                    &heap.segs[seg_id].occupied_size, __ATOMIC_RELAXED));
+                    &heap.segs[seg_id].live_bytes, __ATOMIC_RELAXED));
 }
+
+#ifndef STORE_FREQ_IN_HASHTABLE
+static void
+_item_freq_incr(struct item *it) {
+    uint8_t curr_ts = (uint32_t)(time_proc_sec()) & 0xffu;
+    if (it->freq == 255 || curr_ts == it->last_access_time)
+        return;
+
+    if (it->freq < 32 || prand() % it->freq == 0) {
+        /* increase frequency by 1
+         * if freq <= 16 or with prob 1/freq */
+        __atomic_fetch_add(&(it->freq), 1, __ATOMIC_RELAXED);
+        it->last_access_time = curr_ts;
+    }
+}
+#endif
 
 /**
  * find the key in the cache and return,
@@ -138,23 +170,24 @@ item_insert(struct item *it)
  *
  */
 struct item *
-item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
+item_get(const struct bstring *key, uint64_t *cas)
 {
     struct item *it;
-    struct seg *seg;
     int32_t seg_id;
 
+#if defined DEBUG_MODE
+    int32_t seg_id_non_decr;
+    it = hashtable_get(key->data, key->len, &seg_id_non_decr, cas);
+    if (it != NULL) {
+        seg_id = seg_id_non_decr % heap.max_nseg;
+        ASSERT(seg_id_non_decr == heap.segs[seg_id].seg_id_non_decr);
+    }
+#else
     it = hashtable_get(key->data, key->len, &seg_id, cas);
+#endif
+
     if (it == NULL) {
         log_vverb("get it '%.*s' not found", key->len, key->data);
-
-        return NULL;
-    }
-
-    seg = &heap.segs[seg_id];
-
-    if (!seg_is_accessible(seg_id)) {
-        log_verb("get it '%.*s' not accessible/expired", key->len, key->data);
 
         return NULL;
     }
@@ -163,9 +196,9 @@ item_get(const struct bstring *key, uint64_t *cas, bool incr_ref)
     ASSERT(it->magic == ITEM_MAGIC);
 #endif
 
-    if (incr_ref) {
-        __atomic_fetch_add(&seg->r_refcount, 1, __ATOMIC_RELAXED);
-    }
+#ifndef STORE_FREQ_IN_HASHTABLE
+    _item_freq_incr(it);
+#endif
 
     log_vverb("get it key %.*s", key->len, key->data);
 
@@ -178,9 +211,50 @@ item_release(struct item *it)
     int32_t seg_id = (((uint8_t *)it) - heap.base) / heap.seg_size;
     struct seg *seg = &heap.segs[seg_id];
 
-    int16_t ref = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
+    int16_t ref_cnt = __atomic_sub_fetch(&seg->r_refcount, 1, __ATOMIC_RELAXED);
 
-    ASSERT(ref >= 0);
+    ASSERT(ref_cnt >= 0);
+}
+
+/* add this function because in multi-threaded benchmarks, the time may jump and
+ * cause TTL to shift */
+item_rstatus_e
+item_reserve_with_ttl(struct item **it_p, const struct bstring *key,
+             const struct bstring *val, uint32_t vlen, uint8_t olen,
+             delta_time_i ttl)
+{
+    struct item *it;
+    int32_t seg_id;
+
+    if (ttl <= 0) {
+        log_warn("reserve_item (%.*s) ttl %" PRId32, key->len, key->data, ttl);
+    }
+
+    int32_t ttl_bucket_idx = find_ttl_bucket_idx(ttl);
+    size_t sz = item_size(key->len, vlen, olen);
+
+    if (sz > heap.seg_size) {
+        *it_p = NULL;
+        return ITEM_EOVERSIZED;
+    }
+
+    if ((it = _item_alloc(sz, ttl_bucket_idx, &seg_id)) == NULL) {
+        log_warn("item reservation failed");
+        *it_p = NULL;
+        return ITEM_ENOMEM;
+    }
+
+    _item_define(it, key, val, olen, seg_id, ttl_bucket_idx, sz);
+
+    *it_p = it;
+
+    log_verb("reserve it %p (%.*s) of size %u ttl %d in seg %d "
+             "(start offset %d, seg write offset %d)",
+        it, it->klen, item_key(it), item_ntotal(it), ttl, seg_id,
+        (uint8_t *)it - get_seg_data_start(seg_id),
+        __atomic_load_n(&heap.segs[seg_id].write_offset, __ATOMIC_RELAXED));
+
+    return ITEM_OK;
 }
 
 

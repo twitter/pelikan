@@ -37,17 +37,16 @@ seg_evictable(struct seg *seg)
         return false;
     }
 
-    bool is_evictable;
+    bool is_evictable = seg->w_refcount == 0;
     /* although we check evictable here, we will check again after
      * we grab the lock, so this is part of the opportunistic concurrency control */
-    is_evictable = (seg->evictable == 1) && (seg->next_seg_id != -1);
+    is_evictable = is_evictable &&
+        (seg->evictable == 1) && (seg->next_seg_id != -1);
 
     /* a magic number - we don't want to merge just created seg */
     /* TODO(jason): the time needs to be adaptive */
     is_evictable = is_evictable
         && (time_proc_sec() - seg->create_at >= evict_info.seg_mature_time);
-
-    is_evictable = is_evictable && (time_proc_sec() - seg->create_at) > 2;
 
     /* don't merge segments that will expire soon */
     is_evictable = is_evictable &&
@@ -144,7 +143,7 @@ cmp_seg_util(const void *d1, const void *d2)
         return -1;
     }
 
-    return seg1->occupied_size - seg2->occupied_size;
+    return seg1->live_bytes - seg2->live_bytes;
 }
 
 static inline void
@@ -213,12 +212,14 @@ least_valuable_seg(int32_t *seg_id)
 
         *seg_id = evict_info.ranked_seg_id[evict_info.idx_rseg];
         seg = &heap.segs[*seg_id];
+        bool reranked = false;
 
         while (!seg_evictable(seg) && i < heap.max_nseg) {
             i++;
-            if (evict_info.idx_rseg + i >= heap.max_nseg) {
+            if (!reranked && evict_info.idx_rseg + i >= heap.max_nseg) {
                 rank_seg();
                 i = 0;
+                reranked = true;
             }
             *seg_id = evict_info.ranked_seg_id[evict_info.idx_rseg + i];
             seg = &heap.segs[*seg_id];
@@ -228,12 +229,15 @@ least_valuable_seg(int32_t *seg_id)
             rank_seg();
 
             pthread_mutex_unlock(&evict_info.mtx);
+
+            *seg_id = -1;
             return EVICT_NO_AVAILABLE_SEG;
         }
         else {
             evict_info.idx_rseg = (evict_info.idx_rseg + i + 1) % heap.max_nseg;
 
             pthread_mutex_unlock(&evict_info.mtx);
+
             return EVICT_OK;
         }
 
@@ -263,6 +267,7 @@ segevict_setup(evict_policy_e ev_policy, uintmax_t seg_mature_time)
     evict_info.policy           = ev_policy;
     evict_info.ranked_seg_id    = cc_zalloc(sizeof(int32_t) * heap.max_nseg);
     evict_info.idx_rseg         = 0;
+    evict_info.seg_mature_time  = seg_mature_time;
     pthread_mutex_init(&evict_info.mtx, NULL);
 
     for (i = 0; i < heap.max_nseg; i++) {
