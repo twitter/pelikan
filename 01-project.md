@@ -19,6 +19,27 @@ at scale. Its design captures much of the commonality among similar
 systems, such as Memcached, Redis and Twemproxy, and makes improving and
 iterating on such services easier and faster.
 
+### Architecture
+
+Pelikan Cache separates performance-sensitive processing from the less
+performance sensitive processing, and it separates different types of
+performance-sensitive processing from each other. Data request-response
+processing and connection establishment are assigned to the data plane (the
+“fast path”). Everything else is assigned to the control plane. Each major
+processing pipeline gets its own thread— `worker`, `server`, `admin`, and
+`debug` (see Figure 1).
+
+  {% include image.html url="/assets/img/pelikan-arch.png" description="Figure 1: Pelikan Architecture" class="single" %}
+
+Pelikan Cache brings several benefits to Twitter’s caching:
+- Separation of control and data plane
+- Data plane operations are guaranteed to be nonblocking, using lockless data structures to deliver low latencies
+- Per-module configuration options and metrics that can be easily composed
+- Multiple storage and API protocol implementations, and the ability to easily combine and extend them
+- Low-overhead command logger that keeps up with full throughput and captures all request metadata for analysis
+
+
+
 ### Products
 
 Currently Pelikan yields three production-ready products, all of which are
