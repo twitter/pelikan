@@ -54,9 +54,7 @@ backends/servers.
 
 ## Community
 
-- Join our [mailinglist](https://groups.google.com/forum/#!forum/pelikan-cache)
-  or [![Gitter](https://badges.gitter.im/twitter/pelikan.svg)](https://gitter.im/twitter/pelikan?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-  for questions and discussions
+- Join our [chatroom on Zulip](https://pelikan.zulipchat.com) for questions and discussions
 - Follow us on Twitter: [@pelikan_cache](https://twitter.com/pelikan_cache)
 - Visit <http://pelikan.io>
 
