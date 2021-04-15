@@ -443,6 +443,8 @@ seg_copy(int32_t seg_id_dest, int32_t seg_id_src,
         it_freq = it_freq / ((double) it_sz / mean_size);
 
         if (it_freq <= cutoff && (!copy_all_items)) {
+            DECR_N(seg_metrics, item_curr_bytes, it_sz);
+            DECR(seg_metrics, item_curr);
             hashtable_evict(item_key(it), it->klen, seg_id_src_ht, it_offset);
             curr_src += it_sz;
             continue;
