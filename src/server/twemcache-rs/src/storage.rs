@@ -98,8 +98,8 @@ impl Storage<CacheHasher> {
         let data = SegCache::builder()
             .power(config.segcache().hash_power())
             .hash_extra_capacity(config.segcache().hash_extra_capacity())
-            .segments(config.segcache().segments())
-            .seg_size(config.segcache().seg_size())
+            .heap_size(config.segcache().heap_size())
+            .segment_size(config.segcache().segment_size())
             .eviction(eviction)
             .hasher(CacheHasher::default())
             .build();

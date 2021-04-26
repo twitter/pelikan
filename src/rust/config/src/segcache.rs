@@ -4,12 +4,20 @@
 
 use serde::{Deserialize, Serialize};
 
-// constants to define default values
+const MB: usize = 1024 * 1024;
+
+// defaults for hashtable
 const HASH_POWER: u8 = 16;
-const HASH_EXTRA_CAPACITY: f64 = 0.0;
-const SEG_SIZE: i32 = 1024 * 1024;
-const SEGMENTS: i32 = 64;
+const OVERFLOW_FACTOR: f64 = 1.0;
+
+// default heap/segment sizing
+const HEAP_SIZE: usize = 64 * MB;
+const SEGMENT_SIZE: i32 = MB as i32;
+
+// default eviction strategy
 const EVICTION: Eviction = Eviction::Merge;
+
+// related to merge eviction
 const COMPACT_TARGET: usize = 2;
 const MERGE_TARGET: usize = 4;
 const MERGE_MAX: usize = 8;
@@ -29,16 +37,16 @@ fn hash_power() -> u8 {
     HASH_POWER
 }
 
-fn hash_extra_capacity() -> f64 {
-    HASH_EXTRA_CAPACITY
+fn overflow_factor() -> f64 {
+    OVERFLOW_FACTOR
 }
 
-fn seg_size() -> i32 {
-    SEG_SIZE
+fn heap_size() -> usize {
+    HEAP_SIZE
 }
 
-fn segments() -> i32 {
-    SEGMENTS
+fn segment_size() -> i32 {
+    SEGMENT_SIZE
 }
 
 fn eviction() -> Eviction {
@@ -62,12 +70,12 @@ fn compact_target() -> usize {
 pub struct SegCacheConfig {
     #[serde(default = "hash_power")]
     hash_power: u8,
-    #[serde(default = "hash_extra_capacity")]
-    hash_extra_capacity: f64,
-    #[serde(default = "seg_size")]
-    seg_size: i32,
-    #[serde(default = "segments")]
-    segments: i32,
+    #[serde(default = "overflow_factor")]
+    overflow_factor: f64,
+    #[serde(default = "heap_size")]
+    heap_size: usize,
+    #[serde(default = "segment_size")]
+    segment_size: i32,
     #[serde(default = "eviction")]
     eviction: Eviction,
     #[serde(default = "merge_target")]
@@ -82,9 +90,9 @@ impl Default for SegCacheConfig {
     fn default() -> Self {
         Self {
             hash_power: hash_power(),
-            hash_extra_capacity: hash_extra_capacity(),
-            seg_size: seg_size(),
-            segments: segments(),
+            overflow_factor: overflow_factor(),
+            heap_size: heap_size(),
+            segment_size: segment_size(),
             eviction: eviction(),
             merge_target: merge_target(),
             merge_max: merge_max(),
@@ -99,16 +107,16 @@ impl SegCacheConfig {
         self.hash_power
     }
 
-    pub fn hash_extra_capacity(&self) -> f64 {
-        self.hash_extra_capacity
+    pub fn overflow_factor(&self) -> f64 {
+        self.overflow_factor
     }
 
-    pub fn seg_size(&self) -> i32 {
-        self.seg_size
+    pub fn heap_size(&self) -> usize {
+        self.heap_size
     }
 
-    pub fn segments(&self) -> i32 {
-        self.segments
+    pub fn segment_size(&self) -> i32 {
+        self.segment_size
     }
 
     pub fn eviction(&self) -> Eviction {

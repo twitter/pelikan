@@ -18,36 +18,35 @@ pub enum SegmentsError {
 }
 
 pub struct SegmentsBuilder {
-    seg_size: i32,
-    segments: i32,
+    heap_size: usize,
+    segment_size: i32,
     evict_policy: Policy,
 }
 
 impl Default for SegmentsBuilder {
     fn default() -> Self {
         Self {
-            seg_size: 1024 * 1024,
-            segments: 64,
+            segment_size: 1024 * 1024,
+            heap_size: 64 * 1024 * 1024,
             evict_policy: Policy::Random,
         }
     }
 }
 
 impl<'a> SegmentsBuilder {
-    pub fn seg_size(mut self, bytes: i32) -> Self {
+    pub fn segment_size(mut self, bytes: i32) -> Self {
         #[cfg(not(feature = "magic"))]
         assert!(bytes > ITEM_HDR_SIZE as i32);
 
         #[cfg(feature = "magic")]
         assert!(bytes >= ITEM_HDR_SIZE as i32 + ITEM_MAGIC_SIZE as i32);
 
-        self.seg_size = bytes;
+        self.segment_size = bytes;
         self
     }
 
-    pub fn segments(mut self, count: i32) -> Self {
-        assert!(count > 0);
-        self.segments = count;
+    pub fn heap_size(mut self, bytes: usize) -> Self {
+        self.heap_size = bytes;
         self
     }
 
@@ -64,7 +63,7 @@ impl<'a> SegmentsBuilder {
 pub struct Segments {
     headers: Box<[SegmentHeader]>, // pointer to slice of headers
     data: Box<[u8]>,               // pointer to raw data
-    seg_size: i32,                 // size of segment in bytes
+    segment_size: i32,             // size of segment in bytes
     free: i32,                     // number of segments free
     cap: i32,                      // total number of segments
     free_q: i32,                   // next free segment
@@ -84,8 +83,14 @@ impl Segments {
     }
 
     fn from_builder(builder: SegmentsBuilder) -> Self {
-        let seg_size = builder.seg_size;
-        let segments = builder.segments as usize;
+        let segment_size = builder.segment_size;
+        let segments = builder.heap_size / (builder.segment_size as usize);
+
+        assert!(
+            segments < (i32::MAX as usize),
+            "heap size requires too many segments, reduce heap size or increase segment size"
+        );
+
         let evict_policy = builder.evict_policy;
 
         let mut headers = Vec::with_capacity(0);
@@ -96,15 +101,15 @@ impl Segments {
         }
         let mut headers = headers.into_boxed_slice();
 
-        let heap_size = segments * seg_size as usize;
+        let heap_size = segments * segment_size as usize;
         let mut data = Vec::with_capacity(0);
         data.reserve_exact(heap_size);
         data.resize(heap_size, 0);
         let mut data = data.into_boxed_slice();
 
         for id in 0..segments {
-            let begin = seg_size as usize * id;
-            let end = begin + seg_size as usize;
+            let begin = segment_size as usize * id;
+            let end = begin + segment_size as usize;
             let mut segment = Segment {
                 header: &mut headers[id],
                 data: &mut data[begin..end],
@@ -123,7 +128,7 @@ impl Segments {
 
         Self {
             headers,
-            seg_size,
+            segment_size,
             cap: segments as i32,
             free: segments as i32,
             free_q: 0,
@@ -136,7 +141,7 @@ impl Segments {
     // returns the segment size in bytes
     #[inline]
     pub fn segment_size(&self) -> i32 {
-        self.seg_size
+        self.segment_size
     }
 
     // returns the number of segments in the free queue
@@ -160,8 +165,8 @@ impl Segments {
         trace!("getting item from: seg: {} offset: {}", seg_id, offset);
         assert!(seg_id < self.cap as i32);
 
-        let seg_begin = self.seg_size as usize * seg_id as usize;
-        let seg_end = seg_begin + self.seg_size as usize;
+        let seg_begin = self.segment_size() as usize * seg_id as usize;
+        let seg_end = seg_begin + self.segment_size() as usize;
         let mut segment = Segment {
             header: &mut self.headers[seg_id as usize],
             data: &mut self.data[seg_begin..seg_end],
@@ -262,11 +267,12 @@ impl Segments {
                 .headers
                 .get_mut(id)
                 .ok_or(SegmentsError::BadSegmentId)?;
+
             // this is safe because we now know the id was within range
-            let data = unsafe { self.data.as_mut_ptr().add(self.seg_size as usize * id) };
+            let data = unsafe { self.data.as_mut_ptr().add(self.segment_size as usize * id) };
             let segment = Segment {
                 header,
-                data: unsafe { std::slice::from_raw_parts_mut(data, self.seg_size as usize) },
+                data: unsafe { std::slice::from_raw_parts_mut(data, self.segment_size as usize) },
             };
             segment.check_magic();
             Ok(segment)
@@ -293,15 +299,15 @@ impl Segments {
             unsafe {
                 let header_a = &mut self.headers[a] as *mut _;
                 let header_b = &mut self.headers[b] as *mut _;
-                let data_a = self.data.as_mut_ptr().add(self.seg_size as usize * a);
-                let data_b = self.data.as_mut_ptr().add(self.seg_size as usize * b);
+                let data_a = self.data.as_mut_ptr().add(self.segment_size() as usize * a);
+                let data_b = self.data.as_mut_ptr().add(self.segment_size() as usize * b);
                 let seg_a = Segment {
                     header: &mut *header_a,
-                    data: std::slice::from_raw_parts_mut(data_a, self.seg_size as usize),
+                    data: std::slice::from_raw_parts_mut(data_a, self.segment_size() as usize),
                 };
                 let seg_b = Segment {
                     header: &mut *header_b,
-                    data: std::slice::from_raw_parts_mut(data_b, self.seg_size as usize),
+                    data: std::slice::from_raw_parts_mut(data_b, self.segment_size() as usize),
                 };
                 seg_a.check_magic();
                 seg_b.check_magic();

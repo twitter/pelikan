@@ -21,14 +21,15 @@ nevent = 1024
 # number of worker threads
 threads = 1
 
-[seg_cache]
-# hash power
-hash_power = 22
-# size of each segment in bytes
-seg_size = 1048576
-# number of segments
-segments = 4096
-# eviction policy is segment random - similar to slab random
+# storage configuration
+[segcache]
+# hash power adjusts how many items can be held in the hashtable
+hash_power = 16
+# total bytes to use for item storage - 4GiB
+heap_size = 4294967296
+# size of each segment in bytes - 1MiB
+segment_size = 1048576
+# eviction policy is segment random, similar to slab random for Twemcache
 eviction = "Random"
 
 [time]

@@ -8,6 +8,10 @@ use rustcommon_time::CoarseInstant as Instant;
 
 const N_ITEM_SLOT: usize = 8;
 
+// Maximum number of buckets in a chain, must be <= 255. Stored as a u64 to
+// avoid repeated resizing for comparison
+const MAX_CHAIN_LEN: u64 = 16;
+
 #[derive(Copy, Clone)]
 pub struct HashBucket {
     data: [u64; N_ITEM_SLOT],
@@ -36,15 +40,21 @@ impl<S> HashTable<S>
 where
     S: BuildHasher,
 {
-    pub fn with_hasher(power: u8, extra_cap: f64, hash_builder: S) -> HashTable<S> {
-        if !(0.0..=1.0).contains(&extra_cap) {
-            fatal!("hashtable extra_cap should be in the range 0.0-1.0 (inclusive)");
+    pub fn with_hasher(power: u8, overflow_factor: f64, hash_builder: S) -> HashTable<S> {
+        if overflow_factor < 0.0 {
+            fatal!("hashtable overflow factor must be >= 0.0");
         }
+
+        // overflow factor is effectively bounded by the max chain length
+        if overflow_factor > MAX_CHAIN_LEN as f64 {
+            fatal!("hashtable overflow factor must be <= {}", MAX_CHAIN_LEN);
+        }
+
         let slots = 1_u64 << power;
         let buckets = slots / 8;
         let mask = buckets - 1;
 
-        let total_buckets = (buckets as f64 * (1.0 + extra_cap)).ceil() as usize;
+        let total_buckets = (buckets as f64 * (1.0 + overflow_factor)).ceil() as usize;
 
         let mut data = Vec::with_capacity(0);
         data.reserve_exact(total_buckets as usize);
@@ -381,7 +391,7 @@ where
         }
 
         if insert_item_info != 0
-            && chain_len < 16
+            && chain_len < MAX_CHAIN_LEN
             && (self.next_to_chain as usize) < self.data.len()
         {
             let next_id = self.next_to_chain as usize;

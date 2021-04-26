@@ -23,15 +23,15 @@ threads = 1
 
 # storage configuration
 [segcache]
-# hashtable can hold: 7 * (2^N - 3) items
-hash_power = 26
-# hashtable can reserve additional item slots, percent extra items (0.0-1.0)
-hash_extra_capacity = 0.0
-# size of each segment in bytes
-seg_size = 1048576
-# number of segments
-segments = 4096
-# target number of segments to merge in one pass
+# hash power adjusts how many items can be held in the hashtable
+hash_power = 16
+# total bytes to use for item storage - 4GiB
+heap_size = 4294967296
+# size of each segment in bytes - 1MiB
+segment_size = 1048576
+# number of segments for a non-evict compaction
+compact_target = 2
+# number of segments to merge in one merge eviction pass
 merge_target = 4
 # max number of segments to merge in one pass
 merge_max = 8

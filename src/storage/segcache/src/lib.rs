@@ -85,7 +85,7 @@ pub enum SegCacheError {
 pub struct Builder<S: std::hash::BuildHasher> {
     hasher: Option<S>,
     power: u8,
-    hash_extra_capacity: f64,
+    overflow_factor: f64,
     segments_builder: SegmentsBuilder,
 }
 
@@ -95,7 +95,7 @@ impl<S: std::hash::BuildHasher> Default for Builder<S> {
         Self {
             hasher: None,
             power: 16,
-            hash_extra_capacity: 0.0,
+            overflow_factor: 0.0,
             segments_builder: SegmentsBuilder::default(),
         }
     }
@@ -122,20 +122,18 @@ impl<S: std::hash::BuildHasher + Default> Builder<S> {
         self
     }
 
-    /// Specify an additional percentage of hash buckets to reserve. Expressed
-    /// as a percent between 0.0-1.0 (inclusive). This reserves additional
-    /// buckets which can be chained with the initial bucket in the hashtable.
-    /// This is helpful if the key distribution and hasher lead to many
-    /// collisions or if the working set (in items) is between two large hash
-    /// powers.
-    pub fn hash_extra_capacity(mut self, percent: f64) -> Self {
-        self.hash_extra_capacity = percent;
+    /// Specify an overflow factor which is used to scale the hashtable and
+    /// provide additional capacity for chaining item buckets. A factor of 1.0
+    /// will result in a hash table that is 100% larger.
+    pub fn overflow_factor(mut self, percent: f64) -> Self {
+        self.overflow_factor = percent;
         self
     }
 
-    /// Specify the number of segments which will be used to store item data.
-    pub fn segments(mut self, count: i32) -> Self {
-        self.segments_builder = self.segments_builder.segments(count);
+    /// Specify the total number of bytes to be used for heap storage of items.
+    /// This includes, key, value, and per-item overheads.
+    pub fn heap_size(mut self, bytes: usize) -> Self {
+        self.segments_builder = self.segments_builder.heap_size(bytes);
         self
     }
 
@@ -145,8 +143,8 @@ impl<S: std::hash::BuildHasher + Default> Builder<S> {
     /// would be evicted/expired at one time, at the cost of additional memory
     /// and book-keeping overheads compared to using larger segments for the
     /// same total size.
-    pub fn seg_size(mut self, size: i32) -> Self {
-        self.segments_builder = self.segments_builder.seg_size(size);
+    pub fn segment_size(mut self, size: i32) -> Self {
+        self.segments_builder = self.segments_builder.segment_size(size);
         self
     }
 
@@ -161,7 +159,7 @@ impl<S: std::hash::BuildHasher + Default> Builder<S> {
     pub fn build(self) -> SegCache<S> {
         let hasher = self.hasher.unwrap_or_default();
 
-        let hashtable = HashTable::with_hasher(self.power, self.hash_extra_capacity, hasher);
+        let hashtable = HashTable::with_hasher(self.power, self.overflow_factor, hasher);
 
         let segments = self.segments_builder.build();
         let ttl_buckets = TtlBuckets::default();
@@ -363,7 +361,8 @@ mod tests {
     #[test]
     fn init() {
         let mut cache = SegCache::builder()
-            .seg_size(4096)
+            .segment_size(4096)
+            .heap_size(4096 * 64)
             .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
@@ -371,8 +370,14 @@ mod tests {
 
     #[test]
     fn get_free_seg() {
+        let ttl = CoarseDuration::ZERO;
+        let segment_size = 4096;
+        let segments = 64;
+        let heap_size = segments * segment_size as usize;
+
         let mut cache = SegCache::builder()
-            .seg_size(4096)
+            .segment_size(segment_size)
+            .heap_size(heap_size)
             .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
@@ -385,8 +390,13 @@ mod tests {
     #[test]
     fn get() {
         let ttl = CoarseDuration::ZERO;
+        let segment_size = 4096;
+        let segments = 64;
+        let heap_size = segments * segment_size as usize;
+
         let mut cache = SegCache::builder()
-            .seg_size(4096)
+            .segment_size(segment_size)
+            .heap_size(heap_size)
             .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
@@ -404,8 +414,13 @@ mod tests {
     #[test]
     fn overwrite() {
         let ttl = CoarseDuration::ZERO;
+        let segment_size = 4096;
+        let segments = 64;
+        let heap_size = segments * segment_size as usize;
+
         let mut cache = SegCache::builder()
-            .seg_size(4096)
+            .segment_size(segment_size)
+            .heap_size(heap_size)
             .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
@@ -446,8 +461,13 @@ mod tests {
     #[test]
     fn delete() {
         let ttl = CoarseDuration::ZERO;
+        let segment_size = 4096;
+        let segments = 64;
+        let heap_size = segments * segment_size as usize;
+
         let mut cache = SegCache::builder()
-            .seg_size(4096)
+            .segment_size(segment_size)
+            .heap_size(heap_size)
             .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
@@ -471,9 +491,13 @@ mod tests {
     #[test]
     fn collisions_2() {
         let ttl = CoarseDuration::ZERO;
+        let segment_size = 64;
+        let segments = 2;
+        let heap_size = segments * segment_size as usize;
+
         let mut cache = SegCache::builder()
-            .seg_size(64)
-            .segments(2)
+            .segment_size(segment_size)
+            .heap_size(heap_size)
             .power(3)
             .hasher(build_hasher())
             .build();
@@ -495,8 +519,13 @@ mod tests {
     #[test]
     fn collisions() {
         let ttl = CoarseDuration::ZERO;
+        let segment_size = 4096;
+        let segments = 64;
+        let heap_size = segments * segment_size as usize;
+
         let mut cache = SegCache::builder()
-            .seg_size(4096)
+            .segment_size(segment_size)
+            .heap_size(heap_size)
             .power(3)
             .hasher(build_hasher())
             .build();
@@ -527,13 +556,14 @@ mod tests {
         let ttl = CoarseDuration::ZERO;
         let iters = 1_000_000;
         let segments = 32;
-        let seg_size = 1024;
+        let segment_size = 1024;
         let key_size = 1;
         let value_size = 512;
+        let heap_size = segments * segment_size as usize;
 
         let mut cache = SegCache::builder()
-            .seg_size(seg_size)
-            .segments(segments as i32)
+            .segment_size(segment_size)
+            .heap_size(heap_size)
             .power(16)
             .hasher(build_hasher())
             .build();
@@ -565,13 +595,14 @@ mod tests {
         let ttl = CoarseDuration::ZERO;
         let iters = 10_000_000;
         let segments = 64;
-        let seg_size = 2 * 1024;
+        let segment_size = 2 * 1024;
         let key_size = 2;
         let value_size = 1;
+        let heap_size = segments * segment_size as usize;
 
         let mut cache = SegCache::builder()
-            .seg_size(seg_size)
-            .segments(segments as i32)
+            .segment_size(segment_size)
+            .heap_size(heap_size)
             .power(16)
             .hasher(build_hasher())
             .build();
@@ -605,11 +636,12 @@ mod tests {
     #[test]
     fn expiration() {
         let segments = 64;
-        let seg_size = 2 * 1024;
+        let segment_size = 2 * 1024;
+        let heap_size = segments * segment_size as usize;
 
         let mut cache = SegCache::builder()
-            .seg_size(seg_size)
-            .segments(segments as i32)
+            .segment_size(segment_size)
+            .heap_size(heap_size)
             .power(16)
             .hasher(build_hasher())
             .build();

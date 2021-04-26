@@ -288,7 +288,10 @@ impl Session {
             };
             ret
         } else {
-            Err(Error::new(ErrorKind::Other, "session is not in handshaking state"))
+            Err(Error::new(
+                ErrorKind::Other,
+                "session is not in handshaking state",
+            ))
         }
     }
 

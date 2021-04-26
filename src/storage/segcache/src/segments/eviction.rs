@@ -18,7 +18,11 @@ pub enum Policy {
     /// Least utilized segment
     Util,
     /// Merge eviction
-    Merge { max: usize, merge: usize, compact: usize },
+    Merge {
+        max: usize,
+        merge: usize,
+        compact: usize,
+    },
 }
 
 /// The `Eviction` struct is used to rank and return segments for eviction. It
@@ -74,9 +78,7 @@ impl Eviction {
     pub fn should_rerank(&mut self) -> bool {
         let now = Instant::recent();
         match self.policy {
-            Policy::None | Policy::Random | Policy::Merge { .. } => {
-                false
-            }
+            Policy::None | Policy::Random | Policy::Merge { .. } => false,
             Policy::Fifo | Policy::Cte | Policy::Util => {
                 if self.ranked_segs[0].as_option().is_none()
                     || (now - self.last_update_time).as_secs() > 1

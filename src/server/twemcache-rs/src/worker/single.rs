@@ -61,8 +61,8 @@ impl SingleWorker<CacheHasher> {
         let data = SegCache::builder()
             .power(config.segcache().hash_power())
             .hash_extra_capacity(config.segcache().hash_extra_capacity())
-            .segments(config.segcache().segments())
-            .seg_size(config.segcache().seg_size())
+            .heap_size(config.segcache().heap_size())
+            .segment_size(config.segcache().segment_size())
             .eviction(eviction)
             .hasher(CacheHasher::default())
             .build();
@@ -86,8 +86,10 @@ impl SingleWorker<CacheHasher> {
             self.config.worker().timeout() as u64,
         ));
 
-        // let mut ops = 0;
-        // let mut seq = 0;
+        #[cfg(feature = "heap_dump")]
+        let mut ops = 0;
+        #[cfg(feature = "heap_dump")]
+        let mut seq = 0;
 
         loop {
             increment_counter!(&Stat::WorkerEventLoop);
@@ -128,15 +130,20 @@ impl SingleWorker<CacheHasher> {
                 if event.is_readable() {
                     increment_counter!(&Stat::WorkerEventRead);
                     let _ = self.do_read(token);
-                    // ops += 1;
-                    // if ops >= 1_000_000 {
-                    //     let dump = self.data.dump();
-                    //     let serialized = serde_json::to_string(&dump).unwrap();
-                    //     let mut file = std::fs::File::create(&format!("dump_{}.raw", seq)).unwrap();
-                    //     let _ = file.write_all(serialized.as_bytes());
-                    //     seq += 1;
-                    //     ops = 0;
-                    // }
+
+                    #[cfg(feature = "heap_dump")]
+                    {
+                        ops += 1;
+                        if ops >= 1_000_000 {
+                            let dump = self.data.dump();
+                            let serialized = serde_json::to_string(&dump).unwrap();
+                            let mut file =
+                                std::fs::File::create(&format!("dump_{}.raw", seq)).unwrap();
+                            let _ = file.write_all(serialized.as_bytes());
+                            seq += 1;
+                            ops = 0;
+                        }
+                    }
                 }
 
                 if let Some(session) = self.sessions.get_mut(token.0) {
@@ -217,7 +224,7 @@ where
             loop {
                 // TODO(bmartin): buffer should allow us to check remaining
                 // write capacity.
-                if session.write_pending() > (1024 - 6) {
+                if session.write_pending() > 1024 {
                     // if the write buffer is over-full, skip processing
                     break;
                 }
