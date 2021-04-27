@@ -10,19 +10,29 @@ use rustcommon_time::CoarseInstant as Instant;
 /// The `SegmentHeader` contains metadata about the segment. It is intended to
 /// be stored in DRAM as the fields are frequently accessed and changed.
 pub struct SegmentHeader {
+    /// The id for this segment
     id: i32,
-    write_offset: i32, // current write position
-    occupied_size: i32, // number of live bytes in the segment
-    n_item: i32, // number of live items in the segment
-    prev_seg: i32, // prev segment in ttl bucket or free queue
-    next_seg: i32, // next segment in ttl bucket or free queue
+    /// Current write position
+    write_offset: i32,
+    /// The number of live bytes in the segment
+    live_bytes: i32,
+    /// The number of live items in the segment
+    live_items: i32,
+    /// The previous segment in the TtlBucket or on the free queue
+    prev_seg: i32,
+    /// The next segment in the TtlBucket or on the free queue
+    next_seg: i32,
+    /// The time the segment was last "created" (taken from free queue)
     create_at: Instant,
-    ttl: u32,
+    /// The time the segment was last merged
     merge_at: Instant,
+    /// The TTL of the segment in seconds
+    ttl: u32,
+    /// Is the segment accessible?
     accessible: bool,
+    /// Is the segment evictable?
     evictable: bool,
-    recovered: bool,
-    _pad: [u8; 24],
+    _pad: [u8; 25],
 }
 
 impl SegmentHeader {
@@ -30,8 +40,8 @@ impl SegmentHeader {
         Self {
             id,
             write_offset: 0,
-            occupied_size: 0,
-            n_item: 0,
+            live_bytes: 0,
+            live_items: 0,
             prev_seg: -1,
             next_seg: -1,
             create_at: Instant::recent(),
@@ -39,8 +49,7 @@ impl SegmentHeader {
             merge_at: Instant::recent(),
             accessible: false,
             evictable: false,
-            recovered: false,
-            _pad: [0; 24],
+            _pad: [0; 25],
         }
     }
 
@@ -55,7 +64,7 @@ impl SegmentHeader {
 
         self.prev_seg = -1;
         self.next_seg = -1;
-        self.n_item = 0;
+        self.live_items = 0;
         self.create_at = Instant::recent();
         self.merge_at = Instant::recent();
         self.accessible = true;
@@ -70,7 +79,7 @@ impl SegmentHeader {
         };
 
         self.write_offset = offset;
-        self.occupied_size = offset;
+        self.live_bytes = offset;
     }
 
     #[inline]
@@ -127,20 +136,20 @@ impl SegmentHeader {
 
     #[inline]
     /// The number of live items within the segment.
-    pub fn n_item(&self) -> i32 {
-        self.n_item
+    pub fn live_items(&self) -> i32 {
+        self.live_items
     }
 
     #[inline]
     /// Increment the number of live items.
-    pub fn incr_n_item(&mut self) {
-        self.n_item += 1;
+    pub fn incr_live_items(&mut self) {
+        self.live_items += 1;
     }
 
     #[inline]
     /// Decrement the number of live items.
-    pub fn decr_n_item(&mut self) {
-        self.n_item -= 1;
+    pub fn decr_live_items(&mut self) {
+        self.live_items -= 1;
     }
 
     #[inline]
@@ -157,23 +166,23 @@ impl SegmentHeader {
 
     #[inline]
     /// The number of bytes used in the segment.
-    pub fn occupied_size(&self) -> i32 {
-        self.occupied_size
+    pub fn live_bytes(&self) -> i32 {
+        self.live_bytes
     }
 
     #[inline]
     /// Increment the number of bytes used in the segment.
-    pub fn incr_occupied_size(&mut self, bytes: i32) -> i32 {
-        let prev = self.occupied_size;
-        self.occupied_size += bytes;
+    pub fn incr_live_bytes(&mut self, bytes: i32) -> i32 {
+        let prev = self.live_bytes;
+        self.live_bytes += bytes;
         prev
     }
 
     #[inline]
     /// Decrement the number of bytes used in the segment.
-    pub fn decr_occupied_size(&mut self, bytes: i32) -> i32 {
-        let prev = self.occupied_size;
-        self.occupied_size -= bytes;
+    pub fn decr_live_bytes(&mut self, bytes: i32) -> i32 {
+        let prev = self.live_bytes;
+        self.live_bytes -= bytes;
         prev
     }
 

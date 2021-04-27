@@ -148,7 +148,7 @@ impl Eviction {
             Ordering::Greater
         } else if !rhs.can_evict() {
             Ordering::Less
-        } else if lhs.occupied_size() > rhs.occupied_size() {
+        } else if lhs.live_bytes() > rhs.live_bytes() {
             Ordering::Greater
         } else {
             Ordering::Less

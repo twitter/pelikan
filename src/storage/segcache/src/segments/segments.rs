@@ -467,7 +467,7 @@ impl Segments {
 
         // regardless of eviction policy, we can evict the segment if its now
         // empty and would be evictable. if we evict, we must return early
-        if self.headers[seg_id as usize].n_item() == 0 && self.headers[seg_id as usize].can_evict()
+        if self.headers[seg_id as usize].live_items() == 0 && self.headers[seg_id as usize].can_evict()
         {
             // NOTE: we skip clearing because we know the segment is empty
             self.headers[seg_id as usize].set_evictable(false);
@@ -486,7 +486,7 @@ impl Segments {
             let target_ratio = self.evict.compact_ratio();
 
             let ratio =
-                self.headers[seg_id as usize].occupied_size() as f64 / self.segment_size() as f64;
+                self.headers[seg_id as usize].live_bytes() as f64 / self.segment_size() as f64;
 
             // if this segment occupancy is higher than the target ratio, skip
             // merge
@@ -509,7 +509,7 @@ impl Segments {
                 }
 
                 // calculate occupancy ratio of the next segment
-                let next_ratio = self.headers[next_id as usize].occupied_size() as f64
+                let next_ratio = self.headers[next_id as usize].live_bytes() as f64
                     / self.segment_size() as f64;
 
                 // if the next segment is empty enough, proceed to merge compaction
@@ -533,12 +533,12 @@ impl Segments {
         for id in 0..self.cap {
             let segment = self.get_mut(id as i32).unwrap();
             segment.check_magic();
-            let count = segment.header.n_item();
+            let count = segment.header.live_items();
             debug!(
                 "{} items in segment {} header: {:?}",
                 count, id, segment.header
             );
-            total += segment.header.n_item() as usize;
+            total += segment.header.live_items() as usize;
         }
         total
     }
@@ -598,7 +598,7 @@ impl Segments {
         if start.is_some() {
             while len < max {
                 if self.headers[start.unwrap() as usize].can_evict() {
-                    occupied += self.headers[start.unwrap() as usize].occupied_size();
+                    occupied += self.headers[start.unwrap() as usize].live_bytes();
                     if occupied > seg_size {
                         break;
                     }
@@ -650,7 +650,7 @@ impl Segments {
         // prune and compact target segment
         {
             let mut dst = self.get_mut(start)?;
-            let dst_old_size = dst.header.occupied_size();
+            let dst_old_size = dst.header.live_bytes();
 
             trace!("prune merge with cutoff: {}", cutoff);
             cutoff = dst.prune(hashtable, cutoff, target_ratio);
@@ -658,7 +658,7 @@ impl Segments {
 
             dst.compact(hashtable)?;
 
-            let dst_new_size = dst.header.occupied_size();
+            let dst_new_size = dst.header.live_bytes();
             trace!(
                 "dst {}: {} bytes -> {} bytes",
                 dst_id,
@@ -686,8 +686,8 @@ impl Segments {
 
             let (mut dst, mut src) = self.get_mut_pair(dst_id, src_id)?;
 
-            let dst_start_size = dst.header.occupied_size();
-            let src_start_size = src.header.occupied_size();
+            let dst_start_size = dst.header.live_bytes();
+            let src_start_size = src.header.live_bytes();
 
             if dst_start_size >= stop_bytes {
                 trace!("stop merge: target segment is full");
@@ -701,18 +701,18 @@ impl Segments {
                 "src {}: {} bytes -> {} bytes",
                 src_id,
                 src_start_size,
-                src.header.occupied_size()
+                src.header.live_bytes()
             );
 
             trace!("copying source into target");
             let _ = src.copy_into(&mut dst, hashtable);
-            trace!("copy dropped {} bytes", src.header.occupied_size());
+            trace!("copy dropped {} bytes", src.header.live_bytes());
 
             trace!(
                 "dst {}: {} bytes -> {} bytes",
                 dst_id,
                 dst_start_size,
-                dst.header.occupied_size()
+                dst.header.live_bytes()
             );
 
             next_id = src.next_seg();
@@ -760,11 +760,11 @@ impl Segments {
         // prune and compact target segment
         {
             let mut dst = self.get_mut(start)?;
-            let dst_old_size = dst.header.occupied_size();
+            let dst_old_size = dst.header.live_bytes();
 
             dst.compact(hashtable)?;
 
-            let dst_new_size = dst.header.occupied_size();
+            let dst_new_size = dst.header.live_bytes();
             trace!(
                 "dst {}: {} bytes -> {} bytes",
                 dst_id,
@@ -792,8 +792,8 @@ impl Segments {
 
             let (mut dst, mut src) = self.get_mut_pair(dst_id, src_id)?;
 
-            let dst_start_size = dst.header.occupied_size();
-            let src_start_size = src.header.occupied_size();
+            let dst_start_size = dst.header.live_bytes();
+            let src_start_size = src.header.live_bytes();
 
             if dst_start_size >= stop_bytes {
                 trace!("stop merge: target segment is full");
@@ -808,18 +808,18 @@ impl Segments {
                 "src {}: {} bytes -> {} bytes",
                 src_id,
                 src_start_size,
-                src.header.occupied_size()
+                src.header.live_bytes()
             );
 
             trace!("copying source into target");
             let _ = src.copy_into(&mut dst, hashtable);
-            trace!("copy dropped {} bytes", src.header.occupied_size());
+            trace!("copy dropped {} bytes", src.header.live_bytes());
 
             trace!(
                 "dst {}: {} bytes -> {} bytes",
                 dst_id,
                 dst_start_size,
-                dst.header.occupied_size()
+                dst.header.live_bytes()
             );
 
             next_id = src.next_seg();

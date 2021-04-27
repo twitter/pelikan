@@ -74,12 +74,12 @@ impl<'a> Segment<'a> {
             offset += item.size();
         }
 
-        if count != self.n_item() {
+        if count != self.live_items() {
             error!(
                 "seg: {} has mismatch between counted items: {} and header items: {}",
                 self.id(),
                 count,
-                self.n_item()
+                self.live_items()
             );
             integrity = false;
         }
@@ -87,8 +87,8 @@ impl<'a> Segment<'a> {
         integrity
     }
 
-    pub fn n_item(&self) -> i32 {
-        self.header.n_item()
+    pub fn live_items(&self) -> i32 {
+        self.header.live_items()
     }
 
     pub fn accessible(&self) -> bool {
@@ -130,10 +130,10 @@ impl<'a> Segment<'a> {
         increment_gauge_by!(&Stat::ItemDeadBytes, item_size as i64);
 
         self.check_magic();
-        self.header.decr_occupied_size(item_size as i32);
-        self.header.decr_n_item();
-        assert!(self.header.occupied_size() >= 0);
-        assert!(self.header.n_item() >= 0);
+        self.header.decr_live_bytes(item_size as i32);
+        self.header.decr_live_items();
+        assert!(self.header.live_bytes() >= 0);
+        assert!(self.header.live_items() >= 0);
         item.tombstone();
 
         self.check_magic();
@@ -174,7 +174,7 @@ impl<'a> Segment<'a> {
 
         while read_offset <= max_offset {
             let item = self.get_item_at(read_offset).unwrap();
-            if item.klen() == 0 && self.header.n_item() == 0 {
+            if item.klen() == 0 && self.header.live_items() == 0 {
                 break;
             }
 
@@ -250,7 +250,7 @@ impl<'a> Segment<'a> {
 
         while read_offset <= max_offset {
             let item = self.get_item_at(read_offset).unwrap();
-            if item.klen() == 0 && self.header.n_item() == 0 {
+            if item.klen() == 0 && self.header.live_items() == 0 {
                 break;
             }
 
@@ -285,8 +285,8 @@ impl<'a> Segment<'a> {
                     std::ptr::copy_nonoverlapping(src, dst, item_size);
                 }
                 self.remove_item_at(read_offset, true);
-                target.header.incr_n_item();
-                target.header.incr_occupied_size(item_size as i32);
+                target.header.incr_live_items();
+                target.header.incr_live_bytes(item_size as i32);
                 target
                     .header
                     .set_write_offset(write_offset as i32 + item_size as i32);
@@ -326,20 +326,20 @@ impl<'a> Segment<'a> {
         };
 
         let to_keep = (self.data.len() as f64 * target_ratio).floor() as i32;
-        let to_drop = self.header.occupied_size() - to_keep;
+        let to_drop = self.header.live_bytes() - to_keep;
 
         let mut n_scanned = 0;
         let mut n_dropped = 0;
         let mut n_retained = 0;
 
-        let mean_size = self.header.occupied_size() as f64 / self.n_item() as f64;
+        let mean_size = self.header.live_bytes() as f64 / self.live_items() as f64;
         let mut cutoff = (1.0 + cutoff_freq) / 2.0;
         let mut n_th_update = 1;
         let update_interval = self.data.len() / 10;
 
         while offset <= max_offset {
             let item = self.get_item_at(offset).unwrap();
-            if item.klen() == 0 && self.header.n_item() == 0 {
+            if item.klen() == 0 && self.header.live_items() == 0 {
                 break;
             }
 
@@ -426,7 +426,7 @@ impl<'a> Segment<'a> {
 
         while offset <= max_offset {
             let item = self.get_item_at(offset).unwrap();
-            if item.klen() == 0 && self.header.n_item() == 0 {
+            if item.klen() == 0 && self.header.live_items() == 0 {
                 break;
             }
 
@@ -456,14 +456,14 @@ impl<'a> Segment<'a> {
             }
 
             debug_assert!(
-                self.header.n_item() >= 0,
+                self.header.live_items() >= 0,
                 "cleared segment has invalid n_item: ({})",
-                self.header.n_item()
+                self.header.live_items()
             );
             debug_assert!(
-                self.header.occupied_size() >= 0,
+                self.header.live_bytes() >= 0,
                 "cleared segment has invalid occupied_size: ({})",
-                self.header.occupied_size()
+                self.header.live_bytes()
             );
             offset += item.size();
         }
@@ -473,8 +473,8 @@ impl<'a> Segment<'a> {
 
         // skips over seg_wait_refcount and evict retry, because no threading
 
-        if self.n_item() != 0 {
-            assert_eq!(self.n_item(), 0, "segment not empty after clearing");
+        if self.live_items() != 0 {
+            assert_eq!(self.live_items(), 0, "segment not empty after clearing");
         }
 
         let expected_size = if cfg!(feature = "magic") {
@@ -482,23 +482,23 @@ impl<'a> Segment<'a> {
         } else {
             0
         };
-        if self.header.occupied_size() != expected_size {
+        if self.header.live_bytes() != expected_size {
             assert_eq!(
-                self.header.occupied_size(),
+                self.header.live_bytes(),
                 expected_size,
                 "segment size incorrect after clearing"
             );
         }
 
-        self.header.set_write_offset(self.header.occupied_size());
+        self.header.set_write_offset(self.header.live_bytes());
     }
 
     pub(crate) fn dump(&mut self) -> SegmentDump {
         let mut ret = SegmentDump {
             id: self.id(),
             write_offset: self.header.write_offset(),
-            occupied_size: self.header.occupied_size(),
-            n_item: self.n_item(),
+            live_bytes: self.header.live_bytes(),
+            live_items: self.live_items(),
             prev_seg: self.header.prev_seg().unwrap_or(-1),
             next_seg: self.header.next_seg().unwrap_or(-1),
             ttl: self.ttl().as_secs(),
@@ -514,7 +514,7 @@ impl<'a> Segment<'a> {
 
         while offset <= max_offset {
             let item = self.get_item_at(offset).unwrap();
-            if item.klen() == 0 && self.header.n_item() == 0 {
+            if item.klen() == 0 && self.header.live_items() == 0 {
                 break;
             }
             ret.items.push(ItemDump {
@@ -533,8 +533,8 @@ impl<'a> Segment<'a> {
 pub(crate) struct SegmentDump {
     id: i32,
     write_offset: i32,
-    occupied_size: i32,
-    n_item: i32,
+    live_bytes: i32,
+    live_items: i32,
     prev_seg: i32,
     next_seg: i32,
     ttl: u32,

@@ -160,10 +160,10 @@ impl TtlBucket {
                 if offset + size <= seg_size {
                     let size = size as i32;
                     let _ = segment.header.incr_write_offset(size);
-                    let _ = segment.header.incr_occupied_size(size);
+                    let _ = segment.header.incr_live_bytes(size);
                     increment_gauge!(&Stat::ItemCurrent);
                     increment_gauge_by!(&Stat::ItemCurrentBytes, size as i64);
-                    segment.header.incr_n_item();
+                    segment.header.incr_live_items();
                     let ptr = unsafe { segment.data.as_mut_ptr().add(offset) };
 
                     let item = RawItem::from_ptr(ptr);
