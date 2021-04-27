@@ -109,16 +109,15 @@ impl TtlBucket {
         if let Some(id) = segments.pop_free() {
             {
                 if self.tail.is_some() {
-                    let tail = segments.get_mut(self.tail).unwrap();
-                    tail.header.set_next_seg(id);
+                    let mut tail = segments.get_mut(self.tail).unwrap();
+                    tail.set_next_seg(id);
                 }
             }
 
-            let segment = segments.get_mut(id).unwrap();
-            segment.header.set_prev_seg(self.tail);
-            segment.header.set_next_seg(-1);
+            let mut segment = segments.get_mut(id).unwrap();
+            segment.set_prev_seg(self.tail);
+            segment.set_next_seg(-1);
             segment
-                .header
                 .set_ttl(CoarseDuration::from_secs(self.ttl as u32));
             if self.head.is_none() {
                 debug_assert!(self.tail.is_none());
@@ -126,9 +125,9 @@ impl TtlBucket {
             }
             self.tail = id;
             self.segments += 1;
-            debug_assert_eq!(segment.header.evictable(), false);
-            segment.header.set_evictable(true);
-            segment.header.set_accessible(true);
+            debug_assert_eq!(segment.evictable(), false);
+            segment.set_evictable(true);
+            segment.set_accessible(true);
             Ok(())
         } else {
             Err(Error::NoFreeSegments)
@@ -150,24 +149,22 @@ impl TtlBucket {
         }
 
         loop {
-            if let Ok(segment) = segments.get_mut(self.tail) {
+            if let Ok(mut segment) = segments.get_mut(self.tail) {
                 if !segment.accessible() {
                     continue;
                 }
                 // TODO(bmartin): this handling needs to change for threaded impl
-                let offset = segment.header.write_offset() as usize;
+                let offset = segment.write_offset() as usize;
                 debug!("offset: {}", offset);
                 if offset + size <= seg_size {
                     let size = size as i32;
-                    let _ = segment.header.incr_write_offset(size);
-                    let _ = segment.header.incr_live_bytes(size);
+                    segment.incr_item(size);
                     increment_gauge!(&Stat::ItemCurrent);
                     increment_gauge_by!(&Stat::ItemCurrentBytes, size as i64);
-                    segment.header.incr_live_items();
                     let ptr = unsafe { segment.data.as_mut_ptr().add(offset) };
 
                     let item = RawItem::from_ptr(ptr);
-                    return Ok(ReservedItem::new(item, segment.header.id(), offset));
+                    return Ok(ReservedItem::new(item, segment.id(), offset));
                 }
             }
             self.try_expand(segments)?;

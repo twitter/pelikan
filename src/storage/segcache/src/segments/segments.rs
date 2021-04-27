@@ -106,16 +106,14 @@ impl Segments {
         for id in 0..segments {
             let begin = segment_size as usize * id;
             let end = begin + segment_size as usize;
-            let mut segment = Segment {
-                header: &mut headers[id],
-                data: &mut data[begin..end],
-            };
+
+            let mut segment = Segment::from_raw_parts(&mut headers[id], &mut data[begin..end]);
             segment.init();
             if id > 0 {
-                segment.header.set_prev_seg(id as i32 - 1);
+                segment.set_prev_seg(id as i32 - 1);
             }
             if id < (segments - 1) {
-                segment.header.set_next_seg(id as i32 + 1);
+                segment.set_next_seg(id as i32 + 1);
             }
         }
 
@@ -164,10 +162,7 @@ impl Segments {
 
         let seg_begin = self.segment_size() as usize * seg_id as usize;
         let seg_end = seg_begin + self.segment_size() as usize;
-        let mut segment = Segment {
-            header: &mut self.headers[seg_id as usize],
-            data: &mut self.data[seg_begin..seg_end],
-        };
+        let mut segment = Segment::from_raw_parts(&mut self.headers[seg_id as usize], &mut self.data[seg_begin..seg_end]);
 
         segment.get_item_at(offset)
     }
@@ -179,12 +174,12 @@ impl Segments {
         expire: bool,
     ) -> Result<(), ()> {
         let mut segment = self.get_mut(id).unwrap();
-        if segment.header.next_seg().is_none() && !expire {
+        if segment.next_seg().is_none() && !expire {
             Err(())
         } else {
-            assert_eq!(segment.header.evictable(), true);
-            segment.header.set_evictable(false);
-            segment.header.set_accessible(false);
+            assert_eq!(segment.evictable(), true);
+            segment.set_evictable(false);
+            segment.set_accessible(false);
             segment.clear(hashtable, expire);
             Ok(())
         }
@@ -266,11 +261,10 @@ impl Segments {
                 .ok_or(SegmentsError::BadSegmentId)?;
 
             // this is safe because we now know the id was within range
-            let data = unsafe { self.data.as_mut_ptr().add(self.segment_size as usize * id) };
-            let segment = Segment {
-                header,
-                data: unsafe { std::slice::from_raw_parts_mut(data, self.segment_size as usize) },
-            };
+            let data_ptr = unsafe { self.data.as_mut_ptr().add(self.segment_size as usize * id) };
+            let data = unsafe { std::slice::from_raw_parts_mut(data_ptr, self.segment_size as usize) };
+
+            let segment = Segment::from_raw_parts(header, data);
             segment.check_magic();
             Ok(segment)
         }
@@ -296,19 +290,17 @@ impl Segments {
             unsafe {
                 let header_a = &mut self.headers[a] as *mut _;
                 let header_b = &mut self.headers[b] as *mut _;
-                let data_a = self.data.as_mut_ptr().add(self.segment_size() as usize * a);
-                let data_b = self.data.as_mut_ptr().add(self.segment_size() as usize * b);
-                let seg_a = Segment {
-                    header: &mut *header_a,
-                    data: std::slice::from_raw_parts_mut(data_a, self.segment_size() as usize),
-                };
-                let seg_b = Segment {
-                    header: &mut *header_b,
-                    data: std::slice::from_raw_parts_mut(data_b, self.segment_size() as usize),
-                };
-                seg_a.check_magic();
-                seg_b.check_magic();
-                Ok((seg_a, seg_b))
+                let data_ptr_a = self.data.as_mut_ptr().add(self.segment_size() as usize * a);
+                let data_ptr_b = self.data.as_mut_ptr().add(self.segment_size() as usize * b);
+                let data_a = std::slice::from_raw_parts_mut(data_ptr_a, self.segment_size() as usize);
+                let data_b = std::slice::from_raw_parts_mut(data_ptr_b, self.segment_size() as usize);
+
+                let segment_a = Segment::from_raw_parts(&mut *header_a, data_a);
+                let segment_b = Segment::from_raw_parts(&mut *header_b, data_b);
+
+                segment_a.check_magic();
+                segment_b.check_magic();
+                Ok((segment_a, segment_b))
             }
         }
     }
@@ -533,12 +525,12 @@ impl Segments {
         for id in 0..self.cap {
             let segment = self.get_mut(id as i32).unwrap();
             segment.check_magic();
-            let count = segment.header.live_items();
+            let count = segment.live_items();
             debug!(
-                "{} items in segment {} header: {:?}",
-                count, id, segment.header
+                "{} items in segment {} segment: {:?}",
+                count, id, segment
             );
-            total += segment.header.live_items() as usize;
+            total += segment.live_items() as usize;
         }
         total
     }
@@ -597,14 +589,19 @@ impl Segments {
 
         if start.is_some() {
             while len < max {
-                if self.headers[start.unwrap() as usize].can_evict() {
-                    occupied += self.headers[start.unwrap() as usize].live_bytes();
-                    if occupied > seg_size {
+                if let Ok(seg) = self.get_mut(start.unwrap()) {
+                    if seg.can_evict() {
+                        occupied += seg.live_bytes();
+                        if occupied > seg_size {
+                            break;
+                        }
+                        len += 1;
+                        start = seg.next_seg();
+                    } else {
                         break;
                     }
-                    len += 1;
-                    start = self.headers[start.unwrap() as usize].next_seg();
                 } else {
+                    warn!("invalid segment id: {}", start.unwrap());
                     break;
                 }
             }
@@ -650,7 +647,7 @@ impl Segments {
         // prune and compact target segment
         {
             let mut dst = self.get_mut(start)?;
-            let dst_old_size = dst.header.live_bytes();
+            let dst_old_size = dst.live_bytes();
 
             trace!("prune merge with cutoff: {}", cutoff);
             cutoff = dst.prune(hashtable, cutoff, target_ratio);
@@ -658,7 +655,7 @@ impl Segments {
 
             dst.compact(hashtable)?;
 
-            let dst_new_size = dst.header.live_bytes();
+            let dst_new_size = dst.live_bytes();
             trace!(
                 "dst {}: {} bytes -> {} bytes",
                 dst_id,
@@ -666,7 +663,7 @@ impl Segments {
                 dst_new_size
             );
 
-            dst.header.mark_merged();
+            dst.mark_merged();
             merged += 1;
         }
 
@@ -686,8 +683,8 @@ impl Segments {
 
             let (mut dst, mut src) = self.get_mut_pair(dst_id, src_id)?;
 
-            let dst_start_size = dst.header.live_bytes();
-            let src_start_size = src.header.live_bytes();
+            let dst_start_size = dst.live_bytes();
+            let src_start_size = src.live_bytes();
 
             if dst_start_size >= stop_bytes {
                 trace!("stop merge: target segment is full");
@@ -701,18 +698,18 @@ impl Segments {
                 "src {}: {} bytes -> {} bytes",
                 src_id,
                 src_start_size,
-                src.header.live_bytes()
+                src.live_bytes()
             );
 
             trace!("copying source into target");
             let _ = src.copy_into(&mut dst, hashtable);
-            trace!("copy dropped {} bytes", src.header.live_bytes());
+            trace!("copy dropped {} bytes", src.live_bytes());
 
             trace!(
                 "dst {}: {} bytes -> {} bytes",
                 dst_id,
                 dst_start_size,
-                dst.header.live_bytes()
+                dst.live_bytes()
             );
 
             next_id = src.next_seg();
@@ -760,11 +757,11 @@ impl Segments {
         // prune and compact target segment
         {
             let mut dst = self.get_mut(start)?;
-            let dst_old_size = dst.header.live_bytes();
+            let dst_old_size = dst.live_bytes();
 
             dst.compact(hashtable)?;
 
-            let dst_new_size = dst.header.live_bytes();
+            let dst_new_size = dst.live_bytes();
             trace!(
                 "dst {}: {} bytes -> {} bytes",
                 dst_id,
@@ -772,7 +769,7 @@ impl Segments {
                 dst_new_size
             );
 
-            dst.header.mark_merged();
+            dst.mark_merged();
             merged += 1;
         }
 
@@ -792,8 +789,8 @@ impl Segments {
 
             let (mut dst, mut src) = self.get_mut_pair(dst_id, src_id)?;
 
-            let dst_start_size = dst.header.live_bytes();
-            let src_start_size = src.header.live_bytes();
+            let dst_start_size = dst.live_bytes();
+            let src_start_size = src.live_bytes();
 
             if dst_start_size >= stop_bytes {
                 trace!("stop merge: target segment is full");
@@ -808,18 +805,18 @@ impl Segments {
                 "src {}: {} bytes -> {} bytes",
                 src_id,
                 src_start_size,
-                src.header.live_bytes()
+                src.live_bytes()
             );
 
             trace!("copying source into target");
             let _ = src.copy_into(&mut dst, hashtable);
-            trace!("copy dropped {} bytes", src.header.live_bytes());
+            trace!("copy dropped {} bytes", src.live_bytes());
 
             trace!(
                 "dst {}: {} bytes -> {} bytes",
                 dst_id,
                 dst_start_size,
-                dst.header.live_bytes()
+                dst.live_bytes()
             );
 
             next_id = src.next_seg();

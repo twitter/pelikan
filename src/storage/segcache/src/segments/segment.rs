@@ -4,11 +4,18 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 
 pub struct Segment<'a> {
-    pub(crate) header: &'a mut SegmentHeader,
+    header: &'a mut SegmentHeader,
     pub(crate) data: &'a mut [u8],
 }
 
 impl<'a> Segment<'a> {
+    pub fn from_raw_parts(header: &'a mut segments::header::SegmentHeader, data: &'a mut [u8]) -> Self {
+        Segment {
+            header,
+            data,
+        }
+    }
+
     pub fn init(&mut self) {
         if cfg!(feature = "magic") {
             for (i, byte) in SEG_MAGIC.to_be_bytes().iter().enumerate() {
@@ -40,8 +47,8 @@ impl<'a> Segment<'a> {
     }
 
     fn max_item_offset(&self) -> usize {
-        if self.header.write_offset() >= ITEM_HDR_SIZE as i32 {
-            std::cmp::min(self.header.write_offset() as usize, self.data.len()) - ITEM_HDR_SIZE
+        if self.write_offset() >= ITEM_HDR_SIZE as i32 {
+            std::cmp::min(self.write_offset() as usize, self.data.len()) - ITEM_HDR_SIZE
         } else if cfg!(feature = "magic") {
             std::mem::size_of_val(&SEG_MAGIC)
         } else {
@@ -93,6 +100,16 @@ impl<'a> Segment<'a> {
     }
 
     #[inline]
+    pub fn write_offset(&self) -> i32 {
+        self.header.write_offset()
+    }
+
+    #[inline]
+    pub fn set_write_offset(&mut self, bytes: i32) {
+        self.header.set_write_offset(bytes)
+    }
+
+    #[inline]
     pub fn live_bytes(&self) -> i32 {
         self.header.live_bytes()
     }
@@ -108,8 +125,38 @@ impl<'a> Segment<'a> {
     }
 
     #[inline]
+    pub fn set_accessible(&mut self, accessible: bool) {
+        self.header.set_accessible(accessible)
+    }
+
+    #[inline]
+    pub fn evictable(&self) -> bool {
+        self.header.evictable()
+    }
+
+    #[inline]
+    pub fn set_evictable(&mut self, evictable: bool) {
+        self.header.set_evictable(evictable)
+    }
+
+    #[inline]
+    pub fn can_evict(&self) -> bool {
+        self.header.can_evict()
+    }
+
+    #[inline]
+    pub fn set_ttl(&mut self, ttl: CoarseDuration) {
+        self.header.set_ttl(ttl)
+    }
+
+    #[inline]
     pub fn create_at(&self) -> CoarseInstant {
         self.header.create_at()
+    }
+
+    #[inline]
+    pub fn mark_merged(&mut self) {
+        self.header.mark_merged()
     }
 
     #[inline]
@@ -118,8 +165,36 @@ impl<'a> Segment<'a> {
     }
 
     #[inline]
+    pub fn prev_seg(&self) -> Option<i32> {
+        self.header.prev_seg()
+    }
+
+    #[inline]
     pub fn next_seg(&self) -> Option<i32> {
         self.header.next_seg()
+    }
+
+    #[inline]
+    pub fn set_prev_seg(&mut self, id: i32) {
+        self.header.set_prev_seg(id)
+    }
+
+    #[inline]
+    pub fn set_next_seg(&mut self, id: i32) {
+        self.header.set_next_seg(id)
+    }
+
+    #[inline]
+    pub fn decr_item(&mut self, bytes: i32) {
+        self.header.decr_live_bytes(bytes);
+        self.header.decr_live_items();
+    }
+
+    #[inline]
+    pub fn incr_item(&mut self, bytes: i32) {
+        let _ = self.header.incr_write_offset(bytes);
+        self.header.incr_live_bytes(bytes);
+        self.header.incr_live_items();
     }
 
     pub(crate) fn remove_item(&mut self, item_info: u64, tombstone: bool) {
@@ -133,16 +208,15 @@ impl<'a> Segment<'a> {
             return;
         }
 
-        let item_size = item.size();
+        let item_size = item.size() as i64;
 
         decrement_gauge!(&Stat::ItemCurrent);
-        decrement_gauge_by!(&Stat::ItemCurrentBytes, item_size as i64);
+        decrement_gauge_by!(&Stat::ItemCurrentBytes, item_size);
         increment_gauge!(&Stat::ItemDead);
-        increment_gauge_by!(&Stat::ItemDeadBytes, item_size as i64);
+        increment_gauge_by!(&Stat::ItemDeadBytes, item_size);
 
         self.check_magic();
-        self.header.decr_live_bytes(item_size as i32);
-        self.header.decr_live_items();
+        self.decr_item(item_size as i32);
         assert!(self.live_bytes() >= 0);
         assert!(self.live_items() >= 0);
         item.tombstone();
@@ -238,7 +312,7 @@ impl<'a> Segment<'a> {
         }
 
         // updates the write offset to the new position
-        self.header.set_write_offset(write_offset as i32);
+        self.set_write_offset(write_offset as i32);
 
         Ok(())
     }
@@ -269,7 +343,7 @@ impl<'a> Segment<'a> {
 
             let item_size = item.size();
 
-            let write_offset = target.header.write_offset() as usize;
+            let write_offset = target.write_offset() as usize;
 
             // skip deleted items and ones that won't fit in the target segment
             if item.deleted() || write_offset + item_size >= target.data.len() {
@@ -299,7 +373,6 @@ impl<'a> Segment<'a> {
                 target.header.incr_live_items();
                 target.header.incr_live_bytes(item_size as i32);
                 target
-                    .header
                     .set_write_offset(write_offset as i32 + item_size as i32);
                 increment_gauge!(&Stat::ItemCurrent);
                 increment_gauge_by!(&Stat::ItemCurrentBytes, item_size as i64);
@@ -324,11 +397,6 @@ impl<'a> Segment<'a> {
         cutoff_freq: f64,
         target_ratio: f64,
     ) -> f64 {
-        // // just skip pruning if the size is less than the target ratio
-        // if (self.header.occupied_size() as f64 / self.data.len() as f64) < target_ratio {
-        //     return cutoff_freq;
-        // }
-
         let max_offset = self.max_item_offset();
         let mut offset = if cfg!(feature = "magic") {
             std::mem::size_of_val(&SEG_MAGIC)
@@ -421,8 +489,8 @@ impl<'a> Segment<'a> {
     }
 
     pub(crate) fn clear<S: BuildHasher>(&mut self, hashtable: &mut HashTable<S>, expire: bool) {
-        self.header.set_accessible(false);
-        self.header.set_evictable(false);
+        self.set_accessible(false);
+        self.set_evictable(false);
 
         let max_offset = self.max_item_offset();
         let mut offset = if cfg!(feature = "magic") {
@@ -501,17 +569,17 @@ impl<'a> Segment<'a> {
             );
         }
 
-        self.header.set_write_offset(self.live_bytes());
+        self.set_write_offset(self.live_bytes());
     }
 
     pub(crate) fn dump(&mut self) -> SegmentDump {
         let mut ret = SegmentDump {
             id: self.id(),
-            write_offset: self.header.write_offset(),
+            write_offset: self.write_offset(),
             live_bytes: self.live_bytes(),
             live_items: self.live_items(),
-            prev_seg: self.header.prev_seg().unwrap_or(-1),
-            next_seg: self.header.next_seg().unwrap_or(-1),
+            prev_seg: self.prev_seg().unwrap_or(-1),
+            next_seg: self.next_seg().unwrap_or(-1),
             ttl: self.ttl().as_secs(),
             items: Vec::new(),
         };
@@ -525,7 +593,7 @@ impl<'a> Segment<'a> {
 
         while offset <= max_offset {
             let item = self.get_item_at(offset).unwrap();
-            if item.klen() == 0 && self.header.live_items() == 0 {
+            if item.klen() == 0 && self.live_items() == 0 {
                 break;
             }
             ret.items.push(ItemDump {
