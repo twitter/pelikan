@@ -153,17 +153,11 @@ impl TtlBucket {
                 if !segment.accessible() {
                     continue;
                 }
-                // TODO(bmartin): this handling needs to change for threaded impl
                 let offset = segment.write_offset() as usize;
                 debug!("offset: {}", offset);
                 if offset + size <= seg_size {
                     let size = size as i32;
-                    segment.incr_item(size);
-                    increment_gauge!(&Stat::ItemCurrent);
-                    increment_gauge_by!(&Stat::ItemCurrentBytes, size as i64);
-                    let ptr = unsafe { segment.data.as_mut_ptr().add(offset) };
-
-                    let item = RawItem::from_ptr(ptr);
+                    let item = segment.alloc_item(size);
                     return Ok(ReservedItem::new(item, segment.id(), offset));
                 }
             }

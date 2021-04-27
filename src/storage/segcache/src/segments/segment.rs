@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub struct Segment<'a> {
     header: &'a mut SegmentHeader,
-    pub(crate) data: &'a mut [u8],
+    data: &'a mut [u8],
 }
 
 impl<'a> Segment<'a> {
@@ -191,10 +191,20 @@ impl<'a> Segment<'a> {
     }
 
     #[inline]
-    pub fn incr_item(&mut self, bytes: i32) {
+    fn incr_item(&mut self, bytes: i32) {
         let _ = self.header.incr_write_offset(bytes);
         self.header.incr_live_bytes(bytes);
         self.header.incr_live_items();
+    }
+
+    pub(crate) fn alloc_item(&mut self, size: i32) -> RawItem {
+        let offset = self.write_offset() as usize;
+        self.incr_item(size);
+        increment_gauge!(&Stat::ItemCurrent);
+        increment_gauge_by!(&Stat::ItemCurrentBytes, size as i64);
+
+        let ptr = unsafe { self.data.as_mut_ptr().add(offset) };
+        RawItem::from_ptr(ptr)
     }
 
     pub(crate) fn remove_item(&mut self, item_info: u64, tombstone: bool) {
