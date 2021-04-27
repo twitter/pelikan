@@ -87,26 +87,37 @@ impl<'a> Segment<'a> {
         integrity
     }
 
-    pub fn live_items(&self) -> i32 {
-        self.header.live_items()
-    }
-
-    pub fn accessible(&self) -> bool {
-        self.header.accessible()
-    }
-
+    #[inline]
     pub fn id(&self) -> i32 {
         self.header.id()
     }
 
+    #[inline]
+    pub fn live_bytes(&self) -> i32 {
+        self.header.live_bytes()
+    }
+
+    #[inline]
+    pub fn live_items(&self) -> i32 {
+        self.header.live_items()
+    }
+
+    #[inline]
+    pub fn accessible(&self) -> bool {
+        self.header.accessible()
+    }
+
+    #[inline]
     pub fn create_at(&self) -> CoarseInstant {
         self.header.create_at()
     }
 
+    #[inline]
     pub fn ttl(&self) -> CoarseDuration {
         self.header.ttl()
     }
 
+    #[inline]
     pub fn next_seg(&self) -> Option<i32> {
         self.header.next_seg()
     }
@@ -132,8 +143,8 @@ impl<'a> Segment<'a> {
         self.check_magic();
         self.header.decr_live_bytes(item_size as i32);
         self.header.decr_live_items();
-        assert!(self.header.live_bytes() >= 0);
-        assert!(self.header.live_items() >= 0);
+        assert!(self.live_bytes() >= 0);
+        assert!(self.live_items() >= 0);
         item.tombstone();
 
         self.check_magic();
@@ -174,7 +185,7 @@ impl<'a> Segment<'a> {
 
         while read_offset <= max_offset {
             let item = self.get_item_at(read_offset).unwrap();
-            if item.klen() == 0 && self.header.live_items() == 0 {
+            if item.klen() == 0 && self.live_items() == 0 {
                 break;
             }
 
@@ -250,7 +261,7 @@ impl<'a> Segment<'a> {
 
         while read_offset <= max_offset {
             let item = self.get_item_at(read_offset).unwrap();
-            if item.klen() == 0 && self.header.live_items() == 0 {
+            if item.klen() == 0 && self.live_items() == 0 {
                 break;
             }
 
@@ -326,20 +337,20 @@ impl<'a> Segment<'a> {
         };
 
         let to_keep = (self.data.len() as f64 * target_ratio).floor() as i32;
-        let to_drop = self.header.live_bytes() - to_keep;
+        let to_drop = self.live_bytes() - to_keep;
 
         let mut n_scanned = 0;
         let mut n_dropped = 0;
         let mut n_retained = 0;
 
-        let mean_size = self.header.live_bytes() as f64 / self.live_items() as f64;
+        let mean_size = self.live_bytes() as f64 / self.live_items() as f64;
         let mut cutoff = (1.0 + cutoff_freq) / 2.0;
         let mut n_th_update = 1;
         let update_interval = self.data.len() / 10;
 
         while offset <= max_offset {
             let item = self.get_item_at(offset).unwrap();
-            if item.klen() == 0 && self.header.live_items() == 0 {
+            if item.klen() == 0 && self.live_items() == 0 {
                 break;
             }
 
@@ -426,7 +437,7 @@ impl<'a> Segment<'a> {
 
         while offset <= max_offset {
             let item = self.get_item_at(offset).unwrap();
-            if item.klen() == 0 && self.header.live_items() == 0 {
+            if item.klen() == 0 && self.live_items() == 0 {
                 break;
             }
 
@@ -456,14 +467,14 @@ impl<'a> Segment<'a> {
             }
 
             debug_assert!(
-                self.header.live_items() >= 0,
-                "cleared segment has invalid n_item: ({})",
-                self.header.live_items()
+                self.live_items() >= 0,
+                "cleared segment has invalid number of live items: ({})",
+                self.live_items()
             );
             debug_assert!(
-                self.header.live_bytes() >= 0,
-                "cleared segment has invalid occupied_size: ({})",
-                self.header.live_bytes()
+                self.live_bytes() >= 0,
+                "cleared segment has invalid number of live bytes: ({})",
+                self.live_bytes()
             );
             offset += item.size();
         }
@@ -482,22 +493,22 @@ impl<'a> Segment<'a> {
         } else {
             0
         };
-        if self.header.live_bytes() != expected_size {
+        if self.live_bytes() != expected_size {
             assert_eq!(
-                self.header.live_bytes(),
+                self.live_bytes(),
                 expected_size,
                 "segment size incorrect after clearing"
             );
         }
 
-        self.header.set_write_offset(self.header.live_bytes());
+        self.header.set_write_offset(self.live_bytes());
     }
 
     pub(crate) fn dump(&mut self) -> SegmentDump {
         let mut ret = SegmentDump {
             id: self.id(),
             write_offset: self.header.write_offset(),
-            live_bytes: self.header.live_bytes(),
+            live_bytes: self.live_bytes(),
             live_items: self.live_items(),
             prev_seg: self.header.prev_seg().unwrap_or(-1),
             next_seg: self.header.next_seg().unwrap_or(-1),
