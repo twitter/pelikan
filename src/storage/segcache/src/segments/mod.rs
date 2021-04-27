@@ -15,7 +15,7 @@ mod segment;
 mod segments;
 
 pub use eviction::{Eviction, Policy};
-pub use header::{SegmentHeader, SEG_HDR_SIZE};
+pub use header::SegmentHeader;
 pub use segment::Segment;
 pub(crate) use segment::SegmentDump;
 pub use segments::{Segments, SegmentsBuilder, SegmentsError};
@@ -26,7 +26,7 @@ mod test {
 
     #[test]
     fn free_q() {
-        let mut segments = Segments::builder().heap_size(16 * 1024 * 1024).build();
+        let mut segments = SegmentsBuilder::default().heap_size(16 * 1024 * 1024).build();
         let mut used = Vec::new();
         for _i in 0..16 {
             let id = segments.pop_free().unwrap();

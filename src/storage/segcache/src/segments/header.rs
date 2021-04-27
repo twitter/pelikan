@@ -2,8 +2,6 @@ use crate::common::ThinOption;
 use crate::SEG_MAGIC;
 use rustcommon_time::*;
 
-pub const SEG_HDR_SIZE: usize = std::mem::size_of::<SegmentHeader>();
-
 use rustcommon_time::CoarseDuration as Duration;
 use rustcommon_time::CoarseInstant as Instant;
 
@@ -13,23 +11,18 @@ use rustcommon_time::CoarseInstant as Instant;
 /// be stored in DRAM as the fields are frequently accessed and changed.
 pub struct SegmentHeader {
     id: i32,
-    write_offset: i32,
-    occupied_size: i32,
-    n_item: i32,
-    prev_seg: i32,
-    next_seg: i32,
-    n_hit: i32,
-    n_active_items: i32,
-    n_active_bytes: i32,
-    last_merge_epoch: i16,
+    write_offset: i32, // current write position
+    occupied_size: i32, // number of live bytes in the segment
+    n_item: i32, // number of live items in the segment
+    prev_seg: i32, // prev segment in ttl bucket or free queue
+    next_seg: i32, // next segment in ttl bucket or free queue
     create_at: Instant,
     ttl: u32,
     merge_at: Instant,
     accessible: bool,
     evictable: bool,
     recovered: bool,
-    unused: u16,
-    _pad: [u8; 4],
+    _pad: [u8; 24],
 }
 
 impl SegmentHeader {
@@ -41,18 +34,13 @@ impl SegmentHeader {
             n_item: 0,
             prev_seg: -1,
             next_seg: -1,
-            n_hit: 0,
-            n_active_items: 0,
-            n_active_bytes: 0,
-            last_merge_epoch: -1,
             create_at: Instant::recent(),
             ttl: 0,
             merge_at: Instant::recent(),
             accessible: false,
             evictable: false,
             recovered: false,
-            unused: 0,
-            _pad: [0; 4],
+            _pad: [0; 24],
         }
     }
 
@@ -71,10 +59,6 @@ impl SegmentHeader {
         self.create_at = Instant::recent();
         self.merge_at = Instant::recent();
         self.accessible = true;
-        self.n_hit = 0;
-        self.last_merge_epoch = 0;
-        self.n_active_items = 0;
-        self.n_active_bytes = 0;
     }
 
     // TODO(bmartin): maybe have some debug_assert for n_item == 0 ?
@@ -253,16 +237,5 @@ impl SegmentHeader {
         self.evictable()
             && self.next_seg().is_some()
             && (self.create_at() + self.ttl()) >= (Instant::recent() + Duration::from_secs(5))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn sizes() {
-        assert_eq!(SEG_HDR_SIZE, 64);
-        assert_eq!(std::mem::size_of::<SegmentHeader>(), SEG_HDR_SIZE)
     }
 }

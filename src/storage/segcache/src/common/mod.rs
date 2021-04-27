@@ -8,7 +8,6 @@ pub const FREQ_MASK: u64 = 0x000F_F000_0000_0000;
 pub const SEG_ID_MASK: u64 = 0x0000_0FFF_FFF0_0000;
 pub const OFFSET_MASK: u64 = 0x0000_0000_000F_FFFF;
 
-pub const TAG_BIT_SHIFT: u64 = 52;
 pub const FREQ_BIT_SHIFT: u64 = 44;
 pub const SEG_ID_BIT_SHIFT: u64 = 20;
 pub const OFFSET_UNIT_IN_BIT: u64 = 3;
@@ -17,12 +16,10 @@ pub const OFFSET_UNIT_IN_BIT: u64 = 3;
 pub const CLEAR_FREQ_SMOOTH_MASK: u64 = 0xFFF7_FFFF_FFFF_FFFF;
 
 // bucket info masks and shifts
-pub const LOCK_MASK: u64 = 0xFF00_0000_0000_0000;
 pub const BUCKET_CHAIN_LEN_MASK: u64 = 0x00FF_0000_0000_0000;
 pub const TS_MASK: u64 = 0x0000_FFFF_0000_0000;
 pub const CAS_MASK: u64 = 0x0000_0000_FFFF_FFFF;
 
-pub const LOCK_BIT_SHIFT: u64 = 56;
 pub const BUCKET_CHAIN_LEN_BIT_SHIFT: u64 = 48;
 pub const TS_BIT_SHIFT: u64 = 32;
 

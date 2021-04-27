@@ -78,10 +78,6 @@ impl Default for Segments {
 }
 
 impl Segments {
-    pub fn builder() -> SegmentsBuilder {
-        SegmentsBuilder::default()
-    }
-
     fn from_builder(builder: SegmentsBuilder) -> Self {
         let segment_size = builder.segment_size;
         let segments = builder.heap_size / (builder.segment_size as usize);
@@ -145,6 +141,7 @@ impl Segments {
     }
 
     // returns the number of segments in the free queue
+    #[cfg(test)]
     pub fn free(&self) -> usize {
         self.free as usize
     }
@@ -546,6 +543,7 @@ impl Segments {
         total
     }
 
+    #[cfg(test)]
     pub(crate) fn print_headers(&self) {
         for id in 0..self.cap {
             println!("segment header: {:?}", self.headers[id as usize]);

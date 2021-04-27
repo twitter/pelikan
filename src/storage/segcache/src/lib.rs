@@ -79,6 +79,8 @@ pub enum SegCacheError {
     Exists,
     #[error("item not found")]
     NotFound,
+    #[error("data corruption detected")]
+    DataCorrupted,
 }
 
 /// A `Builder` is used to construct a new `SegCache` instance.
@@ -197,7 +199,6 @@ impl<S: std::hash::BuildHasher> SegCache<S> {
         self.hashtable.get_no_freq_incr(key, &mut self.segments)
     }
 
-    #[allow(clippy::result_unit_err)]
     pub fn insert(
         &mut self,
         key: &[u8],
@@ -274,7 +275,6 @@ impl<S: std::hash::BuildHasher> SegCache<S> {
         }
     }
 
-    #[allow(clippy::result_unit_err)]
     /// Performs a CAS operation, inserting the item only if the CAS value
     /// matches the current value for that item.
     pub fn cas(
@@ -308,10 +308,21 @@ impl<S: std::hash::BuildHasher> SegCache<S> {
     }
 
     /// Produces a dump of the cache for analysis
+    /// *NOTE*: this operation is relatively expensive
     pub fn dump(&mut self) -> SegCacheDump {
         SegCacheDump {
             ttl_buckets: self.ttl_buckets.dump(),
             segments: self.segments.dump(),
+        }
+    }
+
+    /// Checks the integrity of all segments
+    /// *NOTE*: this operation is relatively expensive
+    pub fn check_integrity(&mut self) -> Result<(), SegCacheError> {
+        if self.segments.check_integrity() {
+            Ok(())
+        } else {
+            Err(SegCacheError::DataCorrupted)
         }
     }
 }
@@ -370,7 +381,6 @@ mod tests {
 
     #[test]
     fn get_free_seg() {
-        let ttl = CoarseDuration::ZERO;
         let segment_size = 4096;
         let segments = 64;
         let heap_size = segments * segment_size as usize;

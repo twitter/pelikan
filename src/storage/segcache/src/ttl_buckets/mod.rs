@@ -19,11 +19,9 @@ pub struct TtlBucket {
     head: i32,
     tail: i32,
     ttl: i32,
-    next_expiration: i32,
     segments: i32,
     next_to_merge: i32,
-    last_cutoff_freq: i32,
-    _pad: [u8; 36],
+    _pad: [u8; 44],
 }
 
 pub struct TtlBuckets {
@@ -42,11 +40,9 @@ impl TtlBucket {
             head: -1,
             tail: -1,
             ttl,
-            next_expiration: 0,
             segments: 0,
             next_to_merge: -1,
-            last_cutoff_freq: 0,
-            _pad: [0; 36],
+            _pad: [0; 44],
         }
     }
 
@@ -232,10 +228,12 @@ impl TtlBuckets {
         } else if ttl & !(TTL_BOUNDARY_3 - 1) == 0 {
             (ttl >> TTL_BUCKET_INTERVAL_N_BIT_3) as usize + N_BUCKET_PER_STEP * 2
         } else {
-            std::cmp::min(
-                (ttl >> TTL_BUCKET_INTERVAL_N_BIT_4) as usize + N_BUCKET_PER_STEP * 3,
-                self.buckets.len() - 1,
-            )
+            let bucket_idx = (ttl >> TTL_BUCKET_INTERVAL_N_BIT_4) as usize + N_BUCKET_PER_STEP * 3;
+            if bucket_idx > MAX_TTL_BUCKET_IDX {
+                MAX_TTL_BUCKET_IDX
+            } else {
+                bucket_idx
+            }
         }
     }
 

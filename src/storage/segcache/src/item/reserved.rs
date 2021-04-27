@@ -15,6 +15,7 @@ impl ReservedItem {
         Self { item, seg, offset }
     }
 
+    #[cfg(feature = "magic")]
     /// Check the item magic
     pub fn check_magic(&self) {
         self.item.check_magic()
