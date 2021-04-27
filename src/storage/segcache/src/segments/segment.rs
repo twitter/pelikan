@@ -226,11 +226,6 @@ impl<'a> Segment<'a> {
             continue;
         }
 
-        // TODO(bmartin): see if we can reduce how much we zero out here
-        // for offset in write_offset..self.data.len() {
-        //     self.data[offset] = 0;
-        // }
-
         // updates the write offset to the new position
         self.header.set_write_offset(write_offset as i32);
 

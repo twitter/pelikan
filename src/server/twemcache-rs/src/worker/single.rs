@@ -60,7 +60,7 @@ impl SingleWorker<CacheHasher> {
 
         let data = SegCache::builder()
             .power(config.segcache().hash_power())
-            .hash_extra_capacity(config.segcache().hash_extra_capacity())
+            .overflow_factor(config.segcache().overflow_factor())
             .heap_size(config.segcache().heap_size())
             .segment_size(config.segcache().segment_size())
             .eviction(eviction)
