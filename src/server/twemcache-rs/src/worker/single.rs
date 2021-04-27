@@ -15,7 +15,6 @@ use crate::*;
 
 use core::hash::BuildHasher;
 use std::convert::TryInto;
-// use std::io::Write;
 use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
@@ -235,41 +234,7 @@ where
                     Ok(request) => {
                         increment_counter!(&Stat::ProcessReq);
                         let mut write_buffer = session.write_buffer.take().unwrap();
-                        match request {
-                            Request::Get(request) => {
-                                process_get(request, &mut write_buffer, &mut self.data)
-                            }
-                            Request::Gets(request) => {
-                                process_gets(request, &mut write_buffer, &mut self.data)
-                            }
-                            Request::Set(request) => process_set(
-                                &self.config,
-                                request,
-                                &mut write_buffer,
-                                &mut self.data,
-                            ),
-                            Request::Cas(request) => process_cas(
-                                &self.config,
-                                request,
-                                &mut write_buffer,
-                                &mut self.data,
-                            ),
-                            Request::Add(request) => process_add(
-                                &self.config,
-                                request,
-                                &mut write_buffer,
-                                &mut self.data,
-                            ),
-                            Request::Replace(request) => process_replace(
-                                &self.config,
-                                request,
-                                &mut write_buffer,
-                                &mut self.data,
-                            ),
-                            Request::Delete(request) => {
-                                process_delete(request, &mut write_buffer, &mut self.data)
-                            }
-                        }
+                        request.process(&self.config, &mut write_buffer, &mut self.data);
                         session.write_buffer = Some(write_buffer);
                     }
                     Err(ParseError::Incomplete) => {

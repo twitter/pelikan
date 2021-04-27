@@ -39,6 +39,20 @@ pub enum Request {
     Delete(DeleteRequest),
 }
 
+impl Request {
+    pub fn process<S: BuildHasher>(self, config: &Arc<Config>, write_buffer: &mut BytesMut, data: &mut SegCache<S>) {
+        match self {
+            Self::Get(r) => process_get(r, write_buffer, data),
+            Self::Gets(r) => process_gets(r, write_buffer, data),
+            Self::Set(r) => process_set(config, r, write_buffer, data),
+            Self::Cas(r) => process_cas(config, r, write_buffer, data),
+            Self::Add(r) => process_add(config, r, write_buffer, data),
+            Self::Replace(r) => process_replace(config, r, write_buffer, data),
+            Self::Delete(r) => process_delete(r, write_buffer, data),
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Debug)]
 pub enum ParseError {
     Incomplete,

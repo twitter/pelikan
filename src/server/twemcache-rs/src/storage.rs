@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use ahash::RandomState;
 use bytes::BytesMut;
 use config::segcache::Eviction;
 use crossbeam_channel::Receiver;
@@ -36,30 +35,6 @@ where
     worker_sender: Vec<Producer<StorageMessage>>,
     worker_receiver: Vec<Consumer<StorageMessage>>,
     worker_waker: Vec<Waker>,
-}
-
-pub struct CacheHasher {
-    inner: ahash::RandomState,
-}
-
-impl Default for CacheHasher {
-    fn default() -> Self {
-        let inner = RandomState::with_seeds(
-            0xbb8c484891ec6c86,
-            0x0522a25ae9c769f9,
-            0xeed2797b9571bc75,
-            0x4feb29c1fbbd59d0,
-        );
-        Self { inner }
-    }
-}
-
-impl BuildHasher for CacheHasher {
-    type Hasher = ahash::AHasher;
-
-    fn build_hasher(&self) -> Self::Hasher {
-        self.inner.build_hasher()
-    }
 }
 
 pub struct StorageQueue {
@@ -152,49 +127,7 @@ impl Storage<CacheHasher> {
                         if let Ok(mut message) = queue.pop() {
                             if let Some(request) = message.request.take() {
                                 increment_counter!(&Stat::ProcessReq);
-                                match request {
-                                    Request::Get(r) => {
-                                        process_get(r, &mut message.buffer, &mut self.data);
-                                    }
-                                    Request::Gets(r) => {
-                                        process_gets(r, &mut message.buffer, &mut self.data);
-                                    }
-                                    Request::Set(r) => {
-                                        process_set(
-                                            &self.config,
-                                            r,
-                                            &mut message.buffer,
-                                            &mut self.data,
-                                        );
-                                    }
-                                    Request::Cas(r) => {
-                                        process_cas(
-                                            &self.config,
-                                            r,
-                                            &mut message.buffer,
-                                            &mut self.data,
-                                        );
-                                    }
-                                    Request::Add(r) => {
-                                        process_add(
-                                            &self.config,
-                                            r,
-                                            &mut message.buffer,
-                                            &mut self.data,
-                                        );
-                                    }
-                                    Request::Replace(r) => {
-                                        process_replace(
-                                            &self.config,
-                                            r,
-                                            &mut message.buffer,
-                                            &mut self.data,
-                                        );
-                                    }
-                                    Request::Delete(r) => {
-                                        process_delete(r, &mut message.buffer, &mut self.data);
-                                    }
-                                }
+                                request.process(&self.config, &mut message.buffer, &mut self.data);
                             }
                             self.worker_sender[id].push(message).unwrap();
                             worker_needs_wake[id] = true;

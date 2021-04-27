@@ -20,6 +20,7 @@ use std::thread::JoinHandle;
 mod admin;
 mod common;
 mod event_loop;
+mod hasher;
 pub mod protocol;
 mod server;
 mod session;
@@ -28,8 +29,9 @@ mod worker;
 
 use crate::admin::Admin;
 use crate::common::Message;
+use crate::hasher::CacheHasher;
 use crate::server::Server;
-use crate::storage::{CacheHasher, Storage};
+use crate::storage::Storage;
 use crate::worker::{MultiWorker, SingleWorker};
 
 /// A structure which represents a threaded twemcache which is not yet running.
