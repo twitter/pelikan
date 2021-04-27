@@ -11,6 +11,8 @@ use rand::SeedableRng;
 use rustcommon_time::*;
 use segcache::SegCache;
 
+pub const MB: usize = 1024 * 1024;
+
 // A very fast PRNG which is appropriate for testing
 pub fn rng() -> impl RngCore {
     rand_xoshiro::Xoshiro256PlusPlus::seed_from_u64(0)
@@ -34,8 +36,8 @@ fn ahash_get_benchmark(c: &mut Criterion) {
         let mut cache = SegCache::builder()
             .power(16)
             .hasher(build_hasher)
-            .segments(64)
-            .seg_size(1024 * 1024)
+            .heap_size(64 * MB)
+            .segment_size(MB as i32)
             .build();
 
         let mut key = 0;
@@ -97,8 +99,8 @@ fn ahash_set_benchmark(c: &mut Criterion) {
             let mut cache = SegCache::builder()
                 .power(16)
                 .hasher(build_hasher)
-                .segments(64)
-                .seg_size(1024 * 1024)
+                .heap_size(64 * MB)
+                .segment_size(MB as i32)
                 .build();
 
             let mut key = 0;
@@ -145,8 +147,8 @@ fn xxhash64_get_benchmark(c: &mut Criterion) {
         let mut cache = SegCache::builder()
             .power(16)
             .hasher(XxHasher64 {})
-            .segments(64)
-            .seg_size(1024 * 1024)
+            .heap_size(64 * MB)
+            .segment_size(MB as i32)
             .build();
 
         group.bench_function(&format!("{}b/0b", key_size), |b| {
@@ -178,8 +180,8 @@ fn xxhash64_set_benchmark(c: &mut Criterion) {
             let mut cache = SegCache::builder()
                 .power(16)
                 .hasher(XxHasher64 {})
-                .segments(64)
-                .seg_size(1024 * 1024)
+                .heap_size(64 * MB)
+                .segment_size(MB as i32)
                 .build();
 
             group.bench_function(&format!("{}b/{}b", key_size, value_size), |b| {

@@ -18,8 +18,6 @@ pub struct SegmentHeader {
     n_item: i32,
     prev_seg: i32,
     next_seg: i32,
-    w_ref: i16,
-    r_ref: i16,
     n_hit: i32,
     n_active_items: i32,
     n_active_bytes: i32,
@@ -31,6 +29,7 @@ pub struct SegmentHeader {
     evictable: bool,
     recovered: bool,
     unused: u16,
+    _pad: [u8; 4],
 }
 
 impl SegmentHeader {
@@ -42,8 +41,6 @@ impl SegmentHeader {
             n_item: 0,
             prev_seg: -1,
             next_seg: -1,
-            w_ref: 0,
-            r_ref: 0,
             n_hit: 0,
             n_active_items: 0,
             n_active_bytes: 0,
@@ -55,6 +52,7 @@ impl SegmentHeader {
             evictable: false,
             recovered: false,
             unused: 0,
+            _pad: [0; 4],
         }
     }
 
@@ -222,24 +220,6 @@ impl SegmentHeader {
     }
 
     #[inline]
-    /// Number of outstanding write references
-    pub fn w_ref(&self) -> i16 {
-        self.w_ref
-    }
-
-    #[inline]
-    /// Increment the number of write references
-    pub fn incr_w_ref(&mut self) {
-        self.w_ref += 1;
-    }
-
-    #[inline]
-    /// Decrement the number of write references
-    pub fn decr_w_ref(&mut self) {
-        self.w_ref -= 1;
-    }
-
-    #[inline]
     /// Returns the instant at which the segment was created
     pub fn create_at(&self) -> CoarseInstant {
         self.create_at
@@ -270,20 +250,9 @@ impl SegmentHeader {
     #[allow(clippy::suspicious_operation_groupings)]
     /// Can the segment be evicted?
     pub fn can_evict(&self) -> bool {
-        self.w_ref() == 0
-            && self.evictable()
+        self.evictable()
             && self.next_seg().is_some()
             && (self.create_at() + self.ttl()) >= (Instant::recent() + Duration::from_secs(5))
-    }
-
-    #[inline]
-    // clippy throws a false positive for suspicious_operation_groupings lint
-    // for the instant + duration portion. We set the allow pragma to silence
-    // the false positive.
-    #[allow(clippy::suspicious_operation_groupings)]
-    /// Can the segment be merged?
-    pub fn can_merge(&self) -> bool {
-        self.w_ref() == 0 && self.evictable() && self.next_seg().is_some()
     }
 }
 

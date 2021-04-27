@@ -3,6 +3,8 @@ use rand::SeedableRng;
 use segcache::*;
 use std::time::Instant;
 
+pub const MB: usize = 1024 * 1024;
+
 fn main() {
     let build_hasher = ahash::RandomState::with_seeds(
         0xbb8c484891ec6c86,
@@ -12,7 +14,8 @@ fn main() {
     );
 
     let mut cache = SegCache::builder()
-        .segments(128)
+        .heap_size(128 * MB)
+        .segment_size(MB as i32)
         .power(22)
         .hasher(build_hasher)
         .build();

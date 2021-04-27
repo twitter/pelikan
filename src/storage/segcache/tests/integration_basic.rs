@@ -15,11 +15,11 @@ fn build_hasher() -> RandomState {
 #[test]
 fn integration_basic() {
     let ttl = CoarseDuration::ZERO;
-    let segments = 2;
-    let seg_size = 256;
+    let heap_size = 2 * 256;
+    let segment_size = 256;
     let mut cache = SegCache::builder()
-        .seg_size(seg_size)
-        .segments(segments)
+        .segment_size(segment_size)
+        .heap_size(heap_size)
         .power(16)
         .hasher(build_hasher())
         .build();
