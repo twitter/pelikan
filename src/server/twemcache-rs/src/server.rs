@@ -178,10 +178,6 @@ impl Server {
                                 error!("error sending session to worker");
                                 increment_counter!(&Stat::TcpAcceptEx);
                             }
-                            // if self.sender.send(session).is_err() {
-                            //     error!("error sending session to worker");
-                            //     increment_counter!(&Stat::TcpAcceptEx);
-                            // }
                         };
                     }
                 } else {
@@ -229,10 +225,6 @@ impl Server {
                                 error!("error sending session to worker");
                                 increment_counter!(&Stat::TcpAcceptEx);
                             }
-                            // if self.sender.send(session).is_err() {
-                            //     error!("error sending session to worker");
-                            //     increment_counter!(&Stat::TcpAcceptEx);
-                            // }
                         }
                     }
                 }
