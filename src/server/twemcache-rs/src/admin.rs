@@ -12,7 +12,8 @@ use metrics::Stat;
 
 use rustcommon_fastmetrics::{Metric, Source};
 
-use boring::ssl::{HandshakeError, Ssl, SslContext};
+use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
+use mio::event::Event;
 use mio::net::TcpListener;
 use strum::IntoEnumIterator;
 
@@ -82,6 +83,121 @@ impl Admin {
         })
     }
 
+    /// Adds a new fully established TLS session
+    fn add_established_tls_session(&mut self, addr: SocketAddr, stream: SslStream<TcpStream>) {
+        let mut session = Session::tls(addr, stream);
+        trace!("accepted new session: {}", addr);
+        let s = self.sessions.vacant_entry();
+        let token = s.key();
+        session.set_token(Token(token));
+        if session.register(&self.poll).is_ok() {
+            s.insert(session);
+        } else {
+            increment_counter!(&Stat::TcpAcceptEx);
+        }
+    }
+
+    /// Adds a new TLS session that requires further handshaking
+    fn add_handshaking_tls_session(
+        &mut self,
+        addr: SocketAddr,
+        stream: MidHandshakeSslStream<TcpStream>,
+    ) {
+        let mut session = Session::handshaking(addr, stream);
+        let s = self.sessions.vacant_entry();
+        let token = s.key();
+        session.set_token(Token(token));
+        if session.register(&self.poll).is_ok() {
+            s.insert(session);
+        } else {
+            increment_counter!(&Stat::TcpAcceptEx);
+        }
+    }
+
+    /// Adds a new plain (non-TLS) session
+    fn add_plain_session(&mut self, addr: SocketAddr, stream: TcpStream) {
+        let mut session = Session::plain(addr, stream);
+        trace!("accepted new session: {}", addr);
+        let s = self.sessions.vacant_entry();
+        let token = s.key();
+        session.set_token(Token(token));
+        if session.register(&self.poll).is_ok() {
+            s.insert(session);
+        } else {
+            increment_counter!(&Stat::TcpAcceptEx);
+        }
+    }
+
+    /// Repeatedly call accept on the listener
+    fn do_accept(&mut self) {
+        while let Ok((stream, addr)) = self.listener.accept() {
+            let stream = TcpStream::from(stream);
+
+            // handle TLS if it is configured
+            if let Some(ssl_context) = &self.ssl_context {
+                match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
+                    // handle case where we have a fully-negotiated
+                    // TLS stream on accept()
+                    Ok(Ok(tls_stream)) => {
+                        self.add_established_tls_session(addr, tls_stream);
+                    }
+                    // handle case where further negotiation is
+                    // needed
+                    Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
+                        self.add_handshaking_tls_session(addr, tls_stream);
+                    }
+                    // some other error has occurred and we drop the
+                    // stream
+                    Ok(Err(_)) | Err(_) => {
+                        increment_counter!(&Stat::TcpAcceptEx);
+                    }
+                }
+            } else {
+                self.add_plain_session(addr, stream);
+            };
+        }
+    }
+
+    /// Handle an event on an existing session
+    fn handle_session_event(&mut self, event: &Event) {
+        let token = event.token();
+        trace!("got event for admin session: {}", token.0);
+
+        // handle error events first
+        if event.is_error() {
+            increment_counter!(&Stat::AdminEventError);
+            self.handle_error(token);
+        }
+
+        // handle handshaking
+        if let Some(session) = self.sessions.get_mut(token.0) {
+            if session.is_handshaking() {
+                if let Err(e) = session.do_handshake() {
+                    if e.kind() == ErrorKind::WouldBlock {
+                        // the session is still handshaking
+                        return;
+                    } else {
+                        // some error occured while handshaking
+                        self.close(token);
+                    }
+                }
+            }
+        }
+
+        // handle write events before read events to reduce write
+        // buffer growth if there is also a readable event
+        if event.is_writable() {
+            increment_counter!(&Stat::AdminEventWrite);
+            self.do_write(token);
+        }
+
+        // read events are handled last
+        if event.is_readable() {
+            increment_counter!(&Stat::AdminEventRead);
+            let _ = self.do_read(token);
+        };
+    }
+
     /// Runs the `Admin` in a loop, accepting new sessions for the admin
     /// listener and handling events on existing sessions.
     pub fn run(&mut self) {
@@ -107,98 +223,10 @@ impl Admin {
 
             // handle all events
             for event in events.iter() {
-                // handle new sessions
                 if event.token() == Token(LISTENER_TOKEN) {
-                    while let Ok((stream, addr)) = self.listener.accept() {
-                        let stream = TcpStream::from(stream);
-
-                        // handle TLS if it is configured
-                        if let Some(ssl_context) = &self.ssl_context {
-                            match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
-                                // handle case where we have a fully-negotiated
-                                // TLS stream on accept()
-                                Ok(Ok(tls_stream)) => {
-                                    let mut session = Session::tls(addr, tls_stream);
-                                    trace!("accepted new session: {}", addr);
-                                    let s = self.sessions.vacant_entry();
-                                    let token = s.key();
-                                    session.set_token(Token(token));
-                                    if session.register(&self.poll).is_ok() {
-                                        s.insert(session);
-                                    } else {
-                                        increment_counter!(&Stat::TcpAcceptEx);
-                                    }
-                                }
-                                // handle case where further negotiation is
-                                // needed
-                                Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
-                                    let mut session = Session::handshaking(addr, tls_stream);
-                                    let s = self.sessions.vacant_entry();
-                                    let token = s.key();
-                                    session.set_token(Token(token));
-                                    if session.register(&self.poll).is_ok() {
-                                        s.insert(session);
-                                    } else {
-                                        increment_counter!(&Stat::TcpAcceptEx);
-                                    }
-                                }
-                                // some other error has occurred and we drop the
-                                // stream
-                                Ok(Err(_)) | Err(_) => {
-                                    increment_counter!(&Stat::TcpAcceptEx);
-                                }
-                            }
-                        } else {
-                            let mut session = Session::plain(addr, stream);
-                            trace!("accepted new session: {}", addr);
-                            let s = self.sessions.vacant_entry();
-                            let token = s.key();
-                            session.set_token(Token(token));
-                            if session.register(&self.poll).is_ok() {
-                                s.insert(session);
-                            } else {
-                                increment_counter!(&Stat::TcpAcceptEx);
-                            }
-                        };
-                    }
+                    self.do_accept();
                 } else {
-                    // handle events on existing sessions
-                    let token = event.token();
-                    trace!("got event for admin session: {}", token.0);
-
-                    // handle error events first
-                    if event.is_error() {
-                        increment_counter!(&Stat::AdminEventError);
-                        self.handle_error(token);
-                    }
-
-                    // handle handshaking
-                    if let Some(session) = self.sessions.get_mut(token.0) {
-                        if session.is_handshaking() {
-                            if let Err(e) = session.do_handshake() {
-                                if e.kind() == ErrorKind::WouldBlock {
-                                    // the session is still handshaking
-                                    continue;
-                                } else {
-                                    // some error occured while handshaking
-                                    self.close(token);
-                                }
-                            }
-                        }
-                    }
-
-                    // handle write events before read events to reduce write
-                    // buffer growth if there is also a readable event
-                    if event.is_writable() {
-                        increment_counter!(&Stat::AdminEventWrite);
-                        self.do_write(token);
-                    }
-
-                    // read events are handled last
-                    if event.is_readable() {
-                        increment_counter!(&Stat::AdminEventRead);
-                        let _ = self.do_read(token);
-                    };
+                    self.handle_session_event(event);
                 }
             }
 

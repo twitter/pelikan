@@ -179,7 +179,9 @@ impl Storage<CacheHasher> {
                                         &mut self.data,
                                     );
                                     for retry in 0..QUEUE_RETRIES {
-                                        if let Err(PushError::Full(m)) = self.worker_sender[id].push(message) {
+                                        if let Err(PushError::Full(m)) =
+                                            self.worker_sender[id].push(message)
+                                        {
                                             if (retry + 1) == QUEUE_RETRIES {
                                                 error!("error sending message to worker");
                                             }

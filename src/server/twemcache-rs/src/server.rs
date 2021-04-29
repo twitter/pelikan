@@ -3,10 +3,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::event_loop::EventLoop;
-use crossbeam_channel::SendError;
-use crossbeam_channel::{Receiver, Sender};
 use crate::session::*;
 use crate::*;
+use crossbeam_channel::SendError;
+use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
 
 use boring::ssl::{HandshakeError, Ssl, SslContext};
