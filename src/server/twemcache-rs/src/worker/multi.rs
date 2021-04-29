@@ -4,6 +4,7 @@
 
 use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
+use rtrb::PushError;
 
 use crate::common::Message;
 use crate::event_loop::EventLoop;
@@ -14,6 +15,8 @@ use crate::*;
 
 use std::convert::TryInto;
 use std::sync::Arc;
+
+const QUEUE_RETRIES: usize = 3;
 
 /// A `MultiWorker` handles events on `Session`s and routes storage requests to
 /// the `Storage` thread.
@@ -104,22 +107,25 @@ impl MultiWorker {
                             }
 
                             if session.read_pending() > 0 {
-                                // TODO(bmartin): using a trait here might make this nicer, eg:
-                                // request.process(self, wbuf: &mut BytesMut, ... )
-                                // need to check for performance impact.
                                 match parse(&mut session.read_buffer) {
                                     Ok(request) => {
-                                        let message = StorageMessage {
+                                        let mut message = StorageMessage {
                                             request: Some(request),
                                             buffer: session.write_buffer.take().unwrap(),
                                             token,
                                         };
-                                        match self.storage_queue.try_send(message) {
-                                            Ok(_) => {
-                                                // return Ok(());
-                                            }
-                                            Err(_message) => {
-                                                panic!("queue full");
+                                        for retry in 0..QUEUE_RETRIES {
+                                            if let Err(PushError::Full(m)) = self.storage_queue.try_send(message) {
+                                                if (retry + 1) == QUEUE_RETRIES {
+                                                    error!("queue full trying to send message to storage thread");
+                                                    if session.deregister(&self.poll).is_err() {
+                                                        error!("Error deregistering");
+                                                    }
+                                                    session.close()
+                                                }
+                                                message = m;
+                                            } else {
+                                                break;
                                             }
                                         }
                                     }
