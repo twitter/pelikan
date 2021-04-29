@@ -1,6 +1,6 @@
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/_bin)
-set(TARGET_NAME pelikan_pingserver_rs)
+set(TARGET_NAME pelikan_twemcache_rs)
 
 cargo_build(NAME ${TARGET_NAME} BIN)
 
