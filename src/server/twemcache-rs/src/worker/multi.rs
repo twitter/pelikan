@@ -117,7 +117,9 @@ impl MultiWorker {
                                             token,
                                         };
                                         for retry in 0..QUEUE_RETRIES {
-                                            if let Err(PushError::Full(m)) = self.storage_queue.try_send(message) {
+                                            if let Err(PushError::Full(m)) =
+                                                self.storage_queue.try_send(message)
+                                            {
                                                 if (retry + 1) == QUEUE_RETRIES {
                                                     error!("queue full trying to send message to storage thread");
                                                     if session.deregister(&self.poll).is_err() {

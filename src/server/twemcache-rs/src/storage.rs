@@ -172,7 +172,11 @@ impl Storage<CacheHasher> {
                             if let Ok(mut message) = self.worker_receiver[id].pop() {
                                 if let Some(request) = message.request.take() {
                                     increment_counter!(&Stat::ProcessReq);
-                                    request.process(&self.config, &mut message.buffer, &mut self.data);
+                                    request.process(
+                                        &self.config,
+                                        &mut message.buffer,
+                                        &mut self.data,
+                                    );
                                     self.worker_sender[id].push(message).unwrap();
                                     worker_needs_wake[id] = true;
                                 }
