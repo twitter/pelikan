@@ -106,6 +106,26 @@ impl<S: std::hash::BuildHasher> Default for Builder<S> {
 impl<S: std::hash::BuildHasher + Default> Builder<S> {
     /// Provide a `BuildHasher` type which is used to calculate hash values for
     /// the keys.
+    ///
+    /// ```
+    /// use segcache::SegCache;
+    /// use std::collections::hash_map::RandomState;
+    ///
+    /// // use the default `HashMap` hasher
+    /// let cache = SegCache::builder()
+    ///     .hasher(std::collections::hash_map::RandomState::new())
+    ///     .build();
+    ///
+    /// // use ahash with a fixed set of seeds
+    /// let cache = SegCache::builder()
+    ///     .hasher(ahash::RandomState::with_seeds(
+    ///         0xbb8c484891ec6c86,
+    ///         0x0522a25ae9c769f9,
+    ///         0xeed2797b9571bc75,
+    ///         0x4feb29c1fbbd59d0,
+    ///     ))
+    ///     .build();
+    /// ```
     pub fn hasher(mut self, hasher: S) -> Self {
         self.hasher = Some(hasher);
         self
@@ -117,7 +137,17 @@ impl<S: std::hash::BuildHasher + Default> Builder<S> {
     /// `7 * 2^(N - 3)` items. The hash table will have a total size of
     /// `2^(N + 3)` bytes.
     ///
+    /// ```
+    /// use segcache::SegCache;
+    /// use std::collections::hash_map::RandomState;
     ///
+    /// // create a cache with a small hashtable that has room for ~ 114k items
+    /// // without using any overflow buckets.
+    /// let cache = SegCache::<RandomState>::builder().power(17).build();
+    ///
+    /// // create a cache with a larger hashtable with room for ~1.8M items
+    /// let cache = SegCache::<RandomState>::builder().power(21).build();
+    /// ```
     pub fn power(mut self, power: u8) -> Self {
         assert!(power >= 3, "power must be at least 3");
         self.power = power;
