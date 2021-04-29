@@ -127,6 +127,8 @@ impl MultiWorker {
                                                     }
                                                     session.close()
                                                 }
+                                                // try to wake storage thread
+                                                let _ = self.storage_queue.wake();
                                                 message = m;
                                             } else {
                                                 break;
@@ -279,6 +281,8 @@ impl EventLoop for MultiWorker {
                                     }
                                     session.close()
                                 }
+                                // try to wake storage thread
+                                let _ = self.storage_queue.wake();
                                 message = m;
                             } else {
                                 break;

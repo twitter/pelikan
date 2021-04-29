@@ -8,7 +8,6 @@ use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use metrics::Stat;
 use rtrb::*;
-use rustcommon_time::CoarseInstant;
 use segcache::{Policy, SegCache};
 
 use core::hash::BuildHasher;
@@ -17,6 +16,8 @@ use std::sync::Arc;
 use crate::common::Message;
 use crate::protocol::data::*;
 use crate::*;
+
+const QUEUE_RETRIES: usize = 3;
 
 pub struct StorageMessage {
     pub request: Option<Request>,
@@ -177,7 +178,17 @@ impl Storage<CacheHasher> {
                                         &mut message.buffer,
                                         &mut self.data,
                                     );
-                                    self.worker_sender[id].push(message).unwrap();
+                                    for retry in 0..QUEUE_RETRIES {
+                                        if let Err(PushError::Full(m)) = self.worker_sender[id].push(message) {
+                                            if (retry + 1) == QUEUE_RETRIES {
+                                                error!("error sending message to worker");
+                                            }
+                                            let _ = self.worker_waker[id].wake();
+                                            message = m;
+                                        } else {
+                                            break;
+                                        }
+                                    }
                                     worker_needs_wake[id] = true;
                                 }
                             }
