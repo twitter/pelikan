@@ -40,7 +40,12 @@ pub enum Request {
 }
 
 impl Request {
-    pub fn process<S: BuildHasher>(self, config: &Arc<Config>, write_buffer: &mut BytesMut, data: &mut SegCache<S>) {
+    pub fn process<S: BuildHasher>(
+        self,
+        config: &Arc<Config>,
+        write_buffer: &mut BytesMut,
+        data: &mut SegCache<S>,
+    ) {
         match self {
             Self::Get(r) => process_get(r, write_buffer, data),
             Self::Gets(r) => process_gets(r, write_buffer, data),
