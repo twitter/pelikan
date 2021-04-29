@@ -1,11 +1,10 @@
-// Copyright 2020 Twitter, Inc.
+// Copyright 2021 Twitter, Inc.
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::event_loop::EventLoop;
 use crossbeam_channel::SendError;
 use crossbeam_channel::{Receiver, Sender};
-// use crate::metrics::Metrics;
 use crate::session::*;
 use crate::*;
 use metrics::Stat;

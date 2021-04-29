@@ -1,3 +1,7 @@
+// Copyright 2021 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
 // item constants
 pub const ITEM_HDR_SIZE: usize = std::mem::size_of::<crate::item::ItemHeader>();
 #[cfg(feature = "magic")]
