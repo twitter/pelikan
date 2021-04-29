@@ -7,11 +7,11 @@ use crate::*;
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
 use bytes::{Buf, BytesMut};
 use metrics::Stat;
-// use mio::net::TcpStream;
 
 use std::borrow::Borrow;
-
 use std::io::{Error, ErrorKind, Read, Write};
+
+pub const MIN_BUFFER_SIZE: usize = 1024; // 1 KiB
 
 pub struct TcpStream {
     inner: mio::net::TcpStream,
@@ -90,7 +90,7 @@ pub struct Session {
     stream: Option<Stream>,
     pub read_buffer: BytesMut,
     pub write_buffer: Option<BytesMut>,
-    tmp_buffer: [u8; 1024],
+    tmp_buffer: [u8; MIN_BUFFER_SIZE],
 }
 
 impl Session {
@@ -116,9 +116,9 @@ impl Session {
             token: Token(0),
             addr,
             stream: Some(stream),
-            read_buffer: BytesMut::with_capacity(1024),
-            write_buffer: Some(BytesMut::with_capacity(1024)),
-            tmp_buffer: [0; 1024],
+            read_buffer: BytesMut::with_capacity(MIN_BUFFER_SIZE),
+            write_buffer: Some(BytesMut::with_capacity(MIN_BUFFER_SIZE)),
+            tmp_buffer: [0; MIN_BUFFER_SIZE],
         }
     }
 

@@ -223,7 +223,7 @@ where
             loop {
                 // TODO(bmartin): buffer should allow us to check remaining
                 // write capacity.
-                if session.write_pending() > 1024 {
+                if session.write_pending() > MIN_BUFFER_SIZE {
                     // if the write buffer is over-full, skip processing
                     break;
                 }
