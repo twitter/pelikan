@@ -131,7 +131,6 @@ impl GetsRequest {
     }
 }
 
-// TODO(bmartin): this does not handle expiry.
 pub fn process_gets(
     request: GetsRequest,
     write_buffer: &mut BytesMut,
@@ -238,7 +237,6 @@ impl SetRequest {
     }
 }
 
-// TODO(bmartin): this does not handle expiry.
 pub fn process_set(
     config: &Arc<Config>,
     request: SetRequest,
@@ -433,7 +431,6 @@ impl AddRequest {
     }
 }
 
-// TODO(bmartin): this does not handle expiry.
 pub fn process_add(
     config: &Arc<Config>,
     request: AddRequest,
@@ -523,7 +520,6 @@ impl ReplaceRequest {
     }
 }
 
-// TODO(bmartin): this does not handle expiry.
 pub fn process_replace(
     config: &Arc<Config>,
     request: ReplaceRequest,
