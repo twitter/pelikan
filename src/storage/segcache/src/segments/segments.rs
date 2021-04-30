@@ -64,15 +64,26 @@ impl<'a> SegmentsBuilder {
     }
 }
 
+/// `Segments` contain all items within the cache. This struct is a collection
+/// of individual `Segment`s which are represented by a `SegmentHeader` and a
+/// subslice of bytes from a contiguous heap allocation.
 pub struct Segments {
-    headers: Box<[SegmentHeader]>, // pointer to slice of headers
-    data: Box<[u8]>,               // pointer to raw data
-    segment_size: i32,             // size of segment in bytes
-    free: i32,                     // number of segments free
-    cap: i32,                      // total number of segments
-    free_q: i32,                   // next free segment
-    flush_at: CoarseInstant,       // time last flushed
-    evict: Box<Eviction>,          // eviction config and state
+    /// Pointer to slice of headers
+    headers: Box<[SegmentHeader]>,
+    /// Pointer to raw data
+    data: Box<[u8]>,
+    /// Segment size in bytes
+    segment_size: i32,
+    /// Number of free segments
+    free: i32,
+    /// Total number of segments
+    cap: i32,
+    /// Head of the free segment queue
+    free_q: i32,
+    /// Time last flushed
+    flush_at: CoarseInstant,
+    /// Eviction configuration and state
+    evict: Box<Eviction>,
 }
 
 impl Default for Segments {
@@ -82,6 +93,8 @@ impl Default for Segments {
 }
 
 impl Segments {
+    /// Private function which allocates and initializes the `Segments` by
+    /// taking ownership of the builder
     fn from_builder(builder: SegmentsBuilder) -> Self {
         let segment_size = builder.segment_size;
         let segments = builder.heap_size / (builder.segment_size as usize);
@@ -136,29 +149,32 @@ impl Segments {
         }
     }
 
-    // returns the segment size in bytes
+    /// Return the size of each segment in bytes
     #[inline]
     pub fn segment_size(&self) -> i32 {
         self.segment_size
     }
 
-    // returns the number of segments in the free queue
+    /// Returns the number of free segments
     #[cfg(test)]
     pub fn free(&self) -> usize {
         self.free as usize
     }
 
+    /// Returns the time the segments were last flushed
     pub fn flush_at(&self) -> CoarseInstant {
         self.flush_at
     }
 
+    /// Retrieve a `RawItem` from the segment id and offset encoded in the
+    /// item info.
     pub(crate) fn get_item(&mut self, item_info: u64) -> Option<RawItem> {
         let seg_id = get_seg_id(item_info);
         let offset = get_offset(item_info) as usize;
         self.get_item_at(seg_id, offset)
     }
 
-    // returns the item looking it up from the item_info
+    /// Retrieve a `RawItem` from a specific segment id at the given offset
     // TODO(bmartin): consider changing the return type here and removing asserts?
     pub(crate) fn get_item_at(&mut self, seg_id: i32, offset: usize) -> Option<RawItem> {
         trace!("getting item from: seg: {} offset: {}", seg_id, offset);
@@ -166,11 +182,15 @@ impl Segments {
 
         let seg_begin = self.segment_size() as usize * seg_id as usize;
         let seg_end = seg_begin + self.segment_size() as usize;
-        let mut segment = Segment::from_raw_parts(&mut self.headers[seg_id as usize], &mut self.data[seg_begin..seg_end]);
+        let mut segment = Segment::from_raw_parts(
+            &mut self.headers[seg_id as usize],
+            &mut self.data[seg_begin..seg_end],
+        );
 
         segment.get_item_at(offset)
     }
 
+    /// Tries to clear a segment by id
     fn clear_segment<S: BuildHasher>(
         &mut self,
         id: i32,
@@ -189,6 +209,9 @@ impl Segments {
         }
     }
 
+    /// Perform eviction based on the configured eviction policy. A success from
+    /// this function indicates that a segment was put onto the free queue and
+    /// that `pop_free()` should return some segment id.
     pub fn evict<S: BuildHasher>(
         &mut self,
         ttl_buckets: &mut TtlBuckets,
@@ -253,7 +276,7 @@ impl Segments {
         }
     }
 
-    // looks up the segment by id and returns a mutable view of it
+    /// Returns a mutable `Segment` view for the segment with the specified id
     pub(crate) fn get_mut(&mut self, id: i32) -> Result<Segment, SegmentsError> {
         if id < 0 {
             Err(SegmentsError::BadSegmentId)
@@ -266,7 +289,8 @@ impl Segments {
 
             // this is safe because we now know the id was within range
             let data_ptr = unsafe { self.data.as_mut_ptr().add(self.segment_size as usize * id) };
-            let data = unsafe { std::slice::from_raw_parts_mut(data_ptr, self.segment_size as usize) };
+            let data =
+                unsafe { std::slice::from_raw_parts_mut(data_ptr, self.segment_size as usize) };
 
             let segment = Segment::from_raw_parts(header, data);
             segment.check_magic();
@@ -274,7 +298,8 @@ impl Segments {
         }
     }
 
-    // gets a pair of mutable segments
+    /// Gets a mutable `Segment` view for two segments after making sure the
+    /// borrows are disjoint.
     pub(crate) fn get_mut_pair(
         &mut self,
         a: i32,
@@ -296,8 +321,10 @@ impl Segments {
                 let header_b = &mut self.headers[b] as *mut _;
                 let data_ptr_a = self.data.as_mut_ptr().add(self.segment_size() as usize * a);
                 let data_ptr_b = self.data.as_mut_ptr().add(self.segment_size() as usize * b);
-                let data_a = std::slice::from_raw_parts_mut(data_ptr_a, self.segment_size() as usize);
-                let data_b = std::slice::from_raw_parts_mut(data_ptr_b, self.segment_size() as usize);
+                let data_a =
+                    std::slice::from_raw_parts_mut(data_ptr_a, self.segment_size() as usize);
+                let data_b =
+                    std::slice::from_raw_parts_mut(data_ptr_b, self.segment_size() as usize);
 
                 let segment_a = Segment::from_raw_parts(&mut *header_a, data_a);
                 let segment_b = Segment::from_raw_parts(&mut *header_b, data_b);
@@ -309,6 +336,9 @@ impl Segments {
         }
     }
 
+    /// Helper function which unlinks a segment from a chain by updating the
+    /// pointers of previous and next segments.
+    /// *NOTE*: this function must not be used on segments in the free queue
     fn unlink(&mut self, id: i32) {
         let id_idx = id as usize;
         if let Some(next) = self.headers[id_idx].next_seg() {
@@ -322,6 +352,7 @@ impl Segments {
         }
     }
 
+    /// Helper function which pushes a segment onto the front of a chain.
     fn push_front(&mut self, this: i32, head: i32) {
         let this_idx = this as usize;
         self.headers[this_idx].set_next_seg(head);
@@ -334,7 +365,8 @@ impl Segments {
         }
     }
 
-    // adds a segment to the free queue
+    /// Returns a segment to the free queue, to be used after clearing the
+    /// segment.
     pub(crate) fn push_free(&mut self, id: i32) {
         increment_counter!(&Stat::SegmentReturn);
         increment_gauge!(&Stat::SegmentFree);
@@ -353,7 +385,8 @@ impl Segments {
         self.free += 1;
     }
 
-    // get a segment from the free queue
+    /// Try to take a segment from the free queue. Returns the segment id which
+    /// must then be linked into a segment chain.
     pub(crate) fn pop_free(&mut self) -> Option<i32> {
         assert!(self.free >= 0);
         assert!(self.free <= self.cap);
@@ -399,6 +432,9 @@ impl Segments {
     }
 
     // TODO(bmartin): use a result here, not option
+    /// Returns the least valuable segment based on the configured eviction
+    /// policy. An eviction attempt should be made for the corresponding segment
+    /// before moving on to the next least valuable segment.
     pub(crate) fn least_valuable_seg(&mut self) -> Option<i32> {
         match self.evict.policy() {
             Policy::None => None,
@@ -433,8 +469,8 @@ impl Segments {
         }
     }
 
-    // remove a single item from a segment based on the item_info, optionally
-    // setting tombstone
+    /// Remove a single item from a segment based on the item_info, optionally
+    /// setting tombstone
     pub(crate) fn remove_item<S: BuildHasher>(
         &mut self,
         item_info: u64,
@@ -447,6 +483,8 @@ impl Segments {
         self.remove_at(seg_id, offset, tombstone, ttl_buckets, hashtable)
     }
 
+    /// Remove a single item from a segment based on the segment id and offset.
+    /// Optionally, sets the item tombstone.
     pub(crate) fn remove_at<S: BuildHasher>(
         &mut self,
         seg_id: i32,
@@ -463,7 +501,8 @@ impl Segments {
 
         // regardless of eviction policy, we can evict the segment if its now
         // empty and would be evictable. if we evict, we must return early
-        if self.headers[seg_id as usize].live_items() == 0 && self.headers[seg_id as usize].can_evict()
+        if self.headers[seg_id as usize].live_items() == 0
+            && self.headers[seg_id as usize].can_evict()
         {
             // NOTE: we skip clearing because we know the segment is empty
             self.headers[seg_id as usize].set_evictable(false);
@@ -505,8 +544,8 @@ impl Segments {
                 }
 
                 // calculate occupancy ratio of the next segment
-                let next_ratio = self.headers[next_id as usize].live_bytes() as f64
-                    / self.segment_size() as f64;
+                let next_ratio =
+                    self.headers[next_id as usize].live_bytes() as f64 / self.segment_size() as f64;
 
                 // if the next segment is empty enough, proceed to merge compaction
                 if next_ratio <= target_ratio {
@@ -524,16 +563,14 @@ impl Segments {
     }
 
     // mostly for testing, probably never want to run this otherwise
+    #[cfg(any(test, feature = "debug"))]
     pub(crate) fn items(&mut self) -> usize {
         let mut total = 0;
         for id in 0..self.cap {
             let segment = self.get_mut(id as i32).unwrap();
             segment.check_magic();
             let count = segment.live_items();
-            debug!(
-                "{} items in segment {} segment: {:?}",
-                count, id, segment
-            );
+            debug!("{} items in segment {} segment: {:?}", count, id, segment);
             total += segment.live_items() as usize;
         }
         total

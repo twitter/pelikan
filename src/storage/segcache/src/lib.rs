@@ -141,7 +141,7 @@ impl<S: std::hash::BuildHasher + Default> Builder<S> {
     /// use segcache::SegCache;
     /// use std::collections::hash_map::RandomState;
     ///
-    /// // create a cache with a small hashtable that has room for ~ 114k items
+    /// // create a cache with a small hashtable that has room for ~114k items
     /// // without using any overflow buckets.
     /// let cache = SegCache::<RandomState>::builder().power(17).build();
     ///
@@ -157,6 +157,26 @@ impl<S: std::hash::BuildHasher + Default> Builder<S> {
     /// Specify an overflow factor which is used to scale the hashtable and
     /// provide additional capacity for chaining item buckets. A factor of 1.0
     /// will result in a hash table that is 100% larger.
+    ///
+    /// ```
+    /// use segcache::SegCache;
+    /// use std::collections::hash_map::RandomState;
+    ///
+    /// // create a cache with a hashtable with room for ~228k items, which is
+    /// // about the same as using a power of 18, but is more tolerant of hash
+    /// // collisions
+    /// let cache = SegCache::<RandomState>::builder()
+    ///     .power(17)
+    ///     .overflow_factor(1.0)
+    ///     .build();
+    ///
+    /// // smaller overflow factors may be specified, meaning only some buckets
+    /// // can ever be chained
+    /// let cache = SegCache::<RandomState>::builder()
+    ///     .power(17)
+    ///     .overflow_factor(0.2)
+    ///     .build();
+    /// ```
     pub fn overflow_factor(mut self, percent: f64) -> Self {
         self.overflow_factor = percent;
         self
@@ -210,8 +230,10 @@ impl<S: std::hash::BuildHasher> SegCache<S> {
         Builder::default()
     }
 
-    /// Gets a count of items in the `SegCache` instance.
-    // TODO(bmartin): rename to len() ?
+    /// Gets a count of items in the `SegCache` instance. This is an expensive
+    /// operation and is only enabled for tests and builds with the `debug`
+    /// feature enabled.
+    #[cfg(any(test, feature = "debug"))]
     pub fn items(&mut self) -> usize {
         trace!("getting segment item counts");
         self.segments.items()

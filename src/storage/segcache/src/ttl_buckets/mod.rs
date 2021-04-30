@@ -117,8 +117,7 @@ impl TtlBucket {
             let mut segment = segments.get_mut(id).unwrap();
             segment.set_prev_seg(self.tail);
             segment.set_next_seg(-1);
-            segment
-                .set_ttl(CoarseDuration::from_secs(self.ttl as u32));
+            segment.set_ttl(CoarseDuration::from_secs(self.ttl as u32));
             if self.head.is_none() {
                 debug_assert!(self.tail.is_none());
                 self.head = id;

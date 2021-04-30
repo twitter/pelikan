@@ -13,11 +13,11 @@ pub struct Segment<'a> {
 }
 
 impl<'a> Segment<'a> {
-    pub fn from_raw_parts(header: &'a mut segments::header::SegmentHeader, data: &'a mut [u8]) -> Self {
-        Segment {
-            header,
-            data,
-        }
+    pub fn from_raw_parts(
+        header: &'a mut segments::header::SegmentHeader,
+        data: &'a mut [u8],
+    ) -> Self {
+        Segment { header, data }
     }
 
     pub fn init(&mut self) {
@@ -386,8 +386,7 @@ impl<'a> Segment<'a> {
                 self.remove_item_at(read_offset, true);
                 target.header.incr_live_items();
                 target.header.incr_live_bytes(item_size as i32);
-                target
-                    .set_write_offset(write_offset as i32 + item_size as i32);
+                target.set_write_offset(write_offset as i32 + item_size as i32);
                 increment_gauge!(&Stat::ItemCurrent);
                 increment_gauge_by!(&Stat::ItemCurrentBytes, item_size as i64);
             } else {
