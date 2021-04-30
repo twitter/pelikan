@@ -97,8 +97,6 @@ fn main() {
         &[("get 3\r\n", Some("VALUE 3 42 1\r\n1\r\nEND\r\n"))],
     );
 
-    test("quit", &[("quit\r\n", Some(""))]);
-
     // shutdown server and join
     debug!("shutdown");
     let _ = server.shutdown();

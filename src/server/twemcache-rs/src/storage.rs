@@ -3,15 +3,14 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use bytes::BytesMut;
-use config::segcache::Eviction;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use metrics::Stat;
 use rtrb::*;
-use segcache::{Policy, SegCache};
 
 use std::sync::Arc;
 
+use crate::cache::Cache;
 use crate::common::Message;
 use crate::protocol::data::*;
 use crate::*;
@@ -19,14 +18,14 @@ use crate::*;
 const QUEUE_RETRIES: usize = 3;
 
 pub struct StorageMessage {
-    pub request: Option<Request>,
+    pub request: Option<MemcacheRequest>,
     pub buffer: BytesMut,
     pub token: Token,
 }
 
 pub struct Storage {
+    cache: Cache,
     config: Arc<Config>,
-    data: SegCache,
     poll: Poll,
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
@@ -66,26 +65,7 @@ impl Storage {
     pub fn new(config: Arc<Config>) -> Result<Self, std::io::Error> {
         let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
 
-        let eviction = match config.segcache().eviction() {
-            Eviction::None => Policy::None,
-            Eviction::Random => Policy::Random,
-            Eviction::Fifo => Policy::Fifo,
-            Eviction::Cte => Policy::Cte,
-            Eviction::Util => Policy::Util,
-            Eviction::Merge => Policy::Merge {
-                max: config.segcache().merge_max(),
-                merge: config.segcache().merge_target(),
-                compact: config.segcache().compact_target(),
-            },
-        };
-
-        let data = SegCache::builder()
-            .power(config.segcache().hash_power())
-            .overflow_factor(config.segcache().overflow_factor())
-            .heap_size(config.segcache().heap_size())
-            .segment_size(config.segcache().segment_size())
-            .eviction(eviction)
-            .build();
+        let cache = Cache::new(config.clone());
 
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
@@ -95,8 +75,8 @@ impl Storage {
         let waker = Arc::new(Waker::new(poll.registry(), Token(usize::MAX)).unwrap());
 
         Ok(Self {
+            cache,
             config,
-            data,
             poll,
             message_receiver,
             message_sender,
@@ -145,7 +125,7 @@ impl Storage {
         loop {
             increment_counter!(&Stat::StorageEventLoop);
 
-            self.data.expire();
+            self.cache.expire();
 
             // get events with timeout
             if self.poll.poll(&mut events, timeout).is_err() {
@@ -168,11 +148,7 @@ impl Storage {
                             if let Ok(mut message) = self.worker_receiver[id].pop() {
                                 if let Some(request) = message.request.take() {
                                     increment_counter!(&Stat::ProcessReq);
-                                    request.process(
-                                        &self.config,
-                                        &mut message.buffer,
-                                        &mut self.data,
-                                    );
+                                    self.cache.process(request, &mut message.buffer);
                                     for retry in 0..QUEUE_RETRIES {
                                         if let Err(PushError::Full(m)) =
                                             self.worker_sender[id].push(message)

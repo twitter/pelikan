@@ -2,12 +2,11 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use config::segcache::Eviction;
 use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
 use mio::event::Event;
-use segcache::{Policy, SegCache};
 
+use crate::cache::Cache;
 use crate::common::Message;
 use crate::event_loop::EventLoop;
 use crate::protocol::data::*;
@@ -19,6 +18,7 @@ use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
 pub struct SingleWorker {
+    cache: Cache,
     config: Arc<Config>,
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
@@ -26,7 +26,6 @@ pub struct SingleWorker {
     session_receiver: Receiver<Session>,
     session_sender: Sender<Session>,
     sessions: Slab<Session>,
-    data: SegCache,
 }
 
 impl SingleWorker {
@@ -41,28 +40,10 @@ impl SingleWorker {
         let (session_sender, session_receiver) = crossbeam_channel::bounded(128);
         let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
 
-        let eviction = match config.segcache().eviction() {
-            Eviction::None => Policy::None,
-            Eviction::Random => Policy::Random,
-            Eviction::Fifo => Policy::Fifo,
-            Eviction::Cte => Policy::Cte,
-            Eviction::Util => Policy::Util,
-            Eviction::Merge => Policy::Merge {
-                max: config.segcache().merge_max(),
-                merge: config.segcache().merge_target(),
-                compact: config.segcache().compact_target(),
-            },
-        };
-
-        let data = SegCache::builder()
-            .power(config.segcache().hash_power())
-            .overflow_factor(config.segcache().overflow_factor())
-            .heap_size(config.segcache().heap_size())
-            .segment_size(config.segcache().segment_size())
-            .eviction(eviction)
-            .build();
+        let cache = Cache::new(config.clone());
 
         Ok(Self {
+            cache,
             config,
             poll,
             message_receiver,
@@ -70,7 +51,6 @@ impl SingleWorker {
             session_receiver,
             session_sender,
             sessions,
-            data,
         })
     }
 
@@ -89,7 +69,7 @@ impl SingleWorker {
         loop {
             increment_counter!(&Stat::WorkerEventLoop);
 
-            self.data.expire();
+            self.cache.expire();
 
             // get events with timeout
             if self.poll.poll(&mut events, timeout).is_err() {
@@ -227,11 +207,11 @@ impl EventLoop for SingleWorker {
                     // if the write buffer is over-full, skip processing
                     break;
                 }
-                match parse(&mut session.read_buffer) {
+                match MemcacheParser::parse(&mut session.read_buffer) {
                     Ok(request) => {
                         increment_counter!(&Stat::ProcessReq);
                         let mut write_buffer = session.write_buffer.take().unwrap();
-                        request.process(&self.config, &mut write_buffer, &mut self.data);
+                        self.cache.process(request, &mut write_buffer);
                         session.write_buffer = Some(write_buffer);
                     }
                     Err(ParseError::Incomplete) => {

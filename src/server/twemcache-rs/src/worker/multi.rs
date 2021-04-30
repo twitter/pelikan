@@ -172,7 +172,7 @@ impl MultiWorker {
                 }
 
                 if session.read_pending() > 0 {
-                    match parse(&mut session.read_buffer) {
+                    match MemcacheParser::parse(&mut session.read_buffer) {
                         Ok(request) => {
                             let mut message = StorageMessage {
                                 request: Some(request),
@@ -276,7 +276,7 @@ impl EventLoop for MultiWorker {
                 // TODO(bmartin): using a trait here might make this nicer, eg:
                 // request.process(self, wbuf: &mut BytesMut, ... )
                 // need to check for performance impact.
-                match parse(&mut session.read_buffer) {
+                match MemcacheParser::parse(&mut session.read_buffer) {
                     Ok(request) => {
                         let mut message = StorageMessage {
                             request: Some(request),
