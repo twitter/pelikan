@@ -7,10 +7,10 @@ mod header;
 mod raw;
 mod reserved;
 
-pub use constants::*;
-pub use header::ItemHeader;
-pub use raw::RawItem;
-pub use reserved::ReservedItem;
+pub(crate) use constants::*;
+pub(crate) use header::ItemHeader;
+pub(crate) use raw::RawItem;
+pub(crate) use reserved::ReservedItem;
 
 /// An `Item` represents a stored item and is used in the public interface of
 /// `SegCache`.
@@ -24,8 +24,14 @@ impl Item {
     pub(crate) fn new(raw: RawItem, cas: u32) -> Self {
         Item { raw, cas }
     }
-
-    /// Check the item's magic
+    
+    /// If the `magic` or `debug` features are enabled, this allows for checking
+    /// that the magic bytes at the start of an item match the expected value.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the magic bytes are incorrect, indicating that the data has
+    /// become corrupted or the item was loaded from the wrong offset.
     pub fn check_magic(&self) {
         self.raw.check_magic()
     }
