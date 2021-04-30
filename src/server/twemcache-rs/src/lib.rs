@@ -31,26 +31,86 @@ use crate::admin::Admin;
 use crate::common::Message;
 use crate::hasher::CacheHasher;
 use crate::server::Server;
+use crate::session::Session;
 use crate::storage::Storage;
 use crate::worker::{MultiWorker, SingleWorker};
 
-/// A structure which represents a threaded twemcache which is not yet running.
-pub struct MultiWorkerTwemcacheBuilder {
-    admin: Admin,
-    server: Server,
-    storage: Storage<CacheHasher>,
-    workers: Vec<MultiWorker>,
+const THREAD_PREFIX: &str = "pelikan";
+
+/// Wraps specialization of launching single or multi-threaded worker(s)
+pub enum WorkerBuilder {
+    Multi {
+        storage: Storage<CacheHasher>,
+        workers: Vec<MultiWorker>,
+    },
+    Single {
+        worker: SingleWorker<CacheHasher>,
+    },
 }
 
-pub struct SingleWorkerTwemcacheBuilder {
-    admin: Admin,
-    server: Server,
-    worker: SingleWorker<CacheHasher>,
+impl WorkerBuilder {
+    fn session_senders(&self) -> Vec<Sender<Session>> {
+        match self {
+            Self::Single { worker } => {
+                vec![worker.session_sender()]
+            }
+            Self::Multi { workers, .. } => workers.iter().map(|w| w.session_sender()).collect(),
+        }
+    }
+
+    fn message_senders(&self) -> Vec<Sender<Message>> {
+        let mut senders = Vec::new();
+        match self {
+            Self::Single { worker } => {
+                senders.push(worker.message_sender());
+            }
+            Self::Multi { storage, workers } => {
+                for worker in workers {
+                    senders.push(worker.message_sender());
+                }
+                senders.push(storage.message_sender());
+            }
+        }
+        senders
+    }
+
+    fn launch_threads(self) -> Vec<JoinHandle<()>> {
+        match self {
+            Self::Single { mut worker } => {
+                vec![std::thread::Builder::new()
+                    .name(format!("{}_worker", THREAD_PREFIX))
+                    .spawn(move || worker.run())
+                    .unwrap()]
+            }
+            Self::Multi {
+                mut storage,
+                workers,
+            } => {
+                let mut threads = Vec::new();
+                for mut worker in workers {
+                    let worker_thread = std::thread::Builder::new()
+                        .name(format!("{}_worker{}", THREAD_PREFIX, threads.len()))
+                        .spawn(move || worker.run())
+                        .unwrap();
+                    threads.push(worker_thread);
+                }
+                threads.push(
+                    std::thread::Builder::new()
+                        .name(format!("{}_storage", THREAD_PREFIX))
+                        .spawn(move || storage.run())
+                        .unwrap(),
+                );
+                threads
+            }
+        }
+    }
 }
 
-pub enum TwemcacheBuilder {
-    MultiWorker(MultiWorkerTwemcacheBuilder),
-    SingleWorker(SingleWorkerTwemcacheBuilder),
+/// A structure which represents a twemcache instance which is not yet running.
+pub struct TwemcacheBuilder {
+    admin: Admin,
+    server: Server,
+    worker: WorkerBuilder,
 }
 
 /// A structure which represents a running twemcache.
@@ -59,14 +119,8 @@ pub enum TwemcacheBuilder {
 /// block the process until the threads terminate. For use within tests, be sure
 /// to call `shutdown()` to terminate the threads and block until termination.
 pub struct Twemcache {
-    admin_thread: JoinHandle<()>,
-    admin_message_sender: Sender<Message>,
-    server_thread: JoinHandle<()>,
-    server_message_sender: Sender<Message>,
-    storage_thread: Option<JoinHandle<()>>,
-    storage_message_sender: Option<Sender<Message>>,
-    worker_threads: Vec<JoinHandle<()>>,
-    worker_message_senders: Vec<Sender<Message>>,
+    threads: Vec<JoinHandle<()>>,
+    message_senders: Vec<Sender<Message>>,
 }
 
 impl TwemcacheBuilder {
@@ -92,20 +146,34 @@ impl TwemcacheBuilder {
             Arc::new(Default::default())
         };
 
-        if config.worker().threads() > 1 {
-            Self::multi(config)
-        } else {
-            Self::single(config)
-        }
-    }
-
-    fn multi(config: Arc<Config>) -> Self {
         // initialize admin
         let admin = Admin::new(config.clone()).unwrap_or_else(|e| {
             error!("{}", e);
             std::process::exit(1);
         });
 
+        let worker = if config.worker().threads() > 1 {
+            Self::multi_worker(config.clone())
+        } else {
+            Self::single_worker(config.clone())
+        };
+
+        let session_senders = worker.session_senders();
+
+        // initialize server
+        let server = Server::new(config, session_senders).unwrap_or_else(|e| {
+            error!("{}", e);
+            std::process::exit(1);
+        });
+
+        TwemcacheBuilder {
+            admin,
+            server,
+            worker,
+        }
+    }
+
+    fn multi_worker(config: Arc<Config>) -> WorkerBuilder {
         // initialize storage
         let mut storage = Storage::new(config.clone()).unwrap_or_else(|e| {
             error!("{}", e);
@@ -116,7 +184,6 @@ impl TwemcacheBuilder {
         let mut workers = Vec::new();
         let mut session_senders = Vec::new();
         for _ in 0..config.worker().threads() {
-            // let storage_channel = storage.add_queue();
             let worker = MultiWorker::new(config.clone(), &mut storage).unwrap_or_else(|e| {
                 error!("{}", e);
                 std::process::exit(1);
@@ -125,152 +192,52 @@ impl TwemcacheBuilder {
             workers.push(worker);
         }
 
-        // initialize server
-        let server = Server::new(config, session_senders).unwrap_or_else(|e| {
-            error!("{}", e);
-            std::process::exit(1);
-        });
-
-        TwemcacheBuilder::MultiWorker(MultiWorkerTwemcacheBuilder {
-            admin,
-            server,
-            storage,
-            workers,
-        })
+        WorkerBuilder::Multi { storage, workers }
     }
 
-    fn single(config: Arc<Config>) -> Self {
-        // initialize admin
-        let admin = Admin::new(config.clone()).unwrap_or_else(|e| {
-            error!("{}", e);
-            std::process::exit(1);
-        });
-
+    fn single_worker(config: Arc<Config>) -> WorkerBuilder {
         // initialize worker
-        let worker = SingleWorker::new(config.clone()).unwrap_or_else(|e| {
-            error!("{}", e);
-            std::process::exit(1);
-        });
-        let session_senders = vec![worker.session_sender()];
-
-        // initialize server
-        let server = Server::new(config, session_senders).unwrap_or_else(|e| {
+        let worker = SingleWorker::new(config).unwrap_or_else(|e| {
             error!("{}", e);
             std::process::exit(1);
         });
 
-        TwemcacheBuilder::SingleWorker(SingleWorkerTwemcacheBuilder {
-            admin,
-            server,
-            worker,
-        })
+        WorkerBuilder::Single { worker }
     }
 
     /// Converts the `TwemcacheBuilder` to a running `Twemcache` by spawning
     /// the threads for each component. Returns a `Twemcache` which may be used
     /// to block until the threads have exited or trigger a shutdown.
     pub fn spawn(self) -> Twemcache {
-        match self {
-            TwemcacheBuilder::MultiWorker(b) => Self::spawn_multi(b),
-            TwemcacheBuilder::SingleWorker(b) => Self::spawn_single(b),
-        }
-    }
-
-    fn spawn_multi(builder: MultiWorkerTwemcacheBuilder) -> Twemcache {
         // get message senders for each component
-        let admin_message_sender = builder.admin.message_sender();
-        let server_message_sender = builder.server.message_sender();
-        let storage_message_sender = Some(builder.storage.message_sender());
-        let worker_message_senders: Vec<Sender<Message>> = builder
-            .workers
-            .iter()
-            .map(|worker| worker.message_sender())
-            .collect();
-        // let worker_message_sender = self.worker.message_sender();
+        let mut message_senders = vec![self.server.message_sender()];
+        message_senders.extend_from_slice(&self.worker.message_senders());
+        message_senders.push(self.admin.message_sender());
 
         // temporary bindings to prevent borrow-checker issues
-        let mut admin = builder.admin;
-        let mut server = builder.server;
-        let mut storage = builder.storage;
-        let workers = builder.workers;
-
-        let mut worker_threads = Vec::new();
+        let mut admin = self.admin;
+        let mut server = self.server;
 
         // spawn a thread for each component
-        let thread_prefix = "pelikan";
-        let admin_thread = std::thread::Builder::new()
-            .name(format!("{}_admin", thread_prefix))
-            .spawn(move || admin.run())
-            .unwrap();
-        let storage_thread = Some(
+        let mut threads = vec![std::thread::Builder::new()
+            .name(format!("{}_server", THREAD_PREFIX))
+            .spawn(move || server.run())
+            .unwrap()];
+        let worker_threads = self.worker.launch_threads();
+        for thread in worker_threads {
+            threads.push(thread);
+        }
+        threads.push(
             std::thread::Builder::new()
-                .name(format!("{}_storage", thread_prefix))
-                .spawn(move || storage.run())
+                .name(format!("{}_admin", THREAD_PREFIX))
+                .spawn(move || admin.run())
                 .unwrap(),
         );
-        for mut worker in workers {
-            let worker_thread = std::thread::Builder::new()
-                .name(format!("{}_worker{}", thread_prefix, worker_threads.len()))
-                .spawn(move || worker.run())
-                .unwrap();
-            worker_threads.push(worker_thread);
-        }
-        let server_thread = std::thread::Builder::new()
-            .name(format!("{}_server", thread_prefix))
-            .spawn(move || server.run())
-            .unwrap();
 
         // return a `Twemcache`
         Twemcache {
-            admin_thread,
-            admin_message_sender,
-            server_thread,
-            server_message_sender,
-            storage_thread,
-            storage_message_sender,
-            worker_threads,
-            worker_message_senders,
-        }
-    }
-
-    fn spawn_single(builder: SingleWorkerTwemcacheBuilder) -> Twemcache {
-        // get message senders for each component
-        let admin_message_sender = builder.admin.message_sender();
-        let server_message_sender = builder.server.message_sender();
-        let storage_message_sender = None;
-        let worker_message_senders = vec![builder.worker.message_sender()];
-
-        // temporary bindings to prevent borrow-checker issues
-        let mut admin = builder.admin;
-        let mut server = builder.server;
-        let mut worker = builder.worker;
-
-        // spawn a thread for each component
-        let thread_prefix = "pelikan";
-        let admin_thread = std::thread::Builder::new()
-            .name(format!("{}_admin", thread_prefix))
-            .spawn(move || admin.run())
-            .unwrap();
-        let storage_thread = None;
-        let worker_threads = vec![std::thread::Builder::new()
-            .name(format!("{}_worker", thread_prefix))
-            .spawn(move || worker.run())
-            .unwrap()];
-        let server_thread = std::thread::Builder::new()
-            .name(format!("{}_server", thread_prefix))
-            .spawn(move || server.run())
-            .unwrap();
-
-        // return a `Twemcache`
-        Twemcache {
-            admin_thread,
-            admin_message_sender,
-            server_thread,
-            server_message_sender,
-            storage_thread,
-            storage_message_sender,
-            worker_threads,
-            worker_message_senders,
+            threads,
+            message_senders,
         }
     }
 }
@@ -283,23 +250,11 @@ impl Twemcache {
     /// shutdown to any of the threads.
     ///
     /// This function will block until all threads have terminated.
-    pub fn shutdown(mut self) {
-        // send shutdown message to each thread
-        if self.server_message_sender.send(Message::Shutdown).is_err() {
-            fatal!("error sending shutdown message to server thread");
-        }
-        for sender in self.worker_message_senders.iter_mut() {
+    pub fn shutdown(self) {
+        for sender in &self.message_senders {
             if sender.send(Message::Shutdown).is_err() {
-                fatal!("error sending shutdown message to worker thread");
+                fatal!("error sending shutdown message to thread");
             }
-        }
-        if let Some(ref sender) = self.storage_message_sender {
-            if sender.send(Message::Shutdown).is_err() {
-                fatal!("error sending shutdown message to admin thread");
-            }
-        }
-        if self.admin_message_sender.send(Message::Shutdown).is_err() {
-            fatal!("error sending shutdown message to admin thread");
         }
 
         // wait and join all threads
@@ -309,14 +264,8 @@ impl Twemcache {
     /// Will block until all threads terminate. This should be used to keep the
     /// process alive while the child threads run.
     pub fn wait(self) {
-        // join threads
-        let _ = self.server_thread.join();
-        for handle in self.worker_threads {
-            let _ = handle.join();
+        for thread in self.threads {
+            let _ = thread.join();
         }
-        if let Some(handle) = self.storage_thread {
-            let _ = handle.join();
-        }
-        let _ = self.admin_thread.join();
     }
 }
