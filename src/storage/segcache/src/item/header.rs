@@ -8,7 +8,24 @@ use crate::item::*;
 // struct is always taken from an aligned pointer cast. This can potentially
 // result in UB when fields are referenced. Fields that require access by
 // reference must be strategically placed to ensure alignment and avoid UB.
-
+//
+// COMPLETE ITEM HEADER:
+// ┌──────────────────────────────┬──────────────────────┬──────┬──────┐
+// │      MAGIC (Optional)        │         VLEN         │ KLEN │FLAGS │
+// │                              │                      │      │      │
+// │            32 bit            │        24 bit        │8 bit │ 8bit │
+// │          0xDECAFBAD          │                      │      │      │
+// │0                           31│32                  55│56  63│64  71│
+// └──────────────────────────────┴──────────────────────┴──────┴──────┘
+//
+// FLAGS:
+// ┌──────────────┬──────────────┬──────────────────────────────┐
+// │   NUMERIC?   │   DELETED?   │             OLEN             │
+// │              │              │                              │
+// │    1 bit     │    1 bit     │            6 bit             │
+// │              │              │                              │
+// │      64      │      65      │  66                      71  │
+// └──────────────┴──────────────┴──────────────────────────────┘
 #[repr(C)]
 #[repr(packed)]
 pub struct ItemHeader {

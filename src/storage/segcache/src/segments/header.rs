@@ -13,6 +13,25 @@ use rustcommon_time::CoarseInstant as Instant;
 #[repr(C)]
 /// The `SegmentHeader` contains metadata about the segment. It is intended to
 /// be stored in DRAM as the fields are frequently accessed and changed.
+///
+/// The header is padded out to occupy a full cacheline
+/// ┌──────────────┬──────────────┬──────────────┬──────────────┐
+/// │      ID      │ WRITE OFFSET │  LIVE BYTES  │  LIVE ITEMS  │
+/// │              │              │              │              │
+/// │    32 bit    │    32 bit    │    32 bit    │    32 bit    │
+/// ├──────────────┼──────────────┼──────────────┼──────────────┤
+/// │   PREV SEG   │   NEXT SEG   │  CREATE AT   │   MERGE AT   │
+/// │              │              │              │              │
+/// │    32 bit    │    32 bit    │    32 bit    │    32 bit    │
+/// ├──────────────┼──┬──┬────────┴──────────────┴──────────────┤
+/// │     TTL      │  │  │               PADDING                │   Accessible
+/// │              │  │◀─┼──────────────────────────────────────┼──    8 bit
+/// │    32 bit    │8b│8b│                80 bit                │
+/// ├──────────────┴──┴──┴──────────────────────────────────────┤    Evictable
+/// │                          PADDING                          │      8 bit
+/// │                                                           │
+/// │                          128 bit                          │
+/// └───────────────────────────────────────────────────────────┘
 pub struct SegmentHeader {
     /// The id for this segment
     id: i32,
