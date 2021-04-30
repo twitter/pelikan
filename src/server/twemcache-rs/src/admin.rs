@@ -51,10 +51,11 @@ impl Admin {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
 
-        // TODO(bmartin): does this need to be configurable to require TLS for
-        // admin?
-        // let ssl_context = crate::common::ssl_context(&config)?;
-        let ssl_context = None;
+        let ssl_context = if config.admin().use_tls() {
+            crate::common::ssl_context(&config)?
+        } else {
+            None
+        };
 
         // register listener to event loop
         poll.registry()
