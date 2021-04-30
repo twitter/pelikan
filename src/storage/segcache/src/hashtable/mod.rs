@@ -37,8 +37,7 @@ pub struct HashTable {
     next_to_chain: u64,
 }
 
-impl HashTable
-{
+impl HashTable {
     pub fn new(power: u8, overflow_factor: f64) -> HashTable {
         if overflow_factor < 0.0 {
             fatal!("hashtable overflow factor must be >= 0.0");
@@ -69,7 +68,7 @@ impl HashTable
             0xeed2797b9571bc75,
             0x4feb29c1fbbd59d0,
         );
-        
+
         Self {
             hash_builder: Box::new(hash_builder),
             power: power.into(),

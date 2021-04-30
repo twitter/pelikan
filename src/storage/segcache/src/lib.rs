@@ -183,7 +183,7 @@ impl Builder {
         let hashtable = HashTable::new(self.power, self.overflow_factor);
         let segments = self.segments_builder.build();
         let ttl_buckets = TtlBuckets::default();
-        
+
         SegCache {
             hashtable,
             segments,

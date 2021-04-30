@@ -258,10 +258,7 @@ impl<'a> Segment<'a> {
     // this is used as part of segment merging, it moves all occupied space to
     // the beginning of the segment, leaving the end of the segment free
     #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn compact(
-        &mut self,
-        hashtable: &mut HashTable,
-    ) -> Result<(), SegmentsError> {
+    pub(crate) fn compact(&mut self, hashtable: &mut HashTable) -> Result<(), SegmentsError> {
         let max_offset = self.max_item_offset();
         let mut read_offset = if cfg!(feature = "magic") {
             std::mem::size_of_val(&SEG_MAGIC)

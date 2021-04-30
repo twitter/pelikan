@@ -63,11 +63,7 @@ impl TtlBucket {
     }
 
     // expire segments from this TtlBucket, returns the number of segments expired
-    fn expire(
-        &mut self,
-        hashtable: &mut HashTable,
-        segments: &mut Segments,
-    ) -> usize {
+    fn expire(&mut self, hashtable: &mut HashTable, segments: &mut Segments) -> usize {
         if self.head.is_none() {
             return 0;
         }
@@ -236,11 +232,7 @@ impl TtlBuckets {
         unsafe { self.buckets.get_unchecked_mut(index) }
     }
 
-    pub(crate) fn expire(
-        &mut self,
-        hashtable: &mut HashTable,
-        segments: &mut Segments,
-    ) -> usize {
+    pub(crate) fn expire(&mut self, hashtable: &mut HashTable, segments: &mut Segments) -> usize {
         let mut expired = 0;
         for bucket in self.buckets.iter_mut() {
             expired += bucket.expire(hashtable, segments);

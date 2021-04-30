@@ -24,7 +24,7 @@ impl Item {
     pub(crate) fn new(raw: RawItem, cas: u32) -> Self {
         Item { raw, cas }
     }
-    
+
     /// If the `magic` or `debug` features are enabled, this allows for checking
     /// that the magic bytes at the start of an item match the expected value.
     ///
