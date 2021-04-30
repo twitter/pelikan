@@ -21,7 +21,7 @@ pub enum SegmentsError {
     EvictFailure,
 }
 
-pub struct SegmentsBuilder {
+pub(crate) struct SegmentsBuilder {
     heap_size: usize,
     segment_size: i32,
     evict_policy: Policy,
@@ -67,7 +67,7 @@ impl<'a> SegmentsBuilder {
 /// `Segments` contain all items within the cache. This struct is a collection
 /// of individual `Segment`s which are represented by a `SegmentHeader` and a
 /// subslice of bytes from a contiguous heap allocation.
-pub struct Segments {
+pub(crate) struct Segments {
     /// Pointer to slice of headers
     headers: Box<[SegmentHeader]>,
     /// Pointer to raw data

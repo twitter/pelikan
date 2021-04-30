@@ -13,6 +13,34 @@ use std::borrow::Borrow;
 use std::sync::Arc;
 use std::time::SystemTime;
 
+// pub enum Command {
+//     Get,
+//     Set,
+//     // ...
+// }
+
+// pub trait Request {
+//     fn command(&self) -> Command;
+//     fn keys(&self) -> Vec<&[u8]>;
+// }
+
+// pub struct MemcacheRequest {
+
+// }
+
+// pub struct MemcacheParser {};
+
+// pub trait Parser {
+//     type Request: Request;
+
+//     fn parse(buffer: &mut BytesMut) -> Result<Self::Request, ParseError>;
+// }
+
+// impl Parser for MemcacheParser {
+//     type Request = MemcacheRequest;
+// }
+
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Verb {
     Get,

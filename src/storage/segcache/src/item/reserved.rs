@@ -7,7 +7,7 @@ use crate::RawItem;
 /// `ReservedItem` represents an item which has been allocated but is not
 /// defined or linked in the hashtable yet.
 #[derive(Debug)]
-pub struct ReservedItem {
+pub(crate) struct ReservedItem {
     item: RawItem,
     seg: i32,
     offset: usize,

@@ -27,7 +27,7 @@ impl HashBucket {
 }
 
 #[repr(C)]
-pub struct HashTable {
+pub(crate) struct HashTable {
     hash_builder: Box<RandomState>,
     power: u64,
     mask: u64,

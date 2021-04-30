@@ -15,10 +15,10 @@ mod segment;
 mod segments;
 
 pub use eviction::{Eviction, Policy};
-pub use header::SegmentHeader;
-pub use segment::Segment;
+pub(crate) use header::SegmentHeader;
+pub(crate) use segment::Segment;
 pub(crate) use segment::SegmentDump;
-pub use segments::{Segments, SegmentsBuilder, SegmentsError};
+pub(crate) use segments::{Segments, SegmentsBuilder, SegmentsError};
 
 #[cfg(test)]
 mod test {
