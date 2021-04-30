@@ -96,8 +96,7 @@ pub fn process_get<S: BuildHasher>(
             write_buffer.extend_from_slice(key);
             let f = item.optional().unwrap();
             let flags: u32 = u32::from_be_bytes([f[0], f[1], f[2], f[3]]);
-            write_buffer
-                .extend_from_slice(format!(" {} {}", flags, item.value().len()).as_bytes());
+            write_buffer.extend_from_slice(format!(" {} {}", flags, item.value().len()).as_bytes());
             write_buffer.extend_from_slice(CRLF);
             write_buffer.extend_from_slice(item.value());
             write_buffer.extend_from_slice(CRLF);
@@ -724,7 +723,10 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                                 expiry,
                                 noreply,
                                 cas,
-                                value_index: ((first_crlf + CRLF_LEN), (first_crlf + CRLF_LEN + bytes)),
+                                value_index: (
+                                    (first_crlf + CRLF_LEN),
+                                    (first_crlf + CRLF_LEN + bytes),
+                                ),
                             }))
                         } else {
                             Err(ParseError::Incomplete)
@@ -807,7 +809,10 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                                     flags,
                                     expiry,
                                     noreply,
-                                    value_index: ((first_crlf + CRLF_LEN), (first_crlf + CRLF_LEN + bytes)),
+                                    value_index: (
+                                        (first_crlf + CRLF_LEN),
+                                        (first_crlf + CRLF_LEN + bytes),
+                                    ),
                                 }),
                                 Verb::Add => Request::Add(AddRequest {
                                     data,
@@ -815,7 +820,10 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                                     flags,
                                     expiry,
                                     noreply,
-                                    value_index: ((first_crlf + CRLF_LEN), (first_crlf + CRLF_LEN + bytes)),
+                                    value_index: (
+                                        (first_crlf + CRLF_LEN),
+                                        (first_crlf + CRLF_LEN + bytes),
+                                    ),
                                 }),
                                 Verb::Replace => Request::Replace(ReplaceRequest {
                                     data,
@@ -823,7 +831,10 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                                     flags,
                                     expiry,
                                     noreply,
-                                    value_index: ((first_crlf + CRLF_LEN), (first_crlf + CRLF_LEN + bytes)),
+                                    value_index: (
+                                        (first_crlf + CRLF_LEN),
+                                        (first_crlf + CRLF_LEN + bytes),
+                                    ),
                                 }),
                                 _ => {
                                     // we already matched on the verb before parsing to restrict cases handled
@@ -866,7 +877,11 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                         first_crlf
                     };
 
-                    let command_end = if noreply { key_end + 9 } else { key_end + CRLF_LEN };
+                    let command_end = if noreply {
+                        key_end + 9
+                    } else {
+                        key_end + CRLF_LEN
+                    };
 
                     let data = buffer.split_to(command_end);
 

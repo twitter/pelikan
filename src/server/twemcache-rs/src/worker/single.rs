@@ -2,10 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use mio::event::Event;
 use config::segcache::Eviction;
 use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
+use mio::event::Event;
 use segcache::{Policy, SegCache};
 
 use crate::common::Message;
@@ -186,8 +186,7 @@ impl SingleWorker<CacheHasher> {
                 if ops >= 1_000_000 {
                     let dump = self.data.dump();
                     let serialized = serde_json::to_string(&dump).unwrap();
-                    let mut file =
-                        std::fs::File::create(&format!("dump_{}.raw", seq)).unwrap();
+                    let mut file = std::fs::File::create(&format!("dump_{}.raw", seq)).unwrap();
                     let _ = file.write_all(serialized.as_bytes());
                     seq += 1;
                     ops = 0;
