@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use mio::event::Event;
 use config::segcache::Eviction;
 use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
@@ -107,86 +108,11 @@ impl SingleWorker<CacheHasher> {
 
             // process all events
             for event in events.iter() {
-                let token = event.token();
-
-                // event for existing session
-                trace!("got event for session: {}", token.0);
-
-                // handle error events first
-                if event.is_error() {
-                    increment_counter!(&Stat::WorkerEventError);
-                    self.handle_error(token);
-                }
-
-                // handle write events before read events to reduce write buffer
-                // growth if there is also a readable event
-                if event.is_writable() {
-                    increment_counter!(&Stat::WorkerEventWrite);
-                    self.do_write(token);
-                }
-
-                // read events are handled last
-                if event.is_readable() {
-                    increment_counter!(&Stat::WorkerEventRead);
-                    let _ = self.do_read(token);
-
-                    #[cfg(feature = "heap_dump")]
-                    {
-                        ops += 1;
-                        if ops >= 1_000_000 {
-                            let dump = self.data.dump();
-                            let serialized = serde_json::to_string(&dump).unwrap();
-                            let mut file =
-                                std::fs::File::create(&format!("dump_{}.raw", seq)).unwrap();
-                            let _ = file.write_all(serialized.as_bytes());
-                            seq += 1;
-                            ops = 0;
-                        }
-                    }
-                }
-
-                if let Some(session) = self.sessions.get_mut(token.0) {
-                    trace!(
-                        "{} bytes pending in rx buffer for session: {}",
-                        session.read_pending(),
-                        token.0
-                    );
-                    trace!(
-                        "{} bytes pending in tx buffer for session: {}",
-                        session.write_pending(),
-                        token.0
-                    )
-                }
+                self.handle_event(event);
             }
 
             // poll queue to receive new sessions
-            while let Ok(mut session) = self.session_receiver.try_recv() {
-                let pending = session.read_pending();
-                trace!("{} bytes pending in rx buffer for new session", pending);
-
-                // reserve vacant slab
-                let session_entry = self.sessions.vacant_entry();
-                let token = Token(session_entry.key());
-
-                // set client token to match slab
-                session.set_token(token);
-
-                // register tcp stream and insert into slab if successful
-                match session.register(&self.poll) {
-                    Ok(_) => {
-                        session_entry.insert(session);
-                        if pending > 0 {
-                            // handle any pending data immediately
-                            if self.handle_data(token).is_err() {
-                                self.handle_error(token);
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        error!("Error registering new socket");
-                    }
-                };
-            }
+            self.handle_new_sessions();
 
             // poll queue to receive new messages
             #[allow(clippy::never_loop)]
@@ -197,6 +123,89 @@ impl SingleWorker<CacheHasher> {
                     }
                 }
             }
+        }
+    }
+
+    fn handle_new_sessions(&mut self) {
+        while let Ok(mut session) = self.session_receiver.try_recv() {
+            let pending = session.read_pending();
+            trace!("{} bytes pending in rx buffer for new session", pending);
+
+            // reserve vacant slab
+            let session_entry = self.sessions.vacant_entry();
+            let token = Token(session_entry.key());
+
+            // set client token to match slab
+            session.set_token(token);
+
+            // register tcp stream and insert into slab if successful
+            match session.register(&self.poll) {
+                Ok(_) => {
+                    session_entry.insert(session);
+                    if pending > 0 {
+                        // handle any pending data immediately
+                        if self.handle_data(token).is_err() {
+                            self.handle_error(token);
+                        }
+                    }
+                }
+                Err(_) => {
+                    error!("Error registering new socket");
+                }
+            };
+        }
+    }
+
+    fn handle_event(&mut self, event: &Event) {
+        let token = event.token();
+
+        // event for existing session
+        trace!("got event for session: {}", token.0);
+
+        // handle error events first
+        if event.is_error() {
+            increment_counter!(&Stat::WorkerEventError);
+            self.handle_error(token);
+        }
+
+        // handle write events before read events to reduce write buffer
+        // growth if there is also a readable event
+        if event.is_writable() {
+            increment_counter!(&Stat::WorkerEventWrite);
+            self.do_write(token);
+        }
+
+        // read events are handled last
+        if event.is_readable() {
+            increment_counter!(&Stat::WorkerEventRead);
+            let _ = self.do_read(token);
+
+            #[cfg(feature = "heap_dump")]
+            {
+                ops += 1;
+                if ops >= 1_000_000 {
+                    let dump = self.data.dump();
+                    let serialized = serde_json::to_string(&dump).unwrap();
+                    let mut file =
+                        std::fs::File::create(&format!("dump_{}.raw", seq)).unwrap();
+                    let _ = file.write_all(serialized.as_bytes());
+                    seq += 1;
+                    ops = 0;
+                }
+            }
+        }
+
+        if let Some(session) = self.sessions.get_mut(token.0) {
+            trace!(
+                "{} bytes pending in rx buffer for session: {}",
+                session.read_pending(),
+                token.0
+            );
+            trace!(
+                "{} bytes pending in tx buffer for session: {}",
+                session.write_pending(),
+                token.0
+            )
         }
     }
 
