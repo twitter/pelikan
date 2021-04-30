@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use crate::protocol::{CRLF, CRLF_LEN};
 use crate::Config;
 use bytes::BytesMut;
 use config::TimeType;
@@ -96,9 +97,10 @@ pub fn process_get<S: BuildHasher>(
             let f = item.optional().unwrap();
             let flags: u32 = u32::from_be_bytes([f[0], f[1], f[2], f[3]]);
             write_buffer
-                .extend_from_slice(format!(" {} {}\r\n", flags, item.value().len()).as_bytes());
+                .extend_from_slice(format!(" {} {}", flags, item.value().len()).as_bytes());
+            write_buffer.extend_from_slice(CRLF);
             write_buffer.extend_from_slice(item.value());
-            write_buffer.extend_from_slice(b"\r\n");
+            write_buffer.extend_from_slice(CRLF);
             found += 1;
         }
     }
@@ -146,10 +148,11 @@ pub fn process_gets<S: BuildHasher>(
             let f = item.optional().unwrap();
             let flags: u32 = u32::from_be_bytes([f[0], f[1], f[2], f[3]]);
             write_buffer.extend_from_slice(
-                format!(" {} {} {}\r\n", flags, item.value().len(), item.cas()).as_bytes(),
+                format!(" {} {} {}", flags, item.value().len(), item.cas()).as_bytes(),
             );
+            write_buffer.extend_from_slice(CRLF);
             write_buffer.extend_from_slice(item.value());
-            write_buffer.extend_from_slice(b"\r\n");
+            write_buffer.extend_from_slice(CRLF);
             found += 1;
         }
     }
@@ -587,8 +590,8 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
     let buf: &[u8] = (*buffer).borrow();
 
     // check if we got a CRLF
-    let mut double_byte_windows = buf.windows(2);
-    if let Some(command_end) = double_byte_windows.position(|w| w == b"\r\n") {
+    let mut double_byte_windows = buf.windows(CRLF_LEN);
+    if let Some(command_end) = double_byte_windows.position(|w| w == CRLF) {
         // single-byte windowing to find spaces
         let mut single_byte_windows = buf.windows(1);
         if let Some(command_verb_end) = single_byte_windows.position(|w| w == b" ") {
@@ -626,7 +629,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                         }
                     }
 
-                    let data = buffer.split_to(command_end + 2);
+                    let data = buffer.split_to(command_end + CRLF_LEN);
                     if verb == Verb::Get {
                         Ok(Request::Get(GetRequest {
                             data,
@@ -676,7 +679,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                         .map_err(|_| ParseError::Invalid)?;
 
                     // now it gets tricky, we either have "[bytes] noreply\r\n" or "[bytes]\r\n"
-                    let mut double_byte_windows = buf.windows(2);
+                    let mut double_byte_windows = buf.windows(CRLF_LEN);
                     let mut noreply = false;
 
                     // get the position of the next space and first CRLF
@@ -684,7 +687,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                         .position(|w| w == b" ")
                         .map(|v| v + expiry_end + 1);
                     let first_crlf = double_byte_windows
-                        .position(|w| w == b"\r\n")
+                        .position(|w| w == CRLF)
                         .ok_or(ParseError::Incomplete)?;
 
                     let cas_end = if let Some(next_space) = next_space {
@@ -711,7 +714,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                     if let Ok(Ok(cas)) = std::str::from_utf8(&buf[(bytes_end + 1)..cas_end])
                         .map(|v| v.parse::<u64>())
                     {
-                        let data_end = first_crlf + 2 + bytes + 2;
+                        let data_end = first_crlf + CRLF_LEN + bytes + CRLF_LEN;
                         if buf.len() >= data_end {
                             let data = buffer.split_to(data_end);
                             Ok(Request::Cas(CasRequest {
@@ -721,7 +724,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                                 expiry,
                                 noreply,
                                 cas,
-                                value_index: ((first_crlf + 2), (first_crlf + 2 + bytes)),
+                                value_index: ((first_crlf + CRLF_LEN), (first_crlf + CRLF_LEN + bytes)),
                             }))
                         } else {
                             Err(ParseError::Incomplete)
@@ -756,7 +759,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                     let expiry = expiry_str.parse().map_err(|_| ParseError::Invalid)?;
 
                     // now it gets tricky, we either have "[bytes] noreply\r\n" or "[bytes]\r\n"
-                    let mut double_byte_windows = buf.windows(2);
+                    let mut double_byte_windows = buf.windows(CRLF_LEN);
                     let mut noreply = false;
 
                     // get the position of the next space and first CRLF
@@ -764,7 +767,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                         .position(|w| w == b" ")
                         .map(|v| v + expiry_end + 1);
                     let first_crlf = double_byte_windows
-                        .position(|w| w == b"\r\n")
+                        .position(|w| w == CRLF)
                         .ok_or(ParseError::Incomplete)?;
 
                     let bytes_end = if let Some(next_space) = next_space {
@@ -793,7 +796,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                     if let Ok(Ok(bytes)) = std::str::from_utf8(&buf[(expiry_end + 1)..bytes_end])
                         .map(|v| v.parse::<usize>())
                     {
-                        let data_end = first_crlf + 2 + bytes + 2;
+                        let data_end = first_crlf + CRLF_LEN + bytes + CRLF_LEN;
                         if buf.len() >= data_end {
                             let data = buffer.split_to(data_end);
 
@@ -804,7 +807,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                                     flags,
                                     expiry,
                                     noreply,
-                                    value_index: ((first_crlf + 2), (first_crlf + 2 + bytes)),
+                                    value_index: ((first_crlf + CRLF_LEN), (first_crlf + CRLF_LEN + bytes)),
                                 }),
                                 Verb::Add => Request::Add(AddRequest {
                                     data,
@@ -812,7 +815,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                                     flags,
                                     expiry,
                                     noreply,
-                                    value_index: ((first_crlf + 2), (first_crlf + 2 + bytes)),
+                                    value_index: ((first_crlf + CRLF_LEN), (first_crlf + CRLF_LEN + bytes)),
                                 }),
                                 Verb::Replace => Request::Replace(ReplaceRequest {
                                     data,
@@ -820,7 +823,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                                     flags,
                                     expiry,
                                     noreply,
-                                    value_index: ((first_crlf + 2), (first_crlf + 2 + bytes)),
+                                    value_index: ((first_crlf + CRLF_LEN), (first_crlf + CRLF_LEN + bytes)),
                                 }),
                                 _ => {
                                     // we already matched on the verb before parsing to restrict cases handled
@@ -837,13 +840,13 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                 }
                 Verb::Delete => {
                     let mut noreply = false;
-                    let mut double_byte_windows = buf.windows(2);
+                    let mut double_byte_windows = buf.windows(CRLF_LEN);
                     // get the position of the next space and first CRLF
                     let next_space = single_byte_windows
                         .position(|w| w == b" ")
                         .map(|v| v + command_verb_end + 1);
                     let first_crlf = double_byte_windows
-                        .position(|w| w == b"\r\n")
+                        .position(|w| w == CRLF)
                         .ok_or(ParseError::Incomplete)?;
 
                     let key_end = if let Some(next_space) = next_space {
@@ -863,7 +866,7 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
                         first_crlf
                     };
 
-                    let command_end = if noreply { key_end + 9 } else { key_end + 2 };
+                    let command_end = if noreply { key_end + 9 } else { key_end + CRLF_LEN };
 
                     let data = buffer.split_to(command_end);
 

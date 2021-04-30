@@ -27,8 +27,8 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
     let buf: &[u8] = (*buffer).borrow();
 
     // check if we got a CRLF
-    let mut double_byte_windows = buf.windows(2);
-    if let Some(command_end) = double_byte_windows.position(|w| w == b"\r\n") {
+    let mut double_byte_windows = buf.windows(CRLF_LEN);
+    if let Some(command_end) = double_byte_windows.position(|w| w == CRLF) {
         // single-byte windowing to find spaces
         let mut single_byte_windows = buf.windows(1);
         if let Some(command_verb_end) = single_byte_windows.position(|w| w == b" ") {
@@ -42,15 +42,15 @@ pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
         } else {
             match &buf[0..command_end] {
                 b"stats" => {
-                    let _ = buffer.split_to(command_end + 2);
+                    let _ = buffer.split_to(command_end + CRLF_LEN);
                     Ok(Request::Stats)
                 }
                 b"quit" => {
-                    let _ = buffer.split_to(command_end + 2);
+                    let _ = buffer.split_to(command_end + CRLF_LEN);
                     Ok(Request::Quit)
                 }
                 b"version" => {
-                    let _ = buffer.split_to(command_end + 2);
+                    let _ = buffer.split_to(command_end + CRLF_LEN);
                     Ok(Request::Version)
                 }
                 _ => Err(ParseError::UnknownCommand),
