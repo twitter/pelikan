@@ -258,9 +258,9 @@ impl<'a> Segment<'a> {
     // this is used as part of segment merging, it moves all occupied space to
     // the beginning of the segment, leaving the end of the segment free
     #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn compact<S: BuildHasher>(
+    pub(crate) fn compact(
         &mut self,
-        hashtable: &mut HashTable<S>,
+        hashtable: &mut HashTable,
     ) -> Result<(), SegmentsError> {
         let max_offset = self.max_item_offset();
         let mut read_offset = if cfg!(feature = "magic") {
@@ -335,10 +335,10 @@ impl<'a> Segment<'a> {
     // relink the items in the hashtable
     // NOTE: any items that don't fit in the target will be left in this segment
     // it is left to the caller to decide how to handle this
-    pub(crate) fn copy_into<S: BuildHasher>(
+    pub(crate) fn copy_into(
         &mut self,
         target: &mut Segment,
-        hashtable: &mut HashTable<S>,
+        hashtable: &mut HashTable,
     ) -> Result<(), SegmentsError> {
         let max_offset = self.max_item_offset();
         let mut read_offset = if cfg!(feature = "magic") {
@@ -404,9 +404,9 @@ impl<'a> Segment<'a> {
     // this is used as part of segment merging, it removes items from the
     // segment based on a cutoff frequency and target ratio. Since the cutoff
     // frequency is adjusted, it is returned in the result.
-    pub(crate) fn prune<S: BuildHasher>(
+    pub(crate) fn prune(
         &mut self,
-        hashtable: &mut HashTable<S>,
+        hashtable: &mut HashTable,
         cutoff_freq: f64,
         target_ratio: f64,
     ) -> f64 {
@@ -501,7 +501,7 @@ impl<'a> Segment<'a> {
         cutoff
     }
 
-    pub(crate) fn clear<S: BuildHasher>(&mut self, hashtable: &mut HashTable<S>, expire: bool) {
+    pub(crate) fn clear(&mut self, hashtable: &mut HashTable, expire: bool) {
         self.set_accessible(false);
         self.set_evictable(false);
 

@@ -23,6 +23,7 @@ debug = ["magic"]
 default = []
 
 [dependencies]
+ahash = "0.7.2"
 metrics = { path = "../../rust/metrics" }
 rand = { version = "*", features = ["small_rng", "getrandom"] }
 rand_xoshiro = { version = "0.6.0" }

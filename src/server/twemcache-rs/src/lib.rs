@@ -20,7 +20,6 @@ use std::thread::JoinHandle;
 mod admin;
 mod common;
 mod event_loop;
-mod hasher;
 pub mod protocol;
 mod server;
 mod session;
@@ -29,7 +28,6 @@ mod worker;
 
 use crate::admin::Admin;
 use crate::common::Message;
-use crate::hasher::CacheHasher;
 use crate::server::Server;
 use crate::session::Session;
 use crate::storage::Storage;
@@ -40,11 +38,11 @@ const THREAD_PREFIX: &str = "pelikan";
 /// Wraps specialization of launching single or multi-threaded worker(s)
 pub enum WorkerBuilder {
     Multi {
-        storage: Storage<CacheHasher>,
+        storage: Storage,
         workers: Vec<MultiWorker>,
     },
     Single {
-        worker: SingleWorker<CacheHasher>,
+        worker: SingleWorker,
     },
 }
 

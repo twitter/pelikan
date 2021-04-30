@@ -3,6 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::*;
+use ahash::RandomState;
 
 use rustcommon_time::CoarseInstant as Instant;
 
@@ -26,8 +27,8 @@ impl HashBucket {
 }
 
 #[repr(C)]
-pub struct HashTable<S: BuildHasher> {
-    hash_builder: Box<S>, // boxed so the size is consistent independent of type
+pub struct HashTable {
+    hash_builder: Box<RandomState>,
     power: u64,
     mask: u64,
     data: Box<[HashBucket]>,
@@ -36,11 +37,9 @@ pub struct HashTable<S: BuildHasher> {
     next_to_chain: u64,
 }
 
-impl<S> HashTable<S>
-where
-    S: BuildHasher,
+impl HashTable
 {
-    pub fn with_hasher(power: u8, overflow_factor: f64, hash_builder: S) -> HashTable<S> {
+    pub fn new(power: u8, overflow_factor: f64) -> HashTable {
         if overflow_factor < 0.0 {
             fatal!("hashtable overflow factor must be >= 0.0");
         }
@@ -63,6 +62,14 @@ where
             "hashtable has: {} primary slots across {} primary buckets and {} total buckets",
             slots, buckets, total_buckets,
         );
+
+        let hash_builder = RandomState::with_seeds(
+            0xbb8c484891ec6c86,
+            0x0522a25ae9c769f9,
+            0xeed2797b9571bc75,
+            0x4feb29c1fbbd59d0,
+        );
+        
         Self {
             hash_builder: Box::new(hash_builder),
             power: power.into(),

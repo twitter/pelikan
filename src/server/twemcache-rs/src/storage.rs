@@ -10,7 +10,6 @@ use metrics::Stat;
 use rtrb::*;
 use segcache::{Policy, SegCache};
 
-use core::hash::BuildHasher;
 use std::sync::Arc;
 
 use crate::common::Message;
@@ -25,12 +24,10 @@ pub struct StorageMessage {
     pub token: Token,
 }
 
-pub struct Storage<S>
-where
-    S: BuildHasher,
+pub struct Storage
 {
     config: Arc<Config>,
-    data: SegCache<S>,
+    data: SegCache,
     poll: Poll,
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
@@ -65,7 +62,7 @@ impl StorageQueue {
     }
 }
 
-impl Storage<CacheHasher> {
+impl Storage {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(config: Arc<Config>) -> Result<Self, std::io::Error> {
         let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
@@ -89,7 +86,6 @@ impl Storage<CacheHasher> {
             .heap_size(config.segcache().heap_size())
             .segment_size(config.segcache().segment_size())
             .eviction(eviction)
-            .hasher(CacheHasher::default())
             .build();
 
         let poll = Poll::new().map_err(|e| {

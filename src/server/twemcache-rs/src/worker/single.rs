@@ -14,14 +14,11 @@ use crate::protocol::data::*;
 use crate::session::*;
 use crate::*;
 
-use core::hash::BuildHasher;
 use std::convert::TryInto;
 use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
-pub struct SingleWorker<S>
-where
-    S: BuildHasher,
+pub struct SingleWorker
 {
     config: Arc<Config>,
     message_receiver: Receiver<Message>,
@@ -30,10 +27,10 @@ where
     session_receiver: Receiver<Session>,
     session_sender: Sender<Session>,
     sessions: Slab<Session>,
-    data: SegCache<S>,
+    data: SegCache,
 }
 
-impl SingleWorker<CacheHasher> {
+impl SingleWorker {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(config: Arc<Config>) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
@@ -64,7 +61,6 @@ impl SingleWorker<CacheHasher> {
             .heap_size(config.segcache().heap_size())
             .segment_size(config.segcache().segment_size())
             .eviction(eviction)
-            .hasher(CacheHasher::default())
             .build();
 
         Ok(Self {
@@ -217,9 +213,7 @@ impl SingleWorker<CacheHasher> {
     }
 }
 
-impl<S> EventLoop for SingleWorker<S>
-where
-    S: BuildHasher,
+impl EventLoop for SingleWorker
 {
     fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)

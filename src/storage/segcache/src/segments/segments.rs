@@ -191,10 +191,10 @@ impl Segments {
     }
 
     /// Tries to clear a segment by id
-    fn clear_segment<S: BuildHasher>(
+    fn clear_segment(
         &mut self,
         id: i32,
-        hashtable: &mut HashTable<S>,
+        hashtable: &mut HashTable,
         expire: bool,
     ) -> Result<(), ()> {
         let mut segment = self.get_mut(id).unwrap();
@@ -212,10 +212,10 @@ impl Segments {
     /// Perform eviction based on the configured eviction policy. A success from
     /// this function indicates that a segment was put onto the free queue and
     /// that `pop_free()` should return some segment id.
-    pub fn evict<S: BuildHasher>(
+    pub fn evict(
         &mut self,
         ttl_buckets: &mut TtlBuckets,
-        hashtable: &mut HashTable<S>,
+        hashtable: &mut HashTable,
     ) -> Result<(), SegmentsError> {
         match self.evict.policy() {
             Policy::Merge { .. } => {
@@ -471,12 +471,12 @@ impl Segments {
 
     /// Remove a single item from a segment based on the item_info, optionally
     /// setting tombstone
-    pub(crate) fn remove_item<S: BuildHasher>(
+    pub(crate) fn remove_item(
         &mut self,
         item_info: u64,
         tombstone: bool,
         ttl_buckets: &mut TtlBuckets,
-        hashtable: &mut HashTable<S>,
+        hashtable: &mut HashTable,
     ) -> Result<(), SegmentsError> {
         let seg_id = get_seg_id(item_info);
         let offset = get_offset(item_info) as usize;
@@ -485,13 +485,13 @@ impl Segments {
 
     /// Remove a single item from a segment based on the segment id and offset.
     /// Optionally, sets the item tombstone.
-    pub(crate) fn remove_at<S: BuildHasher>(
+    pub(crate) fn remove_at(
         &mut self,
         seg_id: i32,
         offset: usize,
         tombstone: bool,
         ttl_buckets: &mut TtlBuckets,
-        hashtable: &mut HashTable<S>,
+        hashtable: &mut HashTable,
     ) -> Result<(), SegmentsError> {
         // remove the item
         {
@@ -651,10 +651,10 @@ impl Segments {
         len
     }
 
-    fn merge_evict<S: BuildHasher>(
+    fn merge_evict(
         &mut self,
         start: i32,
-        hashtable: &mut HashTable<S>,
+        hashtable: &mut HashTable,
     ) -> Result<Option<i32>, SegmentsError> {
         increment_counter!(&Stat::SegmentMerge);
 
@@ -762,10 +762,10 @@ impl Segments {
         Ok(next_id)
     }
 
-    fn merge_compact<S: BuildHasher>(
+    fn merge_compact(
         &mut self,
         start: i32,
-        hashtable: &mut HashTable<S>,
+        hashtable: &mut HashTable,
     ) -> Result<Option<i32>, SegmentsError> {
         increment_counter!(&Stat::SegmentMerge);
 

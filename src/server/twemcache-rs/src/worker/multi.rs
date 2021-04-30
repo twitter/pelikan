@@ -37,7 +37,7 @@ impl MultiWorker {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(
         config: Arc<Config>,
-        storage: &mut Storage<CacheHasher>,
+        storage: &mut Storage,
     ) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);

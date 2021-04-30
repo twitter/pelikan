@@ -58,8 +58,8 @@ pub(crate) use ttl_buckets::*;
 /// in fixed-size segments, grouping objects with nearby expiration time into
 /// the same segment, and lifting most per-object metadata into the shared
 /// segment header.
-pub struct SegCache<S: std::hash::BuildHasher> {
-    hashtable: HashTable<S>,
+pub struct SegCache {
+    hashtable: HashTable,
     segments: Segments,
     ttl_buckets: TtlBuckets,
 }
@@ -84,18 +84,16 @@ pub enum SegCacheError {
 }
 
 /// A `Builder` is used to construct a new `SegCache` instance.
-pub struct Builder<S: std::hash::BuildHasher> {
-    hasher: Option<S>,
+pub struct Builder {
     power: u8,
     overflow_factor: f64,
     segments_builder: SegmentsBuilder,
 }
 
 // Defines the default parameters
-impl<S: std::hash::BuildHasher> Default for Builder<S> {
+impl Default for Builder {
     fn default() -> Self {
         Self {
-            hasher: None,
             power: 16,
             overflow_factor: 0.0,
             segments_builder: SegmentsBuilder::default(),
@@ -103,34 +101,7 @@ impl<S: std::hash::BuildHasher> Default for Builder<S> {
     }
 }
 
-impl<S: std::hash::BuildHasher + Default> Builder<S> {
-    /// Provide a `BuildHasher` type which is used to calculate hash values for
-    /// the keys.
-    ///
-    /// ```
-    /// use segcache::SegCache;
-    /// use std::collections::hash_map::RandomState;
-    ///
-    /// // use the default `HashMap` hasher
-    /// let cache = SegCache::builder()
-    ///     .hasher(std::collections::hash_map::RandomState::new())
-    ///     .build();
-    ///
-    /// // use ahash with a fixed set of seeds
-    /// let cache = SegCache::builder()
-    ///     .hasher(ahash::RandomState::with_seeds(
-    ///         0xbb8c484891ec6c86,
-    ///         0x0522a25ae9c769f9,
-    ///         0xeed2797b9571bc75,
-    ///         0x4feb29c1fbbd59d0,
-    ///     ))
-    ///     .build();
-    /// ```
-    pub fn hasher(mut self, hasher: S) -> Self {
-        self.hasher = Some(hasher);
-        self
-    }
-
+impl Builder {
     /// Specify the hash power, which limits the size of the hashtable to 2^N
     /// entries. 1/8th of these are used for metadata storage, meaning that the
     /// total number of items which can be held in the cache is limited to
@@ -208,13 +179,11 @@ impl<S: std::hash::BuildHasher + Default> Builder<S> {
     }
 
     /// Consumes the builder and returns a fully-allocated `SegCache` instance.
-    pub fn build(self) -> SegCache<S> {
-        let hasher = self.hasher.unwrap_or_default();
-
-        let hashtable = HashTable::with_hasher(self.power, self.overflow_factor, hasher);
-
+    pub fn build(self) -> SegCache {
+        let hashtable = HashTable::new(self.power, self.overflow_factor);
         let segments = self.segments_builder.build();
         let ttl_buckets = TtlBuckets::default();
+        
         SegCache {
             hashtable,
             segments,
@@ -223,10 +192,10 @@ impl<S: std::hash::BuildHasher + Default> Builder<S> {
     }
 }
 
-impl<S: std::hash::BuildHasher> SegCache<S> {
+impl SegCache {
     /// Returns a new `Builder` which is used to configure and construct a
     /// `SegCache` instance.
-    pub fn builder() -> Builder<S> {
+    pub fn builder() -> Builder {
         Builder::default()
     }
 
@@ -391,17 +360,6 @@ pub struct SegCacheDump {
 mod tests {
     use super::*;
     use crate::item::ITEM_HDR_SIZE;
-    use ahash::RandomState;
-
-    // Use ahash for testing with fixed seeds. Reproducible testing is important
-    fn build_hasher() -> RandomState {
-        RandomState::with_seeds(
-            0xbb8c484891ec6c86,
-            0x0522a25ae9c769f9,
-            0xeed2797b9571bc75,
-            0x4feb29c1fbbd59d0,
-        )
-    }
 
     #[test]
     fn sizes() {
@@ -426,7 +384,6 @@ mod tests {
         let mut cache = SegCache::builder()
             .segment_size(4096)
             .heap_size(4096 * 64)
-            .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
     }
@@ -440,7 +397,6 @@ mod tests {
         let mut cache = SegCache::builder()
             .segment_size(segment_size)
             .heap_size(heap_size)
-            .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
         assert_eq!(cache.segments.free(), 64);
@@ -459,7 +415,6 @@ mod tests {
         let mut cache = SegCache::builder()
             .segment_size(segment_size)
             .heap_size(heap_size)
-            .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
         assert_eq!(cache.segments.free(), 64);
@@ -483,7 +438,6 @@ mod tests {
         let mut cache = SegCache::builder()
             .segment_size(segment_size)
             .heap_size(heap_size)
-            .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
         assert_eq!(cache.segments.free(), 64);
@@ -530,7 +484,6 @@ mod tests {
         let mut cache = SegCache::builder()
             .segment_size(segment_size)
             .heap_size(heap_size)
-            .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
         assert_eq!(cache.segments.free(), 64);
@@ -561,7 +514,6 @@ mod tests {
             .segment_size(segment_size)
             .heap_size(heap_size)
             .power(3)
-            .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
         assert_eq!(cache.segments.free(), 2);
@@ -589,7 +541,6 @@ mod tests {
             .segment_size(segment_size)
             .heap_size(heap_size)
             .power(3)
-            .hasher(build_hasher())
             .build();
         assert_eq!(cache.items(), 0);
         assert_eq!(cache.segments.free(), 64);
@@ -627,7 +578,6 @@ mod tests {
             .segment_size(segment_size)
             .heap_size(heap_size)
             .power(16)
-            .hasher(build_hasher())
             .build();
 
         assert_eq!(cache.items(), 0);
@@ -666,7 +616,6 @@ mod tests {
             .segment_size(segment_size)
             .heap_size(heap_size)
             .power(16)
-            .hasher(build_hasher())
             .build();
 
         assert_eq!(cache.items(), 0);
@@ -705,7 +654,6 @@ mod tests {
             .segment_size(segment_size)
             .heap_size(heap_size)
             .power(16)
-            .hasher(build_hasher())
             .build();
 
         assert_eq!(cache.items(), 0);

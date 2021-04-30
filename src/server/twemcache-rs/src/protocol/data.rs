@@ -6,7 +6,6 @@ use crate::protocol::{CRLF, CRLF_LEN};
 use crate::Config;
 use bytes::BytesMut;
 use config::TimeType;
-use core::hash::BuildHasher;
 use metrics::*;
 use rustcommon_time::CoarseDuration;
 use segcache::{SegCache, SegCacheError};
@@ -41,11 +40,11 @@ pub enum Request {
 }
 
 impl Request {
-    pub fn process<S: BuildHasher>(
+    pub fn process(
         self,
         config: &Arc<Config>,
         write_buffer: &mut BytesMut,
-        data: &mut SegCache<S>,
+        data: &mut SegCache,
     ) {
         match self {
             Self::Get(r) => process_get(r, write_buffer, data),
@@ -83,10 +82,10 @@ impl GetRequest {
     }
 }
 
-pub fn process_get<S: BuildHasher>(
+pub fn process_get(
     request: GetRequest,
     write_buffer: &mut BytesMut,
-    data: &mut SegCache<S>,
+    data: &mut SegCache,
 ) {
     let mut found = 0;
     increment_counter!(&Stat::Get);
@@ -133,10 +132,10 @@ impl GetsRequest {
 }
 
 // TODO(bmartin): this does not handle expiry.
-pub fn process_gets<S: BuildHasher>(
+pub fn process_gets(
     request: GetsRequest,
     write_buffer: &mut BytesMut,
-    data: &mut SegCache<S>,
+    data: &mut SegCache,
 ) {
     let mut found = 0;
     increment_counter!(&Stat::Gets);
@@ -184,10 +183,10 @@ impl DeleteRequest {
     }
 }
 
-pub fn process_delete<S: BuildHasher>(
+pub fn process_delete(
     request: DeleteRequest,
     write_buffer: &mut BytesMut,
-    data: &mut SegCache<S>,
+    data: &mut SegCache,
 ) {
     increment_counter!(&Stat::Delete);
     let reply = !request.noreply();
@@ -240,11 +239,11 @@ impl SetRequest {
 }
 
 // TODO(bmartin): this does not handle expiry.
-pub fn process_set<S: BuildHasher>(
+pub fn process_set(
     config: &Arc<Config>,
     request: SetRequest,
     write_buffer: &mut BytesMut,
-    data: &mut SegCache<S>,
+    data: &mut SegCache,
 ) {
     increment_counter!(&Stat::Set);
     let reply = !request.noreply();
@@ -334,11 +333,11 @@ impl CasRequest {
     }
 }
 
-pub fn process_cas<S: BuildHasher>(
+pub fn process_cas(
     config: &Arc<Config>,
     request: CasRequest,
     write_buffer: &mut BytesMut,
-    data: &mut SegCache<S>,
+    data: &mut SegCache,
 ) {
     increment_counter!(&Stat::Cas);
     let reply = !request.noreply();
@@ -435,11 +434,11 @@ impl AddRequest {
 }
 
 // TODO(bmartin): this does not handle expiry.
-pub fn process_add<S: BuildHasher>(
+pub fn process_add(
     config: &Arc<Config>,
     request: AddRequest,
     write_buffer: &mut BytesMut,
-    data: &mut SegCache<S>,
+    data: &mut SegCache,
 ) {
     increment_counter!(&Stat::Add);
     let reply = !request.noreply();
@@ -525,11 +524,11 @@ impl ReplaceRequest {
 }
 
 // TODO(bmartin): this does not handle expiry.
-pub fn process_replace<S: BuildHasher>(
+pub fn process_replace(
     config: &Arc<Config>,
     request: ReplaceRequest,
     write_buffer: &mut BytesMut,
-    data: &mut SegCache<S>,
+    data: &mut SegCache,
 ) {
     increment_counter!(&Stat::Replace);
     let reply = !request.noreply();
