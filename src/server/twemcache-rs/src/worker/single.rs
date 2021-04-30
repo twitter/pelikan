@@ -18,8 +18,7 @@ use std::convert::TryInto;
 use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
-pub struct SingleWorker
-{
+pub struct SingleWorker {
     config: Arc<Config>,
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
@@ -213,8 +212,7 @@ impl SingleWorker {
     }
 }
 
-impl EventLoop for SingleWorker
-{
+impl EventLoop for SingleWorker {
     fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
     }

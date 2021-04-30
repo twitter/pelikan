@@ -24,8 +24,7 @@ pub struct StorageMessage {
     pub token: Token,
 }
 
-pub struct Storage
-{
+pub struct Storage {
     config: Arc<Config>,
     data: SegCache,
     poll: Poll,
