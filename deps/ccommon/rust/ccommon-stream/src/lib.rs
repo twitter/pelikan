@@ -17,7 +17,7 @@ fn buf_sock_poolsize() -> usize {
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SockioConfig {
-    #[cfg_attr(feature = "serde", serde(default = "buf_sock_poolsize"))]
+	#[cfg_attr(feature = "serde", serde(default = "buf_sock_poolsize"))]
     buf_sock_poolsize: usize,
 }
 
