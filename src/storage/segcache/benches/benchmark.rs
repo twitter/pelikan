@@ -27,15 +27,8 @@ fn ahash_get_benchmark(c: &mut Criterion) {
         let (keys, _values) = key_values(*key_size, 1_000_000, 0, 0);
 
         // launch the server
-        let build_hasher = ahash::RandomState::with_seeds(
-            0xbb8c484891ec6c86,
-            0x0522a25ae9c769f9,
-            0xeed2797b9571bc75,
-            0x4feb29c1fbbd59d0,
-        );
         let mut cache = SegCache::builder()
             .power(16)
-            .hasher(build_hasher)
             .heap_size(64 * MB)
             .segment_size(MB as i32)
             .build();
