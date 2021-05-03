@@ -583,6 +583,7 @@ impl Segments {
         }
     }
 
+    #[cfg(feature = "debug")]
     pub(crate) fn check_integrity(&mut self) -> bool {
         let mut integrity = true;
         for id in 0..self.cap {

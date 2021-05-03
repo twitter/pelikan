@@ -2,13 +2,11 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-mod constants;
 mod header;
 mod raw;
 mod reserved;
 
-pub(crate) use constants::*;
-pub(crate) use header::ItemHeader;
+pub(crate) use header::{ItemHeader, ITEM_HDR_SIZE};
 pub(crate) use raw::RawItem;
 pub(crate) use reserved::ReservedItem;
 

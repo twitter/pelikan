@@ -7,12 +7,16 @@ use crate::*;
 
 use serde::{Deserialize, Serialize};
 
+/// A `Segment` is a contiguous allocation of bytes and an associated header
+/// which contains metadata. This structure allows us to operate on mutable
+/// borrows of the header and data sections to perform basic operations.
 pub struct Segment<'a> {
     header: &'a mut SegmentHeader,
     data: &'a mut [u8],
 }
 
 impl<'a> Segment<'a> {
+    /// Construct a `Segment` from its raw parts
     pub fn from_raw_parts(
         header: &'a mut segments::header::SegmentHeader,
         data: &'a mut [u8],
@@ -20,6 +24,8 @@ impl<'a> Segment<'a> {
         Segment { header, data }
     }
 
+    /// Initialize the segment. Sets the magic bytes in the data segment (if the
+    /// feature is enabled) and initializes the header fields.
     pub fn init(&mut self) {
         if cfg!(feature = "magic") {
             for (i, byte) in SEG_MAGIC.to_be_bytes().iter().enumerate() {
@@ -31,6 +37,7 @@ impl<'a> Segment<'a> {
 
     #[cfg(feature = "magic")]
     #[inline]
+    /// Reads the magic bytes from the start of the segment data section.
     pub fn magic(&self) -> u64 {
         u64::from_be_bytes([
             self.data[0],
@@ -45,11 +52,20 @@ impl<'a> Segment<'a> {
     }
 
     #[inline]
+    /// Checks that the magic bytes match the expected value
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the magic bytes do not match the expected
+    /// value. This would indicate data corruption or that the segment was
+    /// constructed from invalid data.
     pub fn check_magic(&self) {
         #[cfg(feature = "magic")]
         assert_eq!(self.magic(), SEG_MAGIC)
     }
 
+    /// Convenience function which is used as a stop point for scanning through
+    /// the segment. All valid items would exist below this value
     fn max_item_offset(&self) -> usize {
         if self.write_offset() >= ITEM_HDR_SIZE as i32 {
             std::cmp::min(self.write_offset() as usize, self.data.len()) - ITEM_HDR_SIZE
@@ -60,6 +76,15 @@ impl<'a> Segment<'a> {
         }
     }
 
+    /// Check the segment integrity. This is an expensive operation. Will return
+    /// a bool with a true result indicating that the segment integrity check
+    /// has passed. A false result indicates that there is data corruption.
+    ///
+    /// # Panics
+    ///
+    /// This function may panic if the segment is corrupted or has been
+    /// constructed from invalid bytes.
+    #[cfg(feature = "debug")]
     pub fn check_integrity(&mut self) -> bool {
         self.check_magic();
 
@@ -98,102 +123,136 @@ impl<'a> Segment<'a> {
         integrity
     }
 
+    /// Return the segment's id
     #[inline]
     pub fn id(&self) -> i32 {
         self.header.id()
     }
 
+    /// Return the current write offset of the segment. This index is the start
+    /// of the next write.
     #[inline]
     pub fn write_offset(&self) -> i32 {
         self.header.write_offset()
     }
 
+    /// Set the write offset to a specific value
     #[inline]
     pub fn set_write_offset(&mut self, bytes: i32) {
         self.header.set_write_offset(bytes)
     }
 
+    /// Return the number of live (active) bytes in the segment. This may be
+    /// lower than the write offset due to items being removed/replaced
     #[inline]
     pub fn live_bytes(&self) -> i32 {
         self.header.live_bytes()
     }
 
+    /// Return the number of live items in the segment.
     #[inline]
     pub fn live_items(&self) -> i32 {
         self.header.live_items()
     }
 
+    /// Returns whether the segment is currently accessible from the hashtable.
     #[inline]
     pub fn accessible(&self) -> bool {
         self.header.accessible()
     }
 
+    /// Mark whether or not the segment is accessible from the hashtable.
     #[inline]
     pub fn set_accessible(&mut self, accessible: bool) {
         self.header.set_accessible(accessible)
     }
 
+    /// Indicate if the segment might be evictable, prefer to use `can_evict()`
+    /// to check.
     #[inline]
     pub fn evictable(&self) -> bool {
         self.header.evictable()
     }
 
+    /// Set if the segment could be considered evictable.
     #[inline]
     pub fn set_evictable(&mut self, evictable: bool) {
         self.header.set_evictable(evictable)
     }
 
+    /// Performs some checks to determine if the segment can actually be evicted 
     #[inline]
     pub fn can_evict(&self) -> bool {
         self.header.can_evict()
     }
 
-    #[inline]
-    pub fn set_ttl(&mut self, ttl: CoarseDuration) {
-        self.header.set_ttl(ttl)
-    }
-
-    #[inline]
-    pub fn create_at(&self) -> CoarseInstant {
-        self.header.create_at()
-    }
-
-    #[inline]
-    pub fn mark_merged(&mut self) {
-        self.header.mark_merged()
-    }
-
+    /// Return the segment's TTL
     #[inline]
     pub fn ttl(&self) -> CoarseDuration {
         self.header.ttl()
     }
 
+    /// Set the segment's TTL, used when linking it into a TtlBucket
+    #[inline]
+    pub fn set_ttl(&mut self, ttl: CoarseDuration) {
+        self.header.set_ttl(ttl)
+    }
+
+    /// Returns the time the segment was last initialized
+    #[inline]
+    pub fn create_at(&self) -> CoarseInstant {
+        self.header.create_at()
+    }
+
+    /// Mark that the segment has been merged
+    #[inline]
+    pub fn mark_merged(&mut self) {
+        self.header.mark_merged()
+    }
+
+    /// Return the previous segment's id. This will be a segment before it in a
+    /// TtlBucket or on the free queue. A `None` indicates that this segment is
+    /// the head of a bucket or the free queue.
     #[inline]
     pub fn prev_seg(&self) -> Option<i32> {
         self.header.prev_seg()
     }
 
-    #[inline]
-    pub fn next_seg(&self) -> Option<i32> {
-        self.header.next_seg()
-    }
-
+    /// Set the previous segment id to this value. Negative values will mean
+    /// that there is no previous segment, meaning this segment is the head of
+    /// a bucket or the free queue
     #[inline]
     pub fn set_prev_seg(&mut self, id: i32) {
         self.header.set_prev_seg(id)
     }
 
+    /// Return the next segment's id. This will be a segment following it in a
+    /// TtlBucket or on the free queue. A `None` indicates that this segment is
+    /// the tail of a bucket or the free queue.
+    #[inline]
+    pub fn next_seg(&self) -> Option<i32> {
+        self.header.next_seg()
+    }
+
+    /// Set the next segment id to this value. Negative values will mean that
+    /// there is no previous segment, meaning this segment is the head of a
+    /// bucket or the free queue
     #[inline]
     pub fn set_next_seg(&mut self, id: i32) {
         self.header.set_next_seg(id)
     }
 
+    /// Decrement the live bytes by `bytes` and the live items by `1`. This
+    /// would be used to update the header after an item has been removed or
+    /// replaced.
     #[inline]
     pub fn decr_item(&mut self, bytes: i32) {
         self.header.decr_live_bytes(bytes);
         self.header.decr_live_items();
     }
 
+    /// Internal function which increments the live bytes by `bytes` and the
+    /// live items by `1`. Used when an item has been allocated
     #[inline]
     fn incr_item(&mut self, bytes: i32) {
         let _ = self.header.incr_write_offset(bytes);

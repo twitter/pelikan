@@ -337,6 +337,7 @@ impl SegCache {
 
     /// Checks the integrity of all segments
     /// *NOTE*: this operation is relatively expensive
+    #[cfg(feature = "debug")]
     pub fn check_integrity(&mut self) -> Result<(), SegCacheError> {
         if self.segments.check_integrity() {
             Ok(())
