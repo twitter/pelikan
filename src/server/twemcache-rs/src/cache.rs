@@ -77,7 +77,7 @@ impl Cache {
         increment_counter_by!(&Stat::GetKeyHit, found);
         increment_counter_by!(&Stat::GetKeyMiss, total - found);
 
-        debug!(
+        trace!(
             "get request processed, {} out of {} keys found",
             found, total
         );
@@ -100,8 +100,8 @@ impl Cache {
         increment_counter_by!(&Stat::GetsKeyHit, found);
         increment_counter_by!(&Stat::GetsKeyMiss, total - found);
 
-        debug!(
-            "get request processed, {} out of {} keys found",
+        trace!(
+            "gets request processed, {} out of {} keys found",
             found, total
         );
         MemcacheResponse::End.serialize(write_buffer);

@@ -6,7 +6,7 @@ use log::Level;
 use serde::{Deserialize, Serialize};
 
 // constants to define default values
-const DEBUG_LOG_LEVEL: Level = Level::Debug;
+const DEBUG_LOG_LEVEL: Level = Level::Info;
 const DEBUG_LOG_FILE: Option<String> = None;
 const DEBUG_LOG_NBUF: usize = 0;
 
