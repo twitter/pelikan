@@ -38,6 +38,8 @@ time_type = "Memcache"
 [buf]
 
 [debug]
+# choose from: error, warn, info, debug, trace
+log_level = "info"
 
 [sockio]
 
