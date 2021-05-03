@@ -80,10 +80,7 @@ mod tests {
         buffer.extend_from_slice(b"stats\r\n");
         let parsed = parse(&mut buffer);
         assert!(parsed.is_ok());
-        if let Ok(Request::Stats) = parsed {
-        } else {
-            panic!("incorrectly parsed");
-        }
+        assert_eq!(parsed, Ok(Request::Stats))
     }
 
     #[test]
@@ -92,9 +89,6 @@ mod tests {
         buffer.extend_from_slice(b"quit\r\n");
         let parsed = parse(&mut buffer);
         assert!(parsed.is_ok());
-        if let Ok(Request::Quit) = parsed {
-        } else {
-            panic!("incorrectly parsed");
-        }
+        assert_eq!(parsed, Ok(Request::Quit))
     }
 }
