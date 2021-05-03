@@ -2,12 +2,15 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+#[cfg(feature = "dump")]
 use crate::segments::segment::SegmentDump;
+
 use crate::segments::*;
-use thiserror::Error;
+use crate::item::*;
 
 use metrics::Stat;
 use rustcommon_time::CoarseInstant as Instant;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum SegmentsError {
@@ -341,6 +344,7 @@ impl Segments {
     /// *NOTE*: this function must not be used on segments in the free queue
     fn unlink(&mut self, id: i32) {
         let id_idx = id as usize;
+
         if let Some(next) = self.headers[id_idx].next_seg() {
             let prev = self.headers[id_idx].prev_seg().unwrap_or(-1);
             self.headers[next as usize].set_prev_seg(prev);
@@ -594,6 +598,7 @@ impl Segments {
         integrity
     }
 
+    #[cfg(feature = "dump")]
     pub(crate) fn dump(&mut self) -> Vec<SegmentDump> {
         let mut ret = Vec::new();
         for id in 0..self.cap {

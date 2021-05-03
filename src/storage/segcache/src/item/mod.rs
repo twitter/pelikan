@@ -6,6 +6,9 @@ mod header;
 mod raw;
 mod reserved;
 
+#[cfg(any(feature = "magic", feature = "debug"))]
+pub(crate) use header::ITEM_MAGIC_SIZE;
+
 pub(crate) use header::{ItemHeader, ITEM_HDR_SIZE};
 pub(crate) use raw::RawItem;
 pub(crate) use reserved::ReservedItem;

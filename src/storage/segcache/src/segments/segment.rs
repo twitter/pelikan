@@ -5,6 +5,7 @@
 use super::{SegmentHeader, SegmentsError};
 use crate::*;
 
+#[cfg(feature = "dump")]
 use serde::{Deserialize, Serialize};
 
 /// A `Segment` is a contiguous allocation of bytes and an associated header
@@ -213,6 +214,7 @@ impl<'a> Segment<'a> {
     /// Return the previous segment's id. This will be a segment before it in a
     /// TtlBucket or on the free queue. A `None` indicates that this segment is
     /// the head of a bucket or the free queue.
+    #[allow(dead_code)]
     #[inline]
     pub fn prev_seg(&self) -> Option<i32> {
         self.header.prev_seg()
@@ -260,6 +262,16 @@ impl<'a> Segment<'a> {
         self.header.incr_live_items();
     }
 
+    /// Allocate a new `RawItem` with the given size
+    ///
+    /// # Safety
+    ///
+    /// This function *does not* check that there is enough free space in the
+    /// segment. It is up to the caller to ensure that the resulting item fits
+    /// in the segment. Data corruption or segfault is likely to occur if this
+    /// is not checked.
+    // TODO(bmartin): See about returning a Result here instead and avoiding the
+    // potential safety issue.
     pub(crate) fn alloc_item(&mut self, size: i32) -> RawItem {
         let offset = self.write_offset() as usize;
         self.incr_item(size);
@@ -270,11 +282,15 @@ impl<'a> Segment<'a> {
         RawItem::from_ptr(ptr)
     }
 
+    /// Remove an item based on its item info
+    // TODO(bmartin): tombstone is currently always set
     pub(crate) fn remove_item(&mut self, item_info: u64, tombstone: bool) {
         let offset = get_offset(item_info) as usize;
         self.remove_item_at(offset, tombstone)
     }
 
+    /// Remove an item based on its offset into the segment
+    // TODO(bmartin): tombstone is currently always set
     pub(crate) fn remove_item_at(&mut self, offset: usize, _tombstone: bool) {
         let mut item = self.get_item_at(offset).unwrap();
         if item.deleted() {
@@ -297,14 +313,14 @@ impl<'a> Segment<'a> {
         self.check_magic();
     }
 
-    // returns the item looking it up from the item_info
+    /// Returns the item looking it up from the item_info
     // TODO(bmartin): consider changing the return type here and removing asserts?
     pub(crate) fn get_item(&mut self, item_info: u64) -> Option<RawItem> {
         assert_eq!(get_seg_id(item_info) as i32, self.id());
         self.get_item_at(get_offset(item_info) as usize)
     }
 
-    // returns the item at the given offset
+    /// Returns the item at the given offset
     // TODO(bmartin): consider changing the return type here and removing asserts?
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn get_item_at(&mut self, offset: usize) -> Option<RawItem> {
@@ -314,8 +330,8 @@ impl<'a> Segment<'a> {
         }))
     }
 
-    // this is used as part of segment merging, it moves all occupied space to
-    // the beginning of the segment, leaving the end of the segment free
+    /// This is used as part of segment merging, it moves all occupied space to
+    /// the beginning of the segment, leaving the end of the segment free
     #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn compact(&mut self, hashtable: &mut HashTable) -> Result<(), SegmentsError> {
         let max_offset = self.max_item_offset();
@@ -387,10 +403,13 @@ impl<'a> Segment<'a> {
         Ok(())
     }
 
-    // this is used to copy data from this segment into the target segment and
-    // relink the items in the hashtable
-    // NOTE: any items that don't fit in the target will be left in this segment
-    // it is left to the caller to decide how to handle this
+    /// This is used to copy data from this segment into the target segment and
+    /// relink the items in the hashtable
+    ///
+    /// # NOTE
+    ///
+    /// Any items that don't fit in the target will be left in this segment it
+    /// is left to the caller to decide how to handle this
     pub(crate) fn copy_into(
         &mut self,
         target: &mut Segment,
@@ -457,9 +476,9 @@ impl<'a> Segment<'a> {
         Ok(())
     }
 
-    // this is used as part of segment merging, it removes items from the
-    // segment based on a cutoff frequency and target ratio. Since the cutoff
-    // frequency is adjusted, it is returned in the result.
+    /// This is used as part of segment merging, it removes items from the
+    /// segment based on a cutoff frequency and target ratio. Since the cutoff
+    /// frequency is adjusted, it is returned as the result.
     pub(crate) fn prune(
         &mut self,
         hashtable: &mut HashTable,
@@ -557,6 +576,9 @@ impl<'a> Segment<'a> {
         cutoff
     }
 
+    /// Remove all items from the segment, unlinking them from the hashtable.
+    /// If expire is true, this is treated as an expiration option. Otherwise it
+    /// is treated as an eviction.
     pub(crate) fn clear(&mut self, hashtable: &mut HashTable, expire: bool) {
         self.set_accessible(false);
         self.set_evictable(false);
@@ -641,6 +663,8 @@ impl<'a> Segment<'a> {
         self.set_write_offset(self.live_bytes());
     }
 
+    /// Creates a dump of this segment. Used for analysis / debugging
+    #[cfg(feature = "dump")]
     pub(crate) fn dump(&mut self) -> SegmentDump {
         let mut ret = SegmentDump {
             id: self.id(),
@@ -677,6 +701,9 @@ impl<'a> Segment<'a> {
     }
 }
 
+/// A `SegmentDump` represents the current state of the segment, containing meta
+/// data about the segment itself and all the items in it
+#[cfg(feature = "dump")]
 #[derive(Serialize, Deserialize)]
 pub(crate) struct SegmentDump {
     id: i32,
@@ -689,6 +716,9 @@ pub(crate) struct SegmentDump {
     items: Vec<ItemDump>,
 }
 
+/// An `ItemDump` represents item state at the time a segment dump was taken,
+/// it contains the item offset, size, and whether it is marked dead.
+#[cfg(feature = "dump")]
 #[derive(Serialize, Deserialize)]
 pub struct ItemDump {
     offset: i32,

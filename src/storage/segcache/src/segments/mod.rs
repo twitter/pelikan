@@ -17,8 +17,11 @@ mod segments;
 pub use eviction::{Eviction, Policy};
 pub(crate) use header::SegmentHeader;
 pub(crate) use segment::Segment;
-pub(crate) use segment::SegmentDump;
 pub(crate) use segments::{Segments, SegmentsBuilder, SegmentsError};
+
+#[cfg(feature = "dump")]
+pub(crate) use segment::SegmentDump;
+
 
 #[cfg(test)]
 mod test {

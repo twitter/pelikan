@@ -26,6 +26,9 @@ pub const ITEM_HDR_SIZE: usize = std::mem::size_of::<crate::item::ItemHeader>();
 pub const ITEM_MAGIC: u32 = 0xDECAFBAD;
 #[cfg(feature = "magic")]
 pub const ITEM_MAGIC_SIZE: usize = std::mem::size_of::<u32>();
+#[cfg(not(feature = "magic"))]
+#[allow(dead_code)]
+pub const ITEM_MAGIC_SIZE: usize = 0;
 
 // masks and shifts
 // klen/vlen pack together

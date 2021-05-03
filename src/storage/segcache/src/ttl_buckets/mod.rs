@@ -6,6 +6,8 @@ use crate::common::ThinOption;
 use crate::*;
 
 use rustcommon_time::CoarseInstant as Instant;
+
+#[cfg(feature = "dump")]
 use serde::{Deserialize, Serialize};
 
 mod constants;
@@ -28,6 +30,7 @@ pub struct TtlBuckets {
     pub(crate) buckets: Box<[TtlBucket]>,
 }
 
+#[cfg(feature = "dump")]
 #[derive(Serialize, Deserialize)]
 pub struct TtlBucketDump {
     ttl: i32,
@@ -192,6 +195,7 @@ impl TtlBuckets {
         Self { buckets }
     }
 
+    #[cfg(feature = "dump")]
     pub(crate) fn dump(&self) -> Vec<TtlBucketDump> {
         let mut ret = Vec::new();
         for bucket in self.buckets.iter() {
