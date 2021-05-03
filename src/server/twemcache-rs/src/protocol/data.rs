@@ -27,6 +27,7 @@ pub enum ParseError {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+/// Indicates the type of command
 pub enum MemcacheCommand {
     Get,
     Gets,
@@ -67,6 +68,8 @@ pub trait Request {
 }
 
 #[derive(Debug, PartialEq)]
+/// The `MemcacheRequest` contains all the specific fields which represent a
+/// memcache request.
 pub struct MemcacheRequest {
     buffer: BytesMut,
     command: MemcacheCommand,
@@ -96,10 +99,12 @@ impl MemcacheRequest {
         self.expiry
     }
 
+    /// Optional flag which is stored as an opaque 32bit value
     pub fn flags(&self) -> u32 {
         self.flags
     }
 
+    /// The associated value for the request
     pub fn value(&self) -> Option<&[u8]> {
         let start = self.value.0;
         let end = self.value.1;
@@ -110,6 +115,7 @@ impl MemcacheRequest {
         }
     }
 
+    /// The cas value for the request
     pub fn cas(&self) -> u64 {
         self.cas
     }
@@ -144,7 +150,7 @@ pub trait Parser {
 
 impl Parser for MemcacheParser {
     type Request = MemcacheRequest;
-    
+
     fn parse(buffer: &mut BytesMut) -> Result<Self::Request, ParseError> {
         let command;
         {
