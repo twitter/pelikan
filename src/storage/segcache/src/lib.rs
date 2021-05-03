@@ -110,14 +110,13 @@ impl Builder {
     ///
     /// ```
     /// use segcache::SegCache;
-    /// use std::collections::hash_map::RandomState;
     ///
     /// // create a cache with a small hashtable that has room for ~114k items
     /// // without using any overflow buckets.
-    /// let cache = SegCache::<RandomState>::builder().power(17).build();
+    /// let cache = SegCache::builder().power(17).build();
     ///
     /// // create a cache with a larger hashtable with room for ~1.8M items
-    /// let cache = SegCache::<RandomState>::builder().power(21).build();
+    /// let cache = SegCache::builder().power(21).build();
     /// ```
     pub fn power(mut self, power: u8) -> Self {
         assert!(power >= 3, "power must be at least 3");
@@ -131,19 +130,18 @@ impl Builder {
     ///
     /// ```
     /// use segcache::SegCache;
-    /// use std::collections::hash_map::RandomState;
     ///
     /// // create a cache with a hashtable with room for ~228k items, which is
     /// // about the same as using a power of 18, but is more tolerant of hash
     /// // collisions
-    /// let cache = SegCache::<RandomState>::builder()
+    /// let cache = SegCache::builder()
     ///     .power(17)
     ///     .overflow_factor(1.0)
     ///     .build();
     ///
     /// // smaller overflow factors may be specified, meaning only some buckets
     /// // can ever be chained
-    /// let cache = SegCache::<RandomState>::builder()
+    /// let cache = SegCache::builder()
     ///     .power(17)
     ///     .overflow_factor(0.2)
     ///     .build();
@@ -373,7 +371,7 @@ mod tests {
         assert_eq!(std::mem::size_of::<SegmentHeader>(), 64);
 
         assert_eq!(std::mem::size_of::<HashBucket>(), 64);
-        assert_eq!(std::mem::size_of::<HashTable<ahash::RandomState>>(), 64);
+        assert_eq!(std::mem::size_of::<HashTable>(), 64);
 
         assert_eq!(std::mem::size_of::<crate::ttl_buckets::TtlBucket>(), 64);
         assert_eq!(std::mem::size_of::<TtlBuckets>(), 16);
@@ -637,11 +635,8 @@ mod tests {
             };
         }
 
-        #[cfg(not(feature = "magic"))]
-        assert_eq!(inserts, 9999721);
-
-        #[cfg(feature = "magic")]
-        assert_eq!(inserts, 9999702);
+        // inserts should be > 99.99 percent successful for this config
+        assert!(inserts >= 9_999_000);
     }
 
     #[test]

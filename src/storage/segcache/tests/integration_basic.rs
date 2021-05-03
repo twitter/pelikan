@@ -2,19 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use ahash::RandomState;
 use rustcommon_time::*;
 use segcache::*;
 
-// Use ahash for testing with fixed seeds. Reproducible testing is important
-fn build_hasher() -> RandomState {
-    RandomState::with_seeds(
-        0xbb8c484891ec6c86,
-        0x0522a25ae9c769f9,
-        0xeed2797b9571bc75,
-        0x4feb29c1fbbd59d0,
-    )
-}
 
 #[test]
 fn integration_basic() {
@@ -25,7 +15,6 @@ fn integration_basic() {
         .segment_size(segment_size)
         .heap_size(heap_size)
         .power(16)
-        .hasher(build_hasher())
         .build();
 
     println!("filling seg 0");
@@ -35,11 +24,9 @@ fn integration_basic() {
         None,
         ttl,
     );
-    assert_eq!(cache.items(), 1);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), Some(64));
 
     let _ = cache.insert(b"b", b"All that glitters is not gold.", None, ttl);
-    assert_eq!(cache.items(), 2);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), Some(64));
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), Some(30));
 
@@ -49,7 +36,6 @@ fn integration_basic() {
         None,
         ttl,
     );
-    assert_eq!(cache.items(), 3);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), Some(64));
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), Some(30));
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), Some(41));
@@ -57,7 +43,6 @@ fn integration_basic() {
 
     println!("filling seg 1");
     let _ = cache.insert(b"d", b"There are more things in heaven and earth, Horatio, than are dreamt of in your philosophy.", None, ttl);
-    assert_eq!(cache.items(), 4);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), Some(64));
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), Some(30));
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), Some(41));
@@ -69,7 +54,6 @@ fn integration_basic() {
         None,
         ttl,
     );
-    assert_eq!(cache.items(), 5);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), Some(64));
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), Some(30));
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), Some(41));
@@ -77,7 +61,6 @@ fn integration_basic() {
     assert_eq!(cache.get(b"e").map(|v| v.value().len()), Some(42));
 
     let _ = cache.insert(b"f", b"Brevity is the soul of wit.", None, ttl);
-    assert_eq!(cache.items(), 6);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), Some(64));
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), Some(30));
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), Some(41));
@@ -102,7 +85,6 @@ fn integration_basic() {
         assert_eq!(cache.get(b"g").map(|v| v.value().len()), Some(41));
     }
 
-    assert_eq!(cache.items(), 7);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), Some(64));
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), Some(30));
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), Some(41));
@@ -120,7 +102,6 @@ fn integration_basic() {
         None,
         ttl,
     );
-    assert_eq!(cache.items(), 5);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), None);
@@ -136,7 +117,6 @@ fn integration_basic() {
         None,
         ttl,
     );
-    assert_eq!(cache.items(), 6);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), None);
@@ -153,7 +133,6 @@ fn integration_basic() {
         None,
         ttl,
     );
-    assert_eq!(cache.items(), 7);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), None);
@@ -174,7 +153,6 @@ fn integration_basic() {
         None,
         ttl,
     );
-    assert_eq!(cache.items(), 4);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), None);
@@ -193,7 +171,6 @@ fn integration_basic() {
         None,
         ttl,
     );
-    assert_eq!(cache.items(), 5);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), None);
@@ -210,9 +187,7 @@ fn integration_basic() {
     // check that overwrite of most recent key works properly, checking that
     // write offset and occupied size reflect the change
     println!("overwrite recent key");
-    assert_eq!(cache.items(), 5);
     let _ = cache.insert(b"l", b"Et tu, Brute?", None, ttl);
-    assert_eq!(cache.items(), 5);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), None);
@@ -230,7 +205,6 @@ fn integration_basic() {
     // this also evicts the first segment
     println!("overwrite older key in active segment");
     let _ = cache.insert(b"k", b"All the world's a stage, and all the men and women merely players. They have their exits and their entrances; And one man in his time plays many parts.", None, ttl);
-    assert_eq!(cache.items(), 2);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), None);
@@ -248,7 +222,6 @@ fn integration_basic() {
     // longer has any items
     println!("overwrite key, triggering eviction of seg 1");
     let _ = cache.insert(b"l", b"Action is eloquence.", None, ttl);
-    assert_eq!(cache.items(), 2);
 
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), None);
@@ -270,7 +243,6 @@ fn integration_basic() {
         None,
         ttl,
     );
-    assert_eq!(cache.items(), 3);
 
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), None);
@@ -295,7 +267,6 @@ fn integration_basic() {
         None,
         ttl,
     );
-    assert_eq!(cache.items(), 4);
     assert_eq!(cache.get(b"a").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"b").map(|v| v.value().len()), None);
     assert_eq!(cache.get(b"c").map(|v| v.value().len()), None);
