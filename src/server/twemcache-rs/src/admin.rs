@@ -251,6 +251,8 @@ impl Admin {
         self.message_sender.clone()
     }
 
+    // TODO(bmartin): move this into a common module, should be shared with
+    // other backends
     pub fn get_rusage(&self) {
         let mut rusage = libc::rusage {
             ru_utime: libc::timeval {
