@@ -16,25 +16,25 @@ use std::env;
 use std::fmt;
 use std::io::{Read, Result as IOResult, Write};
 use std::net::TcpStream;
-use std::ops::Index;
 use std::panic::{catch_unwind, resume_unwind};
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
+use std::ops::Index;
 
+use httpencode::{Error, Uri, request};
 use httparse::{Header, Response, Status};
-use httpencode::{request, Error, Uri};
 
 struct EscapedByteString<'b>(&'b [u8]);
 
 impl fmt::Display for EscapedByteString<'_> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let iter = self
-            .0
-            .iter()
-            .cloned()
-            .flat_map(|x| std::ascii::escape_default(x))
-            .map(|x| x as char);
+        .0
+        .iter()
+        .cloned()
+        .flat_map(|x| std::ascii::escape_default(x))
+        .map(|x| x as char);
 
         fmt.write_str("\"")?;
         for c in iter {
@@ -47,7 +47,7 @@ impl fmt::Display for EscapedByteString<'_> {
 }
 
 struct LinearMap<'b, 'h> {
-    headers: &'h [Header<'b>],
+    headers: &'h [Header<'b>]
 }
 
 impl<'b> LinearMap<'b, '_> {
@@ -82,7 +82,7 @@ fn escape(bytes: &[u8]) -> EscapedByteString {
 
 fn put(buf: &mut Vec<u8>, flags: u32, path: &[u8], mut body: &[u8]) -> Result<(), Error> {
     let mut builder = request::put(buf, Uri::new(path))?;
-
+    
     builder.header("Content-Length", body.len())?;
     builder.header("Flags", flags)?;
     builder.body(&mut body)?;
@@ -110,18 +110,18 @@ fn delete(buf: &mut Vec<u8>, path: &[u8]) -> Result<(), Error> {
 
 fn parse_response<'b, 'h>(
     buffer: &mut &'b [u8],
-    headers: &'h mut [Header<'b>],
+    headers: &'h mut [Header<'b>]
 ) -> (u16, LinearMap<'b, 'h>, &'b [u8]) {
     let mut response = Response::new(headers);
     let status = response.parse(*buffer).unwrap();
     let bytes = match status {
         Status::Partial => panic!("Got partial response!"),
-        Status::Complete(bytes) => bytes,
+        Status::Complete(bytes) => bytes
     };
 
     *buffer = &(*buffer)[bytes..];
     let map = LinearMap {
-        headers: response.headers,
+        headers: response.headers
     };
 
     let body = match map.get("Content-Length") {
@@ -132,8 +132,8 @@ fn parse_response<'b, 'h>(
                 .expect("Content-Length was not a number");
 
             &(*buffer)[..len]
-        }
-        None => *buffer,
+        },
+        None => *buffer
     };
 
     *buffer = &(*buffer)[body.len()..];
@@ -234,9 +234,7 @@ fn compare_insensitive(a: &[u8], b: &[u8]) -> bool {
         return false;
     }
 
-    a.iter()
-        .copied()
-        .map(|c| c.to_ascii_lowercase())
+    a.iter().copied().map(|c| c.to_ascii_lowercase())
         .zip(b.iter().copied().map(|c| c.to_ascii_lowercase()))
         .all(|(a, b)| a == b)
 }
