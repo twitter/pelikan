@@ -144,6 +144,7 @@ pub trait Parser {
 
 impl Parser for MemcacheParser {
     type Request = MemcacheRequest;
+    
     fn parse(buffer: &mut BytesMut) -> Result<Self::Request, ParseError> {
         let command;
         {
