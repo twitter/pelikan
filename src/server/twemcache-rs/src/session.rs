@@ -245,6 +245,11 @@ impl Session {
         }
     }
 
+    /// Get the token which is used with the event loop
+    pub fn token(&self) -> Token {
+        self.token
+    }
+
     /// Set the token which is used with the event loop
     pub fn set_token(&mut self, token: Token) {
         self.token = token;

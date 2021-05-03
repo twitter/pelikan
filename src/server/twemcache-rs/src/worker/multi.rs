@@ -150,6 +150,49 @@ impl MultiWorker {
         }
     }
 
+    fn handle_session_read(session: &mut Session, poll: &Poll, storage_queue: &mut StorageQueue) -> bool {
+        match MemcacheParser::parse(&mut session.read_buffer) {
+            Ok(request) => {
+                let mut message = StorageMessage {
+                    request: Some(request),
+                    buffer: session.write_buffer.take().unwrap(),
+                    token: session.token(),
+                };
+                for retry in 0..QUEUE_RETRIES {
+                    if let Err(PushError::Full(m)) =
+                        storage_queue.try_send(message)
+                    {
+                        if (retry + 1) == QUEUE_RETRIES {
+                            error!(
+                                "queue full trying to send message to storage thread"
+                            );
+                            if session.deregister(poll).is_err() {
+                                error!("Error deregistering");
+                            }
+                            session.close()
+                        }
+                        // try to wake storage thread
+                        let _ = storage_queue.wake();
+                        message = m;
+                    } else {
+                        break;
+                    }
+                }
+                true
+            }
+            Err(ParseError::Incomplete) => {
+                false
+            },
+            Err(_) => {
+                if session.deregister(poll).is_err() {
+                    error!("Error deregistering");
+                }
+                session.close();
+                false
+            }
+        }
+    }
+
     fn handle_storage_queue(&mut self) {
         trace!("handling event for storage queue");
         // process all storage queue responses
@@ -172,45 +215,7 @@ impl MultiWorker {
                 }
 
                 if session.read_pending() > 0 {
-                    match MemcacheParser::parse(&mut session.read_buffer) {
-                        Ok(request) => {
-                            let mut message = StorageMessage {
-                                request: Some(request),
-                                buffer: session.write_buffer.take().unwrap(),
-                                token,
-                            };
-                            for retry in 0..QUEUE_RETRIES {
-                                if let Err(PushError::Full(m)) =
-                                    self.storage_queue.try_send(message)
-                                {
-                                    if (retry + 1) == QUEUE_RETRIES {
-                                        error!(
-                                            "queue full trying to send message to storage thread"
-                                        );
-                                        if session.deregister(&self.poll).is_err() {
-                                            error!("Error deregistering");
-                                        }
-                                        session.close()
-                                    }
-                                    // try to wake storage thread
-                                    let _ = self.storage_queue.wake();
-                                    message = m;
-                                } else {
-                                    break;
-                                }
-                            }
-                            self.wake_storage = true;
-                        }
-                        Err(ParseError::Incomplete) => {
-                            break;
-                        }
-                        Err(_) => {
-                            if session.deregister(&self.poll).is_err() {
-                                error!("Error deregistering");
-                            }
-                            session.close();
-                        }
-                    }
+                    self.wake_storage = Self::handle_session_read(session, &self.poll, &mut self.storage_queue);
                 }
             }
         }
@@ -274,42 +279,7 @@ impl EventLoop for MultiWorker {
                     break;
                 }
 
-                match MemcacheParser::parse(&mut session.read_buffer) {
-                    Ok(request) => {
-                        let mut message = StorageMessage {
-                            request: Some(request),
-                            buffer: session.write_buffer.take().unwrap(),
-                            token,
-                        };
-                        for retry in 0..QUEUE_RETRIES {
-                            if let Err(PushError::Full(m)) = self.storage_queue.try_send(message) {
-                                if (retry + 1) == QUEUE_RETRIES {
-                                    error!("queue full trying to send message to storage thread");
-                                    if session.deregister(&self.poll).is_err() {
-                                        error!("Error deregistering");
-                                    }
-                                    session.close()
-                                }
-                                // try to wake storage thread
-                                let _ = self.storage_queue.wake();
-                                message = m;
-                            } else {
-                                break;
-                            }
-                        }
-                        self.wake_storage = true;
-                    }
-                    Err(ParseError::Incomplete) => {
-                        break;
-                    }
-                    Err(_) => {
-                        if session.deregister(&self.poll).is_err() {
-                            error!("Error deregistering");
-                        }
-                        session.close();
-                        trace!("closing session: {}", token.0);
-                    }
-                }
+                self.wake_storage = Self::handle_session_read(session, &self.poll, &mut self.storage_queue);
             }
             #[allow(clippy::collapsible_if)]
             if session.write_pending() > 0 {
