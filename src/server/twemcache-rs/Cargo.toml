@@ -4,6 +4,8 @@ version = "0.0.1"
 authors = ["Brian Martin <bmartin@twitter.com>"]
 edition = "2018"
 description = "a memcache compatible unified cache backend written in Rust"
+homepage = "https://pelikan.io"
+repository = "https://github.com/twitter/pelikan"
 license = "Apache-2.0"
 
 [lib]
