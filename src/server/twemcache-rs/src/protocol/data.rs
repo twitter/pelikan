@@ -57,6 +57,8 @@ impl TryFrom<&[u8]> for MemcacheCommand {
     }
 }
 
+// TODO(bmartin): this should be lifted out into a common crate and shared
+// between different protocols
 pub trait Request {
     type Command;
 
@@ -132,6 +134,8 @@ impl Request for MemcacheRequest {
 
 pub struct MemcacheParser;
 
+// TODO(bmartin): this should be lifted out into a common crate and shared
+// between different protocols
 pub trait Parser {
     type Request: Request;
 
