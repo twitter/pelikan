@@ -20,7 +20,7 @@ use std::time::Duration;
 
 fn get_benchmark(c: &mut Criterion) {
     // launch the server
-    let server = TwemcacheBuilder::new(None).spawn();
+    let server = TwemcacheBuilder::default().spawn();
 
     // wait for server to startup. duration is chosen to be longer than we'd
     // expect startup to take in a slow ci environment.

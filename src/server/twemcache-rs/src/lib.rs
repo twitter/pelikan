@@ -112,6 +112,13 @@ pub struct TwemcacheBuilder {
     worker: WorkerBuilder,
 }
 
+impl Default for TwemcacheBuilder {
+    fn default() -> Self {
+        let config = Arc::new(Config::default());
+        Self::new(config)
+    }
+}
+
 /// A structure which represents a running twemcache.
 ///
 /// Note: for long-running daemon, be sure to call `wait()` on this structure to
@@ -127,23 +134,9 @@ impl TwemcacheBuilder {
     ///
     /// This function will terminate the program execution if there are any
     /// issues encountered while initializing the components.
-    pub fn new(config_file: Option<String>) -> Self {
+    pub fn new(config: Arc<Config>) -> Self {
         // initialize metrics
         metrics::init();
-
-        // load config from file
-        let config = if let Some(file) = config_file {
-            debug!("loading config: {}", file);
-            match Config::load(&file) {
-                Ok(c) => Arc::new(c),
-                Err(e) => {
-                    error!("{}", e);
-                    std::process::exit(1);
-                }
-            }
-        } else {
-            Arc::new(Default::default())
-        };
 
         // initialize admin
         let admin = Admin::new(config.clone()).unwrap_or_else(|e| {

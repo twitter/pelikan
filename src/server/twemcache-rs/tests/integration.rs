@@ -22,7 +22,7 @@ fn main() {
         .expect("Failed to initialize logger");
 
     debug!("launching server");
-    let server = TwemcacheBuilder::new(None).spawn();
+    let server = TwemcacheBuilder::default().spawn();
 
     // wait for server to startup. duration is chosen to be longer than we'd
     // expect startup to take in a slow ci environment.
@@ -138,28 +138,24 @@ fn test(name: &str, data: &[(&str, Option<&str>)]) {
         if let Some(response) = response {
             if stream.read(&mut buf).is_err() {
                 fatal!("error reading response");
+            } else if response.as_bytes() != &buf[0..response.len()] {
+                error!("expected: {:?}", response.as_bytes());
+                error!("received: {:?}", &buf[0..response.len()]);
+                fatal!("status: failed\n");
             } else {
-                if response.as_bytes() != &buf[0..response.len()] {
-                    error!("expected: {:?}", response.as_bytes());
-                    error!("received: {:?}", &buf[0..response.len()]);
-                    fatal!("status: failed\n");
-                } else {
-                    debug!("correct response");
-                }
+                debug!("correct response");
             }
             assert_eq!(response.as_bytes(), &buf[0..response.len()]);
-        } else {
-            if let Err(e) = stream.read(&mut buf) {
-                if e.kind() == std::io::ErrorKind::WouldBlock {
-                    debug!("got no response");
-                } else {
-                    error!("error reading response");
-                    fatal!("status: failed\n");
-                }
+        } else if let Err(e) = stream.read(&mut buf) {
+            if e.kind() == std::io::ErrorKind::WouldBlock {
+                debug!("got no response");
             } else {
-                error!("expected no response");
+                error!("error reading response");
                 fatal!("status: failed\n");
             }
+        } else {
+            error!("expected no response");
+            fatal!("status: failed\n");
         }
 
         if data.len() > 1 {

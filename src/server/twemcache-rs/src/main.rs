@@ -6,9 +6,12 @@
 extern crate rustcommon_logger;
 
 use backtrace::Backtrace;
+use std::sync::Arc;
+
+use config::TwemcacheConfig;
 use pelikan_twemcache_rs::TwemcacheBuilder;
 
-use rustcommon_logger::{Level, Logger};
+use rustcommon_logger::Logger;
 
 fn main() {
     // custom panic hook to terminate whole process after unwinding
@@ -18,15 +21,27 @@ fn main() {
         std::process::exit(101);
     }));
 
+    // load config from file
+    let config = if let Some(file) = std::env::args().nth(1) {
+        debug!("loading config: {}", file);
+        match TwemcacheConfig::load(&file) {
+            Ok(c) => Arc::new(c),
+            Err(e) => {
+                error!("{}", e);
+                std::process::exit(1);
+            }
+        }
+    } else {
+        Arc::new(Default::default())
+    };
+
     // initialize logging
     Logger::new()
         .label(env!("CARGO_CRATE_NAME"))
-        .level(Level::Info)
+        .level(config.debug().log_level())
         .init()
         .expect("Failed to initialize logger");
 
     // launch twemcache
-    TwemcacheBuilder::new(std::env::args().nth(1))
-        .spawn()
-        .wait()
+    TwemcacheBuilder::new(config).spawn().wait()
 }
