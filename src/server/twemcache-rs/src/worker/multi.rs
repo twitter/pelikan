@@ -273,9 +273,7 @@ impl EventLoop for MultiWorker {
                     // if the write buffer is over-full, skip processing
                     break;
                 }
-                // TODO(bmartin): using a trait here might make this nicer, eg:
-                // request.process(self, wbuf: &mut BytesMut, ... )
-                // need to check for performance impact.
+
                 match MemcacheParser::parse(&mut session.read_buffer) {
                     Ok(request) => {
                         let mut message = StorageMessage {

@@ -17,12 +17,30 @@ use crate::*;
 
 const QUEUE_RETRIES: usize = 3;
 
+/// A `StorageMessage` is used to pass requests over to the storage thread. To
+/// allow re-use of the struct, the same type is used for both send and receive.
+/// A message containing a request, the session write buffer, and the session
+/// token are sent to the storage thread. The storage thread takes the request
+/// and processes it, writing the response directly into the session write
+/// buffer. The write buffer and token are then sent back to the worker thread
+/// which can re-associate the buffer with the session and begin writing the
+/// buffer to the underlying stream.
 pub struct StorageMessage {
+    /// The fully parsed request, will be `None` in a message sent back to the
+    /// worker
     pub request: Option<MemcacheRequest>,
+    /// The session write buffer, responses will be written directly into the
+    /// buffer
     pub buffer: BytesMut,
+    /// The session's token, used to re-associate the buffer with the session
+    /// when it is returned to the worker
     pub token: Token,
 }
 
+/// A `Storage` thread is used in a multi-worker configuration. It owns the
+/// cache contents and operates on message queues for each worker thread, taking
+/// fully parsed requests, processing them, and writing the responses directly
+/// into the session write buffers.
 pub struct Storage {
     cache: Cache,
     config: Arc<Config>,
@@ -35,6 +53,8 @@ pub struct Storage {
     worker_waker: Vec<Waker>,
 }
 
+/// A `StorageQueue` is used to wrap the send and receive queues for the worker
+/// threads.
 pub struct StorageQueue {
     sender: Producer<StorageMessage>,
     receiver: Consumer<StorageMessage>,

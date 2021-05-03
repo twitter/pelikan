@@ -264,10 +264,16 @@ impl Session {
         }
     }
 
+    /// Returns a boolean which indicates if the session is handshaking
     pub fn is_handshaking(&self) -> bool {
         matches!(self.stream, Some(Stream::Handshaking(_)))
     }
 
+    /// Drives the handshake for the session. A successful result indicates that
+    /// the session hadshake is completed successfully. The error result should
+    /// be checked to determine if the operation would block, resulted in some
+    /// unrecoverable error, or if the session was not in a handshaking state
+    /// when this was called.
     pub fn do_handshake(&mut self) -> Result<(), std::io::Error> {
         if let Some(Stream::Handshaking(stream)) = self.stream.take() {
             let ret;
@@ -295,6 +301,7 @@ impl Session {
         }
     }
 
+    /// Closes the session and the underlying stream.
     pub fn close(&mut self) {
         trace!("closing session");
         increment_counter!(&Stat::TcpClose);
@@ -320,10 +327,12 @@ impl Session {
         }
     }
 
+    /// Returns the number of bytes in the read buffer
     pub fn read_pending(&self) -> usize {
         self.read_buffer.len()
     }
 
+    /// Returns the number of bytes in the write buffer
     pub fn write_pending(&self) -> usize {
         self.write_buffer.as_ref().map(|buf| buf.len()).unwrap_or(0)
     }
