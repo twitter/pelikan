@@ -150,7 +150,11 @@ impl MultiWorker {
         }
     }
 
-    fn handle_session_read(session: &mut Session, poll: &Poll, storage_queue: &mut StorageQueue) -> bool {
+    fn handle_session_read(
+        session: &mut Session,
+        poll: &Poll,
+        storage_queue: &mut StorageQueue,
+    ) -> bool {
         match MemcacheParser::parse(&mut session.read_buffer) {
             Ok(request) => {
                 let mut message = StorageMessage {
@@ -159,13 +163,9 @@ impl MultiWorker {
                     token: session.token(),
                 };
                 for retry in 0..QUEUE_RETRIES {
-                    if let Err(PushError::Full(m)) =
-                        storage_queue.try_send(message)
-                    {
+                    if let Err(PushError::Full(m)) = storage_queue.try_send(message) {
                         if (retry + 1) == QUEUE_RETRIES {
-                            error!(
-                                "queue full trying to send message to storage thread"
-                            );
+                            error!("queue full trying to send message to storage thread");
                             if session.deregister(poll).is_err() {
                                 error!("Error deregistering");
                             }
@@ -180,9 +180,7 @@ impl MultiWorker {
                 }
                 true
             }
-            Err(ParseError::Incomplete) => {
-                false
-            },
+            Err(ParseError::Incomplete) => false,
             Err(_) => {
                 if session.deregister(poll).is_err() {
                     error!("Error deregistering");
@@ -214,8 +212,10 @@ impl MultiWorker {
                     }
                 }
 
-                if session.read_pending() > 0 {
-                    self.wake_storage = Self::handle_session_read(session, &self.poll, &mut self.storage_queue);
+                if session.read_pending() > 0
+                    && Self::handle_session_read(session, &self.poll, &mut self.storage_queue)
+                {
+                    self.wake_storage = true;
                 }
             }
         }
@@ -268,19 +268,13 @@ impl EventLoop for MultiWorker {
     fn handle_data(&mut self, token: Token) -> Result<(), ()> {
         trace!("handling request for session: {}", token.0);
         if let Some(session) = self.sessions.get_mut(token.0) {
-            loop {
-                if session.write_buffer.is_none() {
-                    break;
-                }
-                // TODO(bmartin): buffer should allow us to check remaining
-                // write capacity.
-                if session.write_pending() > MIN_BUFFER_SIZE {
-                    // if the write buffer is over-full, skip processing
-                    break;
-                }
-
-                self.wake_storage = Self::handle_session_read(session, &self.poll, &mut self.storage_queue);
+            if session.write_buffer.is_some()
+                && session.write_pending() < MIN_BUFFER_SIZE
+                && Self::handle_session_read(session, &self.poll, &mut self.storage_queue)
+            {
+                self.wake_storage = true;
             }
+
             #[allow(clippy::collapsible_if)]
             if session.write_pending() > 0 {
                 if session.flush().is_ok() && session.write_pending() > 0 {
