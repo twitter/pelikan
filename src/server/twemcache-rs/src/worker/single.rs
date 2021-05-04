@@ -6,7 +6,7 @@ use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
 use mio::event::Event;
 
-use crate::cache::Cache;
+use crate::request_processor::RequestProcessor;
 use crate::common::Message;
 use crate::event_loop::EventLoop;
 use crate::protocol::data::*;
@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
 pub struct SingleWorker {
-    cache: Cache,
+    processor: RequestProcessor,
     config: Arc<Config>,
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
@@ -40,12 +40,12 @@ impl SingleWorker {
         let (session_sender, session_receiver) = crossbeam_channel::bounded(128);
         let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
 
-        let cache = Cache::new(config.clone());
+        let processor = RequestProcessor::new(config.clone());
 
         Ok(Self {
-            cache,
             config,
             poll,
+            processor,
             message_receiver,
             message_sender,
             session_receiver,
@@ -69,7 +69,7 @@ impl SingleWorker {
         loop {
             increment_counter!(&Stat::WorkerEventLoop);
 
-            self.cache.expire();
+            self.processor.expire();
 
             // get events with timeout
             if self.poll.poll(&mut events, timeout).is_err() {
@@ -211,7 +211,7 @@ impl EventLoop for SingleWorker {
                     Ok(request) => {
                         increment_counter!(&Stat::ProcessReq);
                         let mut write_buffer = session.write_buffer.take().unwrap();
-                        self.cache.process(request, &mut write_buffer);
+                        self.processor.process(request, &mut write_buffer);
                         session.write_buffer = Some(write_buffer);
                     }
                     Err(ParseError::Incomplete) => {

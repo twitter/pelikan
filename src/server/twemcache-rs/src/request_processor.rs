@@ -14,12 +14,12 @@ use std::time::SystemTime;
 
 /// Cache struct is used to process requests and write the responses back to
 /// the session write buffer
-pub struct Cache {
+pub struct RequestProcessor {
     config: Arc<Config>,
     data: SegCache,
 }
 
-impl Cache {
+impl RequestProcessor {
     pub(crate) fn new(config: Arc<Config>) -> Self {
         let eviction = match config.segcache().eviction() {
             Eviction::None => Policy::None,

@@ -18,10 +18,10 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 
 mod admin;
-mod cache;
 mod common;
 mod event_loop;
 pub mod protocol;
+mod request_processor;
 mod server;
 mod session;
 mod storage;

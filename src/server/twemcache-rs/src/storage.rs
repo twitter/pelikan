@@ -10,9 +10,9 @@ use rtrb::*;
 
 use std::sync::Arc;
 
-use crate::cache::Cache;
 use crate::common::Message;
 use crate::protocol::data::*;
+use crate::request_processor::RequestProcessor;
 use crate::*;
 
 const QUEUE_RETRIES: usize = 3;
@@ -42,9 +42,9 @@ pub struct StorageMessage {
 /// fully parsed requests, processing them, and writing the responses directly
 /// into the session write buffers.
 pub struct Storage {
-    cache: Cache,
     config: Arc<Config>,
     poll: Poll,
+    processor: RequestProcessor,
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
     waker: Arc<Waker>,
@@ -85,7 +85,7 @@ impl Storage {
     pub fn new(config: Arc<Config>) -> Result<Self, std::io::Error> {
         let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
 
-        let cache = Cache::new(config.clone());
+        let processor = RequestProcessor::new(config.clone());
 
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
@@ -95,9 +95,9 @@ impl Storage {
         let waker = Arc::new(Waker::new(poll.registry(), Token(usize::MAX)).unwrap());
 
         Ok(Self {
-            cache,
             config,
             poll,
+            processor,
             message_receiver,
             message_sender,
             waker,
@@ -145,7 +145,7 @@ impl Storage {
         loop {
             increment_counter!(&Stat::StorageEventLoop);
 
-            self.cache.expire();
+            self.processor.expire();
 
             // get events with timeout
             if self.poll.poll(&mut events, timeout).is_err() {
@@ -168,7 +168,7 @@ impl Storage {
                             if let Ok(mut message) = self.worker_receiver[id].pop() {
                                 if let Some(request) = message.request.take() {
                                     increment_counter!(&Stat::ProcessReq);
-                                    self.cache.process(request, &mut message.buffer);
+                                    self.processor.process(request, &mut message.buffer);
                                     for retry in 0..QUEUE_RETRIES {
                                         if let Err(PushError::Full(m)) =
                                             self.worker_sender[id].push(message)
