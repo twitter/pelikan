@@ -5,7 +5,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum TtlBucketsError {
     #[error("item is oversized ({size:?} bytes)")]
     ItemOversized { size: usize },
     #[error("ttl bucket expansion failed, no free segments")]
