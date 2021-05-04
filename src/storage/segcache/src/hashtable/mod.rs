@@ -7,21 +7,122 @@ use ahash::RandomState;
 
 use rustcommon_time::CoarseInstant as Instant;
 
-const N_ITEM_SLOT: usize = 8;
+/// The `HashTable` design uses bulk chaining to reduce the per item overheads,
+/// share metadata where possible, and provide better data locality.
+///
+/// For a more detailed description of the implementation, please see:
+///
+/// Our `HashTable` is composed of a base unit called a `HashBucket`. Each
+/// `HashBucket` is a contiguous allocation that is sized to fit in a single
+/// cacheline. This gives us room for a total of 8 64bit slots within the
+/// bucket. The first slot of a bucket is used for per bucket metadata, leaving
+/// us with up to 7 slots for items in the bucket:
+///
+///    ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
+///    │Bucket│ Item │ Item │ Item │ Item │ Item │ Item │ Item │
+///    │ Info │ Info │ Info │ Info │ Info │ Info │ Info │ Info │
+///    │      │      │      │      │      │      │      │      │
+///    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│
+///    │      │      │      │      │      │      │      │      │
+///    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘
+///
+/// When a bucket is full, we may be able to chain another bucket from the
+/// overflow area onto the primary bucket. To store a pointer to the next bucket
+/// in the chain, we reduce the item capacity of the bucket and store the
+/// pointer in the last slot. This can be repeated to chain additional buckets:
+///
+///    ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
+///    │Bucket│ Item │ Item │ Item │ Item │ Item │ Item │ Next │
+///    │ Info │ Info │ Info │ Info │ Info │ Info │ Info │Bucket│
+///    │      │      │      │      │      │      │      │      │──┐
+///    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│  │
+///    │      │      │      │      │      │      │      │      │  │
+///    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘  │
+///                                                               │
+/// ┌─────────────────────────────────────────────────────────────┘
+/// │
+/// │  ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
+/// │  │ Item │ Item │ Item │ Item │ Item │ Item │ Item │ Next │
+/// │  │ Info │ Info │ Info │ Info │ Info │ Info │ Info │Bucket│
+/// └─▶│      │      │      │      │      │      │      │      │──┐
+///    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│  │
+///    │      │      │      │      │      │      │      │      │  │
+///    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘  │
+///                                                               │
+/// ┌─────────────────────────────────────────────────────────────┘
+/// │
+/// │  ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
+/// │  │ Item │ Item │ Item │ Item │ Item │ Item │ Item │ Item │
+/// │  │ Info │ Info │ Info │ Info │ Info │ Info │ Info │ Info │
+/// └─▶│      │      │      │      │      │      │      │      │
+///    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│
+///    │      │      │      │      │      │      │      │      │
+///    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘
+///
+/// This works out so that we have capacity to store 7 items for every bucket
+/// allocated to a chain.
+///
+/// Bucket Info:
+/// ┌──────┬──────┬──────────────┬──────────────────────────────┐
+/// │ ---- │CHAIN │  TIMESTAMP   │             CAS              │
+/// │      │ LEN  │              │                              │
+/// │8 bit │8 bit │    16 bit    │            32 bit            │
+/// │      │      │              │                              │
+/// │0    7│8   15│16          31│32                          63│
+/// └──────┴──────┴──────────────┴──────────────────────────────┘
+///
+/// Item Info:
+/// ┌──────────┬──────┬──────────────────────┬──────────────────┐
+/// │   TAG    │ FREQ │        SEG ID        │      OFFSET      │
+/// │          │      │                      │                  │
+/// │  12 bit  │8 bit │        24 bit        │      20 bit      │
+/// │          │      │                      │                  │
+/// │0       11│12  19│20                  43│44              63│
+/// └──────────┴──────┴──────────────────────┴──────────────────┘
+///
+
+// hashtable constants
+const N_BUCKET_SLOT: usize = 8;
 
 // Maximum number of buckets in a chain, must be <= 255. Stored as a u64 to
 // avoid repeated resizing for comparison
 const MAX_CHAIN_LEN: u64 = 16;
 
+// bucket info masks
+const BUCKET_CHAIN_LEN_MASK: u64 = 0x00FF_0000_0000_0000;
+const TS_MASK: u64 = 0x0000_FFFF_0000_0000;
+const CAS_MASK: u64 = 0x0000_0000_FFFF_FFFF;
+
+// bucket info shifts
+const BUCKET_CHAIN_LEN_BIT_SHIFT: u64 = 48;
+const TS_BIT_SHIFT: u64 = 32;
+
+// item info masks
+const TAG_MASK: u64 = 0xFFF0_0000_0000_0000;
+const FREQ_MASK: u64 = 0x000F_F000_0000_0000;
+const SEG_ID_MASK: u64 = 0x0000_0FFF_FFF0_0000;
+const OFFSET_MASK: u64 = 0x0000_0000_000F_FFFF;
+
+// item info shifts
+const FREQ_BIT_SHIFT: u64 = 44;
+const SEG_ID_BIT_SHIFT: u64 = 20;
+const OFFSET_UNIT_IN_BIT: u64 = 3;
+
+// consts for frequency
+const CLEAR_FREQ_SMOOTH_MASK: u64 = 0xFFF7_FFFF_FFFF_FFFF;
+
+// only use the lower 16-bits of the timestamp
+const PROC_TS_MASK: u64 = 0x0000_0000_0000_FFFF;
+
 #[derive(Copy, Clone)]
 pub struct HashBucket {
-    data: [u64; N_ITEM_SLOT],
+    data: [u64; N_BUCKET_SLOT],
 }
 
 impl HashBucket {
     fn new() -> Self {
         Self {
-            data: [0; N_ITEM_SLOT],
+            data: [0; N_BUCKET_SLOT],
         }
     }
 }
@@ -98,9 +199,9 @@ impl HashTable {
 
             loop {
                 let n_item_slot = if chain_idx == chain_len {
-                    N_ITEM_SLOT
+                    N_BUCKET_SLOT
                 } else {
-                    N_ITEM_SLOT - 1
+                    N_BUCKET_SLOT - 1
                 };
 
                 for i in 0..n_item_slot {
@@ -113,7 +214,7 @@ impl HashTable {
                 if chain_idx == chain_len {
                     break;
                 }
-                bucket = &mut self.data[bucket.data[N_ITEM_SLOT - 1] as usize];
+                bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
                 chain_idx += 1;
             }
 
@@ -124,9 +225,9 @@ impl HashTable {
 
         loop {
             let n_item_slot = if chain_idx == chain_len {
-                N_ITEM_SLOT
+                N_BUCKET_SLOT
             } else {
-                N_ITEM_SLOT - 1
+                N_BUCKET_SLOT - 1
             };
 
             for i in 0..n_item_slot {
@@ -169,7 +270,7 @@ impl HashTable {
             if chain_idx == chain_len {
                 break;
             }
-            bucket = &mut self.data[bucket.data[N_ITEM_SLOT - 1] as usize];
+            bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
             chain_idx += 1;
         }
 
@@ -191,9 +292,9 @@ impl HashTable {
 
         loop {
             let n_item_slot = if chain_idx == chain_len {
-                N_ITEM_SLOT
+                N_BUCKET_SLOT
             } else {
-                N_ITEM_SLOT - 1
+                N_BUCKET_SLOT - 1
             };
 
             for i in 0..n_item_slot {
@@ -222,7 +323,7 @@ impl HashTable {
             if chain_idx == chain_len {
                 break;
             }
-            bucket = &mut self.data[bucket.data[N_ITEM_SLOT - 1] as usize];
+            bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
             chain_idx += 1;
         }
 
@@ -241,9 +342,9 @@ impl HashTable {
 
         loop {
             let n_item_slot = if chain_idx == chain_len {
-                N_ITEM_SLOT
+                N_BUCKET_SLOT
             } else {
-                N_ITEM_SLOT - 1
+                N_BUCKET_SLOT - 1
             };
 
             for i in 0..n_item_slot {
@@ -266,7 +367,7 @@ impl HashTable {
             if chain_idx == chain_len {
                 break;
             }
-            bucket = &mut self.data[bucket.data[N_ITEM_SLOT - 1] as usize];
+            bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
             chain_idx += 1;
         }
 
@@ -294,9 +395,9 @@ impl HashTable {
 
         loop {
             let n_item_slot = if chain_idx == chain_len {
-                N_ITEM_SLOT
+                N_BUCKET_SLOT
             } else {
-                N_ITEM_SLOT - 1
+                N_BUCKET_SLOT - 1
             };
 
             for i in 0..n_item_slot {
@@ -324,7 +425,7 @@ impl HashTable {
             if chain_idx == chain_len {
                 break;
             }
-            bucket = &mut self.data[bucket.data[N_ITEM_SLOT - 1] as usize];
+            bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
             chain_idx += 1;
         }
 
@@ -360,9 +461,9 @@ impl HashTable {
 
         loop {
             let n_item_slot = if chain_idx == chain_len {
-                N_ITEM_SLOT
+                N_BUCKET_SLOT
             } else {
-                N_ITEM_SLOT - 1
+                N_BUCKET_SLOT - 1
             };
 
             for i in 0..n_item_slot {
@@ -392,7 +493,7 @@ impl HashTable {
             if chain_idx == chain_len {
                 break;
             }
-            bucket_id = self.data[bucket_id].data[N_ITEM_SLOT - 1] as usize;
+            bucket_id = self.data[bucket_id].data[N_BUCKET_SLOT - 1] as usize;
             chain_idx += 1;
         }
 
@@ -403,10 +504,10 @@ impl HashTable {
             let next_id = self.next_to_chain as usize;
             self.next_to_chain += 1;
 
-            self.data[next_id].data[0] = self.data[bucket_id].data[N_ITEM_SLOT - 1];
+            self.data[next_id].data[0] = self.data[bucket_id].data[N_BUCKET_SLOT - 1];
             self.data[next_id].data[1] = insert_item_info;
             insert_item_info = 0;
-            self.data[bucket_id].data[N_ITEM_SLOT - 1] = next_id as u64;
+            self.data[bucket_id].data[N_BUCKET_SLOT - 1] = next_id as u64;
 
             self.data[(hash & self.mask) as usize].data[0] += 0x0001_0000_0000_0000;
         }
@@ -442,9 +543,9 @@ impl HashTable {
 
         loop {
             let n_item_slot = if chain_idx == chain_len {
-                N_ITEM_SLOT
+                N_BUCKET_SLOT
             } else {
-                N_ITEM_SLOT - 1
+                N_BUCKET_SLOT - 1
             };
             for i in 0..n_item_slot {
                 if chain_idx == 0 && i == 0 {
@@ -483,7 +584,7 @@ impl HashTable {
             if chain_idx == chain_len {
                 break;
             }
-            bucket = &mut self.data[bucket.data[N_ITEM_SLOT - 1] as usize];
+            bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
             chain_idx += 1;
         }
 
@@ -506,9 +607,9 @@ impl HashTable {
 
         loop {
             let n_item_slot = if chain_idx == chain_len {
-                N_ITEM_SLOT
+                N_BUCKET_SLOT
             } else {
-                N_ITEM_SLOT - 1
+                N_BUCKET_SLOT - 1
             };
             for i in 0..n_item_slot {
                 if chain_idx == 0 && i == 0 {
@@ -534,7 +635,7 @@ impl HashTable {
             if chain_idx == chain_len {
                 break;
             }
-            bucket_id = self.data[bucket_id].data[N_ITEM_SLOT - 1] as usize;
+            bucket_id = self.data[bucket_id].data[N_BUCKET_SLOT - 1] as usize;
             chain_idx += 1;
         }
 
@@ -578,9 +679,9 @@ impl HashTable {
 
         loop {
             let n_item_slot = if chain_idx == chain_len {
-                N_ITEM_SLOT
+                N_BUCKET_SLOT
             } else {
-                N_ITEM_SLOT - 1
+                N_BUCKET_SLOT - 1
             };
             for i in 0..n_item_slot {
                 if chain_idx == 0 && i == 0 {
@@ -619,7 +720,7 @@ impl HashTable {
             if chain_idx == chain_len {
                 break;
             }
-            bucket = &mut self.data[bucket.data[N_ITEM_SLOT - 1] as usize];
+            bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
             chain_idx += 1;
         }
 

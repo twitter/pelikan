@@ -109,9 +109,5 @@ fn set_benchmark(c: &mut Criterion) {
     }
 }
 
-criterion_group!(
-    benches,
-    get_benchmark,
-    set_benchmark,
-);
+criterion_group!(benches, get_benchmark, set_benchmark,);
 criterion_main!(benches);

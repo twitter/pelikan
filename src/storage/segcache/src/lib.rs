@@ -46,7 +46,6 @@ pub use segments::Policy;
 
 // items from submodules which are imported for convenience to the crate level
 pub(crate) use crate::rand::*;
-pub(crate) use common::*;
 pub(crate) use hashtable::*;
 pub(crate) use item::*;
 pub(crate) use metrics::*;

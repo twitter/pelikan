@@ -5,7 +5,6 @@
 use rustcommon_time::*;
 use segcache::*;
 
-
 #[test]
 fn integration_basic() {
     let ttl = CoarseDuration::ZERO;

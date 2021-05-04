@@ -5,6 +5,8 @@
 use super::{SegmentHeader, SegmentsError};
 use crate::*;
 
+pub const SEG_MAGIC: u64 = 0xBADC0FFEEBADCAFE;
+
 #[cfg(feature = "dump")]
 use serde::{Deserialize, Serialize};
 
@@ -181,7 +183,7 @@ impl<'a> Segment<'a> {
         self.header.set_evictable(evictable)
     }
 
-    /// Performs some checks to determine if the segment can actually be evicted 
+    /// Performs some checks to determine if the segment can actually be evicted
     #[inline]
     pub fn can_evict(&self) -> bool {
         self.header.can_evict()

@@ -5,8 +5,8 @@
 #[cfg(feature = "dump")]
 use crate::segments::segment::SegmentDump;
 
-use crate::segments::*;
 use crate::item::*;
+use crate::segments::*;
 
 use metrics::Stat;
 use rustcommon_time::CoarseInstant as Instant;

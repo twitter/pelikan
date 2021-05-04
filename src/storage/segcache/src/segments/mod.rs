@@ -8,6 +8,8 @@ use core::fmt::Debug;
 
 use crate::common::ThinOption;
 
+const SEG_MAGIC: u64 = 0xBADC0FFEEBADCAFE;
+
 mod eviction;
 mod header;
 mod segment;
@@ -21,7 +23,6 @@ pub(crate) use segments::{Segments, SegmentsBuilder, SegmentsError};
 
 #[cfg(feature = "dump")]
 pub(crate) use segment::SegmentDump;
-
 
 #[cfg(test)]
 mod test {

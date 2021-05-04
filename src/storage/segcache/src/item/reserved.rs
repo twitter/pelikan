@@ -18,7 +18,7 @@ impl ReservedItem {
     pub fn new(item: RawItem, seg: i32, offset: usize) -> Self {
         Self { item, seg, offset }
     }
-    
+
     /// Store the key, value, and optional data into the item
     pub fn define(&mut self, key: &[u8], value: &[u8], optional: &[u8]) {
         self.item.define(key, value, optional)

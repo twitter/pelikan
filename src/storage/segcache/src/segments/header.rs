@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use super::SEG_MAGIC;
 use crate::common::ThinOption;
-use crate::SEG_MAGIC;
 use rustcommon_time::*;
 
 use rustcommon_time::CoarseDuration as Duration;

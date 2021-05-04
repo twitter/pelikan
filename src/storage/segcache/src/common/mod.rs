@@ -2,47 +2,6 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-// item info masks and shifts
-// ┌──────────┬──────┬──────────────────────┬──────────────────┐
-// │   TAG    │ FREQ │        SEG ID        │      OFFSET      │
-// │          │      │                      │                  │
-// │  12 bit  │8 bit │        24 bit        │      20 bit      │
-// │          │      │                      │                  │
-// │0       11│12  19│20                  43│44              63│
-// └──────────┴──────┴──────────────────────┴──────────────────┘
-pub const TAG_MASK: u64 = 0xFFF0_0000_0000_0000;
-pub const FREQ_MASK: u64 = 0x000F_F000_0000_0000;
-pub const SEG_ID_MASK: u64 = 0x0000_0FFF_FFF0_0000;
-pub const OFFSET_MASK: u64 = 0x0000_0000_000F_FFFF;
-
-pub const FREQ_BIT_SHIFT: u64 = 44;
-pub const SEG_ID_BIT_SHIFT: u64 = 20;
-pub const OFFSET_UNIT_IN_BIT: u64 = 3;
-
-// consts for frequency
-pub const CLEAR_FREQ_SMOOTH_MASK: u64 = 0xFFF7_FFFF_FFFF_FFFF;
-
-// bucket info masks and shifts
-// ┌──────┬──────┬──────────────┬──────────────────────────────┐
-// │ ---- │CHAIN │  TIMESTAMP   │             CAS              │
-// │      │ LEN  │              │                              │
-// │8 bit │8 bit │    16 bit    │            32 bit            │
-// │      │      │              │                              │
-// │0    7│8   15│16          31│32                          63│
-// └──────┴──────┴──────────────┴──────────────────────────────┘
-pub const BUCKET_CHAIN_LEN_MASK: u64 = 0x00FF_0000_0000_0000;
-pub const TS_MASK: u64 = 0x0000_FFFF_0000_0000;
-pub const CAS_MASK: u64 = 0x0000_0000_FFFF_FFFF;
-
-pub const BUCKET_CHAIN_LEN_BIT_SHIFT: u64 = 48;
-pub const TS_BIT_SHIFT: u64 = 32;
-
-// only use the lower 16-bits of the timestamp
-pub const PROC_TS_MASK: u64 = 0x0000_0000_0000_FFFF;
-
-// segment constants
-pub const SEG_MAGIC: u64 = 0xBADC0FFEEBADCAFE;
-
 // TODO(bmartin): consider making this a newtype so that we're able to enforce
 // how ThinOption is used through the type system. Currently, we can still do
 // numeric comparisons.
