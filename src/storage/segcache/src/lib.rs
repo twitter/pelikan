@@ -35,7 +35,6 @@ use std::convert::TryInto;
 
 // submodules
 mod builder;
-mod common;
 mod error;
 mod hashtable;
 mod item;
