@@ -3,6 +3,32 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 //! TTL buckets are used to group items by TTL to enable eager expiration.
+//!
+//! The total collection of [`TtlBuckets`] is a contiguous allocation of
+//! [`TtlBucket`]s which cover the full range of TTLs.
+//!
+//! Each [`TtlBucket`] contains a segment chain holding items with a similar
+//! TTL. See the blog post for more details on the segcache design:
+//! <https://twitter.github.io/pelikan/2021/segcache.html>
+//!
+//! TTL Bucket:
+//! ┌──────────────┬──────────────┬─────────────┬──────────────┐
+//! │   HEAD SEG   │   TAIL SEG   │     TTL     │   SEGMENTS   │
+//! │              │              │             │              │
+//! │    32 bit    │    32 bit    │    32 bit   │    32 bit    │
+//! ├──────────────┼──────────────┴─────────────┴──────────────┤
+//! │  NEXT MERGE  │                  PADDING                  │
+//! │              │                                           │
+//! │    32 bit    │                  96 bit                   │
+//! ├──────────────┴───────────────────────────────────────────┤
+//! │                         PADDING                          │
+//! │                                                          │
+//! │                         128 bit                          │
+//! ├──────────────────────────────────────────────────────────┤
+//! │                         PADDING                          │
+//! │                                                          │
+//! │                         128 bit                          │
+//! └──────────────────────────────────────────────────────────┘
 
 use crate::common::ThinOption;
 use crate::*;
@@ -19,6 +45,10 @@ pub use error::Error;
 
 use constants::*;
 
+/// Each ttl bucket contains a segment chain to store items with a similar TTL
+/// in an ordered fashion. The first segment to expire will be the head of the
+/// segment chain. This allows us to efficiently scan across the [`TtlBuckets`]
+/// and expire segments in an eager fashion.
 pub struct TtlBucket {
     head: i32,
     tail: i32,
