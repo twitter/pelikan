@@ -2,84 +2,90 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::*;
-use ahash::RandomState;
+//! The `HashTable` is used to lookup items and store per-item metadata.
+//!
+//! The `HashTable` design uses bulk chaining to reduce the per item overheads,
+//! share metadata where possible, and provide better data locality.
+//!
+//! For a more detailed description of the implementation, please see:
+//! <https://twitter.github.io/pelikan/2021/segcache.html>
+//!
+//! Our `HashTable` is composed of a base unit called a `HashBucket`. Each
+//! `HashBucket` is a contiguous allocation that is sized to fit in a single
+//! cacheline. This gives us room for a total of 8 64bit slots within the
+//! bucket. The first slot of a bucket is used for per bucket metadata, leaving
+//! us with up to 7 slots for items in the bucket:
+//!
+//! ```text
+//!    ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
+//!    │Bucket│ Item │ Item │ Item │ Item │ Item │ Item │ Item │
+//!    │ Info │ Info │ Info │ Info │ Info │ Info │ Info │ Info │
+//!    │      │      │      │      │      │      │      │      │
+//!    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│
+//!    │      │      │      │      │      │      │      │      │
+//!    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘
+//! ```
+//!
+//! When a bucket is full, we may be able to chain another bucket from the
+//! overflow area onto the primary bucket. To store a pointer to the next bucket
+//! in the chain, we reduce the item capacity of the bucket and store the
+//! pointer in the last slot. This can be repeated to chain additional buckets:
+//!
+//! ```text
+//!    ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
+//!    │Bucket│ Item │ Item │ Item │ Item │ Item │ Item │ Next │
+//!    │ Info │ Info │ Info │ Info │ Info │ Info │ Info │Bucket│
+//!    │      │      │      │      │      │      │      │      │──┐
+//!    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│  │
+//!    │      │      │      │      │      │      │      │      │  │
+//!    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘  │
+//!                                                               │
+//! ┌─────────────────────────────────────────────────────────────┘
+//! │
+//! │  ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
+//! │  │ Item │ Item │ Item │ Item │ Item │ Item │ Item │ Next │
+//! │  │ Info │ Info │ Info │ Info │ Info │ Info │ Info │Bucket│
+//! └─▶│      │      │      │      │      │      │      │      │──┐
+//!    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│  │
+//!    │      │      │      │      │      │      │      │      │  │
+//!    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘  │
+//!                                                               │
+//! ┌─────────────────────────────────────────────────────────────┘
+//! │
+//! │  ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
+//! │  │ Item │ Item │ Item │ Item │ Item │ Item │ Item │ Item │
+//! │  │ Info │ Info │ Info │ Info │ Info │ Info │ Info │ Info │
+//! └─▶│      │      │      │      │      │      │      │      │
+//!    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│
+//!    │      │      │      │      │      │      │      │      │
+//!    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘
+//! ```
+//!
+//! This works out so that we have capacity to store 7 items for every bucket
+//! allocated to a chain.
+//!
+//! Bucket Info:
+//! ```text
+//! ┌──────┬──────┬──────────────┬──────────────────────────────┐
+//! │ ---- │CHAIN │  TIMESTAMP   │             CAS              │
+//! │      │ LEN  │              │                              │
+//! │8 bit │8 bit │    16 bit    │            32 bit            │
+//! │      │      │              │                              │
+//! │0    7│8   15│16          31│32                          63│
+//! └──────┴──────┴──────────────┴──────────────────────────────┘
+//! ```
+//!
+//! Item Info:
+//! ```text
+//! ┌──────────┬──────┬──────────────────────┬──────────────────┐
+//! │   TAG    │ FREQ │        SEG ID        │      OFFSET      │
+//! │          │      │                      │                  │
+//! │  12 bit  │8 bit │        24 bit        │      20 bit      │
+//! │          │      │                      │                  │
+//! │0       11│12  19│20                  43│44              63│
+//! └──────────┴──────┴──────────────────────┴──────────────────┘
+//! ```
 
-use rustcommon_time::CoarseInstant as Instant;
-
-/// The `HashTable` design uses bulk chaining to reduce the per item overheads,
-/// share metadata where possible, and provide better data locality.
-///
-/// For a more detailed description of the implementation, please see:
-///
-/// Our `HashTable` is composed of a base unit called a `HashBucket`. Each
-/// `HashBucket` is a contiguous allocation that is sized to fit in a single
-/// cacheline. This gives us room for a total of 8 64bit slots within the
-/// bucket. The first slot of a bucket is used for per bucket metadata, leaving
-/// us with up to 7 slots for items in the bucket:
-///
-///    ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
-///    │Bucket│ Item │ Item │ Item │ Item │ Item │ Item │ Item │
-///    │ Info │ Info │ Info │ Info │ Info │ Info │ Info │ Info │
-///    │      │      │      │      │      │      │      │      │
-///    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│
-///    │      │      │      │      │      │      │      │      │
-///    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘
-///
-/// When a bucket is full, we may be able to chain another bucket from the
-/// overflow area onto the primary bucket. To store a pointer to the next bucket
-/// in the chain, we reduce the item capacity of the bucket and store the
-/// pointer in the last slot. This can be repeated to chain additional buckets:
-///
-///    ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
-///    │Bucket│ Item │ Item │ Item │ Item │ Item │ Item │ Next │
-///    │ Info │ Info │ Info │ Info │ Info │ Info │ Info │Bucket│
-///    │      │      │      │      │      │      │      │      │──┐
-///    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│  │
-///    │      │      │      │      │      │      │      │      │  │
-///    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘  │
-///                                                               │
-/// ┌─────────────────────────────────────────────────────────────┘
-/// │
-/// │  ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
-/// │  │ Item │ Item │ Item │ Item │ Item │ Item │ Item │ Next │
-/// │  │ Info │ Info │ Info │ Info │ Info │ Info │ Info │Bucket│
-/// └─▶│      │      │      │      │      │      │      │      │──┐
-///    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│  │
-///    │      │      │      │      │      │      │      │      │  │
-///    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘  │
-///                                                               │
-/// ┌─────────────────────────────────────────────────────────────┘
-/// │
-/// │  ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐
-/// │  │ Item │ Item │ Item │ Item │ Item │ Item │ Item │ Item │
-/// │  │ Info │ Info │ Info │ Info │ Info │ Info │ Info │ Info │
-/// └─▶│      │      │      │      │      │      │      │      │
-///    │64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│64 bit│
-///    │      │      │      │      │      │      │      │      │
-///    └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘
-///
-/// This works out so that we have capacity to store 7 items for every bucket
-/// allocated to a chain.
-///
-/// Bucket Info:
-/// ┌──────┬──────┬──────────────┬──────────────────────────────┐
-/// │ ---- │CHAIN │  TIMESTAMP   │             CAS              │
-/// │      │ LEN  │              │                              │
-/// │8 bit │8 bit │    16 bit    │            32 bit            │
-/// │      │      │              │                              │
-/// │0    7│8   15│16          31│32                          63│
-/// └──────┴──────┴──────────────┴──────────────────────────────┘
-///
-/// Item Info:
-/// ┌──────────┬──────┬──────────────────────┬──────────────────┐
-/// │   TAG    │ FREQ │        SEG ID        │      OFFSET      │
-/// │          │      │                      │                  │
-/// │  12 bit  │8 bit │        24 bit        │      20 bit      │
-/// │          │      │                      │                  │
-/// │0       11│12  19│20                  43│44              63│
-/// └──────────┴──────┴──────────────────────┴──────────────────┘
-///
 
 // hashtable constants
 const N_BUCKET_SLOT: usize = 8;
@@ -113,6 +119,11 @@ const CLEAR_FREQ_SMOOTH_MASK: u64 = 0xFFF7_FFFF_FFFF_FFFF;
 
 // only use the lower 16-bits of the timestamp
 const PROC_TS_MASK: u64 = 0x0000_0000_0000_FFFF;
+
+use crate::*;
+use ahash::RandomState;
+
+use rustcommon_time::CoarseInstant as Instant;
 
 #[derive(Copy, Clone)]
 pub struct HashBucket {

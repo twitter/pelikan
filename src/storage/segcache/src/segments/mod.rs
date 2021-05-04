@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Segments are the backing storage of the cache.
+
 use crate::rand::*;
 use crate::*;
 use core::fmt::Debug;

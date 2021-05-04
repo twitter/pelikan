@@ -2,23 +2,30 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-// COMPLETE ITEM HEADER:
-// ┌──────────────────────────────┬──────────────────────┬──────┬──────┐
-// │      MAGIC (Optional)        │         VLEN         │ KLEN │FLAGS │
-// │                              │                      │      │      │
-// │            32 bit            │        24 bit        │8 bit │ 8bit │
-// │          0xDECAFBAD          │                      │      │      │
-// │0                           31│32                  55│56  63│64  71│
-// └──────────────────────────────┴──────────────────────┴──────┴──────┘
-//
-// FLAGS:
-// ┌──────────────┬──────────────┬──────────────────────────────┐
-// │   NUMERIC?   │   DELETED?   │             OLEN             │
-// │              │              │                              │
-// │    1 bit     │    1 bit     │            6 bit             │
-// │              │              │                              │
-// │      64      │      65      │  66                      71  │
-// └──────────────┴──────────────┴──────────────────────────────┘
+//! A `ItemHeader` contains information about an item that is stored with the
+//! item data.
+//!
+//! Item Header:
+//! ```text
+//! ┌──────────────────────────────┬──────────────────────┬──────┬──────┐
+//! │      MAGIC (Optional)        │         VLEN         │ KLEN │FLAGS │
+//! │                              │                      │      │      │
+//! │            32 bit            │        24 bit        │8 bit │ 8bit │
+//! │          0xDECAFBAD          │                      │      │      │
+//! │0                           31│32                  55│56  63│64  71│
+//! └──────────────────────────────┴──────────────────────┴──────┴──────┘
+//! ```
+//!
+//! Flags:
+//! ```text
+//! ┌──────────────┬──────────────┬──────────────────────────────┐
+//! │   NUMERIC?   │   DELETED?   │             OLEN             │
+//! │              │              │                              │
+//! │    1 bit     │    1 bit     │            6 bit             │
+//! │              │              │                              │
+//! │      64      │      65      │  66                      71  │
+//! └──────────────┴──────────────┴──────────────────────────────┘
+//! ```
 
 // item constants
 pub const ITEM_HDR_SIZE: usize = std::mem::size_of::<crate::item::ItemHeader>();

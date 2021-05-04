@@ -10,6 +10,9 @@
 //! same segment, and lifting most per-object metadata into the shared segment
 //! header. This reduces object metadata by 88% compared to Memcached.
 //!
+//! A blog post about the overall design can be found here:
+//! <https://twitter.github.io/pelikan/2021/segcache.html>
+//!
 //! Goals:
 //! * high-throughput item storage
 //! * eager expiration of items

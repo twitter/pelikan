@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Items are the base unit of data stored within the cache.
+
 mod header;
 mod raw;
 mod reserved;
