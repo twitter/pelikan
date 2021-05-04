@@ -5,7 +5,7 @@
 //! A raw byte-level representation of an item.
 //!
 //! Unlike an [`Item`], the [`RawItem`] does not contain any fields which are
-//! shared within a [`HashBucket`] such as the CAS value.
+//! shared within a hash bucket such as the CAS value.
 
 use crate::item::*;
 

@@ -21,6 +21,19 @@ pub struct SegCache {
 impl SegCache {
     /// Returns a new `Builder` which is used to configure and construct a
     /// `SegCache` instance.
+    ///
+    /// ```
+    /// use segcache::{Policy, SegCache};
+    ///
+    /// const MB: usize = 1024 * 1024;
+    ///
+    /// // create a heap using 1MB segments
+    /// let cache = SegCache::builder()
+    ///     .heap_size(64 * MB)
+    ///     .segment_size(1 * MB as i32)
+    ///     .power(16)
+    ///     .eviction(Policy::Random).build();
+    /// ```
     pub fn builder() -> Builder {
         Builder::default()
     }
@@ -28,6 +41,13 @@ impl SegCache {
     /// Gets a count of items in the `SegCache` instance. This is an expensive
     /// operation and is only enabled for tests and builds with the `debug`
     /// feature enabled.
+    ///
+    /// ```
+    /// use segcache::{Policy, SegCache};
+    ///
+    /// let mut cache = SegCache::builder().build();
+    /// assert_eq!(cache.items(), 0);
+    /// ```
     #[cfg(any(test, feature = "debug"))]
     pub fn items(&mut self) -> usize {
         trace!("getting segment item counts");
@@ -35,6 +55,17 @@ impl SegCache {
     }
 
     /// Get the item in the `SegCache` with the provided key
+    ///
+    /// ```
+    /// use segcache::{CoarseDuration, Policy, SegCache};
+    ///
+    /// let mut cache = SegCache::builder().build();
+    /// assert!(cache.get(b"coffee").is_none());
+    ///
+    /// cache.insert(b"coffee", b"strong", None, CoarseDuration::ZERO);
+    /// let item = cache.get(b"coffee").expect("didn't get item back");
+    /// assert_eq!(item.value(), b"strong");
+    /// ```
     pub fn get(&mut self, key: &[u8]) -> Option<Item> {
         self.hashtable.get(key, &mut self.segments)
     }
@@ -42,12 +73,32 @@ impl SegCache {
     /// Get the item in the `SegCache` with the provided key without
     /// increasing the item frequency - useful for combined operations that
     /// check for presence - eg replace is a get + set
+    /// ```
+    /// use segcache::{CoarseDuration, Policy, SegCache};
+    ///
+    /// let mut cache = SegCache::builder().build();
+    /// assert!(cache.get_no_freq_incr(b"coffee").is_none());
+    /// ```
     pub fn get_no_freq_incr(&mut self, key: &[u8]) -> Option<Item> {
         self.hashtable.get_no_freq_incr(key, &mut self.segments)
     }
 
     /// Insert a new item into the cache. May return an error indicating that
     /// the insert was not successful.
+    /// ```
+    /// use segcache::{CoarseDuration, Policy, SegCache};
+    ///
+    /// let mut cache = SegCache::builder().build();
+    /// assert!(cache.get(b"drink").is_none());
+    ///
+    /// cache.insert(b"drink", b"coffee", None, CoarseDuration::ZERO);
+    /// let item = cache.get(b"drink").expect("didn't get item back");
+    /// assert_eq!(item.value(), b"coffee");
+    ///
+    /// cache.insert(b"drink", b"whisky", None, CoarseDuration::ZERO);
+    /// let item = cache.get(b"drink").expect("didn't get item back");
+    /// assert_eq!(item.value(), b"whisky");
+    /// ```
     pub fn insert<'a>(
         &mut self,
         key: &'a [u8],
@@ -126,6 +177,32 @@ impl SegCache {
 
     /// Performs a CAS operation, inserting the item only if the CAS value
     /// matches the current value for that item.
+    ///
+    /// ```
+    /// use segcache::{CoarseDuration, Policy, SegCache, SegCacheError};
+    ///
+    /// let mut cache = SegCache::builder().build();
+    ///
+    /// // If the item is not in the cache, CAS will fail as 'NotFound'
+    /// assert_eq!(
+    ///     cache.cas(b"drink", b"coffee", None, CoarseDuration::ZERO, 0),
+    ///     Err(SegCacheError::NotFound)
+    /// );
+    ///
+    /// // If a stale CAS value is provided, CAS will fail as 'Exists'
+    /// cache.insert(b"drink", b"coffee", None, CoarseDuration::ZERO);
+    /// assert_eq!(
+    ///     cache.cas(b"drink", b"coffee", None, CoarseDuration::ZERO, 0),
+    ///     Err(SegCacheError::Exists)
+    /// );
+    ///
+    /// // Getting the CAS value and then performing the operation ensures
+    /// // success in absence of a race with another client
+    /// let current = cache.get(b"drink").expect("not found");
+    /// assert!(cache.cas(b"drink", b"whisky", None, CoarseDuration::ZERO, current.cas()).is_ok());
+    /// let item = cache.get(b"drink").expect("not found");
+    /// assert_eq!(item.value(), b"whisky"); // item is updated
+    /// ```
     pub fn cas<'a>(
         &mut self,
         key: &'a [u8],
@@ -142,6 +219,20 @@ impl SegCache {
 
     /// Remove the item with the given key, returns a bool indicating if it was
     /// removed.
+    /// ```
+    /// use segcache::{CoarseDuration, Policy, SegCache, SegCacheError};
+    ///
+    /// let mut cache = SegCache::builder().build();
+    ///
+    /// // If the item is not in the cache, delete will return false
+    /// assert_eq!(cache.delete(b"coffee"), false);
+    ///
+    /// // And will return true on success
+    /// cache.insert(b"coffee", b"strong", None, CoarseDuration::ZERO);
+    /// assert!(cache.get(b"coffee").is_some());
+    /// assert_eq!(cache.delete(b"coffee"), true);
+    /// assert!(cache.get(b"coffee").is_none());
+    /// ```
     // TODO(bmartin): a result would be better here
     pub fn delete(&mut self, key: &[u8]) -> bool {
         self.hashtable
@@ -150,6 +241,24 @@ impl SegCache {
 
     /// Loops through the TTL Buckets to handle eager expiration, returns the
     /// number of segments expired
+    /// ```
+    /// use segcache::{CoarseDuration, Policy, SegCache, SegCacheError};
+    ///
+    /// let mut cache = SegCache::builder().build();
+    ///
+    /// // Insert an item with a short ttl
+    /// cache.insert(b"coffee", b"strong", None, CoarseDuration::from_secs(5));
+    ///
+    /// // The item is still in the cache
+    /// assert!(cache.get(b"coffee").is_some());
+    ///
+    /// // Delay and then trigger expiration
+    /// std::thread::sleep(std::time::Duration::from_secs(6));
+    /// cache.expire();
+    /// 
+    /// // And the expired item is not in the cache
+    /// assert!(cache.get(b"coffee").is_none());
+    /// ```
     pub fn expire(&mut self) -> usize {
         rustcommon_time::refresh_clock();
         self.ttl_buckets

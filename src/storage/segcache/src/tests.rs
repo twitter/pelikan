@@ -1,3 +1,4 @@
+use crate::hashtable::HashBucket;
 use super::*;
 use crate::item::ITEM_HDR_SIZE;
 use core::num::NonZeroU32;

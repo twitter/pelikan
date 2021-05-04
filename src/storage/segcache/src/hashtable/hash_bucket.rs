@@ -26,50 +26,50 @@
 use super::*;
 
 /// A mask to get the bits containing the chain length from the bucket info
-pub(super) const BUCKET_CHAIN_LEN_MASK: u64 = 0x00FF_0000_0000_0000;
+pub(crate) const BUCKET_CHAIN_LEN_MASK: u64 = 0x00FF_0000_0000_0000;
 /// A mask to get the bits containing the timestamp from the bucket info
-pub(super) const TS_MASK: u64 = 0x0000_FFFF_0000_0000;
+pub(crate) const TS_MASK: u64 = 0x0000_FFFF_0000_0000;
 /// A mask to get the bits containing the CAS value from the bucket info
-pub(super) const CAS_MASK: u64 = 0x0000_0000_FFFF_FFFF;
+pub(crate) const CAS_MASK: u64 = 0x0000_0000_FFFF_FFFF;
 
 /// Number of bits to shift the bucket info masked with the chain length mask
 /// to get the actual chain length
-pub(super) const BUCKET_CHAIN_LEN_BIT_SHIFT: u64 = 48;
+pub(crate) const BUCKET_CHAIN_LEN_BIT_SHIFT: u64 = 48;
 /// Number of bits to shift the bucket info masked with the timestamp mask to
 /// get the timestamp
-pub(super) const TS_BIT_SHIFT: u64 = 32;
+pub(crate) const TS_BIT_SHIFT: u64 = 32;
 
 // item info
 
 /// A mask to get the bits containing the item tag from the item info
-pub(super) const TAG_MASK: u64 = 0xFFF0_0000_0000_0000;
+pub(crate) const TAG_MASK: u64 = 0xFFF0_0000_0000_0000;
 /// A mask to get the bits containing the item frequency from the item info
-pub(super) const FREQ_MASK: u64 = 0x000F_F000_0000_0000;
+pub(crate) const FREQ_MASK: u64 = 0x000F_F000_0000_0000;
 /// A mask to get the bits containing the containing segment id from the item
 /// info
-pub(super) const SEG_ID_MASK: u64 = 0x0000_0FFF_FFF0_0000;
+pub(crate) const SEG_ID_MASK: u64 = 0x0000_0FFF_FFF0_0000;
 /// A mask to get the bits containing the offset within the containing segment
 /// from the item info
-pub(super) const OFFSET_MASK: u64 = 0x0000_0000_000F_FFFF;
+pub(crate) const OFFSET_MASK: u64 = 0x0000_0000_000F_FFFF;
 
 /// Number of bits to shift the item info masked with the frequency mask to get
 /// the actual item frequency
-pub(super) const FREQ_BIT_SHIFT: u64 = 44;
+pub(crate) const FREQ_BIT_SHIFT: u64 = 44;
 /// Number of bits to shift the item info masked with the segment id mask to get
 /// the actual segment id
-pub(super) const SEG_ID_BIT_SHIFT: u64 = 20;
+pub(crate) const SEG_ID_BIT_SHIFT: u64 = 20;
 /// Offset alignment in bits, this value results in 8byte alignment within the
 /// segment
-pub(super) const OFFSET_UNIT_IN_BIT: u64 = 3;
+pub(crate) const OFFSET_UNIT_IN_BIT: u64 = 3;
 
 /// Mask to get the item info without the frequency smoothing bit set
-pub(super) const CLEAR_FREQ_SMOOTH_MASK: u64 = 0xFFF7_FFFF_FFFF_FFFF;
+pub(crate) const CLEAR_FREQ_SMOOTH_MASK: u64 = 0xFFF7_FFFF_FFFF_FFFF;
 
 /// Mask to get the lower 16 bits from a timestamp
-pub(super) const PROC_TS_MASK: u64 = 0x0000_0000_0000_FFFF;
+pub(crate) const PROC_TS_MASK: u64 = 0x0000_0000_0000_FFFF;
 
 #[derive(Copy, Clone)]
-pub(super) struct HashBucket {
+pub(crate) struct HashBucket {
     pub(super) data: [u64; N_BUCKET_SLOT],
 }
 

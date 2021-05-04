@@ -55,6 +55,9 @@ pub use error::SegCacheError;
 pub use eviction::Policy;
 pub use item::Item;
 
+// publicly exported items from external crates
+pub use rustcommon_time::CoarseDuration;
+
 // items from submodules which are imported for convenience to the crate level
 pub(crate) use crate::rand::*;
 pub(crate) use hashtable::*;

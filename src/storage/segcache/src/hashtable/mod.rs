@@ -81,7 +81,7 @@ use rustcommon_time::CoarseInstant as Instant;
 
 mod hash_bucket;
 
-use hash_bucket::*;
+pub(crate) use hash_bucket::*;
 
 /// Main structure for performing item lookup. Contains a contiguous allocation
 /// of [`HashBucket`]s which are used to store item info and metadata.

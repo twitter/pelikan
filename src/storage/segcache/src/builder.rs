@@ -76,6 +76,18 @@ impl Builder {
 
     /// Specify the total number of bytes to be used for heap storage of items.
     /// This includes, key, value, and per-item overheads.
+    ///
+    /// ```
+    /// use segcache::SegCache;
+    ///
+    /// const MB: usize = 1024 * 1024;
+    ///
+    /// // create a cache with a 64MB heap
+    /// let cache = SegCache::builder().heap_size(64 * MB).build();
+    ///
+    /// // create a cache with a 256MB heap
+    /// let cache = SegCache::builder().heap_size(256 * MB).build();
+    /// ```
     pub fn heap_size(mut self, bytes: usize) -> Self {
         self.segments_builder = self.segments_builder.heap_size(bytes);
         self
@@ -87,6 +99,18 @@ impl Builder {
     /// would be evicted/expired at one time, at the cost of additional memory
     /// and book-keeping overheads compared to using larger segments for the
     /// same total size.
+    ///
+    /// ```
+    /// use segcache::SegCache;
+    ///
+    /// const MB: i32 = 1024 * 1024;
+    ///
+    /// // create a cache using 1MB segments
+    /// let cache = SegCache::builder().segment_size(1 * MB).build();
+    ///
+    /// // create a cache using 4MB segments
+    /// let cache = SegCache::builder().segment_size(4 * MB).build();
+    /// ```
     pub fn segment_size(mut self, size: i32) -> Self {
         self.segments_builder = self.segments_builder.segment_size(size);
         self
@@ -94,12 +118,35 @@ impl Builder {
 
     /// Specify the eviction policy to be used. See the `Policy` documentation
     /// for more details about each strategy.
+    ///
+    /// ```
+    /// use segcache::{Policy, SegCache};
+    ///
+    /// // create a cache using random segment eviction
+    /// let cache = SegCache::builder().eviction(Policy::Random).build();
+    ///
+    /// // create a cache using a merge based eviction policy
+    /// let policy = Policy::Merge { max: 8, merge: 4, compact: 2};
+    /// let cache = SegCache::builder().eviction(policy).build();
+    /// ```
     pub fn eviction(mut self, policy: Policy) -> Self {
         self.segments_builder = self.segments_builder.eviction_policy(policy);
         self
     }
 
     /// Consumes the builder and returns a fully-allocated `SegCache` instance.
+    ///
+    /// ```
+    /// use segcache::{Policy, SegCache};
+    ///
+    /// const MB: usize = 1024 * 1024;
+    ///
+    /// let cache = SegCache::builder()
+    ///     .heap_size(64 * MB)
+    ///     .segment_size(1 * MB as i32)
+    ///     .power(16)
+    ///     .eviction(Policy::Random).build();
+    /// ```
     pub fn build(self) -> SegCache {
         let hashtable = HashTable::new(self.power, self.overflow_factor);
         let segments = self.segments_builder.build();
