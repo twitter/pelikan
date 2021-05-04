@@ -27,7 +27,7 @@
 //! ```
 
 use super::SEG_MAGIC;
-use crate::common::ThinOption;
+use core::num::NonZeroU32;
 use rustcommon_time::*;
 
 use rustcommon_time::CoarseDuration as Duration;
@@ -37,7 +37,7 @@ use rustcommon_time::CoarseInstant as Instant;
 #[repr(C)]
 pub struct SegmentHeader {
     /// The id for this segment
-    id: i32,
+    id: NonZeroU32,
     /// Current write position
     write_offset: i32,
     /// The number of live bytes in the segment
@@ -45,9 +45,9 @@ pub struct SegmentHeader {
     /// The number of live items in the segment
     live_items: i32,
     /// The previous segment in the TtlBucket or on the free queue
-    prev_seg: i32,
+    prev_seg: Option<NonZeroU32>,
     /// The next segment in the TtlBucket or on the free queue
-    next_seg: i32,
+    next_seg: Option<NonZeroU32>,
     /// The time the segment was last "created" (taken from free queue)
     create_at: Instant,
     /// The time the segment was last merged
@@ -62,14 +62,14 @@ pub struct SegmentHeader {
 }
 
 impl SegmentHeader {
-    pub fn new(id: i32) -> Self {
+    pub fn new(id: NonZeroU32) -> Self {
         Self {
             id,
             write_offset: 0,
             live_bytes: 0,
             live_items: 0,
-            prev_seg: -1,
-            next_seg: -1,
+            prev_seg: None,
+            next_seg: None,
             create_at: Instant::recent(),
             ttl: 0,
             merge_at: Instant::recent(),
@@ -88,8 +88,8 @@ impl SegmentHeader {
 
         self.reset();
 
-        self.prev_seg = -1;
-        self.next_seg = -1;
+        self.prev_seg = None;
+        self.next_seg = None;
         self.live_items = 0;
         self.create_at = Instant::recent();
         self.merge_at = Instant::recent();
@@ -109,7 +109,7 @@ impl SegmentHeader {
     }
 
     #[inline]
-    pub fn id(&self) -> i32 {
+    pub fn id(&self) -> NonZeroU32 {
         self.id
     }
 
@@ -214,27 +214,27 @@ impl SegmentHeader {
 
     #[inline]
     /// Returns an option containing the previous segment id if there is one.
-    pub fn prev_seg(&self) -> Option<i32> {
-        self.prev_seg.as_option()
+    pub fn prev_seg(&self) -> Option<NonZeroU32> {
+        self.prev_seg
     }
 
     #[inline]
     /// Set the previous segment to some id. Passing a negative id results in
     /// clearing the previous segment pointer.
-    pub fn set_prev_seg(&mut self, id: i32) {
+    pub fn set_prev_seg(&mut self, id: Option<NonZeroU32>) {
         self.prev_seg = id;
     }
 
     #[inline]
     /// Returns an option containing the next segment id if there is one.
-    pub fn next_seg(&self) -> Option<i32> {
-        self.next_seg.as_option()
+    pub fn next_seg(&self) -> Option<NonZeroU32> {
+        self.next_seg
     }
 
     #[inline]
     /// Set the next segment to some id. Passing a negative id results in
     /// clearing the next segment pointer.
-    pub fn set_next_seg(&mut self, id: i32) {
+    pub fn set_next_seg(&mut self, id: Option<NonZeroU32>) {
         self.next_seg = id;
     }
 

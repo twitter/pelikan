@@ -6,19 +6,20 @@
 //! defined or linked in the hashtable.
 
 use crate::RawItem;
+use core::num::NonZeroU32;
 
 /// Represents an item which has been allocated but is not defined or linked in
 /// the hashtable yet.
 #[derive(Debug)]
 pub(crate) struct ReservedItem {
     item: RawItem,
-    seg: i32,
+    seg: NonZeroU32,
     offset: usize,
 }
 
 impl ReservedItem {
     /// Create a `ReservedItem` from its parts
-    pub fn new(item: RawItem, seg: i32, offset: usize) -> Self {
+    pub fn new(item: RawItem, seg: NonZeroU32, offset: usize) -> Self {
         Self { item, seg, offset }
     }
 
@@ -38,7 +39,7 @@ impl ReservedItem {
     }
 
     /// Get the segment id
-    pub fn seg(&self) -> i32 {
+    pub fn seg(&self) -> NonZeroU32 {
         self.seg
     }
 }

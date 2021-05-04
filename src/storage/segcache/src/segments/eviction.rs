@@ -5,6 +5,7 @@
 use crate::segments::*;
 use core::cmp::max;
 use core::cmp::Ordering;
+use core::num::NonZeroU32;
 
 use rustcommon_time::CoarseInstant as Instant;
 
@@ -65,7 +66,7 @@ pub enum Policy {
 pub struct Eviction {
     policy: Policy,
     last_update_time: Instant,
-    ranked_segs: Box<[i32]>,
+    ranked_segs: Box<[Option<NonZeroU32>]>,
     index: usize,
     rng: Box<Random>,
 }
@@ -76,7 +77,7 @@ impl Eviction {
     pub fn new(nseg: usize, policy: Policy) -> Self {
         let mut ranked_segs = Vec::with_capacity(0);
         ranked_segs.reserve_exact(nseg);
-        ranked_segs.resize_with(nseg, || -1);
+        ranked_segs.resize_with(nseg, || None);
         let ranked_segs = ranked_segs.into_boxed_slice();
 
         Self {
@@ -94,19 +95,19 @@ impl Eviction {
     }
 
     /// Returns the segment id of the least valuable segment
-    pub fn least_valuable_seg(&mut self) -> Option<i32> {
+    pub fn least_valuable_seg(&mut self) -> Option<NonZeroU32> {
         let index = self.index;
         self.index += 1;
         if index < self.ranked_segs.len() {
-            self.ranked_segs[index].as_option()
+            self.ranked_segs[index]
         } else {
             None
         }
     }
 
-    /// Returns a random i32
+    /// Returns a random u32
     #[inline]
-    pub fn random(&mut self) -> i32 {
+    pub fn random(&mut self) -> u32 {
         self.rng.gen()
     }
 
@@ -115,7 +116,7 @@ impl Eviction {
         match self.policy {
             Policy::None | Policy::Random | Policy::Merge { .. } => false,
             Policy::Fifo | Policy::Cte | Policy::Util => {
-                if self.ranked_segs[0].as_option().is_none()
+                if self.ranked_segs[0].is_none()
                     || (now - self.last_update_time).as_secs() > 1
                     || self.ranked_segs.len() < (self.index + 8)
                 {
@@ -129,27 +130,38 @@ impl Eviction {
     }
 
     pub fn rerank(&mut self, headers: &[SegmentHeader]) {
-        let mut ids: Vec<i32> = headers.iter().map(|h| h.id()).collect();
+        let mut ids: Vec<NonZeroU32> = headers.iter().map(|h| h.id()).collect();
         match self.policy {
             Policy::None | Policy::Random | Policy::Merge { .. } => {
                 return;
             }
             Policy::Fifo { .. } => {
                 ids.sort_by(|a, b| {
-                    Self::compare_fifo(&headers[*a as usize], &headers[*b as usize])
+                    Self::compare_fifo(
+                        &headers[a.get() as usize - 1],
+                        &headers[b.get() as usize - 1],
+                    )
                 });
             }
             Policy::Cte { .. } => {
-                ids.sort_by(|a, b| Self::compare_cte(&headers[*a as usize], &headers[*b as usize]));
+                ids.sort_by(|a, b| {
+                    Self::compare_cte(
+                        &headers[a.get() as usize - 1],
+                        &headers[b.get() as usize - 1],
+                    )
+                });
             }
             Policy::Util { .. } => {
                 ids.sort_by(|a, b| {
-                    Self::compare_util(&headers[*a as usize], &headers[*b as usize])
+                    Self::compare_util(
+                        &headers[a.get() as usize - 1],
+                        &headers[b.get() as usize - 1],
+                    )
                 });
             }
         }
         for (i, id) in self.ranked_segs.iter_mut().enumerate() {
-            *id = ids[i];
+            *id = Some(ids[i]);
         }
         self.index = 0;
     }

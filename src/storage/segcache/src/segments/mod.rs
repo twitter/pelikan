@@ -8,8 +8,6 @@ use crate::rand::*;
 use crate::*;
 use core::fmt::Debug;
 
-use crate::common::ThinOption;
-
 const SEG_MAGIC: u64 = 0xBADC0FFEEBADCAFE;
 
 mod eviction;

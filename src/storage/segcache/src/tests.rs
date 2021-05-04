@@ -1,5 +1,6 @@
 use super::*;
 use crate::item::ITEM_HDR_SIZE;
+use core::num::NonZeroU32;
 
 #[test]
 fn sizes() {
@@ -42,7 +43,7 @@ fn get_free_seg() {
     assert_eq!(cache.segments.free(), 64);
     let seg = cache.segments.pop_free();
     assert_eq!(cache.segments.free(), 63);
-    assert_eq!(seg, Some(0));
+    assert_eq!(seg, NonZeroU32::new(1));
 }
 
 #[test]

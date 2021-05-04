@@ -86,7 +86,6 @@
 //! └──────────┴──────┴──────────────────────┴──────────────────┘
 //! ```
 
-
 // hashtable
 
 /// The number of slots within each bucket
@@ -142,6 +141,7 @@ const PROC_TS_MASK: u64 = 0x0000_0000_0000_FFFF;
 
 use crate::*;
 use ahash::RandomState;
+use core::num::NonZeroU32;
 
 use rustcommon_time::CoarseInstant as Instant;
 
@@ -394,7 +394,7 @@ impl HashTable {
                 // may be in another segment, so just check if it's at the same
                 // offset in the segment and treat that as a match
                 if get_tag(current_info) == tag
-                    && get_seg_id(current_info) == segment.id()
+                    && get_seg_id(current_info) == Some(segment.id())
                     && get_offset(current_info) == offset
                 {
                     return Some(get_freq(current_info) & 0x7F);
@@ -416,8 +416,8 @@ impl HashTable {
     pub fn relink_item(
         &mut self,
         key: &[u8],
-        old_seg: i32,
-        new_seg: i32,
+        old_seg: NonZeroU32,
+        new_seg: NonZeroU32,
         old_offset: u64,
         new_offset: u64,
     ) -> Result<(), ()> {
@@ -445,10 +445,11 @@ impl HashTable {
                 let current_info = bucket.data[i];
 
                 if get_tag(current_info) == tag {
-                    if get_seg_id(current_info) == old_seg && get_offset(current_info) == old_offset
+                    if get_seg_id(current_info) == Some(old_seg)
+                        && get_offset(current_info) == old_offset
                     {
                         if !updated {
-                            let new_item_info = build_item_info(tag, new_seg as u64, new_offset);
+                            let new_item_info = build_item_info(tag, new_seg, new_offset);
                             bucket.data[i] = new_item_info;
                             updated = true;
                         } else {
@@ -481,7 +482,7 @@ impl HashTable {
     pub fn insert(
         &mut self,
         item: RawItem,
-        seg: i32,
+        seg: NonZeroU32,
         offset: u64,
         ttl_buckets: &mut TtlBuckets,
         segments: &mut Segments,
@@ -497,7 +498,7 @@ impl HashTable {
         // check the item magic
         item.check_magic();
 
-        let mut insert_item_info = build_item_info(tag, seg as u64, offset);
+        let mut insert_item_info = build_item_info(tag, seg, offset);
 
         loop {
             let n_item_slot = if chain_idx == chain_len {
@@ -723,7 +724,7 @@ impl HashTable {
         let chain_len = chain_len(bucket.data[0]);
         let mut chain_idx = 0;
 
-        let evict_item_info = build_item_info(tag, segment.id() as u64, offset as u64);
+        let evict_item_info = build_item_info(tag, segment.id(), offset as u64);
 
         let mut evicted = false;
         let mut outdated = true;
@@ -744,7 +745,7 @@ impl HashTable {
                     continue;
                 }
 
-                if get_seg_id(current_item_info) == segment.id() {
+                if get_seg_id(current_item_info) == Some(segment.id()) {
                     let current_item = segment.get_item(current_item_info).unwrap();
                     if current_item.key() != key {
                         increment_counter!(&Stat::HashTagCollision);
@@ -802,8 +803,8 @@ pub const fn get_offset(item_info: u64) -> u64 {
 
 /// Get the item's segment from the item info
 #[inline]
-pub const fn get_seg_id(item_info: u64) -> i32 {
-    ((item_info & SEG_ID_MASK) >> SEG_ID_BIT_SHIFT) as i32
+pub const fn get_seg_id(item_info: u64) -> Option<NonZeroU32> {
+    NonZeroU32::new(((item_info & SEG_ID_MASK) >> SEG_ID_BIT_SHIFT) as u32)
 }
 
 /// Get the item frequency from the item info
@@ -844,6 +845,6 @@ pub const fn chain_len(bucket_info: u64) -> u64 {
 
 /// Create the item info from the tag, segment id, and offset
 #[inline]
-pub const fn build_item_info(tag: u64, seg_id: u64, offset: u64) -> u64 {
-    tag | (seg_id << SEG_ID_BIT_SHIFT) | (offset >> OFFSET_UNIT_IN_BIT)
+pub const fn build_item_info(tag: u64, seg_id: NonZeroU32, offset: u64) -> u64 {
+    tag | ((seg_id.get() as u64) << SEG_ID_BIT_SHIFT) | (offset >> OFFSET_UNIT_IN_BIT)
 }

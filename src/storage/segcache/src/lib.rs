@@ -49,10 +49,10 @@ mod ttl_buckets;
 mod tests;
 
 // publicly exported items from submodules
+pub use crate::segcache::SegCache;
 pub use builder::Builder;
 pub use error::SegCacheError;
 pub use item::Item;
-pub use crate::segcache::SegCache;
 pub use segments::Policy;
 
 // items from submodules which are imported for convenience to the crate level

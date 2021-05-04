@@ -4,6 +4,7 @@
 
 use super::{SegmentHeader, SegmentsError};
 use crate::*;
+use core::num::NonZeroU32;
 
 pub const SEG_MAGIC: u64 = 0xBADC0FFEEBADCAFE;
 
@@ -128,7 +129,7 @@ impl<'a> Segment<'a> {
 
     /// Return the segment's id
     #[inline]
-    pub fn id(&self) -> i32 {
+    pub fn id(&self) -> NonZeroU32 {
         self.header.id()
     }
 
@@ -218,7 +219,7 @@ impl<'a> Segment<'a> {
     /// the head of a bucket or the free queue.
     #[allow(dead_code)]
     #[inline]
-    pub fn prev_seg(&self) -> Option<i32> {
+    pub fn prev_seg(&self) -> Option<NonZeroU32> {
         self.header.prev_seg()
     }
 
@@ -226,7 +227,7 @@ impl<'a> Segment<'a> {
     /// that there is no previous segment, meaning this segment is the head of
     /// a bucket or the free queue
     #[inline]
-    pub fn set_prev_seg(&mut self, id: i32) {
+    pub fn set_prev_seg(&mut self, id: Option<NonZeroU32>) {
         self.header.set_prev_seg(id)
     }
 
@@ -234,7 +235,7 @@ impl<'a> Segment<'a> {
     /// TtlBucket or on the free queue. A `None` indicates that this segment is
     /// the tail of a bucket or the free queue.
     #[inline]
-    pub fn next_seg(&self) -> Option<i32> {
+    pub fn next_seg(&self) -> Option<NonZeroU32> {
         self.header.next_seg()
     }
 
@@ -242,7 +243,7 @@ impl<'a> Segment<'a> {
     /// there is no previous segment, meaning this segment is the head of a
     /// bucket or the free queue
     #[inline]
-    pub fn set_next_seg(&mut self, id: i32) {
+    pub fn set_next_seg(&mut self, id: Option<NonZeroU32>) {
         self.header.set_next_seg(id)
     }
 
@@ -318,7 +319,7 @@ impl<'a> Segment<'a> {
     /// Returns the item looking it up from the item_info
     // TODO(bmartin): consider changing the return type here and removing asserts?
     pub(crate) fn get_item(&mut self, item_info: u64) -> Option<RawItem> {
-        assert_eq!(get_seg_id(item_info) as i32, self.id());
+        assert_eq!(get_seg_id(item_info), Some(self.id()));
         self.get_item_at(get_offset(item_info) as usize)
     }
 
