@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! A builder for configuring a new [`SegCache`] instance.
+
 use crate::*;
 
 /// A builder that is used to construct a new [`SegCache`] instance.

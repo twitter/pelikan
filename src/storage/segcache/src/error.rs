@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Top-level errors that will be returned to a caller of this library.
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]

@@ -2,7 +2,11 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Core datastructure
+
 use crate::*;
+
+const RESERVE_RETRIES: usize = 3;
 
 /// A pre-allocated key-value store with eager expiration. It uses a
 /// segment-structured design that stores data in fixed-size segments, grouping
@@ -42,6 +46,8 @@ impl SegCache {
         self.hashtable.get_no_freq_incr(key, &mut self.segments)
     }
 
+    /// Insert a new item into the cache. May return an error indicating that
+    /// the insert was not successful.
     pub fn insert<'a>(
         &mut self,
         key: &'a [u8],
@@ -56,7 +62,7 @@ impl SegCache {
         let size = (((ITEM_HDR_SIZE + key.len() + value.len() + optional.len()) >> 3) + 1) << 3;
 
         // try to get a `ReservedItem`
-        let mut retries = 3;
+        let mut retries = RESERVE_RETRIES;
         let reserved;
         loop {
             match self

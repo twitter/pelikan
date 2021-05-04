@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Eviction is used to select a segment to remove when the cache becomes full.
+//! An eviction [`Policy`] determines what data will be evicted from the cache.
+
 use crate::rng;
 use crate::segments::*;
 use crate::Random;
