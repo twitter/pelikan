@@ -2,16 +2,16 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! The `HashTable` is used to lookup items and store per-item metadata.
+//! A hashtable is used to lookup items and store per-item metadata.
 //!
-//! The `HashTable` design uses bulk chaining to reduce the per item overheads,
+//! The [`HashTable`] design uses bulk chaining to reduce the per item overheads,
 //! share metadata where possible, and provide better data locality.
 //!
 //! For a more detailed description of the implementation, please see:
 //! <https://twitter.github.io/pelikan/2021/segcache.html>
 //!
-//! Our `HashTable` is composed of a base unit called a `HashBucket`. Each
-//! `HashBucket` is a contiguous allocation that is sized to fit in a single
+//! Our [`HashTable`] is composed of a base unit called a [`HashBucket`]. Each
+//! bucket is a contiguous allocation that is sized to fit in a single
 //! cacheline. This gives us room for a total of 8 64bit slots within the
 //! bucket. The first slot of a bucket is used for per bucket metadata, leaving
 //! us with up to 7 slots for items in the bucket:
@@ -87,37 +87,57 @@
 //! ```
 
 
-// hashtable constants
+// hashtable
+
+/// The number of slots within each bucket
 const N_BUCKET_SLOT: usize = 8;
 
-// Maximum number of buckets in a chain, must be <= 255. Stored as a u64 to
-// avoid repeated resizing for comparison
+/// Maximum number of buckets in a chain. Must be <= 255.
 const MAX_CHAIN_LEN: u64 = 16;
 
-// bucket info masks
+// bucket info
+
+/// A mask to get the bits containing the chain length from the bucket info
 const BUCKET_CHAIN_LEN_MASK: u64 = 0x00FF_0000_0000_0000;
+/// A mask to get the bits containing the timestamp from the bucket info
 const TS_MASK: u64 = 0x0000_FFFF_0000_0000;
+/// A mask to get the bits containing the CAS value from the bucket info
 const CAS_MASK: u64 = 0x0000_0000_FFFF_FFFF;
 
-// bucket info shifts
+/// Number of bits to shift the bucket info masked with the chain length mask
+/// to get the actual chain length
 const BUCKET_CHAIN_LEN_BIT_SHIFT: u64 = 48;
+/// Number of bits to shift the bucket info masked with the timestamp mask to
+/// get the timestamp
 const TS_BIT_SHIFT: u64 = 32;
 
-// item info masks
+// item info
+
+/// A mask to get the bits containing the item tag from the item info
 const TAG_MASK: u64 = 0xFFF0_0000_0000_0000;
+/// A mask to get the bits containing the item frequency from the item info
 const FREQ_MASK: u64 = 0x000F_F000_0000_0000;
+/// A mask to get the bits containing the containing segment id from the item
+/// info
 const SEG_ID_MASK: u64 = 0x0000_0FFF_FFF0_0000;
+/// A mask to get the bits containing the offset within the containing segment
+/// from the item info
 const OFFSET_MASK: u64 = 0x0000_0000_000F_FFFF;
 
-// item info shifts
+/// Number of bits to shift the item info masked with the frequency mask to get
+/// the actual item frequency
 const FREQ_BIT_SHIFT: u64 = 44;
+/// Number of bits to shift the item info masked with the segment id mask to get
+/// the actual segment id
 const SEG_ID_BIT_SHIFT: u64 = 20;
+/// Offset alignment in bits, this value results in 8byte alignment within the
+/// segment
 const OFFSET_UNIT_IN_BIT: u64 = 3;
 
-// consts for frequency
+/// Mask to get the item info without the frequency smoothing bit set
 const CLEAR_FREQ_SMOOTH_MASK: u64 = 0xFFF7_FFFF_FFFF_FFFF;
 
-// only use the lower 16-bits of the timestamp
+/// Mask to get the lower 16 bits from a timestamp
 const PROC_TS_MASK: u64 = 0x0000_0000_0000_FFFF;
 
 use crate::*;
@@ -138,6 +158,8 @@ impl HashBucket {
     }
 }
 
+/// Main structure for performing item lookup. Contains a contiguous allocation
+/// of [`HashBucket`]s which are used to store item info and metadata.
 #[repr(C)]
 pub(crate) struct HashTable {
     hash_builder: Box<RandomState>,
@@ -150,6 +172,9 @@ pub(crate) struct HashTable {
 }
 
 impl HashTable {
+    /// Creates a new hashtable with a specified power and overflow factor. The
+    /// hashtable will have the capacity to store up to
+    /// `7 * 2^(power - 3) * (1 + overflow_factor)` items.
     pub fn new(power: u8, overflow_factor: f64) -> HashTable {
         if overflow_factor < 0.0 {
             fatal!("hashtable overflow factor must be >= 0.0");
@@ -192,7 +217,7 @@ impl HashTable {
         }
     }
 
-    // get the item info for a key if it exists in the hash
+    /// Lookup an item by key and return it
     pub fn get(&mut self, key: &[u8], segments: &mut Segments) -> Option<Item> {
         let hash = self.hash(key);
         let tag = tag_from_hash(hash);
@@ -288,8 +313,9 @@ impl HashTable {
         None
     }
 
-    // get the item info for a key if it exists in the hash without incrementing
-    // the item frequency
+    /// Lookup an item by key and return it without incrementing the item
+    /// frequency. This may be used to compose higher-level functions which do
+    /// not want a successful item lookup to count as a hit for that item.
     pub fn get_no_freq_incr(&mut self, key: &[u8], segments: &mut Segments) -> Option<Item> {
         let hash = self.hash(key);
         let tag = tag_from_hash(hash);
@@ -341,7 +367,7 @@ impl HashTable {
         None
     }
 
-    // TODO(bmartin): decide on what width to actually return here...
+    /// Return the frequency for the item with the key
     pub fn get_freq(&mut self, key: &[u8], segment: &mut Segment, offset: u64) -> Option<u64> {
         let hash = self.hash(key);
         let tag = tag_from_hash(hash);
@@ -385,6 +411,7 @@ impl HashTable {
         None
     }
 
+    /// Relinks the item to a new location
     #[allow(clippy::result_unit_err)]
     pub fn relink_item(
         &mut self,
@@ -448,6 +475,8 @@ impl HashTable {
         }
     }
 
+    /// Inserts a new item into the hashtable. This may fail if the hashtable is
+    /// full.
     #[allow(clippy::result_unit_err)]
     pub fn insert(
         &mut self,
@@ -532,6 +561,14 @@ impl HashTable {
         }
     }
 
+    /// Used to implement higher-level CAS operations. This function looks up an
+    /// item by key and checks if the CAS value matches the provided value.
+    ///
+    /// A success indicates that the item was found with the CAS value provided
+    /// and that the CAS value has now been updated to a new value.
+    ///
+    /// A failure indicates that the CAS value did not match or there was no
+    /// matching item for that key.
     pub fn try_update_cas<'a>(
         &mut self,
         key: &'a [u8],
@@ -602,6 +639,7 @@ impl HashTable {
         Err(SegCacheError::NotFound)
     }
 
+    /// Removes the item with the given key
     pub fn delete(
         &mut self,
         key: &[u8],
@@ -657,6 +695,7 @@ impl HashTable {
         deleted
     }
 
+    /// Evict a single item from the cache
     pub fn evict(&mut self, key: &[u8], offset: i32, segment: &mut Segment) -> bool {
         let result = self.remove_from(key, offset, segment);
         if result {
@@ -665,6 +704,7 @@ impl HashTable {
         result
     }
 
+    /// Expire a single item from the cache
     pub fn expire(&mut self, key: &[u8], offset: i32, segment: &mut Segment) -> bool {
         let result = self.remove_from(key, offset, segment);
         if result {
@@ -673,6 +713,7 @@ impl HashTable {
         result
     }
 
+    /// Internal function that removes an item from a segment
     fn remove_from(&mut self, key: &[u8], offset: i32, segment: &mut Segment) -> bool {
         let hash = self.hash(key);
         let tag = tag_from_hash(hash);
@@ -738,6 +779,7 @@ impl HashTable {
         evicted
     }
 
+    /// Internal function used to calculate a hash value for a key
     fn hash(&self, key: &[u8]) -> u64 {
         increment_counter!(&Stat::HashLookup);
         let mut hasher = self.hash_builder.build_hasher();
@@ -746,51 +788,61 @@ impl HashTable {
     }
 }
 
+/// Calculate a item's tag from the hash value
 #[inline]
 pub const fn tag_from_hash(hash: u64) -> u64 {
     (hash & TAG_MASK) | 0x0010000000000000
 }
 
+/// Get the item's offset from the item info
 #[inline]
 pub const fn get_offset(item_info: u64) -> u64 {
     (item_info & OFFSET_MASK) << OFFSET_UNIT_IN_BIT
 }
 
+/// Get the item's segment from the item info
 #[inline]
 pub const fn get_seg_id(item_info: u64) -> i32 {
     ((item_info & SEG_ID_MASK) >> SEG_ID_BIT_SHIFT) as i32
 }
 
+/// Get the item frequency from the item info
 #[inline]
 pub const fn get_freq(item_info: u64) -> u64 {
     (item_info & FREQ_MASK) >> FREQ_BIT_SHIFT
 }
 
+/// Get the CAS value from the bucket info
 #[inline]
 pub const fn get_cas(bucket_info: u64) -> u32 {
     (bucket_info & CAS_MASK) as u32
 }
 
+/// Get the timestamp from the bucket info
 #[inline]
 pub const fn get_ts(bucket_info: u64) -> u64 {
     (bucket_info & TS_MASK) >> TS_BIT_SHIFT
 }
 
+/// Get the tag from the item info
 #[inline]
 pub const fn get_tag(item_info: u64) -> u64 {
     item_info & TAG_MASK
 }
 
+/// Returns the item info with the frequency cleared
 #[inline]
 pub const fn clear_freq(item_info: u64) -> u64 {
     item_info & !FREQ_MASK
 }
 
+/// Get the chain length from the bucket info
 #[inline]
 pub const fn chain_len(bucket_info: u64) -> u64 {
     (bucket_info & BUCKET_CHAIN_LEN_MASK) >> BUCKET_CHAIN_LEN_BIT_SHIFT
 }
 
+/// Create the item info from the tag, segment id, and offset
 #[inline]
 pub const fn build_item_info(tag: u64, seg_id: u64, offset: u64) -> u64 {
     tag | (seg_id << SEG_ID_BIT_SHIFT) | (offset >> OFFSET_UNIT_IN_BIT)

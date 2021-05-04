@@ -2,8 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! `TtlBuckets` are used to group `Item`s and `Segment`s by TTL to enable eager
-//! expiration.
+//! TTL buckets are used to group items by TTL to enable eager expiration.
 
 use crate::common::ThinOption;
 use crate::*;

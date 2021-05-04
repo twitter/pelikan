@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! A `ItemHeader` contains information about an item that is stored with the
-//! item data.
+//! A header which is stored with the item data which contains information about
+//! the item representation within the segment.
 //!
 //! Item Header:
 //! ```text
@@ -28,27 +28,46 @@
 //! ```
 
 // item constants
+
+/// The size of the item header in bytes
 pub const ITEM_HDR_SIZE: usize = std::mem::size_of::<crate::item::ItemHeader>();
+
 #[cfg(feature = "magic")]
+/// The magic bytes to store at the start of the item
 pub const ITEM_MAGIC: u32 = 0xDECAFBAD;
 #[cfg(feature = "magic")]
+/// The length of the item magic in bytes
 pub const ITEM_MAGIC_SIZE: usize = std::mem::size_of::<u32>();
 #[cfg(not(feature = "magic"))]
 #[allow(dead_code)]
+/// The length of the item magic in bytes
 pub const ITEM_MAGIC_SIZE: usize = 0;
 
 // masks and shifts
 // klen/vlen pack together
-pub const KLEN_MASK: u32 = 0x000000FF;
-pub const VLEN_MASK: u32 = 0xFFFFFF00;
+/// A mask to get the key length from the item header's length field
+const KLEN_MASK: u32 = 0x000000FF;
+/// A mask used to get the bits containing the item value length from the item
+/// header's length field
+const VLEN_MASK: u32 = 0xFFFFFF00;
 
-pub const VLEN_SHIFT: u32 = 8;
+/// The number of bits to shift the length field masked with the value length
+/// mask to get the actual value length
+const VLEN_SHIFT: u32 = 8;
 
 // olen/del/num
-pub const OLEN_MASK: u8 = 0b00111111;
-pub const DEL_MASK: u8 = 0b01000000;
-pub const NUM_MASK: u8 = 0b10000000;
+/// A mask to get the optional data length in bytes from the item header's flags
+/// field
+const OLEN_MASK: u8 = 0b00111111;
+/// A mask to get the bit indicating the item has been deleted from the item
+/// header's flags field
+const DEL_MASK: u8 = 0b01000000;
+/// A mask to get the bit indicating the item value should be treated as a
+/// numeric from the item header's flags field
+const NUM_MASK: u8 = 0b10000000;
 
+/// A per-item header which is stored with the item data within a segment. This
+/// contains information about the item's raw representation within the segment.
 // NOTE: repr(packed) is necessary to get the smallest representation. The
 // struct is always taken from an aligned pointer cast. This can potentially
 // result in UB when fields are referenced. Fields that require access by

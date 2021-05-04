@@ -8,7 +8,7 @@ use core::cmp::Ordering;
 
 use rustcommon_time::CoarseInstant as Instant;
 
-/// `Policy` defines the eviction strategy to be used. All eviction strategies
+/// Policies define the eviction strategy to be used. All eviction strategies
 /// exclude segments which are currently accepting new items.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Policy {

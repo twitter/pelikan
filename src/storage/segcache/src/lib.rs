@@ -55,11 +55,10 @@ pub(crate) use metrics::*;
 pub(crate) use segments::*;
 pub(crate) use ttl_buckets::*;
 
-/// `SegCache` is the main datastructure. It is a pre-allocated key-value store
-/// with eager expiration. It uses a segment-structured design that stores data
-/// in fixed-size segments, grouping objects with nearby expiration time into
-/// the same segment, and lifting most per-object metadata into the shared
-/// segment header.
+/// A pre-allocated key-value store with eager expiration. It uses a
+/// segment-structured design that stores data in fixed-size segments, grouping
+/// objects with nearby expiration time into the same segment, and lifting most
+/// per-object metadata into the shared segment header.
 pub struct SegCache {
     hashtable: HashTable,
     segments: Segments,
@@ -67,7 +66,7 @@ pub struct SegCache {
 }
 
 #[derive(Error, Debug)]
-/// Possible errors returned by the top-level `SegCache` API
+/// Possible errors returned by the top-level API
 pub enum SegCacheError<'a> {
     #[error("hashtable insert exception")]
     HashTableInsertEx,
@@ -85,7 +84,7 @@ pub enum SegCacheError<'a> {
     DataCorrupted,
 }
 
-/// A `Builder` is used to construct a new `SegCache` instance.
+/// A builder that is used to construct a new [`SegCache`] instance.
 pub struct Builder {
     power: u8,
     overflow_factor: f64,

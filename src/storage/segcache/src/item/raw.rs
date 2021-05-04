@@ -2,14 +2,14 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! A `RawItem` is the raw byte-level representation of an item.
+//! A raw byte-level representation of an item.
 //!
 //! Unlike an `Item`, the `RawItem` does not contain any fields which are shared
 //! within a `HashBucket` such as the CAS value.
 
 use crate::item::*;
 
-/// `RawItem` is the raw memory representation of an item.
+/// The raw byte-level representation of an item
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub(crate) struct RawItem {

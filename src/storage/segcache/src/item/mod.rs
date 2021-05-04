@@ -15,8 +15,7 @@ pub(crate) use header::{ItemHeader, ITEM_HDR_SIZE};
 pub(crate) use raw::RawItem;
 pub(crate) use reserved::ReservedItem;
 
-/// An `Item` represents a stored item and is used in the public interface of
-/// `SegCache`.
+/// Items are the base unit of data stored within the cache.
 pub struct Item {
     cas: u32,
     raw: RawItem,
