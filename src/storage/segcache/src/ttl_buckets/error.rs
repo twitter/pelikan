@@ -6,8 +6,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("item is oversized")]
-    ItemOversized,
+    #[error("item is oversized ({size:?} bytes)")]
+    ItemOversized { size: usize },
     #[error("ttl bucket expansion failed, no free segments")]
     NoFreeSegments,
 }

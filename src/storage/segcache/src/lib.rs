@@ -66,13 +66,13 @@ pub struct SegCache {
 
 #[derive(Error, Debug)]
 /// Possible errors returned by the top-level `SegCache` API
-pub enum SegCacheError {
+pub enum SegCacheError<'a> {
     #[error("hashtable insert exception")]
     HashTableInsertEx,
     #[error("eviction exception")]
     EvictionEx,
-    #[error("item oversized")]
-    ItemOversized,
+    #[error("item oversized ({size:?} bytes) for key: {key:?}")]
+    ItemOversized { size: usize, key: &'a [u8] },
     #[error("no free segments")]
     NoFreeSegments,
     #[error("item exists")]
@@ -218,13 +218,13 @@ impl SegCache {
         self.hashtable.get_no_freq_incr(key, &mut self.segments)
     }
 
-    pub fn insert(
+    pub fn insert<'a>(
         &mut self,
-        key: &[u8],
+        key: &'a [u8],
         value: &[u8],
         optional: Option<&[u8]>,
         ttl: CoarseDuration,
-    ) -> Result<(), SegCacheError> {
+    ) -> Result<(), SegCacheError<'a>> {
         // default optional data is empty
         let optional = optional.unwrap_or(&[]);
 
@@ -245,8 +245,8 @@ impl SegCache {
                     reserved = reserved_item;
                     break;
                 }
-                Err(ttl_buckets::Error::ItemOversized) => {
-                    return Err(SegCacheError::ItemOversized);
+                Err(ttl_buckets::Error::ItemOversized { size }) => {
+                    return Err(SegCacheError::ItemOversized { size, key });
                 }
                 Err(ttl_buckets::Error::NoFreeSegments) => {
                     if self
@@ -296,14 +296,14 @@ impl SegCache {
 
     /// Performs a CAS operation, inserting the item only if the CAS value
     /// matches the current value for that item.
-    pub fn cas(
+    pub fn cas<'a>(
         &mut self,
-        key: &[u8],
+        key: &'a [u8],
         value: &[u8],
         optional: Option<&[u8]>,
         ttl: CoarseDuration,
         cas: u32,
-    ) -> Result<(), SegCacheError> {
+    ) -> Result<(), SegCacheError<'a>> {
         match self.hashtable.try_update_cas(key, cas, &mut self.segments) {
             Ok(()) => self.insert(key, value, optional, ttl),
             Err(e) => Err(e),

@@ -143,7 +143,7 @@ impl TtlBucket {
 
         if size > seg_size {
             debug!("item is oversized");
-            return Err(Error::ItemOversized);
+            return Err(Error::ItemOversized { size });
         }
 
         loop {

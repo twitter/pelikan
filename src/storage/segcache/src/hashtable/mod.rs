@@ -420,12 +420,12 @@ impl HashTable {
         }
     }
 
-    pub fn try_update_cas(
+    pub fn try_update_cas<'a>(
         &mut self,
-        key: &[u8],
+        key: &'a [u8],
         cas: u32,
         segments: &mut Segments,
-    ) -> Result<(), SegCacheError> {
+    ) -> Result<(), SegCacheError<'a>> {
         let hash = self.hash(key);
         let tag = tag_from_hash(hash);
         let bucket_id = hash & self.mask;
