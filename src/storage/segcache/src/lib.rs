@@ -36,6 +36,7 @@ use std::convert::TryInto;
 // submodules
 mod builder;
 mod error;
+mod eviction;
 mod hashtable;
 mod item;
 mod rand;
@@ -51,8 +52,8 @@ mod tests;
 pub use crate::segcache::SegCache;
 pub use builder::Builder;
 pub use error::SegCacheError;
+pub use eviction::Policy;
 pub use item::Item;
-pub use segments::Policy;
 
 // items from submodules which are imported for convenience to the crate level
 pub(crate) use crate::rand::*;

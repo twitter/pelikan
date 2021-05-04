@@ -14,6 +14,8 @@ use mio::net::TcpListener;
 
 use std::convert::TryInto;
 
+pub const LISTENER_TOKEN: usize = usize::MAX;
+
 /// A `Server` is used to bind to a given socket address and accept new
 /// sessions. These sessions are moved onto a MPSC queue, where they can be
 /// handled by a `Worker`.
@@ -29,8 +31,6 @@ pub struct Server {
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
 }
-
-pub const LISTENER_TOKEN: usize = usize::MAX;
 
 impl Server {
     /// Creates a new `Server` that will bind to a given `addr` and push new

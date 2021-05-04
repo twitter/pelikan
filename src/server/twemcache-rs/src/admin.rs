@@ -20,6 +20,8 @@ use strum::IntoEnumIterator;
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind};
 
+pub const LISTENER_TOKEN: usize = usize::MAX;
+
 /// A `Admin` is used to bind to a given socket address and handle out-of-band
 /// admin requests.
 pub struct Admin {
@@ -32,8 +34,6 @@ pub struct Admin {
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
 }
-
-pub const LISTENER_TOKEN: usize = usize::MAX;
 
 impl Admin {
     /// Creates a new `Admin` event loop.

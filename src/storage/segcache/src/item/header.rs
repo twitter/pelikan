@@ -80,34 +80,6 @@ pub struct ItemHeader {
     flags: u8, // packs is_num:1, deleted:1, olen:6
 }
 
-#[cfg(not(feature = "magic"))]
-impl std::fmt::Debug for ItemHeader {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        f.debug_struct("ItemHeader")
-            .field("klen", &self.klen())
-            .field("vlen", &self.vlen())
-            .field("is_num", &self.is_num())
-            .field("deleted", &self.is_deleted())
-            .field("olen", &self.olen())
-            .finish()
-    }
-}
-
-#[cfg(feature = "magic")]
-impl std::fmt::Debug for ItemHeader {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        let magic = self.magic;
-        f.debug_struct("ItemHeader")
-            .field("magic", &format!("0x{:X}", magic))
-            .field("klen", &self.klen())
-            .field("vlen", &self.vlen())
-            .field("is_num", &self.is_num())
-            .field("deleted", &self.is_deleted())
-            .field("olen", &self.olen())
-            .finish()
-    }
-}
-
 impl ItemHeader {
     /// Get the magic bytes from the header
     #[cfg(feature = "magic")]
@@ -199,5 +171,33 @@ impl ItemHeader {
     pub fn set_olen(&mut self, len: u8) {
         debug_assert!(len <= OLEN_MASK);
         self.flags = (self.flags & !OLEN_MASK) | len;
+    }
+}
+
+#[cfg(not(feature = "magic"))]
+impl std::fmt::Debug for ItemHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        f.debug_struct("ItemHeader")
+            .field("klen", &self.klen())
+            .field("vlen", &self.vlen())
+            .field("is_num", &self.is_num())
+            .field("deleted", &self.is_deleted())
+            .field("olen", &self.olen())
+            .finish()
+    }
+}
+
+#[cfg(feature = "magic")]
+impl std::fmt::Debug for ItemHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        let magic = self.magic;
+        f.debug_struct("ItemHeader")
+            .field("magic", &format!("0x{:X}", magic))
+            .field("klen", &self.klen())
+            .field("vlen", &self.vlen())
+            .field("is_num", &self.is_num())
+            .field("deleted", &self.is_deleted())
+            .field("olen", &self.olen())
+            .finish()
     }
 }

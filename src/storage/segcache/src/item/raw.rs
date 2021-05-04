@@ -4,8 +4,8 @@
 
 //! A raw byte-level representation of an item.
 //!
-//! Unlike an `Item`, the `RawItem` does not contain any fields which are shared
-//! within a `HashBucket` such as the CAS value.
+//! Unlike an [`Item`], the [`RawItem`] does not contain any fields which are
+//! shared within a [`HashBucket`] such as the CAS value.
 
 use crate::item::*;
 
@@ -17,17 +17,24 @@ pub(crate) struct RawItem {
 }
 
 impl RawItem {
-    /// Borrow the `ItemHeader`
+    /// Get an immutable borrow of the item's header
     pub(crate) fn header(&self) -> &ItemHeader {
         unsafe { &*(self.data as *const ItemHeader) }
     }
 
-    /// Mutable borrow of the `ItemHeader`
+    /// Get a mutable borrow of the item's header
     pub(crate) fn header_mut(&mut self) -> *mut ItemHeader {
         self.data as *mut ItemHeader
     }
 
     /// Create a `RawItem` from a pointer
+    ///
+    /// # Safety
+    ///
+    /// Creating a `RawItem` from a pointer that does not point to a valid raw
+    /// item or a pointer which is not 64bit aligned will result in undefined
+    /// behavior. It is up to the caller to ensure that the item is constructed
+    /// from a properly aligned pointer to valid data.
     pub(crate) fn from_ptr(ptr: *mut u8) -> RawItem {
         Self { data: ptr }
     }

@@ -5,6 +5,7 @@
 #[cfg(feature = "dump")]
 use crate::segments::segment::SegmentDump;
 
+use crate::eviction::*;
 use crate::item::*;
 use crate::segments::*;
 use core::num::NonZeroU32;
