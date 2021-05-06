@@ -341,12 +341,22 @@ impl Session {
 
     /// Returns the number of bytes in the read buffer
     pub fn read_pending(&self) -> usize {
+        if self.read_buffer.capacity() > MIN_BUFFER_SIZE {
+            self.read_buffer.shrink_to_fit();
+        }
         self.read_buffer.len()
     }
 
     /// Returns the number of bytes in the write buffer
     pub fn write_pending(&self) -> usize {
-        self.write_buffer.as_ref().map(|buf| buf.len()).unwrap_or(0)
+        if let Some(ref mut write_buffer) = self.write_buffer {
+            if write_buffer.capacity() > MIN_BUFFER_SIZE {
+                write_buffer.shrink_to_fit();
+            }
+            write_buffer.len()
+        } else {
+            0
+        }
     }
 }
 
