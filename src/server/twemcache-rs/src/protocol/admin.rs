@@ -44,15 +44,15 @@ pub fn parse(buffer: &mut VecDeque<u8>) -> Result<Request, ParseError> {
         } else {
             match &buf[0..command_end] {
                 b"stats" => {
-                    let _ = buffer.split_off(command_end + CRLF_LEN);
+                    let _ = buffer.drain(0..(command_end + CRLF_LEN));
                     Ok(Request::Stats)
                 }
                 b"quit" => {
-                    let _ = buffer.split_off(command_end + CRLF_LEN);
+                    let _ = buffer.drain(0..(command_end + CRLF_LEN));
                     Ok(Request::Quit)
                 }
                 b"version" => {
-                    let _ = buffer.split_off(command_end + CRLF_LEN);
+                    let _ = buffer.drain(0..(command_end + CRLF_LEN));
                     Ok(Request::Version)
                 }
                 _ => Err(ParseError::UnknownCommand),
