@@ -2,13 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::collections::VecDeque;
 use crate::*;
 
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
-use bytes::{Buf, BytesMut};
 use metrics::Stat;
 
-use std::borrow::Borrow;
 use std::io::{Error, ErrorKind, Read, Write};
 
 pub const MIN_BUFFER_SIZE: usize = 1024; // 1 KiB
@@ -88,8 +87,8 @@ pub struct Session {
     token: Token,
     addr: SocketAddr,
     stream: Option<Stream>,
-    pub read_buffer: BytesMut,
-    pub write_buffer: Option<BytesMut>,
+    pub read_buffer: VecDeque<u8>,
+    pub write_buffer: Option<VecDeque<u8>>,
     tmp_buffer: [u8; MIN_BUFFER_SIZE],
 }
 
@@ -116,8 +115,8 @@ impl Session {
             token: Token(0),
             addr,
             stream: Some(stream),
-            read_buffer: BytesMut::with_capacity(MIN_BUFFER_SIZE),
-            write_buffer: Some(BytesMut::with_capacity(MIN_BUFFER_SIZE)),
+            read_buffer: VecDeque::with_capacity(MIN_BUFFER_SIZE),
+            write_buffer: Some(VecDeque::with_capacity(MIN_BUFFER_SIZE)),
             tmp_buffer: [0; MIN_BUFFER_SIZE],
         }
     }
@@ -182,8 +181,7 @@ impl Session {
                     break;
                 }
                 Ok(bytes) => {
-                    self.read_buffer
-                        .extend_from_slice(&self.tmp_buffer[0..bytes]);
+                    self.read_buffer.extend(&self.tmp_buffer[0..bytes]);
                     total_bytes += bytes;
                     if bytes < self.tmp_buffer.len() {
                         // we read less than the temp buffer size, next read
@@ -219,8 +217,26 @@ impl Session {
         if let Some(ref mut write_buffer) = self.write_buffer {
             increment_counter!(&Stat::SessionSend);
             let write_result = match &mut self.stream {
-                Some(Stream::Plain(s)) => s.write((*write_buffer).borrow()),
-                Some(Stream::Tls(s)) => s.write((*write_buffer).borrow()),
+                Some(Stream::Plain(s)) => {
+                    let (a, b) = write_buffer.as_slices();
+                    let mut bytes = s.write(a)?;
+                    if bytes == a.len() {
+                        if let Ok(b) = s.write(b) {
+                            bytes += b;
+                        }
+                    }
+                    Ok(bytes)
+                },
+                Some(Stream::Tls(s)) => {
+                    let (a, b) = write_buffer.as_slices();
+                    let mut bytes = s.write(a)?;
+                    if bytes == a.len() {
+                        if let Ok(b) = s.write(b) {
+                            bytes += b;
+                        }
+                    }
+                    Ok(bytes)
+                },
                 Some(Stream::Handshaking(_)) => {
                     return Ok(None);
                 }
@@ -232,7 +248,7 @@ impl Session {
                 Ok(0) => Ok(Some(0)),
                 Ok(bytes) => {
                     increment_counter_by!(&Stat::SessionSendByte, bytes as u64);
-                    write_buffer.advance(bytes);
+                    write_buffer.drain(0..bytes);
                     Ok(Some(bytes))
                 }
                 Err(e) => {
@@ -342,3 +358,5 @@ impl Session {
         self.write_buffer.as_ref().map(|buf| buf.len()).unwrap_or(0)
     }
 }
+
+
