@@ -6,10 +6,10 @@ use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
 use mio::event::Event;
 
-use crate::request_processor::RequestProcessor;
 use crate::common::Message;
 use crate::event_loop::EventLoop;
 use crate::protocol::data::*;
+use crate::request_processor::RequestProcessor;
 use crate::session::*;
 use crate::*;
 

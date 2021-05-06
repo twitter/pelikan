@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use super::*;
 
 pub struct MemcacheParser;
@@ -7,17 +8,19 @@ pub struct MemcacheParser;
 pub trait Parser {
     type Request: Request;
 
-    fn parse(buffer: &mut BytesMut) -> Result<Self::Request, ParseError>;
+    fn parse(buffer: &mut VecDeque<u8>) -> Result<Self::Request, ParseError>;
 }
 
 impl Parser for MemcacheParser {
     type Request = MemcacheRequest;
 
-    fn parse(buffer: &mut BytesMut) -> Result<Self::Request, ParseError> {
+    fn parse<'a>(buffer: &mut VecDeque<u8>) -> Result<Self::Request, ParseError> {
         let command;
         {
-            // no-copy borrow as a slice
-            let buf: &[u8] = (*buffer).borrow();
+            // note: this should be a no-op, but ensures we only parse a single
+            // slice
+            buffer.make_contiguous();
+            let (buf, _) = buffer.as_slices();
             // check if we got a CRLF
             let mut double_byte = buf.windows(CRLF_LEN);
             if let Some(_line_end) = double_byte.position(|w| w == CRLF) {
@@ -49,8 +52,8 @@ impl MemcacheParser {
     // by the time we call this, we know we have a CRLF and spaces and a valid
     // command name
     #[allow(clippy::unnecessary_wraps)]
-    fn parse_get(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
-        let buf: &[u8] = (*buffer).borrow();
+    fn parse_get(buffer: &mut VecDeque<u8>) -> Result<MemcacheRequest, ParseError> {
+        let (buf, _) = buffer.as_slices();
 
         let mut double_byte = buf.windows(2);
         let line_end = double_byte.position(|w| w == CRLF).unwrap();
@@ -79,9 +82,10 @@ impl MemcacheParser {
         }
 
         let consumed = line_end + CRLF_LEN;
+        let buffer = buffer.drain(0..consumed).collect();
 
         Ok(MemcacheRequest {
-            buffer: buffer.split_to(consumed),
+            buffer,
             command: MemcacheCommand::Get,
             keys,
             consumed,
@@ -93,14 +97,15 @@ impl MemcacheParser {
         })
     }
 
-    fn parse_gets(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
+    fn parse_gets(buffer: &mut VecDeque<u8>) -> Result<MemcacheRequest, ParseError> {
         let mut request = MemcacheParser::parse_get(buffer)?;
         request.command = MemcacheCommand::Gets;
         Ok(request)
     }
 
-    fn parse_set(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
-        let buf: &[u8] = (*buffer).borrow();
+    fn parse_set(buffer: &mut VecDeque<u8>) -> Result<MemcacheRequest, ParseError> {
+        let (buf, _) = buffer.as_slices();
+
         let mut single_byte = buf.windows(1);
         if let Some(cmd_end) = single_byte.position(|w| w == b" ") {
             // key
@@ -165,13 +170,14 @@ impl MemcacheParser {
                 return Err(ParseError::Invalid);
             }
 
-            if let Ok(Ok(bytes)) = std::str::from_utf8(&buffer[(expiry_end + 1)..bytes_end])
+            if let Ok(Ok(bytes)) = std::str::from_utf8(&buf[(expiry_end + 1)..bytes_end])
                 .map(|v| v.parse::<usize>())
             {
                 let consumed = first_crlf + CRLF_LEN + bytes + CRLF_LEN;
                 if buf.len() >= consumed {
+                    let buffer = buffer.drain(0..consumed).collect();
                     Ok(MemcacheRequest {
-                        buffer: buffer.split_to(consumed),
+                        buffer,
                         command: MemcacheCommand::Set,
                         keys: vec![((cmd_end + 1), key_end)],
                         consumed,
@@ -195,20 +201,21 @@ impl MemcacheParser {
         }
     }
 
-    fn parse_add(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
+    fn parse_add(buffer: &mut VecDeque<u8>) -> Result<MemcacheRequest, ParseError> {
         let mut request = MemcacheParser::parse_set(buffer)?;
         request.command = MemcacheCommand::Add;
         Ok(request)
     }
 
-    fn parse_replace(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
+    fn parse_replace(buffer: &mut VecDeque<u8>) -> Result<MemcacheRequest, ParseError> {
         let mut request = MemcacheParser::parse_set(buffer)?;
         request.command = MemcacheCommand::Replace;
         Ok(request)
     }
 
-    fn parse_cas(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
-        let buf: &[u8] = (*buffer).borrow();
+    fn parse_cas(buffer: &mut VecDeque<u8>) -> Result<MemcacheRequest, ParseError> {
+        let (buf, _) = buffer.as_slices();
+
         let mut single_byte = buf.windows(1);
         // we already checked for this in the MemcacheParser::parse()
         let cmd_end = single_byte.position(|w| w == b" ").unwrap();
@@ -285,7 +292,7 @@ impl MemcacheParser {
         {
             let consumed = first_crlf + CRLF_LEN + bytes + CRLF_LEN;
             if buf.len() >= consumed {
-                let buffer = buffer.split_to(consumed);
+                let buffer = buffer.drain(0..consumed).collect();
                 Ok(MemcacheRequest {
                     buffer,
                     consumed,
@@ -307,8 +314,9 @@ impl MemcacheParser {
         }
     }
 
-    fn parse_delete(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
-        let buf: &[u8] = (*buffer).borrow();
+    fn parse_delete(buffer: &mut VecDeque<u8>) -> Result<MemcacheRequest, ParseError> {
+        let (buf, _) = buffer.as_slices();
+
         let mut single_byte = buf.windows(1);
         // we already checked for this in the MemcacheParser::parse()
         let cmd_end = single_byte.position(|w| w == b" ").unwrap();
@@ -344,7 +352,7 @@ impl MemcacheParser {
             key_end + CRLF_LEN
         };
 
-        let buffer = buffer.split_to(consumed);
+        let buffer = buffer.drain(0..consumed).collect();
 
         Ok(MemcacheRequest {
             buffer,

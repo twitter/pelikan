@@ -348,9 +348,9 @@ impl EventLoop for Admin {
                             }
                             data.sort();
                             for line in data {
-                                write_buffer.extend_from_slice(line.as_bytes());
+                                write_buffer.extend(line.as_bytes());
                             }
-                            write_buffer.extend_from_slice(b"END\r\n");
+                            write_buffer.extend(b"END\r\n");
                             session.write_buffer = Some(write_buffer);
                             increment_counter!(&Stat::AdminResponseCompose);
                         }
@@ -360,7 +360,7 @@ impl EventLoop for Admin {
                         }
                         Request::Version => {
                             let mut write_buffer = session.write_buffer.take().unwrap();
-                            write_buffer.extend_from_slice(
+                            write_buffer.extend(
                                 format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION")).as_bytes(),
                             );
                             session.write_buffer = Some(write_buffer);

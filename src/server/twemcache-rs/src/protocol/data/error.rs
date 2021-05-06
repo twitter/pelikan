@@ -7,7 +7,7 @@ use thiserror::Error;
 #[derive(Error, PartialEq, Eq, Debug)]
 
 pub enum ParseError {
-	#[error("incomplete request")]
+    #[error("incomplete request")]
     Incomplete,
     #[error("invalid request")]
     Invalid,

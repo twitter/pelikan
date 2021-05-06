@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use super::*;
 
 // TODO(bmartin): this should be lifted out into a common crate and shared
@@ -6,14 +7,13 @@ pub trait Request {
     type Command;
 
     fn command(&self) -> Self::Command;
-    fn keys(&self) -> Vec<&[u8]>;
 }
 
 #[derive(Debug, PartialEq)]
 /// The `MemcacheRequest` contains all the specific fields which represent a
 /// memcache request.
 pub struct MemcacheRequest {
-    pub(super) buffer: BytesMut,
+    pub(super) buffer: VecDeque<u8>,
     pub(super) command: MemcacheCommand,
     pub(super) consumed: usize,
     pub(super) keys: Vec<(usize, usize)>,
@@ -53,13 +53,21 @@ impl MemcacheRequest {
         if start == end {
             None
         } else {
-            Some(&self.buffer[start..end])
+            let (a, _) = self.buffer.as_slices();
+            Some(&a[start..end])
         }
     }
 
     /// The cas value for the request
     pub fn cas(&self) -> u64 {
         self.cas
+    }
+
+    pub fn keys(&self) -> KeyIter {
+        KeyIter {
+            request: self,
+            index: 0,
+        }
     }
 }
 
@@ -69,13 +77,22 @@ impl Request for MemcacheRequest {
     fn command(&self) -> Self::Command {
         self.command
     }
+}
 
-    fn keys(&self) -> Vec<&[u8]> {
-        let buffer: &[u8] = self.buffer.borrow();
-        let mut keys = Vec::new();
-        for key_index in &self.keys {
-            keys.push(&buffer[key_index.0..key_index.1])
+pub struct KeyIter<'a> {
+    request: &'a MemcacheRequest,
+    index: usize,
+}
+
+impl<'a> Iterator for KeyIter<'a> {
+    type Item = &'a [u8];
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        if let Some((start, end)) = self.request.keys.get(self.index) {
+            self.index += 1;
+            let (a, _) = self.request.buffer.as_slices();
+            Some(&a[*start..*end])
+        } else {
+            None
         }
-        keys
     }
 }

@@ -1359,7 +1359,6 @@ dependencies = [
  "ahash 0.6.3",
  "backtrace",
  "boring",
- "bytes 1.0.1",
  "chrono",
  "config",
  "criterion",

@@ -216,26 +216,17 @@ impl Session {
     pub fn flush(&mut self) -> Result<Option<usize>, std::io::Error> {
         if let Some(ref mut write_buffer) = self.write_buffer {
             increment_counter!(&Stat::SessionSend);
+            // note: this should be a no-op, but ensures we only need to worry
+            // about a single slice
+            write_buffer.make_contiguous();
             let write_result = match &mut self.stream {
                 Some(Stream::Plain(s)) => {
-                    let (a, b) = write_buffer.as_slices();
-                    let mut bytes = s.write(a)?;
-                    if bytes == a.len() {
-                        if let Ok(b) = s.write(b) {
-                            bytes += b;
-                        }
-                    }
-                    Ok(bytes)
+                    let (a, _) = write_buffer.as_slices();
+                    s.write(a)
                 },
                 Some(Stream::Tls(s)) => {
-                    let (a, b) = write_buffer.as_slices();
-                    let mut bytes = s.write(a)?;
-                    if bytes == a.len() {
-                        if let Ok(b) = s.write(b) {
-                            bytes += b;
-                        }
-                    }
-                    Ok(bytes)
+                    let (a, _) = write_buffer.as_slices();
+                    s.write(a)
                 },
                 Some(Stream::Handshaking(_)) => {
                     return Ok(None);

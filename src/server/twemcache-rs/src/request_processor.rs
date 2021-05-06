@@ -2,9 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::collections::VecDeque;
 use crate::protocol::data::*;
 use crate::*;
-use bytes::BytesMut;
 use config::segcache::Eviction;
 use config::TimeType;
 use metrics::*;
@@ -49,7 +49,7 @@ impl RequestProcessor {
         self.data.expire();
     }
 
-    pub(crate) fn process(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    pub(crate) fn process(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
         match request.command() {
             MemcacheCommand::Get => self.process_get(request, write_buffer),
             MemcacheCommand::Gets => self.process_gets(request, write_buffer),
@@ -61,7 +61,8 @@ impl RequestProcessor {
         }
     }
 
-    fn process_get(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn process_get(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
+        let mut total = 0;
         let mut found = 0;
         increment_counter!(&Stat::Get);
         for key in request.keys() {
@@ -70,21 +71,23 @@ impl RequestProcessor {
                 response.serialize(write_buffer);
                 found += 1;
             }
+            total += 1;
         }
 
-        let total = request.keys().len() as u64;
         increment_counter_by!(&Stat::GetKey, total);
         increment_counter_by!(&Stat::GetKeyHit, found);
         increment_counter_by!(&Stat::GetKeyMiss, total - found);
 
         trace!(
             "get request processed, {} out of {} keys found",
-            found, total
+            found,
+            total
         );
         MemcacheResponse::End.serialize(write_buffer);
     }
 
-    fn process_gets(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn process_gets(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
+        let mut total = 0;
         let mut found = 0;
         increment_counter!(&Stat::Gets);
         for key in request.keys() {
@@ -93,28 +96,29 @@ impl RequestProcessor {
                 response.serialize(write_buffer);
                 found += 1;
             }
+            total += 1;
         }
 
-        let total = request.keys().len() as u64;
         increment_counter_by!(&Stat::GetsKey, total);
         increment_counter_by!(&Stat::GetsKeyHit, found);
         increment_counter_by!(&Stat::GetsKeyMiss, total - found);
 
         trace!(
             "gets request processed, {} out of {} keys found",
-            found, total
+            found,
+            total
         );
         MemcacheResponse::End.serialize(write_buffer);
     }
 
-    fn process_set(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn process_set(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
         increment_counter!(&Stat::Set);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
-        let keys = request.keys();
+        let key = request.keys().next().unwrap();
         let value = request.value().unwrap_or(b"");
         match self.data.insert(
-            keys[0],
+            key,
             value,
             Some(&request.flags().to_be_bytes()),
             CoarseDuration::from_secs(ttl),
@@ -134,17 +138,17 @@ impl RequestProcessor {
         }
     }
 
-    fn process_add(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn process_add(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
         increment_counter!(&Stat::Add);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
-        let keys = request.keys();
+        let key = request.keys().next().unwrap();
         let value = request.value().unwrap_or(b"");
-        if self.data.get_no_freq_incr(keys[0]).is_none()
+        if self.data.get_no_freq_incr(key).is_none()
             && self
                 .data
                 .insert(
-                    keys[0],
+                    key,
                     value,
                     Some(&request.flags().to_be_bytes()),
                     CoarseDuration::from_secs(ttl),
@@ -163,17 +167,17 @@ impl RequestProcessor {
         }
     }
 
-    fn process_replace(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn process_replace(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
         increment_counter!(&Stat::Replace);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
-        let keys = request.keys();
+        let key = request.keys().next().unwrap();
         let value = request.value().unwrap_or(b"");
-        if self.data.get_no_freq_incr(keys[0]).is_some()
+        if self.data.get_no_freq_incr(key).is_some()
             && self
                 .data
                 .insert(
-                    keys[0],
+                    key,
                     value,
                     Some(&request.flags().to_be_bytes()),
                     CoarseDuration::from_secs(ttl),
@@ -192,14 +196,14 @@ impl RequestProcessor {
         }
     }
 
-    fn process_cas(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn process_cas(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
         increment_counter!(&Stat::Cas);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
-        let keys = request.keys();
+        let key = request.keys().next().unwrap();
         let value = request.value().unwrap_or(b"");
         match self.data.cas(
-            keys[0],
+            key,
             value,
             Some(&request.flags().to_be_bytes()),
             CoarseDuration::from_secs(ttl),
@@ -232,11 +236,11 @@ impl RequestProcessor {
         }
     }
 
-    fn process_delete(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn process_delete(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
         increment_counter!(&Stat::Delete);
         let reply = !request.noreply();
-        let keys = request.keys();
-        if self.data.delete(keys[0]) {
+        let key = request.keys().next().unwrap();
+        if self.data.delete(key) {
             increment_counter!(&Stat::DeleteDeleted);
             if reply {
                 MemcacheResponse::Deleted.serialize(write_buffer);
