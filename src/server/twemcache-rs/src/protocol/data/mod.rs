@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! The memcache data protocol
+
 use crate::protocol::{CRLF, CRLF_LEN};
 
 use core::convert::TryFrom;
@@ -29,8 +31,8 @@ pub use response::MemcacheResponse;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::VecDeque;
     use super::*;
+    use bytes::BytesMut;
 
     fn keys() -> Vec<&'static [u8]> {
         vec![b"0", b"1", b"0123456789", b"A"]
@@ -60,23 +62,20 @@ mod tests {
             b"set 0 0 0 3\r\n1\r\n\r",
         ];
         for buffer in buffers.iter() {
-            let mut b = VecDeque::new();
-            b.extend(*buffer);
+            let mut b = BytesMut::new();
+            b.extend_from_slice(*buffer);
             println!("parse: {:?}", buffer);
-            assert_eq!(
-                MemcacheParser::parse(&mut b),
-                Err(ParseError::Incomplete)
-            );
+            assert_eq!(MemcacheParser::parse(&mut b), Err(ParseError::Incomplete));
         }
     }
 
     #[test]
     fn parse_get() {
         for key in keys() {
-            let mut buffer = VecDeque::new();
-            buffer.extend(b"get ");
-            buffer.extend(key);
-            buffer.extend(b"\r\n");
+            let mut buffer = BytesMut::new();
+            buffer.extend_from_slice(b"get ");
+            buffer.extend_from_slice(key);
+            buffer.extend_from_slice(b"\r\n");
             println!("parse: {:?}", &buffer);
             let parsed = MemcacheParser::parse(&mut buffer);
             assert!(parsed.is_ok());
@@ -91,10 +90,10 @@ mod tests {
     #[test]
     fn parse_gets() {
         for key in keys() {
-            let mut buffer = VecDeque::new();
-            buffer.extend(b"gets ");
-            buffer.extend(key);
-            buffer.extend(b"\r\n");
+            let mut buffer = BytesMut::new();
+            buffer.extend_from_slice(b"gets ");
+            buffer.extend_from_slice(key);
+            buffer.extend_from_slice(b"\r\n");
             let parsed = MemcacheParser::parse(&mut buffer);
             assert!(parsed.is_ok());
             if let Ok(request) = parsed {
@@ -112,12 +111,12 @@ mod tests {
         for key in keys() {
             for value in values() {
                 for flag in flags() {
-                    let mut buffer = VecDeque::new();
-                    buffer.extend(b"set ");
-                    buffer.extend(key);
-                    buffer.extend(format!(" {} 0 {}\r\n", flag, value.len()).as_bytes());
-                    buffer.extend(value);
-                    buffer.extend(b"\r\n");
+                    let mut buffer = BytesMut::new();
+                    buffer.extend_from_slice(b"set ");
+                    buffer.extend_from_slice(key);
+                    buffer.extend_from_slice(format!(" {} 0 {}\r\n", flag, value.len()).as_bytes());
+                    buffer.extend_from_slice(value);
+                    buffer.extend_from_slice(b"\r\n");
                     let parsed = MemcacheParser::parse(&mut buffer);
                     assert!(parsed.is_ok());
                     if let Ok(request) = parsed {
@@ -137,32 +136,32 @@ mod tests {
     #[test]
     // interior newlines and odd spacing for set request
     fn crash_1a() {
-        let mut buffer = VecDeque::new();
-        buffer.extend(b"set 1\r\n0\r\n 0 0   1\r\n0");
+        let mut buffer = BytesMut::new();
+        buffer.extend_from_slice(b"set 1\r\n0\r\n 0 0   1\r\n0");
         assert!(MemcacheParser::parse(&mut buffer).is_err());
     }
 
     #[test]
     // interior newlines and odd spacing for add request
     fn crash_1b() {
-        let mut buffer = VecDeque::new();
-        buffer.extend(b"add 1\r\n0\r\n 0 0   1\r\n0");
+        let mut buffer = BytesMut::new();
+        buffer.extend_from_slice(b"add 1\r\n0\r\n 0 0   1\r\n0");
         assert!(MemcacheParser::parse(&mut buffer).is_err());
     }
 
     #[test]
     // interior newlines and odd spacing for replace request
     fn crash_1c() {
-        let mut buffer = VecDeque::new();
-        buffer.extend(b"replace 1\r\n0\r\n 0 0   1\r\n0");
+        let mut buffer = BytesMut::new();
+        buffer.extend_from_slice(b"replace 1\r\n0\r\n 0 0   1\r\n0");
         assert!(MemcacheParser::parse(&mut buffer).is_err());
     }
 
     #[test]
     // interior newlines, odd spacing, null bytes for cas request
     fn crash_2a() {
-        let mut buffer = VecDeque::new();
-        buffer.extend(&[
+        let mut buffer = BytesMut::new();
+        buffer.extend_from_slice(&[
             0x63, 0x61, 0x73, 0x20, 0x30, 0x73, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
             0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x00, 0x00, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
             0x31, 0x31, 0x31, 0x31, 0x31, 0x0D, 0x0A, 0x65, 0x74, 0x20, 0x30, 0x20, 0x30, 0x20,

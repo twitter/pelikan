@@ -2,10 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use bytes::{Buf, BytesMut};
+//! TCP/TLS session wrapper
+
 use crate::*;
 
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
+use bytes::BytesMut;
 use metrics::Stat;
 
 use std::borrow::Borrow;
@@ -218,12 +220,8 @@ impl Session {
         if let Some(ref mut write_buffer) = self.write_buffer {
             increment_counter!(&Stat::SessionSend);
             let write_result = match &mut self.stream {
-                Some(Stream::Plain(s)) => {
-                    s.write((*write_buffer).borrow())
-                },
-                Some(Stream::Tls(s)) => {
-                    s.write((*write_buffer).borrow())
-                },
+                Some(Stream::Plain(s)) => s.write((*write_buffer).borrow()),
+                Some(Stream::Tls(s)) => s.write((*write_buffer).borrow()),
                 Some(Stream::Handshaking(_)) => {
                     return Ok(None);
                 }
@@ -357,5 +355,3 @@ impl Session {
         }
     }
 }
-
-

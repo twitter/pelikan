@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! The server thread which accepts new connections, handles TLS handshaking,
+//! and sends established sessions to the worker thread(s).
+
 use crate::event_loop::EventLoop;
 use crate::session::*;
 use crate::*;

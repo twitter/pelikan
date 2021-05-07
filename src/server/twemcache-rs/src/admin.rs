@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! The admin thread, which handles admin requests to return stats, get version
+//! info, etc.
+
 use crate::event_loop::EventLoop;
 use crate::protocol::admin::*;
 use crate::session::*;

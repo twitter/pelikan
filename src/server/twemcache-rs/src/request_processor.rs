@@ -2,9 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use bytes::BytesMut;
+//! A wrapper struct which owns the cache data, processes requests, and writes
+//! responses onto session write buffers.
+
 use crate::protocol::data::*;
 use crate::*;
+use bytes::BytesMut;
 use config::segcache::Eviction;
 use config::TimeType;
 use metrics::*;

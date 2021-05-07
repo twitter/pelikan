@@ -2,6 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! The single-threaded worker, which is used when there is only one worker
+//! thread configured. This worker parsed requests and handles request
+//! processing.
+
 use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
 use mio::event::Event;

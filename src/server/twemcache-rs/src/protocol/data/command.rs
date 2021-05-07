@@ -1,8 +1,14 @@
+// Copyright 2021 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
+//! Request commands for the data protocol
+
 use crate::protocol::data::ParseError;
 use core::convert::TryFrom;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// Indicates the type of command
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MemcacheCommand {
     Get,
     Gets,

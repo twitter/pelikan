@@ -5,80 +5,14 @@
 #[cfg(feature = "dump")]
 use crate::segments::segment::SegmentDump;
 
+use crate::datapool::*;
 use crate::eviction::*;
 use crate::item::*;
 use crate::segments::*;
 
-use memmap::MmapMut;
+use core::num::NonZeroU32;
 use metrics::Stat;
 use rustcommon_time::CoarseInstant as Instant;
-use thiserror::Error;
-
-use core::num::NonZeroU32;
-use std::fs::OpenOptions;
-use std::path::{Path, PathBuf};
-
-#[derive(Error, Debug)]
-pub enum SegmentsError {
-    #[error("bad segment id")]
-    BadSegmentId,
-    #[error("item relink failure")]
-    RelinkFailure,
-    #[error("no evictable segments")]
-    NoEvictableSegments,
-    #[error("evict failure")]
-    EvictFailure,
-}
-
-pub(crate) struct SegmentsBuilder {
-    heap_size: usize,
-    segment_size: i32,
-    evict_policy: Policy,
-    datapool_path: Option<PathBuf>,
-}
-
-impl Default for SegmentsBuilder {
-    fn default() -> Self {
-        Self {
-            segment_size: 1024 * 1024,
-            heap_size: 64 * 1024 * 1024,
-            evict_policy: Policy::Random,
-            datapool_path: None,
-        }
-    }
-}
-
-impl<'a> SegmentsBuilder {
-    pub fn segment_size(mut self, bytes: i32) -> Self {
-        #[cfg(not(feature = "magic"))]
-        assert!(bytes > ITEM_HDR_SIZE as i32);
-
-        #[cfg(feature = "magic")]
-        assert!(bytes >= ITEM_HDR_SIZE as i32 + ITEM_MAGIC_SIZE as i32);
-
-        self.segment_size = bytes;
-        self
-    }
-
-    pub fn heap_size(mut self, bytes: usize) -> Self {
-        self.heap_size = bytes;
-        self
-    }
-
-    pub fn eviction_policy(mut self, policy: Policy) -> Self {
-        self.evict_policy = policy;
-        self
-    }
-
-    pub fn datapool_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
-        self.datapool_path = path.map(|p| p.as_ref().to_owned());
-        self
-    }
-
-    pub fn build(self) -> Segments {
-        Segments::from_builder(self)
-    }
-}
 
 /// `Segments` contain all items within the cache. This struct is a collection
 /// of individual `Segment`s which are represented by a `SegmentHeader` and a
@@ -87,7 +21,7 @@ pub(crate) struct Segments {
     /// Pointer to slice of headers
     headers: Box<[SegmentHeader]>,
     /// Pointer to raw data
-    data: Box<dyn DataPool>,
+    data: Box<dyn Datapool>,
     /// Segment size in bytes
     segment_size: i32,
     /// Number of free segments
@@ -102,81 +36,10 @@ pub(crate) struct Segments {
     evict: Box<Eviction>,
 }
 
-pub trait DataPool: Send {
-    fn as_slice(&self) -> &[u8];
-    fn as_mut_slice(&mut self) -> &mut [u8];
-    fn flush(&self) -> Result<(), std::io::Error>;
-}
-
-pub struct FileAllocation {
-    mmap: MmapMut,
-    size: usize,
-}
-
-impl FileAllocation {
-    pub fn create<T: AsRef<Path>>(path: T, size: usize) -> Result<Self, std::io::Error> {
-        let file = OpenOptions::new()
-            .create_new(true)
-            .read(true)
-            .write(true)
-            .open(path)?;
-        file.set_len(size as u64)?;
-        let mmap = unsafe { MmapMut::map_mut(&file)? };
-        Ok(Self { mmap, size })
-    }
-}
-
-impl DataPool for FileAllocation {
-    fn as_slice(&self) -> &[u8] {
-        &self.mmap[..self.size]
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [u8] {
-        &mut self.mmap[..self.size]
-    }
-
-    fn flush(&self) -> Result<(), std::io::Error> {
-        self.mmap.flush()
-    }
-}
-
-pub struct MemoryAllocation {
-    data: Box<[u8]>,
-}
-
-impl MemoryAllocation {
-    pub fn create(size: usize) -> Self {
-        let data = vec![0; size];
-        let data = data.into_boxed_slice();
-
-        Self { data }
-    }
-}
-
-impl DataPool for MemoryAllocation {
-    fn as_slice(&self) -> &[u8] {
-        &self.data
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [u8] {
-        &mut self.data
-    }
-
-    fn flush(&self) -> Result<(), std::io::Error> {
-        Ok(())
-    }
-}
-
-impl Default for Segments {
-    fn default() -> Self {
-        Self::from_builder(Default::default())
-    }
-}
-
 impl Segments {
     /// Private function which allocates and initializes the `Segments` by
     /// taking ownership of the builder
-    fn from_builder(builder: SegmentsBuilder) -> Self {
+    pub(super) fn from_builder(builder: SegmentsBuilder) -> Self {
         let segment_size = builder.segment_size;
         let segments = builder.heap_size / (builder.segment_size as usize);
 
@@ -198,12 +61,12 @@ impl Segments {
 
         let heap_size = segments * segment_size as usize;
 
-        let mut data: Box<dyn DataPool> = if let Some(file) = builder.datapool_path {
-            let pool = FileAllocation::create(file, heap_size)
-                .expect("failed to allocate file backed storage");
+        let mut data: Box<dyn Datapool> = if let Some(file) = builder.datapool_path {
+            let pool =
+                File::create(file, heap_size).expect("failed to allocate file backed storage");
             Box::new(pool)
         } else {
-            Box::new(MemoryAllocation::create(heap_size))
+            Box::new(Memory::create(heap_size))
         };
 
         for idx in 0..segments {
@@ -1002,5 +865,11 @@ impl Segments {
         }
 
         Ok(next_id)
+    }
+}
+
+impl Default for Segments {
+    fn default() -> Self {
+        Self::from_builder(Default::default())
     }
 }

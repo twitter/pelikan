@@ -5,18 +5,21 @@
 //! Segments are the backing storage of the cache.
 
 use crate::*;
-use core::fmt::Debug;
 
 const SEG_MAGIC: u64 = 0xBADC0FFEEBADCAFE;
 
+mod builder;
+mod error;
 mod header;
 mod segment;
 #[allow(clippy::module_inception)]
 mod segments;
 
+pub(crate) use builder::SegmentsBuilder;
+pub(crate) use error::SegmentsError;
 pub(crate) use header::SegmentHeader;
 pub(crate) use segment::Segment;
-pub(crate) use segments::{Segments, SegmentsBuilder, SegmentsError};
+pub(crate) use segments::Segments;
 
 #[cfg(feature = "dump")]
 pub(crate) use segment::SegmentDump;

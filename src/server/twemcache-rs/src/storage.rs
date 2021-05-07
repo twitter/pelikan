@@ -2,18 +2,20 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use bytes::{Buf, BytesMut};
+//! The storage thread which owns the cache data in multi-worker mode.
+
+use crate::common::Message;
+use crate::protocol::data::*;
+use crate::request_processor::RequestProcessor;
+use crate::*;
+
+use bytes::BytesMut;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use metrics::Stat;
 use rtrb::*;
 
 use std::sync::Arc;
-
-use crate::common::Message;
-use crate::protocol::data::*;
-use crate::request_processor::RequestProcessor;
-use crate::*;
 
 const QUEUE_RETRIES: usize = 3;
 

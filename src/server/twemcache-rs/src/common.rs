@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Shared structs and helper functions.
+
 use crate::Config;
 
 use boring::ssl::{SslAcceptor, SslContext, SslFiletype, SslMethod};

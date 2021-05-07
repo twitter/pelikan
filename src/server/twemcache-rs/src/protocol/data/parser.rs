@@ -1,9 +1,13 @@
-use bytes::{BytesMut};
+// Copyright 2021 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
+//! Memcache data protocol parsing
+
+use bytes::BytesMut;
 use std::borrow::Borrow;
 
 use super::*;
-
-pub struct MemcacheParser;
 
 // TODO(bmartin): this should be lifted out into a common crate and shared
 // between different protocols
@@ -12,6 +16,9 @@ pub trait Parser {
 
     fn parse(buffer: &mut BytesMut) -> Result<Self::Request, ParseError>;
 }
+
+/// A struct for parsing memcache data protocol
+pub struct MemcacheParser;
 
 impl Parser for MemcacheParser {
     type Request = MemcacheRequest;
@@ -169,8 +176,8 @@ impl MemcacheParser {
                 return Err(ParseError::Invalid);
             }
 
-            if let Ok(Ok(bytes)) = std::str::from_utf8(&buf[(expiry_end + 1)..bytes_end])
-                .map(|v| v.parse::<usize>())
+            if let Ok(Ok(bytes)) =
+                std::str::from_utf8(&buf[(expiry_end + 1)..bytes_end]).map(|v| v.parse::<usize>())
             {
                 let consumed = first_crlf + CRLF_LEN + bytes + CRLF_LEN;
                 if buf.len() >= consumed {

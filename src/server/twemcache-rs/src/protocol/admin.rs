@@ -2,9 +2,15 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use bytes::{Buf, BytesMut};
+//! The memcache admin protocol
+
+// TODO(bmartin): we will replace the admin protocol and listener with a HTTP
+// listener in the future.
 
 use crate::protocol::{CRLF, CRLF_LEN};
+
+use bytes::BytesMut;
+
 use std::borrow::Borrow;
 
 // TODO(bmartin): see TODO for protocol::data::Request, this is cleaner here

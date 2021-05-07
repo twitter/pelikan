@@ -1,3 +1,9 @@
+// Copyright 2021 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
+//! Responses which are sent back to a client
+
 use bytes::BytesMut;
 use segcache::Item;
 
@@ -29,9 +35,7 @@ impl MemcacheResponse {
                         &format!(" {} {} {}", flags, item.value().len(), item.cas()).into_bytes(),
                     );
                 } else {
-                    buffer.extend(
-                        &format!(" {} {}", flags, item.value().len()).into_bytes(),
-                    );
+                    buffer.extend(&format!(" {} {}", flags, item.value().len()).into_bytes());
                 }
                 buffer.extend(CRLF);
                 buffer.extend(item.value());
