@@ -31,6 +31,8 @@ heap_size = 4294967296
 segment_size = 1048576
 # eviction policy is segment random, similar to slab random for Twemcache
 eviction = "Random"
+# optionally, set a file path to back the datapool
+# datapool_path = "/path/to/fast/storage/filename"
 
 [time]
 time_type = "Memcache"

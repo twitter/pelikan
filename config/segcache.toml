@@ -37,6 +37,8 @@ merge_target = 4
 merge_max = 8
 # use merge based eviction
 eviction = "Merge"
+# optionally, set a file path to back the datapool
+# datapool_path = "/path/to/fast/storage/filename"
 
 [time]
 time_type = "Memcache"

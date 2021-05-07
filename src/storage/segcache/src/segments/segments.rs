@@ -8,11 +8,15 @@ use crate::segments::segment::SegmentDump;
 use crate::eviction::*;
 use crate::item::*;
 use crate::segments::*;
-use core::num::NonZeroU32;
 
+use memmap::MmapMut;
 use metrics::Stat;
 use rustcommon_time::CoarseInstant as Instant;
 use thiserror::Error;
+
+use core::num::NonZeroU32;
+use std::fs::OpenOptions;
+use std::path::{Path, PathBuf};
 
 #[derive(Error, Debug)]
 pub enum SegmentsError {
@@ -30,6 +34,7 @@ pub(crate) struct SegmentsBuilder {
     heap_size: usize,
     segment_size: i32,
     evict_policy: Policy,
+    datapool_path: Option<PathBuf>,
 }
 
 impl Default for SegmentsBuilder {
@@ -38,6 +43,7 @@ impl Default for SegmentsBuilder {
             segment_size: 1024 * 1024,
             heap_size: 64 * 1024 * 1024,
             evict_policy: Policy::Random,
+            datapool_path: None,
         }
     }
 }
@@ -64,6 +70,11 @@ impl<'a> SegmentsBuilder {
         self
     }
 
+    pub fn datapool_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
+        self.datapool_path = path.map(|p| p.as_ref().to_owned());
+        self
+    }
+
     pub fn build(self) -> Segments {
         Segments::from_builder(self)
     }
@@ -76,7 +87,7 @@ pub(crate) struct Segments {
     /// Pointer to slice of headers
     headers: Box<[SegmentHeader]>,
     /// Pointer to raw data
-    data: Box<[u8]>,
+    data: Box<dyn DataPool>,
     /// Segment size in bytes
     segment_size: i32,
     /// Number of free segments
@@ -89,6 +100,73 @@ pub(crate) struct Segments {
     flush_at: CoarseInstant,
     /// Eviction configuration and state
     evict: Box<Eviction>,
+}
+
+pub trait DataPool: Send {
+    fn as_slice(&self) -> &[u8];
+    fn as_mut_slice(&mut self) -> &mut [u8];
+    fn flush(&self) -> Result<(), std::io::Error>;
+}
+
+pub struct FileAllocation {
+    mmap: MmapMut,
+    size: usize,
+}
+
+impl FileAllocation {
+    pub fn create<T: AsRef<Path>>(path: T, size: usize) -> Result<Self, std::io::Error> {
+        let file = OpenOptions::new()
+            .create_new(true)
+            .read(true)
+            .write(true)
+            .open(path)?;
+        file.set_len(size as u64)?;
+        let mmap = unsafe { MmapMut::map_mut(&file)? };
+        Ok(Self { mmap, size })
+    }
+}
+
+impl DataPool for FileAllocation {
+    fn as_slice(&self) -> &[u8] {
+        &self.mmap[..self.size]
+    }
+
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        &mut self.mmap[..self.size]
+    }
+
+    fn flush(&self) -> Result<(), std::io::Error> {
+        self.mmap.flush()
+    }
+}
+
+pub struct MemoryAllocation {
+    data: Box<[u8]>,
+}
+
+impl MemoryAllocation {
+    pub fn create(size: usize) -> Self {
+        let mut data = Vec::with_capacity(0);
+        data.reserve_exact(size);
+        data.resize(size, 0);
+        let data = data.into_boxed_slice();
+
+        Self { data }
+    }
+}
+
+impl DataPool for MemoryAllocation {
+    fn as_slice(&self) -> &[u8] {
+        &self.data
+    }
+
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        &mut self.data
+    }
+
+    fn flush(&self) -> Result<(), std::io::Error> {
+        Ok(())
+    }
 }
 
 impl Default for Segments {
@@ -121,16 +199,21 @@ impl Segments {
         let mut headers = headers.into_boxed_slice();
 
         let heap_size = segments * segment_size as usize;
-        let mut data = Vec::with_capacity(0);
-        data.reserve_exact(heap_size);
-        data.resize(heap_size, 0);
-        let mut data = data.into_boxed_slice();
+
+        let mut data: Box<dyn DataPool> = if let Some(file) = builder.datapool_path {
+            let pool = FileAllocation::create(file, heap_size)
+                .expect("failed to allocate file backed storage");
+            Box::new(pool)
+        } else {
+            Box::new(MemoryAllocation::create(heap_size))
+        };
 
         for idx in 0..segments {
             let begin = segment_size as usize * idx;
             let end = begin + segment_size as usize;
 
-            let mut segment = Segment::from_raw_parts(&mut headers[idx], &mut data[begin..end]);
+            let mut segment =
+                Segment::from_raw_parts(&mut headers[idx], &mut data.as_mut_slice()[begin..end]);
             segment.init();
 
             let id = idx as u32 + 1; // we index segments from 1
@@ -195,7 +278,7 @@ impl Segments {
         let seg_end = seg_begin + self.segment_size() as usize;
         let mut segment = Segment::from_raw_parts(
             &mut self.headers[seg_id as usize - 1],
-            &mut self.data[seg_begin..seg_end],
+            &mut self.data.as_mut_slice()[seg_begin..seg_end],
         );
 
         segment.get_item_at(offset)
@@ -291,12 +374,12 @@ impl Segments {
         if id < self.headers.len() {
             let header = self.headers.get_mut(id).unwrap();
 
-            // this is safe because we now know the id was within range
-            let data_ptr = unsafe { self.data.as_mut_ptr().add(self.segment_size as usize * id) };
-            let data =
-                unsafe { std::slice::from_raw_parts_mut(data_ptr, self.segment_size as usize) };
+            let seg_start = self.segment_size as usize * id;
+            let seg_end = self.segment_size as usize * (id + 1);
 
-            let segment = Segment::from_raw_parts(header, data);
+            let seg_data = &mut self.data.as_mut_slice()[seg_start..seg_end];
+
+            let segment = Segment::from_raw_parts(header, seg_data);
             segment.check_magic();
             Ok(segment)
         } else {
@@ -323,14 +406,34 @@ impl Segments {
             // we know that they are disjoint borrows and can safely return
             // mutable borrows to both the segments
             unsafe {
+                let seg_size = self.segment_size() as usize;
+
                 let header_a = &mut self.headers[a] as *mut _;
                 let header_b = &mut self.headers[b] as *mut _;
-                let data_ptr_a = self.data.as_mut_ptr().add(self.segment_size() as usize * a);
-                let data_ptr_b = self.data.as_mut_ptr().add(self.segment_size() as usize * b);
-                let data_a =
-                    std::slice::from_raw_parts_mut(data_ptr_a, self.segment_size() as usize);
-                let data_b =
-                    std::slice::from_raw_parts_mut(data_ptr_b, self.segment_size() as usize);
+
+                let data = self.data.as_mut_slice();
+
+                // split the borrowed data
+                let split = (std::cmp::min(a, b) + 1) * seg_size;
+                let (first, second) = data.split_at_mut(split);
+
+                let (data_a, data_b) = if a < b {
+                    let start_a = seg_size * a;
+                    let end_a = seg_size * (a + 1);
+
+                    let start_b = (seg_size * b) - first.len();
+                    let end_b = (seg_size * (b + 1)) - first.len();
+
+                    (&mut first[start_a..end_a], &mut second[start_b..end_b])
+                } else {
+                    let start_a = (seg_size * a) - first.len();
+                    let end_a = (seg_size * (a + 1)) - first.len();
+
+                    let start_b = seg_size * b;
+                    let end_b = seg_size * (b + 1);
+
+                    (&mut second[start_a..end_a], &mut first[start_b..end_b])
+                };
 
                 let segment_a = Segment::from_raw_parts(&mut *header_a, data_a);
                 let segment_b = Segment::from_raw_parts(&mut *header_b, data_b);

@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::path::{Path, PathBuf};
+
 use serde::{Deserialize, Serialize};
 
 const MB: usize = 1024 * 1024;
@@ -21,6 +23,9 @@ const EVICTION: Eviction = Eviction::Merge;
 const COMPACT_TARGET: usize = 2;
 const MERGE_TARGET: usize = 4;
 const MERGE_MAX: usize = 8;
+
+// datapool
+const DATAPOOL_PATH: Option<&str> = None;
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Eviction {
@@ -65,6 +70,10 @@ fn compact_target() -> usize {
     COMPACT_TARGET
 }
 
+fn datapool_path() -> Option<String> {
+    DATAPOOL_PATH.map(|v| v.to_string())
+}
+
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SegCacheConfig {
@@ -84,6 +93,8 @@ pub struct SegCacheConfig {
     merge_max: usize,
     #[serde(default = "compact_target")]
     compact_target: usize,
+    #[serde(default = "datapool_path")]
+    datapool_path: Option<String>,
 }
 
 impl Default for SegCacheConfig {
@@ -97,6 +108,7 @@ impl Default for SegCacheConfig {
             merge_target: merge_target(),
             merge_max: merge_max(),
             compact_target: compact_target(),
+            datapool_path: datapool_path(),
         }
     }
 }
@@ -133,5 +145,9 @@ impl SegCacheConfig {
 
     pub fn compact_target(&self) -> usize {
         self.compact_target
+    }
+
+    pub fn datapool_path(&self) -> Option<PathBuf> {
+        self.datapool_path.as_ref().map(|v| Path::new(v).to_owned())
     }
 }

@@ -40,6 +40,7 @@ impl RequestProcessor {
             .heap_size(config.segcache().heap_size())
             .segment_size(config.segcache().segment_size())
             .eviction(eviction)
+            .datapool_path(config.segcache().datapool_path())
             .build();
 
         Self { config, data }

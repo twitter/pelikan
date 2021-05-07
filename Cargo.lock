@@ -1359,6 +1359,7 @@ dependencies = [
  "ahash 0.6.3",
  "backtrace",
  "boring",
+ "bytes 1.0.1",
  "chrono",
  "config",
  "criterion",
@@ -1987,6 +1988,7 @@ version = "0.1.0"
 dependencies = [
  "ahash 0.7.2",
  "criterion",
+ "memmap",
  "metrics",
  "rand 0.8.3",
  "rand_chacha 0.3.0",

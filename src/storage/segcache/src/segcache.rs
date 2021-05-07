@@ -255,7 +255,7 @@ impl SegCache {
     /// // Delay and then trigger expiration
     /// std::thread::sleep(std::time::Duration::from_secs(6));
     /// cache.expire();
-    /// 
+    ///
     /// // And the expired item is not in the cache
     /// assert!(cache.get(b"coffee").is_none());
     /// ```
