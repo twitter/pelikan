@@ -66,7 +66,8 @@ impl Segments {
                 File::create(file, heap_size).expect("failed to allocate file backed storage");
             Box::new(pool)
         } else {
-            Box::new(Memory::create(heap_size))
+            // TODO(bmartin): we always prefault, this should be configurable
+            Box::new(Memory::create(heap_size, true))
         };
 
         for idx in 0..segments {

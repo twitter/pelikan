@@ -14,8 +14,16 @@ pub struct Memory {
 
 impl Memory {
     /// Create a new `Memory` datapool with the specified size (in bytes)
-    pub fn create(size: usize) -> Self {
-        let data = vec![0; size];
+    pub fn create(size: usize, prefault: bool) -> Self {
+        let data = if prefault {
+            let mut data = Vec::with_capacity(0);
+            data.reserve_exact(size);
+            data.resize(size, 0);
+            data
+        } else {
+            vec![0; size]
+        };
+
         let data = data.into_boxed_slice();
 
         Self { data }
