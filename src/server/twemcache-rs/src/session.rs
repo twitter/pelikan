@@ -2,12 +2,13 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::collections::VecDeque;
+use bytes::{Buf, BytesMut};
 use crate::*;
 
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
 use metrics::Stat;
 
+use std::borrow::Borrow;
 use std::io::{Error, ErrorKind, Read, Write};
 
 pub const MIN_BUFFER_SIZE: usize = 1024; // 1 KiB
@@ -87,8 +88,8 @@ pub struct Session {
     token: Token,
     addr: SocketAddr,
     stream: Option<Stream>,
-    pub read_buffer: VecDeque<u8>,
-    pub write_buffer: Option<VecDeque<u8>>,
+    pub read_buffer: BytesMut,
+    pub write_buffer: Option<BytesMut>,
     tmp_buffer: [u8; MIN_BUFFER_SIZE],
 }
 
@@ -115,8 +116,8 @@ impl Session {
             token: Token(0),
             addr,
             stream: Some(stream),
-            read_buffer: VecDeque::with_capacity(MIN_BUFFER_SIZE),
-            write_buffer: Some(VecDeque::with_capacity(MIN_BUFFER_SIZE)),
+            read_buffer: BytesMut::with_capacity(MIN_BUFFER_SIZE),
+            write_buffer: Some(BytesMut::with_capacity(MIN_BUFFER_SIZE)),
             tmp_buffer: [0; MIN_BUFFER_SIZE],
         }
     }
@@ -216,17 +217,12 @@ impl Session {
     pub fn flush(&mut self) -> Result<Option<usize>, std::io::Error> {
         if let Some(ref mut write_buffer) = self.write_buffer {
             increment_counter!(&Stat::SessionSend);
-            // note: this should be a no-op, but ensures we only need to worry
-            // about a single slice
-            write_buffer.make_contiguous();
             let write_result = match &mut self.stream {
                 Some(Stream::Plain(s)) => {
-                    let (a, _) = write_buffer.as_slices();
-                    s.write(a)
+                    s.write((*write_buffer).borrow())
                 },
                 Some(Stream::Tls(s)) => {
-                    let (a, _) = write_buffer.as_slices();
-                    s.write(a)
+                    s.write((*write_buffer).borrow())
                 },
                 Some(Stream::Handshaking(_)) => {
                     return Ok(None);
@@ -239,7 +235,7 @@ impl Session {
                 Ok(0) => Ok(Some(0)),
                 Ok(bytes) => {
                     increment_counter_by!(&Stat::SessionSendByte, bytes as u64);
-                    write_buffer.drain(0..bytes);
+                    let _ = write_buffer.split_to(bytes);
                     Ok(Some(bytes))
                 }
                 Err(e) => {
@@ -341,19 +337,21 @@ impl Session {
 
     /// Returns the number of bytes in the read buffer
     pub fn read_pending(&mut self) -> usize {
-        if self.read_buffer.capacity() > MIN_BUFFER_SIZE {
-            self.read_buffer.shrink_to_fit();
-        }
-        self.read_buffer.len()
+        let pending = self.read_buffer.len();
+        // if pending == 0 && self.read_buffer.capacity() > MIN_BUFFER_SIZE {
+        //     self.read_buffer.clear();
+        // }
+        pending
     }
 
     /// Returns the number of bytes in the write buffer
     pub fn write_pending(&mut self) -> usize {
         if let Some(ref mut write_buffer) = self.write_buffer {
-            if write_buffer.capacity() > MIN_BUFFER_SIZE {
-                write_buffer.shrink_to_fit();
-            }
-            write_buffer.len()
+            let pending = write_buffer.len();
+            // if pending == 0 && write_buffer.capacity() > MIN_BUFFER_SIZE {
+            //     self.read_buffer.clear();
+            // }
+            pending
         } else {
             0
         }

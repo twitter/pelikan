@@ -146,9 +146,7 @@ pub struct MemoryAllocation {
 
 impl MemoryAllocation {
     pub fn create(size: usize) -> Self {
-        let mut data = Vec::with_capacity(0);
-        data.reserve_exact(size);
-        data.resize(size, 0);
+        let data = vec![0; size];
         let data = data.into_boxed_slice();
 
         Self { data }

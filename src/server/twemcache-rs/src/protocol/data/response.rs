@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use bytes::BytesMut;
 use segcache::Item;
 
 use super::*;
@@ -14,7 +14,7 @@ pub enum MemcacheResponse {
 }
 
 impl MemcacheResponse {
-    pub fn serialize(self, buffer: &mut VecDeque<u8>) {
+    pub fn serialize(self, buffer: &mut BytesMut) {
         match self {
             Self::Deleted => buffer.extend(b"DELETED\r\n"),
             Self::End => buffer.extend(b"END\r\n"),

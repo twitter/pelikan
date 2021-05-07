@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::collections::VecDeque;
+use bytes::BytesMut;
 use crate::protocol::data::*;
 use crate::*;
 use config::segcache::Eviction;
@@ -50,7 +50,7 @@ impl RequestProcessor {
         self.data.expire();
     }
 
-    pub(crate) fn process(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
+    pub(crate) fn process(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
         match request.command() {
             MemcacheCommand::Get => self.process_get(request, write_buffer),
             MemcacheCommand::Gets => self.process_gets(request, write_buffer),
@@ -62,7 +62,7 @@ impl RequestProcessor {
         }
     }
 
-    fn process_get(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
+    fn process_get(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
         let mut total = 0;
         let mut found = 0;
         increment_counter!(&Stat::Get);
@@ -87,7 +87,7 @@ impl RequestProcessor {
         MemcacheResponse::End.serialize(write_buffer);
     }
 
-    fn process_gets(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
+    fn process_gets(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
         let mut total = 0;
         let mut found = 0;
         increment_counter!(&Stat::Gets);
@@ -112,7 +112,7 @@ impl RequestProcessor {
         MemcacheResponse::End.serialize(write_buffer);
     }
 
-    fn process_set(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
+    fn process_set(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
         increment_counter!(&Stat::Set);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
@@ -139,7 +139,7 @@ impl RequestProcessor {
         }
     }
 
-    fn process_add(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
+    fn process_add(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
         increment_counter!(&Stat::Add);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
@@ -168,7 +168,7 @@ impl RequestProcessor {
         }
     }
 
-    fn process_replace(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
+    fn process_replace(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
         increment_counter!(&Stat::Replace);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
@@ -197,7 +197,7 @@ impl RequestProcessor {
         }
     }
 
-    fn process_cas(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
+    fn process_cas(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
         increment_counter!(&Stat::Cas);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
@@ -237,7 +237,7 @@ impl RequestProcessor {
         }
     }
 
-    fn process_delete(&mut self, request: MemcacheRequest, write_buffer: &mut VecDeque<u8>) {
+    fn process_delete(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
         increment_counter!(&Stat::Delete);
         let reply = !request.noreply();
         let key = request.keys().next().unwrap();

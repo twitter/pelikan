@@ -1,4 +1,5 @@
-use std::collections::VecDeque;
+use bytes::BytesMut;
+use std::borrow::Borrow;
 use super::*;
 
 // TODO(bmartin): this should be lifted out into a common crate and shared
@@ -13,7 +14,7 @@ pub trait Request {
 /// The `MemcacheRequest` contains all the specific fields which represent a
 /// memcache request.
 pub struct MemcacheRequest {
-    pub(super) buffer: VecDeque<u8>,
+    pub(super) buffer: BytesMut,
     pub(super) command: MemcacheCommand,
     pub(super) consumed: usize,
     pub(super) keys: Vec<(usize, usize)>,
@@ -53,8 +54,8 @@ impl MemcacheRequest {
         if start == end {
             None
         } else {
-            let (a, _) = self.buffer.as_slices();
-            Some(&a[start..end])
+            let buf: &[u8] = self.buffer.borrow();
+            Some(&buf[start..end])
         }
     }
 
@@ -89,8 +90,8 @@ impl<'a> Iterator for KeyIter<'a> {
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         if let Some((start, end)) = self.request.keys.get(self.index) {
             self.index += 1;
-            let (a, _) = self.request.buffer.as_slices();
-            Some(&a[*start..*end])
+            let buf: &[u8] = self.request.buffer.borrow();
+            Some(&buf[*start..*end])
         } else {
             None
         }

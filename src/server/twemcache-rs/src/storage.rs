@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::collections::VecDeque;
+use bytes::{Buf, BytesMut};
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use metrics::Stat;
@@ -31,7 +31,7 @@ pub struct StorageMessage {
     pub request: Option<MemcacheRequest>,
     /// The session write buffer, responses will be written directly into the
     /// buffer
-    pub buffer: VecDeque<u8>,
+    pub buffer: BytesMut,
     /// The session's token, used to re-associate the buffer with the session
     /// when it is returned to the worker
     pub token: Token,

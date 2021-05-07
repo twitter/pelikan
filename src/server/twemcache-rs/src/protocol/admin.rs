@@ -2,8 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::collections::VecDeque;
+use bytes::{Buf, BytesMut};
+
 use crate::protocol::{CRLF, CRLF_LEN};
+use std::borrow::Borrow;
 
 // TODO(bmartin): see TODO for protocol::data::Request, this is cleaner here
 // since the variants are simple, but better to take the same approach in both
@@ -22,11 +24,8 @@ pub enum ParseError {
 }
 
 // TODO(bmartin): see corresponding TODO for protocol::data::parse()
-pub fn parse(buffer: &mut VecDeque<u8>) -> Result<Request, ParseError> {
-    // note: this should be a no-op, but ensures that we parse only a single
-    // slice
-    buffer.make_contiguous();
-    let (buf, _) = buffer.as_slices();
+pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
+    let buf: &[u8] = (*buffer).borrow();
 
     // check if we got a CRLF
     let mut double_byte_windows = buf.windows(CRLF_LEN);
@@ -44,15 +43,15 @@ pub fn parse(buffer: &mut VecDeque<u8>) -> Result<Request, ParseError> {
         } else {
             match &buf[0..command_end] {
                 b"stats" => {
-                    let _ = buffer.drain(0..(command_end + CRLF_LEN));
+                    let _ = buffer.split_to(command_end + CRLF_LEN);
                     Ok(Request::Stats)
                 }
                 b"quit" => {
-                    let _ = buffer.drain(0..(command_end + CRLF_LEN));
+                    let _ = buffer.split_to(command_end + CRLF_LEN);
                     Ok(Request::Quit)
                 }
                 b"version" => {
-                    let _ = buffer.drain(0..(command_end + CRLF_LEN));
+                    let _ = buffer.split_to(command_end + CRLF_LEN);
                     Ok(Request::Version)
                 }
                 _ => Err(ParseError::UnknownCommand),
@@ -71,16 +70,16 @@ mod tests {
     fn parse_incomplete() {
         let buffers: Vec<&[u8]> = vec![b"", b"stats", b"stats\r"];
         for buffer in buffers.iter() {
-            let mut b = VecDeque::new();
-            b.extend(*buffer);
+            let mut b = BytesMut::new();
+            b.extend_from_slice(*buffer);
             assert_eq!(parse(&mut b), Err(ParseError::Incomplete));
         }
     }
 
     #[test]
     fn parse_stats() {
-        let mut buffer = VecDeque::new();
-        buffer.extend(b"stats\r\n");
+        let mut buffer = BytesMut::new();
+        buffer.extend_from_slice(b"stats\r\n");
         let parsed = parse(&mut buffer);
         assert!(parsed.is_ok());
         assert_eq!(parsed, Ok(Request::Stats))
@@ -88,8 +87,8 @@ mod tests {
 
     #[test]
     fn parse_quit() {
-        let mut buffer = VecDeque::new();
-        buffer.extend(b"quit\r\n");
+        let mut buffer = BytesMut::new();
+        buffer.extend_from_slice(b"quit\r\n");
         let parsed = parse(&mut buffer);
         assert!(parsed.is_ok());
         assert_eq!(parsed, Ok(Request::Quit))
