@@ -17,17 +17,23 @@ pub trait Request {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct Index {
+    start: usize,
+    end: usize,
+}
+
+#[derive(Debug, PartialEq)]
 /// The `MemcacheRequest` contains all the specific fields which represent a
 /// memcache request.
 pub struct MemcacheRequest {
     pub(super) buffer: BytesMut,
     pub(super) command: MemcacheCommand,
     pub(super) consumed: usize,
-    pub(super) keys: Vec<(usize, usize)>,
+    pub(super) keys: Vec<Index>,
     pub(super) noreply: bool,
     pub(super) expiry: u32,
     pub(super) flags: u32,
-    pub(super) value: (usize, usize),
+    pub(super) value: Index,
     pub(super) cas: u64,
 }
 
@@ -55,8 +61,8 @@ impl MemcacheRequest {
 
     /// The associated value for the request
     pub fn value(&self) -> Option<&[u8]> {
-        let start = self.value.0;
-        let end = self.value.1;
+        let start = self.value.start;
+        let end = self.value.end;
         if start == end {
             None
         } else {
@@ -94,10 +100,10 @@ pub struct KeyIter<'a> {
 impl<'a> Iterator for KeyIter<'a> {
     type Item = &'a [u8];
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
-        if let Some((start, end)) = self.request.keys.get(self.index) {
+        if let Some(key_index) = self.request.keys.get(self.index) {
             self.index += 1;
             let buf: &[u8] = self.request.buffer.borrow();
-            Some(&buf[*start..*end])
+            Some(&buf[key_index.start..key_index.end])
         } else {
             None
         }
