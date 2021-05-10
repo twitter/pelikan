@@ -29,7 +29,7 @@ default = []
 
 [dependencies]
 ahash = "0.7.2"
-memmap = "*"
+memmap = "0.7.0"
 metrics = { path = "../../rust/metrics" }
 rand = { version = "0.8.3", features = ["small_rng", "getrandom"] }
 rand_xoshiro = { version = "0.6.0" }
