@@ -45,6 +45,9 @@ impl Write for TcpStream {
     fn write(&mut self, buf: &[u8]) -> std::result::Result<usize, std::io::Error> {
         let result = self.inner.write(buf);
         if let Ok(bytes) = result {
+            if bytes != buf.len() {
+                increment_counter!(&Stat::TcpSendPartial);
+            }
             increment_counter_by!(&Stat::TcpSendByte, bytes as u64);
         }
         result

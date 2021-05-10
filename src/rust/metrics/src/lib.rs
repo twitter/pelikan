@@ -102,6 +102,7 @@ pub enum Stat {
     TcpSend,
     TcpSendByte,
     TcpSendEx,
+    TcpSendPartial,
     WorkerEventError,
     WorkerEventLoop,
     WorkerEventRead,
