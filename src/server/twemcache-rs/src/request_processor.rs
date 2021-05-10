@@ -71,7 +71,14 @@ impl RequestProcessor {
         increment_counter!(&Stat::Get);
         for key in request.keys() {
             if let Some(item) = self.data.get(key) {
-                let response = MemcacheResponse::Item { item, cas: false };
+                let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
+                let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
+                let response = MemcacheResponse::Item {
+                    key: item.key(),
+                    value: item.value(),
+                    flags,
+                    cas: None,
+                };
                 response.serialize(write_buffer);
                 found += 1;
             }
@@ -96,7 +103,14 @@ impl RequestProcessor {
         increment_counter!(&Stat::Gets);
         for key in request.keys() {
             if let Some(item) = self.data.get(key) {
-                let response = MemcacheResponse::Item { item, cas: true };
+                let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
+                let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
+                let response = MemcacheResponse::Item {
+                    key: item.key(),
+                    value: item.value(),
+                    flags,
+                    cas: Some(item.cas()),
+                };
                 response.serialize(write_buffer);
                 found += 1;
             }

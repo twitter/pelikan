@@ -11,6 +11,8 @@ use super::*;
 
 // TODO(bmartin): this should be lifted out into a common crate and shared
 // between different protocols
+// TODO(bmartin): add response parsing as well so this can be shared between
+// both client and server implementations
 pub trait Parser {
     type Request: Request;
 
