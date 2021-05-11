@@ -18,8 +18,8 @@ pub trait Request {
 
 #[derive(Debug, PartialEq)]
 pub struct Index {
-    start: usize,
-    end: usize,
+    pub start: usize,
+    pub end: usize,
 }
 
 #[derive(Debug, PartialEq)]
