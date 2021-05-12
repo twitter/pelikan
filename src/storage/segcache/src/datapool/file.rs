@@ -6,7 +6,7 @@
 //! storage on persistent memory (PMEM) and fast NVMe drives.
 
 use crate::datapool::Datapool;
-use memmap::MmapMut;
+use memmap2::{MmapMut, MmapOptions};
 
 use std::fs::OpenOptions;
 use std::path::Path;
@@ -29,7 +29,7 @@ impl File {
             .write(true)
             .open(path)?;
         file.set_len(size as u64)?;
-        let mmap = unsafe { MmapMut::map_mut(&file)? };
+        let mmap = unsafe { MmapOptions::new().populate().map_mut(&file)? };
         Ok(Self { mmap, size })
     }
 }
