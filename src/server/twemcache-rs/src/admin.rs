@@ -5,12 +5,12 @@
 //! The admin thread, which handles admin requests to return stats, get version
 //! info, etc.
 
+use crate::common::Queue;
 use crate::event_loop::EventLoop;
 use crate::protocol::admin::*;
 use crate::session::*;
 use crate::*;
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
+
 use metrics::Stat;
 
 use rustcommon_fastmetrics::{Metric, Source};
@@ -34,8 +34,7 @@ pub struct Admin {
     poll: Poll,
     ssl_context: Option<SslContext>,
     sessions: Slab<Session>,
-    message_receiver: Receiver<Message>,
-    message_sender: Sender<Message>,
+    signal_queue: Queue<Signal>,
 }
 
 impl Admin {
@@ -73,7 +72,7 @@ impl Admin {
 
         let sessions = Slab::<Session>::new();
 
-        let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
+        let signal_queue = Queue::new(128);
 
         Ok(Self {
             addr,
@@ -82,8 +81,7 @@ impl Admin {
             poll,
             ssl_context,
             sessions,
-            message_sender,
-            message_receiver,
+            signal_queue,
         })
     }
 
@@ -234,11 +232,11 @@ impl Admin {
                 }
             }
 
-            // poll queue to receive new messages
+            // poll queue to receive new signals
             #[allow(clippy::never_loop)]
-            while let Ok(message) = self.message_receiver.try_recv() {
-                match message {
-                    Message::Shutdown => {
+            while let Ok(signal) = self.signal_queue.try_recv() {
+                match signal {
+                    Signal::Shutdown => {
                         return;
                     }
                 }
@@ -250,8 +248,8 @@ impl Admin {
 
     /// Returns a `SyncSender` which can be used to send `Message`s to the
     /// `Admin` component.
-    pub fn message_sender(&self) -> Sender<Message> {
-        self.message_sender.clone()
+    pub fn signal_sender(&self) -> Sender<Signal> {
+        self.signal_queue.sender()
     }
 
     // TODO(bmartin): move this into a common module, should be shared with

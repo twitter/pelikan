@@ -1,13 +1,10 @@
-
+use crate::common::Signal;
 use crate::protocol::data::MemcacheRequest;
 use crate::protocol::data::MemcacheResponse;
-use crate::common::Message;
-use crate::storage::*;
 use crate::protocol::traits::*;
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
-use metrics::Stat;
+use crate::storage::*;
 
+use metrics::Stat;
 
 use std::sync::Arc;
 
@@ -24,8 +21,7 @@ pub struct Storage {
     config: Arc<Config>,
     poll: Poll,
     storage: SegCacheStorage,
-    message_receiver: Receiver<Message>,
-    message_sender: Sender<Message>,
+    signal_queue: Queue<Signal>,
     waker: Arc<Waker>,
     worker_sender: Vec<Producer<ResponseMessage<MemcacheResponse>>>,
     worker_receiver: Vec<Consumer<RequestMessage<MemcacheRequest>>>,
@@ -35,7 +31,7 @@ pub struct Storage {
 impl Storage {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(config: Arc<Config>) -> Result<Self, std::io::Error> {
-        let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
+        let signal_queue = Queue::new(128);
 
         let storage = SegCacheStorage::new(config.clone());
 
@@ -50,8 +46,7 @@ impl Storage {
             config,
             poll,
             storage,
-            message_receiver,
-            message_sender,
+            signal_queue,
             waker,
             worker_sender: Vec::new(),
             worker_receiver: Vec::new(),
@@ -155,9 +150,9 @@ impl Storage {
 
             // poll queue to receive new messages
             #[allow(clippy::never_loop)]
-            while let Ok(message) = self.message_receiver.try_recv() {
-                match message {
-                    Message::Shutdown => {
+            while let Ok(s) = self.signal_queue.try_recv() {
+                match s {
+                    Signal::Shutdown => {
                         return;
                     }
                 }
@@ -165,7 +160,7 @@ impl Storage {
         }
     }
 
-    pub fn message_sender(&self) -> Sender<Message> {
-        self.message_sender.clone()
+    pub fn signal_sender(&self) -> Sender<Signal> {
+        self.signal_queue.sender()
     }
 }

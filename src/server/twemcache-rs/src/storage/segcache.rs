@@ -1,21 +1,50 @@
-use crate::protocol::traits::Execute;
-use std::time::SystemTime;
 use crate::protocol::data::*;
+use crate::protocol::traits::Execute;
 use crate::*;
-use segcache::*;
 use config::segcache::Eviction;
 use config::TimeType;
 use metrics::*;
 use rustcommon_time::CoarseDuration;
+use segcache::*;
+use std::time::SystemTime;
 
 pub trait MemcacheStorage {
     fn get(&mut self, keys: &[&[u8]]) -> MemcacheResponse;
     fn gets(&mut self, keys: &[&[u8]]) -> MemcacheResponse;
-    fn set(&mut self, key: &[u8], value: Option<&[u8]>, flags: u32, expiry: u32, noreply: bool) -> MemcacheResponse;
-    fn add(&mut self, key: &[u8], value: Option<&[u8]>, flags: u32, expiry: u32, noreply: bool) -> MemcacheResponse;
-    fn replace(&mut self, key: &[u8], value: Option<&[u8]>, flags: u32, expiry: u32, noreply: bool) -> MemcacheResponse;
+    fn set(
+        &mut self,
+        key: &[u8],
+        value: Option<&[u8]>,
+        flags: u32,
+        expiry: u32,
+        noreply: bool,
+    ) -> MemcacheResponse;
+    fn add(
+        &mut self,
+        key: &[u8],
+        value: Option<&[u8]>,
+        flags: u32,
+        expiry: u32,
+        noreply: bool,
+    ) -> MemcacheResponse;
+    fn replace(
+        &mut self,
+        key: &[u8],
+        value: Option<&[u8]>,
+        flags: u32,
+        expiry: u32,
+        noreply: bool,
+    ) -> MemcacheResponse;
     fn delete(&mut self, key: &[u8], noreply: bool) -> MemcacheResponse;
-    fn cas(&mut self, key: &[u8], value: Option<&[u8]>, flags: u32, expiry: u32, noreply: bool, cas: u64) -> MemcacheResponse;
+    fn cas(
+        &mut self,
+        key: &[u8],
+        value: Option<&[u8]>,
+        flags: u32,
+        expiry: u32,
+        noreply: bool,
+        cas: u64,
+    ) -> MemcacheResponse;
 }
 
 impl<T: MemcacheStorage> Execute<MemcacheRequest> for T {
@@ -33,15 +62,33 @@ impl<T: MemcacheStorage> Execute<MemcacheRequest> for T {
             }
             MemcacheCommand::Set => {
                 let key = request.keys().next().unwrap();
-                self.set(key, request.value(), request.flags(), request.expiry(), request.noreply())
+                self.set(
+                    key,
+                    request.value(),
+                    request.flags(),
+                    request.expiry(),
+                    request.noreply(),
+                )
             }
             MemcacheCommand::Add => {
                 let key = request.keys().next().unwrap();
-                self.add(key, request.value(), request.flags(), request.expiry(), request.noreply())
+                self.add(
+                    key,
+                    request.value(),
+                    request.flags(),
+                    request.expiry(),
+                    request.noreply(),
+                )
             }
             MemcacheCommand::Replace => {
                 let key = request.keys().next().unwrap();
-                self.replace(key, request.value(), request.flags(), request.expiry(), request.noreply())
+                self.replace(
+                    key,
+                    request.value(),
+                    request.flags(),
+                    request.expiry(),
+                    request.noreply(),
+                )
             }
             MemcacheCommand::Delete => {
                 let key = request.keys().next().unwrap();
@@ -49,13 +96,18 @@ impl<T: MemcacheStorage> Execute<MemcacheRequest> for T {
             }
             MemcacheCommand::Cas => {
                 let key = request.keys().next().unwrap();
-                self.cas(key, request.value(), request.flags(), request.expiry(), request.noreply(), request.cas())
+                self.cas(
+                    key,
+                    request.value(),
+                    request.flags(),
+                    request.expiry(),
+                    request.noreply(),
+                    request.cas(),
+                )
             }
         }
     }
 }
-
-
 
 /// A wrapper type to construct storage and perform any config-sensitive
 /// processing
@@ -168,7 +220,14 @@ impl MemcacheStorage for SegCacheStorage {
         MemcacheResponse::Items(items.into_boxed_slice())
     }
 
-    fn set(&mut self, key: &[u8], value: Option<&[u8]>, flags: u32, expiry: u32, noreply: bool) -> MemcacheResponse {
+    fn set(
+        &mut self,
+        key: &[u8],
+        value: Option<&[u8]>,
+        flags: u32,
+        expiry: u32,
+        noreply: bool,
+    ) -> MemcacheResponse {
         increment_counter!(&Stat::Set);
         let ttl = self.get_ttl(expiry);
         let value = value.unwrap_or(b"");
@@ -197,7 +256,14 @@ impl MemcacheStorage for SegCacheStorage {
         }
     }
 
-    fn add(&mut self, key: &[u8], value: Option<&[u8]>, flags: u32, expiry: u32, noreply: bool) -> MemcacheResponse {
+    fn add(
+        &mut self,
+        key: &[u8],
+        value: Option<&[u8]>,
+        flags: u32,
+        expiry: u32,
+        noreply: bool,
+    ) -> MemcacheResponse {
         increment_counter!(&Stat::Add);
         let ttl = self.get_ttl(expiry);
         let value = value.unwrap_or(b"");
@@ -228,7 +294,14 @@ impl MemcacheStorage for SegCacheStorage {
         }
     }
 
-    fn replace(&mut self, key: &[u8], value: Option<&[u8]>, flags: u32, expiry: u32, noreply: bool) -> MemcacheResponse {
+    fn replace(
+        &mut self,
+        key: &[u8],
+        value: Option<&[u8]>,
+        flags: u32,
+        expiry: u32,
+        noreply: bool,
+    ) -> MemcacheResponse {
         increment_counter!(&Stat::Replace);
         let ttl = self.get_ttl(expiry);
         let value = value.unwrap_or(b"");
@@ -278,8 +351,15 @@ impl MemcacheStorage for SegCacheStorage {
         }
     }
 
-
-    fn cas(&mut self, key: &[u8], value: Option<&[u8]>, flags: u32, expiry: u32, noreply: bool, cas: u64) ->MemcacheResponse {
+    fn cas(
+        &mut self,
+        key: &[u8],
+        value: Option<&[u8]>,
+        flags: u32,
+        expiry: u32,
+        noreply: bool,
+        cas: u64,
+    ) -> MemcacheResponse {
         increment_counter!(&Stat::Cas);
         let ttl = self.get_ttl(expiry);
         let value = value.unwrap_or(b"");
@@ -325,4 +405,3 @@ impl MemcacheStorage for SegCacheStorage {
         }
     }
 }
-

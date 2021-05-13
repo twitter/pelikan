@@ -10,8 +10,46 @@ use boring::ssl::{SslAcceptor, SslContext, SslFiletype, SslMethod};
 
 use std::sync::Arc;
 
-pub enum Message {
+#[derive(Clone)]
+pub enum Signal {
     Shutdown,
+}
+
+pub struct Queue<T> {
+    send: crossbeam_channel::Sender<T>,
+    recv: crossbeam_channel::Receiver<T>,
+}
+
+#[derive(Clone)]
+pub struct Sender<T> {
+    send: crossbeam_channel::Sender<T>,
+}
+
+impl<T> Sender<T> {
+    pub fn send(&self, msg: T) -> Result<(), crossbeam_channel::SendError<T>>{
+        self.send.send(msg)
+    }
+
+    pub fn try_send(&self, msg: T) -> Result<(), crossbeam_channel::TrySendError<T>> {
+        self.send.try_send(msg)
+    }
+}
+
+impl<T> Queue<T> {
+    pub fn new(size: usize) -> Self {
+        let (send, recv) = crossbeam_channel::bounded(size);
+        Self { send, recv }
+    }
+
+    pub fn try_recv(&self) -> Result<T, crossbeam_channel::TryRecvError> {
+        self.recv.try_recv()
+    }
+
+    pub fn sender(&self) -> Sender<T> {
+        Sender {
+            send: self.send.clone()
+        }
+    }
 }
 
 pub fn ssl_context(config: &Arc<Config>) -> Result<Option<SslContext>, std::io::Error> {

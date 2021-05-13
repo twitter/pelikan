@@ -6,13 +6,13 @@
 //! the config. Parsed requests are dispatched to the [`Storage`] thread for
 //! handling.
 
+use crate::common::Queue;
 use crate::storage::StorageWorker;
-use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
 use mio::event::Event;
 use rtrb::PushError;
 
-use crate::common::Message;
+use crate::common::Signal;
 use crate::event_loop::EventLoop;
 use crate::protocol::data::*;
 use crate::session::*;
@@ -31,11 +31,9 @@ const QUEUE_RETRIES: usize = 3;
 /// the `Storage` thread.
 pub struct MultiWorker {
     config: Arc<Config>,
-    message_receiver: Receiver<Message>,
-    message_sender: Sender<Message>,
+    signal_queue: Queue<Signal>,
     poll: Poll,
-    session_receiver: Receiver<Session>,
-    session_sender: Sender<Session>,
+    session_queue: Queue<Session>,
     sessions: Slab<Session>,
     storage_queue: StorageQueue<MemcacheRequest, MemcacheResponse>,
     wake_storage: bool,
@@ -53,16 +51,14 @@ impl MultiWorker {
         let waker = Waker::new(poll.registry(), Token(usize::MAX)).unwrap();
         let storage_queue = storage.add_queue(waker);
 
-        let (session_sender, session_receiver) = crossbeam_channel::bounded(128);
-        let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
+        let session_queue = Queue::new(128);
+        let signal_queue = Queue::new(128);
 
         Ok(Self {
             config,
             poll,
-            message_receiver,
-            message_sender,
-            session_receiver,
-            session_sender,
+            signal_queue,
+            session_queue,
             sessions,
             storage_queue,
             wake_storage: false,
@@ -104,9 +100,9 @@ impl MultiWorker {
 
             // poll queue to receive new messages
             #[allow(clippy::never_loop)]
-            while let Ok(message) = self.message_receiver.try_recv() {
-                match message {
-                    Message::Shutdown => {
+            while let Ok(s) = self.signal_queue.try_recv() {
+                match s {
+                    Signal::Shutdown => {
                         return;
                     }
                 }
@@ -229,7 +225,7 @@ impl MultiWorker {
     }
 
     fn handle_new_sessions(&mut self) {
-        while let Ok(mut session) = self.session_receiver.try_recv() {
+        while let Ok(mut session) = self.session_queue.try_recv() {
             let pending = session.read_pending();
             trace!("{} bytes pending in rx buffer for new session", pending);
 
@@ -258,12 +254,12 @@ impl MultiWorker {
         }
     }
 
-    pub fn message_sender(&self) -> Sender<Message> {
-        self.message_sender.clone()
+    pub fn signal_sender(&self) -> Sender<Signal> {
+        self.signal_queue.sender()
     }
 
     pub fn session_sender(&self) -> Sender<Session> {
-        self.session_sender.clone()
+        self.session_queue.sender()
     }
 }
 

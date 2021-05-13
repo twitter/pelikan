@@ -6,12 +6,12 @@
 //! thread configured. This worker parsed requests and handles request
 //! processing.
 
+use crate::common::Queue;
 use crate::storage::SegCacheStorage;
-use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
 use mio::event::Event;
 
-use crate::common::Message;
+use crate::common::Signal;
 use crate::event_loop::EventLoop;
 use crate::protocol::data::*;
 use crate::protocol::traits::*;
@@ -25,12 +25,10 @@ use std::sync::Arc;
 pub struct SingleWorker {
     storage: SegCacheStorage,
     config: Arc<Config>,
-    message_receiver: Receiver<Message>,
-    message_sender: Sender<Message>,
     poll: Poll,
-    session_receiver: Receiver<Session>,
-    session_sender: Sender<Session>,
+    session_queue: Queue<Session>,
     sessions: Slab<Session>,
+    signal_queue: Queue<Signal>,
 }
 
 impl SingleWorker {
@@ -42,8 +40,8 @@ impl SingleWorker {
         })?;
         let sessions = Slab::<Session>::new();
 
-        let (session_sender, session_receiver) = crossbeam_channel::bounded(128);
-        let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
+        let session_queue = Queue::new(128);
+        let signal_queue = Queue::new(128);
 
         let storage = SegCacheStorage::new(config.clone());
 
@@ -51,10 +49,8 @@ impl SingleWorker {
             config,
             poll,
             storage,
-            message_receiver,
-            message_sender,
-            session_receiver,
-            session_sender,
+            signal_queue,
+            session_queue,
             sessions,
         })
     }
@@ -94,11 +90,11 @@ impl SingleWorker {
             // poll queue to receive new sessions
             self.handle_new_sessions();
 
-            // poll queue to receive new messages
+            // poll queue to receive new signals
             #[allow(clippy::never_loop)]
-            while let Ok(message) = self.message_receiver.try_recv() {
-                match message {
-                    Message::Shutdown => {
+            while let Ok(signal) = self.signal_queue.try_recv() {
+                match signal {
+                    Signal::Shutdown => {
                         return;
                     }
                 }
@@ -107,7 +103,7 @@ impl SingleWorker {
     }
 
     fn handle_new_sessions(&mut self) {
-        while let Ok(mut session) = self.session_receiver.try_recv() {
+        while let Ok(mut session) = self.session_queue.try_recv() {
             let pending = session.read_pending();
             trace!("{} bytes pending in rx buffer for new session", pending);
 
@@ -188,12 +184,12 @@ impl SingleWorker {
         }
     }
 
-    pub fn message_sender(&self) -> Sender<Message> {
-        self.message_sender.clone()
+    pub fn signal_sender(&self) -> Sender<Signal> {
+        self.signal_queue.sender()
     }
 
     pub fn session_sender(&self) -> Sender<Session> {
-        self.session_sender.clone()
+        self.session_queue.sender()
     }
 }
 

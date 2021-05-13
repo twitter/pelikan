@@ -8,8 +8,9 @@ extern crate rustcommon_logger;
 #[macro_use]
 extern crate rustcommon_fastmetrics;
 
+use crate::common::Sender;
+use crate::common::Queue;
 use config::TwemcacheConfig as Config;
-use crossbeam_channel::Sender;
 use mio::*;
 use slab::Slab;
 
@@ -27,7 +28,7 @@ mod storage;
 mod worker;
 
 use crate::admin::Admin;
-use crate::common::Message;
+use crate::common::Signal;
 use crate::server::Server;
 use crate::session::Session;
 use crate::storage::StorageWorker;
@@ -56,17 +57,17 @@ impl WorkerBuilder {
         }
     }
 
-    fn message_senders(&self) -> Vec<Sender<Message>> {
+    fn signal_senders(&self) -> Vec<Sender<Signal>> {
         let mut senders = Vec::new();
         match self {
             Self::Single { worker } => {
-                senders.push(worker.message_sender());
+                senders.push(worker.signal_sender());
             }
             Self::Multi { storage, workers } => {
                 for worker in workers {
-                    senders.push(worker.message_sender());
+                    senders.push(worker.signal_sender());
                 }
-                senders.push(storage.message_sender());
+                senders.push(storage.signal_sender());
             }
         }
         senders
@@ -125,7 +126,7 @@ impl Default for TwemcacheBuilder {
 /// to call `shutdown()` to terminate the threads and block until termination.
 pub struct Twemcache {
     threads: Vec<JoinHandle<()>>,
-    message_senders: Vec<Sender<Message>>,
+    signal_senders: Vec<Sender<Signal>>,
 }
 
 impl TwemcacheBuilder {
@@ -201,9 +202,9 @@ impl TwemcacheBuilder {
     /// to block until the threads have exited or trigger a shutdown.
     pub fn spawn(self) -> Twemcache {
         // get message senders for each component
-        let mut message_senders = vec![self.server.message_sender()];
-        message_senders.extend_from_slice(&self.worker.message_senders());
-        message_senders.push(self.admin.message_sender());
+        let mut signal_senders = vec![self.server.signal_sender()];
+        signal_senders.extend_from_slice(&self.worker.signal_senders());
+        signal_senders.push(self.admin.signal_sender());
 
         // temporary bindings to prevent borrow-checker issues
         let mut admin = self.admin;
@@ -228,7 +229,7 @@ impl TwemcacheBuilder {
         // return a `Twemcache`
         Twemcache {
             threads,
-            message_senders,
+            signal_senders,
         }
     }
 }
@@ -242,9 +243,9 @@ impl Twemcache {
     ///
     /// This function will block until all threads have terminated.
     pub fn shutdown(self) {
-        for sender in &self.message_senders {
-            if sender.send(Message::Shutdown).is_err() {
-                fatal!("error sending shutdown message to thread");
+        for sender in &self.signal_senders {
+            if sender.send(Signal::Shutdown).is_err() {
+                fatal!("error sending shutdown signal to thread");
             }
         }
 

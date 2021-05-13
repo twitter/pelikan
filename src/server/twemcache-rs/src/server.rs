@@ -5,12 +5,13 @@
 //! The server thread which accepts new connections, handles TLS handshaking,
 //! and sends established sessions to the worker thread(s).
 
+use crossbeam_channel::SendError;
+use crate::common::Queue;
 use crate::event_loop::EventLoop;
 use crate::session::*;
 use crate::*;
 
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
-use crossbeam_channel::{Receiver, SendError, Sender};
 use metrics::Stat;
 use mio::event::Event;
 use mio::net::TcpListener;
@@ -31,8 +32,7 @@ pub struct Server {
     next_sender: usize,
     ssl_context: Option<SslContext>,
     sessions: Slab<Session>,
-    message_receiver: Receiver<Message>,
-    message_sender: Sender<Message>,
+    signal_queue: Queue<Signal>,
 }
 
 impl Server {
@@ -54,7 +54,7 @@ impl Server {
 
         let ssl_context = crate::common::ssl_context(&config)?;
 
-        let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
+        let signal_queue = Queue::new(128);
 
         // register listener to event loop
         poll.registry()
@@ -78,8 +78,7 @@ impl Server {
             next_sender: 0,
             ssl_context,
             sessions,
-            message_sender,
-            message_receiver,
+            signal_queue,
         })
     }
 
@@ -261,11 +260,11 @@ impl Server {
                 }
             }
 
-            // poll queue to receive new messages
+            // poll queue to receive new signals
             #[allow(clippy::never_loop)]
-            while let Ok(message) = self.message_receiver.try_recv() {
-                match message {
-                    Message::Shutdown => {
+            while let Ok(signal) = self.signal_queue.try_recv() {
+                match signal {
+                    Signal::Shutdown => {
                         return;
                     }
                 }
@@ -273,8 +272,8 @@ impl Server {
         }
     }
 
-    pub fn message_sender(&self) -> Sender<Message> {
-        self.message_sender.clone()
+    pub fn signal_sender(&self) -> Sender<Signal> {
+        self.signal_queue.sender()
     }
 }
 
