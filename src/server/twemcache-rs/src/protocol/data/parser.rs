@@ -78,14 +78,23 @@ impl MemcacheParser {
         loop {
             if let Some(key_end) = single_byte.position(|w| w == b" ") {
                 if key_end < line_end {
-                    keys.push(Index { start: previous, end: key_end });
+                    keys.push(Index {
+                        start: previous,
+                        end: key_end,
+                    });
                     previous = key_end + 1;
                 } else {
-                    keys.push(Index { start: previous, end: line_end });
+                    keys.push(Index {
+                        start: previous,
+                        end: line_end,
+                    });
                     break;
                 }
             } else {
-                keys.push(Index { start: previous, end: line_end });
+                keys.push(Index {
+                    start: previous,
+                    end: line_end,
+                });
                 break;
             }
         }
@@ -188,12 +197,18 @@ impl MemcacheParser {
                     Ok(MemcacheRequest {
                         buffer,
                         command: MemcacheCommand::Set,
-                        keys: vec![Index { start: (cmd_end + 1), end: key_end }],
+                        keys: vec![Index {
+                            start: (cmd_end + 1),
+                            end: key_end,
+                        }],
                         consumed,
                         noreply,
                         expiry,
                         flags,
-                        value: Index { start: (first_crlf + CRLF_LEN), end: (first_crlf + CRLF_LEN + bytes) },
+                        value: Index {
+                            start: (first_crlf + CRLF_LEN),
+                            end: (first_crlf + CRLF_LEN + bytes),
+                        },
                         cas: 0,
                     })
                 } else {
@@ -306,12 +321,18 @@ impl MemcacheParser {
                     buffer,
                     consumed,
                     command: MemcacheCommand::Cas,
-                    keys: vec![Index { start: (cmd_end + 1), end: key_end }],
+                    keys: vec![Index {
+                        start: (cmd_end + 1),
+                        end: key_end,
+                    }],
                     flags,
                     expiry,
                     noreply,
                     cas,
-                    value: Index { start: (first_crlf + CRLF_LEN), end: (first_crlf + CRLF_LEN + bytes) },
+                    value: Index {
+                        start: (first_crlf + CRLF_LEN),
+                        end: (first_crlf + CRLF_LEN + bytes),
+                    },
                 })
             } else {
                 // buffer doesn't have all the bytes for the value yet
@@ -367,7 +388,10 @@ impl MemcacheParser {
             buffer,
             command: MemcacheCommand::Delete,
             consumed,
-            keys: vec![Index { start: (cmd_end + 1), end: key_end }],
+            keys: vec![Index {
+                start: (cmd_end + 1),
+                end: key_end,
+            }],
             noreply,
             cas: 0,
             expiry: 0,

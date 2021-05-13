@@ -27,7 +27,7 @@ pub use command::MemcacheCommand;
 pub use error::ParseError;
 pub use parser::{MemcacheParser, Parser};
 pub use request::{MemcacheRequest, Request};
-pub use response::MemcacheResponse;
+pub use response::{MemcacheItem, MemcacheResponse};
 
 #[cfg(test)]
 mod tests {

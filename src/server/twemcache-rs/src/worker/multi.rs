@@ -21,6 +21,9 @@ use crate::*;
 use std::convert::TryInto;
 use std::sync::Arc;
 
+// TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
+// full, and a single wakeup should drain at least one message and make room for
+// the request. A stat to prove that this is sufficient would be good.
 const QUEUE_RETRIES: usize = 3;
 
 /// A `MultiWorker` handles events on `Session`s and routes storage requests to
@@ -161,9 +164,8 @@ impl MultiWorker {
     ) -> bool {
         match MemcacheParser::parse(&mut session.read_buffer) {
             Ok(request) => {
-                let mut message = StorageMessage {
-                    request: Some(request),
-                    buffer: session.write_buffer.take().unwrap(),
+                let mut message = RequestMessage {
+                    request,
                     token: session.token(),
                 };
                 for retry in 0..QUEUE_RETRIES {
@@ -201,8 +203,8 @@ impl MultiWorker {
         while let Ok(message) = self.storage_queue.try_recv() {
             let token = message.token;
             if let Some(session) = self.sessions.get_mut(token.0) {
-                session.write_buffer = Some(message.buffer);
-
+                // session.write_buffer = Some(message.buffer);
+                message.response.serialize(&mut session.write_buffer);
                 if session.write_pending() > 0 {
                     match session.flush() {
                         Ok(_) => {
@@ -272,19 +274,17 @@ impl EventLoop for MultiWorker {
     fn handle_data(&mut self, token: Token) -> Result<(), ()> {
         trace!("handling request for session: {}", token.0);
         if let Some(session) = self.sessions.get_mut(token.0) {
-            if session.write_buffer.is_some()
-                && session.write_pending() < MIN_BUFFER_SIZE
+            if session.write_pending() < MIN_BUFFER_SIZE
                 && Self::handle_session_read(session, &self.poll, &mut self.storage_queue)
             {
                 self.wake_storage = true;
             }
 
-            #[allow(clippy::collapsible_if)]
-            if session.write_pending() > 0 {
-                if session.flush().is_ok() && session.write_pending() > 0 {
-                    self.reregister(token);
-                }
+            if session.write_pending() > 0 && session.flush().is_ok() && session.write_pending() > 0
+            {
+                self.reregister(token);
             }
+
             Ok(())
         } else {
             // no session for the token

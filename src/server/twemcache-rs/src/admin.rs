@@ -328,7 +328,6 @@ impl EventLoop for Admin {
                     // match session.read_buffer.fill_buf() {
                     Ok(request) => match request {
                         Request::Stats => {
-                            let mut write_buffer = session.write_buffer.take().unwrap();
                             increment_counter!(&Stat::AdminRequestParse);
                             let mut data = Vec::new();
                             for metric in Stat::iter() {
@@ -351,10 +350,9 @@ impl EventLoop for Admin {
                             }
                             data.sort();
                             for line in data {
-                                write_buffer.extend(line.as_bytes());
+                                session.write_buffer.extend(line.as_bytes());
                             }
-                            write_buffer.extend(b"END\r\n");
-                            session.write_buffer = Some(write_buffer);
+                            session.write_buffer.extend(b"END\r\n");
                             increment_counter!(&Stat::AdminResponseCompose);
                         }
                         Request::Quit => {
@@ -362,11 +360,9 @@ impl EventLoop for Admin {
                             return Ok(());
                         }
                         Request::Version => {
-                            let mut write_buffer = session.write_buffer.take().unwrap();
-                            write_buffer.extend(
+                            session.write_buffer.extend(
                                 format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION")).as_bytes(),
                             );
-                            session.write_buffer = Some(write_buffer);
                             increment_counter!(&Stat::AdminResponseCompose);
                         }
                     },

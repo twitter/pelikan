@@ -8,47 +8,52 @@ use bytes::BytesMut;
 
 use super::*;
 
-pub enum MemcacheResponse<'a> {
+pub struct MemcacheItem {
+    pub key: Box<[u8]>,
+    pub value: Box<[u8]>,
+    pub flags: u32,
+    pub cas: Option<u32>,
+}
+
+pub enum MemcacheResponse {
     Deleted,
     End,
     Exists,
-    Item {
-        key: &'a [u8],
-        value: &'a [u8],
-        flags: u32,
-        cas: Option<u32>,
-    },
+    Items(Box<[MemcacheItem]>),
     NotFound,
     Stored,
     NotStored,
+    NoReply,
 }
 
-impl<'a> MemcacheResponse<'a> {
+impl MemcacheResponse {
     pub fn serialize(self, buffer: &mut BytesMut) {
         match self {
             Self::Deleted => buffer.extend(b"DELETED\r\n"),
             Self::End => buffer.extend(b"END\r\n"),
             Self::Exists => buffer.extend(b"EXISTS\r\n"),
-            Self::Item {
-                key,
-                value,
-                flags,
-                cas,
-            } => {
-                buffer.extend(b"VALUE ");
-                buffer.extend(key);
-                if let Some(cas) = cas {
-                    buffer.extend(&format!(" {} {} {}", flags, value.len(), cas).into_bytes());
-                } else {
-                    buffer.extend(&format!(" {} {}", flags, value.len()).into_bytes());
+            Self::Items(items) => {
+                for item in items.iter() {
+                    buffer.extend(b"VALUE ");
+                    buffer.extend(&*item.key);
+                    if let Some(cas) = item.cas {
+                        buffer.extend(
+                            &format!(" {} {} {}", item.flags, item.value.len(), cas).into_bytes(),
+                        );
+                    } else {
+                        buffer
+                            .extend(&format!(" {} {}", item.flags, item.value.len()).into_bytes());
+                    }
+                    buffer.extend(CRLF);
+                    buffer.extend(&*item.value);
+                    buffer.extend(CRLF);
                 }
-                buffer.extend(CRLF);
-                buffer.extend(value);
-                buffer.extend(CRLF);
+                buffer.extend(b"END\r\n");
             }
             Self::NotFound => buffer.extend(b"NOT_FOUND\r\n"),
             Self::NotStored => buffer.extend(b"NOT_STORED\r\n"),
             Self::Stored => buffer.extend(b"STORED\r\n"),
+            Self::NoReply => {}
         }
     }
 }

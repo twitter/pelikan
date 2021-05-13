@@ -94,7 +94,7 @@ pub struct Session {
     addr: SocketAddr,
     stream: Option<Stream>,
     pub read_buffer: BytesMut,
-    pub write_buffer: Option<BytesMut>,
+    pub write_buffer: BytesMut,
     tmp_buffer: [u8; MIN_BUFFER_SIZE],
 }
 
@@ -122,7 +122,7 @@ impl Session {
             addr,
             stream: Some(stream),
             read_buffer: BytesMut::with_capacity(MIN_BUFFER_SIZE),
-            write_buffer: Some(BytesMut::with_capacity(MIN_BUFFER_SIZE)),
+            write_buffer: BytesMut::with_capacity(MIN_BUFFER_SIZE),
             tmp_buffer: [0; MIN_BUFFER_SIZE],
         }
     }
@@ -220,32 +220,28 @@ impl Session {
 
     /// Flush the session buffer to the stream
     pub fn flush(&mut self) -> Result<Option<usize>, std::io::Error> {
-        if let Some(ref mut write_buffer) = self.write_buffer {
-            increment_counter!(&Stat::SessionSend);
-            let write_result = match &mut self.stream {
-                Some(Stream::Plain(s)) => s.write((*write_buffer).borrow()),
-                Some(Stream::Tls(s)) => s.write((*write_buffer).borrow()),
-                Some(Stream::Handshaking(_)) => {
-                    return Ok(None);
-                }
-                None => {
-                    return Err(Error::new(ErrorKind::Other, "session has no stream"));
-                }
-            };
-            match write_result {
-                Ok(0) => Ok(Some(0)),
-                Ok(bytes) => {
-                    increment_counter_by!(&Stat::SessionSendByte, bytes as u64);
-                    let _ = write_buffer.split_to(bytes);
-                    Ok(Some(bytes))
-                }
-                Err(e) => {
-                    increment_counter!(&Stat::SessionSendEx);
-                    Err(e)
-                }
+        increment_counter!(&Stat::SessionSend);
+        let write_result = match &mut self.stream {
+            Some(Stream::Plain(s)) => s.write((self.write_buffer).borrow()),
+            Some(Stream::Tls(s)) => s.write((self.write_buffer).borrow()),
+            Some(Stream::Handshaking(_)) => {
+                return Ok(None);
             }
-        } else {
-            Err(Error::new(ErrorKind::Other, "session has no write buffer"))
+            None => {
+                return Err(Error::new(ErrorKind::Other, "session has no stream"));
+            }
+        };
+        match write_result {
+            Ok(0) => Ok(Some(0)),
+            Ok(bytes) => {
+                increment_counter_by!(&Stat::SessionSendByte, bytes as u64);
+                let _ = self.write_buffer.split_to(bytes);
+                Ok(Some(bytes))
+            }
+            Err(e) => {
+                increment_counter!(&Stat::SessionSendEx);
+                Err(e)
+            }
         }
     }
 
@@ -261,12 +257,7 @@ impl Session {
 
     /// Get the set of readiness events the session is waiting for
     fn readiness(&self) -> Interest {
-        if self
-            .write_buffer
-            .as_ref()
-            .map(|buf| buf.is_empty())
-            .unwrap_or(true)
-        {
+        if self.write_buffer.is_empty() {
             Interest::READABLE
         } else {
             Interest::READABLE | Interest::WRITABLE
@@ -347,14 +338,10 @@ impl Session {
 
     /// Returns the number of bytes in the write buffer
     pub fn write_pending(&mut self) -> usize {
-        if let Some(ref mut write_buffer) = self.write_buffer {
-            let pending = write_buffer.len();
-            // if pending == 0 && write_buffer.capacity() > MIN_BUFFER_SIZE {
-            //     self.read_buffer.clear();
-            // }
-            pending
-        } else {
-            0
-        }
+        let pending = self.write_buffer.len();
+        // if pending == 0 && write_buffer.capacity() > MIN_BUFFER_SIZE {
+        //     self.read_buffer.clear();
+        // }
+        pending
     }
 }

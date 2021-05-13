@@ -7,7 +7,6 @@
 
 use crate::protocol::data::*;
 use crate::*;
-use bytes::BytesMut;
 use config::segcache::Eviction;
 use config::TimeType;
 use metrics::*;
@@ -53,33 +52,35 @@ impl RequestProcessor {
         self.data.expire();
     }
 
-    pub(crate) fn process(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    pub(crate) fn execute(&mut self, request: MemcacheRequest) -> MemcacheResponse {
         match request.command() {
-            MemcacheCommand::Get => self.process_get(request, write_buffer),
-            MemcacheCommand::Gets => self.process_gets(request, write_buffer),
-            MemcacheCommand::Set => self.process_set(request, write_buffer),
-            MemcacheCommand::Add => self.process_add(request, write_buffer),
-            MemcacheCommand::Replace => self.process_replace(request, write_buffer),
-            MemcacheCommand::Cas => self.process_cas(request, write_buffer),
-            MemcacheCommand::Delete => self.process_delete(request, write_buffer),
+            MemcacheCommand::Get => self.get(request),
+            MemcacheCommand::Gets => self.gets(request),
+            MemcacheCommand::Set => self.set(request),
+            MemcacheCommand::Add => self.add(request),
+            MemcacheCommand::Replace => self.replace(request),
+            MemcacheCommand::Cas => self.cas(request),
+            MemcacheCommand::Delete => self.delete(request),
         }
     }
 
-    fn process_get(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn get(&mut self, request: MemcacheRequest) -> MemcacheResponse {
         let mut total = 0;
         let mut found = 0;
         increment_counter!(&Stat::Get);
+
+        let mut items = Vec::new();
+
         for key in request.keys() {
             if let Some(item) = self.data.get(key) {
                 let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
                 let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
-                let response = MemcacheResponse::Item {
-                    key: item.key(),
-                    value: item.value(),
+                items.push(MemcacheItem {
+                    key: item.key().to_vec().into_boxed_slice(),
+                    value: item.value().to_vec().into_boxed_slice(),
                     flags,
                     cas: None,
-                };
-                response.serialize(write_buffer);
+                });
                 found += 1;
             }
             total += 1;
@@ -94,24 +95,24 @@ impl RequestProcessor {
             found,
             total
         );
-        MemcacheResponse::End.serialize(write_buffer);
+        MemcacheResponse::Items(items.into_boxed_slice())
     }
 
-    fn process_gets(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn gets(&mut self, request: MemcacheRequest) -> MemcacheResponse {
         let mut total = 0;
         let mut found = 0;
         increment_counter!(&Stat::Gets);
+        let mut items = Vec::new();
         for key in request.keys() {
             if let Some(item) = self.data.get(key) {
                 let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
                 let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
-                let response = MemcacheResponse::Item {
-                    key: item.key(),
-                    value: item.value(),
+                items.push(MemcacheItem {
+                    key: item.key().to_vec().into_boxed_slice(),
+                    value: item.value().to_vec().into_boxed_slice(),
                     flags,
                     cas: Some(item.cas()),
-                };
-                response.serialize(write_buffer);
+                });
                 found += 1;
             }
             total += 1;
@@ -126,10 +127,10 @@ impl RequestProcessor {
             found,
             total
         );
-        MemcacheResponse::End.serialize(write_buffer);
+        MemcacheResponse::Items(items.into_boxed_slice())
     }
 
-    fn process_set(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn set(&mut self, request: MemcacheRequest) -> MemcacheResponse {
         increment_counter!(&Stat::Set);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
@@ -144,19 +145,23 @@ impl RequestProcessor {
             Ok(_) => {
                 increment_counter!(&Stat::SetStored);
                 if reply {
-                    MemcacheResponse::Stored.serialize(write_buffer);
+                    MemcacheResponse::Stored
+                } else {
+                    MemcacheResponse::NoReply
                 }
             }
             Err(_) => {
                 increment_counter!(&Stat::SetNotstored);
                 if reply {
-                    MemcacheResponse::NotStored.serialize(write_buffer);
+                    MemcacheResponse::NotStored
+                } else {
+                    MemcacheResponse::NoReply
                 }
             }
         }
     }
 
-    fn process_add(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn add(&mut self, request: MemcacheRequest) -> MemcacheResponse {
         increment_counter!(&Stat::Add);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
@@ -175,17 +180,21 @@ impl RequestProcessor {
         {
             increment_counter!(&Stat::AddStored);
             if reply {
-                MemcacheResponse::Stored.serialize(write_buffer);
+                MemcacheResponse::Stored
+            } else {
+                MemcacheResponse::NoReply
             }
         } else {
             increment_counter!(&Stat::AddNotstored);
             if reply {
-                MemcacheResponse::NotStored.serialize(write_buffer);
+                MemcacheResponse::NotStored
+            } else {
+                MemcacheResponse::NoReply
             }
         }
     }
 
-    fn process_replace(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn replace(&mut self, request: MemcacheRequest) -> MemcacheResponse {
         increment_counter!(&Stat::Replace);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
@@ -204,17 +213,21 @@ impl RequestProcessor {
         {
             increment_counter!(&Stat::ReplaceStored);
             if reply {
-                MemcacheResponse::Stored.serialize(write_buffer);
+                MemcacheResponse::Stored
+            } else {
+                MemcacheResponse::NoReply
             }
         } else {
             increment_counter!(&Stat::ReplaceNotstored);
             if reply {
-                MemcacheResponse::NotStored.serialize(write_buffer);
+                MemcacheResponse::NotStored
+            } else {
+                MemcacheResponse::NoReply
             }
         }
     }
 
-    fn process_cas(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn cas(&mut self, request: MemcacheRequest) -> MemcacheResponse {
         increment_counter!(&Stat::Cas);
         let reply = !request.noreply();
         let ttl = self.get_ttl(&request);
@@ -230,43 +243,55 @@ impl RequestProcessor {
             Ok(_) => {
                 increment_counter!(&Stat::CasStored);
                 if reply {
-                    MemcacheResponse::Stored.serialize(write_buffer);
+                    MemcacheResponse::Stored
+                } else {
+                    MemcacheResponse::NoReply
                 }
             }
             Err(SegCacheError::NotFound) => {
                 increment_counter!(&Stat::CasNotfound);
                 if reply {
-                    MemcacheResponse::NotFound.serialize(write_buffer);
+                    MemcacheResponse::NotFound
+                } else {
+                    MemcacheResponse::NoReply
                 }
             }
             Err(SegCacheError::Exists) => {
                 increment_counter!(&Stat::CasExists);
                 if reply {
-                    MemcacheResponse::Exists.serialize(write_buffer);
+                    MemcacheResponse::Exists
+                } else {
+                    MemcacheResponse::NoReply
                 }
             }
             Err(_) => {
                 increment_counter!(&Stat::CasEx);
                 if reply {
-                    MemcacheResponse::NotStored.serialize(write_buffer);
+                    MemcacheResponse::NotStored
+                } else {
+                    MemcacheResponse::NoReply
                 }
             }
         }
     }
 
-    fn process_delete(&mut self, request: MemcacheRequest, write_buffer: &mut BytesMut) {
+    fn delete(&mut self, request: MemcacheRequest) -> MemcacheResponse {
         increment_counter!(&Stat::Delete);
         let reply = !request.noreply();
         let key = request.keys().next().unwrap();
         if self.data.delete(key) {
             increment_counter!(&Stat::DeleteDeleted);
             if reply {
-                MemcacheResponse::Deleted.serialize(write_buffer);
+                MemcacheResponse::Deleted
+            } else {
+                MemcacheResponse::NoReply
             }
         } else {
             increment_counter!(&Stat::DeleteNotfound);
             if reply {
-                MemcacheResponse::NotFound.serialize(write_buffer);
+                MemcacheResponse::NotFound
+            } else {
+                MemcacheResponse::NoReply
             }
         }
     }

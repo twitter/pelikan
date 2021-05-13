@@ -214,9 +214,8 @@ impl EventLoop for SingleWorker {
                 match MemcacheParser::parse(&mut session.read_buffer) {
                     Ok(request) => {
                         increment_counter!(&Stat::ProcessReq);
-                        let mut write_buffer = session.write_buffer.take().unwrap();
-                        self.processor.process(request, &mut write_buffer);
-                        session.write_buffer = Some(write_buffer);
+                        let response = self.processor.execute(request);
+                        response.serialize(&mut session.write_buffer);
                     }
                     Err(ParseError::Incomplete) => {
                         break;

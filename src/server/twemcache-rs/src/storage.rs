@@ -9,7 +9,6 @@ use crate::protocol::data::*;
 use crate::request_processor::RequestProcessor;
 use crate::*;
 
-use bytes::BytesMut;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use metrics::Stat;
@@ -17,25 +16,22 @@ use rtrb::*;
 
 use std::sync::Arc;
 
+// TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
+// full, and a single wakeup should drain at least one message and make room for
+// the response. A stat to prove that this is sufficient would be good.
 const QUEUE_RETRIES: usize = 3;
 
-/// A `StorageMessage` is used to pass requests over to the storage thread. To
-/// allow re-use of the struct, the same type is used for both send and receive.
-/// A message containing a request, the session write buffer, and the session
-/// token are sent to the storage thread. The storage thread takes the request
-/// and processes it, writing the response directly into the session write
-/// buffer. The write buffer and token are then sent back to the worker thread
-/// which can re-associate the buffer with the session and begin writing the
-/// buffer to the underlying stream.
-pub struct StorageMessage {
-    /// The fully parsed request, will be `None` in a message sent back to the
-    /// worker
-    pub request: Option<MemcacheRequest>,
-    /// The session write buffer, responses will be written directly into the
-    /// buffer
-    pub buffer: BytesMut,
-    /// The session's token, used to re-associate the buffer with the session
-    /// when it is returned to the worker
+/// `RequestMessage`s are used to send a request from the workker thread to the
+/// storage thread.
+pub struct RequestMessage {
+    pub request: MemcacheRequest,
+    pub token: Token,
+}
+
+/// `RequestMessage`s are used to send responsed from the storage thread to the
+/// worker thread.
+pub struct ResponseMessage {
+    pub response: MemcacheResponse,
     pub token: Token,
 }
 
@@ -50,29 +46,29 @@ pub struct Storage {
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
     waker: Arc<Waker>,
-    worker_sender: Vec<Producer<StorageMessage>>,
-    worker_receiver: Vec<Consumer<StorageMessage>>,
+    worker_sender: Vec<Producer<ResponseMessage>>,
+    worker_receiver: Vec<Consumer<RequestMessage>>,
     worker_waker: Vec<Waker>,
 }
 
 /// A `StorageQueue` is used to wrap the send and receive queues for the worker
 /// threads.
 pub struct StorageQueue {
-    sender: Producer<StorageMessage>,
-    receiver: Consumer<StorageMessage>,
+    sender: Producer<RequestMessage>,
+    receiver: Consumer<ResponseMessage>,
     waker: Arc<Waker>,
 }
 
 impl StorageQueue {
     // Try to receive a message back from the storage queue, returned messages
     // will contain the session write buffer with the response appended.
-    pub fn try_recv(&mut self) -> Result<StorageMessage, PopError> {
+    pub fn try_recv(&mut self) -> Result<ResponseMessage, PopError> {
         self.receiver.pop()
     }
 
     // Try to send a message to the storage queue. Messages should contain the
     // parsed request and the session write buffer.
-    pub fn try_send(&mut self, msg: StorageMessage) -> Result<(), PushError<StorageMessage>> {
+    pub fn try_send(&mut self, msg: RequestMessage) -> Result<(), PushError<RequestMessage>> {
         self.sender.push(msg)
     }
 
@@ -167,25 +163,27 @@ impl Storage {
                     empty = true;
                     for id in 0..workers {
                         if worker_pending[id] > 0 {
-                            if let Ok(mut message) = self.worker_receiver[id].pop() {
-                                if let Some(request) = message.request.take() {
-                                    increment_counter!(&Stat::ProcessReq);
-                                    self.processor.process(request, &mut message.buffer);
-                                    for retry in 0..QUEUE_RETRIES {
-                                        if let Err(PushError::Full(m)) =
-                                            self.worker_sender[id].push(message)
-                                        {
-                                            if (retry + 1) == QUEUE_RETRIES {
-                                                error!("error sending message to worker");
-                                            }
-                                            let _ = self.worker_waker[id].wake();
-                                            message = m;
-                                        } else {
-                                            break;
+                            if let Ok(message) = self.worker_receiver[id].pop() {
+                                increment_counter!(&Stat::ProcessReq);
+                                let response = self.processor.execute(message.request);
+                                let mut response_message = ResponseMessage {
+                                    response,
+                                    token: message.token,
+                                };
+                                for retry in 0..QUEUE_RETRIES {
+                                    if let Err(PushError::Full(m)) =
+                                        self.worker_sender[id].push(response_message)
+                                    {
+                                        if (retry + 1) == QUEUE_RETRIES {
+                                            error!("error sending message to worker");
                                         }
+                                        let _ = self.worker_waker[id].wake();
+                                        response_message = m;
+                                    } else {
+                                        break;
                                     }
-                                    worker_needs_wake[id] = true;
                                 }
+                                worker_needs_wake[id] = true;
                             }
                             empty = false;
                             worker_pending[id] -= 1;

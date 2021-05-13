@@ -22,14 +22,22 @@ impl File {
     /// size (in bytes). Returns an error if the file already exists, could not
     /// be created, couldn't be extended to the requested size, or couldn't be
     /// mmap'd
-    pub fn create<T: AsRef<Path>>(path: T, size: usize) -> Result<Self, std::io::Error> {
+    pub fn create<T: AsRef<Path>>(path: T, size: usize, prefault: bool) -> Result<Self, std::io::Error> {
         let file = OpenOptions::new()
             .create_new(true)
             .read(true)
             .write(true)
             .open(path)?;
         file.set_len(size as u64)?;
-        let mmap = unsafe { MmapOptions::new().populate().map_mut(&file)? };
+        let mut mmap = unsafe { MmapOptions::new().populate().map_mut(&file)? };
+        if prefault {
+            let mut offset = 0;
+            while offset < size {
+                mmap[offset] = 0;
+                offset += 4096;
+            }
+            mmap.flush()?;
+        }
         Ok(Self { mmap, size })
     }
 }
