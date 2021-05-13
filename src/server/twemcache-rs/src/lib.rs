@@ -21,7 +21,6 @@ mod admin;
 mod common;
 mod event_loop;
 pub mod protocol;
-mod request_processor;
 mod server;
 mod session;
 mod storage;
@@ -31,7 +30,7 @@ use crate::admin::Admin;
 use crate::common::Message;
 use crate::server::Server;
 use crate::session::Session;
-use crate::storage::Storage;
+use crate::storage::StorageWorker;
 use crate::worker::{MultiWorker, SingleWorker};
 
 const THREAD_PREFIX: &str = "pelikan";
@@ -39,7 +38,7 @@ const THREAD_PREFIX: &str = "pelikan";
 /// Wraps specialization of launching single or multi-threaded worker(s)
 pub enum WorkerBuilder {
     Multi {
-        storage: Storage,
+        storage: StorageWorker,
         workers: Vec<MultiWorker>,
     },
     Single {
@@ -167,7 +166,7 @@ impl TwemcacheBuilder {
 
     fn multi_worker(config: Arc<Config>) -> WorkerBuilder {
         // initialize storage
-        let mut storage = Storage::new(config.clone()).unwrap_or_else(|e| {
+        let mut storage = StorageWorker::new(config.clone()).unwrap_or_else(|e| {
             error!("{}", e);
             std::process::exit(1);
         });

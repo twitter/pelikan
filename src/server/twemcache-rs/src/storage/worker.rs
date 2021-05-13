@@ -1,18 +1,11 @@
-// Copyright 2021 Twitter, Inc.
-// Licensed under the Apache License, Version 2.0
-// http://www.apache.org/licenses/LICENSE-2.0
-
-//! The storage thread which owns the cache data in multi-worker mode.
 
 use crate::common::Message;
-use crate::protocol::data::*;
-use crate::request_processor::RequestProcessor;
-use crate::*;
-
+use crate::storage::*;
+use crate::protocol::traits::*;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use metrics::Stat;
-use rtrb::*;
+
 
 use std::sync::Arc;
 
@@ -21,20 +14,6 @@ use std::sync::Arc;
 // the response. A stat to prove that this is sufficient would be good.
 const QUEUE_RETRIES: usize = 3;
 
-/// `RequestMessage`s are used to send a request from the workker thread to the
-/// storage thread.
-pub struct RequestMessage {
-    pub request: MemcacheRequest,
-    pub token: Token,
-}
-
-/// `RequestMessage`s are used to send responsed from the storage thread to the
-/// worker thread.
-pub struct ResponseMessage {
-    pub response: MemcacheResponse,
-    pub token: Token,
-}
-
 /// A `Storage` thread is used in a multi-worker configuration. It owns the
 /// cache contents and operates on message queues for each worker thread, taking
 /// fully parsed requests, processing them, and writing the responses directly
@@ -42,7 +21,7 @@ pub struct ResponseMessage {
 pub struct Storage {
     config: Arc<Config>,
     poll: Poll,
-    processor: RequestProcessor,
+    storage: SegCacheStorage,
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
     waker: Arc<Waker>,
@@ -51,39 +30,12 @@ pub struct Storage {
     worker_waker: Vec<Waker>,
 }
 
-/// A `StorageQueue` is used to wrap the send and receive queues for the worker
-/// threads.
-pub struct StorageQueue {
-    sender: Producer<RequestMessage>,
-    receiver: Consumer<ResponseMessage>,
-    waker: Arc<Waker>,
-}
-
-impl StorageQueue {
-    // Try to receive a message back from the storage queue, returned messages
-    // will contain the session write buffer with the response appended.
-    pub fn try_recv(&mut self) -> Result<ResponseMessage, PopError> {
-        self.receiver.pop()
-    }
-
-    // Try to send a message to the storage queue. Messages should contain the
-    // parsed request and the session write buffer.
-    pub fn try_send(&mut self, msg: RequestMessage) -> Result<(), PushError<RequestMessage>> {
-        self.sender.push(msg)
-    }
-
-    // Notify the storage thread that it should wake and handle messages.
-    pub fn wake(&self) -> Result<(), std::io::Error> {
-        self.waker.wake()
-    }
-}
-
 impl Storage {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(config: Arc<Config>) -> Result<Self, std::io::Error> {
         let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
 
-        let processor = RequestProcessor::new(config.clone());
+        let storage = SegCacheStorage::new(config.clone());
 
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
@@ -95,7 +47,7 @@ impl Storage {
         Ok(Self {
             config,
             poll,
-            processor,
+            storage,
             message_receiver,
             message_sender,
             waker,
@@ -143,7 +95,7 @@ impl Storage {
         loop {
             increment_counter!(&Stat::StorageEventLoop);
 
-            self.processor.expire();
+            self.storage.expire();
 
             // get events with timeout
             if self.poll.poll(&mut events, timeout).is_err() {
@@ -165,7 +117,7 @@ impl Storage {
                         if worker_pending[id] > 0 {
                             if let Ok(message) = self.worker_receiver[id].pop() {
                                 increment_counter!(&Stat::ProcessReq);
-                                let response = self.processor.execute(message.request);
+                                let response = self.storage.execute(message.request);
                                 let mut response_message = ResponseMessage {
                                     response,
                                     token: message.token,

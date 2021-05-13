@@ -6,6 +6,7 @@
 //! thread configured. This worker parsed requests and handles request
 //! processing.
 
+use crate::storage::SegCacheStorage;
 use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
 use mio::event::Event;
@@ -13,7 +14,7 @@ use mio::event::Event;
 use crate::common::Message;
 use crate::event_loop::EventLoop;
 use crate::protocol::data::*;
-use crate::request_processor::RequestProcessor;
+use crate::protocol::traits::*;
 use crate::session::*;
 use crate::*;
 
@@ -22,7 +23,7 @@ use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
 pub struct SingleWorker {
-    processor: RequestProcessor,
+    storage: SegCacheStorage,
     config: Arc<Config>,
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
@@ -44,12 +45,12 @@ impl SingleWorker {
         let (session_sender, session_receiver) = crossbeam_channel::bounded(128);
         let (message_sender, message_receiver) = crossbeam_channel::bounded(128);
 
-        let processor = RequestProcessor::new(config.clone());
+        let storage = SegCacheStorage::new(config.clone());
 
         Ok(Self {
             config,
             poll,
-            processor,
+            storage,
             message_receiver,
             message_sender,
             session_receiver,
@@ -73,7 +74,7 @@ impl SingleWorker {
         loop {
             increment_counter!(&Stat::WorkerEventLoop);
 
-            self.processor.expire();
+            self.storage.expire();
 
             // get events with timeout
             if self.poll.poll(&mut events, timeout).is_err() {
@@ -214,7 +215,7 @@ impl EventLoop for SingleWorker {
                 match MemcacheParser::parse(&mut session.read_buffer) {
                     Ok(request) => {
                         increment_counter!(&Stat::ProcessReq);
-                        let response = self.processor.execute(request);
+                        let response = self.storage.execute(request);
                         response.serialize(&mut session.write_buffer);
                     }
                     Err(ParseError::Incomplete) => {

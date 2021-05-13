@@ -6,6 +6,7 @@
 //! the config. Parsed requests are dispatched to the [`Storage`] thread for
 //! handling.
 
+use crate::storage::StorageWorker;
 use crossbeam_channel::{Receiver, Sender};
 use metrics::Stat;
 use mio::event::Event;
@@ -42,7 +43,7 @@ pub struct MultiWorker {
 
 impl MultiWorker {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(config: Arc<Config>, storage: &mut Storage) -> Result<Self, std::io::Error> {
+    pub fn new(config: Arc<Config>, storage: &mut StorageWorker) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")

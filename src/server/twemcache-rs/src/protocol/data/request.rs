@@ -4,6 +4,7 @@
 
 //! Parsed requests
 
+// use crate::request_processor::MemcacheStorage;
 use super::*;
 use bytes::BytesMut;
 use std::borrow::Borrow;
@@ -38,6 +39,10 @@ pub struct MemcacheRequest {
 }
 
 impl MemcacheRequest {
+    pub fn command(&self) -> MemcacheCommand {
+        self.command
+    }
+
     /// Should a reply be sent to the client for this request?
     pub fn noreply(&self) -> bool {
         self.noreply

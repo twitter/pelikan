@@ -6,6 +6,7 @@
 
 pub mod admin;
 pub mod data;
+pub mod traits;
 
 pub const CRLF: &[u8] = b"\r\n";
 pub const CRLF_LEN: usize = CRLF.len();
