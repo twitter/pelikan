@@ -37,7 +37,7 @@ pub struct MultiWorker {
     session_receiver: Receiver<Session>,
     session_sender: Sender<Session>,
     sessions: Slab<Session>,
-    storage_queue: StorageQueue,
+    storage_queue: StorageQueue<MemcacheRequest, MemcacheResponse>,
     wake_storage: bool,
 }
 
@@ -161,7 +161,7 @@ impl MultiWorker {
     fn handle_session_read(
         session: &mut Session,
         poll: &Poll,
-        storage_queue: &mut StorageQueue,
+        storage_queue: &mut StorageQueue<MemcacheRequest, MemcacheResponse>,
     ) -> bool {
         match MemcacheParser::parse(&mut session.read_buffer) {
             Ok(request) => {

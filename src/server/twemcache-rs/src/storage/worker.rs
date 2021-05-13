@@ -1,4 +1,6 @@
 
+use crate::protocol::data::MemcacheRequest;
+use crate::protocol::data::MemcacheResponse;
 use crate::common::Message;
 use crate::storage::*;
 use crate::protocol::traits::*;
@@ -25,8 +27,8 @@ pub struct Storage {
     message_receiver: Receiver<Message>,
     message_sender: Sender<Message>,
     waker: Arc<Waker>,
-    worker_sender: Vec<Producer<ResponseMessage>>,
-    worker_receiver: Vec<Consumer<RequestMessage>>,
+    worker_sender: Vec<Producer<ResponseMessage<MemcacheResponse>>>,
+    worker_receiver: Vec<Consumer<RequestMessage<MemcacheRequest>>>,
     worker_waker: Vec<Waker>,
 }
 
@@ -59,7 +61,7 @@ impl Storage {
 
     /// Add a queue for a worker by providing the worker's `Waker` so that the
     /// worker can be notified of pending responses from the storage thread
-    pub fn add_queue(&mut self, waker: Waker) -> StorageQueue {
+    pub fn add_queue(&mut self, waker: Waker) -> StorageQueue<MemcacheRequest, MemcacheResponse> {
         let (to_storage, from_worker) = rtrb::RingBuffer::new(65536).split();
         let (to_worker, from_storage) = rtrb::RingBuffer::new(65536).split();
 
