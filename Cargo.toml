@@ -19,6 +19,7 @@ members = [
     "src/rust-util/pelikan-sys",
     "src/rustcore",
     "src/server/pingserver-rs",
+    "src/server/segcache-rs",
     "src/server/twemcache-http",
     "src/server/twemcache-rs",
     "src/storage/cdb/cdbgen",

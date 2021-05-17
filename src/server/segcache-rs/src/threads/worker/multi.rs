@@ -6,20 +6,24 @@
 //! the config. Parsed requests are dispatched to the [`Storage`] thread for
 //! handling.
 
-use bytes::BytesMut;
+use super::StorageWorker;
 use crate::common::Queue;
-use crate::storage::StorageWorker;
+use crate::common::Sender;
+use crate::common::Signal;
+use crate::common::*;
+use crate::event_loop::EventLoop;
+use crate::session::*;
+use crate::*;
+use bytes::BytesMut;
+use config::TwemcacheConfig;
 use metrics::Stat;
 use mio::event::Event;
+use mio::Events;
+use mio::Poll;
+use mio::Token;
+use mio::Waker;
 use rtrb::PushError;
-
-use crate::protocol::traits::*;
-use crate::common::Signal;
-use crate::event_loop::EventLoop;
-use crate::protocol::data::*;
-use crate::session::*;
-use crate::storage::*;
-use crate::*;
+use slab::Slab;
 
 use std::convert::TryInto;
 use std::sync::Arc;
@@ -31,33 +35,39 @@ const QUEUE_RETRIES: usize = 3;
 
 /// A `MultiWorker` handles events on `Session`s and routes storage requests to
 /// the `Storage` thread.
-pub struct MultiWorker<Request, Response> where
+pub struct MultiWorker<Request, Response>
+where
     BytesMut: Parse<Request>,
-    Response: crate::protocol::traits::Response,
+    Response: crate::protocol::Compose,
 {
-    config: Arc<Config>,
+    config: Arc<TwemcacheConfig>,
     signal_queue: Queue<Signal>,
     poll: Poll,
     session_queue: Queue<Session>,
     sessions: Slab<Session>,
-    storage_queue: StorageQueue<Request, Response>,
+    storage_queue: BiDiQueue<Request, Response>,
     wake_storage: bool,
+    waker: Arc<Waker>,
 }
 
-impl<Request, Response> MultiWorker<Request, Response> where
+impl<Request, Response> MultiWorker<Request, Response>
+where
     BytesMut: Parse<Request>,
-    Response: crate::protocol::traits::Response,
+    Response: Compose,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new<Storage: Execute<Request>>(config: Arc<Config>, storage: &mut StorageWorker<Storage, Response, Request>) -> Result<Self, std::io::Error> {
+    pub fn new<Storage: Execute<Request, Response> + crate::storage::Storage>(
+        config: Arc<TwemcacheConfig>,
+        storage: &mut StorageWorker<Storage, Response, Request>,
+    ) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
         let sessions = Slab::<Session>::new();
 
-        let waker = Waker::new(poll.registry(), Token(usize::MAX)).unwrap();
-        let storage_queue = storage.add_queue(waker);
+        let waker = Arc::new(Waker::new(poll.registry(), Token(usize::MAX)).unwrap());
+        let storage_queue = storage.add_queue(waker.clone());
 
         let session_queue = Queue::new(128);
         let signal_queue = Queue::new(128);
@@ -70,6 +80,7 @@ impl<Request, Response> MultiWorker<Request, Response> where
             sessions,
             storage_queue,
             wake_storage: false,
+            waker,
         })
     }
 
@@ -165,12 +176,12 @@ impl<Request, Response> MultiWorker<Request, Response> where
     fn handle_session_read(
         session: &mut Session,
         poll: &Poll,
-        storage_queue: &mut StorageQueue<MemcacheRequest, MemcacheResponse>,
+        storage_queue: &mut BiDiQueue<Request, Response>,
     ) -> bool {
-        match MemcacheRequest::parse(&mut session.read_buffer) {
+        match session.read_buffer.parse() {
             Ok(request) => {
-                let mut message = RequestMessage {
-                    request,
+                let mut message = Message {
+                    item: request,
                     token: session.token(),
                 };
                 for retry in 0..QUEUE_RETRIES {
@@ -208,8 +219,7 @@ impl<Request, Response> MultiWorker<Request, Response> where
         while let Ok(message) = self.storage_queue.try_recv() {
             let token = message.token;
             if let Some(session) = self.sessions.get_mut(token.0) {
-                // session.write_buffer = Some(message.buffer);
-                message.response.compose(&mut session.write_buffer);
+                message.item.compose(&mut session.write_buffer);
                 if session.write_pending() > 0 {
                     match session.flush() {
                         Ok(_) => {
@@ -271,8 +281,9 @@ impl<Request, Response> MultiWorker<Request, Response> where
     }
 }
 
-impl<Request, Response> EventLoop for MultiWorker<Request, Response> where
-    Response: crate::protocol::traits::Response,
+impl<Request, Response> EventLoop for MultiWorker<Request, Response>
+where
+    Response: Compose,
     BytesMut: Parse<Request>,
 {
     fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {

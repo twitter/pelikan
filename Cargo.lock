@@ -2010,6 +2010,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "segcache-rs"
+version = "0.1.0"
+dependencies = [
+ "ahash 0.6.3",
+ "backtrace",
+ "boring",
+ "bytes 1.0.1",
+ "chrono",
+ "config",
+ "crossbeam-channel",
+ "libc",
+ "metrics",
+ "mio 0.7.11",
+ "rand 0.8.3",
+ "rtrb",
+ "rustcommon-fastmetrics",
+ "rustcommon-logger",
+ "rustcommon-time",
+ "segcache",
+ "serde",
+ "serde_json",
+ "slab",
+ "strum",
+ "strum_macros",
+ "sysconf",
+ "thiserror",
+]
+
+[[package]]
 name = "semver"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

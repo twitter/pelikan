@@ -6,15 +6,25 @@
 //! thread configured. This worker parsed requests and handles request
 //! processing.
 
+use config::TwemcacheConfig;
+use mio::Events;
+
+use crate::protocol::memcache::data::*;
+use crate::storage::SegCache;
+
 use crate::common::Queue;
-use crate::storage::SegCacheStorage;
+use crate::common::Sender;
+use mio::Poll;
+use mio::Token;
+use slab::Slab;
+// use crate::storage::SegCache;
 use metrics::Stat;
 use mio::event::Event;
 
 use crate::common::Signal;
 use crate::event_loop::EventLoop;
-use crate::protocol::data::*;
-use crate::protocol::traits::*;
+// use crate::protocol::data::*;
+// use crate::protocol::traits::*;
 use crate::session::*;
 use crate::*;
 
@@ -23,8 +33,8 @@ use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
 pub struct SingleWorker {
-    storage: SegCacheStorage,
-    config: Arc<Config>,
+    storage: SegCache,
+    config: Arc<TwemcacheConfig>,
     poll: Poll,
     session_queue: Queue<Session>,
     sessions: Slab<Session>,
@@ -33,7 +43,7 @@ pub struct SingleWorker {
 
 impl SingleWorker {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(config: Arc<Config>) -> Result<Self, std::io::Error> {
+    pub fn new(config: Arc<TwemcacheConfig>) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
@@ -43,7 +53,7 @@ impl SingleWorker {
         let session_queue = Queue::new(128);
         let signal_queue = Queue::new(128);
 
-        let storage = SegCacheStorage::new(config.clone());
+        let storage = SegCache::new(config.segcache(), config.time().time_type());
 
         Ok(Self {
             config,
@@ -208,11 +218,11 @@ impl EventLoop for SingleWorker {
                     // if the write buffer is over-full, skip processing
                     break;
                 }
-                match MemcacheRequest::parse(&mut session.read_buffer) {
+                match session.read_buffer.parse() {
                     Ok(request) => {
                         increment_counter!(&Stat::ProcessReq);
                         let response = self.storage.execute(request);
-                        response.serialize(&mut session.write_buffer);
+                        response.compose(&mut session.write_buffer);
                     }
                     Err(ParseError::Incomplete) => {
                         break;

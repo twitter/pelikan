@@ -13,4 +13,4 @@ mod worker;
 
 pub use self::queue::*;
 pub use self::segcache::*;
-pub use self::worker::Storage as StorageWorker;
+pub use self::worker::StorageWorker;

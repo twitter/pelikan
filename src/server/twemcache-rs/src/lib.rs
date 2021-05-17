@@ -8,6 +8,9 @@ extern crate rustcommon_logger;
 #[macro_use]
 extern crate rustcommon_fastmetrics;
 
+use crate::storage::SegCacheStorage;
+use crate::protocol::data::MemcacheResponse;
+use crate::protocol::data::MemcacheRequest;
 use crate::common::Sender;
 use crate::common::Queue;
 use config::TwemcacheConfig as Config;
@@ -39,8 +42,8 @@ const THREAD_PREFIX: &str = "pelikan";
 /// Wraps specialization of launching single or multi-threaded worker(s)
 pub enum WorkerBuilder {
     Multi {
-        storage: StorageWorker,
-        workers: Vec<MultiWorker>,
+        storage: StorageWorker<SegCacheStorage, MemcacheResponse, MemcacheRequest>,
+        workers: Vec<MultiWorker<MemcacheRequest, MemcacheResponse>>,
     },
     Single {
         worker: SingleWorker,

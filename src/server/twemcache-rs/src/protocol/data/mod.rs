@@ -10,7 +10,7 @@ use core::convert::TryFrom;
 
 mod command;
 mod error;
-mod parser;
+// mod parser;
 mod request;
 mod response;
 
@@ -25,8 +25,8 @@ const NOREPLY_LEN: usize = NOREPLY.len();
 
 pub use command::MemcacheCommand;
 pub use error::ParseError;
-pub use parser::{MemcacheParser, Parser};
-pub use request::{MemcacheRequest, Request};
+// pub use parser::{MemcacheParser, Parser};
+pub use request::MemcacheRequest;
 pub use response::{MemcacheItem, MemcacheResponse};
 
 #[cfg(test)]

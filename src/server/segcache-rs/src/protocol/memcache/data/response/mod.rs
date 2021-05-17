@@ -1,20 +1,6 @@
-// Copyright 2021 Twitter, Inc.
-// Licensed under the Apache License, Version 2.0
-// http://www.apache.org/licenses/LICENSE-2.0
-
-//! Responses which are sent back to a client
-
-use crate::protocol::traits::Response;
-use bytes::BytesMut;
-
 use super::*;
-
-pub struct MemcacheItem {
-    pub key: Box<[u8]>,
-    pub value: Box<[u8]>,
-    pub flags: u32,
-    pub cas: Option<u32>,
-}
+use crate::buffer::Buffer;
+use crate::protocol::CRLF;
 
 pub enum MemcacheResponse {
     Deleted,
@@ -27,8 +13,8 @@ pub enum MemcacheResponse {
     NoReply,
 }
 
-impl Response for MemcacheResponse {
-    fn compose(self, buffer: &mut BytesMut) {
+impl Compose for MemcacheResponse {
+    fn compose(self, buffer: &mut dyn Buffer) {
         match self {
             Self::Deleted => buffer.extend(b"DELETED\r\n"),
             Self::End => buffer.extend(b"END\r\n"),
@@ -45,9 +31,9 @@ impl Response for MemcacheResponse {
                         buffer
                             .extend(&format!(" {} {}", item.flags, item.value.len()).into_bytes());
                     }
-                    buffer.extend(CRLF);
+                    buffer.extend(CRLF.as_bytes());
                     buffer.extend(&*item.value);
-                    buffer.extend(CRLF);
+                    buffer.extend(CRLF.as_bytes());
                 }
                 buffer.extend(b"END\r\n");
             }
