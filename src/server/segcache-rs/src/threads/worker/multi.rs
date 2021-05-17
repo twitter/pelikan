@@ -2,29 +2,22 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! The multi-worker which is used when multiple worker threads are enabled in
-//! the config. Parsed requests are dispatched to the [`Storage`] thread for
-//! handling.
+//! The multi-threaded worker, which is used when there are multiple worker
+//! threads configured. This worker parses buffers to produce requests, sends
+//! the requests to the storage worker. Responses from the storage worker are
+//! then serialized onto the session buffer.
 
-use super::StorageWorker;
-use crate::common::Queue;
-use crate::common::Sender;
-use crate::common::Signal;
+use crate::buffer::Buffer;
 use crate::common::*;
 use crate::event_loop::EventLoop;
 use crate::session::*;
+use crate::threads::worker::StorageWorker;
 use crate::*;
-use bytes::BytesMut;
-use config::TwemcacheConfig;
+use config::WorkerConfig;
 use metrics::Stat;
 use mio::event::Event;
-use mio::Events;
-use mio::Poll;
-use mio::Token;
-use mio::Waker;
-use rtrb::PushError;
+use mio::{Events, Poll, Token, Waker};
 use slab::Slab;
-
 use std::convert::TryInto;
 use std::sync::Arc;
 
@@ -37,10 +30,10 @@ const QUEUE_RETRIES: usize = 3;
 /// the `Storage` thread.
 pub struct MultiWorker<Request, Response>
 where
-    BytesMut: Parse<Request>,
+    Request: Parse<Buffer>,
     Response: crate::protocol::Compose,
 {
-    config: Arc<TwemcacheConfig>,
+    config: Arc<WorkerConfig>,
     signal_queue: Queue<Signal>,
     poll: Poll,
     session_queue: Queue<Session>,
@@ -52,12 +45,12 @@ where
 
 impl<Request, Response> MultiWorker<Request, Response>
 where
-    BytesMut: Parse<Request>,
+    Request: Parse<Buffer>,
     Response: Compose,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new<Storage: Execute<Request, Response> + crate::storage::Storage>(
-        config: Arc<TwemcacheConfig>,
+        config: Arc<WorkerConfig>,
         storage: &mut StorageWorker<Storage, Response, Request>,
     ) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
@@ -86,9 +79,9 @@ where
 
     /// Run the `Worker` in a loop, handling new session events
     pub fn run(&mut self) {
-        let mut events = Events::with_capacity(self.config.worker().nevent());
+        let mut events = Events::with_capacity(self.config.nevent());
         let timeout = Some(std::time::Duration::from_millis(
-            self.config.worker().timeout() as u64,
+            self.config.timeout() as u64
         ));
 
         loop {
@@ -178,7 +171,7 @@ where
         poll: &Poll,
         storage_queue: &mut BiDiQueue<Request, Response>,
     ) -> bool {
-        match session.read_buffer.parse() {
+        match Parse::parse(&mut session.read_buffer) {
             Ok(request) => {
                 let mut message = Message {
                     item: request,
@@ -284,7 +277,7 @@ where
 impl<Request, Response> EventLoop for MultiWorker<Request, Response>
 where
     Response: Compose,
-    BytesMut: Parse<Request>,
+    Request: Parse<Buffer>,
 {
     fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)

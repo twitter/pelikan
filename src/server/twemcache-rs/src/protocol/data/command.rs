@@ -12,7 +12,7 @@ use core::convert::TryFrom;
 pub enum MemcacheCommand {
     Get,
     Gets,
-    Set,
+    Set,    
     Add,
     Replace,
     Cas,

@@ -7,10 +7,8 @@
 // TODO(bmartin): we will replace the admin protocol and listener with a HTTP
 // listener in the future.
 
+use crate::buffer::Buffer;
 use crate::protocol::CRLF;
-
-use bytes::BytesMut;
-
 use std::borrow::Borrow;
 
 // TODO(bmartin): see TODO for protocol::data::Request, this is cleaner here
@@ -30,8 +28,8 @@ pub enum ParseError {
 }
 
 // TODO(bmartin): see corresponding TODO for protocol::data::parse()
-pub fn parse(buffer: &mut BytesMut) -> Result<Request, ParseError> {
-    let buf: &[u8] = (*buffer).borrow();
+pub fn parse(buffer: &mut Buffer) -> Result<Request, ParseError> {
+    let buf: &[u8] = (*buffer.inner).borrow();
 
     // check if we got a CRLF
     let mut double_byte_windows = buf.windows(CRLF.len());
@@ -76,26 +74,26 @@ mod tests {
     fn parse_incomplete() {
         let buffers: Vec<&[u8]> = vec![b"", b"stats", b"stats\r"];
         for buffer in buffers.iter() {
-            let mut b = BytesMut::new();
-            b.extend_from_slice(*buffer);
+            let mut b = Buffer::with_capacity(1024);
+            b.extend(*buffer);
             assert_eq!(parse(&mut b), Err(ParseError::Incomplete));
         }
     }
 
     #[test]
     fn parse_stats() {
-        let mut buffer = BytesMut::new();
-        buffer.extend_from_slice(b"stats\r\n");
-        let parsed = parse(&mut buffer);
+        let mut b = Buffer::with_capacity(1024);
+        b.extend(b"stats\r\n");
+        let parsed = parse(&mut b);
         assert!(parsed.is_ok());
         assert_eq!(parsed, Ok(Request::Stats))
     }
 
     #[test]
     fn parse_quit() {
-        let mut buffer = BytesMut::new();
-        buffer.extend_from_slice(b"quit\r\n");
-        let parsed = parse(&mut buffer);
+        let mut b = Buffer::with_capacity(1024);
+        b.extend(b"quit\r\n");
+        let parsed = parse(&mut b);
         assert!(parsed.is_ok());
         assert_eq!(parsed, Ok(Request::Quit))
     }

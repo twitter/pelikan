@@ -6,7 +6,7 @@ use crate::buffer::Buffer;
 pub const CRLF: &str = "\r\n";
 
 pub trait Compose {
-    fn compose(self, buffer: &mut dyn Buffer);
+    fn compose(self, buffer: &mut Buffer);
 }
 
 pub trait Execute<Request, Response> {
@@ -19,6 +19,9 @@ pub enum ParseError {
     UnknownCommand,
 }
 
-pub trait Parse<Message> {
-    fn parse(&mut self) -> Result<Message, ParseError>;
+pub trait Parse<Buffer>
+where
+    Self: Sized,
+{
+    fn parse(buffer: &mut Buffer) -> Result<Self, ParseError>;
 }

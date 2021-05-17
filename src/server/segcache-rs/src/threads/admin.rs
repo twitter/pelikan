@@ -333,7 +333,6 @@ impl EventLoop for Admin {
                     break;
                 }
                 match parse(&mut session.read_buffer) {
-                    // match session.read_buffer.fill_buf() {
                     Ok(request) => match request {
                         Request::Stats => {
                             increment_counter!(&Stat::AdminRequestParse);

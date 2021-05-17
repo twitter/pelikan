@@ -14,7 +14,7 @@ pub enum MemcacheResponse {
 }
 
 impl Compose for MemcacheResponse {
-    fn compose(self, buffer: &mut dyn Buffer) {
+    fn compose(self, buffer: &mut Buffer) {
         match self {
             Self::Deleted => buffer.extend(b"DELETED\r\n"),
             Self::End => buffer.extend(b"END\r\n"),

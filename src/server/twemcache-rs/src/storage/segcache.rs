@@ -125,26 +125,26 @@ impl Init<Config> for SegCacheStorage {
 
 impl SegCacheStorage {
     pub(crate) fn new(config: &SegCacheConfig) -> Self {
-        let eviction = match config.segcache().eviction() {
+        let eviction = match config.eviction() {
             Eviction::None => Policy::None,
             Eviction::Random => Policy::Random,
             Eviction::Fifo => Policy::Fifo,
             Eviction::Cte => Policy::Cte,
             Eviction::Util => Policy::Util,
             Eviction::Merge => Policy::Merge {
-                max: config.segcache().merge_max(),
-                merge: config.segcache().merge_target(),
-                compact: config.segcache().compact_target(),
+                max: config.merge_max(),
+                merge: config.merge_target(),
+                compact: config.compact_target(),
             },
         };
 
         let data = SegCache::builder()
-            .power(config.segcache().hash_power())
-            .overflow_factor(config.segcache().overflow_factor())
-            .heap_size(config.segcache().heap_size())
-            .segment_size(config.segcache().segment_size())
+            .power(config.hash_power())
+            .overflow_factor(config.overflow_factor())
+            .heap_size(config.heap_size())
+            .segment_size(config.segment_size())
             .eviction(eviction)
-            .datapool_path(config.segcache().datapool_path())
+            .datapool_path(config.datapool_path())
             .build();
 
         Self { config, data }

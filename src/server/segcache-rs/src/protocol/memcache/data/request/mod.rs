@@ -1,4 +1,5 @@
 mod command;
+mod parse;
 
 pub use command::MemcacheCommand;
 

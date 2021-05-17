@@ -7,6 +7,7 @@
 mod stream;
 mod tcp_stream;
 
+use crate::buffer::Buffer;
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
 use std::net::SocketAddr;
@@ -15,7 +16,6 @@ use stream::Stream;
 pub use tcp_stream::TcpStream;
 
 use boring::ssl::{MidHandshakeSslStream, SslStream};
-use bytes::BytesMut;
 use metrics::Stat;
 
 use std::borrow::Borrow;
@@ -29,8 +29,8 @@ pub struct Session {
     token: Token,
     addr: SocketAddr,
     stream: Stream,
-    pub read_buffer: BytesMut,
-    pub write_buffer: BytesMut,
+    pub read_buffer: Buffer,
+    pub write_buffer: Buffer,
     tmp_buffer: [u8; MIN_BUFFER_SIZE],
 }
 
@@ -57,8 +57,8 @@ impl Session {
             token: Token(0),
             addr,
             stream,
-            read_buffer: BytesMut::with_capacity(MIN_BUFFER_SIZE),
-            write_buffer: BytesMut::with_capacity(MIN_BUFFER_SIZE),
+            read_buffer: Buffer::with_capacity(MIN_BUFFER_SIZE),
+            write_buffer: Buffer::with_capacity(MIN_BUFFER_SIZE),
             tmp_buffer: [0; MIN_BUFFER_SIZE],
         }
     }

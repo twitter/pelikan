@@ -3,47 +3,48 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 //! The single-threaded worker, which is used when there is only one worker
-//! thread configured. This worker parsed requests and handles request
-//! processing.
+//! thread configured. This worker parses buffers to produce requests, executes
+//! the request using the backing storage, and then composes a response onto the
+//! session buffer.
 
-use config::TwemcacheConfig;
-use mio::Events;
-
-use crate::protocol::memcache::data::*;
-use crate::storage::SegCache;
-
+use crate::buffer::Buffer;
 use crate::common::Queue;
 use crate::common::Sender;
+use crate::common::Signal;
+use crate::event_loop::EventLoop;
+use crate::session::*;
+use crate::*;
+use config::WorkerConfig;
+use core::marker::PhantomData;
+use metrics::Stat;
+use mio::event::Event;
+use mio::Events;
 use mio::Poll;
 use mio::Token;
 use slab::Slab;
-// use crate::storage::SegCache;
-use metrics::Stat;
-use mio::event::Event;
-
-use crate::common::Signal;
-use crate::event_loop::EventLoop;
-// use crate::protocol::data::*;
-// use crate::protocol::traits::*;
-use crate::session::*;
-use crate::*;
-
 use std::convert::TryInto;
 use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
-pub struct SingleWorker {
-    storage: SegCache,
-    config: Arc<TwemcacheConfig>,
+pub struct SingleWorker<Storage, Request, Response> {
+    storage: Storage,
+    config: Arc<WorkerConfig>,
     poll: Poll,
     session_queue: Queue<Session>,
     sessions: Slab<Session>,
     signal_queue: Queue<Signal>,
+    _request: PhantomData<Request>,
+    _response: PhantomData<Response>,
 }
 
-impl SingleWorker {
+impl<Storage, Request, Response> SingleWorker<Storage, Request, Response>
+where
+    Request: Parse<Buffer>,
+    Response: Compose,
+    Storage: Execute<Request, Response> + crate::storage::Storage,
+{
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(config: Arc<TwemcacheConfig>) -> Result<Self, std::io::Error> {
+    pub fn new(config: Arc<WorkerConfig>, storage: Storage) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
@@ -53,8 +54,6 @@ impl SingleWorker {
         let session_queue = Queue::new(128);
         let signal_queue = Queue::new(128);
 
-        let storage = SegCache::new(config.segcache(), config.time().time_type());
-
         Ok(Self {
             config,
             poll,
@@ -62,14 +61,16 @@ impl SingleWorker {
             signal_queue,
             session_queue,
             sessions,
+            _request: PhantomData,
+            _response: PhantomData,
         })
     }
 
     /// Run the `Worker` in a loop, handling new session events
     pub fn run(&mut self) {
-        let mut events = Events::with_capacity(self.config.worker().nevent());
+        let mut events = Events::with_capacity(self.config.nevent());
         let timeout = Some(std::time::Duration::from_millis(
-            self.config.worker().timeout() as u64,
+            self.config.timeout() as u64
         ));
 
         #[cfg(feature = "heap_dump")]
@@ -203,7 +204,12 @@ impl SingleWorker {
     }
 }
 
-impl EventLoop for SingleWorker {
+impl<Storage, Request, Response> EventLoop for SingleWorker<Storage, Request, Response>
+where
+    Request: Parse<Buffer>,
+    Response: Compose,
+    Storage: Execute<Request, Response> + crate::storage::Storage,
+{
     fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
     }
@@ -218,7 +224,7 @@ impl EventLoop for SingleWorker {
                     // if the write buffer is over-full, skip processing
                     break;
                 }
-                match session.read_buffer.parse() {
+                match Parse::parse(&mut session.read_buffer) {
                     Ok(request) => {
                         increment_counter!(&Stat::ProcessReq);
                         let response = self.storage.execute(request);
