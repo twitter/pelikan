@@ -2,9 +2,10 @@ use crate::common::Queue;
 use crate::common::Sender;
 use crate::common::Signal;
 use crate::common::*;
-use crate::Compose;
-use crate::Execute;
+use crate::protocol::Compose;
+use crate::protocol::Execute;
 use config::WorkerConfig;
+use core::time::Duration;
 use metrics::Stat;
 use mio::Events;
 use mio::Poll;
@@ -21,22 +22,24 @@ const QUEUE_RETRIES: usize = 3;
 /// cache contents and operates on message queues for each worker thread, taking
 /// fully parsed requests, processing them, and writing the responses directly
 /// into the session write buffers.
-pub struct StorageWorker<Storage, Response, Request> {
-    config: Arc<WorkerConfig>,
+pub struct StorageWorker<Storage, Request, Response> {
     poll: Poll,
+    nevent: usize,
+    timeout: Duration,
     storage: Storage,
     signal_queue: Queue<Signal>,
     waker: Arc<Waker>,
     worker_queues: Vec<BiDiQueue<Response, Request>>,
 }
 
-impl<Storage, Response, Request> StorageWorker<Storage, Response, Request>
+impl<Storage, Request, Response> StorageWorker<Storage, Request, Response>
 where
-    Response: Compose,
-    Storage: Execute<Request, Response> + crate::storage::Storage,
+    Request: Send,
+    Response: Compose + Send,
+    Storage: Execute<Request, Response> + crate::storage::Storage + Send,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(config: Arc<WorkerConfig>, storage: Storage) -> Result<Self, std::io::Error> {
+    pub fn new(config: &WorkerConfig, storage: Storage) -> Result<Self, std::io::Error> {
         let signal_queue = Queue::new(128);
 
         let poll = Poll::new().map_err(|e| {
@@ -47,7 +50,8 @@ where
         let waker = Arc::new(Waker::new(poll.registry(), Token(usize::MAX)).unwrap());
 
         Ok(Self {
-            config,
+            nevent: config.nevent(),
+            timeout: Duration::from_millis(config.timeout() as u64),
             poll,
             storage,
             signal_queue,
@@ -92,10 +96,8 @@ where
         // a wakeup happened
         let mut worker_pending = vec![0; workers];
 
-        let mut events = Events::with_capacity(self.config.nevent());
-        let timeout = Some(std::time::Duration::from_millis(
-            self.config.timeout() as u64
-        ));
+        let mut events = Events::with_capacity(self.nevent);
+        let timeout = Some(self.timeout);
 
         loop {
             increment_counter!(&Stat::StorageEventLoop);

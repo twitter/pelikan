@@ -1,4 +1,4 @@
-use crate::ParseError;
+use crate::protocol::ParseError;
 use core::convert::TryFrom;
 
 /// Memcache protocol commands

@@ -4,7 +4,15 @@ version = "0.1.0"
 authors = ["Brian Martin <bmartin@twitter.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "pelikan_segcache_rs"
+path = "src/lib.rs"
+doc = true
+
+[[bin]]
+name = "pelikan_segcache_rs"
+path = "src/main.rs"
+doc = false
 
 [dependencies]
 ahash = "0.6.2"

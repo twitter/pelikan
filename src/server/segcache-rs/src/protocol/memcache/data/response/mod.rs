@@ -1,5 +1,6 @@
-use super::*;
 use crate::buffer::Buffer;
+use crate::protocol::memcache::data::MemcacheItem;
+use crate::protocol::Compose;
 use crate::protocol::CRLF;
 
 pub enum MemcacheResponse {

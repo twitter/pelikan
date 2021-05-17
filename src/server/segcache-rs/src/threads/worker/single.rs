@@ -12,10 +12,14 @@ use crate::common::Queue;
 use crate::common::Sender;
 use crate::common::Signal;
 use crate::event_loop::EventLoop;
+use crate::protocol::Compose;
+use crate::protocol::Execute;
+use crate::protocol::Parse;
+use crate::protocol::ParseError;
 use crate::session::*;
-use crate::*;
 use config::WorkerConfig;
 use core::marker::PhantomData;
+use core::time::Duration;
 use metrics::Stat;
 use mio::event::Event;
 use mio::Events;
@@ -28,8 +32,9 @@ use std::sync::Arc;
 /// A `Worker` handles events on `Session`s
 pub struct SingleWorker<Storage, Request, Response> {
     storage: Storage,
-    config: Arc<WorkerConfig>,
     poll: Poll,
+    nevent: usize,
+    timeout: Duration,
     session_queue: Queue<Session>,
     sessions: Slab<Session>,
     signal_queue: Queue<Signal>,
@@ -44,7 +49,7 @@ where
     Storage: Execute<Request, Response> + crate::storage::Storage,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(config: Arc<WorkerConfig>, storage: Storage) -> Result<Self, std::io::Error> {
+    pub fn new(config: &WorkerConfig, storage: Storage) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
@@ -55,8 +60,9 @@ where
         let signal_queue = Queue::new(128);
 
         Ok(Self {
-            config,
             poll,
+            nevent: config.nevent(),
+            timeout: Duration::from_millis(config.timeout() as u64),
             storage,
             signal_queue,
             session_queue,
@@ -68,10 +74,8 @@ where
 
     /// Run the `Worker` in a loop, handling new session events
     pub fn run(&mut self) {
-        let mut events = Events::with_capacity(self.config.nevent());
-        let timeout = Some(std::time::Duration::from_millis(
-            self.config.timeout() as u64
-        ));
+        let mut events = Events::with_capacity(self.nevent);
+        let timeout = Some(self.timeout);
 
         #[cfg(feature = "heap_dump")]
         let mut ops = 0;

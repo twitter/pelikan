@@ -10,5 +10,5 @@ mod single;
 mod storage;
 
 pub use multi::MultiWorker;
-// pub use single::SingleWorker;
+pub use single::SingleWorker;
 pub use storage::StorageWorker;

@@ -1,5 +1,5 @@
 // Storage
-use crate::*;
+use crate::storage::GetTtl;
 use ::segcache::Policy;
 use ::segcache::SegCacheError;
 use config::segcache::Eviction;

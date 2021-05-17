@@ -2,12 +2,13 @@ mod item;
 mod request;
 mod response;
 
+use crate::storage::GetTtl;
 pub use item::*;
 pub use request::*;
 pub use response::*;
 
 use super::*;
-use crate::*;
+use crate::protocol::*;
 
 impl<T> Execute<MemcacheRequest, MemcacheResponse> for T
 where
