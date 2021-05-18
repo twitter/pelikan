@@ -7,9 +7,8 @@
 // TODO(bmartin): we will replace the admin protocol and listener with a HTTP
 // listener in the future.
 
-use crate::protocol::*;
-use crate::session::Session;
 use crate::protocol::CRLF;
+use crate::protocol::*;
 
 // TODO(bmartin): see TODO for protocol::data::Request, this is cleaner here
 // since the variants are simple, but better to take the same approach in both
@@ -38,15 +37,18 @@ impl Parse for AdminRequest {
                 }
             } else {
                 match &buffer[0..command_end] {
-                    b"stats" => {
-                        Ok(ParseOk { message: Self::Stats, consumed: command_end + CRLF.len()})
-                    }
-                    b"quit" => {
-                        Ok(ParseOk { message: Self::Quit, consumed: command_end + CRLF.len()})
-                    }
-                    b"version" => {
-                        Ok(ParseOk { message: Self::Version, consumed: command_end + CRLF.len()})
-                    }
+                    b"stats" => Ok(ParseOk {
+                        message: Self::Stats,
+                        consumed: command_end + CRLF.len(),
+                    }),
+                    b"quit" => Ok(ParseOk {
+                        message: Self::Quit,
+                        consumed: command_end + CRLF.len(),
+                    }),
+                    b"version" => Ok(ParseOk {
+                        message: Self::Version,
+                        consumed: command_end + CRLF.len(),
+                    }),
                     _ => Err(ParseError::UnknownCommand),
                 }
             }

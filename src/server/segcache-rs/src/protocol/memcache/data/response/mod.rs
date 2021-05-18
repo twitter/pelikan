@@ -2,10 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::io::Write;
 use crate::protocol::memcache::data::MemcacheItem;
 use crate::protocol::Compose;
 use crate::protocol::CRLF;
+use std::io::Write;
 
 pub enum MemcacheResponse {
     Deleted,
@@ -18,12 +18,23 @@ pub enum MemcacheResponse {
     NoReply,
 }
 
+// TODO(bmartin): consider a different trait bound here when reworking buffers.
+// We ignore the unused result warnings here because we know we're using a
+// buffer with infallible writes (growable buffer). This is *not* guaranteed by
+// the current trait bound.
+#[allow(unused_must_use)]
 impl Compose for MemcacheResponse {
     fn compose<Buffer: Write>(self, dst: &mut Buffer) {
         match self {
-            Self::Deleted => { dst.write_all(b"DELETED\r\n"); },
-            Self::End => { dst.write_all(b"END\r\n"); },
-            Self::Exists => { dst.write_all(b"EXISTS\r\n"); },
+            Self::Deleted => {
+                dst.write_all(b"DELETED\r\n");
+            }
+            Self::End => {
+                dst.write_all(b"END\r\n");
+            }
+            Self::Exists => {
+                dst.write_all(b"EXISTS\r\n");
+            }
             Self::Items(items) => {
                 for item in items.iter() {
                     dst.write_all(b"VALUE ");
@@ -33,8 +44,9 @@ impl Compose for MemcacheResponse {
                             &format!(" {} {} {}", item.flags, item.value.len(), cas).into_bytes(),
                         );
                     } else {
-                        dst
-                            .write_all(&format!(" {} {}", item.flags, item.value.len()).into_bytes());
+                        dst.write_all(
+                            &format!(" {} {}", item.flags, item.value.len()).into_bytes(),
+                        );
                     }
                     dst.write_all(CRLF.as_bytes());
                     dst.write_all(&*item.value);
@@ -42,10 +54,16 @@ impl Compose for MemcacheResponse {
                 }
                 dst.write_all(b"END\r\n");
             }
-            Self::NotFound => { dst.write_all(b"NOT_FOUND\r\n"); },
-            Self::NotStored => { dst.write_all(b"NOT_STORED\r\n"); },
-            Self::Stored => { dst.write_all(b"STORED\r\n"); },
-            Self::NoReply => { }
+            Self::NotFound => {
+                dst.write_all(b"NOT_FOUND\r\n");
+            }
+            Self::NotStored => {
+                dst.write_all(b"NOT_STORED\r\n");
+            }
+            Self::Stored => {
+                dst.write_all(b"STORED\r\n");
+            }
+            Self::NoReply => {}
         }
     }
 }

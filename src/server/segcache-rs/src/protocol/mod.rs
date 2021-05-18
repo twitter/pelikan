@@ -26,18 +26,18 @@ pub enum ParseError {
 
 #[derive(Debug, PartialEq)]
 pub struct ParseOk<T> {
-	message: T,
-	consumed: usize,
+    message: T,
+    consumed: usize,
 }
 
 impl<T> ParseOk<T> {
-	pub fn into_inner(self) -> T {
-		self.message
-	}
+    pub fn into_inner(self) -> T {
+        self.message
+    }
 
-	pub fn consumed(&self) -> usize {
-		self.consumed
-	}
+    pub fn consumed(&self) -> usize {
+        self.consumed
+    }
 }
 
 pub trait Parse

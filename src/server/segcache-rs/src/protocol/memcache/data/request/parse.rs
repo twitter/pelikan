@@ -93,10 +93,7 @@ fn parse_gets(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
 
     message.command = MemcacheCommand::Gets;
 
-    Ok(ParseOk {
-        message,
-        consumed,
-    })
+    Ok(ParseOk { message, consumed })
 }
 
 fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
@@ -115,8 +112,8 @@ fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
             .ok_or(ParseError::Incomplete)?
             + key_end
             + 1;
-        let flags_str =
-            std::str::from_utf8(&buffer[(key_end + 1)..flags_end]).map_err(|_| ParseError::Invalid)?;
+        let flags_str = std::str::from_utf8(&buffer[(key_end + 1)..flags_end])
+            .map_err(|_| ParseError::Invalid)?;
         let flags = flags_str.parse().map_err(|_| ParseError::Invalid)?;
 
         // expiry
@@ -183,7 +180,10 @@ fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
                     ),
                     cas: 0,
                 };
-                Ok(ParseOk { message: request, consumed })
+                Ok(ParseOk {
+                    message: request,
+                    consumed,
+                })
             } else {
                 // the buffer doesn't yet have all the bytes for the value
                 Err(ParseError::Incomplete)
@@ -205,10 +205,7 @@ fn parse_add(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
 
     message.command = MemcacheCommand::Add;
 
-    Ok(ParseOk {
-        message,
-        consumed,
-    })
+    Ok(ParseOk { message, consumed })
 }
 
 fn parse_replace(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
@@ -218,10 +215,7 @@ fn parse_replace(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> 
 
     message.command = MemcacheCommand::Replace;
 
-    Ok(ParseOk {
-        message,
-        consumed,
-    })
+    Ok(ParseOk { message, consumed })
 }
 
 fn parse_cas(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
@@ -248,8 +242,8 @@ fn parse_cas(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         .ok_or(ParseError::Incomplete)?
         + flags_end
         + 1;
-    let expiry_str =
-        std::str::from_utf8(&buffer[(flags_end + 1)..expiry_end]).map_err(|_| ParseError::Invalid)?;
+    let expiry_str = std::str::from_utf8(&buffer[(flags_end + 1)..expiry_end])
+        .map_err(|_| ParseError::Invalid)?;
     let expiry = expiry_str.parse().map_err(|_| ParseError::Invalid)?;
 
     let bytes_end = single_byte
@@ -257,8 +251,8 @@ fn parse_cas(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         .ok_or(ParseError::Incomplete)?
         + expiry_end
         + 1;
-    let bytes_str =
-        std::str::from_utf8(&buffer[(expiry_end + 1)..bytes_end]).map_err(|_| ParseError::Invalid)?;
+    let bytes_str = std::str::from_utf8(&buffer[(expiry_end + 1)..bytes_end])
+        .map_err(|_| ParseError::Invalid)?;
     let bytes = bytes_str
         .parse::<usize>()
         .map_err(|_| ParseError::Invalid)?;
@@ -316,7 +310,10 @@ fn parse_cas(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
                         .into_boxed_slice(),
                 ),
             };
-            Ok(ParseOk { message: request, consumed })
+            Ok(ParseOk {
+                message: request,
+                consumed,
+            })
         } else {
             // buffer doesn't have all the bytes for the value yet
             Err(ParseError::Incomplete)
@@ -373,5 +370,8 @@ fn parse_delete(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         flags: 0,
     };
 
-    Ok(ParseOk{ message: request, consumed })
+    Ok(ParseOk {
+        message: request,
+        consumed,
+    })
 }

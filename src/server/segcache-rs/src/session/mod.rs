@@ -9,12 +9,12 @@ mod stream;
 mod tcp_stream;
 
 use crate::common::ExtendFromSlice;
-use bytes::Buf;
 use crate::session::buffer::Buffer;
+use bytes::Buf;
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
-use std::net::SocketAddr;
 use std::borrow::Borrow;
+use std::net::SocketAddr;
 
 use stream::Stream;
 pub use tcp_stream::TcpStream;

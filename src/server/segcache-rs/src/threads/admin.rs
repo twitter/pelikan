@@ -5,13 +5,12 @@
 //! The admin thread, which handles admin requests to return stats, get version
 //! info, etc.
 
-use std::io::Write;
 use super::EventLoop;
 use crate::common::Queue;
 use crate::common::Sender;
 use crate::common::Signal;
-use crate::protocol::*;
 use crate::protocol::admin::*;
+use crate::protocol::*;
 use crate::session::TcpStream;
 use crate::session::*;
 use config::AdminConfig;
@@ -20,6 +19,7 @@ use mio::Interest;
 use mio::Poll;
 use mio::Token;
 use slab::Slab;
+use std::io::Write;
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -363,9 +363,9 @@ impl EventLoop for Admin {
                                 }
                                 data.sort();
                                 for line in data {
-                                    session.write(line.as_bytes());
+                                    let _ = session.write(line.as_bytes());
                                 }
-                                session.write(b"END\r\n");
+                                let _ = session.write(b"END\r\n");
                                 increment_counter!(&Stat::AdminResponseCompose);
                             }
                             AdminRequest::Quit => {
@@ -373,7 +373,7 @@ impl EventLoop for Admin {
                                 return Ok(());
                             }
                             AdminRequest::Version => {
-                                session.write(
+                                let _ = session.write(
                                     format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION")).as_bytes(),
                                 );
                                 increment_counter!(&Stat::AdminResponseCompose);
