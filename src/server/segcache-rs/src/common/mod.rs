@@ -10,6 +10,10 @@ use mio::Token;
 use mio::Waker;
 use std::sync::Arc;
 
+pub trait ExtendFromSlice<T> {
+    fn extend(&mut self, src: &[T]);
+}
+
 #[derive(Clone)]
 pub enum Signal {
     Shutdown,

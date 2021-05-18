@@ -8,7 +8,6 @@
 //! then serialized onto the session buffer.
 
 use super::EventLoop;
-use crate::buffer::Buffer;
 use crate::common::*;
 use crate::protocol::Compose;
 use crate::protocol::Execute;
@@ -35,7 +34,7 @@ const QUEUE_RETRIES: usize = 3;
 /// the `Storage` thread.
 pub struct MultiWorker<Storage, Request, Response>
 where
-    Request: Parse<Buffer>,
+    Request: Parse,
     Response: crate::protocol::Compose,
 {
     signal_queue: Queue<Signal>,
@@ -53,7 +52,7 @@ where
 
 impl<Storage, Request, Response> MultiWorker<Storage, Request, Response>
 where
-    Request: Parse<Buffer> + Send,
+    Request: Parse + Send,
     Response: Compose + Send,
     Storage: Execute<Request, Response> + crate::storage::Storage + Send,
 {
@@ -180,8 +179,11 @@ where
         poll: &Poll,
         storage_queue: &mut BiDiQueue<Request, Response>,
     ) -> bool {
-        match Parse::parse(&mut session.read_buffer) {
+        match Request::parse(session.peek()) {
             Ok(request) => {
+                let consumed = request.consumed();
+                let request = request.into_inner();
+                session.consume(consumed);
                 let mut message = Message {
                     item: request,
                     token: session.token(),
@@ -220,8 +222,8 @@ where
         // process all storage queue responses
         while let Ok(message) = self.storage_queue.try_recv() {
             let token = message.token;
-            if let Some(session) = self.sessions.get_mut(token.0) {
-                message.item.compose(&mut session.write_buffer);
+            if let Some(mut session) = self.sessions.get_mut(token.0) {
+                message.item.compose(&mut session);
                 if session.write_pending() > 0 {
                     match session.flush() {
                         Ok(_) => {
@@ -285,7 +287,7 @@ where
 
 impl<Storage, Request, Response> EventLoop for MultiWorker<Storage, Request, Response>
 where
-    Request: Parse<Buffer> + Send,
+    Request: Parse + Send,
     Response: Compose + Send,
     Storage: Execute<Request, Response> + crate::storage::Storage + Send,
 {

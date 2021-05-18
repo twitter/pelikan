@@ -4,13 +4,17 @@
 
 //! TCP/TLS session wrapper
 
+mod buffer;
 mod stream;
 mod tcp_stream;
 
-use crate::buffer::Buffer;
+use crate::common::ExtendFromSlice;
+use bytes::Buf;
+use crate::session::buffer::Buffer;
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
 use std::net::SocketAddr;
+use std::borrow::Borrow;
 
 use stream::Stream;
 pub use tcp_stream::TcpStream;
@@ -18,7 +22,6 @@ pub use tcp_stream::TcpStream;
 use boring::ssl::{MidHandshakeSslStream, SslStream};
 use metrics::Stat;
 
-use std::borrow::Borrow;
 use std::io::{ErrorKind, Read, Write};
 
 pub const MIN_BUFFER_SIZE: usize = 1024; // 1 KiB
@@ -29,8 +32,8 @@ pub struct Session {
     token: Token,
     addr: SocketAddr,
     stream: Stream,
-    pub read_buffer: Buffer,
-    pub write_buffer: Buffer,
+    read_buffer: Buffer,
+    write_buffer: Buffer,
     tmp_buffer: [u8; MIN_BUFFER_SIZE],
 }
 
@@ -195,5 +198,24 @@ impl Session {
         //     self.read_buffer.clear();
         // }
         pending
+    }
+
+    pub fn peek(&self) -> &[u8] {
+        self.read_buffer.borrow()
+    }
+
+    pub fn consume(&mut self, bytes: usize) {
+        self.read_buffer.inner.advance(bytes);
+    }
+}
+
+impl Write for Session {
+    fn write(&mut self, src: &[u8]) -> Result<usize, std::io::Error> {
+        self.write_buffer.extend(src);
+        Ok(src.len())
+    }
+
+    fn flush(&mut self) -> Result<(), std::io::Error> {
+        Ok(())
     }
 }

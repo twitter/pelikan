@@ -2,30 +2,47 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::io::Write;
+
 pub mod admin;
 pub mod memcache;
-
-use crate::buffer::Buffer;
 
 pub const CRLF: &str = "\r\n";
 
 pub trait Compose {
-    fn compose(self, buffer: &mut Buffer);
+    fn compose<Buffer: Write>(self, dst: &mut Buffer);
 }
 
 pub trait Execute<Request, Response> {
     fn execute(&mut self, request: Request) -> Response;
 }
 
+#[derive(Debug, PartialEq)]
 pub enum ParseError {
     Invalid,
     Incomplete,
     UnknownCommand,
 }
 
-pub trait Parse<Buffer>
+#[derive(Debug, PartialEq)]
+pub struct ParseOk<T> {
+	message: T,
+	consumed: usize,
+}
+
+impl<T> ParseOk<T> {
+	pub fn into_inner(self) -> T {
+		self.message
+	}
+
+	pub fn consumed(&self) -> usize {
+		self.consumed
+	}
+}
+
+pub trait Parse
 where
     Self: Sized,
 {
-    fn parse(buffer: &mut Buffer) -> Result<Self, ParseError>;
+    fn parse(buffer: &[u8]) -> Result<ParseOk<Self>, ParseError>;
 }

@@ -5,10 +5,12 @@
 //! The admin thread, which handles admin requests to return stats, get version
 //! info, etc.
 
+use std::io::Write;
 use super::EventLoop;
 use crate::common::Queue;
 use crate::common::Sender;
 use crate::common::Signal;
+use crate::protocol::*;
 use crate::protocol::admin::*;
 use crate::session::TcpStream;
 use crate::session::*;
@@ -332,47 +334,52 @@ impl EventLoop for Admin {
                     // if the write buffer is over-full, skip processing
                     break;
                 }
-                match parse(&mut session.read_buffer) {
-                    Ok(request) => match request {
-                        Request::Stats => {
-                            increment_counter!(&Stat::AdminRequestParse);
-                            let mut data = Vec::new();
-                            for metric in Stat::iter() {
-                                match metric.source() {
-                                    Source::Gauge => {
-                                        data.push(format!(
-                                            "STAT {} {}\r\n",
-                                            metric,
-                                            get_gauge!(&metric).unwrap_or(0)
-                                        ));
-                                    }
-                                    Source::Counter => {
-                                        data.push(format!(
-                                            "STAT {} {}\r\n",
-                                            metric,
-                                            get_counter!(&metric).unwrap_or(0)
-                                        ));
+                match Parse::parse(session.peek()) {
+                    Ok(parsed_request) => {
+                        let consumed = parsed_request.consumed();
+                        let request = parsed_request.into_inner();
+                        session.consume(consumed);
+                        match request {
+                            AdminRequest::Stats => {
+                                increment_counter!(&Stat::AdminRequestParse);
+                                let mut data = Vec::new();
+                                for metric in Stat::iter() {
+                                    match metric.source() {
+                                        Source::Gauge => {
+                                            data.push(format!(
+                                                "STAT {} {}\r\n",
+                                                metric,
+                                                get_gauge!(&metric).unwrap_or(0)
+                                            ));
+                                        }
+                                        Source::Counter => {
+                                            data.push(format!(
+                                                "STAT {} {}\r\n",
+                                                metric,
+                                                get_counter!(&metric).unwrap_or(0)
+                                            ));
+                                        }
                                     }
                                 }
+                                data.sort();
+                                for line in data {
+                                    session.write(line.as_bytes());
+                                }
+                                session.write(b"END\r\n");
+                                increment_counter!(&Stat::AdminResponseCompose);
                             }
-                            data.sort();
-                            for line in data {
-                                session.write_buffer.extend(line.as_bytes());
+                            AdminRequest::Quit => {
+                                self.close(token);
+                                return Ok(());
                             }
-                            session.write_buffer.extend(b"END\r\n");
-                            increment_counter!(&Stat::AdminResponseCompose);
+                            AdminRequest::Version => {
+                                session.write(
+                                    format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION")).as_bytes(),
+                                );
+                                increment_counter!(&Stat::AdminResponseCompose);
+                            }
                         }
-                        Request::Quit => {
-                            self.close(token);
-                            return Ok(());
-                        }
-                        Request::Version => {
-                            session.write_buffer.extend(
-                                format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION")).as_bytes(),
-                            );
-                            increment_counter!(&Stat::AdminResponseCompose);
-                        }
-                    },
+                    }
                     Err(ParseError::Incomplete) => {
                         break;
                     }

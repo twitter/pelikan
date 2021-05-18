@@ -8,14 +8,12 @@ extern crate rustcommon_logger;
 #[macro_use]
 extern crate rustcommon_fastmetrics;
 
-mod buffer;
 mod common;
 mod protocol;
 mod session;
 mod storage;
 mod threads;
 
-use crate::buffer::Buffer;
 use crate::common::Sender;
 use crate::common::Signal;
 use crate::protocol::memcache::data::*;
@@ -34,7 +32,7 @@ const THREAD_PREFIX: &str = "pelikan";
 /// Wraps specialization of launching single or multi-threaded worker(s)
 pub enum WorkerBuilder<Storage, Request, Response>
 where
-    Request: Parse<Buffer>,
+    Request: Parse,
     Response: Compose,
     Storage: Execute<Request, Response> + crate::storage::Storage,
 {
@@ -50,7 +48,7 @@ where
 impl<Storage: 'static, Request: 'static, Response: 'static>
     WorkerBuilder<Storage, Request, Response>
 where
-    Request: Parse<Buffer> + Send,
+    Request: Parse + Send,
     Response: Compose + Send,
     Storage: Execute<Request, Response> + crate::storage::Storage + Send,
 {

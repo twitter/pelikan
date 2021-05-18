@@ -8,7 +8,6 @@
 //! session buffer.
 
 use super::EventLoop;
-use crate::buffer::Buffer;
 use crate::common::Queue;
 use crate::common::Sender;
 use crate::common::Signal;
@@ -43,7 +42,7 @@ pub struct SingleWorker<Storage, Request, Response> {
 
 impl<Storage, Request, Response> SingleWorker<Storage, Request, Response>
 where
-    Request: Parse<Buffer>,
+    Request: Parse,
     Response: Compose,
     Storage: Execute<Request, Response> + crate::storage::Storage,
 {
@@ -209,7 +208,7 @@ where
 
 impl<Storage, Request, Response> EventLoop for SingleWorker<Storage, Request, Response>
 where
-    Request: Parse<Buffer>,
+    Request: Parse,
     Response: Compose,
     Storage: Execute<Request, Response> + crate::storage::Storage,
 {
@@ -227,11 +226,14 @@ where
                     // if the write buffer is over-full, skip processing
                     break;
                 }
-                match Parse::parse(&mut session.read_buffer) {
-                    Ok(request) => {
+                match Parse::parse(session.peek()) {
+                    Ok(parsed_request) => {
                         increment_counter!(&Stat::ProcessReq);
+                        let consumed = parsed_request.consumed();
+                        let request = parsed_request.into_inner();
                         let response = self.storage.execute(request);
-                        response.compose(&mut session.write_buffer);
+                        session.consume(consumed);
+                        response.compose(session);
                     }
                     Err(ParseError::Incomplete) => {
                         break;

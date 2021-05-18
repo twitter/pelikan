@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::buffer::Buffer;
+use std::io::Write;
 use crate::protocol::memcache::data::MemcacheItem;
 use crate::protocol::Compose;
 use crate::protocol::CRLF;
@@ -19,33 +19,33 @@ pub enum MemcacheResponse {
 }
 
 impl Compose for MemcacheResponse {
-    fn compose(self, buffer: &mut Buffer) {
+    fn compose<Buffer: Write>(self, dst: &mut Buffer) {
         match self {
-            Self::Deleted => buffer.extend(b"DELETED\r\n"),
-            Self::End => buffer.extend(b"END\r\n"),
-            Self::Exists => buffer.extend(b"EXISTS\r\n"),
+            Self::Deleted => { dst.write_all(b"DELETED\r\n"); },
+            Self::End => { dst.write_all(b"END\r\n"); },
+            Self::Exists => { dst.write_all(b"EXISTS\r\n"); },
             Self::Items(items) => {
                 for item in items.iter() {
-                    buffer.extend(b"VALUE ");
-                    buffer.extend(&*item.key);
+                    dst.write_all(b"VALUE ");
+                    dst.write_all(&*item.key);
                     if let Some(cas) = item.cas {
-                        buffer.extend(
+                        dst.write_all(
                             &format!(" {} {} {}", item.flags, item.value.len(), cas).into_bytes(),
                         );
                     } else {
-                        buffer
-                            .extend(&format!(" {} {}", item.flags, item.value.len()).into_bytes());
+                        dst
+                            .write_all(&format!(" {} {}", item.flags, item.value.len()).into_bytes());
                     }
-                    buffer.extend(CRLF.as_bytes());
-                    buffer.extend(&*item.value);
-                    buffer.extend(CRLF.as_bytes());
+                    dst.write_all(CRLF.as_bytes());
+                    dst.write_all(&*item.value);
+                    dst.write_all(CRLF.as_bytes());
                 }
-                buffer.extend(b"END\r\n");
+                dst.write_all(b"END\r\n");
             }
-            Self::NotFound => buffer.extend(b"NOT_FOUND\r\n"),
-            Self::NotStored => buffer.extend(b"NOT_STORED\r\n"),
-            Self::Stored => buffer.extend(b"STORED\r\n"),
-            Self::NoReply => {}
+            Self::NotFound => { dst.write_all(b"NOT_FOUND\r\n"); },
+            Self::NotStored => { dst.write_all(b"NOT_STORED\r\n"); },
+            Self::Stored => { dst.write_all(b"STORED\r\n"); },
+            Self::NoReply => { }
         }
     }
 }

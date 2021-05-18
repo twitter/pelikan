@@ -4,36 +4,33 @@
 
 use super::super::*;
 use crate::protocol::*;
-use bytes::Buf;
-use bytes::BytesMut;
-use std::borrow::Borrow;
+
 use std::convert::TryFrom;
 
-impl Parse<Buffer> for MemcacheRequest {
-    fn parse(buffer: &mut Buffer) -> Result<Self, ParseError> {
-        match parse_command(&mut buffer.inner)? {
-            MemcacheCommand::Get => parse_get(&mut buffer.inner),
-            MemcacheCommand::Gets => parse_gets(&mut buffer.inner),
-            MemcacheCommand::Set => parse_set(&mut buffer.inner),
-            MemcacheCommand::Add => parse_add(&mut buffer.inner),
-            MemcacheCommand::Replace => parse_replace(&mut buffer.inner),
-            MemcacheCommand::Cas => parse_cas(&mut buffer.inner),
-            MemcacheCommand::Delete => parse_delete(&mut buffer.inner),
+impl Parse for MemcacheRequest {
+    fn parse(buffer: &[u8]) -> Result<ParseOk<Self>, ParseError> {
+        match parse_command(buffer)? {
+            MemcacheCommand::Get => parse_get(buffer),
+            MemcacheCommand::Gets => parse_gets(buffer),
+            MemcacheCommand::Set => parse_set(buffer),
+            MemcacheCommand::Add => parse_add(buffer),
+            MemcacheCommand::Replace => parse_replace(buffer),
+            MemcacheCommand::Cas => parse_cas(buffer),
+            MemcacheCommand::Delete => parse_delete(buffer),
         }
     }
 }
 
-fn parse_command(buffer: &mut BytesMut) -> Result<MemcacheCommand, ParseError> {
+fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
     let command;
     {
-        let buf: &[u8] = (*buffer).borrow();
         // check if we got a CRLF
-        let mut double_byte = buf.windows(CRLF.len());
+        let mut double_byte = buffer.windows(CRLF.len());
         if let Some(_line_end) = double_byte.position(|w| w == CRLF.as_bytes()) {
             // single-byte windowing to find spaces
-            let mut single_byte = buf.windows(1);
+            let mut single_byte = buffer.windows(1);
             if let Some(cmd_end) = single_byte.position(|w| w == b" ") {
-                command = MemcacheCommand::try_from(&buf[0..cmd_end])?;
+                command = MemcacheCommand::try_from(&buffer[0..cmd_end])?;
             } else {
                 return Err(ParseError::Incomplete);
             }
@@ -45,13 +42,11 @@ fn parse_command(buffer: &mut BytesMut) -> Result<MemcacheCommand, ParseError> {
 }
 
 #[allow(clippy::unnecessary_wraps)]
-fn parse_get(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
-    let buf: &[u8] = (*buffer).borrow();
-
-    let mut double_byte = buf.windows(CRLF.len());
+fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let mut double_byte = buffer.windows(CRLF.len());
     let line_end = double_byte.position(|w| w == CRLF.as_bytes()).unwrap();
 
-    let mut single_byte = buf.windows(1);
+    let mut single_byte = buffer.windows(1);
     // we already checked for this in the MemcacheParser::parse()
     let cmd_end = single_byte.position(|w| w == b" ").unwrap();
     let mut previous = cmd_end + 1;
@@ -85,20 +80,27 @@ fn parse_get(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
         value: None,
         cas: 0,
     };
-    buffer.advance(consumed);
-    Ok(request)
+    Ok(ParseOk {
+        message: request,
+        consumed,
+    })
 }
 
-fn parse_gets(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
-    let mut request = parse_get(buffer)?;
-    request.command = MemcacheCommand::Gets;
-    Ok(request)
+fn parse_gets(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let request = parse_get(buffer)?;
+    let consumed = request.consumed();
+    let mut message = request.into_inner();
+
+    message.command = MemcacheCommand::Gets;
+
+    Ok(ParseOk {
+        message,
+        consumed,
+    })
 }
 
-fn parse_set(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
-    let buf: &[u8] = (*buffer).borrow();
-
-    let mut single_byte = buf.windows(1);
+fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let mut single_byte = buffer.windows(1);
     if let Some(cmd_end) = single_byte.position(|w| w == b" ") {
         // key
         let key_end = single_byte
@@ -114,7 +116,7 @@ fn parse_set(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
             + key_end
             + 1;
         let flags_str =
-            std::str::from_utf8(&buf[(key_end + 1)..flags_end]).map_err(|_| ParseError::Invalid)?;
+            std::str::from_utf8(&buffer[(key_end + 1)..flags_end]).map_err(|_| ParseError::Invalid)?;
         let flags = flags_str.parse().map_err(|_| ParseError::Invalid)?;
 
         // expiry
@@ -123,12 +125,12 @@ fn parse_set(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
             .ok_or(ParseError::Incomplete)?
             + flags_end
             + 1;
-        let expiry_str = std::str::from_utf8(&buf[(flags_end + 1)..expiry_end])
+        let expiry_str = std::str::from_utf8(&buffer[(flags_end + 1)..expiry_end])
             .map_err(|_| ParseError::Invalid)?;
         let expiry = expiry_str.parse().map_err(|_| ParseError::Invalid)?;
 
         // now it gets tricky, we either have "[bytes] noreply\r\n" or "[bytes]\r\n"
-        let mut double_byte = buf.windows(CRLF.len());
+        let mut double_byte = buffer.windows(CRLF.len());
         let mut noreply = false;
 
         // get the position of the next space and first CRLF
@@ -143,7 +145,7 @@ fn parse_set(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
             // if we have both, bytes_end is before the earlier of the two
             if next_space < first_crlf {
                 // validate that noreply isn't malformed
-                if &buf[(next_space + 1)..(first_crlf)] == NOREPLY.as_bytes() {
+                if &buffer[(next_space + 1)..(first_crlf)] == NOREPLY.as_bytes() {
                     noreply = true;
                     next_space
                 } else {
@@ -163,10 +165,10 @@ fn parse_set(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
         }
 
         if let Ok(Ok(bytes)) =
-            std::str::from_utf8(&buf[(expiry_end + 1)..bytes_end]).map(|v| v.parse::<usize>())
+            std::str::from_utf8(&buffer[(expiry_end + 1)..bytes_end]).map(|v| v.parse::<usize>())
         {
             let consumed = first_crlf + CRLF.len() + bytes + CRLF.len();
-            if buf.len() >= consumed {
+            if buffer.len() >= consumed {
                 let request = MemcacheRequest {
                     command: MemcacheCommand::Set,
                     keys: vec![buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice()]
@@ -181,8 +183,7 @@ fn parse_set(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
                     ),
                     cas: 0,
                 };
-                buffer.advance(consumed);
-                Ok(request)
+                Ok(ParseOk { message: request, consumed })
             } else {
                 // the buffer doesn't yet have all the bytes for the value
                 Err(ParseError::Incomplete)
@@ -197,22 +198,34 @@ fn parse_set(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
     }
 }
 
-fn parse_add(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
-    let mut request = parse_set(buffer)?;
-    request.command = MemcacheCommand::Add;
-    Ok(request)
+fn parse_add(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let request = parse_set(buffer)?;
+    let consumed = request.consumed();
+    let mut message = request.into_inner();
+
+    message.command = MemcacheCommand::Add;
+
+    Ok(ParseOk {
+        message,
+        consumed,
+    })
 }
 
-fn parse_replace(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
-    let mut request = parse_set(buffer)?;
-    request.command = MemcacheCommand::Replace;
-    Ok(request)
+fn parse_replace(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let request = parse_set(buffer)?;
+    let consumed = request.consumed();
+    let mut message = request.into_inner();
+
+    message.command = MemcacheCommand::Replace;
+
+    Ok(ParseOk {
+        message,
+        consumed,
+    })
 }
 
-fn parse_cas(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
-    let buf: &[u8] = (*buffer).borrow();
-
-    let mut single_byte = buf.windows(1);
+fn parse_cas(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let mut single_byte = buffer.windows(1);
     // we already checked for this in the MemcacheParser::parse()
     let cmd_end = single_byte.position(|w| w == b" ").unwrap();
     let key_end = single_byte
@@ -227,7 +240,7 @@ fn parse_cas(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
         + key_end
         + 1;
     let flags_str =
-        std::str::from_utf8(&buf[(key_end + 1)..flags_end]).map_err(|_| ParseError::Invalid)?;
+        std::str::from_utf8(&buffer[(key_end + 1)..flags_end]).map_err(|_| ParseError::Invalid)?;
     let flags = flags_str.parse().map_err(|_| ParseError::Invalid)?;
 
     let expiry_end = single_byte
@@ -236,7 +249,7 @@ fn parse_cas(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
         + flags_end
         + 1;
     let expiry_str =
-        std::str::from_utf8(&buf[(flags_end + 1)..expiry_end]).map_err(|_| ParseError::Invalid)?;
+        std::str::from_utf8(&buffer[(flags_end + 1)..expiry_end]).map_err(|_| ParseError::Invalid)?;
     let expiry = expiry_str.parse().map_err(|_| ParseError::Invalid)?;
 
     let bytes_end = single_byte
@@ -245,13 +258,13 @@ fn parse_cas(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
         + expiry_end
         + 1;
     let bytes_str =
-        std::str::from_utf8(&buf[(expiry_end + 1)..bytes_end]).map_err(|_| ParseError::Invalid)?;
+        std::str::from_utf8(&buffer[(expiry_end + 1)..bytes_end]).map_err(|_| ParseError::Invalid)?;
     let bytes = bytes_str
         .parse::<usize>()
         .map_err(|_| ParseError::Invalid)?;
 
     // now it gets tricky, we either have "[bytes] noreply\r\n" or "[bytes]\r\n"
-    let mut double_byte_windows = buf.windows(CRLF.len());
+    let mut double_byte_windows = buffer.windows(CRLF.len());
     let mut noreply = false;
 
     // get the position of the next space and first CRLF
@@ -266,7 +279,7 @@ fn parse_cas(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
         // if we have both, bytes_end is before the earlier of the two
         if next_space < first_crlf {
             // validate that noreply isn't malformed
-            if &buf[(next_space + 1)..(first_crlf)] == NOREPLY.as_bytes() {
+            if &buffer[(next_space + 1)..(first_crlf)] == NOREPLY.as_bytes() {
                 noreply = true;
                 next_space
             } else {
@@ -284,10 +297,10 @@ fn parse_cas(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
     }
 
     if let Ok(Ok(cas)) =
-        std::str::from_utf8(&buf[(bytes_end + 1)..cas_end]).map(|v| v.parse::<u64>())
+        std::str::from_utf8(&buffer[(bytes_end + 1)..cas_end]).map(|v| v.parse::<u64>())
     {
         let consumed = first_crlf + CRLF.len() + bytes + CRLF.len();
-        if buf.len() >= consumed {
+        if buffer.len() >= consumed {
             // let buffer = buffer.split_to(consumed);
             let request = MemcacheRequest {
                 command: MemcacheCommand::Cas,
@@ -303,8 +316,7 @@ fn parse_cas(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
                         .into_boxed_slice(),
                 ),
             };
-            buffer.advance(consumed);
-            Ok(request)
+            Ok(ParseOk { message: request, consumed })
         } else {
             // buffer doesn't have all the bytes for the value yet
             Err(ParseError::Incomplete)
@@ -315,15 +327,13 @@ fn parse_cas(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
     }
 }
 
-fn parse_delete(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
-    let buf: &[u8] = (*buffer).borrow();
-
-    let mut single_byte = buf.windows(1);
+fn parse_delete(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let mut single_byte = buffer.windows(1);
     // we already checked for this in the MemcacheParser::parse()
     let cmd_end = single_byte.position(|w| w == b" ").unwrap();
 
     let mut noreply = false;
-    let mut double_byte = buf.windows(CRLF.len());
+    let mut double_byte = buffer.windows(CRLF.len());
     // get the position of the next space and first CRLF
     let next_space = single_byte.position(|w| w == b" ").map(|v| v + cmd_end + 1);
     let first_crlf = double_byte
@@ -334,7 +344,7 @@ fn parse_delete(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
         // if we have both, bytes_end is before the earlier of the two
         if next_space < first_crlf {
             // validate that noreply isn't malformed
-            if &buf[(next_space + 1)..(first_crlf)] == NOREPLY.as_bytes() {
+            if &buffer[(next_space + 1)..(first_crlf)] == NOREPLY.as_bytes() {
                 noreply = true;
                 next_space
             } else {
@@ -363,7 +373,5 @@ fn parse_delete(buffer: &mut BytesMut) -> Result<MemcacheRequest, ParseError> {
         flags: 0,
     };
 
-    buffer.advance(consumed);
-
-    Ok(request)
+    Ok(ParseOk{ message: request, consumed })
 }
