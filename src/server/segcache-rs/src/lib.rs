@@ -10,7 +10,10 @@ extern crate rustcommon_fastmetrics;
 
 mod buffer;
 mod common;
-mod event_loop;
+mod protocol;
+mod session;
+mod storage;
+mod threads;
 
 use crate::buffer::Buffer;
 use crate::common::Sender;
@@ -25,40 +28,6 @@ use crate::threads::*;
 use config::TwemcacheConfig;
 use std::sync::Arc;
 use std::thread::JoinHandle;
-
-mod protocol;
-mod session;
-mod storage;
-mod threads;
-
-// use crate::storage::SegCacheStorage;
-// use crate::protocol::data::MemcacheResponse;
-// use crate::protocol::data::MemcacheRequest;
-// use crate::common::Sender;
-// use crate::common::Queue;
-// use config::TwemcacheConfig as Config;
-// use mio::*;
-// use slab::Slab;
-
-// use std::net::SocketAddr;
-// use std::sync::Arc;
-// use std::thread::JoinHandle;
-
-// mod admin;
-// mod common;
-// mod event_loop;
-// pub mod protocol;
-// mod server;
-// mod session;
-// mod storage;
-// mod worker;
-
-// use crate::admin::Admin;
-// use crate::common::Signal;
-// use crate::server::Server;
-// use crate::session::Session;
-// use crate::storage::StorageWorker;
-// use crate::worker::{MultiWorker, SingleWorker};
 
 const THREAD_PREFIX: &str = "pelikan";
 

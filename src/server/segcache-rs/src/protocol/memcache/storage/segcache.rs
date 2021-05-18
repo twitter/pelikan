@@ -1,3 +1,6 @@
+// Copyright 2021 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
 
 impl MemcacheStorage for SegCache {
     fn get(&mut self, keys: &[Box<[u8]>]) -> MemcacheResponse {

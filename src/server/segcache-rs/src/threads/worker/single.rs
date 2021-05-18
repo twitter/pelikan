@@ -7,11 +7,11 @@
 //! the request using the backing storage, and then composes a response onto the
 //! session buffer.
 
+use super::EventLoop;
 use crate::buffer::Buffer;
 use crate::common::Queue;
 use crate::common::Sender;
 use crate::common::Signal;
-use crate::event_loop::EventLoop;
 use crate::protocol::Compose;
 use crate::protocol::Execute;
 use crate::protocol::Parse;
@@ -27,7 +27,6 @@ use mio::Poll;
 use mio::Token;
 use slab::Slab;
 use std::convert::TryInto;
-use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
 pub struct SingleWorker<Storage, Request, Response> {

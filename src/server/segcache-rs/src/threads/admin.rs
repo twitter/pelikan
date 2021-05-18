@@ -5,10 +5,10 @@
 //! The admin thread, which handles admin requests to return stats, get version
 //! info, etc.
 
+use super::EventLoop;
 use crate::common::Queue;
 use crate::common::Sender;
 use crate::common::Signal;
-use crate::event_loop::EventLoop;
 use crate::protocol::admin::*;
 use crate::session::TcpStream;
 use crate::session::*;

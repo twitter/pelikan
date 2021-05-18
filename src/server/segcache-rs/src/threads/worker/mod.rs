@@ -12,3 +12,5 @@ mod storage;
 pub use multi::MultiWorker;
 pub use single::SingleWorker;
 pub use storage::StorageWorker;
+
+use super::EventLoop;

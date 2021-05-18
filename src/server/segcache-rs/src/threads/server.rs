@@ -5,10 +5,10 @@
 //! The server thread which accepts new connections, handles TLS handshaking,
 //! and sends established sessions to the worker thread(s).
 
+use super::EventLoop;
 use crate::common::Queue;
 use crate::common::Sender;
 use crate::common::Signal;
-use crate::event_loop::EventLoop;
 use crate::session::*;
 use config::ServerConfig;
 use crossbeam_channel::SendError;

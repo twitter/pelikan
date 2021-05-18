@@ -7,9 +7,9 @@
 //! the requests to the storage worker. Responses from the storage worker are
 //! then serialized onto the session buffer.
 
+use super::EventLoop;
 use crate::buffer::Buffer;
 use crate::common::*;
-use crate::event_loop::EventLoop;
 use crate::protocol::Compose;
 use crate::protocol::Execute;
 use crate::protocol::Parse;
@@ -46,6 +46,7 @@ where
     sessions: Slab<Session>,
     storage_queue: BiDiQueue<Request, Response>,
     wake_storage: bool,
+    #[allow(dead_code)]
     waker: Arc<Waker>,
     _storage: PhantomData<Storage>,
 }
