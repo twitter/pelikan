@@ -7,6 +7,7 @@ use crate::Compose;
 use crate::CRLF;
 use std::io::Write;
 
+/// Memcache response types
 pub enum MemcacheResponse {
     Deleted,
     End,

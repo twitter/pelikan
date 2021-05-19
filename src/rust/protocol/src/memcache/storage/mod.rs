@@ -4,6 +4,8 @@
 
 use super::data::MemcacheResponse;
 
+/// Defines operations that arbitrary storage must be able to handle to be used
+/// as storage in a Memcache-like backend.
 pub trait MemcacheStorage {
     /// Lookup the specified key(s) and return the corresponding items
     fn get(&mut self, keys: &[Box<[u8]>]) -> MemcacheResponse;
