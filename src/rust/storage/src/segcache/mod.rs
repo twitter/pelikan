@@ -2,29 +2,32 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Segment-structured storage which implements efficient proactive eviction.
+//! This storage type is suitable for use in simple key-value cache backends.
+//! See: [`::segcache`] crate for more details behind the underlying storage
+//! design.
+
+use crate::Storage;
 use config::segcache::Eviction;
-use config::SegCacheConfig;
-use config::TimeType;
+use config::{SegCacheConfig, TimeType};
 use rustcommon_time::CoarseDuration;
-use segcache::Policy;
-use segcache::SegCacheError;
+use segcache::{Policy, SegCacheError};
 use std::time::SystemTime;
 
 mod memcache;
 
-pub trait Storage {
-    fn expire(&mut self);
-}
-
-/// A wrapper type around `SegCache` storage crate which allows us to store
-/// additional state which is not part of the storage crate.
+/// A wrapper around [`segcache::SegCache`] which implements `Storage` and
+/// storage protocol traits.
 pub struct SegCache {
-    time_type: TimeType,
     data: ::segcache::SegCache,
+    time_type: TimeType,
 }
 
 impl SegCache {
+    /// Create a new `SegCache` based on the config and the `TimeType` which is
+    /// used to interpret various expiry time formats.
     pub fn new(config: &SegCacheConfig, time_type: TimeType) -> Self {
+        // build up the eviction policy from the config
         let eviction = match config.eviction() {
             Eviction::None => Policy::None,
             Eviction::Random => Policy::Random,
@@ -38,6 +41,7 @@ impl SegCache {
             },
         };
 
+        // build the datastructure from the config
         let data = ::segcache::SegCache::builder()
             .power(config.hash_power())
             .overflow_factor(config.overflow_factor())
@@ -47,9 +51,12 @@ impl SegCache {
             .datapool_path(config.datapool_path())
             .build();
 
-        Self { time_type, data }
+        Self { data, time_type }
     }
 
+    // TODO(bmartin): should this be moved up into a common function?
+    // TODO(bmartin): can we use coarse time for the conversion?
+    /// Internal function which converts an expiry time into a TTL in seconds.
     fn get_ttl(&self, expiry: u32) -> u32 {
         match self.time_type {
             TimeType::Unix => {

@@ -2,7 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! TCP/TLS session wrapper
+//! This crate provides buffered TCP sessions with or without TLS which can be
+//! used with [`::mio`]. TLS/SSL is provided by BoringSSL with the [`::boring`]
+//! crate.
 
 #[macro_use]
 extern crate rustcommon_fastmetrics;
@@ -11,29 +13,31 @@ mod buffer;
 mod stream;
 mod tcp_stream;
 
-use buffer::Buffer;
-
-use bytes::Buf;
-use common::ExtendFromSlice;
-use mio::event::Source;
-use mio::{Interest, Poll, Token};
 use std::borrow::Borrow;
+use std::io::{ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
-use stream::Stream;
-pub use tcp_stream::TcpStream;
-
 use boring::ssl::{MidHandshakeSslStream, SslStream};
+use bytes::Buf;
+use common::ExtendFromSlice;
 use metrics::Stat;
+use mio::event::Source;
+use mio::{Interest, Poll, Token};
 
-use std::io::{ErrorKind, Read, Write};
+use buffer::Buffer;
+use stream::Stream;
+
+pub use tcp_stream::TcpStream;
 
 pub const MIN_BUFFER_SIZE: usize = 1024; // 1 KiB
 
-#[allow(dead_code)]
-/// A `Session` is the complete state of a TCP stream
+// TODO(bmartin): implement connect/reconnect so we can use this in clients too.
+/// The core `Session` type which represents a TCP stream (with or without TLS),
+/// the session buffer, the mio [`::mio::Token`], 
 pub struct Session {
     token: Token,
+    // TODO(bmartin): remove this lint exception after implementing connect
+    #[allow(dead_code)]
     addr: SocketAddr,
     stream: Stream,
     read_buffer: Buffer,
@@ -57,8 +61,8 @@ impl Session {
         Self::new(addr, Stream::handshaking(stream))
     }
 
-    // Create a new `Session`
-    pub fn new(addr: SocketAddr, stream: Stream) -> Self {
+    /// Create a new `Session`
+    fn new(addr: SocketAddr, stream: Stream) -> Self {
         increment_counter!(&Stat::TcpAccept);
         Self {
             token: Token(0),
@@ -136,7 +140,7 @@ impl Session {
             Ok(0) => Ok(Some(0)),
             Ok(bytes) => {
                 increment_counter_by!(&Stat::SessionSendByte, bytes as u64);
-                let _ = self.write_buffer.split_to(bytes);
+                self.write_buffer.advance(bytes);
                 Ok(Some(bytes))
             }
             Err(e) => {
@@ -194,10 +198,14 @@ impl Session {
         self.write_buffer.len()
     }
 
+    /// Borrow the contents of the read buffer without consuming or copying the
+    /// buffer contents.
     pub fn peek(&self) -> &[u8] {
         self.read_buffer.borrow()
     }
 
+    /// Consume the specified number of bytes from the read buffer so that they
+    /// will not be returned by the next call to `peek()`.
     pub fn consume(&mut self, bytes: usize) {
         self.read_buffer.inner.advance(bytes);
     }

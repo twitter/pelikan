@@ -2133,16 +2133,12 @@ dependencies = [
 
 [[package]]
 name = "session"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
- "ahash 0.6.3",
- "backtrace",
  "boring",
  "bytes 1.0.1",
- "chrono",
  "common",
  "config",
- "criterion",
  "metrics",
  "mio 0.7.11",
  "rand 0.8.3",
@@ -2195,7 +2191,7 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "storage"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "config",
  "metrics",

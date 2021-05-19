@@ -1,17 +1,18 @@
 [package]
 name = "session"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Brian Martin <bmartin@twitter.com>"]
 edition = "2018"
+description = "TCP Sessions with or without TLS for use with mio event loops"
+homepage = "https://pelikan.io"
+repository = "https://github.com/twitter/pelikan"
+license = "Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ahash = "0.6.2"
-backtrace = "0.3.56"
 boring = "1.0.3"
 bytes = "1.0.1"
-chrono = "0.4.19"
 common = { path = "../../rust/common" }
 config = { path = "../../rust/config" }
 metrics = { path = "../../rust/metrics" }
@@ -29,6 +30,3 @@ strum = "0.20.0"
 strum_macros = "0.20.1"
 sysconf = "0.3.4"
 thiserror = "1.0.23"
-
-[dev-dependencies]
-criterion = "0.3"

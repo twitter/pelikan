@@ -4,33 +4,37 @@
 
 //! A very simple buffer type that can be replaced in the future.
 
+use bytes::BytesMut;
+use bytes::Buf;
+use common::ExtendFromSlice;
+use std::borrow::Borrow;
+
 pub struct Buffer {
     pub inner: BytesMut,
 }
 
-use bytes::BytesMut;
-use common::ExtendFromSlice;
-use std::borrow::Borrow;
-
 impl Buffer {
+    /// Create a new `Buffer` that can hold up to `capacity` bytes without
+    /// re-allocating.
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: BytesMut::with_capacity(capacity),
         }
     }
 
+    /// Return the number of bytes currently in the buffer.
     pub fn len(&self) -> usize {
         self.inner.len()
     }
 
+    /// Check if the buffer is empty.
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
-    pub fn split_to(&mut self, index: usize) -> Self {
-        Self {
-            inner: self.inner.split_to(index),
-        }
+    /// Advance the buffer by the specified number of bytes
+    pub fn advance(&mut self, bytes: usize) {
+        self.inner.advance(bytes)
     }
 }
 
