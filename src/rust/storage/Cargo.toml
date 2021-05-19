@@ -1,0 +1,15 @@
+[package]
+name = "storage"
+version = "0.1.0"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+config = { path = "../../rust/config" }
+metrics = { path = "../../rust/metrics" }
+protocol = { path = "../../rust/protocol" }
+rustcommon-fastmetrics = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
+segcache = { path = "../../storage/segcache" }

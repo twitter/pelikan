@@ -94,6 +94,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "backend"
+version = "0.1.0"
+dependencies = [
+ "ahash 0.6.3",
+ "backtrace",
+ "boring",
+ "bytes 1.0.1",
+ "chrono",
+ "config",
+ "criterion",
+ "crossbeam-channel",
+ "libc",
+ "metrics",
+ "mio 0.7.11",
+ "protocol",
+ "queues",
+ "rand 0.8.3",
+ "rtrb",
+ "rustcommon-fastmetrics",
+ "rustcommon-logger",
+ "rustcommon-time",
+ "segcache",
+ "serde",
+ "serde_json",
+ "session",
+ "slab",
+ "storage",
+ "strum",
+ "strum_macros",
+ "sysconf",
+ "thiserror",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -449,6 +483,10 @@ checksum = "eb6210b637171dfba4cda12e579ac6dc73f5165ad56133e5d72ef3131f320855"
 dependencies = [
  "cc",
 ]
+
+[[package]]
+name = "common"
+version = "0.1.0"
 
 [[package]]
 name = "config"
@@ -1494,6 +1532,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol"
+version = "0.1.0"
+
+[[package]]
+name = "queues"
+version = "0.1.0"
+dependencies = [
+ "crossbeam-channel",
+ "mio 0.7.11",
+ "rtrb",
+]
+
+[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2013,30 +2064,15 @@ dependencies = [
 name = "segcache-rs"
 version = "0.1.0"
 dependencies = [
- "ahash 0.6.3",
+ "backend",
  "backtrace",
- "boring",
- "bytes 1.0.1",
- "chrono",
  "config",
  "criterion",
- "crossbeam-channel",
- "libc",
- "metrics",
- "mio 0.7.11",
- "rand 0.8.3",
- "rtrb",
+ "protocol",
  "rustcommon-fastmetrics",
  "rustcommon-logger",
  "rustcommon-time",
- "segcache",
- "serde",
- "serde_json",
- "slab",
- "strum",
- "strum_macros",
- "sysconf",
- "thiserror",
+ "storage",
 ]
 
 [[package]]
@@ -2096,6 +2132,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "session"
+version = "0.1.0"
+dependencies = [
+ "ahash 0.6.3",
+ "backtrace",
+ "boring",
+ "bytes 1.0.1",
+ "chrono",
+ "common",
+ "config",
+ "criterion",
+ "metrics",
+ "mio 0.7.11",
+ "rand 0.8.3",
+ "rtrb",
+ "rustcommon-fastmetrics",
+ "rustcommon-logger",
+ "rustcommon-time",
+ "segcache",
+ "serde",
+ "serde_json",
+ "slab",
+ "strum",
+ "strum_macros",
+ "sysconf",
+ "thiserror",
+]
+
+[[package]]
 name = "shlex"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2127,6 +2192,18 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
+name = "storage"
+version = "0.1.0"
+dependencies = [
+ "config",
+ "metrics",
+ "protocol",
+ "rustcommon-fastmetrics",
+ "rustcommon-time",
+ "segcache",
+]
 
 [[package]]
 name = "strsim"

@@ -2,22 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-#[macro_use]
-extern crate rustcommon_logger;
-
-#[macro_use]
-extern crate rustcommon_fastmetrics;
-
-mod backend;
-mod common;
-mod protocol;
-mod session;
-mod storage;
-mod threads;
-
-use backend::Backend;
-pub use backend::BackendBuilder;
+use backend::BackendBuilder;
 use config::TwemcacheConfig;
+use backend::Backend;
 use protocol::memcache::data::{MemcacheRequest, MemcacheResponse};
 use storage::SegCache;
 

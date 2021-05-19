@@ -8,7 +8,6 @@ extern crate rustcommon_logger;
 use backtrace::Backtrace;
 use config::TwemcacheConfig;
 use pelikan_segcache_rs::SegcacheBackend;
-
 use rustcommon_logger::Logger;
 
 fn main() {
