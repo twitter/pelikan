@@ -1,9 +1,5 @@
-
-use crate::threads::worker::TokenWrapper;
-use queues::spsc::bidirectional::{Bidirectional, PushError};
-use queues::mpsc::{Queue, Sender};
 use crate::common::Signal;
-use protocol::{Compose, Execute};
+use crate::threads::worker::TokenWrapper;
 use config::WorkerConfig;
 use core::time::Duration;
 use metrics::Stat;
@@ -11,6 +7,9 @@ use mio::Events;
 use mio::Poll;
 use mio::Token;
 use mio::Waker;
+use protocol::{Compose, Execute};
+use queues::mpsc::{Queue, Sender};
+use queues::spsc::bidirectional::{Bidirectional, PushError};
 use std::sync::Arc;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
@@ -62,8 +61,12 @@ where
 
     /// Add a queue for a worker by providing the worker's `Waker` so that the
     /// worker can be notified of pending responses from the storage thread
-    pub fn add_queue(&mut self, waker: Arc<Waker>) -> Bidirectional<TokenWrapper<Request>, TokenWrapper<Response>> {
-        let (worker_queue, storage_queue) = queues::spsc::bidirectional::with_capacity(65536, self.waker.clone(), waker);
+    pub fn add_queue(
+        &mut self,
+        waker: Arc<Waker>,
+    ) -> Bidirectional<TokenWrapper<Request>, TokenWrapper<Response>> {
+        let (worker_queue, storage_queue) =
+            queues::spsc::bidirectional::with_capacity(65536, self.waker.clone(), waker);
 
         self.worker_queues.push(worker_queue);
         storage_queue

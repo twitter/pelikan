@@ -5,8 +5,8 @@
 #[macro_use]
 extern crate rustcommon_logger;
 
-use pelikan_segcache_rs::SegcacheBackend;
 use config::TwemcacheConfig;
+use pelikan_segcache_rs::SegcacheBackend;
 use rustcommon_logger::{Level, Logger};
 
 use std::io::{Read, Write};

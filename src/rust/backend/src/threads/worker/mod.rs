@@ -9,31 +9,28 @@ mod multi;
 mod single;
 mod storage;
 
+pub use self::storage::StorageWorker;
 use mio::Token;
 pub use multi::MultiWorker;
 pub use single::SingleWorker;
-pub use self::storage::StorageWorker;
 
 use super::EventLoop;
 
 pub struct TokenWrapper<T> {
-	inner: T,
-	token: Token,
+    inner: T,
+    token: Token,
 }
 
 impl<T> TokenWrapper<T> {
-	pub fn new(inner: T, token: Token) -> Self {
-		Self {
-			inner,
-			token,
-		}
-	}
+    pub fn new(inner: T, token: Token) -> Self {
+        Self { inner, token }
+    }
 
-	pub fn token(&self) -> Token {
-		self.token
-	}
+    pub fn token(&self) -> Token {
+        self.token
+    }
 
-	pub fn into_inner(self) -> T {
-		self.inner
-	}
+    pub fn into_inner(self) -> T {
+        self.inner
+    }
 }

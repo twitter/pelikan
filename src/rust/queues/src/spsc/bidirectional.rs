@@ -5,8 +5,8 @@
 //! Shared structs and helper functions.
 
 use mio::Waker;
-use std::sync::Arc;
 use rtrb::*;
+use std::sync::Arc;
 
 pub use rtrb::PopError;
 pub use rtrb::PushError;
@@ -17,7 +17,11 @@ pub struct Bidirectional<T, U> {
     waker: Arc<Waker>,
 }
 
-pub fn with_capacity<A, B>(capacity: usize, waker_a: Arc<Waker>, waker_b: Arc<Waker>) -> (Bidirectional<A, B>, Bidirectional<B, A>) {
+pub fn with_capacity<A, B>(
+    capacity: usize,
+    waker_a: Arc<Waker>,
+    waker_b: Arc<Waker>,
+) -> (Bidirectional<A, B>, Bidirectional<B, A>) {
     let (to_a, from_b) = rtrb::RingBuffer::new(capacity).split();
     let (to_b, from_a) = rtrb::RingBuffer::new(capacity).split();
 

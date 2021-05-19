@@ -2,11 +2,11 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use queues::mpsc::Sender;
 use crate::common::Signal;
-use protocol::{Compose, Execute, Parse};
-use session::Session;
 use crate::threads::*;
+use protocol::{Compose, Execute, Parse};
+use queues::mpsc::Sender;
+use session::Session;
 use std::thread::JoinHandle;
 
 const THREAD_PREFIX: &str = "pelikan";

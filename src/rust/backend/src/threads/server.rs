@@ -6,8 +6,6 @@
 //! and sends established sessions to the worker thread(s).
 
 use super::EventLoop;
-use session::{Session, TcpStream};
-use queues::mpsc::{Queue, Sender};
 use crate::common::Signal;
 use config::ServerConfig;
 use crossbeam_channel::SendError;
@@ -15,6 +13,8 @@ use mio::Events;
 use mio::Interest;
 use mio::Poll;
 use mio::Token;
+use queues::mpsc::{Queue, Sender};
+use session::{Session, TcpStream};
 use slab::Slab;
 use std::net::SocketAddr;
 use std::time::Duration;

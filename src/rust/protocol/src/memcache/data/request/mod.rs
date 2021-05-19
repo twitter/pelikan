@@ -10,7 +10,7 @@ pub use command::MemcacheCommand;
 pub const NOREPLY: &str = "noreply";
 
 pub struct MemcacheRequest {
-	/// The command type
+    /// The command type
     pub(crate) command: MemcacheCommand,
     /// The key(s) for the command
     pub(crate) keys: Box<[Box<[u8]>]>,

@@ -7,20 +7,20 @@
 //! the requests to the storage worker. Responses from the storage worker are
 //! then serialized onto the session buffer.
 
-use crate::threads::worker::TokenWrapper;
-use session::*;
-use queues::mpsc::{Queue, Sender};
-use queues::spsc::bidirectional::{Bidirectional, PushError};
 use super::EventLoop;
 use crate::common::*;
-use protocol::{Compose, Execute, Parse, ParseError};
 use crate::threads::worker::StorageWorker;
+use crate::threads::worker::TokenWrapper;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
 use metrics::Stat;
 use mio::event::Event;
 use mio::{Events, Poll, Token, Waker};
+use protocol::{Compose, Execute, Parse, ParseError};
+use queues::mpsc::{Queue, Sender};
+use queues::spsc::bidirectional::{Bidirectional, PushError};
+use session::*;
 use slab::Slab;
 use std::convert::TryInto;
 use std::sync::Arc;

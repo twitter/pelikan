@@ -13,8 +13,8 @@ mod tcp_stream;
 
 use buffer::Buffer;
 
-use common::ExtendFromSlice;
 use bytes::Buf;
+use common::ExtendFromSlice;
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
 use std::borrow::Borrow;

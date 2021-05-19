@@ -1,5 +1,5 @@
-use config::TlsConfig;
 use boring::ssl::*;
+use config::TlsConfig;
 use std::io::{Error, ErrorKind};
 
 pub fn ssl_context(config: &TlsConfig) -> Result<Option<SslContext>, std::io::Error> {

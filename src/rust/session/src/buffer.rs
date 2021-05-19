@@ -8,8 +8,8 @@ pub struct Buffer {
     pub inner: BytesMut,
 }
 
-use common::ExtendFromSlice;
 use bytes::BytesMut;
+use common::ExtendFromSlice;
 use std::borrow::Borrow;
 
 impl Buffer {

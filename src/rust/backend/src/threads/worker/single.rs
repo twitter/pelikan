@@ -8,10 +8,7 @@
 //! session buffer.
 
 use super::EventLoop;
-use queues::mpsc::{Queue, Sender};
 use crate::common::Signal;
-use protocol::{Compose, Execute, Parse, ParseError};
-use session::{Session, MIN_BUFFER_SIZE};
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -20,6 +17,9 @@ use mio::event::Event;
 use mio::Events;
 use mio::Poll;
 use mio::Token;
+use protocol::{Compose, Execute, Parse, ParseError};
+use queues::mpsc::{Queue, Sender};
+use session::{Session, MIN_BUFFER_SIZE};
 use slab::Slab;
 use std::convert::TryInto;
 

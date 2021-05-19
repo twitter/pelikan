@@ -5,7 +5,6 @@
 #[macro_use]
 extern crate rustcommon_fastmetrics;
 
-
 mod segcache;
 
 pub use self::segcache::*;

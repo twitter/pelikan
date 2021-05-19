@@ -2,9 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use backend::Backend;
 use backend::BackendBuilder;
 use config::TwemcacheConfig;
-use backend::Backend;
 use protocol::memcache::data::{MemcacheRequest, MemcacheResponse};
 use storage::SegCache;
 

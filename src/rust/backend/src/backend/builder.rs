@@ -3,12 +3,12 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use super::*;
-use protocol::{Compose, Execute, Parse};
+use crate::threads::*;
 use config::AdminConfig;
 use config::ServerConfig;
 use config::TlsConfig;
 use config::WorkerConfig;
-use crate::threads::*;
+use protocol::{Compose, Execute, Parse};
 
 const THREAD_PREFIX: &str = "pelikan";
 

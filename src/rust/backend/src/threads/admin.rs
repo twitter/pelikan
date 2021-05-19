@@ -6,16 +6,16 @@
 //! info, etc.
 
 use super::EventLoop;
-use queues::mpsc::{Queue, Sender};
 use crate::common::Signal;
-use protocol::admin::*;
-use protocol::*;
-use session::*;
 use config::AdminConfig;
 use mio::Events;
 use mio::Interest;
 use mio::Poll;
 use mio::Token;
+use protocol::admin::*;
+use protocol::*;
+use queues::mpsc::{Queue, Sender};
+use session::*;
 use slab::Slab;
 use std::io::Write;
 use std::net::SocketAddr;

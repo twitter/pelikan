@@ -2,12 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use segcache::Policy;
-use segcache::SegCacheError;
+use config::segcache::Eviction;
 use config::SegCacheConfig;
 use config::TimeType;
-use config::segcache::Eviction;
 use rustcommon_time::CoarseDuration;
+use segcache::Policy;
+use segcache::SegCacheError;
 use std::time::SystemTime;
 
 mod memcache;
