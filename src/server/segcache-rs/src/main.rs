@@ -6,10 +6,8 @@
 extern crate rustcommon_logger;
 
 use backtrace::Backtrace;
-use std::sync::Arc;
-
 use config::TwemcacheConfig;
-use pelikan_segcache_rs::TwemcacheBuilder;
+use pelikan_segcache_rs::SegcacheBackend;
 
 use rustcommon_logger::Logger;
 
@@ -25,14 +23,14 @@ fn main() {
     let config = if let Some(file) = std::env::args().nth(1) {
         debug!("loading config: {}", file);
         match TwemcacheConfig::load(&file) {
-            Ok(c) => Arc::new(c),
+            Ok(c) => c,
             Err(e) => {
                 error!("{}", e);
                 std::process::exit(1);
             }
         }
     } else {
-        Arc::new(Default::default())
+        Default::default()
     };
 
     // initialize logging
@@ -43,5 +41,5 @@ fn main() {
         .expect("Failed to initialize logger");
 
     // launch twemcache
-    TwemcacheBuilder::new(config).spawn().wait()
+    SegcacheBackend::new(config).wait()
 }
