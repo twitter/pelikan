@@ -2019,6 +2019,7 @@ dependencies = [
  "bytes 1.0.1",
  "chrono",
  "config",
+ "criterion",
  "crossbeam-channel",
  "libc",
  "metrics",

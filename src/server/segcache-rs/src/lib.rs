@@ -144,9 +144,12 @@ impl TwemcacheBuilder {
 
         // initialize admin
         let ssl_context =
-            crate::common::ssl_context(config.tls()).expect("failed to initialize TLS");
+            crate::common::ssl_context(config.tls()).unwrap_or_else(|e| {
+                error!("failed to initialize TLS: {}", e);
+                std::process::exit(1);
+            });
         let admin = Admin::new(config.admin(), ssl_context).unwrap_or_else(|e| {
-            error!("{}", e);
+            error!("failed to initialize admin: {}", e);
             std::process::exit(1);
         });
 
@@ -160,10 +163,13 @@ impl TwemcacheBuilder {
 
         // initialize server
         let ssl_context =
-            crate::common::ssl_context(config.tls()).expect("failed to initialize TLS");
+            crate::common::ssl_context(config.tls()).unwrap_or_else(|e| {
+                error!("failed to initialize TLS: {}", e);
+                std::process::exit(1);
+            });
         let server =
             Server::new(config.server(), session_senders, ssl_context).unwrap_or_else(|e| {
-                error!("{}", e);
+                error!("failed to initialize server: {}", e);
                 std::process::exit(1);
             });
 
