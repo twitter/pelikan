@@ -78,7 +78,7 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         expiry: 0,
         flags: 0,
         value: vec![].into_boxed_slice(),
-        cas: 0,
+        cas: None,
     };
     Ok(ParseOk {
         message: request,
@@ -177,7 +177,7 @@ fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
                         buffer[(first_crlf + CRLF.len())..(first_crlf + CRLF.len() + bytes)]
                             .to_vec()
                             .into_boxed_slice(),
-                    cas: 0,
+                    cas: None,
                 };
                 Ok(ParseOk {
                     message: request,
@@ -302,7 +302,7 @@ fn parse_cas(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
                 flags,
                 expiry,
                 noreply,
-                cas,
+                cas: Some(cas),
                 value: 
                     buffer[(first_crlf + CRLF.len())..(first_crlf + CRLF.len() + bytes)]
                         .to_vec()
@@ -362,7 +362,7 @@ fn parse_delete(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         command: MemcacheCommand::Delete,
         keys: vec![buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice()].into_boxed_slice(),
         noreply,
-        cas: 0,
+        cas: None,
         expiry: 0,
         value: vec![].into_boxed_slice(),
         flags: 0,

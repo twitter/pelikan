@@ -5,7 +5,7 @@
 use super::*;
 use metrics::Stat;
 use protocol::memcache::MemcacheEntry;
-use protocol::memcache::data::{MemcacheItem, MemcacheResponse};
+use protocol::memcache::data::MemcacheResponse;
 use protocol::memcache::MemcacheStorage;
 
 // move noreply into the wire protocol
@@ -20,11 +20,12 @@ impl MemcacheStorage for SegCache {
             if let Some(item) = self.data.get(key) {
                 let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
                 let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
-                items.push(MemcacheItem {
+                items.push(MemcacheEntry {
                     key: item.key().to_vec().into_boxed_slice(),
                     value: item.value().to_vec().into_boxed_slice(),
                     flags,
                     cas: None,
+                    expiry: 0,
                 });
             }
         }
@@ -43,11 +44,12 @@ impl MemcacheStorage for SegCache {
             if let Some(item) = self.data.get(key) {
                 let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
                 let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
-                items.push(MemcacheItem {
+                items.push(MemcacheEntry {
                     key: item.key().to_vec().into_boxed_slice(),
                     value: item.value().to_vec().into_boxed_slice(),
                     flags,
-                    cas: Some(item.cas()),
+                    cas: Some(item.cas().into()),
+                    expiry: 0,
                 });
             }
         }
@@ -130,11 +132,6 @@ impl MemcacheStorage for SegCache {
     fn replace(
         &mut self,
         entry: MemcacheEntry,
-        // key: &[u8],
-        // value: Option<Box<[u8]>>,
-        // flags: u32,
-        // expiry: u32,
-        // noreply: bool,
     ) -> MemcacheResponse {
         increment_counter!(&Stat::Replace);
         let ttl = self.get_ttl(entry.expiry());
@@ -191,12 +188,6 @@ impl MemcacheStorage for SegCache {
     fn cas(
         &mut self,
         entry: MemcacheEntry,
-        // key: &[u8],
-        // value: Option<Box<[u8]>>,
-        // flags: u32,
-        // expiry: u32,
-        // noreply: bool,
-        // cas: u64,
     ) -> MemcacheResponse {
         increment_counter!(&Stat::Cas);
         let ttl = self.get_ttl(entry.expiry());
@@ -205,7 +196,7 @@ impl MemcacheStorage for SegCache {
             entry.value(),
             Some(&entry.flags().to_be_bytes()),
             CoarseDuration::from_secs(ttl),
-            entry.cas() as u32,
+            entry.cas().unwrap_or(0) as u32,
         ) {
             Ok(_) => {
                 increment_counter!(&Stat::CasStored);

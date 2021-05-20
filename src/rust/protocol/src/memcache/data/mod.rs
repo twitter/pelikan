@@ -6,7 +6,6 @@ mod item;
 mod request;
 mod response;
 
-use crate::memcache::storage::MemcacheEntry;
 pub use item::*;
 pub use request::*;
 pub use response::*;
@@ -20,8 +19,8 @@ where
 {
     fn execute(&mut self, request: MemcacheRequest) -> MemcacheResponse {
         let entry = MemcacheEntry {
-            key: &request.keys[0],
-            value: request.value.as_ref(),
+            key: request.keys[0].clone(),
+            value: request.value,
             flags: request.flags,
             expiry: request.expiry,
             cas: request.cas,

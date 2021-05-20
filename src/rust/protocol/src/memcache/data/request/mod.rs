@@ -23,5 +23,5 @@ pub struct MemcacheRequest {
     /// Server should not produce response for the request
     pub(crate) noreply: bool,
     /// CAS value. Defaults to `0`.
-    pub(crate) cas: u64,
+    pub(crate) cas: Option<u64>,
 }

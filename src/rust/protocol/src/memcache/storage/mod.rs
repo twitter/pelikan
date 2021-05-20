@@ -2,38 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use crate::memcache::MemcacheEntry;
 use super::data::MemcacheResponse;
 // use common::expiry::Expiry;
 
-pub struct MemcacheEntry<'a> {
-    pub(crate) key: &'a [u8],
-    pub(crate) value: &'a [u8],
-    pub(crate) expiry: u32,
-    pub(crate) flags: u32,
-    pub(crate) cas: u64,
-}
-
-impl<'a> MemcacheEntry<'a> {
-    pub fn key(&self) -> &[u8] {
-        self.key
-    }
-
-    pub fn value(&self) -> &[u8] {
-        self.value
-    }
-
-    pub fn expiry(&self) -> u32 {
-        self.expiry
-    }
-
-    pub fn flags(&self) -> u32 {
-        self.flags
-    }
-
-    pub fn cas(&self) -> u64 {
-        self.cas
-    }
-}
 
 /// Defines operations that arbitrary storage must be able to handle to be used
 /// as storage in a Memcache-like backend.

@@ -2,7 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::memcache::data::MemcacheItem;
+use crate::memcache::MemcacheEntry;
+// use crate::memcache::data::MemcacheItem;
 use crate::Compose;
 use crate::CRLF;
 use std::io::Write;
@@ -12,7 +13,7 @@ pub enum MemcacheResponse {
     Deleted,
     End,
     Exists,
-    Items(Box<[MemcacheItem]>),
+    Items(Box<[MemcacheEntry]>),
     NotFound,
     Stored,
     NotStored,
