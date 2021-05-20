@@ -8,10 +8,12 @@
 //! design.
 
 use crate::Storage;
+
 use config::segcache::Eviction;
 use config::{SegCacheConfig, TimeType};
 use rustcommon_time::CoarseDuration;
 use segcache::{Policy, SegCacheError};
+
 use std::time::SystemTime;
 
 mod memcache;

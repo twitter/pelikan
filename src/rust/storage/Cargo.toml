@@ -10,8 +10,6 @@ license = "Apache-2.0"
 
 [dependencies]
 config = { path = "../../rust/config" }
-metrics = { path = "../../rust/metrics" }
 protocol = { path = "../../rust/protocol" }
-rustcommon-fastmetrics = { git = "https://github.com/twitter/rustcommon" }
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
 segcache = { path = "../../storage/segcache" }

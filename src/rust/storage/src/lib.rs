@@ -7,9 +7,6 @@
 //! addition to the base `Storage` trait. For example [`SegCache`] implements
 //! both [`Storage`] and [`protocol::memcache::MemcacheStorage`].
 
-#[macro_use]
-extern crate rustcommon_fastmetrics;
-
 mod segcache;
 
 pub use self::segcache::*;

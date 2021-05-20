@@ -3,14 +3,11 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use super::*;
-use metrics::Stat;
-use protocol::memcache::MemcacheEntry;
-use protocol::memcache::MemcacheStorageError;
-use protocol::memcache::MemcacheStorage;
+
+use protocol::memcache::{MemcacheEntry, MemcacheStorage, MemcacheStorageError};
 
 impl MemcacheStorage for SegCache {
     fn get(&mut self, keys: &[Box<[u8]>]) -> Box<[MemcacheEntry]> {
-        increment_counter!(&Stat::Get);
         let mut items = Vec::new();
         for key in keys {
             if let Some(item) = self.data.get(key) {
@@ -33,7 +30,6 @@ impl MemcacheStorage for SegCache {
         &mut self,
         entry: MemcacheEntry,
     ) -> Result<(), MemcacheStorageError> {
-        increment_counter!(&Stat::Set);
         let ttl = self.get_ttl(entry.expiry());
         match self.data.insert(
             entry.key(),
@@ -54,7 +50,6 @@ impl MemcacheStorage for SegCache {
         &mut self,
         entry: MemcacheEntry,
     ) -> Result<(), MemcacheStorageError> {
-        increment_counter!(&Stat::Add);
         let ttl = self.get_ttl(entry.expiry());
         if self.data.get_no_freq_incr(entry.key()).is_none()
             && self
@@ -78,7 +73,6 @@ impl MemcacheStorage for SegCache {
         &mut self,
         entry: MemcacheEntry,
     ) -> Result<(), MemcacheStorageError> {
-        increment_counter!(&Stat::Replace);
         let ttl = self.get_ttl(entry.expiry());
         if self.data.get_no_freq_incr(entry.key()).is_some()
             && self
@@ -98,7 +92,6 @@ impl MemcacheStorage for SegCache {
     }
 
     fn delete(&mut self, key: &[u8]) -> Result<(), MemcacheStorageError> {
-        increment_counter!(&Stat::Delete);
         if self.data.delete(key) {
             Ok(())
         } else {
@@ -110,7 +103,6 @@ impl MemcacheStorage for SegCache {
         &mut self,
         entry: MemcacheEntry,
     ) -> Result<(), MemcacheStorageError> {
-        increment_counter!(&Stat::Cas);
         let ttl = self.get_ttl(entry.expiry());
         match self.data.cas(
             entry.key(),

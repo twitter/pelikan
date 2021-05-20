@@ -20,6 +20,8 @@ where
     fn execute(&mut self, request: MemcacheRequest) -> Option<MemcacheResponse> {
         let response = match request {
             MemcacheRequest::Get { keys } => {
+                increment_counter!(&Stat::Get);
+
                 let entries = self.get(&keys);
 
                 increment_counter_by!(&Stat::GetKey, keys.len() as u64);
@@ -29,15 +31,18 @@ where
                 MemcacheResponse::Values { entries, cas: false }
             }
             MemcacheRequest::Gets { keys } => {
+                increment_counter!(&Stat::Gets);
+
                 let entries = self.get(&keys);
 
-                increment_counter_by!(&Stat::GetKey, keys.len() as u64);
-                increment_counter_by!(&Stat::GetKeyHit, entries.len() as u64);
-                increment_counter_by!(&Stat::GetKeyMiss, keys.len() as u64 - entries.len() as u64);
+                increment_counter_by!(&Stat::GetsKey, keys.len() as u64);
+                increment_counter_by!(&Stat::GetsKeyHit, entries.len() as u64);
+                increment_counter_by!(&Stat::GetsKeyMiss, keys.len() as u64 - entries.len() as u64);
 
                 MemcacheResponse::Values { entries, cas: true }
             }
             MemcacheRequest::Set { entry, noreply } => {
+                increment_counter!(&Stat::Set);
                 let response = match self.set(entry) {
                     Ok(_) => {
                         increment_counter!(&Stat::SetStored);
@@ -55,6 +60,7 @@ where
                 response
             }
             MemcacheRequest::Add { entry, noreply } => {
+                increment_counter!(&Stat::Add);
                 let response = match self.add(entry) {
                     Ok(_) => {
                         increment_counter!(&Stat::AddStored);
@@ -72,6 +78,7 @@ where
                 response
             }
             MemcacheRequest::Replace { entry, noreply } => {
+                increment_counter!(&Stat::Replace);
                 let response = match self.replace(entry) {
                     Ok(_) => {
                         MemcacheResponse::Stored
@@ -87,6 +94,7 @@ where
                 response
             }
             MemcacheRequest::Delete { key, noreply } => {
+                increment_counter!(&Stat::Delete);
                 let response = match self.delete(&key) {
                     Ok(_) => {
                         MemcacheResponse::Deleted
@@ -102,6 +110,7 @@ where
                 response
             }
             MemcacheRequest::Cas { entry, noreply } => {
+                increment_counter!(&Stat::Cas);
                 let response = match self.cas(entry) {
                     Ok(_) => {
                         MemcacheResponse::Deleted
