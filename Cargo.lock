@@ -1475,6 +1475,9 @@ dependencies = [
 [[package]]
 name = "protocol"
 version = "0.1.0"
+dependencies = [
+ "common",
+]
 
 [[package]]
 name = "queues"

@@ -15,7 +15,7 @@ pub struct MemcacheRequest {
     /// The key(s) for the command
     pub(crate) keys: Box<[Box<[u8]>]>,
     /// Optional value for the request
-    pub(crate) value: Option<Box<[u8]>>,
+    pub(crate) value: Box<[u8]>,
     /// Item flags
     pub(crate) flags: u32,
     /// Item expiration. *NOTE* this is not strictly a TTL

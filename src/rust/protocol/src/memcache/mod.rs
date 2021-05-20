@@ -6,3 +6,4 @@ pub mod data;
 mod storage;
 
 pub use storage::MemcacheStorage;
+pub use storage::MemcacheEntry;

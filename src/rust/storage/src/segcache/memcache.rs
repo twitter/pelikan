@@ -4,8 +4,13 @@
 
 use super::*;
 use metrics::Stat;
+use protocol::memcache::MemcacheEntry;
 use protocol::memcache::data::{MemcacheItem, MemcacheResponse};
 use protocol::memcache::MemcacheStorage;
+
+// move noreply into the wire protocol
+// return a storage status
+
 
 impl MemcacheStorage for SegCache {
     fn get(&mut self, keys: &[Box<[u8]>]) -> MemcacheResponse {
@@ -56,185 +61,187 @@ impl MemcacheStorage for SegCache {
 
     fn set(
         &mut self,
-        key: &[u8],
-        value: Option<Box<[u8]>>,
-        flags: u32,
-        expiry: u32,
-        noreply: bool,
+        entry: MemcacheEntry,
     ) -> MemcacheResponse {
         increment_counter!(&Stat::Set);
-        let ttl = self.get_ttl(expiry);
-        let value = value.unwrap_or_else(|| vec![].into_boxed_slice());
+        let ttl = self.get_ttl(entry.expiry());
         match self.data.insert(
-            key,
-            &value,
-            Some(&flags.to_be_bytes()),
+            entry.key(),
+            entry.value(),
+            Some(&entry.flags().to_be_bytes()),
             CoarseDuration::from_secs(ttl),
         ) {
             Ok(_) => {
                 increment_counter!(&Stat::SetStored);
-                if noreply {
-                    MemcacheResponse::NoReply
-                } else {
-                    MemcacheResponse::Stored
-                }
+                MemcacheResponse::Stored
+                // if noreply {
+                //     MemcacheResponse::NoReply
+                // } else {
+                //     MemcacheResponse::Stored
+                // }
             }
             Err(_) => {
                 increment_counter!(&Stat::SetNotstored);
-                if noreply {
-                    MemcacheResponse::NoReply
-                } else {
-                    MemcacheResponse::NotStored
-                }
+                MemcacheResponse::NotStored
+                // if noreply {
+                //     MemcacheResponse::NoReply
+                // } else {
+                //     MemcacheResponse::NotStored
+                // }
             }
         }
     }
 
     fn add(
         &mut self,
-        key: &[u8],
-        value: Option<Box<[u8]>>,
-        flags: u32,
-        expiry: u32,
-        noreply: bool,
+        entry: MemcacheEntry,
     ) -> MemcacheResponse {
         increment_counter!(&Stat::Add);
-        let ttl = self.get_ttl(expiry);
-        let value = value.unwrap_or_else(|| vec![].into_boxed_slice());
-        if self.data.get_no_freq_incr(key).is_none()
+        let ttl = self.get_ttl(entry.expiry());
+        if self.data.get_no_freq_incr(entry.key()).is_none()
             && self
                 .data
                 .insert(
-                    key,
-                    &value,
-                    Some(&flags.to_be_bytes()),
+                    entry.key(),
+                    entry.value(),
+                    Some(&entry.flags().to_be_bytes()),
                     CoarseDuration::from_secs(ttl),
                 )
                 .is_ok()
         {
             increment_counter!(&Stat::AddStored);
-            if noreply {
-                MemcacheResponse::NoReply
-            } else {
-                MemcacheResponse::Stored
-            }
+            MemcacheResponse::Stored
+            // if noreply {
+            //     MemcacheResponse::NoReply
+            // } else {
+            //     MemcacheResponse::Stored
+            // }
         } else {
             increment_counter!(&Stat::AddNotstored);
-            if noreply {
-                MemcacheResponse::NoReply
-            } else {
-                MemcacheResponse::NotStored
-            }
+            MemcacheResponse::NotStored
+            // if noreply {
+            //     MemcacheResponse::NoReply
+            // } else {
+            //     MemcacheResponse::NotStored
+            // }
         }
     }
 
     fn replace(
         &mut self,
-        key: &[u8],
-        value: Option<Box<[u8]>>,
-        flags: u32,
-        expiry: u32,
-        noreply: bool,
+        entry: MemcacheEntry,
+        // key: &[u8],
+        // value: Option<Box<[u8]>>,
+        // flags: u32,
+        // expiry: u32,
+        // noreply: bool,
     ) -> MemcacheResponse {
         increment_counter!(&Stat::Replace);
-        let ttl = self.get_ttl(expiry);
-        let value = value.unwrap_or_else(|| vec![].into_boxed_slice());
-        if self.data.get_no_freq_incr(key).is_some()
+        let ttl = self.get_ttl(entry.expiry());
+        if self.data.get_no_freq_incr(entry.key()).is_some()
             && self
                 .data
                 .insert(
-                    key,
-                    &value,
-                    Some(&flags.to_be_bytes()),
+                    entry.key(),
+                    entry.value(),
+                    Some(&entry.expiry().to_be_bytes()),
                     CoarseDuration::from_secs(ttl),
                 )
                 .is_ok()
         {
             increment_counter!(&Stat::ReplaceStored);
-            if noreply {
-                MemcacheResponse::NoReply
-            } else {
-                MemcacheResponse::Stored
-            }
+            MemcacheResponse::Stored
+            // if noreply {
+            //     MemcacheResponse::NoReply
+            // } else {
+            //     MemcacheResponse::Stored
+            // }
         } else {
             increment_counter!(&Stat::ReplaceNotstored);
-            if noreply {
-                MemcacheResponse::NoReply
-            } else {
-                MemcacheResponse::NotStored
-            }
+            MemcacheResponse::NotStored
+            // if noreply {
+            //     MemcacheResponse::NoReply
+            // } else {
+            //     MemcacheResponse::NotStored
+            // }
         }
     }
 
-    fn delete(&mut self, key: &[u8], noreply: bool) -> MemcacheResponse {
+    fn delete(&mut self, key: &[u8]) -> MemcacheResponse {
         increment_counter!(&Stat::Delete);
         if self.data.delete(key) {
             increment_counter!(&Stat::DeleteDeleted);
-            if noreply {
-                MemcacheResponse::NoReply
-            } else {
-                MemcacheResponse::Deleted
-            }
+            MemcacheResponse::Deleted
+            // if noreply {
+            //     MemcacheResponse::NoReply
+            // } else {
+            //     MemcacheResponse::Deleted
+            // }
         } else {
             increment_counter!(&Stat::DeleteNotfound);
-            if noreply {
-                MemcacheResponse::NoReply
-            } else {
-                MemcacheResponse::NotFound
-            }
+            MemcacheResponse::NotStored
+            // if noreply {
+            //     MemcacheResponse::NoReply
+            // } else {
+            //     MemcacheResponse::NotFound
+            // }
         }
     }
 
     fn cas(
         &mut self,
-        key: &[u8],
-        value: Option<Box<[u8]>>,
-        flags: u32,
-        expiry: u32,
-        noreply: bool,
-        cas: u64,
+        entry: MemcacheEntry,
+        // key: &[u8],
+        // value: Option<Box<[u8]>>,
+        // flags: u32,
+        // expiry: u32,
+        // noreply: bool,
+        // cas: u64,
     ) -> MemcacheResponse {
         increment_counter!(&Stat::Cas);
-        let ttl = self.get_ttl(expiry);
-        let value = value.unwrap_or_else(|| vec![].into_boxed_slice());
+        let ttl = self.get_ttl(entry.expiry());
         match self.data.cas(
-            key,
-            &value,
-            Some(&flags.to_be_bytes()),
+            entry.key(),
+            entry.value(),
+            Some(&entry.flags().to_be_bytes()),
             CoarseDuration::from_secs(ttl),
-            cas as u32,
+            entry.cas() as u32,
         ) {
             Ok(_) => {
                 increment_counter!(&Stat::CasStored);
-                if noreply {
-                    MemcacheResponse::NoReply
-                } else {
-                    MemcacheResponse::Stored
-                }
+                MemcacheResponse::Stored
+                // if noreply {
+                //     MemcacheResponse::NoReply
+                // } else {
+                //     MemcacheResponse::Stored
+                // }
             }
             Err(SegCacheError::NotFound) => {
                 increment_counter!(&Stat::CasNotfound);
-                if noreply {
-                    MemcacheResponse::NoReply
-                } else {
-                    MemcacheResponse::NotFound
-                }
+                MemcacheResponse::NotFound
+                // if noreply {
+                //     MemcacheResponse::NoReply
+                // } else {
+                //     MemcacheResponse::NotFound
+                // }
             }
             Err(SegCacheError::Exists) => {
                 increment_counter!(&Stat::CasExists);
-                if noreply {
-                    MemcacheResponse::NoReply
-                } else {
-                    MemcacheResponse::Exists
-                }
+                MemcacheResponse::Exists
+                // if noreply {
+                //     MemcacheResponse::NoReply
+                // } else {
+                //     MemcacheResponse::Exists
+                // }
             }
             Err(_) => {
                 increment_counter!(&Stat::CasEx);
-                if noreply {
-                    MemcacheResponse::NoReply
-                } else {
-                    MemcacheResponse::NotStored
-                }
+                MemcacheResponse::NotStored
+                // if noreply {
+                //     MemcacheResponse::NoReply
+                // } else {
+                //     MemcacheResponse::NotStored
+                // }
             }
         }
     }
