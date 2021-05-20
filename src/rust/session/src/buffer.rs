@@ -6,7 +6,7 @@
 
 use std::borrow::Borrow;
 
-use bytes::{BytesMut, Buf};
+use bytes::{Buf, BytesMut};
 use common::traits::ExtendFromSlice;
 
 /// A growable byte buffer

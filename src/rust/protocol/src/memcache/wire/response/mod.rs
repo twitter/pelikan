@@ -10,7 +10,10 @@ use std::io::Write;
 pub enum MemcacheResponse {
     Deleted,
     Exists,
-    Values { entries: Box<[MemcacheEntry]>, cas: bool },
+    Values {
+        entries: Box<[MemcacheEntry]>,
+        cas: bool,
+    },
     NotFound,
     NotStored,
     Stored,
@@ -39,7 +42,13 @@ impl Compose for MemcacheResponse {
                     dst.write_all(&*entry.key);
                     if cas {
                         dst.write_all(
-                            &format!(" {} {} {}", entry.flags, entry.value.len(), entry.cas.unwrap_or(0)).into_bytes(),
+                            &format!(
+                                " {} {} {}",
+                                entry.flags,
+                                entry.value.len(),
+                                entry.cas.unwrap_or(0)
+                            )
+                            .into_bytes(),
                         );
                     } else {
                         dst.write_all(

@@ -1,5 +1,5 @@
-use common::signal::Signal;
 use crate::threads::worker::TokenWrapper;
+use common::signal::Signal;
 use config::WorkerConfig;
 use core::time::Duration;
 use metrics::Stat;

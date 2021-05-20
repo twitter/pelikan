@@ -13,7 +13,6 @@ pub const NOREPLY: &str = "noreply";
 pub type Key = Box<[u8]>;
 pub type Keys = Box<[Key]>;
 
-
 pub enum MemcacheRequest {
     Get { keys: Keys },
     Gets { keys: Keys },
@@ -23,4 +22,3 @@ pub enum MemcacheRequest {
     Delete { key: Key, noreply: bool },
     Cas { entry: MemcacheEntry, noreply: bool },
 }
-

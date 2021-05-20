@@ -74,10 +74,7 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     let message = MemcacheRequest::Get {
         keys: keys.into_boxed_slice(),
     };
-    Ok(ParseOk {
-        message,
-        consumed,
-    })
+    Ok(ParseOk { message, consumed })
 }
 
 fn parse_gets(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
@@ -164,8 +161,8 @@ fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
             if buffer.len() >= consumed {
                 let key = buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice();
                 let value = buffer[(first_crlf + CRLF.len())..(first_crlf + CRLF.len() + bytes)]
-                            .to_vec()
-                            .into_boxed_slice();
+                    .to_vec()
+                    .into_boxed_slice();
 
                 let entry = MemcacheEntry {
                     key,
@@ -298,8 +295,8 @@ fn parse_cas(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
             // let buffer = buffer.split_to(consumed);
             let key = buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice();
             let value = buffer[(first_crlf + CRLF.len())..(first_crlf + CRLF.len() + bytes)]
-                        .to_vec()
-                        .into_boxed_slice();
+                .to_vec()
+                .into_boxed_slice();
 
             let entry = MemcacheEntry {
                 key,

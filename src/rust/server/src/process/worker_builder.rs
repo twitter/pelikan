@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use common::signal::Signal;
 use crate::threads::*;
+use common::signal::Signal;
 use protocol::{Compose, Execute, Parse};
 use queues::mpsc::Sender;
 use session::Session;

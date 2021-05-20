@@ -33,7 +33,7 @@ pub const MIN_BUFFER_SIZE: usize = 1024; // 1 KiB
 
 // TODO(bmartin): implement connect/reconnect so we can use this in clients too.
 /// The core `Session` type which represents a TCP stream (with or without TLS),
-/// the session buffer, the mio [`::mio::Token`], 
+/// the session buffer, the mio [`::mio::Token`],
 pub struct Session {
     token: Token,
     // TODO(bmartin): remove this lint exception after implementing connect

@@ -1,19 +1,16 @@
-use rustcommon_time::{CoarseDuration, Duration};
 use config::TimeType;
+use rustcommon_time::{CoarseDuration, Duration};
 
 use std::time::SystemTime;
 
 pub struct Expiry {
     time_type: TimeType,
-    expiry: u32, 
+    expiry: u32,
 }
 
 impl Expiry {
     pub fn new(expiry: u32, time_type: TimeType) -> Self {
-        Self {
-            expiry,
-            time_type,
-        }
+        Self { expiry, time_type }
     }
 
     // TODO(bmartin): this conversion can be made more efficient

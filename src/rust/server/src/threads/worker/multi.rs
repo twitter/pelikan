@@ -8,9 +8,9 @@
 //! then serialized onto the session buffer.
 
 use super::EventLoop;
-use common::signal::Signal;
 use crate::threads::worker::StorageWorker;
 use crate::threads::worker::TokenWrapper;
+use common::signal::Signal;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;

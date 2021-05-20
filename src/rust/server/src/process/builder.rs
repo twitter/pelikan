@@ -68,10 +68,11 @@ where
             error!("failed to initialize TLS: {}", e);
             std::process::exit(1);
         });
-        let listener = Listener::new(server_config, session_senders, ssl_context).unwrap_or_else(|e| {
-            error!("failed to initialize listener: {}", e);
-            std::process::exit(1);
-        });
+        let listener =
+            Listener::new(server_config, session_senders, ssl_context).unwrap_or_else(|e| {
+                error!("failed to initialize listener: {}", e);
+                std::process::exit(1);
+            });
 
         Self {
             admin,
