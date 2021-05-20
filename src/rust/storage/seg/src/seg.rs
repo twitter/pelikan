@@ -12,15 +12,15 @@ const RESERVE_RETRIES: usize = 3;
 /// segment-structured design that stores data in fixed-size segments, grouping
 /// objects with nearby expiration time into the same segment, and lifting most
 /// per-object metadata into the shared segment header.
-pub struct SegCache {
+pub struct Seg {
     pub(crate) hashtable: HashTable,
     pub(crate) segments: Segments,
     pub(crate) ttl_buckets: TtlBuckets,
 }
 
-impl SegCache {
+impl Seg {
     /// Returns a new `Builder` which is used to configure and construct a
-    /// `SegCache` instance.
+    /// `Seg` instance.
     ///
     /// ```
     /// use segcache::{Policy, SegCache};
@@ -105,7 +105,7 @@ impl SegCache {
         value: &[u8],
         optional: Option<&[u8]>,
         ttl: CoarseDuration,
-    ) -> Result<(), SegCacheError<'a>> {
+    ) -> Result<(), SegError<'a>> {
         // default optional data is empty
         let optional = optional.unwrap_or(&[]);
 
@@ -127,7 +127,7 @@ impl SegCache {
                     break;
                 }
                 Err(TtlBucketsError::ItemOversized { size }) => {
-                    return Err(SegCacheError::ItemOversized { size, key });
+                    return Err(SegError::ItemOversized { size, key });
                 }
                 Err(TtlBucketsError::NoFreeSegments) => {
                     if self
@@ -142,7 +142,7 @@ impl SegCache {
                 }
             }
             if retries == 0 {
-                return Err(SegCacheError::NoFreeSegments);
+                return Err(SegError::NoFreeSegments);
             }
             retries -= 1;
         }
@@ -169,7 +169,7 @@ impl SegCache {
                 &mut self.ttl_buckets,
                 &mut self.hashtable,
             );
-            Err(SegCacheError::HashTableInsertEx)
+            Err(SegError::HashTableInsertEx)
         } else {
             Ok(())
         }
@@ -179,21 +179,21 @@ impl SegCache {
     /// matches the current value for that item.
     ///
     /// ```
-    /// use segcache::{CoarseDuration, Policy, SegCache, SegCacheError};
+    /// use segcache::{CoarseDuration, Policy, SegCache, SegError};
     ///
     /// let mut cache = SegCache::builder().build();
     ///
     /// // If the item is not in the cache, CAS will fail as 'NotFound'
     /// assert_eq!(
     ///     cache.cas(b"drink", b"coffee", None, CoarseDuration::ZERO, 0),
-    ///     Err(SegCacheError::NotFound)
+    ///     Err(SegError::NotFound)
     /// );
     ///
     /// // If a stale CAS value is provided, CAS will fail as 'Exists'
     /// cache.insert(b"drink", b"coffee", None, CoarseDuration::ZERO);
     /// assert_eq!(
     ///     cache.cas(b"drink", b"coffee", None, CoarseDuration::ZERO, 0),
-    ///     Err(SegCacheError::Exists)
+    ///     Err(SegError::Exists)
     /// );
     ///
     /// // Getting the CAS value and then performing the operation ensures
@@ -210,7 +210,7 @@ impl SegCache {
         optional: Option<&[u8]>,
         ttl: CoarseDuration,
         cas: u32,
-    ) -> Result<(), SegCacheError<'a>> {
+    ) -> Result<(), SegError<'a>> {
         match self.hashtable.try_update_cas(key, cas, &mut self.segments) {
             Ok(()) => self.insert(key, value, optional, ttl),
             Err(e) => Err(e),
@@ -220,7 +220,7 @@ impl SegCache {
     /// Remove the item with the given key, returns a bool indicating if it was
     /// removed.
     /// ```
-    /// use segcache::{CoarseDuration, Policy, SegCache, SegCacheError};
+    /// use segcache::{CoarseDuration, Policy, SegCache, SegError};
     ///
     /// let mut cache = SegCache::builder().build();
     ///
@@ -242,7 +242,7 @@ impl SegCache {
     /// Loops through the TTL Buckets to handle eager expiration, returns the
     /// number of segments expired
     /// ```
-    /// use segcache::{CoarseDuration, Policy, SegCache, SegCacheError};
+    /// use segcache::{CoarseDuration, Policy, SegCache, SegError};
     ///
     /// let mut cache = SegCache::builder().build();
     ///
@@ -278,11 +278,11 @@ impl SegCache {
     /// Checks the integrity of all segments
     /// *NOTE*: this operation is relatively expensive
     #[cfg(feature = "debug")]
-    pub fn check_integrity(&mut self) -> Result<(), SegCacheError> {
+    pub fn check_integrity(&mut self) -> Result<(), SegError> {
         if self.segments.check_integrity() {
             Ok(())
         } else {
-            Err(SegCacheError::DataCorrupted)
+            Err(SegError::DataCorrupted)
         }
     }
 }

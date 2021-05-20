@@ -24,6 +24,7 @@ use session::{Session, MIN_BUFFER_SIZE};
 use slab::Slab;
 use std::convert::TryInto;
 use std::sync::Arc;
+use entrystore::EntryStore;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
 // full, and a single wakeup should drain at least one message and make room for
@@ -43,7 +44,7 @@ where
     timeout: Duration,
     session_queue: Queue<Session>,
     sessions: Slab<Session>,
-    storage_queue: Bidirectional<TokenWrapper<Request>, TokenWrapper<Response>>,
+    storage_queue: Bidirectional<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
     wake_storage: bool,
     #[allow(dead_code)]
     waker: Arc<Waker>,
@@ -54,7 +55,7 @@ impl<Storage, Request, Response> MultiWorker<Storage, Request, Response>
 where
     Request: Parse + Send,
     Response: Compose + Send,
-    Storage: Execute<Request, Response> + storage::Storage + Send,
+    Storage: Execute<Request, Response> + EntryStore + Send,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(
@@ -177,7 +178,7 @@ where
     fn handle_session_read(
         session: &mut Session,
         poll: &Poll,
-        storage_queue: &mut Bidirectional<TokenWrapper<Request>, TokenWrapper<Response>>,
+        storage_queue: &mut Bidirectional<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
     ) -> bool {
         match Request::parse(session.peek()) {
             Ok(request) => {
@@ -221,16 +222,18 @@ where
         while let Ok(message) = self.storage_queue.try_recv() {
             let token = message.token();
             if let Some(mut session) = self.sessions.get_mut(token.0) {
-                message.into_inner().compose(&mut session);
-                if session.write_pending() > 0 {
-                    match session.flush() {
-                        Ok(_) => {
-                            if session.write_pending() > 0 {
-                                let _ = session.reregister(&self.poll);
+                if let Some(response) = message.into_inner() {
+                    response.compose(&mut session);
+                    if session.write_pending() > 0 {
+                        match session.flush() {
+                            Ok(_) => {
+                                if session.write_pending() > 0 {
+                                    let _ = session.reregister(&self.poll);
+                                }
                             }
-                        }
-                        Err(e) => {
-                            error!("error flushing: {}", e);
+                            Err(e) => {
+                                error!("error flushing: {}", e);
+                            }
                         }
                     }
                 }
@@ -287,7 +290,7 @@ impl<Storage, Request, Response> EventLoop for MultiWorker<Storage, Request, Res
 where
     Request: Parse + Send,
     Response: Compose + Send,
-    Storage: Execute<Request, Response> + storage::Storage + Send,
+    Storage: Execute<Request, Response> + EntryStore + Send,
 {
     fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)

@@ -647,7 +647,7 @@ dependencies = [
  "config",
  "protocol",
  "rustcommon-time",
- "segcache",
+ "seg",
 ]
 
 [[package]]
@@ -1999,7 +1999,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "segcache"
+name = "seg"
 version = "0.1.0"
 dependencies = [
  "ahash 0.7.2",
@@ -2017,7 +2017,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "segcache-rs"
+name = "segcache"
 version = "0.1.0"
 dependencies = [
  "backtrace",
@@ -2111,7 +2111,6 @@ dependencies = [
  "rustcommon-fastmetrics",
  "rustcommon-logger",
  "rustcommon-time",
- "segcache",
  "serde",
  "serde_json",
  "session",
@@ -2137,7 +2136,6 @@ dependencies = [
  "rustcommon-fastmetrics",
  "rustcommon-logger",
  "rustcommon-time",
- "segcache",
  "serde",
  "serde_json",
  "slab",

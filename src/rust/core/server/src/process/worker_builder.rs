@@ -8,6 +8,7 @@ use protocol::{Compose, Execute, Parse};
 use queues::mpsc::Sender;
 use session::Session;
 use std::thread::JoinHandle;
+use entrystore::EntryStore;
 
 const THREAD_PREFIX: &str = "pelikan";
 
@@ -16,7 +17,7 @@ pub enum WorkerBuilder<Storage, Request, Response>
 where
     Request: Parse,
     Response: Compose,
-    Storage: Execute<Request, Response> + storage::Storage,
+    Storage: Execute<Request, Response> + EntryStore,
 {
     Multi {
         storage: StorageWorker<Storage, Request, Response>,
@@ -32,7 +33,7 @@ impl<Storage: 'static, Request: 'static, Response: 'static>
 where
     Request: Parse + Send,
     Response: Compose + Send,
-    Storage: Execute<Request, Response> + storage::Storage + Send,
+    Storage: Execute<Request, Response> + EntryStore + Send,
 {
     pub fn session_senders(&self) -> Vec<Sender<Session>> {
         match self {

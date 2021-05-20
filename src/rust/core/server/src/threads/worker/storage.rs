@@ -1,3 +1,4 @@
+use entrystore::EntryStore;
 use crate::threads::worker::TokenWrapper;
 use common::signal::Signal;
 use config::WorkerConfig;
@@ -28,14 +29,14 @@ pub struct StorageWorker<Storage, Request, Response> {
     storage: Storage,
     signal_queue: Queue<Signal>,
     waker: Arc<Waker>,
-    worker_queues: Vec<Bidirectional<TokenWrapper<Response>, TokenWrapper<Request>>>,
+    worker_queues: Vec<Bidirectional<TokenWrapper<Option<Response>>, TokenWrapper<Request>>>,
 }
 
 impl<Storage, Request, Response> StorageWorker<Storage, Request, Response>
 where
     Request: Send,
     Response: Compose + Send,
-    Storage: Execute<Request, Response> + storage::Storage + Send,
+    Storage: Execute<Request, Response> + EntryStore + Send,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(config: &WorkerConfig, storage: Storage) -> Result<Self, std::io::Error> {
@@ -64,7 +65,7 @@ where
     pub fn add_queue(
         &mut self,
         waker: Arc<Waker>,
-    ) -> Bidirectional<TokenWrapper<Request>, TokenWrapper<Response>> {
+    ) -> Bidirectional<TokenWrapper<Request>, TokenWrapper<Option<Response>>> {
         let (worker_queue, storage_queue) =
             queues::spsc::bidirectional::with_capacity(65536, self.waker.clone(), waker);
 

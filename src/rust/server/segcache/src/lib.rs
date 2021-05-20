@@ -4,7 +4,8 @@
 
 use server::{Process, ProcessBuilder};
 use config::TwemcacheConfig;
-use protocol::memcache::data::{MemcacheRequest, MemcacheResponse};
+use protocol::memcache::{MemcacheRequest, MemcacheResponse};
+use entrystore::Seg;
 
 pub struct Segcache {
     process: Process,
@@ -12,8 +13,8 @@ pub struct Segcache {
 
 impl Segcache {
     pub fn new(config: TwemcacheConfig) -> Self {
-        let storage = storage::SegCache::new(config.segcache(), config.time().time_type());
-        let process_builder = ProcessBuilder::<storage::SegCache, MemcacheRequest, MemcacheResponse>::new(
+        let storage = Seg::new(config.seg(), config.time().time_type());
+        let process_builder = ProcessBuilder::<Seg, MemcacheRequest, MemcacheResponse>::new(
             config.admin(),
             config.server(),
             config.tls(),

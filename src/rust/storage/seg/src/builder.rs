@@ -158,12 +158,12 @@ impl Builder {
     ///     .power(16)
     ///     .eviction(Policy::Random).build();
     /// ```
-    pub fn build(self) -> SegCache {
+    pub fn build(self) -> Seg {
         let hashtable = HashTable::new(self.power, self.overflow_factor);
         let segments = self.segments_builder.build();
         let ttl_buckets = TtlBuckets::default();
 
-        SegCache {
+        Seg {
             hashtable,
             segments,
             ttl_buckets,

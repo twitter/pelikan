@@ -7,9 +7,9 @@
 //! addition to the base `Storage` trait. For example [`SegCache`] implements
 //! both [`Storage`] and [`protocol::memcache::MemcacheStorage`].
 
-mod segcache;
+mod seg;
 
-pub use self::segcache::*;
+pub use self::seg::*;
 
 /// A trait defining the basic requirements of a type which may be used for
 /// storage.

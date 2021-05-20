@@ -9,7 +9,7 @@ repository = "https://github.com/twitter/pelikan"
 license = "Apache-2.0"
 
 [dependencies]
-config = { path = "../../rust/config" }
-protocol = { path = "../../rust/protocol" }
+config = { path = "../config" }
+protocol = { path = "../protocol" }
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
-segcache = { path = "../../storage/segcache" }
+seg = { path = "../storage/seg" }

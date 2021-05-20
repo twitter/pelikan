@@ -76,7 +76,7 @@ fn datapool_path() -> Option<String> {
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SegCacheConfig {
+pub struct SegConfig {
     #[serde(default = "hash_power")]
     hash_power: u8,
     #[serde(default = "overflow_factor")]
@@ -97,7 +97,7 @@ pub struct SegCacheConfig {
     datapool_path: Option<String>,
 }
 
-impl Default for SegCacheConfig {
+impl Default for SegConfig {
     fn default() -> Self {
         Self {
             hash_power: hash_power(),
@@ -114,7 +114,7 @@ impl Default for SegCacheConfig {
 }
 
 // implementation
-impl SegCacheConfig {
+impl SegConfig {
     pub fn hash_power(&self) -> u8 {
         self.hash_power
     }

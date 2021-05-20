@@ -6,7 +6,7 @@ use super::*;
 
 use protocol::memcache::{MemcacheEntry, MemcacheStorage, MemcacheStorageError};
 
-impl MemcacheStorage for SegCache {
+impl MemcacheStorage for Seg {
     fn get(&mut self, keys: &[Box<[u8]>]) -> Box<[MemcacheEntry]> {
         let mut items = Vec::new();
         for key in keys {
@@ -95,8 +95,8 @@ impl MemcacheStorage for SegCache {
             entry.cas().unwrap_or(0) as u32,
         ) {
             Ok(_) => Ok(()),
-            Err(SegCacheError::NotFound) => Err(MemcacheStorageError::NotFound),
-            Err(SegCacheError::Exists) => Err(MemcacheStorageError::Exists),
+            Err(SegError::NotFound) => Err(MemcacheStorageError::NotFound),
+            Err(SegError::Exists) => Err(MemcacheStorageError::Exists),
             Err(_) => Err(MemcacheStorageError::NotStored),
         }
     }

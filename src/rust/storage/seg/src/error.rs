@@ -8,7 +8,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq)]
 /// Possible errors returned by the top-level API
-pub enum SegCacheError<'a> {
+pub enum SegError<'a> {
     #[error("hashtable insert exception")]
     HashTableInsertEx,
     #[error("eviction exception")]

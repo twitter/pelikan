@@ -9,13 +9,14 @@ use config::ServerConfig;
 use config::TlsConfig;
 use config::WorkerConfig;
 use protocol::{Compose, Execute, Parse};
+use entrystore::EntryStore;
 
 const THREAD_PREFIX: &str = "pelikan";
 
 /// A structure which represents a twemcache instance which is not yet running.
 pub struct ProcessBuilder<Storage, Request, Response>
 where
-    Storage: Execute<Request, Response> + storage::Storage + Send,
+    Storage: Execute<Request, Response> + EntryStore + Send,
     Request: Parse + std::marker::Send,
     Response: Compose + std::marker::Send,
 {
@@ -27,7 +28,7 @@ where
 impl<Storage: 'static, Request: 'static, Response: 'static>
     ProcessBuilder<Storage, Request, Response>
 where
-    Storage: Execute<Request, Response> + storage::Storage + Send,
+    Storage: Execute<Request, Response> + EntryStore + Send,
     Request: Parse + std::marker::Send,
     Response: Compose + std::marker::Send,
 {

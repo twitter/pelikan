@@ -9,26 +9,26 @@
 
 use crate::EntryStore;
 
-use config::segcache::Eviction;
-use config::{SegCacheConfig, TimeType};
+use config::seg::Eviction;
+use config::{SegConfig, TimeType};
 use rustcommon_time::CoarseDuration;
-use segcache::{Policy, SegCacheError};
+use seg::{Policy, SegError};
 
 use std::time::SystemTime;
 
 mod memcache;
 
-/// A wrapper around [`segcache::SegCache`] which implements `EntryStore` and
-/// storage protocol traits.
-pub struct SegCache {
-    data: ::segcache::SegCache,
+/// A wrapper around [`seg::Seg`] which implements `EntryStore` and storage
+/// protocol traits.
+pub struct Seg {
+    data: ::seg::Seg,
     time_type: TimeType,
 }
 
-impl SegCache {
+impl Seg {
     /// Create a new `SegCache` based on the config and the `TimeType` which is
     /// used to interpret various expiry time formats.
-    pub fn new(config: &SegCacheConfig, time_type: TimeType) -> Self {
+    pub fn new(config: &SegConfig, time_type: TimeType) -> Self {
         // build up the eviction policy from the config
         let eviction = match config.eviction() {
             Eviction::None => Policy::None,
@@ -44,7 +44,7 @@ impl SegCache {
         };
 
         // build the datastructure from the config
-        let data = ::segcache::SegCache::builder()
+        let data = ::seg::Seg::builder()
             .power(config.hash_power())
             .overflow_factor(config.overflow_factor())
             .heap_size(config.heap_size())
@@ -84,7 +84,7 @@ impl SegCache {
     }
 }
 
-impl EntryStore for SegCache {
+impl EntryStore for Seg {
     fn expire(&mut self) {
         self.data.expire();
     }

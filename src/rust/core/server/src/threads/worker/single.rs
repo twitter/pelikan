@@ -7,6 +7,7 @@
 //! the request using the backing storage, and then composes a response onto the
 //! session buffer.
 
+use entrystore::EntryStore;
 use super::EventLoop;
 use common::signal::Signal;
 use config::WorkerConfig;
@@ -40,7 +41,7 @@ impl<Storage, Request, Response> SingleWorker<Storage, Request, Response>
 where
     Request: Parse,
     Response: Compose,
-    Storage: Execute<Request, Response> + storage::Storage,
+    Storage: Execute<Request, Response> + EntryStore,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(config: &WorkerConfig, storage: Storage) -> Result<Self, std::io::Error> {
@@ -206,7 +207,7 @@ impl<Storage, Request, Response> EventLoop for SingleWorker<Storage, Request, Re
 where
     Request: Parse,
     Response: Compose,
-    Storage: Execute<Request, Response> + storage::Storage,
+    Storage: Execute<Request, Response> + EntryStore,
 {
     fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
@@ -227,9 +228,11 @@ where
                         increment_counter!(&Stat::ProcessReq);
                         let consumed = parsed_request.consumed();
                         let request = parsed_request.into_inner();
-                        let response = self.storage.execute(request);
                         session.consume(consumed);
-                        response.compose(session);
+
+                        if let Some(response) = self.storage.execute(request) {
+                            response.compose(session);
+                        }
                     }
                     Err(ParseError::Incomplete) => {
                         break;

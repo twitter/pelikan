@@ -500,7 +500,7 @@ impl HashTable {
         key: &'a [u8],
         cas: u32,
         segments: &mut Segments,
-    ) -> Result<(), SegCacheError<'a>> {
+    ) -> Result<(), SegError<'a>> {
         let hash = self.hash(key);
         let tag = tag_from_hash(hash);
         let bucket_id = hash & self.mask;
@@ -512,7 +512,7 @@ impl HashTable {
         trace!("hash: {} mask: {} bucket: {}", hash, self.mask, bucket_id);
 
         if cas != get_cas(bucket.data[0]) {
-            return Err(SegCacheError::Exists);
+            return Err(SegError::Exists);
         }
 
         loop {
@@ -562,7 +562,7 @@ impl HashTable {
             chain_idx += 1;
         }
 
-        Err(SegCacheError::NotFound)
+        Err(SegError::NotFound)
     }
 
     /// Removes the item with the given key
