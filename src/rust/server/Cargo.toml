@@ -29,7 +29,7 @@ segcache = { path = "../../storage/segcache" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.64"
 session = { path = "../../rust/session" }
-storage = { path = "../../rust/storage" }
+entrystore = { path = "../../rust/entrystore" }
 slab = "0.4.2"
 strum = "0.20.0"
 strum_macros = "0.20.1"

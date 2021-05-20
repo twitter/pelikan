@@ -7,7 +7,7 @@
 //! See: [`::segcache`] crate for more details behind the underlying storage
 //! design.
 
-use crate::Storage;
+use crate::EntryStore;
 
 use config::segcache::Eviction;
 use config::{SegCacheConfig, TimeType};
@@ -18,7 +18,7 @@ use std::time::SystemTime;
 
 mod memcache;
 
-/// A wrapper around [`segcache::SegCache`] which implements `Storage` and
+/// A wrapper around [`segcache::SegCache`] which implements `EntryStore` and
 /// storage protocol traits.
 pub struct SegCache {
     data: ::segcache::SegCache,
@@ -84,7 +84,7 @@ impl SegCache {
     }
 }
 
-impl Storage for SegCache {
+impl EntryStore for SegCache {
     fn expire(&mut self) {
         self.data.expire();
     }

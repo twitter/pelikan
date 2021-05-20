@@ -641,6 +641,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
+name = "entrystore"
+version = "0.0.1"
+dependencies = [
+ "config",
+ "protocol",
+ "rustcommon-time",
+ "segcache",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2013,12 +2023,12 @@ dependencies = [
  "backtrace",
  "config",
  "criterion",
+ "entrystore",
  "protocol",
  "rustcommon-fastmetrics",
  "rustcommon-logger",
  "rustcommon-time",
  "server",
- "storage",
 ]
 
 [[package]]
@@ -2090,6 +2100,7 @@ dependencies = [
  "config",
  "criterion",
  "crossbeam-channel",
+ "entrystore",
  "libc",
  "metrics",
  "mio 0.7.11",
@@ -2105,7 +2116,6 @@ dependencies = [
  "serde_json",
  "session",
  "slab",
- "storage",
  "strum",
  "strum_macros",
  "sysconf",
@@ -2169,16 +2179,6 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
-
-[[package]]
-name = "storage"
-version = "0.0.1"
-dependencies = [
- "config",
- "protocol",
- "rustcommon-time",
- "segcache",
-]
 
 [[package]]
 name = "strsim"

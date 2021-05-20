@@ -31,7 +31,7 @@ harness = false
 server = { path = "../../rust/server" }
 config = { path = "../../rust/config" }
 protocol = { path = "../../rust/protocol" }
-storage = { path = "../../rust/storage" }
+entrystore = { path = "../../rust/entrystore" }
 # ahash = "0.6.2"
 backtrace = "0.3.56"
 # boring = "1.0.3"

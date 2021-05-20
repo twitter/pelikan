@@ -13,7 +13,7 @@ pub use self::segcache::*;
 
 /// A trait defining the basic requirements of a type which may be used for
 /// storage.
-pub trait Storage {
+pub trait EntryStore {
     /// Eager expiration of items/values from storage. Not all storage types
     /// will be able to efficiently implement this function. The default
     /// implementation is a no-op. Types which can efficiently implement eager

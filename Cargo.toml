@@ -18,7 +18,7 @@ members = [
     "src/rust/queues",
     "src/rust/server",
     "src/rust/session",
-    "src/rust/storage",
+    "src/rust/entrystore",
     "src/rust-util/httpencode",
     "src/rust-util/pelikan",
     "src/rust-util/pelikan-sys",
