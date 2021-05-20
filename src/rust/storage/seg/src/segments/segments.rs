@@ -63,8 +63,8 @@ impl Segments {
 
         // TODO(bmartin): we always prefault, this should be configurable
         let mut data: Box<dyn Datapool> = if let Some(file) = builder.datapool_path {
-            let pool =
-                File::create(file, heap_size, true).expect("failed to allocate file backed storage");
+            let pool = File::create(file, heap_size, true)
+                .expect("failed to allocate file backed storage");
             Box::new(pool)
         } else {
             Box::new(Memory::create(heap_size, true))

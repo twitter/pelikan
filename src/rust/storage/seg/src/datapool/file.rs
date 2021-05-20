@@ -22,7 +22,11 @@ impl File {
     /// size (in bytes). Returns an error if the file already exists, could not
     /// be created, couldn't be extended to the requested size, or couldn't be
     /// mmap'd
-    pub fn create<T: AsRef<Path>>(path: T, size: usize, prefault: bool) -> Result<Self, std::io::Error> {
+    pub fn create<T: AsRef<Path>>(
+        path: T,
+        size: usize,
+        prefault: bool,
+    ) -> Result<Self, std::io::Error> {
         let file = OpenOptions::new()
             .create_new(true)
             .read(true)

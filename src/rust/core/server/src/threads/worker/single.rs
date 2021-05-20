@@ -7,12 +7,12 @@
 //! the request using the backing storage, and then composes a response onto the
 //! session buffer.
 
-use entrystore::EntryStore;
 use super::EventLoop;
 use common::signal::Signal;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
+use entrystore::EntryStore;
 use metrics::Stat;
 use mio::event::Event;
 use mio::Events;

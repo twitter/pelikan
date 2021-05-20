@@ -8,8 +8,8 @@ use config::AdminConfig;
 use config::ServerConfig;
 use config::TlsConfig;
 use config::WorkerConfig;
-use protocol::{Compose, Execute, Parse};
 use entrystore::EntryStore;
+use protocol::{Compose, Execute, Parse};
 
 const THREAD_PREFIX: &str = "pelikan";
 

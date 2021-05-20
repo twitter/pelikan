@@ -2,10 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use server::{Process, ProcessBuilder};
 use config::TwemcacheConfig;
-use protocol::memcache::{MemcacheRequest, MemcacheResponse};
 use entrystore::Seg;
+use protocol::memcache::{MemcacheRequest, MemcacheResponse};
+use server::{Process, ProcessBuilder};
 
 pub struct Segcache {
     process: Process,

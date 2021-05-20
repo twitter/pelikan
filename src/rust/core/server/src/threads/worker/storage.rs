@@ -1,8 +1,8 @@
-use entrystore::EntryStore;
 use crate::threads::worker::TokenWrapper;
 use common::signal::Signal;
 use config::WorkerConfig;
 use core::time::Duration;
+use entrystore::EntryStore;
 use metrics::Stat;
 use mio::Events;
 use mio::Poll;

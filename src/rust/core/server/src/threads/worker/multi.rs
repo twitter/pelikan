@@ -14,6 +14,7 @@ use common::signal::Signal;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
+use entrystore::EntryStore;
 use metrics::Stat;
 use mio::event::Event;
 use mio::{Events, Poll, Token, Waker};
@@ -24,7 +25,6 @@ use session::{Session, MIN_BUFFER_SIZE};
 use slab::Slab;
 use std::convert::TryInto;
 use std::sync::Arc;
-use entrystore::EntryStore;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
 // full, and a single wakeup should drain at least one message and make room for

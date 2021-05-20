@@ -4,11 +4,11 @@
 
 use crate::threads::*;
 use common::signal::Signal;
+use entrystore::EntryStore;
 use protocol::{Compose, Execute, Parse};
 use queues::mpsc::Sender;
 use session::Session;
 use std::thread::JoinHandle;
-use entrystore::EntryStore;
 
 const THREAD_PREFIX: &str = "pelikan";
 
