@@ -5,15 +5,15 @@
 //! Eviction is used to select a segment to remove when the cache becomes full.
 //! An eviction [`Policy`] determines what data will be evicted from the cache.
 
+use core::cmp::{max, Ordering};
+use core::num::NonZeroU32;
+
+use rand::Rng;
+use rustcommon_time::CoarseInstant as Instant;
+
 use crate::rng;
 use crate::segments::*;
 use crate::Random;
-use core::cmp::max;
-use core::cmp::Ordering;
-use core::num::NonZeroU32;
-use rand::Rng;
-
-use rustcommon_time::CoarseInstant as Instant;
 
 mod policy;
 

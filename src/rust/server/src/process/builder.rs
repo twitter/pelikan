@@ -13,7 +13,7 @@ use protocol::{Compose, Execute, Parse};
 const THREAD_PREFIX: &str = "pelikan";
 
 /// A structure which represents a twemcache instance which is not yet running.
-pub struct BackendBuilder<Storage, Request, Response>
+pub struct ProcessBuilder<Storage, Request, Response>
 where
     Storage: Execute<Request, Response> + storage::Storage + Send,
     Request: Parse + std::marker::Send,
@@ -25,7 +25,7 @@ where
 }
 
 impl<Storage: 'static, Request: 'static, Response: 'static>
-    BackendBuilder<Storage, Request, Response>
+    ProcessBuilder<Storage, Request, Response>
 where
     Storage: Execute<Request, Response> + storage::Storage + Send,
     Request: Parse + std::marker::Send,
@@ -121,7 +121,7 @@ where
     /// Converts the `TwemcacheBuilder` to a running `Twemcache` by spawning
     /// the threads for each component. Returns a `Twemcache` which may be used
     /// to block until the threads have exited or trigger a shutdown.
-    pub fn spawn(self) -> Backend {
+    pub fn spawn(self) -> Process {
         // get message senders for each component
         let mut signal_senders = vec![self.server.signal_sender()];
         signal_senders.extend_from_slice(&self.worker.signal_senders());
@@ -148,7 +148,7 @@ where
         );
 
         // return a `Twemcache`
-        Backend {
+        Process {
             threads,
             signal_senders,
         }

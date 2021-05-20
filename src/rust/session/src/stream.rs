@@ -2,14 +2,15 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! Encapsulates plaintext and TLS sessions into a single type.
-use super::TcpStream;
-use boring::ssl::HandshakeError;
-use boring::ssl::MidHandshakeSslStream;
-use boring::ssl::SslStream;
-use metrics::Stat;
+//! Encapsulates plaintext and TLS TCP streams into a single type.
+
 use std::io::{Error, ErrorKind};
 use std::io::{Read, Write};
+
+use boring::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
+use metrics::Stat;
+
+use super::TcpStream;
 
 pub struct Stream {
     inner: Option<StreamType>,

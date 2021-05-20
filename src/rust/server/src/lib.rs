@@ -8,8 +8,8 @@ extern crate rustcommon_logger;
 #[macro_use]
 extern crate rustcommon_fastmetrics;
 
-mod backend;
+mod process;
 mod common;
 mod threads;
 
-pub use backend::{Backend, BackendBuilder};
+pub use process::{Process, ProcessBuilder};

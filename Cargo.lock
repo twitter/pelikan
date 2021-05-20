@@ -94,40 +94,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
-name = "backend"
-version = "0.1.0"
-dependencies = [
- "ahash 0.6.3",
- "backtrace",
- "boring",
- "bytes 1.0.1",
- "chrono",
- "config",
- "criterion",
- "crossbeam-channel",
- "libc",
- "metrics",
- "mio 0.7.11",
- "protocol",
- "queues",
- "rand 0.8.3",
- "rtrb",
- "rustcommon-fastmetrics",
- "rustcommon-logger",
- "rustcommon-time",
- "segcache",
- "serde",
- "serde_json",
- "session",
- "slab",
- "storage",
- "strum",
- "strum_macros",
- "sysconf",
- "thiserror",
-]
-
-[[package]]
 name = "backtrace"
 version = "0.3.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1400,36 +1366,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pelikan_twemcache_rs"
-version = "0.0.1"
-dependencies = [
- "ahash 0.6.3",
- "backtrace",
- "boring",
- "bytes 1.0.1",
- "chrono",
- "config",
- "criterion",
- "crossbeam-channel",
- "libc",
- "metrics",
- "mio 0.7.11",
- "rand 0.8.3",
- "rtrb",
- "rustcommon-fastmetrics",
- "rustcommon-logger",
- "rustcommon-time",
- "segcache",
- "serde",
- "serde_json",
- "slab",
- "strum",
- "strum_macros",
- "sysconf",
- "thiserror",
-]
-
-[[package]]
 name = "pin-project-lite"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2064,7 +2000,6 @@ dependencies = [
 name = "segcache-rs"
 version = "0.1.0"
 dependencies = [
- "backend",
  "backtrace",
  "config",
  "criterion",
@@ -2072,6 +2007,7 @@ dependencies = [
  "rustcommon-fastmetrics",
  "rustcommon-logger",
  "rustcommon-time",
+ "server",
  "storage",
 ]
 
@@ -2129,6 +2065,40 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "server"
+version = "0.1.0"
+dependencies = [
+ "ahash 0.6.3",
+ "backtrace",
+ "boring",
+ "bytes 1.0.1",
+ "chrono",
+ "config",
+ "criterion",
+ "crossbeam-channel",
+ "libc",
+ "metrics",
+ "mio 0.7.11",
+ "protocol",
+ "queues",
+ "rand 0.8.3",
+ "rtrb",
+ "rustcommon-fastmetrics",
+ "rustcommon-logger",
+ "rustcommon-time",
+ "segcache",
+ "serde",
+ "serde_json",
+ "session",
+ "slab",
+ "storage",
+ "strum",
+ "strum_macros",
+ "sysconf",
+ "thiserror",
 ]
 
 [[package]]

@@ -5,9 +5,9 @@
 //! A new type wrapper for `TcpStream`s which allows for capturing metrics about
 //! operations on the underlying TCP stream.
 
-use metrics::Stat;
-
 use std::io::{Read, Write};
+
+use metrics::Stat;
 
 pub struct TcpStream {
     inner: mio::net::TcpStream,

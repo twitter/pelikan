@@ -1,3 +1,7 @@
+// Copyright 2021 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
 /// Policies define the eviction strategy to be used. All eviction strategies
 /// exclude segments which are currently accepting new items.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

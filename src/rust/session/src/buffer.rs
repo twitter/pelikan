@@ -4,11 +4,13 @@
 
 //! A very simple buffer type that can be replaced in the future.
 
+use std::borrow::Borrow;
+
 use bytes::BytesMut;
 use bytes::Buf;
 use common::ExtendFromSlice;
-use std::borrow::Borrow;
 
+/// A growable byte buffer
 pub struct Buffer {
     pub inner: BytesMut,
 }

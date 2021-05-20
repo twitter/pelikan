@@ -5,7 +5,7 @@
 mod builder;
 mod worker_builder;
 
-pub use builder::BackendBuilder;
+pub use builder::ProcessBuilder;
 pub use worker_builder::WorkerBuilder;
 
 use crate::common::Signal;
@@ -17,12 +17,12 @@ use std::thread::JoinHandle;
 /// Note: for long-running daemon, be sure to call `wait()` on this structure to
 /// block the process until the threads terminate. For use within tests, be sure
 /// to call `shutdown()` to terminate the threads and block until termination.
-pub struct Backend {
+pub struct Process {
     threads: Vec<JoinHandle<()>>,
     signal_senders: Vec<Sender<Signal>>,
 }
 
-impl Backend {
+impl Process {
     /// Attempts to gracefully shutdown the `Twemcache` by sending a shutdown
     /// to each thread and then waiting to join those threads.
     ///

@@ -1,4 +1,3 @@
-
 [workspace]
 members = [
     "deps/ccommon/rust/ccommon-array",
@@ -12,12 +11,12 @@ members = [
     "deps/ccommon/rust/ccommon-stream",
     "deps/ccommon/rust/ccommon-sys",
     "src/client/pingclient-rs",
-    "src/rust/backend",
     "src/rust/common",
     "src/rust/config",
     "src/rust/metrics",
     "src/rust/protocol",
     "src/rust/queues",
+    "src/rust/server",
     "src/rust/session",
     "src/rust/storage",
     "src/rust-util/httpencode",
@@ -27,7 +26,6 @@ members = [
     "src/server/pingserver-rs",
     "src/server/segcache-rs",
     "src/server/twemcache-http",
-    "src/server/twemcache-rs",
     "src/storage/cdb/cdbgen",
     "src/storage/cdb/cdb_rs",
     "src/storage/segcache",

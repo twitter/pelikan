@@ -28,7 +28,7 @@ harness = false
 # debug = ["segcache/debug"]
 
 [dependencies]
-backend = { path = "../../rust/backend" }
+server = { path = "../../rust/server" }
 config = { path = "../../rust/config" }
 protocol = { path = "../../rust/protocol" }
 storage = { path = "../../rust/storage" }

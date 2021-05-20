@@ -1,5 +1,5 @@
 [package]
-name = "backend"
+name = "server"
 version = "0.1.0"
 authors = ["Brian Martin <bmartin@twitter.com>"]
 edition = "2018"
