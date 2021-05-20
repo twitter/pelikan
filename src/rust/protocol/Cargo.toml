@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 common = { path = "../../rust/common" }
+metrics = { path = "../../rust/metrics" }
+rustcommon-fastmetrics = { git = "https://github.com/twitter/rustcommon" }

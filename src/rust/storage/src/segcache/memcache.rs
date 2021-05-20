@@ -26,10 +26,6 @@ impl MemcacheStorage for SegCache {
             }
         }
 
-        increment_counter_by!(&Stat::GetKey, keys.len() as u64);
-        increment_counter_by!(&Stat::GetKeyHit, items.len() as u64);
-        increment_counter_by!(&Stat::GetKeyMiss, keys.len() as u64 - items.len() as u64);
-
         items.into_boxed_slice()
     }
 
@@ -46,11 +42,9 @@ impl MemcacheStorage for SegCache {
             CoarseDuration::from_secs(ttl),
         ) {
             Ok(_) => {
-                increment_counter!(&Stat::SetStored);
                 Ok(())
             }
             Err(_) => {
-                increment_counter!(&Stat::SetNotstored);
                 Err(MemcacheStorageError::NotStored)
             }
         }
@@ -73,10 +67,9 @@ impl MemcacheStorage for SegCache {
                 )
                 .is_ok()
         {
-            increment_counter!(&Stat::AddStored);
             Ok(())
         } else {
-            increment_counter!(&Stat::AddNotstored);
+            
             Err(MemcacheStorageError::NotStored)
         }
     }
@@ -98,10 +91,8 @@ impl MemcacheStorage for SegCache {
                 )
                 .is_ok()
         {
-            increment_counter!(&Stat::ReplaceStored);
             Ok(())
         } else {
-            increment_counter!(&Stat::ReplaceNotstored);
             Err(MemcacheStorageError::NotStored)
         }
     }
@@ -109,10 +100,8 @@ impl MemcacheStorage for SegCache {
     fn delete(&mut self, key: &[u8]) -> Result<(), MemcacheStorageError> {
         increment_counter!(&Stat::Delete);
         if self.data.delete(key) {
-            increment_counter!(&Stat::DeleteDeleted);
             Ok(())
         } else {
-            increment_counter!(&Stat::DeleteNotfound);
             Err(MemcacheStorageError::NotFound)
         }
     }
@@ -131,19 +120,15 @@ impl MemcacheStorage for SegCache {
             entry.cas().unwrap_or(0) as u32,
         ) {
             Ok(_) => {
-                increment_counter!(&Stat::CasStored);
                 Ok(())
             }
             Err(SegCacheError::NotFound) => {
-                increment_counter!(&Stat::CasNotfound);
                 Err(MemcacheStorageError::NotFound)
             }
             Err(SegCacheError::Exists) => {
-                increment_counter!(&Stat::CasExists);
                 Err(MemcacheStorageError::Exists)
             }
             Err(_) => {
-                increment_counter!(&Stat::CasEx);
                 Err(MemcacheStorageError::NotStored)
             }
         }

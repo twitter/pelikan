@@ -11,74 +11,118 @@ pub use response::*;
 use super::*;
 use crate::*;
 
+use metrics::Stat;
+
 impl<'a, T> Execute<MemcacheRequest, MemcacheResponse> for T
 where
     T: MemcacheStorage,
 {
     fn execute(&mut self, request: MemcacheRequest) -> Option<MemcacheResponse> {
         let response = match request {
-            MemcacheRequest::Get { keys } => MemcacheResponse::Values { entries: self.get(&keys), cas: false },
-            MemcacheRequest::Gets { keys } => MemcacheResponse::Values { entries: self.get(&keys), cas: true },
+            MemcacheRequest::Get { keys } => {
+                let entries = self.get(&keys);
+
+                increment_counter_by!(&Stat::GetKey, keys.len() as u64);
+                increment_counter_by!(&Stat::GetKeyHit, entries.len() as u64);
+                increment_counter_by!(&Stat::GetKeyMiss, keys.len() as u64 - entries.len() as u64);
+
+                MemcacheResponse::Values { entries, cas: false }
+            }
+            MemcacheRequest::Gets { keys } => {
+                let entries = self.get(&keys);
+
+                increment_counter_by!(&Stat::GetKey, keys.len() as u64);
+                increment_counter_by!(&Stat::GetKeyHit, entries.len() as u64);
+                increment_counter_by!(&Stat::GetKeyMiss, keys.len() as u64 - entries.len() as u64);
+
+                MemcacheResponse::Values { entries, cas: true }
+            }
             MemcacheRequest::Set { entry, noreply } => {
-                let result = self.set(entry);
+                let response = match self.set(entry) {
+                    Ok(_) => {
+                        increment_counter!(&Stat::SetStored);
+                        MemcacheResponse::Stored
+                    }
+                    Err(MemcacheStorageError::NotStored) => {
+                        increment_counter!(&Stat::SetNotstored);
+                        MemcacheResponse::NotStored
+                    }
+                    _ => { unreachable!() },
+                };
                 if noreply {
                     return None;
                 }
-                match result {
-                    Ok(_) => MemcacheResponse::Stored,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResponse::NotStored,
-                    _ => { unreachable!() },
-                }
+                response
             }
             MemcacheRequest::Add { entry, noreply } => {
-                let result = self.add(entry);
+                let response = match self.add(entry) {
+                    Ok(_) => {
+                        increment_counter!(&Stat::AddStored);
+                        MemcacheResponse::Stored
+                    }
+                    Err(MemcacheStorageError::NotStored) => {
+                        increment_counter!(&Stat::AddNotstored);
+                        MemcacheResponse::NotStored
+                    }
+                    _ => { unreachable!() },
+                };
                 if noreply {
                     return None;
                 }
-                match result {
-                    Ok(_) => MemcacheResponse::Stored,
-                    Err(MemcacheStorageError::Exists) => MemcacheResponse::Exists,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResponse::NotStored,
-                    _ => { unreachable!() },
-                }
+                response
             }
             MemcacheRequest::Replace { entry, noreply } => {
-                let result = self.replace(entry);
+                let response = match self.replace(entry) {
+                    Ok(_) => {
+                        MemcacheResponse::Stored
+                    }
+                    Err(MemcacheStorageError::NotStored) => {
+                        MemcacheResponse::NotStored
+                    }
+                    _ => { unreachable!() },
+                };
                 if noreply {
                     return None;
                 }
-                match result {
-                    Ok(_) => MemcacheResponse::Stored,
-                    Err(MemcacheStorageError::NotFound) => MemcacheResponse::NotFound,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResponse::NotStored,
-                    _ => { unreachable!() },
-                }
+                response
             }
             MemcacheRequest::Delete { key, noreply } => {
-                let result = self.delete(&key);
+                let response = match self.delete(&key) {
+                    Ok(_) => {
+                        MemcacheResponse::Deleted
+                    }
+                    Err(MemcacheStorageError::NotFound) => {
+                        MemcacheResponse::NotFound
+                    }
+                    _ => { unreachable!() },
+                };
                 if noreply {
                     return None;
                 }
-                match result {
-                    Ok(_) => MemcacheResponse::Deleted,
-                    Err(MemcacheStorageError::NotFound) => MemcacheResponse::NotFound,
-                    _ => { unreachable!() },
-                }
+                response
             }
             MemcacheRequest::Cas { entry, noreply } => {
-                let result = self.cas(entry);
+                let response = match self.cas(entry) {
+                    Ok(_) => {
+                        MemcacheResponse::Deleted
+                    }
+                    Err(MemcacheStorageError::NotFound) => {
+                        MemcacheResponse::NotFound
+                    }
+                    Err(MemcacheStorageError::Exists) => {
+                        MemcacheResponse::Exists
+                    }
+                    Err(MemcacheStorageError::NotStored) => {
+                        MemcacheResponse::NotStored
+                    }
+                };
                 if noreply {
                     return None;
                 }
-                match result {
-                    Ok(_) => MemcacheResponse::Deleted,
-                    Err(MemcacheStorageError::NotFound) => MemcacheResponse::NotFound,
-                    Err(MemcacheStorageError::Exists) => MemcacheResponse::Exists,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResponse::NotStored,
-                }
+                response
             }
         };
-        
+
         Some(response)
     }
 }
