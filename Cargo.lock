@@ -456,6 +456,7 @@ version = "0.1.0"
 dependencies = [
  "boring",
  "config",
+ "rustcommon-time",
 ]
 
 [[package]]

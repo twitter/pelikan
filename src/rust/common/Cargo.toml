@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 boring = "1.0.3"
 config = { path = "../../rust/config" }
+rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
