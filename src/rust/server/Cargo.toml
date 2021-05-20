@@ -12,6 +12,7 @@ backtrace = "0.3.56"
 boring = "1.0.3"
 bytes = "1.0.1"
 chrono = "0.4.19"
+common = { path = "../../rust/common" }
 config = { path = "../../rust/config" }
 crossbeam-channel = "0.5.0"
 libc = "0.2.83"

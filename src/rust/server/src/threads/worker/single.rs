@@ -8,7 +8,7 @@
 //! session buffer.
 
 use super::EventLoop;
-use crate::common::Signal;
+use common::signal::Signal;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;

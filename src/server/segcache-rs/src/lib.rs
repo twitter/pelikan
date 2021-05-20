@@ -2,35 +2,33 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use backend::Backend;
-use backend::BackendBuilder;
+use server::{Process, ProcessBuilder};
 use config::TwemcacheConfig;
 use protocol::memcache::data::{MemcacheRequest, MemcacheResponse};
-use storage::SegCache;
 
-pub struct SegcacheBackend {
-    backend: Backend,
+pub struct Segcache {
+    process: Process,
 }
 
-impl SegcacheBackend {
+impl Segcache {
     pub fn new(config: TwemcacheConfig) -> Self {
-        let storage: SegCache = SegCache::new(config.segcache(), config.time().time_type());
-        let backend_builder = BackendBuilder::<SegCache, MemcacheRequest, MemcacheResponse>::new(
+        let storage = storage::SegCache::new(config.segcache(), config.time().time_type());
+        let process_builder = ProcessBuilder::<storage::SegCache, MemcacheRequest, MemcacheResponse>::new(
             config.admin(),
             config.server(),
             config.tls(),
             config.worker(),
             storage,
         );
-        let backend = backend_builder.spawn();
-        Self { backend }
+        let process = process_builder.spawn();
+        Self { process }
     }
 
     pub fn wait(self) {
-        self.backend.wait()
+        self.process.wait()
     }
 
     pub fn shutdown(self) {
-        self.backend.shutdown()
+        self.process.shutdown()
     }
 }

@@ -1,4 +1,4 @@
-use crate::common::Signal;
+use common::signal::Signal;
 use crate::threads::worker::TokenWrapper;
 use config::WorkerConfig;
 use core::time::Duration;

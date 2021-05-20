@@ -9,7 +9,6 @@ extern crate rustcommon_logger;
 extern crate rustcommon_fastmetrics;
 
 mod process;
-mod common;
 mod threads;
 
 pub use process::{Process, ProcessBuilder};

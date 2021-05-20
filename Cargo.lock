@@ -453,6 +453,10 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
+dependencies = [
+ "boring",
+ "config",
+]
 
 [[package]]
 name = "config"
@@ -2076,6 +2080,7 @@ dependencies = [
  "boring",
  "bytes 1.0.1",
  "chrono",
+ "common",
  "config",
  "criterion",
  "crossbeam-channel",

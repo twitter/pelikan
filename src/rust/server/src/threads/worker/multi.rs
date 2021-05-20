@@ -8,7 +8,7 @@
 //! then serialized onto the session buffer.
 
 use super::EventLoop;
-use crate::common::*;
+use common::signal::Signal;
 use crate::threads::worker::StorageWorker;
 use crate::threads::worker::TokenWrapper;
 use config::WorkerConfig;
@@ -20,7 +20,7 @@ use mio::{Events, Poll, Token, Waker};
 use protocol::{Compose, Execute, Parse, ParseError};
 use queues::mpsc::{Queue, Sender};
 use queues::spsc::bidirectional::{Bidirectional, PushError};
-use session::*;
+use session::{Session, MIN_BUFFER_SIZE};
 use slab::Slab;
 use std::convert::TryInto;
 use std::sync::Arc;

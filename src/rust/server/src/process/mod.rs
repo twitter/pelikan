@@ -8,7 +8,7 @@ mod worker_builder;
 pub use builder::ProcessBuilder;
 pub use worker_builder::WorkerBuilder;
 
-use crate::common::Signal;
+use common::signal::Signal;
 use queues::mpsc::Sender;
 use std::thread::JoinHandle;
 

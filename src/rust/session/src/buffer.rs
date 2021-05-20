@@ -6,9 +6,8 @@
 
 use std::borrow::Borrow;
 
-use bytes::BytesMut;
-use bytes::Buf;
-use common::ExtendFromSlice;
+use bytes::{BytesMut, Buf};
+use common::traits::ExtendFromSlice;
 
 /// A growable byte buffer
 pub struct Buffer {

@@ -7,7 +7,7 @@ extern crate rustcommon_logger;
 
 use backtrace::Backtrace;
 use config::TwemcacheConfig;
-use pelikan_segcache_rs::SegcacheBackend;
+use pelikan_segcache_rs::Segcache;
 use rustcommon_logger::Logger;
 
 fn main() {
@@ -39,6 +39,6 @@ fn main() {
         .init()
         .expect("Failed to initialize logger");
 
-    // launch twemcache
-    SegcacheBackend::new(config).wait()
+    // launch segcache
+    Segcache::new(config).wait()
 }

@@ -6,7 +6,7 @@
 //! info, etc.
 
 use super::EventLoop;
-use crate::common::Signal;
+use common::signal::Signal;
 use config::AdminConfig;
 use mio::Events;
 use mio::Interest;

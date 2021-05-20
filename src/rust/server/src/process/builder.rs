@@ -20,7 +20,7 @@ where
     Response: Compose + std::marker::Send,
 {
     admin: Admin,
-    server: Server,
+    listener: Listener,
     worker: WorkerBuilder<Storage, Request, Response>,
 }
 
@@ -46,7 +46,7 @@ where
         metrics::init();
 
         // initialize admin
-        let ssl_context = crate::common::ssl_context(tls_config).unwrap_or_else(|e| {
+        let ssl_context = common::ssl::ssl_context(tls_config).unwrap_or_else(|e| {
             error!("failed to initialize TLS: {}", e);
             std::process::exit(1);
         });
@@ -64,18 +64,18 @@ where
         let session_senders = worker.session_senders();
 
         // initialize server
-        let ssl_context = crate::common::ssl_context(tls_config).unwrap_or_else(|e| {
+        let ssl_context = common::ssl::ssl_context(tls_config).unwrap_or_else(|e| {
             error!("failed to initialize TLS: {}", e);
             std::process::exit(1);
         });
-        let server = Server::new(server_config, session_senders, ssl_context).unwrap_or_else(|e| {
-            error!("failed to initialize server: {}", e);
+        let listener = Listener::new(server_config, session_senders, ssl_context).unwrap_or_else(|e| {
+            error!("failed to initialize listener: {}", e);
             std::process::exit(1);
         });
 
         Self {
             admin,
-            server,
+            listener,
             worker,
         }
     }
@@ -123,18 +123,18 @@ where
     /// to block until the threads have exited or trigger a shutdown.
     pub fn spawn(self) -> Process {
         // get message senders for each component
-        let mut signal_senders = vec![self.server.signal_sender()];
+        let mut signal_senders = vec![self.listener.signal_sender()];
         signal_senders.extend_from_slice(&self.worker.signal_senders());
         signal_senders.push(self.admin.signal_sender());
 
         // temporary bindings to prevent borrow-checker issues
         let mut admin = self.admin;
-        let mut server = self.server;
+        let mut listener = self.listener;
 
         // spawn a thread for each component
         let mut threads = vec![std::thread::Builder::new()
-            .name(format!("{}_server", THREAD_PREFIX))
-            .spawn(move || server.run())
+            .name(format!("{}_listener", THREAD_PREFIX))
+            .spawn(move || listener.run())
             .unwrap()];
         let worker_threads = self.worker.launch_threads();
         for thread in worker_threads {

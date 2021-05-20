@@ -19,7 +19,7 @@ use std::net::SocketAddr;
 
 use boring::ssl::{MidHandshakeSslStream, SslStream};
 use bytes::Buf;
-use common::ExtendFromSlice;
+use common::traits::ExtendFromSlice;
 use metrics::Stat;
 use mio::event::Source;
 use mio::{Interest, Poll, Token};

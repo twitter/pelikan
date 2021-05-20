@@ -3,11 +3,11 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 mod admin;
-mod server;
+mod listener;
 mod traits;
 mod worker;
 
 pub use admin::Admin;
-pub use server::Server;
+pub use listener::Listener;
 pub use traits::EventLoop;
 pub use worker::{MultiWorker, SingleWorker, StorageWorker};

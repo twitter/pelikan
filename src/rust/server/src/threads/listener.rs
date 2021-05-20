@@ -6,7 +6,7 @@
 //! and sends established sessions to the worker thread(s).
 
 use super::EventLoop;
-use crate::common::Signal;
+use common::signal::Signal;
 use config::ServerConfig;
 use crossbeam_channel::SendError;
 use mio::Events;
@@ -31,7 +31,7 @@ pub const LISTENER_TOKEN: usize = usize::MAX;
 /// A `Server` is used to bind to a given socket address and accept new
 /// sessions. These sessions are moved onto a MPSC queue, where they can be
 /// handled by a `Worker`.
-pub struct Server {
+pub struct Listener {
     addr: SocketAddr,
     listener: TcpListener,
     nevent: usize,
@@ -44,8 +44,8 @@ pub struct Server {
     timeout: Duration,
 }
 
-impl Server {
-    /// Creates a new `Server` that will bind to a given `addr` and push new
+impl Listener {
+    /// Creates a new `Listener` that will bind to a given `addr` and push new
     /// `Session`s over the `sender`
     pub fn new(
         config: &ServerConfig,
@@ -290,7 +290,7 @@ impl Server {
     }
 }
 
-impl EventLoop for Server {
+impl EventLoop for Listener {
     fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
     }
