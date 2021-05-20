@@ -14,7 +14,7 @@ pub trait Compose {
 }
 
 pub trait Execute<Request, Response> {
-    fn execute(&mut self, request: Request) -> Response;
+    fn execute(&mut self, request: Request) -> Option<Response>;
 }
 
 #[derive(Debug, PartialEq)]

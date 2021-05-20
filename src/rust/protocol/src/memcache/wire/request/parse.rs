@@ -71,17 +71,11 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
 
     let consumed = line_end + CRLF.len();
 
-    let request = MemcacheRequest {
-        command: MemcacheCommand::Get,
+    let message = MemcacheRequest::Get {
         keys: keys.into_boxed_slice(),
-        noreply: false,
-        expiry: 0,
-        flags: 0,
-        value: vec![].into_boxed_slice(),
-        cas: None,
     };
     Ok(ParseOk {
-        message: request,
+        message,
         consumed,
     })
 }
@@ -89,9 +83,11 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
 fn parse_gets(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     let request = parse_get(buffer)?;
     let consumed = request.consumed();
-    let mut message = request.into_inner();
-
-    message.command = MemcacheCommand::Gets;
+    let message = if let MemcacheRequest::Get { keys } = request.into_inner() {
+        MemcacheRequest::Gets { keys }
+    } else {
+        unreachable!()
+    };
 
     Ok(ParseOk { message, consumed })
 }
@@ -166,21 +162,20 @@ fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         {
             let consumed = first_crlf + CRLF.len() + bytes + CRLF.len();
             if buffer.len() >= consumed {
-                let request = MemcacheRequest {
-                    command: MemcacheCommand::Set,
-                    keys: vec![buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice()]
-                        .into_boxed_slice(),
-                    noreply,
+                let key = buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice();
+                let value = buffer[(first_crlf + CRLF.len())..(first_crlf + CRLF.len() + bytes)]
+                            .to_vec()
+                            .into_boxed_slice();
+
+                let entry = MemcacheEntry {
+                    key,
+                    value,
+                    cas: None,
                     expiry,
                     flags,
-                    value: 
-                        buffer[(first_crlf + CRLF.len())..(first_crlf + CRLF.len() + bytes)]
-                            .to_vec()
-                            .into_boxed_slice(),
-                    cas: None,
                 };
                 Ok(ParseOk {
-                    message: request,
+                    message: MemcacheRequest::Set { entry, noreply },
                     consumed,
                 })
             } else {
@@ -200,9 +195,12 @@ fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
 fn parse_add(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     let request = parse_set(buffer)?;
     let consumed = request.consumed();
-    let mut message = request.into_inner();
 
-    message.command = MemcacheCommand::Add;
+    let message = if let MemcacheRequest::Set { entry, noreply } = request.into_inner() {
+        MemcacheRequest::Add { entry, noreply }
+    } else {
+        unreachable!()
+    };
 
     Ok(ParseOk { message, consumed })
 }
@@ -210,9 +208,12 @@ fn parse_add(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
 fn parse_replace(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     let request = parse_set(buffer)?;
     let consumed = request.consumed();
-    let mut message = request.into_inner();
 
-    message.command = MemcacheCommand::Replace;
+    let message = if let MemcacheRequest::Set { entry, noreply } = request.into_inner() {
+        MemcacheRequest::Replace { entry, noreply }
+    } else {
+        unreachable!()
+    };
 
     Ok(ParseOk { message, consumed })
 }
@@ -295,21 +296,20 @@ fn parse_cas(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         let consumed = first_crlf + CRLF.len() + bytes + CRLF.len();
         if buffer.len() >= consumed {
             // let buffer = buffer.split_to(consumed);
-            let request = MemcacheRequest {
-                command: MemcacheCommand::Cas,
-                keys: vec![buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice()]
-                    .into_boxed_slice(),
+            let key = buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice();
+            let value = buffer[(first_crlf + CRLF.len())..(first_crlf + CRLF.len() + bytes)]
+                        .to_vec()
+                        .into_boxed_slice();
+
+            let entry = MemcacheEntry {
+                key,
+                value,
+                cas: Some(cas),
                 flags,
                 expiry,
-                noreply,
-                cas: Some(cas),
-                value: 
-                    buffer[(first_crlf + CRLF.len())..(first_crlf + CRLF.len() + bytes)]
-                        .to_vec()
-                        .into_boxed_slice(),
             };
             Ok(ParseOk {
-                message: request,
+                message: MemcacheRequest::Cas { entry, noreply },
                 consumed,
             })
         } else {
@@ -358,14 +358,9 @@ fn parse_delete(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         key_end + CRLF.len()
     };
 
-    let request = MemcacheRequest {
-        command: MemcacheCommand::Delete,
-        keys: vec![buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice()].into_boxed_slice(),
+    let request = MemcacheRequest::Delete {
+        key: buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice(),
         noreply,
-        cas: None,
-        expiry: 0,
-        value: vec![].into_boxed_slice(),
-        flags: 0,
     };
 
     Ok(ParseOk {

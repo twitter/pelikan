@@ -3,9 +3,9 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 mod entry;
-pub mod data;
+mod wire;
 mod storage;
 
 pub use entry::MemcacheEntry;
-pub use storage::MemcacheStorage;
-// pub use storage::MemcacheEntry;
+pub use storage::{MemcacheStorage, MemcacheStorageError};
+pub use wire::{MemcacheResponse, MemcacheRequest};
