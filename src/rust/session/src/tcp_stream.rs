@@ -5,8 +5,8 @@
 //! A new type wrapper for `TcpStream`s which allows for capturing metrics about
 //! operations on the underlying TCP stream.
 
-use std::net::SocketAddr;
 use std::io::{Read, Write};
+use std::net::SocketAddr;
 
 use metrics::Stat;
 

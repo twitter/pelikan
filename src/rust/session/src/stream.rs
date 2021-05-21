@@ -4,9 +4,9 @@
 
 //! Encapsulates plaintext and TLS TCP streams into a single type.
 
-use std::net::SocketAddr;
 use std::io::{Error, ErrorKind};
 use std::io::{Read, Write};
+use std::net::SocketAddr;
 
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
 use metrics::Stat;
@@ -103,18 +103,15 @@ impl Stream {
     pub fn peer_addr(&self) -> Result<SocketAddr, std::io::Error> {
         if let Some(ref stream) = self.inner.as_ref() {
             Ok(match stream {
-                StreamType::Plain(s) => {
-                    s.peer_addr()?
-                }
-                StreamType::Tls(s) => {
-                    s.get_ref().peer_addr()?
-                }
-                StreamType::Handshaking(s) => {
-                    s.get_ref().peer_addr()?
-                }
+                StreamType::Plain(s) => s.peer_addr()?,
+                StreamType::Tls(s) => s.get_ref().peer_addr()?,
+                StreamType::Handshaking(s) => s.get_ref().peer_addr()?,
             })
         } else {
-            Err(Error::new(ErrorKind::NotConnected, "session is not connected"))
+            Err(Error::new(
+                ErrorKind::NotConnected,
+                "session is not connected",
+            ))
         }
     }
 }
@@ -124,7 +121,10 @@ impl Read for Stream {
         if let Some(stream) = &mut self.inner {
             stream.read(buf)
         } else {
-            Err(Error::new(ErrorKind::NotConnected, "session is not connected"))
+            Err(Error::new(
+                ErrorKind::NotConnected,
+                "session is not connected",
+            ))
         }
     }
 }
@@ -147,7 +147,10 @@ impl Write for Stream {
         if let Some(stream) = &mut self.inner {
             stream.write(buf)
         } else {
-            Err(Error::new(ErrorKind::NotConnected, "session is not connected"))
+            Err(Error::new(
+                ErrorKind::NotConnected,
+                "session is not connected",
+            ))
         }
     }
     fn flush(&mut self) -> Result<(), std::io::Error> {
@@ -186,7 +189,10 @@ impl mio::event::Source for Stream {
         if let Some(stream) = &mut self.inner {
             stream.register(registry, token, interest)
         } else {
-            Err(Error::new(ErrorKind::NotConnected, "session is not connected"))
+            Err(Error::new(
+                ErrorKind::NotConnected,
+                "session is not connected",
+            ))
         }
     }
 
@@ -199,7 +205,10 @@ impl mio::event::Source for Stream {
         if let Some(stream) = &mut self.inner {
             stream.reregister(registry, token, interest)
         } else {
-            Err(Error::new(ErrorKind::NotConnected, "session is not connected"))
+            Err(Error::new(
+                ErrorKind::NotConnected,
+                "session is not connected",
+            ))
         }
     }
 
@@ -207,7 +216,10 @@ impl mio::event::Source for Stream {
         if let Some(stream) = &mut self.inner {
             stream.deregister(registry)
         } else {
-            Err(Error::new(ErrorKind::NotConnected, "session is not connected"))
+            Err(Error::new(
+                ErrorKind::NotConnected,
+                "session is not connected",
+            ))
         }
     }
 }

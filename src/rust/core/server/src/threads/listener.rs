@@ -155,10 +155,7 @@ impl Listener {
     }
 
     /// Adds a new TLS session that requires further handshaking
-    fn add_handshaking_tls_session(
-        &mut self,
-        stream: MidHandshakeSslStream<TcpStream>,
-    ) {
+    fn add_handshaking_tls_session(&mut self, stream: MidHandshakeSslStream<TcpStream>) {
         let mut session = Session::handshaking_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
         let s = self.sessions.vacant_entry();
         let token = s.key();

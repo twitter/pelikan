@@ -96,15 +96,13 @@ pub trait EventLoop {
                         self.reregister(token);
                     }
                 }
-                Err(e) => {
-                    match e.kind() {
-                        ErrorKind::WouldBlock => {},
-                        ErrorKind::Interrupted => self.do_write(token),
-                        _ => {
-                            self.handle_error(token);
-                        }
+                Err(e) => match e.kind() {
+                    ErrorKind::WouldBlock => {}
+                    ErrorKind::Interrupted => self.do_write(token),
+                    _ => {
+                        self.handle_error(token);
                     }
-                }
+                },
             }
         } else {
             trace!("attempted to flush non-existent session: {}", token.0)

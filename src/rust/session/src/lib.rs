@@ -13,10 +13,10 @@ mod buffer;
 mod stream;
 mod tcp_stream;
 
-use std::net::SocketAddr;
-use std::io::BufRead;
 use std::borrow::Borrow;
+use std::io::BufRead;
 use std::io::{ErrorKind, Read, Write};
+use std::net::SocketAddr;
 
 use boring::ssl::{MidHandshakeSslStream, SslStream};
 use bytes::Buf;
@@ -55,7 +55,10 @@ impl Session {
     }
 
     /// Create a new `Session` representing a `MidHandshakeSslStream`
-    pub fn handshaking_with_capacity(stream: MidHandshakeSslStream<TcpStream>, capacity: usize) -> Self {
+    pub fn handshaking_with_capacity(
+        stream: MidHandshakeSslStream<TcpStream>,
+        capacity: usize,
+    ) -> Self {
         Self::new(Stream::handshaking(stream), capacity)
     }
 
@@ -219,7 +222,7 @@ impl BufRead for Session {
 
     fn consume(&mut self, amt: usize) {
         self.read_buffer.inner.advance(amt);
-    } 
+    }
 }
 
 impl Write for Session {

@@ -15,7 +15,7 @@ pub enum RecvError {
 }
 
 pub enum SendError<T> {
-    Full(T)
+    Full(T),
 }
 
 pub struct Bidirectional<T, U> {

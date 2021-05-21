@@ -24,8 +24,8 @@ use queues::spsc::bidirectional::{Bidirectional, SendError};
 use session::Session;
 use slab::Slab;
 use std::convert::TryInto;
-use std::sync::Arc;
 use std::io::{BufRead, Write};
+use std::sync::Arc;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
 // full, and a single wakeup should drain at least one message and make room for
