@@ -56,15 +56,19 @@ pub trait EventLoop {
                     }
                 }
                 Err(e) => {
-                    if e.kind() == ErrorKind::WouldBlock {
-                        // spurious read
-                        trace!("spurious read");
-                        self.reregister(token);
-                        Ok(())
-                    } else {
-                        // some read error
-                        self.handle_error(token);
-                        Err(())
+                    match e.kind() {
+                        ErrorKind::WouldBlock => {
+                            // spurious read
+                            trace!("spurious read");
+                            self.reregister(token);
+                            Ok(())
+                        }
+                        ErrorKind::Interrupted => self.do_read(token),
+                        _ => {
+                            // some read error
+                            self.handle_error(token);
+                            Err(())
+                        }
                     }
                 }
             }
@@ -93,11 +97,12 @@ pub trait EventLoop {
                     }
                 }
                 Err(e) => {
-                    if e.kind() == ErrorKind::WouldBlock {
-                        return;
-                    } else {
-                        // some error writing
-                        self.handle_error(token);
+                    match e.kind() {
+                        ErrorKind::WouldBlock => {},
+                        ErrorKind::Interrupted => self.do_write(token),
+                        _ => {
+                            self.handle_error(token);
+                        }
                     }
                 }
             }
