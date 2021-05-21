@@ -20,7 +20,7 @@ use mio::Poll;
 use mio::Token;
 use protocol::{Compose, Execute, Parse, ParseError};
 use queues::mpsc::{Queue, Sender};
-use session::{Session, MIN_BUFFER_SIZE};
+use session::Session;
 use slab::Slab;
 use std::convert::TryInto;
 use std::io::{BufRead, Write};
@@ -218,9 +218,7 @@ where
         trace!("handling request for session: {}", token.0);
         if let Some(session) = self.sessions.get_mut(token.0) {
             loop {
-                // TODO(bmartin): buffer should allow us to check remaining
-                // write capacity.
-                if session.write_pending() > MIN_BUFFER_SIZE {
+                if session.write_capacity() == 0 {
                     // if the write buffer is over-full, skip processing
                     break;
                 }

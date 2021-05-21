@@ -5,6 +5,7 @@
 //! A new type wrapper for `TcpStream`s which allows for capturing metrics about
 //! operations on the underlying TCP stream.
 
+use std::net::SocketAddr;
 use std::io::{Read, Write};
 
 use metrics::Stat;
@@ -16,6 +17,10 @@ pub struct TcpStream {
 impl TcpStream {
     pub fn shutdown(&self, how: std::net::Shutdown) -> Result<(), std::io::Error> {
         self.inner.shutdown(how)
+    }
+
+    pub fn peer_addr(&self) -> Result<SocketAddr, std::io::Error> {
+        self.inner.peer_addr()
     }
 }
 

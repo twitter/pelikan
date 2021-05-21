@@ -13,10 +13,10 @@ mod buffer;
 mod stream;
 mod tcp_stream;
 
+use std::net::SocketAddr;
 use std::io::BufRead;
 use std::borrow::Borrow;
 use std::io::{ErrorKind, Read, Write};
-use std::net::SocketAddr;
 
 use boring::ssl::{MidHandshakeSslStream, SslStream};
 use bytes::Buf;
@@ -30,48 +30,49 @@ use stream::Stream;
 
 pub use tcp_stream::TcpStream;
 
-pub const MIN_BUFFER_SIZE: usize = 1024; // 1 KiB
+const DEFAULT_BUFFER_SIZE: usize = 1024; // 1 KiB
 
 // TODO(bmartin): implement connect/reconnect so we can use this in clients too.
 /// The core `Session` type which represents a TCP stream (with or without TLS),
 /// the session buffer, the mio [`::mio::Token`],
 pub struct Session {
     token: Token,
-    // TODO(bmartin): remove this lint exception after implementing connect
-    #[allow(dead_code)]
-    addr: SocketAddr,
     stream: Stream,
     read_buffer: Buffer,
     write_buffer: Buffer,
-    tmp_buffer: [u8; MIN_BUFFER_SIZE],
+    tmp_buffer: Box<[u8]>,
 }
 
 impl Session {
-    /// Create a new `Session` representing a plain `TcpStream`
-    pub fn plain(addr: SocketAddr, stream: TcpStream) -> Self {
-        Self::new(addr, Stream::plain(stream))
+    /// Create a new `Session` with  representing a plain `TcpStream` with
+    /// internal buffers which can hold up to capacity bytes without
+    /// reallocating.
+    pub fn plain_with_capacity(stream: TcpStream, capacity: usize) -> Self {
+        Self::new(Stream::plain(stream), capacity)
     }
 
     /// Create a new `Session` representing a negotiated `SslStream`
-    pub fn tls(addr: SocketAddr, stream: SslStream<TcpStream>) -> Self {
-        Self::new(addr, Stream::tls(stream))
+    pub fn tls_with_capacity(stream: SslStream<TcpStream>, capacity: usize) -> Self {
+        Self::new(Stream::tls(stream), capacity)
     }
 
     /// Create a new `Session` representing a `MidHandshakeSslStream`
-    pub fn handshaking(addr: SocketAddr, stream: MidHandshakeSslStream<TcpStream>) -> Self {
-        Self::new(addr, Stream::handshaking(stream))
+    pub fn handshaking_with_capacity(stream: MidHandshakeSslStream<TcpStream>, capacity: usize) -> Self {
+        Self::new(Stream::handshaking(stream), capacity)
     }
 
     /// Create a new `Session`
-    fn new(addr: SocketAddr, stream: Stream) -> Self {
+    fn new(stream: Stream, capacity: usize) -> Self {
         increment_counter!(&Stat::TcpAccept);
+        let mut tmp_buffer = vec![0; capacity];
+        tmp_buffer.resize(capacity, 0);
+        let tmp_buffer = tmp_buffer.into_boxed_slice();
         Self {
             token: Token(0),
-            addr,
             stream,
-            read_buffer: Buffer::with_capacity(MIN_BUFFER_SIZE),
-            write_buffer: Buffer::with_capacity(MIN_BUFFER_SIZE),
-            tmp_buffer: [0; MIN_BUFFER_SIZE],
+            read_buffer: Buffer::with_capacity(capacity),
+            write_buffer: Buffer::with_capacity(capacity),
+            tmp_buffer,
         }
     }
 
@@ -132,13 +133,21 @@ impl Session {
     }
 
     /// Returns the number of bytes in the read buffer
-    pub fn read_pending(&mut self) -> usize {
+    pub fn read_pending(&self) -> usize {
         self.read_buffer.len()
     }
 
     /// Returns the number of bytes in the write buffer
-    pub fn write_pending(&mut self) -> usize {
+    pub fn write_pending(&self) -> usize {
         self.write_buffer.len()
+    }
+
+    pub fn write_capacity(&self) -> usize {
+        if self.write_pending() > self.tmp_buffer.len() {
+            0
+        } else {
+            self.tmp_buffer.len() - self.write_pending()
+        }
     }
 
     /// Returns a reference to the internally buffered data.
@@ -149,6 +158,10 @@ impl Session {
     /// [`fill_buf`]: BufRead::fill_buf
     pub fn buffer(&self) -> &[u8] {
         self.read_buffer.borrow()
+    }
+
+    pub fn peer_addr(&self) -> Result<SocketAddr, std::io::Error> {
+        self.stream.peer_addr()
     }
 }
 

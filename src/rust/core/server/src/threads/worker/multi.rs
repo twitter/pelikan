@@ -21,7 +21,7 @@ use mio::{Events, Poll, Token, Waker};
 use protocol::{Compose, Execute, Parse, ParseError};
 use queues::mpsc::{Queue, Sender};
 use queues::spsc::bidirectional::{Bidirectional, PushError};
-use session::{Session, MIN_BUFFER_SIZE};
+use session::Session;
 use slab::Slab;
 use std::convert::TryInto;
 use std::sync::Arc;
@@ -300,7 +300,7 @@ where
     fn handle_data(&mut self, token: Token) -> Result<(), ()> {
         trace!("handling request for session: {}", token.0);
         if let Some(session) = self.sessions.get_mut(token.0) {
-            if session.write_pending() < MIN_BUFFER_SIZE
+            if session.write_capacity() > 0
                 && Self::handle_session_read(session, &self.poll, &mut self.storage_queue)
             {
                 self.wake_storage = true;

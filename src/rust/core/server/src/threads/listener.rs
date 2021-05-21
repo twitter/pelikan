@@ -99,7 +99,7 @@ impl Listener {
 
     /// Repeatedly call accept on the listener
     fn do_accept(&mut self) {
-        while let Ok((stream, addr)) = self.listener.accept() {
+        while let Ok((stream, _)) = self.listener.accept() {
             // disable Nagle's algorithm
             let _ = stream.set_nodelay(true);
 
@@ -111,12 +111,12 @@ impl Listener {
                     // handle case where we have a fully-negotiated
                     // TLS stream on accept()
                     Ok(Ok(tls_stream)) => {
-                        self.add_established_tls_session(addr, tls_stream);
+                        self.add_established_tls_session(tls_stream);
                     }
                     // handle case where further negotiation is
                     // needed
                     Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
-                        self.add_handshaking_tls_session(addr, tls_stream);
+                        self.add_handshaking_tls_session(tls_stream);
                     }
                     // some other error has occurred and we drop the
                     // stream
@@ -125,15 +125,15 @@ impl Listener {
                     }
                 }
             } else {
-                self.add_plain_session(addr, stream);
+                self.add_plain_session(stream);
             };
         }
     }
 
     /// Adds a new fully established TLS session
-    fn add_established_tls_session(&mut self, addr: SocketAddr, stream: SslStream<TcpStream>) {
-        let mut session = Session::tls(addr, stream);
-        trace!("accepted new session: {}", addr);
+    fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
+        let mut session = Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        trace!("accepted new session: {:?}", session.peer_addr());
         let mut success = false;
         for i in 0..self.senders.len() {
             let index = (self.next_sender + i) % self.senders.len();
@@ -157,10 +157,9 @@ impl Listener {
     /// Adds a new TLS session that requires further handshaking
     fn add_handshaking_tls_session(
         &mut self,
-        addr: SocketAddr,
         stream: MidHandshakeSslStream<TcpStream>,
     ) {
-        let mut session = Session::handshaking(addr, stream);
+        let mut session = Session::handshaking_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
         let s = self.sessions.vacant_entry();
         let token = s.key();
         session.set_token(Token(token));
@@ -172,9 +171,9 @@ impl Listener {
     }
 
     /// Adds a new plain (non-TLS) session
-    fn add_plain_session(&mut self, addr: SocketAddr, stream: TcpStream) {
-        let mut session = Session::plain(addr, stream);
-        trace!("accepted new session: {}", addr);
+    fn add_plain_session(&mut self, stream: TcpStream) {
+        let mut session = Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        trace!("accepted new session: {:?}", session.peer_addr());
         let mut success = false;
         for i in 0..self.senders.len() {
             let index = (self.next_sender + i) % self.senders.len();

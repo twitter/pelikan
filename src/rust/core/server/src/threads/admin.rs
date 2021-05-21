@@ -98,9 +98,9 @@ impl Admin {
     }
 
     /// Adds a new fully established TLS session
-    fn add_established_tls_session(&mut self, addr: SocketAddr, stream: SslStream<TcpStream>) {
-        let mut session = Session::tls(addr, stream);
-        trace!("accepted new session: {}", addr);
+    fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
+        let mut session = Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        trace!("accepted new session: {:?}", session.peer_addr());
         let s = self.sessions.vacant_entry();
         let token = s.key();
         session.set_token(Token(token));
@@ -114,10 +114,10 @@ impl Admin {
     /// Adds a new TLS session that requires further handshaking
     fn add_handshaking_tls_session(
         &mut self,
-        addr: SocketAddr,
         stream: MidHandshakeSslStream<TcpStream>,
     ) {
-        let mut session = Session::handshaking(addr, stream);
+        let mut session = Session::handshaking_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        trace!("accepted new session: {:?}", session.peer_addr());
         let s = self.sessions.vacant_entry();
         let token = s.key();
         session.set_token(Token(token));
@@ -129,9 +129,9 @@ impl Admin {
     }
 
     /// Adds a new plain (non-TLS) session
-    fn add_plain_session(&mut self, addr: SocketAddr, stream: TcpStream) {
-        let mut session = Session::plain(addr, stream);
-        trace!("accepted new session: {}", addr);
+    fn add_plain_session(&mut self, stream: TcpStream) {
+        let mut session = Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        trace!("accepted new session: {:?}", session.peer_addr());
         let s = self.sessions.vacant_entry();
         let token = s.key();
         session.set_token(Token(token));
@@ -144,7 +144,7 @@ impl Admin {
 
     /// Repeatedly call accept on the listener
     fn do_accept(&mut self) {
-        while let Ok((stream, addr)) = self.listener.accept() {
+        while let Ok((stream, _)) = self.listener.accept() {
             let stream = TcpStream::from(stream);
 
             // handle TLS if it is configured
@@ -153,12 +153,12 @@ impl Admin {
                     // handle case where we have a fully-negotiated
                     // TLS stream on accept()
                     Ok(Ok(tls_stream)) => {
-                        self.add_established_tls_session(addr, tls_stream);
+                        self.add_established_tls_session(tls_stream);
                     }
                     // handle case where further negotiation is
                     // needed
                     Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
-                        self.add_handshaking_tls_session(addr, tls_stream);
+                        self.add_handshaking_tls_session(tls_stream);
                     }
                     // some other error has occurred and we drop the
                     // stream
@@ -167,7 +167,7 @@ impl Admin {
                     }
                 }
             } else {
-                self.add_plain_session(addr, stream);
+                self.add_plain_session(stream);
             };
         }
     }
@@ -326,9 +326,7 @@ impl EventLoop for Admin {
         trace!("handling request for admin session: {}", token.0);
         if let Some(session) = self.sessions.get_mut(token.0) {
             loop {
-                // TODO(bmartin): buffer should allow us to check remaining
-                // write capacity.
-                if session.write_pending() > MIN_BUFFER_SIZE {
+                if session.write_capacity() == 0 {
                     // if the write buffer is over-full, skip processing
                     break;
                 }
