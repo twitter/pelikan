@@ -34,6 +34,10 @@ impl Process {
             fatal!("error sending shutdown signal to thread");
         }
 
+        if self.signal_queue.wake_all().is_err() {
+            fatal!("error waking threads for shutdown");
+        }
+
         // wait and join all threads
         self.wait()
     }

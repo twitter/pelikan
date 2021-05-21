@@ -139,6 +139,13 @@ impl<T, U> QueuePairs<T, U> {
         }
     }
 
+    pub fn wake_all(&self) -> Result<(), QueueError<T>> {
+        for queue_pair in &self.queue_pairs {
+            queue_pair.wake().map_err(QueueError::WakeFailed)?;
+        }
+        Ok(())
+    }
+
     pub fn new_pair(&mut self, capacity: usize, waker: Option<Arc<Waker>>) -> QueuePair<U, T> {
         let (theirs, ours) = queue_pair_with_capacity(capacity, waker, self.waker.clone());
         self.queue_pairs.push(ours);

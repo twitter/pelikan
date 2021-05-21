@@ -98,8 +98,9 @@ fn main() {
     );
 
     // shutdown server and join
-    debug!("shutdown");
+    info!("shutdown...");
     let _ = server.shutdown();
+    info!("passed!");
 }
 
 // opens a new connection, operating on request + response pairs from the
