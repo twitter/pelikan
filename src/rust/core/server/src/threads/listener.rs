@@ -8,15 +8,15 @@
 use super::EventLoop;
 use common::signal::Signal;
 use config::ServerConfig;
-use crossbeam_channel::SendError;
 use mio::Events;
 use mio::Interest;
 use mio::Poll;
 use mio::Token;
-use queues::mpsc::{Queue, Sender};
+use queues::*;
 use session::{Session, TcpStream};
 use slab::Slab;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
@@ -26,6 +26,7 @@ use mio::net::TcpListener;
 
 use std::convert::TryInto;
 
+pub const WAKER_TOKEN: usize = usize::MAX - 1;
 pub const LISTENER_TOKEN: usize = usize::MAX;
 
 /// A `Server` is used to bind to a given socket address and accept new
@@ -36,12 +37,13 @@ pub struct Listener {
     listener: TcpListener,
     nevent: usize,
     poll: Poll,
-    senders: Vec<Sender<Session>>,
+    session_queue: MultiQueuePair<Session, ()>,
     next_sender: usize,
     ssl_context: Option<SslContext>,
     sessions: Slab<Session>,
-    signal_queue: Queue<Signal>,
+    signal_queue: MultiQueuePair<(), Signal>,
     timeout: Duration,
+    waker: Arc<Waker>,
 }
 
 impl Listener {
@@ -49,7 +51,6 @@ impl Listener {
     /// `Session`s over the `sender`
     pub fn new(
         config: &ServerConfig,
-        senders: Vec<Sender<Session>>,
         ssl_context: Option<SslContext>,
     ) -> Result<Self, std::io::Error> {
         let addr = config.socket_addr().map_err(|e| {
@@ -68,7 +69,10 @@ impl Listener {
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
 
-        let signal_queue = Queue::new(128);
+        let waker = Arc::new(Waker::new(poll.registry(), Token(WAKER_TOKEN)).unwrap());
+
+        let signal_queue = MultiQueuePair::new(Some(waker.clone()));
+        let session_queue = MultiQueuePair::new(Some(waker.clone()));
 
         // register listener to event loop
         poll.registry()
@@ -88,12 +92,13 @@ impl Listener {
             listener,
             nevent,
             poll,
-            senders,
+            sessions,
+            session_queue,
+            signal_queue,
             next_sender: 0,
             ssl_context,
-            sessions,
-            signal_queue,
             timeout,
+            waker,
         })
     }
 
@@ -135,20 +140,7 @@ impl Listener {
         let mut session = Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
         trace!("accepted new session: {:?}", session.peer_addr());
         let mut success = false;
-        for i in 0..self.senders.len() {
-            let index = (self.next_sender + i) % self.senders.len();
-            match self.senders[index].send(session) {
-                Ok(_) => {
-                    success = true;
-                    self.next_sender = self.next_sender.wrapping_add(1);
-                    break;
-                }
-                Err(SendError(s)) => {
-                    session = s;
-                }
-            }
-        }
-        if !success {
+        if self.session_queue.send_rr(session).is_err() {
             error!("error sending session to worker");
             increment_counter!(&Stat::TcpAcceptEx);
         }
@@ -171,21 +163,7 @@ impl Listener {
     fn add_plain_session(&mut self, stream: TcpStream) {
         let mut session = Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
         trace!("accepted new session: {:?}", session.peer_addr());
-        let mut success = false;
-        for i in 0..self.senders.len() {
-            let index = (self.next_sender + i) % self.senders.len();
-            match self.senders[index].send(session) {
-                Ok(_) => {
-                    success = true;
-                    self.next_sender = self.next_sender.wrapping_add(1);
-                    break;
-                }
-                Err(SendError(s)) => {
-                    session = s;
-                }
-            }
-        }
-        if !success {
+        if self.session_queue.send_rr(session).is_err() {
             error!("error sending session to worker");
             increment_counter!(&Stat::TcpAcceptEx);
         }
@@ -219,21 +197,7 @@ impl Listener {
             if session.do_handshake().is_ok() {
                 let mut session = self.sessions.remove(token.0);
                 let _ = session.deregister(&self.poll);
-                let mut success = false;
-                for i in 0..self.senders.len() {
-                    let index = (self.next_sender + i) % self.senders.len();
-                    match self.senders[index].send(session) {
-                        Ok(_) => {
-                            success = true;
-                            self.next_sender = self.next_sender.wrapping_add(1);
-                            break;
-                        }
-                        Err(SendError(s)) => {
-                            session = s;
-                        }
-                    }
-                }
-                if !success {
+                if self.session_queue.send_rr(session).is_err() {
                     error!("error sending session to worker");
                     increment_counter!(&Stat::TcpAcceptEx);
                 }
@@ -270,19 +234,23 @@ impl Listener {
             }
 
             // poll queue to receive new signals
-            #[allow(clippy::never_loop)]
-            while let Ok(signal) = self.signal_queue.try_recv() {
-                match signal {
-                    Signal::Shutdown => {
-                        return;
-                    }
-                }
-            }
+            // #[allow(clippy::never_loop)]
+            // while let Ok(signal) = self.signal_queue.try_recv() {
+            //     match signal {
+            //         Signal::Shutdown => {
+            //             return;
+            //         }
+            //     }
+            // }
         }
     }
 
-    pub fn signal_sender(&self) -> Sender<Signal> {
-        self.signal_queue.sender()
+    pub fn waker(&self) -> Arc<Waker> {
+        self.waker.clone()
+    }
+
+    pub fn add_session_queue(&mut self, queue: QueuePair<Session, ()>) {
+        self.session_queue.register_queue_pair(queue);
     }
 }
 

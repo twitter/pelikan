@@ -32,7 +32,7 @@ fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
             if let Some(cmd_end) = single_byte.position(|w| w == b" ") {
                 command = MemcacheCommand::try_from(&buffer[0..cmd_end])?;
             } else {
-                return Err(ParseError::Incomplete);
+                return Err(ParseError::UnknownCommand);
             }
         } else {
             return Err(ParseError::Incomplete);
@@ -95,14 +95,14 @@ fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         // key
         let key_end = single_byte
             .position(|w| w == b" ")
-            .ok_or(ParseError::Incomplete)?
+            .ok_or(ParseError::Invalid)?
             + cmd_end
             + 1;
 
         // flags
         let flags_end = single_byte
             .position(|w| w == b" ")
-            .ok_or(ParseError::Incomplete)?
+            .ok_or(ParseError::Invalid)?
             + key_end
             + 1;
         let flags_str = std::str::from_utf8(&buffer[(key_end + 1)..flags_end])
@@ -112,7 +112,7 @@ fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         // expiry
         let expiry_end = single_byte
             .position(|w| w == b" ")
-            .ok_or(ParseError::Incomplete)?
+            .ok_or(ParseError::Invalid)?
             + flags_end
             + 1;
         let expiry_str = std::str::from_utf8(&buffer[(flags_end + 1)..expiry_end])
@@ -124,12 +124,13 @@ fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         let mut noreply = false;
 
         // get the position of the next space and first CRLF
+        // we already know we must have a CRLF if we're parsing a set request
         let next_space = single_byte
             .position(|w| w == b" ")
             .map(|v| v + expiry_end + 1);
         let first_crlf = double_byte
             .position(|w| w == CRLF.as_bytes())
-            .ok_or(ParseError::Incomplete)?;
+            .ok_or(ParseError::Invalid)?;
 
         let bytes_end = if let Some(next_space) = next_space {
             // if we have both, bytes_end is before the earlier of the two

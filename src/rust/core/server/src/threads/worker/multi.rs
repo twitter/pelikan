@@ -10,7 +10,7 @@
 use super::EventLoop;
 use crate::threads::worker::StorageWorker;
 use crate::threads::worker::TokenWrapper;
-use common::signal::Signal;
+// use common::signal::Signal;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -19,8 +19,8 @@ use metrics::Stat;
 use mio::event::Event;
 use mio::{Events, Poll, Token, Waker};
 use protocol::{Compose, Execute, Parse, ParseError};
-use queues::mpsc::{Queue, Sender};
-use queues::spsc::bidirectional::{Bidirectional, SendError};
+// use queues::mpsc::{Queue, Sender};
+use queues::{MultiQueuePair, QueuePair, SendError};
 use session::Session;
 use slab::Slab;
 use std::convert::TryInto;
@@ -39,13 +39,13 @@ where
     Request: Parse,
     Response: protocol::Compose,
 {
-    signal_queue: Queue<Signal>,
+    // signal_queue: Queue<Signal>,
     poll: Poll,
     nevent: usize,
     timeout: Duration,
-    session_queue: Queue<Session>,
+    session_queue: MultiQueuePair<(), Session>,
     sessions: Slab<Session>,
-    storage_queue: Bidirectional<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
+    storage_queue: QueuePair<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
     wake_storage: bool,
     #[allow(dead_code)]
     waker: Arc<Waker>,
@@ -72,14 +72,14 @@ where
         let waker = Arc::new(Waker::new(poll.registry(), Token(usize::MAX)).unwrap());
         let storage_queue = storage.add_queue(waker.clone());
 
-        let session_queue = Queue::new(128);
-        let signal_queue = Queue::new(128);
+        let session_queue = MultiQueuePair::new(Some(waker.clone()));
+        // let signal_queue = MultiQueuePair::new(Some(waker.clone()));
 
         Ok(Self {
             poll,
             nevent: config.nevent(),
             timeout: Duration::from_millis(config.timeout() as u64),
-            signal_queue,
+            // signal_queue,
             session_queue,
             sessions,
             storage_queue,
@@ -114,21 +114,22 @@ where
 
             // if we sent any messages to the storage thread, we need to wake it
             if self.wake_storage && self.storage_queue.wake().is_ok() {
+                trace!("sent wake to storage");
                 self.wake_storage = false;
             }
 
             // poll queue to receive new sessions
             self.handle_new_sessions();
 
-            // poll queue to receive new messages
-            #[allow(clippy::never_loop)]
-            while let Ok(s) = self.signal_queue.try_recv() {
-                match s {
-                    Signal::Shutdown => {
-                        return;
-                    }
-                }
-            }
+            // // poll queue to receive new messages
+            // #[allow(clippy::never_loop)]
+            // while let Ok(s) = self.signal_queue.try_recv() {
+            //     match s {
+            //         Signal::Shutdown => {
+            //             return;
+            //         }
+            //     }
+            // }
         }
     }
 
@@ -179,7 +180,7 @@ where
     fn handle_session_read(
         session: &mut Session,
         poll: &Poll,
-        storage_queue: &mut Bidirectional<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
+        storage_queue: &mut QueuePair<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
     ) -> bool {
         match Request::parse(session.buffer()) {
             Ok(request) => {
@@ -249,7 +250,7 @@ where
     }
 
     fn handle_new_sessions(&mut self) {
-        while let Ok(mut session) = self.session_queue.try_recv() {
+        while let Ok(mut session) = self.session_queue.recv_from(0) {
             let pending = session.read_pending();
             trace!("{} bytes pending in rx buffer for new session", pending);
 
@@ -278,12 +279,12 @@ where
         }
     }
 
-    pub fn signal_sender(&self) -> Sender<Signal> {
-        self.signal_queue.sender()
-    }
+    // pub fn signal_sender(&self) -> Sender<Signal> {
+    //     self.signal_queue.sender()
+    // }
 
-    pub fn session_sender(&self) -> Sender<Session> {
-        self.session_queue.sender()
+    pub fn session_sender(&mut self, waker: Arc<Waker>) -> QueuePair<Session, ()> {
+        self.session_queue.new_queue_pair(65536, Some(waker))
     }
 }
 

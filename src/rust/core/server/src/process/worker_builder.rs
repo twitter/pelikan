@@ -5,8 +5,11 @@
 use crate::threads::*;
 use common::signal::Signal;
 use entrystore::EntryStore;
+use mio::Waker;
 use protocol::{Compose, Execute, Parse};
-use queues::mpsc::Sender;
+use queues::QueuePair;
+use std::sync::Arc;
+// use queues::mpsc::Sender;
 use session::Session;
 use std::thread::JoinHandle;
 
@@ -35,28 +38,31 @@ where
     Response: Compose + Send,
     Storage: Execute<Request, Response> + EntryStore + Send,
 {
-    pub fn session_senders(&self) -> Vec<Sender<Session>> {
+    pub fn session_queues(&mut self, waker: Arc<Waker>) -> Vec<QueuePair<Session, ()>> {
         match self {
             Self::Single { worker } => {
-                vec![worker.session_sender()]
+                vec![worker.session_sender(waker.clone())]
             }
-            Self::Multi { workers, .. } => workers.iter().map(|w| w.session_sender()).collect(),
+            Self::Multi { workers, .. } => workers
+                .iter_mut()
+                .map(|w| w.session_sender(waker.clone()))
+                .collect(),
         }
     }
 
-    pub fn signal_senders(&self) -> Vec<Sender<Signal>> {
-        let mut senders = Vec::new();
-        match self {
-            Self::Single { worker } => {
-                senders.push(worker.signal_sender());
-            }
-            Self::Multi { storage, workers } => {
-                for worker in workers {
-                    senders.push(worker.signal_sender());
-                }
-                senders.push(storage.signal_sender());
-            }
-        }
+    pub fn signal_senders(&self) -> Vec<QueuePair<Signal, ()>> {
+        let senders = Vec::new();
+        // match self {
+        //     Self::Single { worker } => {
+        //         senders.push(worker.signal_sender());
+        //     }
+        //     Self::Multi { storage, workers } => {
+        //         for worker in workers {
+        //             senders.push(worker.signal_sender());
+        //         }
+        //         senders.push(storage.signal_sender());
+        //     }
+        // }
         senders
     }
 

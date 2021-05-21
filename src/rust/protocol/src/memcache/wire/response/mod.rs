@@ -34,9 +34,6 @@ impl Compose for MemcacheResponse {
                 dst.write_all(b"EXISTS\r\n");
             }
             Self::Values { entries, cas } => {
-                if entries.len() == 0 {
-                    dst.write_all(b"END\r\n");
-                }
                 for entry in entries.iter() {
                     dst.write_all(b"VALUE ");
                     dst.write_all(&*entry.key);

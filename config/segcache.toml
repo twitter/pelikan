@@ -19,7 +19,7 @@ timeout = 100
 # epoll max events returned
 nevent = 1024
 # number of worker threads
-threads = 1
+threads = 4
 
 # storage configuration
 [segcache]
@@ -47,7 +47,7 @@ time_type = "Memcache"
 
 [debug]
 # choose from: error, warn, info, debug, trace
-log_level = "info"
+log_level = "trace"
 
 [sockio]
 

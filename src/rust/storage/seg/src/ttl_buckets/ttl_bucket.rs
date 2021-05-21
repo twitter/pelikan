@@ -83,11 +83,6 @@ impl TtlBucket {
             return 0;
         }
 
-        // this is intended to let a slow client finish writing to the expiring
-        // segment.
-        // TODO(bmartin): is this needed in this design?
-        let grace_period = CoarseDuration::from_secs(2);
-
         let mut expired = 0;
 
         loop {
@@ -95,7 +90,7 @@ impl TtlBucket {
             if let Some(seg_id) = seg_id {
                 let flush_at = segments.flush_at();
                 let mut segment = segments.get_mut(seg_id).unwrap();
-                if segment.create_at() + segment.ttl() + grace_period < CoarseInstant::recent()
+                if segment.create_at() + segment.ttl() <= CoarseInstant::recent()
                     || segment.create_at() < flush_at
                 {
                     if let Some(next) = segment.next_seg() {

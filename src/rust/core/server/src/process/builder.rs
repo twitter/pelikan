@@ -56,24 +56,26 @@ where
             std::process::exit(1);
         });
 
-        let worker = if worker_config.threads() > 1 {
+        let mut worker = if worker_config.threads() > 1 {
             Self::multi_worker(worker_config, storage)
         } else {
             Self::single_worker(worker_config, storage)
         };
-
-        let session_senders = worker.session_senders();
 
         // initialize server
         let ssl_context = common::ssl::ssl_context(tls_config).unwrap_or_else(|e| {
             error!("failed to initialize TLS: {}", e);
             std::process::exit(1);
         });
-        let listener =
-            Listener::new(server_config, session_senders, ssl_context).unwrap_or_else(|e| {
-                error!("failed to initialize listener: {}", e);
-                std::process::exit(1);
-            });
+        let mut listener = Listener::new(server_config, ssl_context).unwrap_or_else(|e| {
+            error!("failed to initialize listener: {}", e);
+            std::process::exit(1);
+        });
+        let mut session_queues = worker.session_queues(listener.waker());
+        for session_queue in session_queues.drain(..) {
+            listener.add_session_queue(session_queue);
+        }
+        // let queues = worker.session_queues(listener.waker());
 
         Self {
             admin,
@@ -94,13 +96,11 @@ where
 
         // initialize workers
         let mut workers = Vec::new();
-        let mut session_senders = Vec::new();
         for _ in 0..worker_config.threads() {
             let worker = MultiWorker::new(worker_config, &mut storage).unwrap_or_else(|e| {
                 error!("{}", e);
                 std::process::exit(1);
             });
-            session_senders.push(worker.session_sender());
             workers.push(worker);
         }
 
@@ -125,9 +125,9 @@ where
     /// to block until the threads have exited or trigger a shutdown.
     pub fn spawn(self) -> Process {
         // get message senders for each component
-        let mut signal_senders = vec![self.listener.signal_sender()];
-        signal_senders.extend_from_slice(&self.worker.signal_senders());
-        signal_senders.push(self.admin.signal_sender());
+        // let mut signal_senders = vec![self.listener.signal_sender()];
+        // signal_senders.extend_from_slice(&self.worker.signal_senders());
+        // signal_senders.push(self.admin.signal_sender());
 
         // temporary bindings to prevent borrow-checker issues
         let mut admin = self.admin;
@@ -152,7 +152,7 @@ where
         // return a `Twemcache`
         Process {
             threads,
-            signal_senders,
+            // signal_senders,
         }
     }
 }

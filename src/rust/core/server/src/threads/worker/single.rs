@@ -8,7 +8,11 @@
 //! session buffer.
 
 use super::EventLoop;
-use common::signal::Signal;
+use mio::Waker;
+use queues::MultiQueuePair;
+use queues::QueuePair;
+use std::sync::Arc;
+// use common::signal::Signal;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -19,7 +23,7 @@ use mio::Events;
 use mio::Poll;
 use mio::Token;
 use protocol::{Compose, Execute, Parse, ParseError};
-use queues::mpsc::{Queue, Sender};
+// use queues::mpsc::{Queue, Sender};
 use session::Session;
 use slab::Slab;
 use std::convert::TryInto;
@@ -31,11 +35,12 @@ pub struct SingleWorker<Storage, Request, Response> {
     poll: Poll,
     nevent: usize,
     timeout: Duration,
-    session_queue: Queue<Session>,
+    session_queue: MultiQueuePair<(), Session>,
     sessions: Slab<Session>,
-    signal_queue: Queue<Signal>,
+    // signal_queue: Queue<Signal>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
+    waker: Arc<Waker>,
 }
 
 impl<Storage, Request, Response> SingleWorker<Storage, Request, Response>
@@ -51,20 +56,22 @@ where
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
         let sessions = Slab::<Session>::new();
+        let waker = Arc::new(Waker::new(poll.registry(), Token(usize::MAX)).unwrap());
 
-        let session_queue = Queue::new(128);
-        let signal_queue = Queue::new(128);
+        let session_queue = MultiQueuePair::new(Some(waker.clone()));
+        // let signal_queue = Queue::new(128);
 
         Ok(Self {
             poll,
             nevent: config.nevent(),
             timeout: Duration::from_millis(config.timeout() as u64),
             storage,
-            signal_queue,
+            // signal_queue,
             session_queue,
             sessions,
             _request: PhantomData,
             _response: PhantomData,
+            waker,
         })
     }
 
@@ -102,19 +109,19 @@ where
             self.handle_new_sessions();
 
             // poll queue to receive new signals
-            #[allow(clippy::never_loop)]
-            while let Ok(signal) = self.signal_queue.try_recv() {
-                match signal {
-                    Signal::Shutdown => {
-                        return;
-                    }
-                }
-            }
+            // #[allow(clippy::never_loop)]
+            // while let Ok(signal) = self.signal_queue.try_recv() {
+            //     match signal {
+            //         Signal::Shutdown => {
+            //             return;
+            //         }
+            //     }
+            // }
         }
     }
 
     fn handle_new_sessions(&mut self) {
-        while let Ok(mut session) = self.session_queue.try_recv() {
+        while let Ok(mut session) = self.session_queue.recv_from(0) {
             let pending = session.read_pending();
             trace!("{} bytes pending in rx buffer for new session", pending);
 
@@ -195,12 +202,12 @@ where
         }
     }
 
-    pub fn signal_sender(&self) -> Sender<Signal> {
-        self.signal_queue.sender()
-    }
+    // pub fn signal_sender(&self) -> Sender<Signal> {
+    //     self.signal_queue.sender()
+    // }
 
-    pub fn session_sender(&self) -> Sender<Session> {
-        self.session_queue.sender()
+    pub fn session_sender(&mut self, waker: Arc<Waker>) -> QueuePair<Session, ()> {
+        self.session_queue.new_queue_pair(65536, Some(waker))
     }
 }
 

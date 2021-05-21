@@ -1,5 +1,5 @@
 use crate::threads::worker::TokenWrapper;
-use common::signal::Signal;
+// use common::signal::Signal;
 use config::WorkerConfig;
 use core::time::Duration;
 use entrystore::EntryStore;
@@ -9,8 +9,8 @@ use mio::Poll;
 use mio::Token;
 use mio::Waker;
 use protocol::{Compose, Execute};
-use queues::mpsc::{Queue, Sender};
-use queues::spsc::bidirectional::{Bidirectional, SendError};
+use queues::{MultiQueueError, MultiQueuePair, QueuePair};
+// use queues::spsc::bidirectional::{Bidirectional, SendError};
 use std::sync::Arc;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
@@ -27,9 +27,10 @@ pub struct StorageWorker<Storage, Request, Response> {
     nevent: usize,
     timeout: Duration,
     storage: Storage,
-    signal_queue: Queue<Signal>,
+    // signal_queue: Queue<Signal>,
     waker: Arc<Waker>,
-    worker_queues: Vec<Bidirectional<TokenWrapper<Option<Response>>, TokenWrapper<Request>>>,
+    worker_queues: MultiQueuePair<TokenWrapper<Option<Response>>, TokenWrapper<Request>>,
+    // worker_queues: Vec<Bidirectional<TokenWrapper<Option<Response>>, TokenWrapper<Request>>>,
 }
 
 impl<Storage, Request, Response> StorageWorker<Storage, Request, Response>
@@ -40,7 +41,7 @@ where
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
     pub fn new(config: &WorkerConfig, storage: Storage) -> Result<Self, std::io::Error> {
-        let signal_queue = Queue::new(128);
+        // let signal_queue = Queue::new(128);
 
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
@@ -49,14 +50,16 @@ where
 
         let waker = Arc::new(Waker::new(poll.registry(), Token(usize::MAX)).unwrap());
 
+        let worker_queues = MultiQueuePair::new(Some(waker.clone()));
+
         Ok(Self {
             nevent: config.nevent(),
             timeout: Duration::from_millis(config.timeout() as u64),
             poll,
             storage,
-            signal_queue,
+            // signal_queue,
             waker,
-            worker_queues: Vec::new(),
+            worker_queues,
         })
     }
 
@@ -65,27 +68,16 @@ where
     pub fn add_queue(
         &mut self,
         waker: Arc<Waker>,
-    ) -> Bidirectional<TokenWrapper<Request>, TokenWrapper<Option<Response>>> {
-        let (worker_queue, storage_queue) =
-            queues::spsc::bidirectional::with_capacity(65536, self.waker.clone(), waker);
-
-        self.worker_queues.push(worker_queue);
-        storage_queue
+    ) -> QueuePair<TokenWrapper<Request>, TokenWrapper<Option<Response>>> {
+        self.worker_queues.new_queue_pair(65536, Some(waker))
     }
 
     /// Run the storage thread in a loop, handling incoming messages from the
     /// worker threads
     pub fn run(&mut self) {
-        // holds the number of workers registered
-        let workers = self.worker_queues.len();
+        let workers = self.worker_queues.pending().len();
 
-        // holds state about whether a given worker needs a deferred wake, this
-        // is used to coalesce wakeups and reduce syscall load
         let mut worker_needs_wake = vec![false; workers];
-
-        // holds state about how many messages were pending for each worker when
-        // a wakeup happened
-        let mut worker_pending = vec![0; workers];
 
         let mut events = Events::with_capacity(self.nevent);
         let timeout = Some(self.timeout);
@@ -101,31 +93,29 @@ where
             }
 
             if !events.is_empty() {
-                // store the number of messages currently in each queue when
-                // wakeup occurred
-                for (id, queue) in self.worker_queues.iter_mut().enumerate() {
-                    worker_pending[id] = queue.pending();
-                }
+                let mut worker_pending = self.worker_queues.pending();
 
+                trace!("handling events");
                 let mut empty = false;
 
                 while !empty {
                     empty = true;
                     for id in 0..workers {
                         if worker_pending[id] > 0 {
-                            if let Ok(message) = self.worker_queues[id].try_recv() {
+                            if let Ok(message) = self.worker_queues.recv_from(id) {
+                                trace!("handling request from worker: {}", id);
                                 increment_counter!(&Stat::ProcessReq);
                                 let token = message.token();
                                 let response = self.storage.execute(message.into_inner());
                                 let mut message = TokenWrapper::new(response, token);
                                 for retry in 0..QUEUE_RETRIES {
-                                    if let Err(SendError::Full(m)) =
-                                        self.worker_queues[id].try_send(message)
+                                    if let Err(MultiQueueError::Full(m)) =
+                                        self.worker_queues.send_to(id, message)
                                     {
                                         if (retry + 1) == QUEUE_RETRIES {
                                             error!("error sending message to worker");
                                         }
-                                        let _ = self.worker_queues[id].wake();
+                                        let _ = self.worker_queues.wake(id);
                                         message = m;
                                     } else {
                                         break;
@@ -141,25 +131,26 @@ where
 
                 for (id, needs_wake) in worker_needs_wake.iter_mut().enumerate() {
                     if *needs_wake {
-                        let _ = self.worker_queues[id].wake();
+                        trace!("waking worker thread: {}", id);
+                        let _ = self.worker_queues.wake(id);
                         *needs_wake = false;
                     }
                 }
             }
 
             // poll queue to receive new messages
-            #[allow(clippy::never_loop)]
-            while let Ok(s) = self.signal_queue.try_recv() {
-                match s {
-                    Signal::Shutdown => {
-                        return;
-                    }
-                }
-            }
+            // #[allow(clippy::never_loop)]
+            // while let Ok(s) = self.signal_queue.try_recv() {
+            //     match s {
+            //         Signal::Shutdown => {
+            //             return;
+            //         }
+            //     }
+            // }
         }
     }
 
-    pub fn signal_sender(&self) -> Sender<Signal> {
-        self.signal_queue.sender()
-    }
+    // pub fn signal_sender(&self) -> Sender<Signal> {
+    //     self.signal_queue.sender()
+    // }
 }

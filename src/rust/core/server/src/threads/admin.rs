@@ -6,7 +6,7 @@
 //! info, etc.
 
 use super::EventLoop;
-use common::signal::Signal;
+// use common::signal::Signal;
 use config::AdminConfig;
 use mio::Events;
 use mio::Interest;
@@ -14,7 +14,7 @@ use mio::Poll;
 use mio::Token;
 use protocol::admin::*;
 use protocol::*;
-use queues::mpsc::{Queue, Sender};
+// use queues::mpsc::{Queue, Sender};
 use session::*;
 use slab::Slab;
 use std::io::{BufRead, Write};
@@ -45,7 +45,7 @@ pub struct Admin {
     poll: Poll,
     ssl_context: Option<SslContext>,
     sessions: Slab<Session>,
-    signal_queue: Queue<Signal>,
+    // signal_queue: Queue<Signal>,
 }
 
 impl Admin {
@@ -83,7 +83,7 @@ impl Admin {
 
         let sessions = Slab::<Session>::new();
 
-        let signal_queue = Queue::new(128);
+        // let signal_queue = Queue::new(128);
 
         Ok(Self {
             addr,
@@ -92,7 +92,7 @@ impl Admin {
             poll,
             ssl_context,
             sessions,
-            signal_queue,
+            // signal_queue,
             timeout,
         })
     }
@@ -240,24 +240,24 @@ impl Admin {
             }
 
             // poll queue to receive new signals
-            #[allow(clippy::never_loop)]
-            while let Ok(signal) = self.signal_queue.try_recv() {
-                match signal {
-                    Signal::Shutdown => {
-                        return;
-                    }
-                }
-            }
+            // #[allow(clippy::never_loop)]
+            // while let Ok(signal) = self.signal_queue.try_recv() {
+            //     match signal {
+            //         Signal::Shutdown => {
+            //             return;
+            //         }
+            //     }
+            // }
 
             self.get_rusage();
         }
     }
 
-    /// Returns a `SyncSender` which can be used to send `Message`s to the
-    /// `Admin` component.
-    pub fn signal_sender(&self) -> Sender<Signal> {
-        self.signal_queue.sender()
-    }
+    // /// Returns a `SyncSender` which can be used to send `Message`s to the
+    // /// `Admin` component.
+    // pub fn signal_sender(&self) -> Sender<Signal> {
+    //     self.signal_queue.sender()
+    // }
 
     // TODO(bmartin): move this into a common module, should be shared with
     // other backends
