@@ -13,6 +13,7 @@ mod buffer;
 mod stream;
 mod tcp_stream;
 
+use std::io::BufRead;
 use std::borrow::Borrow;
 use std::io::{ErrorKind, Read, Write};
 use std::net::SocketAddr;
@@ -92,47 +93,6 @@ impl Session {
             .reregister(poll.registry(), self.token, interest)
     }
 
-    /// Reads from the stream into the session buffer
-    pub fn read(&mut self) -> Result<Option<usize>, std::io::Error> {
-        increment_counter!(&Stat::SessionRecv);
-        let mut total_bytes = 0;
-        loop {
-            match self.stream.read(&mut self.tmp_buffer) {
-                Ok(0) => {
-                    // Stream is disconnected, stop reading
-                    break;
-                }
-                Ok(bytes) => {
-                    self.read_buffer.extend(&self.tmp_buffer[0..bytes]);
-                    total_bytes += bytes;
-                    if bytes < self.tmp_buffer.len() {
-                        // we read less than the temp buffer size, next read
-                        // is likely to block so we can stop reading.
-                        break;
-                    }
-                }
-                Err(e) => {
-                    if e.kind() == ErrorKind::WouldBlock {
-                        // check if we blocked on first read or subsequent read.
-                        // if blocked on a subsequent read, we stop reading and
-                        // allow the function to return the number of bytes read
-                        // until now.
-                        if total_bytes == 0 {
-                            return Ok(None);
-                        } else {
-                            break;
-                        }
-                    } else {
-                        increment_counter!(&Stat::SessionRecvEx);
-                        return Err(e);
-                    }
-                }
-            }
-        }
-        increment_counter_by!(&Stat::SessionRecvByte, total_bytes as u64);
-        Ok(Some(total_bytes))
-    }
-
     /// Get the token which is used with the event loop
     pub fn token(&self) -> Token {
         self.token
@@ -181,17 +141,74 @@ impl Session {
         self.write_buffer.len()
     }
 
-    /// Borrow the contents of the read buffer without consuming or copying the
-    /// buffer contents.
-    pub fn peek(&self) -> &[u8] {
+    /// Returns a reference to the internally buffered data.
+    ///
+    /// Unlike [`fill_buf`], this will not attempt to fill the buffer if it is
+    /// empty.
+    ///
+    /// [`fill_buf`]: BufRead::fill_buf
+    pub fn buffer(&self) -> &[u8] {
         self.read_buffer.borrow()
     }
+}
 
-    /// Consume the specified number of bytes from the read buffer so that they
-    /// will not be returned by the next call to `peek()`.
-    pub fn consume(&mut self, bytes: usize) {
-        self.read_buffer.inner.advance(bytes);
+impl Read for Session {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
+        if self.read_buffer.is_empty() {
+            self.fill_buf()?;
+        }
+        let bytes = std::cmp::min(buf.len(), self.read_buffer.len());
+        let buffer: &[u8] = self.read_buffer.borrow();
+        buf[0..bytes].copy_from_slice(&buffer[0..bytes]);
+        self.consume(bytes);
+        Ok(bytes)
     }
+}
+
+impl BufRead for Session {
+    fn fill_buf(&mut self) -> Result<&[u8], std::io::Error> {
+        increment_counter!(&Stat::SessionRecv);
+        let mut total_bytes = 0;
+        loop {
+            match self.stream.read(&mut self.tmp_buffer) {
+                Ok(0) => {
+                    // Stream is disconnected, stop reading
+                    break;
+                }
+                Ok(bytes) => {
+                    self.read_buffer.extend(&self.tmp_buffer[0..bytes]);
+                    total_bytes += bytes;
+                    if bytes < self.tmp_buffer.len() {
+                        // we read less than the temp buffer size, next read
+                        // is likely to block so we can stop reading.
+                        break;
+                    }
+                }
+                Err(e) => {
+                    if e.kind() == ErrorKind::WouldBlock {
+                        // check if we blocked on first read or subsequent read.
+                        // if blocked on a subsequent read, we stop reading and
+                        // allow the function to return the number of bytes read
+                        // until now.
+                        if total_bytes == 0 {
+                            return Err(e);
+                        } else {
+                            break;
+                        }
+                    } else {
+                        increment_counter!(&Stat::SessionRecvEx);
+                        return Err(e);
+                    }
+                }
+            }
+        }
+        increment_counter_by!(&Stat::SessionRecvByte, total_bytes as u64);
+        Ok(self.read_buffer.borrow())
+    }
+
+    fn consume(&mut self, amt: usize) {
+        self.read_buffer.inner.advance(amt);
+    } 
 }
 
 impl Write for Session {

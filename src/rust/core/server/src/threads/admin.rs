@@ -17,7 +17,7 @@ use protocol::*;
 use queues::mpsc::{Queue, Sender};
 use session::*;
 use slab::Slab;
-use std::io::Write;
+use std::io::{BufRead, Write};
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -332,7 +332,7 @@ impl EventLoop for Admin {
                     // if the write buffer is over-full, skip processing
                     break;
                 }
-                match Parse::parse(session.peek()) {
+                match Parse::parse(session.buffer()) {
                     Ok(parsed_request) => {
                         let consumed = parsed_request.consumed();
                         let request = parsed_request.into_inner();

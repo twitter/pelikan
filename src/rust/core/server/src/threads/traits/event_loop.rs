@@ -7,7 +7,7 @@
 
 use session::Session;
 
-use std::io::{ErrorKind, Write};
+use std::io::{BufRead, ErrorKind, Write};
 
 use mio::{Poll, Token};
 
@@ -41,12 +41,12 @@ pub trait EventLoop {
 
         if let Some(session) = self.get_mut_session(token) {
             // read from session to buffer
-            match session.read() {
-                Ok(Some(0)) => {
+            match session.fill_buf().map(|b| b.len()) {
+                Ok(0) => {
                     self.handle_hup(token);
                     Err(())
                 }
-                Ok(Some(bytes)) => {
+                Ok(bytes) => {
                     trace!("read: {} bytes for session: {}", bytes, token.0);
                     if self.handle_data(token).is_err() {
                         self.handle_error(token);
@@ -55,16 +55,17 @@ pub trait EventLoop {
                         Ok(())
                     }
                 }
-                Ok(None) => {
-                    // spurious read
-                    trace!("spurious read");
-                    self.reregister(token);
-                    Ok(())
-                }
-                Err(_) => {
-                    // some read error
-                    self.handle_error(token);
-                    Err(())
+                Err(e) => {
+                    if e.kind() == ErrorKind::WouldBlock {
+                        // spurious read
+                        trace!("spurious read");
+                        self.reregister(token);
+                        Ok(())
+                    } else {
+                        // some read error
+                        self.handle_error(token);
+                        Err(())
+                    }
                 }
             }
         } else {

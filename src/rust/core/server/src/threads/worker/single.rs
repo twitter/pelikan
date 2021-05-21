@@ -23,7 +23,7 @@ use queues::mpsc::{Queue, Sender};
 use session::{Session, MIN_BUFFER_SIZE};
 use slab::Slab;
 use std::convert::TryInto;
-use std::io::Write;
+use std::io::{BufRead, Write};
 
 /// A `Worker` handles events on `Session`s
 pub struct SingleWorker<Storage, Request, Response> {
@@ -224,7 +224,7 @@ where
                     // if the write buffer is over-full, skip processing
                     break;
                 }
-                match Parse::parse(session.peek()) {
+                match Parse::parse(session.buffer()) {
                     Ok(parsed_request) => {
                         increment_counter!(&Stat::ProcessReq);
                         let consumed = parsed_request.consumed();

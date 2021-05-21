@@ -25,7 +25,7 @@ use session::{Session, MIN_BUFFER_SIZE};
 use slab::Slab;
 use std::convert::TryInto;
 use std::sync::Arc;
-use std::io::{Write};
+use std::io::{BufRead, Write};
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
 // full, and a single wakeup should drain at least one message and make room for
@@ -181,7 +181,7 @@ where
         poll: &Poll,
         storage_queue: &mut Bidirectional<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
     ) -> bool {
-        match Request::parse(session.peek()) {
+        match Request::parse(session.buffer()) {
             Ok(request) => {
                 let consumed = request.consumed();
                 let request = request.into_inner();
