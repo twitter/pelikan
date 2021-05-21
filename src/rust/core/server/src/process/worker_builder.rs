@@ -8,9 +8,8 @@ use entrystore::EntryStore;
 use mio::Waker;
 use protocol::{Compose, Execute, Parse};
 use queues::QueuePair;
-use std::sync::Arc;
-// use queues::mpsc::Sender;
 use session::Session;
+use std::sync::Arc;
 use std::thread::JoinHandle;
 
 const THREAD_PREFIX: &str = "pelikan";
@@ -41,7 +40,7 @@ where
     pub fn session_queues(&mut self, waker: Arc<Waker>) -> Vec<QueuePair<Session, ()>> {
         match self {
             Self::Single { worker } => {
-                vec![worker.session_sender(waker.clone())]
+                vec![worker.session_sender(waker)]
             }
             Self::Multi { workers, .. } => workers
                 .iter_mut()
@@ -50,19 +49,19 @@ where
         }
     }
 
-    pub fn signal_senders(&self) -> Vec<QueuePair<Signal, ()>> {
-        let senders = Vec::new();
-        // match self {
-        //     Self::Single { worker } => {
-        //         senders.push(worker.signal_sender());
-        //     }
-        //     Self::Multi { storage, workers } => {
-        //         for worker in workers {
-        //             senders.push(worker.signal_sender());
-        //         }
-        //         senders.push(storage.signal_sender());
-        //     }
-        // }
+    pub fn signal_queues(&mut self) -> Vec<QueuePair<Signal, ()>> {
+        let mut senders = Vec::new();
+        match self {
+            Self::Single { worker } => {
+                senders.push(worker.signal_queue());
+            }
+            Self::Multi { storage, workers } => {
+                for worker in workers {
+                    senders.push(worker.signal_queue());
+                }
+                senders.push(storage.signal_queue());
+            }
+        }
         senders
     }
 

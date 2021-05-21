@@ -65,60 +65,60 @@ impl<T, U> QueuePair<T, U> {
     }
 }
 
-pub struct MultiQueuePair<T, U> {
-    queues: Vec<QueuePair<T, U>>,
+pub struct QueuePairs<T, U> {
+    queue_pairs: Vec<QueuePair<T, U>>,
     waker: Option<Arc<Waker>>,
     next: usize,
 }
 
-impl<T, U> MultiQueuePair<T, U> {
+impl<T, U> QueuePairs<T, U> {
     pub fn new(waker: Option<Arc<Waker>>) -> Self {
         Self {
-            queues: Vec::new(),
+            queue_pairs: Vec::new(),
             waker,
             next: 0,
         }
     }
 
     pub fn pending(&self) -> Box<[usize]> {
-        self.queues
+        self.queue_pairs
             .iter()
-            .map(|queue| queue.pending())
+            .map(|queue_pair| queue_pair.pending())
             .collect::<Vec<usize>>()
             .into_boxed_slice()
     }
 
-    pub fn recv_from(&mut self, id: usize) -> Result<U, MultiQueueError<T>> {
-        if let Some(queue) = self.queues.get_mut(id) {
-            queue.try_recv().map_err(|_| MultiQueueError::Empty)
+    pub fn recv_from(&mut self, id: usize) -> Result<U, QueueError<T>> {
+        if let Some(queue_pair) = self.queue_pairs.get_mut(id) {
+            queue_pair.try_recv().map_err(|_| QueueError::Empty)
         } else {
-            Err(MultiQueueError::NoQueue)
+            Err(QueueError::NoQueue)
         }
     }
 
-    pub fn send_to(&mut self, id: usize, msg: T) -> Result<(), MultiQueueError<T>> {
-        if let Some(queue) = self.queues.get_mut(id) {
+    pub fn send_to(&mut self, id: usize, msg: T) -> Result<(), QueueError<T>> {
+        if let Some(queue) = self.queue_pairs.get_mut(id) {
             match queue.try_send(msg) {
                 Ok(()) => Ok(()),
-                Err(SendError::Full(msg)) => Err(MultiQueueError::Full(msg)),
+                Err(SendError::Full(msg)) => Err(QueueError::Full(msg)),
             }
         } else {
-            Err(MultiQueueError::NoQueue)
+            Err(QueueError::NoQueue)
         }
     }
 
-    pub fn send_rr(&mut self, mut msg: T) -> Result<(), MultiQueueError<T>> {
-        let queues = self.queues.len();
-        if queues == 0 {
-            return Err(MultiQueueError::NoQueue);
+    pub fn send_rr(&mut self, mut msg: T) -> Result<(), QueueError<T>> {
+        let queue_pairs = self.queue_pairs.len();
+        if queue_pairs == 0 {
+            return Err(QueueError::NoQueue);
         }
-        for _ in 0..queues {
-            if self.next >= self.queues.len() {
-                self.next %= self.queues.len();
+        for _ in 0..queue_pairs {
+            if self.next >= queue_pairs {
+                self.next = 0;
             }
-            match self.queues[self.next].try_send(msg) {
+            match self.queue_pairs[self.next].try_send(msg) {
                 Ok(()) => {
-                    let _ = self.queues[self.next].wake();
+                    let _ = self.queue_pairs[self.next].wake();
                     self.next = self.next.wrapping_add(1);
                     return Ok(());
                 }
@@ -128,33 +128,48 @@ impl<T, U> MultiQueuePair<T, U> {
                 }
             }
         }
-        Err(MultiQueueError::Full(msg))
+        Err(QueueError::Full(msg))
     }
 
-    pub fn wake(&self, id: usize) -> Result<(), MultiQueueError<T>> {
-        if let Some(queue) = self.queues.get(id) {
-            queue.wake().map_err(MultiQueueError::WakeFailed)
+    pub fn wake(&self, id: usize) -> Result<(), QueueError<T>> {
+        if let Some(queue_pair) = self.queue_pairs.get(id) {
+            queue_pair.wake().map_err(QueueError::WakeFailed)
         } else {
-            Err(MultiQueueError::NoQueue)
+            Err(QueueError::NoQueue)
         }
     }
 
-    pub fn new_queue_pair(
-        &mut self,
-        capacity: usize,
-        waker: Option<Arc<Waker>>,
-    ) -> QueuePair<U, T> {
+    pub fn new_pair(&mut self, capacity: usize, waker: Option<Arc<Waker>>) -> QueuePair<U, T> {
         let (theirs, ours) = queue_pair_with_capacity(capacity, waker, self.waker.clone());
-        self.queues.push(ours);
+        self.queue_pairs.push(ours);
         theirs
     }
 
-    pub fn register_queue_pair(&mut self, queue: QueuePair<T, U>) {
-        self.queues.push(queue)
+    pub fn add_pair(&mut self, queue_pair: QueuePair<T, U>) {
+        self.queue_pairs.push(queue_pair)
     }
 }
 
-pub enum MultiQueueError<T> {
+impl<T: Clone, U> QueuePairs<T, U> {
+    pub fn broadcast(&mut self, msg: T) -> Result<(), QueueError<T>> {
+        if self.queue_pairs.is_empty() {
+            return Err(QueueError::NoQueue);
+        }
+        let mut success = true;
+        for queue_pair in &mut self.queue_pairs {
+            if queue_pair.try_send(msg.clone()).is_err() {
+                success = false;
+            }
+        }
+        if success {
+            Ok(())
+        } else {
+            Err(QueueError::Full(msg))
+        }
+    }
+}
+
+pub enum QueueError<T> {
     Empty,
     NoQueue,
     Full(T),

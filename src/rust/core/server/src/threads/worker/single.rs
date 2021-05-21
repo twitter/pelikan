@@ -8,11 +8,7 @@
 //! session buffer.
 
 use super::EventLoop;
-use mio::Waker;
-use queues::MultiQueuePair;
-use queues::QueuePair;
-use std::sync::Arc;
-// use common::signal::Signal;
+use common::signal::Signal;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -22,12 +18,17 @@ use mio::event::Event;
 use mio::Events;
 use mio::Poll;
 use mio::Token;
+use mio::Waker;
 use protocol::{Compose, Execute, Parse, ParseError};
-// use queues::mpsc::{Queue, Sender};
+use queues::QueuePair;
+use queues::QueuePairs;
 use session::Session;
 use slab::Slab;
 use std::convert::TryInto;
 use std::io::{BufRead, Write};
+use std::sync::Arc;
+
+const WAKER_TOKEN: usize = usize::MAX;
 
 /// A `Worker` handles events on `Session`s
 pub struct SingleWorker<Storage, Request, Response> {
@@ -35,12 +36,11 @@ pub struct SingleWorker<Storage, Request, Response> {
     poll: Poll,
     nevent: usize,
     timeout: Duration,
-    session_queue: MultiQueuePair<(), Session>,
+    session_queue: QueuePairs<(), Session>,
     sessions: Slab<Session>,
-    // signal_queue: Queue<Signal>,
+    signal_queue: QueuePairs<(), Signal>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
-    waker: Arc<Waker>,
 }
 
 impl<Storage, Request, Response> SingleWorker<Storage, Request, Response>
@@ -56,22 +56,21 @@ where
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
         let sessions = Slab::<Session>::new();
-        let waker = Arc::new(Waker::new(poll.registry(), Token(usize::MAX)).unwrap());
+        let waker = Arc::new(Waker::new(poll.registry(), Token(WAKER_TOKEN)).unwrap());
 
-        let session_queue = MultiQueuePair::new(Some(waker.clone()));
-        // let signal_queue = Queue::new(128);
+        let session_queue = QueuePairs::new(Some(waker.clone()));
+        let signal_queue = QueuePairs::new(Some(waker));
 
         Ok(Self {
             poll,
             nevent: config.nevent(),
             timeout: Duration::from_millis(config.timeout() as u64),
             storage,
-            // signal_queue,
+            signal_queue,
             session_queue,
             sessions,
             _request: PhantomData,
             _response: PhantomData,
-            waker,
         })
     }
 
@@ -102,21 +101,24 @@ where
 
             // process all events
             for event in events.iter() {
-                self.handle_event(event);
+                match event.token() {
+                    Token(WAKER_TOKEN) => {
+                        self.handle_new_sessions();
+
+                        #[allow(clippy::never_loop)]
+                        while let Ok(signal) = self.signal_queue.recv_from(0) {
+                            match signal {
+                                Signal::Shutdown => {
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                    Token(_) => {
+                        self.handle_event(&event);
+                    }
+                }
             }
-
-            // poll queue to receive new sessions
-            self.handle_new_sessions();
-
-            // poll queue to receive new signals
-            // #[allow(clippy::never_loop)]
-            // while let Ok(signal) = self.signal_queue.try_recv() {
-            //     match signal {
-            //         Signal::Shutdown => {
-            //             return;
-            //         }
-            //     }
-            // }
         }
     }
 
@@ -202,12 +204,12 @@ where
         }
     }
 
-    // pub fn signal_sender(&self) -> Sender<Signal> {
-    //     self.signal_queue.sender()
-    // }
-
     pub fn session_sender(&mut self, waker: Arc<Waker>) -> QueuePair<Session, ()> {
-        self.session_queue.new_queue_pair(65536, Some(waker))
+        self.session_queue.new_pair(65536, Some(waker))
+    }
+
+    pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
+        self.signal_queue.new_pair(128, None)
     }
 }
 

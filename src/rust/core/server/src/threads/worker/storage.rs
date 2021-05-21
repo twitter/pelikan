@@ -1,5 +1,5 @@
 use crate::threads::worker::TokenWrapper;
-// use common::signal::Signal;
+use common::signal::Signal;
 use config::WorkerConfig;
 use core::time::Duration;
 use entrystore::EntryStore;
@@ -9,14 +9,15 @@ use mio::Poll;
 use mio::Token;
 use mio::Waker;
 use protocol::{Compose, Execute};
-use queues::{MultiQueueError, MultiQueuePair, QueuePair};
-// use queues::spsc::bidirectional::{Bidirectional, SendError};
+use queues::{QueueError, QueuePair, QueuePairs};
 use std::sync::Arc;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
 // full, and a single wakeup should drain at least one message and make room for
 // the response. A stat to prove that this is sufficient would be good.
 const QUEUE_RETRIES: usize = 3;
+
+const WAKER_TOKEN: usize = usize::MAX;
 
 /// A `Storage` thread is used in a multi-worker configuration. It owns the
 /// cache contents and operates on message queues for each worker thread, taking
@@ -27,10 +28,8 @@ pub struct StorageWorker<Storage, Request, Response> {
     nevent: usize,
     timeout: Duration,
     storage: Storage,
-    // signal_queue: Queue<Signal>,
-    waker: Arc<Waker>,
-    worker_queues: MultiQueuePair<TokenWrapper<Option<Response>>, TokenWrapper<Request>>,
-    // worker_queues: Vec<Bidirectional<TokenWrapper<Option<Response>>, TokenWrapper<Request>>>,
+    signal_queue: QueuePairs<(), Signal>,
+    worker_queues: QueuePairs<TokenWrapper<Option<Response>>, TokenWrapper<Request>>,
 }
 
 impl<Storage, Request, Response> StorageWorker<Storage, Request, Response>
@@ -48,17 +47,17 @@ where
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
 
-        let waker = Arc::new(Waker::new(poll.registry(), Token(usize::MAX)).unwrap());
+        let waker = Arc::new(Waker::new(poll.registry(), Token(WAKER_TOKEN)).unwrap());
 
-        let worker_queues = MultiQueuePair::new(Some(waker.clone()));
+        let worker_queues = QueuePairs::new(Some(waker.clone()));
+        let signal_queue = QueuePairs::new(Some(waker));
 
         Ok(Self {
             nevent: config.nevent(),
             timeout: Duration::from_millis(config.timeout() as u64),
             poll,
             storage,
-            // signal_queue,
-            waker,
+            signal_queue,
             worker_queues,
         })
     }
@@ -69,7 +68,7 @@ where
         &mut self,
         waker: Arc<Waker>,
     ) -> QueuePair<TokenWrapper<Request>, TokenWrapper<Option<Response>>> {
-        self.worker_queues.new_queue_pair(65536, Some(waker))
+        self.worker_queues.new_pair(65536, Some(waker))
     }
 
     /// Run the storage thread in a loop, handling incoming messages from the
@@ -109,7 +108,7 @@ where
                                 let response = self.storage.execute(message.into_inner());
                                 let mut message = TokenWrapper::new(response, token);
                                 for retry in 0..QUEUE_RETRIES {
-                                    if let Err(MultiQueueError::Full(m)) =
+                                    if let Err(QueueError::Full(m)) =
                                         self.worker_queues.send_to(id, message)
                                     {
                                         if (retry + 1) == QUEUE_RETRIES {
@@ -136,21 +135,20 @@ where
                         *needs_wake = false;
                     }
                 }
-            }
 
-            // poll queue to receive new messages
-            // #[allow(clippy::never_loop)]
-            // while let Ok(s) = self.signal_queue.try_recv() {
-            //     match s {
-            //         Signal::Shutdown => {
-            //             return;
-            //         }
-            //     }
-            // }
+                #[allow(clippy::never_loop)]
+                while let Ok(s) = self.signal_queue.recv_from(0) {
+                    match s {
+                        Signal::Shutdown => {
+                            return;
+                        }
+                    }
+                }
+            }
         }
     }
 
-    // pub fn signal_sender(&self) -> Sender<Signal> {
-    //     self.signal_queue.sender()
-    // }
+    pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
+        self.signal_queue.new_pair(128, None)
+    }
 }

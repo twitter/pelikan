@@ -10,6 +10,7 @@ use config::TlsConfig;
 use config::WorkerConfig;
 use entrystore::EntryStore;
 use protocol::{Compose, Execute, Parse};
+use queues::QueuePairs;
 
 const THREAD_PREFIX: &str = "pelikan";
 
@@ -75,7 +76,6 @@ where
         for session_queue in session_queues.drain(..) {
             listener.add_session_queue(session_queue);
         }
-        // let queues = worker.session_queues(listener.waker());
 
         Self {
             admin,
@@ -123,11 +123,14 @@ where
     /// Converts the `TwemcacheBuilder` to a running `Twemcache` by spawning
     /// the threads for each component. Returns a `Twemcache` which may be used
     /// to block until the threads have exited or trigger a shutdown.
-    pub fn spawn(self) -> Process {
+    pub fn spawn(mut self) -> Process {
         // get message senders for each component
-        // let mut signal_senders = vec![self.listener.signal_sender()];
-        // signal_senders.extend_from_slice(&self.worker.signal_senders());
-        // signal_senders.push(self.admin.signal_sender());
+        let mut signal_queue = QueuePairs::new(None);
+        signal_queue.add_pair(self.admin.signal_queue());
+        signal_queue.add_pair(self.listener.signal_queue());
+        for queue in self.worker.signal_queues() {
+            signal_queue.add_pair(queue);
+        }
 
         // temporary bindings to prevent borrow-checker issues
         let mut admin = self.admin;
@@ -152,7 +155,7 @@ where
         // return a `Twemcache`
         Process {
             threads,
-            // signal_senders,
+            signal_queue,
         }
     }
 }

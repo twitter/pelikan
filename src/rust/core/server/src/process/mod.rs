@@ -6,11 +6,10 @@ mod builder;
 mod worker_builder;
 
 pub use builder::ProcessBuilder;
-pub use worker_builder::WorkerBuilder;
-
-// use common::signal::Signal;
-// use queues::mpsc::Sender;
+use common::signal::Signal;
+use queues::QueuePairs;
 use std::thread::JoinHandle;
+pub use worker_builder::WorkerBuilder;
 
 /// A structure which represents a running twemcache.
 ///
@@ -19,7 +18,7 @@ use std::thread::JoinHandle;
 /// to call `shutdown()` to terminate the threads and block until termination.
 pub struct Process {
     threads: Vec<JoinHandle<()>>,
-    // signal_senders: Vec<Sender<Signal>>,
+    signal_queue: QueuePairs<Signal, ()>,
 }
 
 impl Process {
@@ -30,12 +29,10 @@ impl Process {
     /// shutdown to any of the threads.
     ///
     /// This function will block until all threads have terminated.
-    pub fn shutdown(self) {
-        // for sender in &self.signal_senders {
-        //     if sender.send(Signal::Shutdown).is_err() {
-        //         fatal!("error sending shutdown signal to thread");
-        //     }
-        // }
+    pub fn shutdown(mut self) {
+        if self.signal_queue.broadcast(Signal::Shutdown).is_err() {
+            fatal!("error sending shutdown signal to thread");
+        }
 
         // wait and join all threads
         self.wait()

@@ -6,19 +6,22 @@
 //! info, etc.
 
 use super::EventLoop;
-// use common::signal::Signal;
+use common::signal::Signal;
 use config::AdminConfig;
 use mio::Events;
 use mio::Interest;
 use mio::Poll;
 use mio::Token;
+use mio::Waker;
 use protocol::admin::*;
 use protocol::*;
-// use queues::mpsc::{Queue, Sender};
+use queues::QueuePair;
+use queues::QueuePairs;
 use session::*;
 use slab::Slab;
 use std::io::{BufRead, Write};
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use metrics::Stat;
@@ -33,7 +36,8 @@ use strum::IntoEnumIterator;
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind};
 
-pub const LISTENER_TOKEN: usize = usize::MAX;
+const WAKER_TOKEN: usize = usize::MAX - 1;
+const LISTENER_TOKEN: usize = usize::MAX;
 
 /// A `Admin` is used to bind to a given socket address and handle out-of-band
 /// admin requests.
@@ -45,7 +49,7 @@ pub struct Admin {
     poll: Poll,
     ssl_context: Option<SslContext>,
     sessions: Slab<Session>,
-    // signal_queue: Queue<Signal>,
+    signal_queue: QueuePairs<(), Signal>,
 }
 
 impl Admin {
@@ -83,7 +87,9 @@ impl Admin {
 
         let sessions = Slab::<Session>::new();
 
-        // let signal_queue = Queue::new(128);
+        let waker = Arc::new(Waker::new(poll.registry(), Token(WAKER_TOKEN)).unwrap());
+
+        let signal_queue = QueuePairs::new(Some(waker));
 
         Ok(Self {
             addr,
@@ -92,7 +98,7 @@ impl Admin {
             poll,
             ssl_context,
             sessions,
-            // signal_queue,
+            signal_queue,
             timeout,
         })
     }
@@ -232,32 +238,36 @@ impl Admin {
 
             // handle all events
             for event in events.iter() {
-                if event.token() == Token(LISTENER_TOKEN) {
-                    self.do_accept();
-                } else {
-                    self.handle_session_event(event);
+                match event.token() {
+                    Token(LISTENER_TOKEN) => {
+                        self.do_accept();
+                    }
+                    Token(WAKER_TOKEN) =>
+                    {
+                        #[allow(clippy::never_loop)]
+                        while let Ok(signal) = self.signal_queue.recv_from(0) {
+                            match signal {
+                                Signal::Shutdown => {
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                    Token(_) => {
+                        self.handle_session_event(event);
+                    }
                 }
             }
-
-            // poll queue to receive new signals
-            // #[allow(clippy::never_loop)]
-            // while let Ok(signal) = self.signal_queue.try_recv() {
-            //     match signal {
-            //         Signal::Shutdown => {
-            //             return;
-            //         }
-            //     }
-            // }
 
             self.get_rusage();
         }
     }
 
-    // /// Returns a `SyncSender` which can be used to send `Message`s to the
-    // /// `Admin` component.
-    // pub fn signal_sender(&self) -> Sender<Signal> {
-    //     self.signal_queue.sender()
-    // }
+    /// Returns a `SyncSender` which can be used to send `Message`s to the
+    /// `Admin` component.
+    pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
+        self.signal_queue.new_pair(128, None)
+    }
 
     // TODO(bmartin): move this into a common module, should be shared with
     // other backends

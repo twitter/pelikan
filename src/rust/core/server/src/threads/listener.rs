@@ -37,11 +37,10 @@ pub struct Listener {
     listener: TcpListener,
     nevent: usize,
     poll: Poll,
-    session_queue: MultiQueuePair<Session, ()>,
-    next_sender: usize,
+    session_queue: QueuePairs<Session, ()>,
     ssl_context: Option<SslContext>,
     sessions: Slab<Session>,
-    signal_queue: MultiQueuePair<(), Signal>,
+    signal_queue: QueuePairs<(), Signal>,
     timeout: Duration,
     waker: Arc<Waker>,
 }
@@ -71,8 +70,8 @@ impl Listener {
 
         let waker = Arc::new(Waker::new(poll.registry(), Token(WAKER_TOKEN)).unwrap());
 
-        let signal_queue = MultiQueuePair::new(Some(waker.clone()));
-        let session_queue = MultiQueuePair::new(Some(waker.clone()));
+        let signal_queue = QueuePairs::new(Some(waker.clone()));
+        let session_queue = QueuePairs::new(Some(waker.clone()));
 
         // register listener to event loop
         poll.registry()
@@ -95,7 +94,6 @@ impl Listener {
             sessions,
             session_queue,
             signal_queue,
-            next_sender: 0,
             ssl_context,
             timeout,
             waker,
@@ -137,9 +135,8 @@ impl Listener {
 
     /// Adds a new fully established TLS session
     fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
-        let mut session = Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        let session = Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
         trace!("accepted new session: {:?}", session.peer_addr());
-        let mut success = false;
         if self.session_queue.send_rr(session).is_err() {
             error!("error sending session to worker");
             increment_counter!(&Stat::TcpAcceptEx);
@@ -161,7 +158,7 @@ impl Listener {
 
     /// Adds a new plain (non-TLS) session
     fn add_plain_session(&mut self, stream: TcpStream) {
-        let mut session = Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        let session = Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
         trace!("accepted new session: {:?}", session.peer_addr());
         if self.session_queue.send_rr(session).is_err() {
             error!("error sending session to worker");
@@ -226,22 +223,26 @@ impl Listener {
 
             // handle all events
             for event in events.iter() {
-                if event.token() == Token(LISTENER_TOKEN) {
-                    self.do_accept();
-                } else {
-                    self.handle_session_event(&event);
+                match event.token() {
+                    Token(LISTENER_TOKEN) => {
+                        self.do_accept();
+                    }
+                    Token(WAKER_TOKEN) =>
+                    {
+                        #[allow(clippy::never_loop)]
+                        while let Ok(signal) = self.signal_queue.recv_from(0) {
+                            match signal {
+                                Signal::Shutdown => {
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                    Token(_) => {
+                        self.handle_session_event(&event);
+                    }
                 }
             }
-
-            // poll queue to receive new signals
-            // #[allow(clippy::never_loop)]
-            // while let Ok(signal) = self.signal_queue.try_recv() {
-            //     match signal {
-            //         Signal::Shutdown => {
-            //             return;
-            //         }
-            //     }
-            // }
         }
     }
 
@@ -250,7 +251,11 @@ impl Listener {
     }
 
     pub fn add_session_queue(&mut self, queue: QueuePair<Session, ()>) {
-        self.session_queue.register_queue_pair(queue);
+        self.session_queue.add_pair(queue);
+    }
+
+    pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
+        self.signal_queue.new_pair(128, None)
     }
 }
 
