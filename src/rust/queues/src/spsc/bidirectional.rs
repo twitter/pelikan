@@ -8,8 +8,15 @@ use mio::Waker;
 use rtrb::*;
 use std::sync::Arc;
 
-pub use rtrb::PopError;
-pub use rtrb::PushError;
+use rtrb::PushError;
+
+pub enum RecvError {
+    Empty,
+}
+
+pub enum SendError<T> {
+    Full(T)
+}
 
 pub struct Bidirectional<T, U> {
     send: Producer<T>,
@@ -41,12 +48,15 @@ pub fn with_capacity<A, B>(
 }
 
 impl<T, U> Bidirectional<T, U> {
-    pub fn try_send(&mut self, msg: T) -> Result<(), PushError<T>> {
-        self.send.push(msg)
+    pub fn try_send(&mut self, msg: T) -> Result<(), SendError<T>> {
+        match self.send.push(msg) {
+            Ok(()) => Ok(()),
+            Err(PushError::Full(msg)) => Err(SendError::Full(msg)),
+        }
     }
 
-    pub fn try_recv(&mut self) -> Result<U, PopError> {
-        self.recv.pop()
+    pub fn try_recv(&mut self) -> Result<U, RecvError> {
+        self.recv.pop().map_err(|_| RecvError::Empty)
     }
 
     // Notify the receiver that messages are on the queue

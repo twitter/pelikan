@@ -10,7 +10,7 @@ use mio::Token;
 use mio::Waker;
 use protocol::{Compose, Execute};
 use queues::mpsc::{Queue, Sender};
-use queues::spsc::bidirectional::{Bidirectional, PushError};
+use queues::spsc::bidirectional::{Bidirectional, SendError};
 use std::sync::Arc;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
@@ -119,7 +119,7 @@ where
                                 let response = self.storage.execute(message.into_inner());
                                 let mut message = TokenWrapper::new(response, token);
                                 for retry in 0..QUEUE_RETRIES {
-                                    if let Err(PushError::Full(m)) =
+                                    if let Err(SendError::Full(m)) =
                                         self.worker_queues[id].try_send(message)
                                     {
                                         if (retry + 1) == QUEUE_RETRIES {

@@ -20,7 +20,7 @@ use mio::event::Event;
 use mio::{Events, Poll, Token, Waker};
 use protocol::{Compose, Execute, Parse, ParseError};
 use queues::mpsc::{Queue, Sender};
-use queues::spsc::bidirectional::{Bidirectional, PushError};
+use queues::spsc::bidirectional::{Bidirectional, SendError};
 use session::Session;
 use slab::Slab;
 use std::convert::TryInto;
@@ -189,7 +189,7 @@ where
                 let mut message = TokenWrapper::new(request, session.token());
 
                 for retry in 0..QUEUE_RETRIES {
-                    if let Err(PushError::Full(m)) = storage_queue.try_send(message) {
+                    if let Err(SendError::Full(m)) = storage_queue.try_send(message) {
                         if (retry + 1) == QUEUE_RETRIES {
                             error!("queue full trying to send message to storage thread");
                             if session.deregister(poll).is_err() {
