@@ -115,7 +115,7 @@ where
             MemcacheRequest::Cas { entry, noreply } => {
                 increment_counter!(&Stat::Cas);
                 let response = match self.cas(entry) {
-                    Ok(_) => MemcacheResponse::Deleted,
+                    Ok(_) => MemcacheResponse::Stored,
                     Err(MemcacheStorageError::NotFound) => MemcacheResponse::NotFound,
                     Err(MemcacheStorageError::Exists) => MemcacheResponse::Exists,
                     Err(MemcacheStorageError::NotStored) => MemcacheResponse::NotStored,

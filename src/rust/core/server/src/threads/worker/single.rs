@@ -23,6 +23,7 @@ use queues::mpsc::{Queue, Sender};
 use session::{Session, MIN_BUFFER_SIZE};
 use slab::Slab;
 use std::convert::TryInto;
+use std::io::Write;
 
 /// A `Worker` handles events on `Session`s
 pub struct SingleWorker<Storage, Request, Response> {

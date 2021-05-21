@@ -7,6 +7,8 @@
 
 use session::Session;
 
+use std::io::{ErrorKind, Write};
+
 use mio::{Poll, Token};
 
 /// An `EventLoop` describes the functions which must be implemented for a basic
@@ -76,7 +78,7 @@ pub trait EventLoop {
         trace!("handling write for session: {}", token.0);
         if let Some(session) = self.get_mut_session(token) {
             match session.flush() {
-                Ok(Some(_)) => {
+                Ok(_) => {
                     // if we wrote data but still have data in the read buffer
                     // attempt to process that data
                     if session.read_pending() != 0 {
@@ -89,12 +91,13 @@ pub trait EventLoop {
                         self.reregister(token);
                     }
                 }
-                Ok(None) => {
-                    // spurious write
-                }
-                Err(_) => {
-                    // some error writing
-                    self.handle_error(token);
+                Err(e) => {
+                    if e.kind() == ErrorKind::WouldBlock {
+                        return;
+                    } else {
+                        // some error writing
+                        self.handle_error(token);
+                    }
                 }
             }
         } else {

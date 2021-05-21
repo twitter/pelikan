@@ -113,10 +113,10 @@ impl Session {
                 }
                 Err(e) => {
                     if e.kind() == ErrorKind::WouldBlock {
-                        // check if we blocked on the first read or on a
-                        // subsequent read. This is just an easy way to
-                        // differentiate between HUP on first read and block on
-                        // first read.
+                        // check if we blocked on first read or subsequent read.
+                        // if blocked on a subsequent read, we stop reading and
+                        // allow the function to return the number of bytes read
+                        // until now.
                         if total_bytes == 0 {
                             return Ok(None);
                         } else {
@@ -131,23 +131,6 @@ impl Session {
         }
         increment_counter_by!(&Stat::SessionRecvByte, total_bytes as u64);
         Ok(Some(total_bytes))
-    }
-
-    /// Flush the session buffer to the stream
-    pub fn flush(&mut self) -> Result<Option<usize>, std::io::Error> {
-        increment_counter!(&Stat::SessionSend);
-        match self.stream.write((self.write_buffer).borrow()) {
-            Ok(0) => Ok(Some(0)),
-            Ok(bytes) => {
-                increment_counter_by!(&Stat::SessionSendByte, bytes as u64);
-                self.write_buffer.advance(bytes);
-                Ok(Some(bytes))
-            }
-            Err(e) => {
-                increment_counter!(&Stat::SessionSendEx);
-                Err(e)
-            }
-        }
     }
 
     /// Get the token which is used with the event loop
@@ -218,6 +201,18 @@ impl Write for Session {
     }
 
     fn flush(&mut self) -> Result<(), std::io::Error> {
-        Ok(())
+        increment_counter!(&Stat::SessionSend);
+        match self.stream.write((self.write_buffer).borrow()) {
+            Ok(0) => Ok(()),
+            Ok(bytes) => {
+                increment_counter_by!(&Stat::SessionSendByte, bytes as u64);
+                self.write_buffer.advance(bytes);
+                Ok(())
+            }
+            Err(e) => {
+                increment_counter!(&Stat::SessionSendEx);
+                Err(e)
+            }
+        }
     }
 }
