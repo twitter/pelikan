@@ -85,7 +85,7 @@ fn trailing_whitespace() {
 #[test]
 fn invalid() {
     // invalid
-    for request in &["get \r\n", "get this     is    malformed\r\n"] {
+    for request in &["get \r\n", "get this     is    malformed\r\n", "get\r\n"] {
         if let Err(e) = MemcacheRequest::parse(request.as_bytes()) {
             if e != ParseError::Invalid {
                 panic!("invalid parse result");

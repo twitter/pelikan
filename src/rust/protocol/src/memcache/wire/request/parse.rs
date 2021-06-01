@@ -32,7 +32,7 @@ fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
             if let Some(cmd_end) = single_byte.position(|w| w == b" ") {
                 command = MemcacheCommand::try_from(&buffer[0..cmd_end])?;
             } else {
-                return Err(ParseError::UnknownCommand);
+                return Err(ParseError::Invalid);
             }
         } else {
             return Err(ParseError::Incomplete);
