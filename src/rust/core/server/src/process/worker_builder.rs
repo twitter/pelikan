@@ -21,10 +21,13 @@ where
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {
+    /// Used to create two or more `worker` threads in addition to a shared
+    /// `storage` thread.
     Multi {
         storage: StorageWorker<Storage, Request, Response>,
         workers: Vec<MultiWorker<Storage, Request, Response>>,
     },
+    /// Used to create a single `worker` thread with thread-local storage.
     Single {
         worker: SingleWorker<Storage, Request, Response>,
     },

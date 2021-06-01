@@ -7,7 +7,57 @@
 //!
 //! # Thread Model
 //! The Pelikan cache servers are comprised of multiple threads which allow us
-//! to separate the control and data planes.
+//! to separate the control and data planes. There are two distinct thread
+//! models, one which is used for a single worker thread and then a expanded
+//! model when multiple workers are configured. For a single worker we
+//! specialize by leaving the cache storage as thread-local. For multiple
+//! workers, the cache storage is handled in its own `storage` thread.
+//!
+//! Single worker thread model:
+//! ```text
+//! ┌──────────┐         ┌──────────┐
+//! │  admin   │         │ listener │
+//! │          │         │          │
+//! │  :9999   │         │  :12321  │
+//! └──────────┘         └──────────┘
+//!                            │
+//!       ┌────────────────────┘
+//!       │
+//!       ▼
+//! ┌──────────┐        ┌ ─ ─ ─ ─ ─
+//! │          │                   │─
+//! │  worker  │◀──────▶│  client    │─
+//! │          │                   │   │
+//! └──────────┘        └ ─ ─ ─ ─ ─  │
+//!                       └ ─ ─ ─ ─ ─  │
+//!                         └ ─ ─ ─ ─ ─
+//! ```
+//!
+//! Multiple worker thread model:
+//! ```text
+//! ┌──────────┐                 ┌──────────┐
+//! │  admin   │                 │ listener │
+//! │          │                 │          │
+//! │  :9999   │                 │  :12321  │
+//! └──────────┘                 └──────────┘
+//!                                    │
+//!                            ┌───────┴───────┐
+//!                            │               │
+//!                            ▼               ▼
+//! ┌ ─ ─ ─ ─ ─          ┌──────────┐    ┌──────────┐        ┌ ─ ─ ─ ─ ─
+//!            │─        │          │    │          │                   │─
+//! │  client   ◀┼──────▶│  worker  │    │  worker  │◀──────▶│  client    │─
+//!            │   │     │          │    │          │                   │   │
+//! └ ─ ─ ─ ─ ─  │       └──────────┘    └──────────┘        └ ─ ─ ─ ─ ─  │
+//!   └ ─ ─ ─ ─ ─  │           ▲               ▲               └ ─ ─ ─ ─ ─  │
+//!     └ ─ ─ ─ ─ ─            └───────┬───────┘                 └ ─ ─ ─ ─ ─
+//!                                    ▼
+//!                              ┌──────────┐
+//!                              │          │
+//!                              │ storage  │
+//!                              │          │
+//!                              └──────────┘
+//! ```
 //!
 //! ## Control Plane
 //! The control plane is handled by a single `admin` thread. This thread is
