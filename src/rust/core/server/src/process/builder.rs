@@ -4,6 +4,7 @@
 
 use super::*;
 use crate::threads::*;
+use crate::THREAD_PREFIX;
 use config::AdminConfig;
 use config::ServerConfig;
 use config::TlsConfig;
@@ -12,9 +13,7 @@ use entrystore::EntryStore;
 use protocol::{Compose, Execute, Parse};
 use queues::QueuePairs;
 
-const THREAD_PREFIX: &str = "pelikan";
-
-/// A structure which represents a twemcache instance which is not yet running.
+/// A builder type for a Pelikan cache process.
 pub struct ProcessBuilder<Storage, Request, Response>
 where
     Storage: Execute<Request, Response> + EntryStore + Send,
@@ -33,7 +32,7 @@ where
     Request: Parse + std::marker::Send,
     Response: Compose + std::marker::Send,
 {
-    /// Creates a new `TwemcacheBuilder` with an optional config file.
+    /// Creates a new `ProcessBuilder` with an optional config file.
     ///
     /// This function will terminate the program execution if there are any
     /// issues encountered while initializing the components.
@@ -84,6 +83,7 @@ where
         }
     }
 
+    // Creates a multi-worker builder
     fn multi_worker(
         worker_config: &WorkerConfig,
         storage: Storage,
@@ -107,6 +107,7 @@ where
         WorkerBuilder::Multi { storage, workers }
     }
 
+    // Creates a single-worker builder
     fn single_worker(
         worker_config: &WorkerConfig,
         storage: Storage,
@@ -120,9 +121,9 @@ where
         WorkerBuilder::Single { worker }
     }
 
-    /// Converts the `TwemcacheBuilder` to a running `Twemcache` by spawning
-    /// the threads for each component. Returns a `Twemcache` which may be used
-    /// to block until the threads have exited or trigger a shutdown.
+    /// Converts the `ProcessBuilder` to a running `Process` by spawning the
+    /// threads for each component. Returns a `Process` which may be used to
+    /// block until the threads have exited or trigger a shutdown.
     pub fn spawn(mut self) -> Process {
         // get message senders for each component
         let mut signal_queue = QueuePairs::new(None);
@@ -152,7 +153,6 @@ where
                 .unwrap(),
         );
 
-        // return a `Twemcache`
         Process {
             threads,
             signal_queue,

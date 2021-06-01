@@ -6,12 +6,13 @@ mod builder;
 mod worker_builder;
 
 pub use builder::ProcessBuilder;
+pub use worker_builder::WorkerBuilder;
+
 use common::signal::Signal;
 use queues::QueuePairs;
 use std::thread::JoinHandle;
-pub use worker_builder::WorkerBuilder;
 
-/// A structure which represents a running twemcache.
+/// A structure which represents a running Pelikan cache process.
 ///
 /// Note: for long-running daemon, be sure to call `wait()` on this structure to
 /// block the process until the threads terminate. For use within tests, be sure
@@ -22,8 +23,8 @@ pub struct Process {
 }
 
 impl Process {
-    /// Attempts to gracefully shutdown the `Twemcache` by sending a shutdown
-    /// to each thread and then waiting to join those threads.
+    /// Attempts to gracefully shutdown the `Process` by sending a shutdown to
+    /// each thread and then waiting to join those threads.
     ///
     /// Will terminate ungracefully if it encounters an error in sending a
     /// shutdown to any of the threads.

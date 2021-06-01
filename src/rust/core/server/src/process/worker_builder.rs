@@ -3,6 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::threads::*;
+use crate::THREAD_PREFIX;
 use common::signal::Signal;
 use entrystore::EntryStore;
 use mio::Waker;
@@ -12,9 +13,8 @@ use session::Session;
 use std::sync::Arc;
 use std::thread::JoinHandle;
 
-const THREAD_PREFIX: &str = "pelikan";
-
-/// Wraps specialization of launching single or multi-threaded worker(s)
+/// A builder for worker threads which abstracts the differences between single
+/// and multi worker processes.
 pub enum WorkerBuilder<Storage, Request, Response>
 where
     Request: Parse,
@@ -37,6 +37,7 @@ where
     Response: Compose + Send,
     Storage: Execute<Request, Response> + EntryStore + Send,
 {
+    /// Return the session queues for all the workers.
     pub fn session_queues(&mut self, waker: Arc<Waker>) -> Vec<QueuePair<Session, ()>> {
         match self {
             Self::Single { worker } => {
@@ -49,6 +50,7 @@ where
         }
     }
 
+    /// Return the signal queues for all the workers.
     pub fn signal_queues(&mut self) -> Vec<QueuePair<Signal, ()>> {
         let mut senders = Vec::new();
         match self {
@@ -65,6 +67,7 @@ where
         senders
     }
 
+    /// Launch all the threads.
     pub fn launch_threads(self) -> Vec<JoinHandle<()>> {
         match self {
             Self::Single { mut worker } => {
