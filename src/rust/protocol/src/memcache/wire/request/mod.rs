@@ -5,6 +5,9 @@
 mod command;
 mod parse;
 
+#[cfg(test)]
+mod test;
+
 use crate::memcache::MemcacheEntry;
 pub use command::MemcacheCommand;
 
@@ -13,6 +16,7 @@ pub const NOREPLY: &str = "noreply";
 pub type Key = Box<[u8]>;
 pub type Keys = Box<[Key]>;
 
+#[derive(Debug)]
 pub enum MemcacheRequest {
     Get { keys: Keys },
     Gets { keys: Keys },

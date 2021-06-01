@@ -57,24 +57,41 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     loop {
         if let Some(key_end) = single_byte.position(|w| w == b" ") {
             if key_end < line_end {
-                keys.push(buffer[previous..key_end].to_vec().into_boxed_slice());
-                previous = key_end + 1;
+                if key_end > 0 {
+                    keys.push(
+                        buffer[previous..(previous + key_end)]
+                            .to_vec()
+                            .into_boxed_slice(),
+                    );
+                } else {
+                    return Err(ParseError::Invalid);
+                }
+                previous += key_end + 1;
             } else {
-                keys.push(buffer[previous..line_end].to_vec().into_boxed_slice());
+                if line_end - previous > 0 {
+                    keys.push(buffer[previous..line_end].to_vec().into_boxed_slice());
+                }
                 break;
             }
         } else {
-            keys.push(buffer[previous..line_end].to_vec().into_boxed_slice());
+            if line_end - previous > 0 {
+                keys.push(buffer[previous..line_end].to_vec().into_boxed_slice());
+            }
             break;
         }
     }
 
-    let consumed = line_end + CRLF.len();
+    if keys.is_empty() {
+        Err(ParseError::Invalid)
+    } else {
+        let consumed = line_end + CRLF.len();
 
-    let message = MemcacheRequest::Get {
-        keys: keys.into_boxed_slice(),
-    };
-    Ok(ParseOk { message, consumed })
+        let message = MemcacheRequest::Get {
+            keys: keys.into_boxed_slice(),
+        };
+
+        Ok(ParseOk { message, consumed })
+    }
 }
 
 fn parse_gets(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {

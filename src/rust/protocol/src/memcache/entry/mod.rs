@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct MemcacheEntry {
     pub key: Box<[u8]>,
     pub value: Box<[u8]>,
