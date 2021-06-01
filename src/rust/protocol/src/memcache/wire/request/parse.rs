@@ -154,10 +154,15 @@ fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         let bytes_end = if let Some(next_space) = next_space {
             // if we have both, bytes_end is before the earlier of the two
             if next_space < first_crlf {
-                // validate that noreply isn't malformed
-                if &buffer[(next_space + 1)..(first_crlf)] == NOREPLY.as_bytes() {
-                    noreply = true;
+                if first_crlf - next_space == 1 {
                     next_space
+                } else if first_crlf - (next_space + 1) == NOREPLY.len() || first_crlf - (next_space + 1) == NOREPLY.len() + 1 {
+                    if &buffer[(next_space + 1)..=(next_space + NOREPLY.len())] == NOREPLY.as_bytes() {
+                        noreply = true;
+                        next_space
+                    } else {
+                        return Err(ParseError::Invalid);
+                    }
                 } else {
                     return Err(ParseError::Invalid);
                 }
@@ -316,7 +321,7 @@ fn parse_cas(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         if bytes > MAX_BYTES {
             return Err(ParseError::Invalid);
         }
-        
+
         let consumed = first_crlf + CRLF.len() + bytes + CRLF.len();
         if buffer.len() >= consumed {
             // let buffer = buffer.split_to(consumed);

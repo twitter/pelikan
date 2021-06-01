@@ -58,6 +58,44 @@ fn gets() {
 }
 
 #[test]
+fn set() {
+    // keysets which are used for requests
+    let keys = vec![
+        "0",
+        "1",
+        "espresso",
+    ];
+
+    let values = vec![
+        "0",
+        "1",
+        "coffee is important",
+    ];
+
+    for key in &keys {
+        for value in &values {
+            let request = MemcacheRequest::parse(format!("set {} 0 0 {}\r\n{}\r\n", key, value.len(), value).as_bytes()).expect("parse failure");
+            if let MemcacheRequest::Set { entry, noreply } = request.message {
+                assert_eq!(entry.key(), key.as_bytes());
+                assert_eq!(entry.value(), value.as_bytes());
+                assert!(!noreply);
+            } else {
+                panic!("invalid parse result");
+            }
+        }
+    }
+
+    let request = MemcacheRequest::parse(b"set 0 0 0 1 noreply\r\n0\r\n").expect("parse failure");
+    if let MemcacheRequest::Set { entry, noreply } = request.message {
+        assert_eq!(entry.key(), b"0");
+        assert_eq!(entry.value(), b"0");
+        assert!(noreply);
+    } else {
+        panic!("invalid parse result");
+    }
+}
+
+#[test]
 fn incomplete() {
     // incomplete
     if let Err(e) = MemcacheRequest::parse(b"get partial") {
@@ -71,12 +109,32 @@ fn incomplete() {
 
 #[test]
 fn trailing_whitespace() {
-    // trailing whitespace
+    // get
     let request = MemcacheRequest::parse(b"get key \r\n").expect("parse failure");
     if let MemcacheRequest::Get { keys } = request.message {
         println!("keys: {:?}", keys);
         assert_eq!(keys.len(), 1);
         assert_eq!(keys[0].as_ref(), b"key");
+    } else {
+        panic!("invalid parse result");
+    }
+
+    // set
+    let request = MemcacheRequest::parse(b"set 0 0 0 1 \r\n1\r\n").expect("parse failure");
+    if let MemcacheRequest::Set { entry, noreply } = request.message {
+        assert_eq!(entry.key(), b"0");
+        assert_eq!(entry.value(), b"1");
+        assert!(!noreply);
+    } else {
+        panic!("invalid parse result");
+    }
+
+    // set + noreply
+    let request = MemcacheRequest::parse(b"set 0 0 0 1 noreply \r\n1\r\n").expect("parse failure");
+    if let MemcacheRequest::Set { entry, noreply } = request.message {
+        assert_eq!(entry.key(), b"0");
+        assert_eq!(entry.value(), b"1");
+        assert!(noreply);
     } else {
         panic!("invalid parse result");
     }
