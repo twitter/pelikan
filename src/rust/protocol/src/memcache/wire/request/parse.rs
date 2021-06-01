@@ -197,19 +197,24 @@ fn parse_set(buffer: &[u8], cas: bool) -> Result<ParseOk<MemcacheRequest>, Parse
     let cas_end = if !cas {
         None
     } else if let Some(next_space) = parse_state.next_space() {
-        if line_end - next_space == 1 {
-            Some(next_space)
-        } else if line_end - (next_space + 1) == NOREPLY.len()
-            || line_end - (next_space + 1) == NOREPLY.len() + 1
-        {
-            if &buffer[(next_space + 1)..=(next_space + NOREPLY.len())] == NOREPLY.as_bytes() {
-                noreply = true;
+        let next_space = next_space + bytes_end + 1;
+        if line_end > next_space {
+            if line_end - next_space == 1 {
                 Some(next_space)
+            } else if line_end - (next_space + 1) == NOREPLY.len()
+                || line_end - (next_space + 1) == NOREPLY.len() + 1
+            {
+                if &buffer[(next_space + 1)..=(next_space + NOREPLY.len())] == NOREPLY.as_bytes() {
+                    noreply = true;
+                    Some(next_space)
+                } else {
+                    return Err(ParseError::Invalid);
+                }
             } else {
                 return Err(ParseError::Invalid);
             }
         } else {
-            return Err(ParseError::Invalid);
+            Some(line_end)
         }
     } else {
         Some(line_end)
