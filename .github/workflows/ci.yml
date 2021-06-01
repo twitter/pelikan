@@ -21,7 +21,7 @@ jobs:
     - name: Run
       run: bash ci/run.sh
   linux_rust:
-    name: bionic / gcc-7 / cargo build
+    name: bionic / cargo build
     runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@v2
@@ -30,7 +30,7 @@ jobs:
     - name: Run
       run: bash ci/cargo.sh
   linux_fuzz:
-    name: bionic / gcc-7 / cargo build
+    name: bionic / cargo fuzz
     runs-on: ubuntu-18.04
     env:
       CC: gcc
