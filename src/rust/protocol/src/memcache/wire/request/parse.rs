@@ -7,6 +7,8 @@ use crate::*;
 
 use std::convert::TryFrom;
 
+const MAX_BYTES: usize = usize::MAX / 2;
+
 impl Parse for MemcacheRequest {
     fn parse(buffer: &[u8]) -> Result<ParseOk<Self>, ParseError> {
         match parse_command(buffer)? {
@@ -68,13 +70,13 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
                 }
                 previous += key_end + 1;
             } else {
-                if line_end - previous > 0 {
+                if line_end > previous {
                     keys.push(buffer[previous..line_end].to_vec().into_boxed_slice());
                 }
                 break;
             }
         } else {
-            if line_end - previous > 0 {
+            if line_end > previous {
                 keys.push(buffer[previous..line_end].to_vec().into_boxed_slice());
             }
             break;
@@ -175,6 +177,9 @@ fn parse_set(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         if let Ok(Ok(bytes)) =
             std::str::from_utf8(&buffer[(expiry_end + 1)..bytes_end]).map(|v| v.parse::<usize>())
         {
+            if bytes > MAX_BYTES {
+                return Err(ParseError::Invalid);
+            }
             let consumed = first_crlf + CRLF.len() + bytes + CRLF.len();
             if buffer.len() >= consumed {
                 let key = buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice();
@@ -308,6 +313,10 @@ fn parse_cas(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     if let Ok(Ok(cas)) =
         std::str::from_utf8(&buffer[(bytes_end + 1)..cas_end]).map(|v| v.parse::<u64>())
     {
+        if bytes > MAX_BYTES {
+            return Err(ParseError::Invalid);
+        }
+        
         let consumed = first_crlf + CRLF.len() + bytes + CRLF.len();
         if buffer.len() >= consumed {
             // let buffer = buffer.split_to(consumed);
