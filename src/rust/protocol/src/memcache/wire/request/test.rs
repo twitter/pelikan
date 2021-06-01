@@ -60,21 +60,15 @@ fn gets() {
 #[test]
 fn set() {
     // keysets which are used for requests
-    let keys = vec![
-        "0",
-        "1",
-        "espresso",
-    ];
+    let keys = vec!["0", "1", "espresso"];
 
-    let values = vec![
-        "0",
-        "1",
-        "coffee is important",
-    ];
+    let values = vec!["0", "1", "coffee is important"];
 
     for key in &keys {
         for value in &values {
-            let request = MemcacheRequest::parse(format!("set {} 0 0 {}\r\n{}\r\n", key, value.len(), value).as_bytes()).expect("parse failure");
+            let request_str = format!("set {} 0 0 {}\r\n{}\r\n", key, value.len(), value);
+            println!("request: {}", request_str);
+            let request = MemcacheRequest::parse(request_str.as_bytes()).expect("parse failure");
             if let MemcacheRequest::Set { entry, noreply } = request.message {
                 assert_eq!(entry.key(), key.as_bytes());
                 assert_eq!(entry.value(), value.as_bytes());
