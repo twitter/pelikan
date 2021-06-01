@@ -80,7 +80,7 @@ check_function_exists(accept4 HAVE_ACCEPT4)
 # this has to be set _after_ the above checks
 configure_file(
   "${PROJECT_SOURCE_DIR}/config.h.in"
-  "${PROJECT_BINARY_DIR}/config.h")
+  "${PROJECT_SOURCE_DIR}/include/config.h")
 
 
 ##########################

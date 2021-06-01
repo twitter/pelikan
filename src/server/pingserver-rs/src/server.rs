@@ -3,12 +3,13 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::event_loop::EventLoop;
+use rustcommon_fastmetrics::metrics;
+
 use crate::session::*;
 use crate::*;
 
+use boring::ssl::{HandshakeError, Ssl, SslContext};
 use mio::net::TcpListener;
-
-use std::convert::TryInto;
 
 /// A `Server` is used to bind to a given socket address and accept new
 /// sessions. These sessions are moved onto a MPSC queue, where they can be
@@ -19,9 +20,8 @@ pub struct Server {
     listener: TcpListener,
     poll: Poll,
     sender: SyncSender<Session>,
-    tls_config: Option<Arc<rustls::ServerConfig>>,
+    ssl_context: Option<SslContext>,
     sessions: Slab<Session>,
-    metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
     message_receiver: Receiver<Message>,
     message_sender: SyncSender<Message>,
 }
@@ -33,7 +33,6 @@ impl Server {
     /// `Session`s over the `sender`
     pub fn new(
         config: Arc<PingserverConfig>,
-        metrics: Arc<Metrics<AtomicU64, AtomicU64>>,
         sender: SyncSender<Session>,
     ) -> Result<Self, std::io::Error> {
         let addr = config.server().socket_addr().map_err(|e| {
@@ -49,7 +48,7 @@ impl Server {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
 
-        let tls_config = crate::common::load_tls_config(&config)?;
+        let ssl_context = crate::common::ssl_context(&config)?;
 
         let (message_sender, message_receiver) = sync_channel(128);
 
@@ -72,9 +71,8 @@ impl Server {
             listener,
             poll,
             sender,
-            tls_config,
+            ssl_context,
             sessions,
-            metrics,
             message_sender,
             message_receiver,
         })
@@ -92,83 +90,75 @@ impl Server {
 
         // repeatedly run accepting new connections and moving them to the worker
         loop {
-            let _ = self.metrics.increment_counter(&Stat::ServerEventLoop, 1);
+            increment_counter!(&Stat::ServerEventLoop);
             if self.poll.poll(&mut events, timeout).is_err() {
                 error!("Error polling server");
             }
-            let _ = self.metrics.increment_counter(
-                &Stat::ServerEventTotal,
-                events.iter().count().try_into().unwrap(),
-            );
+            increment_counter_by!(&Stat::ServerEventTotal, events.iter().count() as u64,);
 
             // handle all events
             for event in events.iter() {
                 if event.token() == Token(LISTENER_TOKEN) {
                     while let Ok((stream, addr)) = self.listener.accept() {
-                        if let Some(tls_config) = &self.tls_config {
-                            let mut session = Session::new(
-                                addr,
-                                stream,
-                                State::Handshaking,
-                                Some(rustls::ServerSession::new(&tls_config)),
-                                self.metrics.clone(),
-                            );
-                            let s = self.sessions.vacant_entry();
-                            let token = s.key();
-                            session.set_token(Token(token));
-                            if session.register(&self.poll).is_ok() {
-                                s.insert(session);
-                            } else {
-                                let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                        // handle TLS if it is configured
+                        if let Some(ssl_context) = &self.ssl_context {
+                            match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
+                                // handle case where we have a fully-negotiated
+                                // TLS stream on accept()
+                                Ok(Ok(tls_stream)) => {
+                                    let session = Session::tls(addr, tls_stream);
+                                    trace!("accepted new session: {}", addr);
+                                    if self.sender.send(session).is_err() {
+                                        error!("error sending session to worker");
+                                        let _ = increment_counter!(&Stat::TcpAcceptEx);
+                                    }
+                                }
+                                // handle case where further negotiation is
+                                // needed
+                                Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
+                                    let mut session = Session::handshaking(addr, tls_stream);
+                                    let s = self.sessions.vacant_entry();
+                                    let token = s.key();
+                                    session.set_token(Token(token));
+                                    if session.register(&self.poll).is_ok() {
+                                        s.insert(session);
+                                    } else {
+                                        let _ = increment_counter!(&Stat::TcpAcceptEx);
+                                    }
+                                }
+                                // some other error has occurred and we drop the
+                                // stream
+                                Ok(Err(_)) | Err(_) => {
+                                    increment_counter!(&Stat::TcpAcceptEx);
+                                }
                             }
                         } else {
-                            let session = Session::new(
-                                addr,
-                                stream,
-                                State::Established,
-                                None,
-                                self.metrics.clone(),
-                            );
+                            let session = Session::plain(addr, stream);
                             trace!("accepted new session: {}", addr);
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
-                                let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                increment_counter!(&Stat::TcpAcceptEx);
                             }
                         };
                     }
                 } else {
+                    // handle plain sessions
                     let token = event.token();
                     trace!("got event for session: {}", token.0);
 
                     // handle error events first
                     if event.is_error() {
-                        let _ = self.metrics().increment_counter(&Stat::ServerEventError, 1);
+                        increment_counter!(&Stat::ServerEventError);
                         self.handle_error(token);
                     }
 
-                    // handle write events before read events to reduce write
-                    // buffer growth if there is also a readable event
-                    if event.is_writable() {
-                        let _ = self.metrics.increment_counter(&Stat::ServerEventWrite, 1);
-                        self.do_write(token);
-                    }
-
-                    // read events are handled last
-                    if event.is_readable() {
-                        let _ = self.metrics.increment_counter(&Stat::ServerEventRead, 1);
-                        let _ = self.do_read(token);
-                    }
-
-                    if let Some(handshaking) =
-                        self.sessions.get(token.0).map(|v| v.is_handshaking())
-                    {
-                        if !handshaking {
+                    if let Some(session) = self.sessions.get_mut(token.0) {
+                        if session.do_handshake().is_ok() {
                             let mut session = self.sessions.remove(token.0);
                             let _ = session.deregister(&self.poll);
-                            session.set_state(State::Established);
                             if self.sender.send(session).is_err() {
                                 error!("error sending session to worker");
-                                let _ = self.metrics().increment_counter(&Stat::TcpAcceptEx, 1);
+                                increment_counter!(&Stat::TcpAcceptEx);
                             }
                         }
                     }
@@ -176,6 +166,7 @@ impl Server {
             }
 
             // poll queue to receive new messages
+            #[allow(clippy::never_loop)]
             while let Ok(message) = self.message_receiver.try_recv() {
                 match message {
                     Message::Shutdown => {
@@ -192,11 +183,7 @@ impl Server {
 }
 
 impl EventLoop for Server {
-    fn metrics(&self) -> &Arc<Metrics<AtomicU64, AtomicU64>> {
-        &self.metrics
-    }
-
-    fn get_mut_session<'a>(&'a mut self, token: Token) -> Option<&'a mut Session> {
+    fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
         self.sessions.get_mut(token.0)
     }
 

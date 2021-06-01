@@ -25,8 +25,10 @@ CONN_OVERHEAD = 33 * KB  # 2 16KiB buffers, one channel, and stream overhead
 SAFETY_BUF = 128  # in MB
 BASE_OVERHEAD = 10  # in MB
 KQPS = 30  # much lower than single-instance max, picked to scale to 10 jobs/host
-HASH_OVERHEAD = {'twemcache': 8, 'slimcache': 0}
-ITEM_OVERHEAD = {'twemcache': 40 + 8, 'slimcache': 6 + 8}  # ITEM_HDR_SIZE + CAS
+# segcache needs 8/7*8 byte per object for hash table, considering
+# hash bucket overflow, give it 12, this should be sufficient for hash table load 1
+HASH_OVERHEAD = {'twemcache': 8, 'slimcache': 0, 'segcache': 12}
+ITEM_OVERHEAD = {'twemcache': 40 + 8, 'slimcache': 6 + 8, 'segcache': 5}  # ITEM_HDR_SIZE + CAS
 KEYVAL_ALIGNMENT = 8  # in bytes
 NITEM_ALIGNMENT = 512  # so memory allocation is always 4K (page size) aligned
 
@@ -48,6 +50,11 @@ def hash_parameters(nkey, runnable):
 
 def calculate(args):
   """calculate job configuration according to requirements.
+     For segcache, returns a dict with:
+      cpu, ram, disk,
+      hash_power, seg_mem,
+      instance, host_limit, rack_limit,
+      memory_bound
      For twemcache, returns a dict with:
       cpu, ram, disk,
       hash_power, slab_mem,
@@ -110,7 +117,7 @@ def calculate(args):
 
   # recalculate hash parameters with the final job count
   nkey_per_shard = 1.0 * (sorted_ram[index] * GB - ram_fixed * MB - ram_conn * MB) / item_size
-  # only used by twemcache
+  # used by twemcache and segcache
   hash_power, ram_hash = hash_parameters(nkey_per_shard, args.runnable)
   slab_mem = sorted_ram[index] * GB / MB - ram_fixed - ram_conn - ram_hash
   # only used by slimcache
@@ -130,6 +137,9 @@ def calculate(args):
   if args.runnable == 'twemcache':
     ret['hash_power'] = hash_power
     ret['slab_mem'] = slab_mem
+  elif args.runnable == 'segcache':
+      ret['hash_power'] = hash_power
+      ret['seg_mem'] = slab_mem
   elif args.runnable == 'slimcache':
     ret['item_size'] = item_size
     ret['nitem'] = nitem
@@ -194,7 +204,7 @@ def slimcache_format_output(config):
 parser = argparse.ArgumentParser(
   formatter_class=argparse.RawDescriptionHelpFormatter,
   description=textwrap.dedent("""
-    This script calculates resource requirement of a pelikan cluster (twemcache or slimcache)
+    This script calculates resource requirement of a pelikan cluster (twemcache, segcache or slimcache)
     based on input. It has to be run from the top level directory of source.\n
 
     Optional arguments that probably should be overwritten:
@@ -222,8 +232,12 @@ parser.add_argument('--ram', nargs='+', type=int, default=RAM_CANDIDATES,
 
 if __name__ == "__main__":
   # add runnable as a positional option instead of subparser (as in aurora.py) to avoid import
-  parser.add_argument('runnable', choices=['twemcache', 'slimcache'], help='flavor of backend')
-  format_output = {'twemcache': twemcache_format_output, 'slimcache': slimcache_format_output}
+  parser.add_argument('runnable',
+                      choices=['twemcache', 'segcache', 'slimcache'],
+                      help='flavor of backend')
+  format_output = {'twemcache': twemcache_format_output,
+                   'segcache': twemcache_format_output,
+                   'slimcache': slimcache_format_output}
   args = parser.parse_args()
   print(format_input(args))
   config = calculate(args)

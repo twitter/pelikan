@@ -86,6 +86,8 @@ struct response {
     uint64_t                vcas;       /* value for cas */
     struct metric           *met;       /* metric, for reporting stats */
 
+    void                    *item;      /* pointer to item, used by segcache */
+
     uint32_t                flag;
     uint32_t                vlen;
 

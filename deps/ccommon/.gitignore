@@ -25,6 +25,7 @@
 # Automatically generated files
 COPYING
 INSTALL
+include/config.h
 
 # Temporary
 *.swp
