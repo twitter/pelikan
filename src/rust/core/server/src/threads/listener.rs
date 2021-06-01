@@ -30,8 +30,8 @@ pub const WAKER_TOKEN: usize = usize::MAX - 1;
 pub const LISTENER_TOKEN: usize = usize::MAX;
 
 /// A `Server` is used to bind to a given socket address and accept new
-/// sessions. These sessions are moved onto a MPSC queue, where they can be
-/// handled by a `Worker`.
+/// sessions. Fully negotiated sessions are then moved into a `Worker` thread
+/// over a queue.
 pub struct Listener {
     addr: SocketAddr,
     listener: TcpListener,
@@ -46,8 +46,8 @@ pub struct Listener {
 }
 
 impl Listener {
-    /// Creates a new `Listener` that will bind to a given `addr` and push new
-    /// `Session`s over the `sender`
+    /// Creates a new `Listener` from a `ServerConfig` and an optional
+    /// `SslContext`.
     pub fn new(
         config: &ServerConfig,
         ssl_context: Option<SslContext>,
@@ -202,8 +202,8 @@ impl Listener {
         }
     }
 
-    /// Runs the `Server` in a loop, accepting new sessions and moving them to
-    /// the queue
+    /// Runs the `Listener` in a loop, accepting new sessions and moving them to
+    /// a worker queue.
     pub fn run(&mut self) {
         info!("running server on: {}", self.addr);
 
@@ -246,14 +246,19 @@ impl Listener {
         }
     }
 
+    /// Returns a copy of the `Waker` for this thread which can be used to
+    /// signal that there are pending messages on a queue.
     pub fn waker(&self) -> Arc<Waker> {
         self.waker.clone()
     }
 
+    /// Register a `Worker`'s `Session` queue with this thread. Established
+    /// sessions will be sent to a worker over its `QueuePair`.
     pub fn add_session_queue(&mut self, queue: QueuePair<Session, ()>) {
         self.session_queue.add_pair(queue);
     }
 
+    /// Get a `QueuePair` for sending `Signal`s to this thread.
     pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
         self.signal_queue.new_pair(128, None)
     }
@@ -277,7 +282,6 @@ impl EventLoop for Listener {
         }
     }
 
-    /// Reregister the session given its token
     fn reregister(&mut self, token: Token) {
         trace!("reregistering session: {}", token.0);
         if let Some(session) = self.sessions.get_mut(token.0) {
