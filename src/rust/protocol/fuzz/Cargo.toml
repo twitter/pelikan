@@ -30,3 +30,9 @@ name = "memcache"
 path = "fuzz_targets/memcache.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "admin"
+path = "fuzz_targets/admin.rs"
+test = false
+doc = false

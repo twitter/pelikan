@@ -6,8 +6,8 @@
 use libfuzzer_sys::fuzz_target;
 
 use protocol::Parse;
-use protocol::memcache::MemcacheRequest;
+use protocol::admin::AdminRequest;
 
 fuzz_target!(|data: &[u8]| {
-    let _ = MemcacheRequest::parse(data);
+    let _ = AdminRequest::parse(data);
 });

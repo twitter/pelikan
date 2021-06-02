@@ -9,6 +9,7 @@ use std::io::Write;
 
 pub mod admin;
 pub mod memcache;
+pub mod ping;
 
 pub const CRLF: &str = "\r\n";
 
