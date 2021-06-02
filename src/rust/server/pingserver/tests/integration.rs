@@ -5,8 +5,8 @@
 #[macro_use]
 extern crate rustcommon_logger;
 
-use config::TwemcacheConfig;
-use pelikan_segcache_rs::Segcache;
+use config::PingserverConfig;
+use pelikan_pingserver_rs::Pingserver;
 use rustcommon_logger::{Level, Logger};
 
 use std::io::{Read, Write};
@@ -22,7 +22,7 @@ fn main() {
         .expect("Failed to initialize logger");
 
     debug!("launching server");
-    let server = Segcache::new(TwemcacheConfig::default());
+    let server = Pingserver::new(PingserverConfig::default());
 
     // wait for server to startup. duration is chosen to be longer than we'd
     // expect startup to take in a slow ci environment.
@@ -31,71 +31,7 @@ fn main() {
     debug!("beginning tests");
     println!();
 
-    test("get empty (key: 0)", &[("get 0\r\n", Some("END\r\n"))]);
-    test("gets empty (key: 0)", &[("gets 0\r\n", Some("END\r\n"))]);
-    test(
-        "cas not found (key: 0)",
-        &[("cas 0 0 0 1 0\r\n0\r\n", Some("NOT_FOUND\r\n"))],
-    );
-    test(
-        "set value (key: 0)",
-        &[("set 0 0 0 1\r\n1\r\n", Some("STORED\r\n"))],
-    );
-    test(
-        "get value (key: 0)",
-        &[("get 0\r\n", Some("VALUE 0 0 1\r\n1\r\nEND\r\n"))],
-    );
-    test(
-        "gets value (key: 0)",
-        &[("gets 0\r\n", Some("VALUE 0 0 1 1\r\n1\r\nEND\r\n"))],
-    );
-    test(
-        "cas fail (key: 0)",
-        &[("cas 0 0 0 1 0\r\n1\r\n", Some("EXISTS\r\n"))],
-    );
-    test(
-        "cas success (key: 0)",
-        &[("cas 0 0 0 1 1\r\n1\r\n", Some("STORED\r\n"))],
-    );
-    test(
-        "add value (key: 0)",
-        &[("add 0 0 0 1\r\n2\r\n", Some("NOT_STORED\r\n"))],
-    );
-    test(
-        "add value (key: 1)",
-        &[("add 1 0 0 1\r\n2\r\n", Some("STORED\r\n"))],
-    );
-    test(
-        "get value (key: 0)",
-        &[("get 0\r\n", Some("VALUE 0 0 1\r\n1\r\nEND\r\n"))],
-    );
-    test(
-        "get value (key: 1)",
-        &[("get 1\r\n", Some("VALUE 1 0 1\r\n2\r\nEND\r\n"))],
-    );
-    test(
-        "replace value (key: 0)",
-        &[("replace 0 0 0 1\r\n2\r\n", Some("STORED\r\n"))],
-    );
-    test(
-        "replace value (key: 2)",
-        &[("replace 2 0 0 1\r\n2\r\n", Some("NOT_STORED\r\n"))],
-    );
-    test(
-        "get value (key: 0)",
-        &[("get 0\r\n", Some("VALUE 0 0 1\r\n2\r\nEND\r\n"))],
-    );
-    test("get value (key: 2)", &[("get 2\r\n", Some("END\r\n"))]);
-
-    // test storing and retrieving flags
-    test(
-        "set value (key: 3)",
-        &[("set 3 42 0 1\r\n1\r\n", Some("STORED\r\n"))],
-    );
-    test(
-        "get value (key: 3)",
-        &[("get 3\r\n", Some("VALUE 3 42 1\r\n1\r\nEND\r\n"))],
-    );
+    test("ping", &[("PING\r\n", Some("PONG\r\n"))]);
 
     // shutdown server and join
     info!("shutdown...");
