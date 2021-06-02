@@ -8,6 +8,9 @@ homepage = "https://pelikan.io"
 repository = "https://github.com/twitter/pelikan"
 license = "Apache-2.0"
 
+[features]
+debug = ["seg/debug"]
+
 [dependencies]
 config = { path = "../config" }
 protocol = { path = "../protocol" }

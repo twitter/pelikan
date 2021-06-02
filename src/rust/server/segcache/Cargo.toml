@@ -25,7 +25,7 @@ path = "benches/benchmark.rs"
 harness = false
 
 [features]
-# debug = ["segcache/debug"]
+debug = ["entrystore/debug"]
 
 [dependencies]
 backtrace = "0.3.56"
