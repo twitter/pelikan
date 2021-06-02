@@ -21,7 +21,7 @@ jobs:
     - name: Run
       run: bash ci/run.sh
   linux_rust:
-    name: bionic / cargo build
+    name: bionic / rust
     runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@v2
@@ -29,12 +29,24 @@ jobs:
       run: bash ci/before-install.sh
     - name: Run
       run: bash ci/cargo.sh
-  linux_fuzz:
-    name: bionic / cargo fuzz
+  fuzz_protocol_memcache:
+    name: fuzz protocol/memcache
     runs-on: ubuntu-18.04
     env:
-      CC: gcc
-      RUST_ENABLED: 1
+      CRATE_DIR: src/rust/protocol
+      FUZZ_TARGET: memcache
+    steps:
+    - uses: actions/checkout@v2
+    - name: Prepare
+      run: bash ci/before-install.sh
+    - name: Run
+      run: bash ci/cargo-fuzz.sh
+  fuzz_protocol_memcache:
+    name: fuzz protocol/admin
+    runs-on: ubuntu-18.04
+    env:
+      CRATE_DIR: src/rust/protocol
+      FUZZ_TARGET: admin
     steps:
     - uses: actions/checkout@v2
     - name: Prepare
@@ -52,7 +64,7 @@ jobs:
       continue-on-error: true
       run: bash ci/run.sh
   macos_rust:
-    name: macos / clang / cargo build
+    name: macos / rust
     runs-on: macos-10.15
     env:
       CC: clang
