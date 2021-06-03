@@ -62,22 +62,14 @@ impl Seg {
     fn get_ttl(&self, expiry: u32) -> u32 {
         match self.time_type {
             TimeType::Unix => {
-                let epoch = SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs() as u32;
-                expiry.wrapping_sub(epoch)
+                expiry.wrapping_sub(rustcommon_time::recent_unix())
             }
             TimeType::Delta => expiry,
             TimeType::Memcache => {
                 if expiry < 60 * 60 * 24 * 30 {
                     expiry
                 } else {
-                    let epoch = SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs() as u32;
-                    expiry.wrapping_sub(epoch)
+                    expiry.wrapping_sub(rustcommon_time::recent_unix())
                 }
             }
         }
