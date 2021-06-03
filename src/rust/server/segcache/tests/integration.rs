@@ -5,7 +5,7 @@
 #[macro_use]
 extern crate rustcommon_logger;
 
-use config::TwemcacheConfig;
+use config::SegcacheConfig;
 use pelikan_segcache_rs::Segcache;
 use rustcommon_logger::{Level, Logger};
 
@@ -22,7 +22,7 @@ fn main() {
         .expect("Failed to initialize logger");
 
     debug!("launching server");
-    let server = Segcache::new(TwemcacheConfig::default());
+    let server = Segcache::new(SegcacheConfig::default());
 
     // wait for server to startup. duration is chosen to be longer than we'd
     // expect startup to take in a slow ci environment.
