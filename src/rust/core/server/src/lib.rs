@@ -94,6 +94,7 @@ extern crate rustcommon_logger;
 #[macro_use]
 extern crate rustcommon_fastmetrics;
 
+mod poll;
 mod process;
 mod threads;
 

@@ -8,6 +8,7 @@
 //! session buffer.
 
 use super::EventLoop;
+use crate::poll::{Poll, WAKER_TOKEN};
 use common::signal::Signal;
 use config::WorkerConfig;
 use core::marker::PhantomData;
@@ -16,19 +17,16 @@ use entrystore::EntryStore;
 use metrics::Stat;
 use mio::event::Event;
 use mio::Events;
-use mio::Poll;
 use mio::Token;
 use mio::Waker;
 use protocol::{Compose, Execute, Parse, ParseError};
 use queues::QueuePair;
 use queues::QueuePairs;
 use session::Session;
-use slab::Slab;
 use std::convert::TryInto;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
 
-const WAKER_TOKEN: usize = usize::MAX;
 
 /// A `Worker` handles events on `Session`s
 pub struct SingleWorker<Storage, Request, Response> {
@@ -37,7 +35,6 @@ pub struct SingleWorker<Storage, Request, Response> {
     nevent: usize,
     timeout: Duration,
     session_queue: QueuePairs<(), Session>,
-    sessions: Slab<Session>,
     signal_queue: QueuePairs<(), Signal>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
@@ -55,11 +52,9 @@ where
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
-        let sessions = Slab::<Session>::new();
-        let waker = Arc::new(Waker::new(poll.registry(), Token(WAKER_TOKEN)).unwrap());
 
-        let session_queue = QueuePairs::new(Some(waker.clone()));
-        let signal_queue = QueuePairs::new(Some(waker));
+        let session_queue = QueuePairs::new(Some(poll.waker()));
+        let signal_queue = QueuePairs::new(Some(poll.waker()));
 
         Ok(Self {
             poll,
@@ -68,7 +63,6 @@ where
             storage,
             signal_queue,
             session_queue,
-            sessions,
             _request: PhantomData,
             _response: PhantomData,
         })
@@ -77,7 +71,6 @@ where
     /// Run the `Worker` in a loop, handling new session events
     pub fn run(&mut self) {
         let mut events = Events::with_capacity(self.nevent);
-        let timeout = Some(self.timeout);
 
         #[cfg(feature = "heap_dump")]
         let mut ops = 0;
@@ -90,7 +83,7 @@ where
             self.storage.expire();
 
             // get events with timeout
-            if self.poll.poll(&mut events, timeout).is_err() {
+            if self.poll.poll(&mut events, self.timeout).is_err() {
                 error!("Error polling");
             }
 
@@ -102,7 +95,7 @@ where
             // process all events
             for event in events.iter() {
                 match event.token() {
-                    Token(WAKER_TOKEN) => {
+                    WAKER_TOKEN => {
                         self.handle_new_sessions();
 
                         #[allow(clippy::never_loop)]
@@ -114,7 +107,7 @@ where
                             }
                         }
                     }
-                    Token(_) => {
+                    _ => {
                         self.handle_event(&event);
                     }
                 }
@@ -123,32 +116,19 @@ where
     }
 
     fn handle_new_sessions(&mut self) {
-        while let Ok(mut session) = self.session_queue.recv_from(0) {
+        while let Ok(session) = self.session_queue.recv_from(0) {
             let pending = session.read_pending();
             trace!("{} bytes pending in rx buffer for new session", pending);
 
             // reserve vacant slab
-            let session_entry = self.sessions.vacant_entry();
-            let token = Token(session_entry.key());
-
-            // set client token to match slab
-            session.set_token(token);
-
-            // register tcp stream and insert into slab if successful
-            match session.register(&self.poll) {
-                Ok(_) => {
-                    session_entry.insert(session);
-                    if pending > 0 {
-                        // handle any pending data immediately
-                        if self.handle_data(token).is_err() {
-                            self.handle_error(token);
-                        }
+            if let Ok(token) = self.poll.add_session(session) {
+                if pending > 0 {
+                    // handle any pending data immediately
+                    if self.handle_data(token).is_err() {
+                        self.handle_error(token);
                     }
                 }
-                Err(_) => {
-                    error!("Error registering new socket");
-                }
-            };
+            }
         }
     }
 
@@ -190,7 +170,7 @@ where
             }
         }
 
-        if let Some(session) = self.sessions.get_mut(token.0) {
+        if let Ok(session) = self.poll.get_mut_session(token) {
             trace!(
                 "{} bytes pending in rx buffer for session: {}",
                 session.read_pending(),
@@ -219,13 +199,9 @@ where
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {
-    fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
-        self.sessions.get_mut(token.0)
-    }
-
-    fn handle_data(&mut self, token: Token) -> Result<(), ()> {
+    fn handle_data(&mut self, token: Token) -> Result<(), std::io::Error> {
         trace!("handling request for session: {}", token.0);
-        if let Some(session) = self.sessions.get_mut(token.0) {
+        if let Ok(session) = self.poll.get_mut_session(token) {
             loop {
                 if session.write_capacity() == 0 {
                     // if the write buffer is over-full, skip processing
@@ -247,14 +223,14 @@ where
                     }
                     Err(_) => {
                         self.handle_error(token);
-                        return Err(());
+                        return Err(std::io::Error::new(std::io::ErrorKind::Other, "bad request"));
                     }
                 }
             }
             #[allow(clippy::collapsible_if)]
             if session.write_pending() > 0 {
                 if session.flush().is_ok() && session.write_pending() > 0 {
-                    self.reregister(token);
+                    self.poll.reregister(token);
                 }
             }
             Ok(())
@@ -268,29 +244,7 @@ where
         }
     }
 
-    /// Reregister the session given its token
-    fn reregister(&mut self, token: Token) {
-        trace!("reregistering session: {}", token.0);
-        if let Some(session) = self.sessions.get_mut(token.0) {
-            if session.reregister(&self.poll).is_err() {
-                error!("Failed to reregister");
-                self.close(token);
-            }
-        } else {
-            trace!("attempted to reregister non-existent session: {}", token.0);
-        }
-    }
-
-    fn take_session(&mut self, token: Token) -> Option<Session> {
-        if self.sessions.contains(token.0) {
-            let session = self.sessions.remove(token.0);
-            Some(session)
-        } else {
-            None
-        }
-    }
-
-    fn poll(&self) -> &Poll {
-        &self.poll
+    fn poll(&mut self) -> &mut Poll {
+        &mut self.poll
     }
 }

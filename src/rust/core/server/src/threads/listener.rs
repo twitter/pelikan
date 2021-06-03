@@ -9,40 +9,30 @@ use super::EventLoop;
 use common::signal::Signal;
 use config::ServerConfig;
 use mio::Events;
-use mio::Interest;
-use mio::Poll;
 use mio::Token;
 use queues::*;
 use session::{Session, TcpStream};
-use slab::Slab;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use metrics::Stat;
 use mio::event::Event;
-use mio::net::TcpListener;
-
 use std::convert::TryInto;
+use crate::poll::{Poll, WAKER_TOKEN, LISTENER_TOKEN};
 
-pub const WAKER_TOKEN: usize = usize::MAX - 1;
-pub const LISTENER_TOKEN: usize = usize::MAX;
 
 /// A `Server` is used to bind to a given socket address and accept new
 /// sessions. Fully negotiated sessions are then moved into a `Worker` thread
 /// over a queue.
 pub struct Listener {
     addr: SocketAddr,
-    listener: TcpListener,
     nevent: usize,
     poll: Poll,
     session_queue: QueuePairs<Session, ()>,
     ssl_context: Option<SslContext>,
-    sessions: Slab<Session>,
     signal_queue: QueuePairs<(), Signal>,
     timeout: Duration,
-    waker: Arc<Waker>,
 }
 
 impl Listener {
@@ -56,58 +46,25 @@ impl Listener {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
         })?;
-        let mut listener = TcpListener::bind(addr).map_err(|e| {
-            error!("{}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to start tcp listener")
-        })?;
-        let poll = Poll::new().map_err(|e| {
+        let mut poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
 
+        poll.bind(addr)?;
+
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
 
-        let waker = Arc::new(Waker::new(poll.registry(), Token(WAKER_TOKEN)).unwrap());
+        let signal_queue = QueuePairs::new(Some(poll.waker()));
+        let session_queue = QueuePairs::new(Some(poll.waker()));
 
-        let signal_queue = QueuePairs::new(Some(waker.clone()));
-        let session_queue = QueuePairs::new(Some(waker.clone()));
-
-        // register listener to event loop
-        poll.registry()
-            .register(&mut listener, Token(LISTENER_TOKEN), Interest::READABLE)
-            .map_err(|e| {
-                error!("{}", e);
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Failed to register listener with epoll",
-                )
-            })?;
-
-        let sessions = Slab::<Session>::new();
-
-        Ok(Self {
-            addr,
-            listener,
-            nevent,
-            poll,
-            sessions,
-            session_queue,
-            signal_queue,
-            ssl_context,
-            timeout,
-            waker,
-        })
+        Ok(Self { addr, nevent, poll, session_queue, ssl_context, signal_queue, timeout })
     }
 
     /// Repeatedly call accept on the listener
     fn do_accept(&mut self) {
-        while let Ok((stream, _)) = self.listener.accept() {
-            // disable Nagle's algorithm
-            let _ = stream.set_nodelay(true);
-
-            let stream = TcpStream::from(stream);
-
+        while let Ok((stream, _)) = self.poll.accept() {
             // handle TLS if it is configured
             if let Some(ssl_context) = &self.ssl_context {
                 match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
@@ -145,13 +102,8 @@ impl Listener {
 
     /// Adds a new TLS session that requires further handshaking
     fn add_handshaking_tls_session(&mut self, stream: MidHandshakeSslStream<TcpStream>) {
-        let mut session = Session::handshaking_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
-        let s = self.sessions.vacant_entry();
-        let token = s.key();
-        session.set_token(Token(token));
-        if session.register(&self.poll).is_ok() {
-            s.insert(session);
-        } else {
+        let session = Session::handshaking_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        if self.poll.add_session(session).is_err() {
             increment_counter!(&Stat::TcpAcceptEx);
         }
     }
@@ -190,12 +142,15 @@ impl Listener {
             let _ = self.do_read(token);
         }
 
-        if let Some(session) = self.sessions.get_mut(token.0) {
+        if let Ok(session) = self.poll.get_mut_session(token) {
             if session.do_handshake().is_ok() {
-                let mut session = self.sessions.remove(token.0);
-                let _ = session.deregister(&self.poll);
-                if self.session_queue.send_rr(session).is_err() {
-                    error!("error sending session to worker");
+                if let Ok(session) = self.poll.remove_session(token) {
+                    if self.session_queue.send_rr(session).is_err() {
+                        error!("error sending session to worker");
+                        increment_counter!(&Stat::TcpAcceptEx);
+                    }
+                } else {
+                    error!("error removing session from poller");
                     increment_counter!(&Stat::TcpAcceptEx);
                 }
             }
@@ -208,12 +163,11 @@ impl Listener {
         info!("running server on: {}", self.addr);
 
         let mut events = Events::with_capacity(self.nevent);
-        let timeout = Some(self.timeout);
 
         // repeatedly run accepting new connections and moving them to the worker
         loop {
             increment_counter!(&Stat::ServerEventLoop);
-            if self.poll.poll(&mut events, timeout).is_err() {
+            if self.poll.poll(&mut events, self.timeout).is_err() {
                 error!("Error polling server");
             }
             increment_counter_by!(
@@ -224,10 +178,10 @@ impl Listener {
             // handle all events
             for event in events.iter() {
                 match event.token() {
-                    Token(LISTENER_TOKEN) => {
+                    LISTENER_TOKEN => {
                         self.do_accept();
                     }
-                    Token(WAKER_TOKEN) =>
+                    WAKER_TOKEN =>
                     {
                         #[allow(clippy::never_loop)]
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
@@ -238,7 +192,7 @@ impl Listener {
                             }
                         }
                     }
-                    Token(_) => {
+                    _ => {
                         self.handle_session_event(&event);
                     }
                 }
@@ -249,7 +203,7 @@ impl Listener {
     /// Returns a copy of the `Waker` for this thread which can be used to
     /// signal that there are pending messages on a queue.
     pub fn waker(&self) -> Arc<Waker> {
-        self.waker.clone()
+        self.poll.waker()
     }
 
     /// Register a `Worker`'s `Session` queue with this thread. Established
@@ -265,36 +219,11 @@ impl Listener {
 }
 
 impl EventLoop for Listener {
-    fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
-        self.sessions.get_mut(token.0)
-    }
-
-    fn handle_data(&mut self, _token: Token) -> Result<(), ()> {
+    fn handle_data(&mut self, _token: Token) -> Result<(), std::io::Error> {
         Ok(())
     }
 
-    fn take_session(&mut self, token: Token) -> Option<Session> {
-        if self.sessions.contains(token.0) {
-            let session = self.sessions.remove(token.0);
-            Some(session)
-        } else {
-            None
-        }
-    }
-
-    fn reregister(&mut self, token: Token) {
-        trace!("reregistering session: {}", token.0);
-        if let Some(session) = self.sessions.get_mut(token.0) {
-            if session.reregister(&self.poll).is_err() {
-                error!("Failed to reregister");
-                self.close(token);
-            }
-        } else {
-            trace!("attempted to reregister non-existent session: {}", token.0);
-        }
-    }
-
-    fn poll(&self) -> &Poll {
-        &self.poll
+    fn poll(&mut self) -> &mut Poll {
+        &mut self.poll
     }
 }

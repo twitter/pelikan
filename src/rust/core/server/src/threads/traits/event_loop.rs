@@ -5,11 +5,13 @@
 //! A trait defining common functions for event-based threads which operate on
 //! sessions.
 
-use session::Session;
+
 
 use std::io::{BufRead, ErrorKind, Write};
 
-use mio::{Poll, Token};
+use mio::Token;
+
+use crate::poll::Poll;
 
 /// An `EventLoop` describes the functions which must be implemented for a basic
 /// event loop and provides some default implementations and helper functions.
@@ -18,28 +20,17 @@ pub trait EventLoop {
 
     /// Provides access to the `Poll` structure which allows polling for new
     /// readiness events and managing registration for event sources.
-    fn poll(&self) -> &Poll;
-
-    /// Mutably borrow a `Session` from the event loop if a `Session` with that
-    /// `Token` exists.
-    fn get_mut_session(&mut self, token: Token) -> Option<&mut Session>;
-
-    /// Takes the `Session` out of the event loop if a `Session` with that
-    /// `Token` exists.
-    fn take_session(&mut self, token: Token) -> Option<Session>;
-
-    /// Re-register the session with the provided `Token`.
-    fn reregister(&mut self, token: Token);
+    fn poll(&mut self) -> &mut Poll;
 
     /// Handle new data received for the `Session` with the provided `Token`.
     /// This will include parsing the incoming data and composing a response.
-    fn handle_data(&mut self, token: Token) -> Result<(), ()>;
+    fn handle_data(&mut self, token: Token) -> Result<(), std::io::Error>;
 
     /// Handle a read event for the `Session` with the `Token`.
     fn do_read(&mut self, token: Token) -> Result<(), ()> {
         trace!("handling read for session: {}", token.0);
 
-        if let Some(session) = self.get_mut_session(token) {
+        if let Ok(session) = self.poll().get_mut_session(token) {
             // read from session to buffer
             match session.fill_buf().map(|b| b.len()) {
                 Ok(0) => {
@@ -60,7 +51,7 @@ pub trait EventLoop {
                         ErrorKind::WouldBlock => {
                             // spurious read
                             trace!("spurious read");
-                            self.reregister(token);
+                            self.poll().reregister(token);
                             Ok(())
                         }
                         ErrorKind::Interrupted => self.do_read(token),
@@ -81,7 +72,7 @@ pub trait EventLoop {
     /// Handle a write event for a `Session` with the `Token`.
     fn do_write(&mut self, token: Token) {
         trace!("handling write for session: {}", token.0);
-        if let Some(session) = self.get_mut_session(token) {
+        if let Ok(session) = self.poll().get_mut_session(token) {
             match session.flush() {
                 Ok(_) => {
                     // if we wrote data but still have data in the read buffer
@@ -90,10 +81,10 @@ pub trait EventLoop {
                         if self.handle_data(token).is_err() {
                             self.handle_error(token);
                         } else {
-                            self.reregister(token);
+                            self.poll().reregister(token);
                         }
                     } else {
-                        self.reregister(token);
+                        self.poll().reregister(token);
                     }
                 }
                 Err(e) => match e.kind() {
@@ -114,7 +105,7 @@ pub trait EventLoop {
     fn handle_error(&mut self, token: Token) {
         trace!("handling error for session: {}", token.0);
         debug!("Error handling event");
-        self.close(token);
+        let _ = self.poll().close_session(token);
     }
 
     /// Handle HUP (zero-length reads) for the `Session` with the `Token` by
@@ -122,19 +113,6 @@ pub trait EventLoop {
     fn handle_hup(&mut self, token: Token) {
         trace!("handling hup for session: {}", token.0);
         debug!("Session closed by client");
-        self.close(token);
-    }
-
-    /// Close the `Session` with the `Token`.
-    fn close(&mut self, token: Token) {
-        trace!("closing session: {}", token.0);
-        if let Some(mut session) = self.take_session(token) {
-            if session.deregister(self.poll()).is_err() {
-                error!("Error deregistering");
-            }
-            session.close();
-        } else {
-            trace!("attempted to close non-existent session: {}", token.0);
-        }
+        let _ = self.poll().close_session(token);
     }
 }

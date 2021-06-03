@@ -8,47 +8,33 @@
 use super::EventLoop;
 use common::signal::Signal;
 use config::AdminConfig;
+use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use mio::Events;
-use mio::Interest;
-use mio::Poll;
 use mio::Token;
-use mio::Waker;
 use protocol::admin::*;
 use protocol::*;
 use queues::QueuePair;
 use queues::QueuePairs;
 use session::*;
-use slab::Slab;
 use std::io::{BufRead, Write};
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::time::Duration;
-
 use metrics::Stat;
-
 use rustcommon_fastmetrics::{Metric, Source};
-
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use mio::event::Event;
-use mio::net::TcpListener;
 use strum::IntoEnumIterator;
-
 use std::convert::TryInto;
 use std::io::{Error, ErrorKind};
-
-const WAKER_TOKEN: usize = usize::MAX - 1;
-const LISTENER_TOKEN: usize = usize::MAX;
 
 /// A `Admin` is used to bind to a given socket address and handle out-of-band
 /// admin requests.
 pub struct Admin {
     addr: SocketAddr,
     timeout: Duration,
-    listener: TcpListener,
     nevent: usize,
     poll: Poll,
     ssl_context: Option<SslContext>,
-    sessions: Slab<Session>,
     signal_queue: QueuePairs<(), Signal>,
 }
 
@@ -59,14 +45,11 @@ impl Admin {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
         })?;
-        let mut listener = TcpListener::bind(addr).map_err(|e| {
-            error!("{}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to start tcp listener")
-        })?;
-        let poll = Poll::new().map_err(|e| {
+        let mut poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
+        poll.bind(addr)?;
 
         let ssl_context = if config.use_tls() { ssl_context } else { None };
 
@@ -74,82 +57,40 @@ impl Admin {
 
         let nevent = config.nevent();
 
-        // register listener to event loop
-        poll.registry()
-            .register(&mut listener, Token(LISTENER_TOKEN), Interest::READABLE)
-            .map_err(|e| {
-                error!("{}", e);
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Failed to register listener with epoll",
-                )
-            })?;
+        let signal_queue = QueuePairs::new(Some(poll.waker()));
 
-        let sessions = Slab::<Session>::new();
-
-        let waker = Arc::new(Waker::new(poll.registry(), Token(WAKER_TOKEN)).unwrap());
-
-        let signal_queue = QueuePairs::new(Some(waker));
-
-        Ok(Self {
-            addr,
-            listener,
-            nevent,
-            poll,
-            ssl_context,
-            sessions,
-            signal_queue,
-            timeout,
-        })
+        Ok(Self { addr, timeout, nevent, poll, ssl_context, signal_queue })
     }
 
     /// Adds a new fully established TLS session
     fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
-        let mut session = Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
-        trace!("accepted new session: {:?}", session.peer_addr());
-        let s = self.sessions.vacant_entry();
-        let token = s.key();
-        session.set_token(Token(token));
-        if session.register(&self.poll).is_ok() {
-            s.insert(session);
-        } else {
+        let session = Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        if self.poll.add_session(session).is_err() {
             increment_counter!(&Stat::TcpAcceptEx);
         }
     }
 
     /// Adds a new TLS session that requires further handshaking
     fn add_handshaking_tls_session(&mut self, stream: MidHandshakeSslStream<TcpStream>) {
-        let mut session = Session::handshaking_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        let session = Session::handshaking_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
         trace!("accepted new session: {:?}", session.peer_addr());
-        let s = self.sessions.vacant_entry();
-        let token = s.key();
-        session.set_token(Token(token));
-        if session.register(&self.poll).is_ok() {
-            s.insert(session);
-        } else {
+        if self.poll.add_session(session).is_err() {
             increment_counter!(&Stat::TcpAcceptEx);
         }
     }
 
     /// Adds a new plain (non-TLS) session
     fn add_plain_session(&mut self, stream: TcpStream) {
-        let mut session = Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        let session = Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
         trace!("accepted new session: {:?}", session.peer_addr());
-        let s = self.sessions.vacant_entry();
-        let token = s.key();
-        session.set_token(Token(token));
-        if session.register(&self.poll).is_ok() {
-            s.insert(session);
-        } else {
+        if self.poll.add_session(session).is_err() {
             increment_counter!(&Stat::TcpAcceptEx);
         }
     }
 
     /// Repeatedly call accept on the listener
     fn do_accept(&mut self) {
-        while let Ok((stream, _)) = self.listener.accept() {
-            let stream = TcpStream::from(stream);
-
+        while let Ok((stream, _)) = self.poll.accept() {
             // handle TLS if it is configured
             if let Some(ssl_context) = &self.ssl_context {
                 match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
@@ -187,7 +128,7 @@ impl Admin {
         }
 
         // handle handshaking
-        if let Some(session) = self.sessions.get_mut(token.0) {
+        if let Ok(session) = self.poll.get_mut_session(token) {
             if session.is_handshaking() {
                 if let Err(e) = session.do_handshake() {
                     if e.kind() == ErrorKind::WouldBlock {
@@ -195,7 +136,7 @@ impl Admin {
                         return;
                     } else {
                         // some error occured while handshaking
-                        self.close(token);
+                        let _ = self.poll.close_session(token);
                     }
                 }
             }
@@ -221,13 +162,12 @@ impl Admin {
         info!("running admin on: {}", self.addr);
 
         let mut events = Events::with_capacity(self.nevent);
-        let timeout = Some(self.timeout);
 
         // run in a loop, accepting new sessions and events on existing sessions
         loop {
             increment_counter!(&Stat::AdminEventLoop);
 
-            if self.poll.poll(&mut events, timeout).is_err() {
+            if self.poll.poll(&mut events, self.timeout).is_err() {
                 error!("Error polling");
             }
 
@@ -239,10 +179,10 @@ impl Admin {
             // handle all events
             for event in events.iter() {
                 match event.token() {
-                    Token(LISTENER_TOKEN) => {
+                    LISTENER_TOKEN => {
                         self.do_accept();
                     }
-                    Token(WAKER_TOKEN) =>
+                    WAKER_TOKEN =>
                     {
                         #[allow(clippy::never_loop)]
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
@@ -253,7 +193,7 @@ impl Admin {
                             }
                         }
                     }
-                    Token(_) => {
+                    _ => {
                         self.handle_session_event(event);
                     }
                 }
@@ -325,13 +265,9 @@ impl Admin {
 }
 
 impl EventLoop for Admin {
-    fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
-        self.sessions.get_mut(token.0)
-    }
-
-    fn handle_data(&mut self, token: Token) -> Result<(), ()> {
+    fn handle_data(&mut self, token: Token) -> Result<(), std::io::Error> {
         trace!("handling request for admin session: {}", token.0);
-        if let Some(session) = self.sessions.get_mut(token.0) {
+        if let Ok(session) = self.poll.get_mut_session(token) {
             loop {
                 if session.write_capacity() == 0 {
                     // if the write buffer is over-full, skip processing
@@ -372,7 +308,7 @@ impl EventLoop for Admin {
                                 increment_counter!(&Stat::AdminResponseCompose);
                             }
                             AdminRequest::Quit => {
-                                self.close(token);
+                                let _ = self.poll.close_session(token);
                                 return Ok(());
                             }
                             AdminRequest::Version => {
@@ -388,7 +324,7 @@ impl EventLoop for Admin {
                     }
                     Err(_) => {
                         self.handle_error(token);
-                        return Err(());
+                        return Err(std::io::Error::new(std::io::ErrorKind::Other, "bad request"));
                     }
                 }
             }
@@ -400,33 +336,11 @@ impl EventLoop for Admin {
             );
             return Ok(());
         }
-        self.reregister(token);
+        self.poll.reregister(token);
         Ok(())
     }
 
-    fn take_session(&mut self, token: Token) -> Option<Session> {
-        if self.sessions.contains(token.0) {
-            let session = self.sessions.remove(token.0);
-            Some(session)
-        } else {
-            None
-        }
-    }
-
-    /// Reregister the session given its token
-    fn reregister(&mut self, token: Token) {
-        trace!("reregistering session: {}", token.0);
-        if let Some(session) = self.sessions.get_mut(token.0) {
-            if session.reregister(&self.poll).is_err() {
-                error!("Failed to reregister");
-                self.close(token);
-            }
-        } else {
-            trace!("attempted to reregister non-existent session: {}", token.0);
-        }
-    }
-
-    fn poll(&self) -> &Poll {
-        &self.poll
+    fn poll(&mut self) -> &mut Poll {
+        &mut self.poll
     }
 }

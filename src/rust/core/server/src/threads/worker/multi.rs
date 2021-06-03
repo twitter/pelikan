@@ -8,6 +8,7 @@
 //! then serialized onto the session buffer.
 
 use super::EventLoop;
+use crate::poll::Poll;
 use crate::threads::worker::StorageWorker;
 use crate::threads::worker::TokenWrapper;
 use common::signal::Signal;
@@ -17,11 +18,10 @@ use core::time::Duration;
 use entrystore::EntryStore;
 use metrics::Stat;
 use mio::event::Event;
-use mio::{Events, Poll, Token, Waker};
+use mio::{Events, Token, Waker};
 use protocol::{Compose, Execute, Parse, ParseError};
 use queues::{QueuePair, QueuePairs, SendError};
 use session::Session;
-use slab::Slab;
 use std::convert::TryInto;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
@@ -45,11 +45,8 @@ where
     nevent: usize,
     timeout: Duration,
     session_queue: QueuePairs<(), Session>,
-    sessions: Slab<Session>,
     storage_queue: QueuePair<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
     wake_storage: bool,
-    #[allow(dead_code)]
-    waker: Arc<Waker>,
     _storage: PhantomData<Storage>,
 }
 
@@ -68,13 +65,11 @@ where
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
-        let sessions = Slab::<Session>::new();
 
-        let waker = Arc::new(Waker::new(poll.registry(), Token(WAKER_TOKEN)).unwrap());
-        let storage_queue = storage.add_queue(waker.clone());
+        let storage_queue = storage.add_queue(poll.waker());
 
-        let session_queue = QueuePairs::new(Some(waker.clone()));
-        let signal_queue = QueuePairs::new(Some(waker.clone()));
+        let session_queue = QueuePairs::new(Some(poll.waker()));
+        let signal_queue = QueuePairs::new(Some(poll.waker()));
 
         Ok(Self {
             poll,
@@ -82,10 +77,8 @@ where
             timeout: Duration::from_millis(config.timeout() as u64),
             signal_queue,
             session_queue,
-            sessions,
             storage_queue,
             wake_storage: false,
-            waker,
             _storage: PhantomData,
         })
     }
@@ -93,13 +86,12 @@ where
     /// Run the `Worker` in a loop, handling new session events
     pub fn run(&mut self) {
         let mut events = Events::with_capacity(self.nevent);
-        let timeout = Some(self.timeout);
 
         loop {
             increment_counter!(&Stat::WorkerEventLoop);
 
             // get events with timeout
-            if self.poll.poll(&mut events, timeout).is_err() {
+            if self.poll.poll(&mut events, self.timeout).is_err() {
                 error!("Error polling");
             }
 
@@ -163,7 +155,7 @@ where
             let _ = self.do_read(token);
         }
 
-        if let Some(session) = self.sessions.get_mut(token.0) {
+        if let Ok(session) = self.poll.get_mut_session(token) {
             trace!(
                 "{} bytes pending in rx buffer for session: {}",
                 session.read_pending(),
@@ -178,42 +170,37 @@ where
     }
 
     fn handle_session_read(
-        session: &mut Session,
-        poll: &Poll,
-        storage_queue: &mut QueuePair<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
-    ) -> bool {
-        match Request::parse(session.buffer()) {
+        &mut self,
+        token: Token,
+    ) -> Result<(), std::io::Error> {
+        match Request::parse(self.poll.get_mut_session(token)?.buffer()) {
             Ok(request) => {
                 let consumed = request.consumed();
                 let request = request.into_inner();
-                session.consume(consumed);
-                let mut message = TokenWrapper::new(request, session.token());
+                self.poll.get_mut_session(token)?.consume(consumed);
+                let mut message = TokenWrapper::new(request, token);
 
                 for retry in 0..QUEUE_RETRIES {
-                    if let Err(SendError::Full(m)) = storage_queue.try_send(message) {
+                    if let Err(SendError::Full(m)) = self.storage_queue.try_send(message) {
                         if (retry + 1) == QUEUE_RETRIES {
                             error!("queue full trying to send message to storage thread");
-                            if session.deregister(poll).is_err() {
-                                error!("Error deregistering");
-                            }
-                            session.close()
+                            let _ = self.poll.close_session(token);
                         }
                         // try to wake storage thread
-                        let _ = storage_queue.wake();
+                        let _ = self.storage_queue.wake();
                         message = m;
                     } else {
                         break;
                     }
                 }
-                true
+                Ok(())
             }
-            Err(ParseError::Incomplete) => false,
+            Err(ParseError::Incomplete) => {
+                Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, "incomplete request"))
+            }
             Err(_) => {
-                if session.deregister(poll).is_err() {
-                    error!("Error deregistering");
-                }
-                session.close();
-                false
+                let _ = self.poll.close_session(token);
+                Err(std::io::Error::new(std::io::ErrorKind::Other, "bad request"))
             }
         }
     }
@@ -223,14 +210,15 @@ where
         // process all storage queue responses
         while let Ok(message) = self.storage_queue.try_recv() {
             let token = message.token();
-            if let Some(mut session) = self.sessions.get_mut(token.0) {
+            let mut reregister = false;
+            if let Ok(mut session) = self.poll.get_mut_session(token) {
                 if let Some(response) = message.into_inner() {
                     response.compose(&mut session);
                     if session.write_pending() > 0 {
                         match session.flush() {
                             Ok(_) => {
                                 if session.write_pending() > 0 {
-                                    let _ = session.reregister(&self.poll);
+                                    reregister = true;
                                 }
                             }
                             Err(e) => {
@@ -241,41 +229,30 @@ where
                 }
 
                 if session.read_pending() > 0
-                    && Self::handle_session_read(session, &self.poll, &mut self.storage_queue)
+                    && self.handle_session_read(token).is_ok()
                 {
                     self.wake_storage = true;
                 }
+            }
+            if reregister {
+                self.poll.reregister(token);
             }
         }
     }
 
     fn handle_new_sessions(&mut self) {
-        while let Ok(mut session) = self.session_queue.recv_from(0) {
+        while let Ok(session) = self.session_queue.recv_from(0) {
             let pending = session.read_pending();
             trace!("{} bytes pending in rx buffer for new session", pending);
 
-            // reserve vacant slab
-            let session_entry = self.sessions.vacant_entry();
-            let token = Token(session_entry.key());
-
-            // set client token to match slab
-            session.set_token(token);
-
-            // register tcp stream and insert into slab if successful
-            match session.register(&self.poll) {
-                Ok(_) => {
-                    session_entry.insert(session);
-                    if pending > 0 {
-                        // handle any pending data immediately
-                        if self.handle_data(token).is_err() {
-                            self.handle_error(token);
-                        }
+            if let Ok(token) = self.poll.add_session(session) {
+                if pending > 0 {
+                    // handle any pending data immediately
+                    if self.handle_data(token).is_err() {
+                        self.handle_error(token);
                     }
                 }
-                Err(_) => {
-                    error!("Error registering new socket");
-                }
-            };
+            }
         }
     }
 
@@ -294,58 +271,28 @@ where
     Response: Compose + Send,
     Storage: Execute<Request, Response> + EntryStore + Send,
 {
-    fn get_mut_session(&mut self, token: Token) -> Option<&mut Session> {
-        self.sessions.get_mut(token.0)
-    }
-
-    fn handle_data(&mut self, token: Token) -> Result<(), ()> {
+    fn handle_data(&mut self, token: Token) -> Result<(), std::io::Error> {
         trace!("handling request for session: {}", token.0);
-        if let Some(session) = self.sessions.get_mut(token.0) {
-            if session.write_capacity() > 0
-                && Self::handle_session_read(session, &self.poll, &mut self.storage_queue)
+        let write_capacity = self.poll.get_mut_session(token)?.write_capacity();
+        if write_capacity > 0 && self.handle_session_read(token).is_ok() {
+            self.wake_storage = true;
+        }
+
+        let write_pending = self.poll.get_mut_session(token)?.write_pending();
+        if write_pending > 0 {
             {
-                self.wake_storage = true;
+                let session = self.poll.get_mut_session(token)?;
+                let _ = session.flush();
             }
-
-            if session.write_pending() > 0 && session.flush().is_ok() && session.write_pending() > 0
-            {
-                self.reregister(token);
+            let write_pending = self.poll.get_mut_session(token)?.write_pending();
+            if write_pending > 0 {
+                self.poll.reregister(token);
             }
-
-            Ok(())
-        } else {
-            // no session for the token
-            trace!(
-                "attempted to handle data for non-existent session: {}",
-                token.0
-            );
-            Ok(())
         }
+        Ok(())
     }
 
-    /// Reregister the session given its token
-    fn reregister(&mut self, token: Token) {
-        trace!("reregistering session: {}", token.0);
-        if let Some(session) = self.sessions.get_mut(token.0) {
-            if session.reregister(&self.poll).is_err() {
-                error!("Failed to reregister");
-                self.close(token);
-            }
-        } else {
-            trace!("attempted to reregister non-existent session: {}", token.0);
-        }
-    }
-
-    fn take_session(&mut self, token: Token) -> Option<Session> {
-        if self.sessions.contains(token.0) {
-            let session = self.sessions.remove(token.0);
-            Some(session)
-        } else {
-            None
-        }
-    }
-
-    fn poll(&self) -> &Poll {
-        &self.poll
+    fn poll(&mut self) -> &mut Poll {
+        &mut self.poll
     }
 }
