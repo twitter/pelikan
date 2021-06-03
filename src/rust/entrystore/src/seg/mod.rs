@@ -57,7 +57,6 @@ impl Seg {
     }
 
     // TODO(bmartin): should this be moved up into a common function?
-    // TODO(bmartin): can we use coarse time for the conversion?
     /// Internal function which converts an expiry time into a TTL in seconds.
     fn get_ttl(&self, expiry: u32) -> u32 {
         match self.time_type {
