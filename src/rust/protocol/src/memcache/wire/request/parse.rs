@@ -139,6 +139,9 @@ fn parse_set(buffer: &[u8], cas: bool) -> Result<ParseOk<MemcacheRequest>, Parse
 
     // key
     let key_end = parse_state.next_space().ok_or(ParseError::Invalid)? + cmd_end + 1;
+    if key_end <= cmd_end + 1 {
+        return Err(ParseError::Invalid);
+    }
 
     // flags
     let flags_end = parse_state.next_space().ok_or(ParseError::Invalid)? + key_end + 1;
@@ -323,6 +326,10 @@ fn parse_delete(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     } else {
         key_end + CRLF.len()
     };
+
+    if key_end <= (cmd_end + 1) {
+        return Err(ParseError::Invalid);
+    }
 
     let request = MemcacheRequest::Delete {
         key: buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice(),
