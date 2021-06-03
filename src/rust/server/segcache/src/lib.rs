@@ -6,7 +6,7 @@
 //! a subset of the Memcache protocol. Segment based storage allows us to
 //! perform efficient eager expiration of items.
 
-use config::TwemcacheConfig;
+use config::SegcacheConfig;
 use entrystore::Seg;
 use protocol::memcache::{MemcacheRequest, MemcacheResponse};
 use server::{Process, ProcessBuilder};
@@ -17,8 +17,8 @@ pub struct Segcache {
 }
 
 impl Segcache {
-    /// Creates a new `Segcache` process from the given `TwemcacheConfig`.
-    pub fn new(config: TwemcacheConfig) -> Self {
+    /// Creates a new `Segcache` process from the given `SegcacheConfig`.
+    pub fn new(config: SegcacheConfig) -> Self {
         let storage = Seg::new(config.seg(), config.time().time_type());
         let process_builder = ProcessBuilder::<Seg, MemcacheRequest, MemcacheResponse>::new(
             config.admin(),

@@ -6,7 +6,7 @@
 extern crate rustcommon_logger;
 
 use backtrace::Backtrace;
-use config::TwemcacheConfig;
+use config::SegcacheConfig;
 use pelikan_segcache_rs::Segcache;
 use rustcommon_logger::Logger;
 
@@ -21,7 +21,7 @@ fn main() {
     // load config from file
     let config = if let Some(file) = std::env::args().nth(1) {
         debug!("loading config: {}", file);
-        match TwemcacheConfig::load(&file) {
+        match SegcacheConfig::load(&file) {
             Ok(c) => c,
             Err(e) => {
                 error!("{}", e);
