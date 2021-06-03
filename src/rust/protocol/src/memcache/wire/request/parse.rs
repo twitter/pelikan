@@ -9,6 +9,8 @@ use core::slice::Windows;
 use std::convert::TryFrom;
 
 const MAX_BYTES: usize = usize::MAX / 2;
+const MAX_COMMAND_LEN: usize = 255;
+const MAX_KEY_LEN: usize = 250;
 
 impl Parse for MemcacheRequest {
     fn parse(buffer: &[u8]) -> Result<ParseOk<Self>, ParseError> {
@@ -58,6 +60,8 @@ fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
             } else {
                 return Err(ParseError::Invalid);
             }
+        } else if buffer.len() > MAX_COMMAND_LEN {
+            return Err(ParseError::Invalid);
         } else {
             return Err(ParseError::Incomplete);
         }
@@ -82,6 +86,9 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         if let Some(key_end) = parse_state.next_space() {
             if (previous + key_end) < line_end {
                 if key_end > 0 {
+                    if (previous + key_end) - previous > MAX_KEY_LEN {
+                        return Err(ParseError::Invalid);
+                    }
                     keys.push(
                         buffer[previous..(previous + key_end)]
                             .to_vec()
@@ -93,12 +100,18 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
                 previous += key_end + 1;
             } else {
                 if line_end > previous {
+                    if line_end - previous > MAX_KEY_LEN {
+                        return Err(ParseError::Invalid);
+                    }
                     keys.push(buffer[previous..line_end].to_vec().into_boxed_slice());
                 }
                 break;
             }
         } else {
             if line_end > previous {
+                if line_end - previous > MAX_KEY_LEN {
+                    return Err(ParseError::Invalid);
+                }
                 keys.push(buffer[previous..line_end].to_vec().into_boxed_slice());
             }
             break;
