@@ -6,26 +6,26 @@
 //! info, etc.
 
 use super::EventLoop;
+use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
+use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
 use config::AdminConfig;
-use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
+use metrics::Stat;
+use mio::event::Event;
 use mio::Events;
 use mio::Token;
 use protocol::admin::*;
 use protocol::*;
 use queues::QueuePair;
 use queues::QueuePairs;
+use rustcommon_fastmetrics::{Metric, Source};
 use session::*;
+use std::convert::TryInto;
 use std::io::{BufRead, Write};
+use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use std::time::Duration;
-use metrics::Stat;
-use rustcommon_fastmetrics::{Metric, Source};
-use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
-use mio::event::Event;
 use strum::IntoEnumIterator;
-use std::convert::TryInto;
-use std::io::{Error, ErrorKind};
 
 /// A `Admin` is used to bind to a given socket address and handle out-of-band
 /// admin requests.
@@ -59,7 +59,14 @@ impl Admin {
 
         let signal_queue = QueuePairs::new(Some(poll.waker()));
 
-        Ok(Self { addr, timeout, nevent, poll, ssl_context, signal_queue })
+        Ok(Self {
+            addr,
+            timeout,
+            nevent,
+            poll,
+            ssl_context,
+            signal_queue,
+        })
     }
 
     /// Adds a new fully established TLS session
@@ -324,7 +331,10 @@ impl EventLoop for Admin {
                     }
                     Err(_) => {
                         self.handle_error(token);
-                        return Err(std::io::Error::new(std::io::ErrorKind::Other, "bad request"));
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            "bad request",
+                        ));
                     }
                 }
             }

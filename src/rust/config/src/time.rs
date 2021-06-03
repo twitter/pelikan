@@ -13,7 +13,7 @@ fn time_type() -> TimeType {
 }
 
 // definitions
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum TimeType {
     Unix = 0,
     Delta = 1,

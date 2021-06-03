@@ -169,10 +169,7 @@ where
         }
     }
 
-    fn handle_session_read(
-        &mut self,
-        token: Token,
-    ) -> Result<(), std::io::Error> {
+    fn handle_session_read(&mut self, token: Token) -> Result<(), std::io::Error> {
         match Request::parse(self.poll.get_mut_session(token)?.buffer()) {
             Ok(request) => {
                 let consumed = request.consumed();
@@ -195,12 +192,16 @@ where
                 }
                 Ok(())
             }
-            Err(ParseError::Incomplete) => {
-                Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, "incomplete request"))
-            }
+            Err(ParseError::Incomplete) => Err(std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                "incomplete request",
+            )),
             Err(_) => {
                 let _ = self.poll.close_session(token);
-                Err(std::io::Error::new(std::io::ErrorKind::Other, "bad request"))
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "bad request",
+                ))
             }
         }
     }
@@ -228,9 +229,7 @@ where
                     }
                 }
 
-                if session.read_pending() > 0
-                    && self.handle_session_read(token).is_ok()
-                {
+                if session.read_pending() > 0 && self.handle_session_read(token).is_ok() {
                     self.wake_storage = true;
                 }
             }

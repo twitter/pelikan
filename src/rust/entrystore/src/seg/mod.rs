@@ -14,8 +14,6 @@ use config::{SegConfig, TimeType};
 use rustcommon_time::CoarseDuration;
 use seg::{Policy, SegError};
 
-use std::time::SystemTime;
-
 mod memcache;
 
 /// A wrapper around [`seg::Seg`] which implements `EntryStore` and storage
@@ -58,19 +56,13 @@ impl Seg {
 
     // TODO(bmartin): should this be moved up into a common function?
     /// Internal function which converts an expiry time into a TTL in seconds.
-    fn get_ttl(&self, expiry: u32) -> u32 {
-        match self.time_type {
-            TimeType::Unix => {
-                expiry.wrapping_sub(rustcommon_time::recent_unix())
-            }
-            TimeType::Delta => expiry,
-            TimeType::Memcache => {
-                if expiry < 60 * 60 * 24 * 30 {
-                    expiry
-                } else {
-                    expiry.wrapping_sub(rustcommon_time::recent_unix())
-                }
-            }
+    fn get_ttl(&self, expiry: u32) -> Option<u32> {
+        if self.time_type == TimeType::Unix
+            || (self.time_type == TimeType::Memcache && expiry >= 60 * 60 * 24 * 30)
+        {
+            expiry.checked_sub(rustcommon_time::recent_unix())
+        } else {
+            Some(expiry)
         }
     }
 }

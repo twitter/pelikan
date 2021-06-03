@@ -2,9 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::sync::Arc;
 use crate::*;
 use queue_pair::queue_pair_with_capacity;
+use std::sync::Arc;
 
 /// A collection of queue pairs which can be used to allow a thread to exchange
 /// messages with several threads.

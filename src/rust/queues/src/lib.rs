@@ -8,7 +8,7 @@ mod error;
 mod queue_pair;
 mod queue_pairs;
 
-pub use error::{QueueError, SendError, RecvError};
+pub use error::{QueueError, RecvError, SendError};
 pub use queue_pair::QueuePair;
 pub use queue_pairs::QueuePairs;
 

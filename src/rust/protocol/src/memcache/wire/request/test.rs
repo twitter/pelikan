@@ -182,7 +182,7 @@ fn invalid() {
         "lorem_ipsum_dolor_sit_amet_consectetur_adipiscing_elit_sed_do_eiusmod_\
         tempor_incididunt_ut_labore_et_dolore_magna_aliqua_Ut_enim_ad_minim_\
         veniam_quis_nostrud_exercitation_ullamco_laboris_nisi_ut_aliquip_ex_ea_\
-        commodo_consequat_Duis_aute_irure_dolor_in_reprehenderit"
+        commodo_consequat_Duis_aute_irure_dolor_in_reprehenderit",
     ] {
         if let Err(e) = MemcacheRequest::parse(request.as_bytes()) {
             if e != ParseError::Invalid {

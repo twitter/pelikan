@@ -5,8 +5,6 @@
 //! A trait defining common functions for event-based threads which operate on
 //! sessions.
 
-
-
 use std::io::{BufRead, ErrorKind, Write};
 
 use mio::Token;

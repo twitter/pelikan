@@ -6,21 +6,20 @@
 //! and sends established sessions to the worker thread(s).
 
 use super::EventLoop;
+use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
+use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
 use config::ServerConfig;
+use metrics::Stat;
+use mio::event::Event;
 use mio::Events;
 use mio::Token;
 use queues::*;
 use session::{Session, TcpStream};
+use std::convert::TryInto;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
-use metrics::Stat;
-use mio::event::Event;
-use std::convert::TryInto;
-use crate::poll::{Poll, WAKER_TOKEN, LISTENER_TOKEN};
-
 
 /// A `Server` is used to bind to a given socket address and accept new
 /// sessions. Fully negotiated sessions are then moved into a `Worker` thread
@@ -59,7 +58,15 @@ impl Listener {
         let signal_queue = QueuePairs::new(Some(poll.waker()));
         let session_queue = QueuePairs::new(Some(poll.waker()));
 
-        Ok(Self { addr, nevent, poll, session_queue, ssl_context, signal_queue, timeout })
+        Ok(Self {
+            addr,
+            nevent,
+            poll,
+            session_queue,
+            ssl_context,
+            signal_queue,
+            timeout,
+        })
     }
 
     /// Repeatedly call accept on the listener

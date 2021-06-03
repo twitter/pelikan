@@ -6,8 +6,8 @@
 //! a subset of the Memcache protocol. Segment based storage allows us to
 //! perform efficient eager expiration of items.
 
-use entrystore::Noop;
 use config::PingserverConfig;
+use entrystore::Noop;
 use protocol::ping::{PingRequest, PingResponse};
 use server::{Process, ProcessBuilder};
 

@@ -27,7 +27,9 @@ impl MemcacheStorage for Seg {
     }
 
     fn set(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = self.get_ttl(entry.expiry());
+        let ttl = self
+            .get_ttl(entry.expiry())
+            .ok_or(MemcacheStorageError::NotStored)?;
         match self.data.insert(
             entry.key(),
             entry.value(),
@@ -40,7 +42,9 @@ impl MemcacheStorage for Seg {
     }
 
     fn add(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = self.get_ttl(entry.expiry());
+        let ttl = self
+            .get_ttl(entry.expiry())
+            .ok_or(MemcacheStorageError::NotStored)?;
         if self.data.get_no_freq_incr(entry.key()).is_none()
             && self
                 .data
@@ -59,7 +63,9 @@ impl MemcacheStorage for Seg {
     }
 
     fn replace(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = self.get_ttl(entry.expiry());
+        let ttl = self
+            .get_ttl(entry.expiry())
+            .ok_or(MemcacheStorageError::NotStored)?;
         if self.data.get_no_freq_incr(entry.key()).is_some()
             && self
                 .data
@@ -86,7 +92,9 @@ impl MemcacheStorage for Seg {
     }
 
     fn cas(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = self.get_ttl(entry.expiry());
+        let ttl = self
+            .get_ttl(entry.expiry())
+            .ok_or(MemcacheStorageError::NotStored)?;
         match self.data.cas(
             entry.key(),
             entry.value(),

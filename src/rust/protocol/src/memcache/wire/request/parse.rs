@@ -65,9 +65,7 @@ fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
         let next_crlf = parse_state.next_crlf();
         let next_space = parse_state.next_space();
         if next_crlf.is_some() && next_space.is_some() {
-            let cmd_end = std::cmp::min(
-                next_crlf.unwrap(),
-                next_space.unwrap());
+            let cmd_end = std::cmp::min(next_crlf.unwrap(), next_space.unwrap());
             command = MemcacheCommand::try_from(&buffer[0..cmd_end])?;
         } else if next_space.is_some() {
             let mut this_space = next_space.unwrap();
@@ -76,11 +74,11 @@ fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
                     let mut keys = 0;
                     while let Some(next_space) = parse_state.next_space() {
                         if next_space > MAX_KEY_LEN {
-                            return Err(ParseError::Invalid)
+                            return Err(ParseError::Invalid);
                         }
                         keys += 1;
                         if keys >= MAX_BATCH_SIZE {
-                            return Err(ParseError::Invalid)
+                            return Err(ParseError::Invalid);
                         }
                         this_space += next_space;
                     }

@@ -27,7 +27,6 @@ use std::convert::TryInto;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
 
-
 /// A `Worker` handles events on `Session`s
 pub struct SingleWorker<Storage, Request, Response> {
     storage: Storage,
@@ -223,7 +222,10 @@ where
                     }
                     Err(_) => {
                         self.handle_error(token);
-                        return Err(std::io::Error::new(std::io::ErrorKind::Other, "bad request"));
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            "bad request",
+                        ));
                     }
                 }
             }

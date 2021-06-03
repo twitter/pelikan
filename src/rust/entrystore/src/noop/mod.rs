@@ -13,12 +13,11 @@ mod ping;
 
 /// A no-op storage backend which implements `EntryStore` and storage protocol
 /// traits.
-pub struct Noop {
-}
+pub struct Noop {}
 
 impl Default for Noop {
     fn default() -> Self {
-        Noop { }
+        Noop {}
     }
 }
 
@@ -30,6 +29,5 @@ impl Noop {
 }
 
 impl EntryStore for Noop {
-    fn expire(&mut self) {
-    }
+    fn expire(&mut self) {}
 }

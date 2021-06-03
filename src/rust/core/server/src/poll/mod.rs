@@ -1,14 +1,14 @@
-use session::TcpStream;
-use std::time::Duration;
-use mio::Events;
-use std::net::SocketAddr;
 use mio::net::TcpListener;
+use mio::Events;
 use mio::Interest;
 use mio::Token;
 use mio::Waker;
-use std::sync::Arc;
 use session::Session;
+use session::TcpStream;
 use slab::Slab;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Duration;
 // use mio::Poll;
 
 pub const LISTENER_TOKEN: Token = Token(usize::MAX - 1);
@@ -16,15 +16,15 @@ pub const WAKER_TOKEN: Token = Token(usize::MAX);
 
 pub struct Poll {
     listener: Option<TcpListener>,
-	poll: mio::Poll,
-	sessions: Slab<Session>,
-	waker: Arc<Waker>,
+    poll: mio::Poll,
+    sessions: Slab<Session>,
+    waker: Arc<Waker>,
 }
 
 impl Poll {
     /// Create a new `Poll` instance.
-	pub fn new() -> Result<Self, std::io::Error> {
-		let poll = mio::Poll::new().map_err(|e| {
+    pub fn new() -> Result<Self, std::io::Error> {
+        let poll = mio::Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create poll instance")
         })?;
@@ -33,8 +33,13 @@ impl Poll {
 
         let sessions = Slab::<Session>::new();
 
-        Ok(Self { listener: None, poll, sessions, waker })
-	}
+        Ok(Self {
+            listener: None,
+            poll,
+            sessions,
+            waker,
+        })
+    }
 
     /// Bind and begin listening on the provided address.
     pub fn bind(&mut self, addr: SocketAddr) -> Result<(), std::io::Error> {
@@ -44,7 +49,8 @@ impl Poll {
         })?;
 
         // register listener to event loop
-        self.poll.registry()
+        self.poll
+            .registry()
             .register(&mut listener, LISTENER_TOKEN, Interest::READABLE)
             .map_err(|e| {
                 error!("{}", e);
@@ -78,21 +84,24 @@ impl Poll {
             let stream = TcpStream::from(stream);
             Ok((stream, addr))
         } else {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "not listening"))
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "not listening",
+            ))
         }
     }
 
     // Session methods
 
     /// Add a new session
-	pub fn add_session(&mut self, mut session: Session) -> Result<Token, std::io::Error> {
+    pub fn add_session(&mut self, mut session: Session) -> Result<Token, std::io::Error> {
         let s = self.sessions.vacant_entry();
         let token = Token(s.key());
         session.set_token(token);
         session.register(&self.poll)?;
         s.insert(session);
         Ok(token)
-	}
+    }
 
     /// Close an existing session
     pub fn close_session(&mut self, token: Token) -> Result<(), std::io::Error> {
@@ -110,19 +119,24 @@ impl Poll {
     }
 
     pub fn get_mut_session(&mut self, token: Token) -> Result<&mut Session, std::io::Error> {
-        self.sessions.get_mut(token.0).ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Other, "no such session"))
+        self.sessions
+            .get_mut(token.0)
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Other, "no such session"))
     }
 
-	fn take_session(&mut self, token: Token) -> Result<Session, std::io::Error> {
-		if self.sessions.contains(token.0) {
+    fn take_session(&mut self, token: Token) -> Result<Session, std::io::Error> {
+        if self.sessions.contains(token.0) {
             let session = self.sessions.remove(token.0);
             Ok(session)
         } else {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "no such session"))
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "no such session",
+            ))
         }
-	}
+    }
 
-	pub fn reregister(&mut self, token: Token) {
+    pub fn reregister(&mut self, token: Token) {
         trace!("reregistering session: {}", token.0);
         if let Some(session) = self.sessions.get_mut(token.0) {
             if session.reregister(&self.poll).is_err() {

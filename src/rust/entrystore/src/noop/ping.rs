@@ -6,5 +6,4 @@ use super::*;
 
 use protocol::ping::PingStorage;
 
-impl PingStorage for Noop {
-}
+impl PingStorage for Noop {}
