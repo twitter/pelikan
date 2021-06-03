@@ -224,7 +224,7 @@ fn parse_set(buffer: &[u8], cas: bool) -> Result<ParseOk<MemcacheRequest>, Parse
         if (bytes_end + 1) >= cas_end {
             return Err(ParseError::Invalid);
         }
-        let cas_str = std::str::from_utf8(&buffer[(expiry_end + 1)..bytes_end])
+        let cas_str = std::str::from_utf8(&buffer[(bytes_end + 1)..cas_end])
             .map_err(|_| ParseError::Invalid)?;
         Some(cas_str.parse::<u64>().map_err(|_| ParseError::Invalid)?)
     } else {
@@ -245,10 +245,17 @@ fn parse_set(buffer: &[u8], cas: bool) -> Result<ParseOk<MemcacheRequest>, Parse
             flags,
             cas,
         };
-        Ok(ParseOk {
-            message: MemcacheRequest::Set { entry, noreply },
-            consumed,
-        })
+        if cas.is_some() {
+             Ok(ParseOk {
+                message: MemcacheRequest::Cas { entry, noreply },
+                consumed,
+            })
+        } else {
+             Ok(ParseOk {
+                message: MemcacheRequest::Set { entry, noreply },
+                consumed,
+            })
+        }
     } else {
         // the buffer doesn't yet have all the bytes for the value
         Err(ParseError::Incomplete)

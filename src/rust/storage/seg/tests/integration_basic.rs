@@ -3,14 +3,14 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use rustcommon_time::*;
-use segcache::*;
+use seg::*;
 
 #[test]
 fn integration_basic() {
     let ttl = CoarseDuration::ZERO;
     let heap_size = 2 * 256;
     let segment_size = 256;
-    let mut cache = SegCache::builder()
+    let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
         .power(16)

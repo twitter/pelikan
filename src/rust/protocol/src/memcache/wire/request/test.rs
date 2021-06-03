@@ -76,6 +76,7 @@ fn set() {
             if let MemcacheRequest::Set { entry, noreply } = request.message {
                 assert_eq!(entry.key(), key.as_bytes());
                 assert_eq!(entry.value(), value.as_bytes());
+                assert_eq!(entry.cas(), None);
                 assert!(!noreply);
             } else {
                 panic!("invalid parse result");
@@ -88,6 +89,19 @@ fn set() {
         assert_eq!(entry.key(), b"0");
         assert_eq!(entry.value(), b"0");
         assert!(noreply);
+    } else {
+        panic!("invalid parse result");
+    }
+}
+
+#[test]
+fn cas() {
+    let request = MemcacheRequest::parse(b"cas 0 0 0 1 0\r\n0\r\n").expect("parse failure");
+    if let MemcacheRequest::Cas { entry, noreply } = request.message {
+        assert_eq!(entry.key(), b"0");
+        assert_eq!(entry.value(), b"0");
+        assert_eq!(entry.cas(), Some(0));
+        assert!(!noreply);
     } else {
         panic!("invalid parse result");
     }

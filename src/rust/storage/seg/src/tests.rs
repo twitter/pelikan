@@ -23,7 +23,7 @@ fn sizes() {
 
 #[test]
 fn init() {
-    let mut cache = SegCache::builder()
+    let mut cache = Seg::builder()
         .segment_size(4096)
         .heap_size(4096 * 64)
         .build();
@@ -36,7 +36,7 @@ fn get_free_seg() {
     let segments = 64;
     let heap_size = segments * segment_size as usize;
 
-    let mut cache = SegCache::builder()
+    let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
         .build();
@@ -54,7 +54,7 @@ fn get() {
     let segments = 64;
     let heap_size = segments * segment_size as usize;
 
-    let mut cache = SegCache::builder()
+    let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
         .build();
@@ -71,13 +71,37 @@ fn get() {
 }
 
 #[test]
+fn cas() {
+    let ttl = CoarseDuration::ZERO;
+    let segment_size = 4096;
+    let segments = 64;
+    let heap_size = segments * segment_size as usize;
+
+    let mut cache = Seg::builder()
+        .segment_size(segment_size)
+        .heap_size(heap_size)
+        .build();
+    assert_eq!(cache.items(), 0);
+    assert_eq!(cache.segments.free(), 64);
+    assert!(cache.get(b"coffee").is_none());
+    assert_eq!(cache.cas(b"coffee", b"strong", None, ttl, 0), Err(SegError::NotFound));
+
+    assert_eq!(cache.segments.free(), 63);
+    assert_eq!(cache.items(), 1);
+    assert!(cache.get(b"coffee").is_some());
+
+    let item = cache.get(b"coffee").unwrap();
+    assert_eq!(item.value(), b"strong", "item is: {:?}", item);
+}
+
+#[test]
 fn overwrite() {
     let ttl = CoarseDuration::ZERO;
     let segment_size = 4096;
     let segments = 64;
     let heap_size = segments * segment_size as usize;
 
-    let mut cache = SegCache::builder()
+    let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
         .build();
@@ -123,7 +147,7 @@ fn delete() {
     let segments = 64;
     let heap_size = segments * segment_size as usize;
 
-    let mut cache = SegCache::builder()
+    let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
         .build();
@@ -152,7 +176,7 @@ fn collisions_2() {
     let segments = 2;
     let heap_size = segments * segment_size as usize;
 
-    let mut cache = SegCache::builder()
+    let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
         .power(3)
@@ -179,7 +203,7 @@ fn collisions() {
     let segments = 64;
     let heap_size = segments * segment_size as usize;
 
-    let mut cache = SegCache::builder()
+    let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
         .power(3)
@@ -216,7 +240,7 @@ fn full_cache_long() {
     let value_size = 512;
     let heap_size = segments * segment_size as usize;
 
-    let mut cache = SegCache::builder()
+    let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
         .power(16)
@@ -254,7 +278,7 @@ fn full_cache_long_2() {
     let value_size = 1;
     let heap_size = segments * segment_size as usize;
 
-    let mut cache = SegCache::builder()
+    let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
         .power(16)
@@ -289,7 +313,7 @@ fn expiration() {
     let segment_size = 2 * 1024;
     let heap_size = segments * segment_size as usize;
 
-    let mut cache = SegCache::builder()
+    let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
         .power(16)
@@ -318,7 +342,7 @@ fn expiration() {
     assert_eq!(cache.segments.free(), segments - 2);
 
     // wait and expire again
-    std::thread::sleep(std::time::Duration::from_secs(10));
+    std::thread::sleep(std::time::Duration::from_secs(5));
     cache.expire();
 
     assert!(cache.get(b"latte").is_none());
