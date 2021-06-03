@@ -14,6 +14,7 @@ pub enum MemcacheCommand {
     Replace,
     Delete,
     Cas,
+    Quit,
 }
 
 impl TryFrom<&[u8]> for MemcacheCommand {
@@ -28,6 +29,7 @@ impl TryFrom<&[u8]> for MemcacheCommand {
             b"replace" => MemcacheCommand::Replace,
             b"cas" => MemcacheCommand::Cas,
             b"delete" => MemcacheCommand::Delete,
+            b"quit" => MemcacheCommand::Quit,
             _ => {
                 return Err(ParseError::UnknownCommand);
             }

@@ -11,6 +11,7 @@ use std::convert::TryFrom;
 const MAX_BYTES: usize = usize::MAX / 2;
 const MAX_COMMAND_LEN: usize = 255;
 const MAX_KEY_LEN: usize = 250;
+const MAX_BATCH_SIZE: usize = 1024;
 
 impl Parse for MemcacheRequest {
     fn parse(buffer: &[u8]) -> Result<ParseOk<Self>, ParseError> {
@@ -22,6 +23,12 @@ impl Parse for MemcacheRequest {
             MemcacheCommand::Replace => parse_replace(buffer),
             MemcacheCommand::Cas => parse_set(buffer, true),
             MemcacheCommand::Delete => parse_delete(buffer),
+            MemcacheCommand::Quit => {
+                // TODO(bmartin): in-band control commands need to be handled
+                // differently, this is a quick hack to emulate the 'quit'
+                // command
+                Err(ParseError::Invalid)
+            }
         }
     }
 }
@@ -54,11 +61,18 @@ fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
     let command;
     {
         let mut parse_state = ParseState::new(buffer);
-        if let Some(_line_end) = parse_state.next_crlf() {
+        if let Some(line_end) = parse_state.next_crlf() {
             if let Some(cmd_end) = parse_state.next_space() {
                 command = MemcacheCommand::try_from(&buffer[0..cmd_end])?;
             } else {
-                return Err(ParseError::Invalid);
+                command = MemcacheCommand::try_from(&buffer[0..line_end])?;
+
+                match command {
+                    MemcacheCommand::Quit => {}
+                    _ => {
+                        return Err(ParseError::Invalid);
+                    }
+                }
             }
         } else if buffer.len() > MAX_COMMAND_LEN {
             return Err(ParseError::Invalid);
@@ -115,6 +129,9 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
                 keys.push(buffer[previous..line_end].to_vec().into_boxed_slice());
             }
             break;
+        }
+        if keys.len() >= MAX_BATCH_SIZE {
+            return Err(ParseError::Invalid);
         }
     }
 

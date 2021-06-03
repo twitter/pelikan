@@ -8,14 +8,19 @@ use libfuzzer_sys::fuzz_target;
 use protocol::memcache::MemcacheRequest;
 use protocol::Parse;
 
-pub const SPACE: u8 = 32;
-
-pub const MAX_KEY_LEN: usize = 250;
+const MAX_KEY_LEN: usize = 250;
+const MAX_BATCH_SIZE: usize = 1024;
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(request) = MemcacheRequest::parse(data) {
         match request.into_inner() {
             MemcacheRequest::Get { keys } | MemcacheRequest::Gets { keys } => {
+                if keys.is_empty() {
+                    panic!("no keys");
+                }
+                if keys.len() > MAX_BATCH_SIZE {
+                    panic!("too many keys");
+                }
                 for key in keys.iter() {
                     validate_key(key);
                 }
@@ -31,6 +36,7 @@ fuzz_target!(|data: &[u8]| {
             MemcacheRequest::Delete { key, .. } => {
                 validate_key(&key);
             }
+            MemcacheRequest::Quit => {}
         }
     }
 });
