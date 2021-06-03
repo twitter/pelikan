@@ -4,6 +4,4 @@
 
 /// Defines operations that arbitrary storage must be able to handle to be used
 /// as storage for a ping server.
-pub trait PingStorage {
-    
-}
+pub trait PingStorage {}

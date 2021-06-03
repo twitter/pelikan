@@ -31,6 +31,15 @@ fn get() {
             panic!("invalid parse result");
         }
     }
+
+    let request = MemcacheRequest::parse(b"get 0\r\n1 ").expect("parse failure");
+    if let MemcacheRequest::Get { keys } = request.message {
+        println!("keys: {:?}", keys);
+        assert_eq!(keys.len(), 1);
+        assert_eq!(keys[0].as_ref(), b"0");
+    } else {
+        panic!("invalid parse result");
+    }
 }
 
 #[test]

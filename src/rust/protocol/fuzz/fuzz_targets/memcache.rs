@@ -5,8 +5,8 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
-use protocol::Parse;
 use protocol::memcache::MemcacheRequest;
+use protocol::Parse;
 
 pub const SPACE: u8 = 32;
 
@@ -15,22 +15,32 @@ fuzz_target!(|data: &[u8]| {
         match request.into_inner() {
             MemcacheRequest::Get { keys } | MemcacheRequest::Gets { keys } => {
                 for key in keys.iter() {
-                    assert!(!key.contains(&SPACE));
-                    assert!(!key.is_empty());
+                    validate_key(key);
                 }
             }
-            MemcacheRequest::Set { entry, .. } | MemcacheRequest::Add { entry, .. } | MemcacheRequest::Replace { entry, .. }=> {
-                assert!(!entry.key().contains(&SPACE));
-                assert!(!entry.key().is_empty());
+            MemcacheRequest::Set { entry, .. }
+            | MemcacheRequest::Add { entry, .. }
+            | MemcacheRequest::Replace { entry, .. } => {
+                validate_key(entry.key());
             }
             MemcacheRequest::Cas { entry, .. } => {
-                assert!(!entry.key().contains(&SPACE));
-                assert!(!entry.key().is_empty());
+                validate_key(entry.key());
             }
             MemcacheRequest::Delete { key, .. } => {
-                assert!(!key.contains(&SPACE));
-                assert!(!key.is_empty());
+                validate_key(&key);
             }
         }
     }
 });
+
+fn validate_key(key: &[u8]) {
+    if key.is_empty() {
+        panic!("key is zero-length");
+    }
+    if key.windows(1).any(|w| w == b" ") {
+        panic!("key contains SPACE: {:?}", key);
+    }
+    if key.windows(2).any(|w| w == b"\r\n") {
+        panic!("key contains CRLF: {:?}", key);
+    }
+}

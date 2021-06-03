@@ -8,14 +8,14 @@ mod response;
 pub use request::*;
 pub use response::*;
 
-use crate::*;
 use super::PingStorage;
+use crate::*;
 
 // use metrics::Stat;
 
 impl<'a, T> Execute<PingRequest, PingResponse> for T
 where
-    T: PingStorage
+    T: PingStorage,
 {
     fn execute(&mut self, request: PingRequest) -> Option<PingResponse> {
         let response = match request {

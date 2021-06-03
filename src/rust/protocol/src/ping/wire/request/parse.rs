@@ -70,4 +70,3 @@ fn parse_ping(buffer: &[u8]) -> Result<ParseOk<PingRequest>, ParseError> {
 
     Ok(ParseOk { message, consumed })
 }
-

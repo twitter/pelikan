@@ -80,7 +80,7 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     // a CRLF
     loop {
         if let Some(key_end) = parse_state.next_space() {
-            if key_end < line_end {
+            if (previous + key_end) < line_end {
                 if key_end > 0 {
                     keys.push(
                         buffer[previous..(previous + key_end)]
@@ -249,12 +249,12 @@ fn parse_set(buffer: &[u8], cas: bool) -> Result<ParseOk<MemcacheRequest>, Parse
             cas,
         };
         if cas.is_some() {
-             Ok(ParseOk {
+            Ok(ParseOk {
                 message: MemcacheRequest::Cas { entry, noreply },
                 consumed,
             })
         } else {
-             Ok(ParseOk {
+            Ok(ParseOk {
                 message: MemcacheRequest::Set { entry, noreply },
                 consumed,
             })
