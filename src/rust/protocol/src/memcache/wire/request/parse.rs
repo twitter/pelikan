@@ -75,16 +75,16 @@ fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
                 MemcacheCommand::Get | MemcacheCommand::Gets => {
                     let mut keys = 0;
                     while let Some(next_space) = parse_state.next_space() {
-                        if next_space - this_space > MAX_KEY_LEN {
+                        if next_space > MAX_KEY_LEN {
                             return Err(ParseError::Invalid)
                         }
                         keys += 1;
                         if keys >= MAX_BATCH_SIZE {
                             return Err(ParseError::Invalid)
                         }
-                        this_space = next_space;
+                        this_space += next_space;
                     }
-                    if buffer.len() - this_space > MAX_KEY_LEN {
+                    if buffer.len() > MAX_KEY_LEN + this_space {
                         return Err(ParseError::Invalid);
                     } else {
                         return Err(ParseError::Incomplete);
