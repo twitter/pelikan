@@ -155,6 +155,9 @@ fn parse_set(buffer: &[u8], cas: bool) -> Result<ParseOk<MemcacheRequest>, Parse
     if key_end <= cmd_end + 1 {
         return Err(ParseError::Invalid);
     }
+    if key_end - (cmd_end + 1) > MAX_KEY_LEN {
+        return Err(ParseError::Invalid);
+    }
 
     // flags
     let flags_end = parse_state.next_space().ok_or(ParseError::Invalid)? + key_end + 1;
@@ -341,6 +344,10 @@ fn parse_delete(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     };
 
     if key_end <= (cmd_end + 1) {
+        return Err(ParseError::Invalid);
+    }
+
+    if key_end - (cmd_end + 1) > MAX_KEY_LEN {
         return Err(ParseError::Invalid);
     }
 

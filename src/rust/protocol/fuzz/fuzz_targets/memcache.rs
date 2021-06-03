@@ -10,6 +10,8 @@ use protocol::Parse;
 
 pub const SPACE: u8 = 32;
 
+pub const MAX_KEY_LEN: usize = 250;
+
 fuzz_target!(|data: &[u8]| {
     if let Ok(request) = MemcacheRequest::parse(data) {
         match request.into_inner() {
@@ -36,6 +38,9 @@ fuzz_target!(|data: &[u8]| {
 fn validate_key(key: &[u8]) {
     if key.is_empty() {
         panic!("key is zero-length");
+    }
+    if key.len() > MAX_KEY_LEN {
+        panic!("key is too long");
     }
     if key.windows(1).any(|w| w == b" ") {
         panic!("key contains SPACE: {:?}", key);
