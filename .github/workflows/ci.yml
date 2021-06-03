@@ -41,7 +41,7 @@ jobs:
       run: bash ci/before-install.sh
     - name: Run
       run: bash ci/cargo-fuzz.sh
-  fuzz_protocol_memcache:
+  fuzz_protocol_admin:
     name: fuzz protocol/admin
     runs-on: ubuntu-18.04
     env:
