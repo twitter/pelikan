@@ -84,14 +84,11 @@ fn cas() {
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 64);
     assert!(cache.get(b"coffee").is_none());
-    assert_eq!(cache.cas(b"coffee", b"strong", None, ttl, 0), Err(SegError::NotFound));
-
-    assert_eq!(cache.segments.free(), 63);
-    assert_eq!(cache.items(), 1);
-    assert!(cache.get(b"coffee").is_some());
-
+    assert_eq!(cache.cas(b"coffee", b"hot", None, ttl, 0), Err(SegError::NotFound));
+    assert!(cache.insert(b"coffee", b"hot", None, ttl).is_ok());
+    assert_eq!(cache.cas(b"coffee", b"iced", None, ttl, 0), Err(SegError::Exists));
     let item = cache.get(b"coffee").unwrap();
-    assert_eq!(item.value(), b"strong", "item is: {:?}", item);
+    assert_eq!(cache.cas(b"coffee", b"iced", None, ttl, item.cas()), Ok(()));
 }
 
 #[test]

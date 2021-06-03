@@ -23,12 +23,12 @@ impl Seg {
     /// `Seg` instance.
     ///
     /// ```
-    /// use segcache::{Policy, SegCache};
+    /// use seg::{Policy, Seg};
     ///
     /// const MB: usize = 1024 * 1024;
     ///
     /// // create a heap using 1MB segments
-    /// let cache = SegCache::builder()
+    /// let cache = Seg::builder()
     ///     .heap_size(64 * MB)
     ///     .segment_size(1 * MB as i32)
     ///     .power(16)
@@ -38,14 +38,14 @@ impl Seg {
         Builder::default()
     }
 
-    /// Gets a count of items in the `SegCache` instance. This is an expensive
+    /// Gets a count of items in the `Seg` instance. This is an expensive
     /// operation and is only enabled for tests and builds with the `debug`
     /// feature enabled.
     ///
     /// ```
-    /// use segcache::{Policy, SegCache};
+    /// use seg::{Policy, Seg};
     ///
-    /// let mut cache = SegCache::builder().build();
+    /// let mut cache = Seg::builder().build();
     /// assert_eq!(cache.items(), 0);
     /// ```
     #[cfg(any(test, feature = "debug"))]
@@ -54,12 +54,12 @@ impl Seg {
         self.segments.items()
     }
 
-    /// Get the item in the `SegCache` with the provided key
+    /// Get the item in the `Seg` with the provided key
     ///
     /// ```
-    /// use segcache::{CoarseDuration, Policy, SegCache};
+    /// use seg::{CoarseDuration, Policy, Seg};
     ///
-    /// let mut cache = SegCache::builder().build();
+    /// let mut cache = Seg::builder().build();
     /// assert!(cache.get(b"coffee").is_none());
     ///
     /// cache.insert(b"coffee", b"strong", None, CoarseDuration::ZERO);
@@ -70,13 +70,13 @@ impl Seg {
         self.hashtable.get(key, &mut self.segments)
     }
 
-    /// Get the item in the `SegCache` with the provided key without
+    /// Get the item in the `Seg` with the provided key without
     /// increasing the item frequency - useful for combined operations that
     /// check for presence - eg replace is a get + set
     /// ```
-    /// use segcache::{CoarseDuration, Policy, SegCache};
+    /// use seg::{CoarseDuration, Policy, Seg};
     ///
-    /// let mut cache = SegCache::builder().build();
+    /// let mut cache = Seg::builder().build();
     /// assert!(cache.get_no_freq_incr(b"coffee").is_none());
     /// ```
     pub fn get_no_freq_incr(&mut self, key: &[u8]) -> Option<Item> {
@@ -86,9 +86,9 @@ impl Seg {
     /// Insert a new item into the cache. May return an error indicating that
     /// the insert was not successful.
     /// ```
-    /// use segcache::{CoarseDuration, Policy, SegCache};
+    /// use seg::{CoarseDuration, Policy, Seg};
     ///
-    /// let mut cache = SegCache::builder().build();
+    /// let mut cache = Seg::builder().build();
     /// assert!(cache.get(b"drink").is_none());
     ///
     /// cache.insert(b"drink", b"coffee", None, CoarseDuration::ZERO);
@@ -179,9 +179,9 @@ impl Seg {
     /// matches the current value for that item.
     ///
     /// ```
-    /// use segcache::{CoarseDuration, Policy, SegCache, SegError};
+    /// use seg::{CoarseDuration, Policy, Seg, SegError};
     ///
-    /// let mut cache = SegCache::builder().build();
+    /// let mut cache = Seg::builder().build();
     ///
     /// // If the item is not in the cache, CAS will fail as 'NotFound'
     /// assert_eq!(
@@ -220,9 +220,9 @@ impl Seg {
     /// Remove the item with the given key, returns a bool indicating if it was
     /// removed.
     /// ```
-    /// use segcache::{CoarseDuration, Policy, SegCache, SegError};
+    /// use seg::{CoarseDuration, Policy, Seg, SegError};
     ///
-    /// let mut cache = SegCache::builder().build();
+    /// let mut cache = Seg::builder().build();
     ///
     /// // If the item is not in the cache, delete will return false
     /// assert_eq!(cache.delete(b"coffee"), false);
@@ -242,9 +242,9 @@ impl Seg {
     /// Loops through the TTL Buckets to handle eager expiration, returns the
     /// number of segments expired
     /// ```
-    /// use segcache::{CoarseDuration, Policy, SegCache, SegError};
+    /// use seg::{CoarseDuration, Policy, Seg, SegError};
     ///
-    /// let mut cache = SegCache::builder().build();
+    /// let mut cache = Seg::builder().build();
     ///
     /// // Insert an item with a short ttl
     /// cache.insert(b"coffee", b"strong", None, CoarseDuration::from_secs(5));
@@ -268,8 +268,8 @@ impl Seg {
     /// Produces a dump of the cache for analysis
     /// *NOTE*: this operation is relatively expensive
     #[cfg(feature = "dump")]
-    pub fn dump(&mut self) -> SegCacheDump {
-        SegCacheDump {
+    pub fn dump(&mut self) -> SegDump {
+        SegDump {
             ttl_buckets: self.ttl_buckets.dump(),
             segments: self.segments.dump(),
         }
