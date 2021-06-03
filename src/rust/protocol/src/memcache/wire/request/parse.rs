@@ -75,7 +75,23 @@ fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
                 }
             }
         } else if buffer.len() > MAX_COMMAND_LEN {
-            return Err(ParseError::Invalid);
+            if let Some(cmd_end) = parse_state.next_space() {
+                let length_limit = match MemcacheCommand::try_from(&buffer[0..cmd_end])? {
+                    MemcacheCommand::Get | MemcacheCommand::Gets => {
+                        MAX_BATCH_SIZE * (MAX_KEY_LEN + 1) + MAX_COMMAND_LEN
+                    }
+                    _ => {
+                        MAX_COMMAND_LEN + MAX_KEY_LEN + 128
+                    }
+                };
+                if buffer.len() > length_limit {
+                    return Err(ParseError::Invalid);
+                } else {
+                    return Err(ParseError::Incomplete);
+                }
+            } else {
+                return Err(ParseError::Invalid);
+            }
         } else {
             return Err(ParseError::Incomplete);
         }
