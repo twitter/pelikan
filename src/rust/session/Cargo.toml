@@ -12,7 +12,6 @@ license = "Apache-2.0"
 
 [dependencies]
 boring = "1.0.3"
-bytes = "1.0.1"
 common = { path = "../common" }
 config = { path = "../config" }
 metrics = { path = "../metrics" }

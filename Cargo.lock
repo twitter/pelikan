@@ -1205,7 +1205,6 @@ name = "session"
 version = "0.0.1"
 dependencies = [
  "boring",
- "bytes",
  "common",
  "config",
  "metrics",

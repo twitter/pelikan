@@ -14,13 +14,12 @@ mod stream;
 mod tcp_stream;
 
 use std::borrow::Borrow;
+use std::borrow::BorrowMut;
 use std::io::BufRead;
 use std::io::{ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
 use boring::ssl::{MidHandshakeSslStream, SslStream};
-use bytes::Buf;
-use common::traits::ExtendFromSlice;
 use metrics::Stat;
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
@@ -38,7 +37,7 @@ pub struct Session {
     stream: Stream,
     read_buffer: Buffer,
     write_buffer: Buffer,
-    tmp_buffer: Box<[u8]>,
+    capacity: usize,
 }
 
 impl Session {
@@ -65,15 +64,12 @@ impl Session {
     /// Create a new `Session`
     fn new(stream: Stream, capacity: usize) -> Self {
         increment_counter!(&Stat::TcpAccept);
-        let mut tmp_buffer = vec![0; capacity];
-        tmp_buffer.resize(capacity, 0);
-        let tmp_buffer = tmp_buffer.into_boxed_slice();
         Self {
             token: Token(0),
             stream,
             read_buffer: Buffer::with_capacity(capacity),
             write_buffer: Buffer::with_capacity(capacity),
-            tmp_buffer,
+            capacity,
         }
     }
 
@@ -144,11 +140,7 @@ impl Session {
     }
 
     pub fn write_capacity(&self) -> usize {
-        if self.write_pending() > self.tmp_buffer.len() {
-            0
-        } else {
-            self.tmp_buffer.len() - self.write_pending()
-        }
+        self.capacity.saturating_sub(self.write_pending())
     }
 
     /// Returns a reference to the internally buffered data.
@@ -184,15 +176,16 @@ impl BufRead for Session {
         increment_counter!(&Stat::SessionRecv);
         let mut total_bytes = 0;
         loop {
-            match self.stream.read(&mut self.tmp_buffer) {
+            self.read_buffer.reserve(self.capacity);
+            match self.stream.read(self.read_buffer.borrow_mut()) {
                 Ok(0) => {
                     // Stream is disconnected, stop reading
                     break;
                 }
                 Ok(bytes) => {
-                    self.read_buffer.extend(&self.tmp_buffer[0..bytes]);
+                    // self.read_buffer.extend(&self.tmp_buffer[0..bytes]);
                     total_bytes += bytes;
-                    if bytes < self.tmp_buffer.len() {
+                    if bytes < self.capacity {
                         // we read less than the temp buffer size, next read
                         // is likely to block so we can stop reading.
                         break;
@@ -217,17 +210,19 @@ impl BufRead for Session {
             }
         }
         increment_counter_by!(&Stat::SessionRecvByte, total_bytes as u64);
+        self.read_buffer.increase_len(total_bytes);
         Ok(self.read_buffer.borrow())
     }
 
     fn consume(&mut self, amt: usize) {
-        self.read_buffer.inner.advance(amt);
+        self.read_buffer.consume(amt);
     }
 }
 
 impl Write for Session {
     fn write(&mut self, src: &[u8]) -> Result<usize, std::io::Error> {
-        self.write_buffer.extend(src);
+        self.write_buffer.reserve(src.len());
+        self.write_buffer.extend_from_slice(src);
         Ok(src.len())
     }
 
@@ -237,8 +232,8 @@ impl Write for Session {
             Ok(0) => Ok(()),
             Ok(bytes) => {
                 increment_counter_by!(&Stat::SessionSendByte, bytes as u64);
-                self.write_buffer.advance(bytes);
-                Ok(())
+                self.write_buffer.consume(bytes);
+                self.stream.flush()
             }
             Err(e) => {
                 increment_counter!(&Stat::SessionSendEx);

@@ -47,7 +47,7 @@ time_type = "Memcache"
 
 [debug]
 # choose from: error, warn, info, debug, trace
-log_level = "info"
+log_level = "trace"
 
 [sockio]
 
