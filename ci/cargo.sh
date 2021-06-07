@@ -5,4 +5,5 @@ cargo test
 cargo build --release
 cargo test --release
 
-cargo test --bin pelikan_pingserver_rs --test integration
+# compile benchmarks to check for errors
+cargo bench --no-run
