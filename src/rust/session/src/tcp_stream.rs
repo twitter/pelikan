@@ -5,6 +5,7 @@
 //! A new type wrapper for `TcpStream`s which allows for capturing metrics about
 //! operations on the underlying TCP stream.
 
+use std::convert::TryFrom;
 use std::io::{Read, Write};
 use std::net::SocketAddr;
 
@@ -24,9 +25,12 @@ impl TcpStream {
     }
 }
 
-impl From<mio::net::TcpStream> for TcpStream {
-    fn from(other: mio::net::TcpStream) -> Self {
-        Self { inner: other }
+impl TryFrom<mio::net::TcpStream> for TcpStream {
+    type Error = std::io::Error;
+
+    fn try_from(other: mio::net::TcpStream) -> Result<Self, std::io::Error> {
+        let _ = other.peer_addr()?;
+        Ok(Self { inner: other })
     }
 }
 

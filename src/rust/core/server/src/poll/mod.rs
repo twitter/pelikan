@@ -6,6 +6,7 @@ use mio::Waker;
 use session::Session;
 use session::TcpStream;
 use slab::Slab;
+use std::convert::TryFrom;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -81,7 +82,7 @@ impl Poll {
             // disable Nagle's algorithm
             let _ = stream.set_nodelay(true);
 
-            let stream = TcpStream::from(stream);
+            let stream = TcpStream::try_from(stream)?;
             Ok((stream, addr))
         } else {
             Err(std::io::Error::new(

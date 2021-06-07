@@ -97,29 +97,38 @@ impl Admin {
 
     /// Repeatedly call accept on the listener
     fn do_accept(&mut self) {
-        while let Ok((stream, _)) = self.poll.accept() {
-            // handle TLS if it is configured
-            if let Some(ssl_context) = &self.ssl_context {
-                match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
-                    // handle case where we have a fully-negotiated
-                    // TLS stream on accept()
-                    Ok(Ok(tls_stream)) => {
-                        self.add_established_tls_session(tls_stream);
-                    }
-                    // handle case where further negotiation is
-                    // needed
-                    Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
-                        self.add_handshaking_tls_session(tls_stream);
-                    }
-                    // some other error has occurred and we drop the
-                    // stream
-                    Ok(Err(_)) | Err(_) => {
-                        increment_counter!(&Stat::TcpAcceptEx);
+        loop {
+            match self.poll.accept() {
+                Ok((stream, _)) => {
+                    // handle TLS if it is configured
+                    if let Some(ssl_context) = &self.ssl_context {
+                        match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
+                            // handle case where we have a fully-negotiated
+                            // TLS stream on accept()
+                            Ok(Ok(tls_stream)) => {
+                                self.add_established_tls_session(tls_stream);
+                            }
+                            // handle case where further negotiation is
+                            // needed
+                            Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
+                                self.add_handshaking_tls_session(tls_stream);
+                            }
+                            // some other error has occurred and we drop the
+                            // stream
+                            Ok(Err(_)) | Err(_) => {
+                                increment_counter!(&Stat::TcpAcceptEx);
+                            }
+                        }
+                    } else {
+                        self.add_plain_session(stream);
+                    };
+                }
+                Err(e) => {
+                    if e.kind() == ErrorKind::WouldBlock {
+                        break;
                     }
                 }
-            } else {
-                self.add_plain_session(stream);
-            };
+            }
         }
     }
 
