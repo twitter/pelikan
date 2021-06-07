@@ -2,14 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use core::hash::BuildHasher;
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use fasthash::FastHasher;
 use rand::RngCore;
 use rand::SeedableRng;
 use rustcommon_time::*;
-use segcache::SegCache;
+use seg::Seg;
 
 pub const MB: usize = 1024 * 1024;
 
@@ -27,7 +25,7 @@ fn get_benchmark(c: &mut Criterion) {
         let (keys, _values) = key_values(*key_size, 1_000_000, 0, 0);
 
         // launch the server
-        let mut cache = SegCache::builder()
+        let mut cache = Seg::builder()
             .power(16)
             .heap_size(64 * MB)
             .segment_size(MB as i32)
@@ -83,7 +81,7 @@ fn set_benchmark(c: &mut Criterion) {
             let (keys, values) = key_values(*key_size, 1_000_000, *value_size, 10_000);
 
             // launch the server
-            let mut cache = SegCache::builder()
+            let mut cache = Seg::builder()
                 .power(16)
                 .heap_size(64 * MB)
                 .segment_size(MB as i32)

@@ -11,7 +11,7 @@
 // For formal performance testing, it is recommended to use
 // https://github.com/twitter/rpc-perf or another memcached benchmarking tool.
 
-use config::TwemcacheConfig;
+use config::SegcacheConfig;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use pelikan_segcache_rs::Segcache;
 
@@ -21,7 +21,7 @@ use std::time::Duration;
 
 fn get_benchmark(c: &mut Criterion) {
     // use the default config
-    let config = TwemcacheConfig::default();
+    let config = SegcacheConfig::default();
 
     // launch the server
     let server = Segcache::new(config);
