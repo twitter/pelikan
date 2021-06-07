@@ -102,7 +102,6 @@ pub trait EventLoop {
     /// and closing the session.
     fn handle_error(&mut self, token: Token) {
         trace!("handling error for session: {}", token.0);
-        debug!("Error handling event");
         let _ = self.poll().close_session(token);
     }
 
@@ -110,7 +109,6 @@ pub trait EventLoop {
     /// logging a message and closing the session.
     fn handle_hup(&mut self, token: Token) {
         trace!("handling hup for session: {}", token.0);
-        debug!("Session closed by client");
         let _ = self.poll().close_session(token);
     }
 }

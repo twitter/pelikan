@@ -43,12 +43,16 @@ impl Segments {
         let segment_size = builder.segment_size;
         let segments = builder.heap_size / (builder.segment_size as usize);
 
+        debug!("heap size: {} seg size: {} segments: {}", builder.heap_size, segment_size, segments);
+
         assert!(
             segments < (1 << 24), // we use just 24 bits to store the seg id
             "heap size requires too many segments, reduce heap size or increase segment size"
         );
 
         let evict_policy = builder.evict_policy;
+
+        debug!("eviction policy: {:?}", evict_policy);
 
         let mut headers = Vec::with_capacity(0);
         headers.reserve_exact(segments);

@@ -223,7 +223,7 @@ where
                                 }
                             }
                             Err(e) => {
-                                error!("error flushing: {}", e);
+                                debug!("error flushing: {}", e);
                             }
                         }
                     }

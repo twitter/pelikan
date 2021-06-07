@@ -11,19 +11,21 @@ pub struct Buffer {
     buffer: Vec<u8>,
     position: usize,
     capacity: usize,
+    target_capacity: usize,
 }
 
 impl Buffer {
     /// Create a new `Buffer` that can hold up to `capacity` bytes without
     /// re-allocating.
     pub fn with_capacity(capacity: usize) -> Self {
-        let buffer = vec![0; capacity];
-        // let buffer = buffer.into_boxed_slice();
+        let mut buffer = Vec::with_capacity(capacity);
+        buffer.resize(capacity, 0);
 
         Self {
             buffer,
             capacity: 0,
             position: 0,
+            target_capacity: capacity,
         }
     }
 
@@ -52,6 +54,10 @@ impl Buffer {
         if self.is_empty() {
             self.capacity = 0;
             self.position = 0;
+            if self.buffer.len() > self.target_capacity {
+                self.buffer.truncate(self.target_capacity);
+                self.buffer.shrink_to_fit();
+            }
         }
     }
 

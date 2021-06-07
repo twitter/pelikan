@@ -22,7 +22,7 @@ nevent = 1024
 threads = 4
 
 # storage configuration
-[segcache]
+[seg]
 # hash power adjusts how many items can be held in the hashtable
 hash_power = 16
 # total bytes to use for item storage - 4GiB
@@ -47,7 +47,7 @@ time_type = "Memcache"
 
 [debug]
 # choose from: error, warn, info, debug, trace
-log_level = "trace"
+log_level = "debug"
 
 [sockio]
 
