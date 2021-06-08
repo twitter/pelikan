@@ -23,8 +23,10 @@ fn main() {
         .init()
         .expect("Failed to initialize logger");
 
-    debug!("launching server");
-    let server = Segcache::new(SegcacheConfig::default());
+    debug!("launching multi-worker server");
+    let mut config = SegcacheConfig::default();
+    config.worker_mut().set_threads(2);
+    let server = Segcache::new(config);
 
     // wait for server to startup. duration is chosen to be longer than we'd
     // expect startup to take in a slow ci environment.

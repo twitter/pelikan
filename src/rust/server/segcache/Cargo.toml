@@ -19,6 +19,11 @@ name = "integration"
 path = "tests/integration.rs"
 harness = false
 
+[[test]]
+name = "integration_multi"
+path = "tests/integration_multi.rs"
+harness = false
+
 [[bench]]
 name = "benchmark"
 path = "benches/benchmark.rs"

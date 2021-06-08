@@ -46,6 +46,10 @@ impl WorkerConfig {
     pub fn threads(&self) -> usize {
         self.threads
     }
+
+    pub fn set_threads(&mut self, threads: usize) {
+        self.threads = threads
+    }
 }
 
 // trait implementations

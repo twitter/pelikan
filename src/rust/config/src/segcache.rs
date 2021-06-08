@@ -104,6 +104,10 @@ impl SegcacheConfig {
         &self.worker
     }
 
+    pub fn worker_mut(&mut self) -> &mut WorkerConfig {
+        &mut self.worker
+    }
+
     pub fn time(&self) -> &TimeConfig {
         &self.time
     }
