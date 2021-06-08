@@ -8,6 +8,24 @@ use std::sync::Arc;
 
 /// A collection of queue pairs which can be used to allow a thread to exchange
 /// messages with several threads.
+///
+/// ```text
+///                            ┌────────────┐
+///                    ╭───────▶ receiver 1 │
+///                    │       └────────────┘
+///                    │       ┌────────────┐
+/// ┌──────────────┐   │╭──────▶ receiver 2 │
+/// │              │───╯│      └────────────┘
+/// │              │────╯      ┌────────────┐
+/// │    sender    │───────────▶ receiver 3 │
+/// │              │           └────────────┘
+/// │              │───╮
+/// └──────────────┘   │   ┋         ┋
+///                    │
+///                    │       ┌────────────┐
+///                    ╰───────▶ receiver n │
+///                            └────────────┘
+/// ```
 pub struct QueuePairs<T, U> {
     queue_pairs: Vec<QueuePair<T, U>>,
     waker: Option<Arc<Waker>>,
