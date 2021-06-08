@@ -43,9 +43,6 @@ where
         worker_config: &WorkerConfig,
         storage: Storage,
     ) -> Self {
-        // initialize metrics
-        metrics::init();
-
         // initialize admin
         let ssl_context = common::ssl::ssl_context(tls_config).unwrap_or_else(|e| {
             error!("failed to initialize TLS: {}", e);

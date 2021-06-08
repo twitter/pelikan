@@ -31,6 +31,7 @@ debug = ["entrystore/debug"]
 backtrace = "0.3.56"
 config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
+metrics = { path = "../../metrics" }
 protocol = { path = "../../protocol" }
 rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
 rustcommon-fastmetrics = { git = "https://github.com/twitter/rustcommon" }

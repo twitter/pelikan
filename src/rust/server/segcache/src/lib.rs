@@ -19,7 +19,13 @@ pub struct Segcache {
 impl Segcache {
     /// Creates a new `Segcache` process from the given `SegcacheConfig`.
     pub fn new(config: SegcacheConfig) -> Self {
+        // initialize metrics
+        metrics::init();
+
+        // initialize storage
         let storage = Seg::new(config.seg(), config.time().time_type());
+
+        // initialize process
         let process_builder = ProcessBuilder::<Seg, MemcacheRequest, MemcacheResponse>::new(
             config.admin(),
             config.server(),
@@ -27,7 +33,10 @@ impl Segcache {
             config.worker(),
             storage,
         );
+
+        // spawn threads
         let process = process_builder.spawn();
+
         Self { process }
     }
 

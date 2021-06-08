@@ -19,7 +19,13 @@ pub struct Pingserver {
 impl Pingserver {
     /// Creates a new `Pingserver` process from the given `PingserverConfig`.
     pub fn new(config: PingserverConfig) -> Self {
+        // initialize metrics
+        metrics::init();
+
+        // initialize storage
         let storage = Noop::default();
+
+        // initialize process
         let process_builder = ProcessBuilder::<Noop, PingRequest, PingResponse>::new(
             config.admin(),
             config.server(),
@@ -27,7 +33,10 @@ impl Pingserver {
             config.worker(),
             storage,
         );
+
+        // spawn threads
         let process = process_builder.spawn();
+
         Self { process }
     }
 

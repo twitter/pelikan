@@ -43,7 +43,10 @@ impl Segments {
         let segment_size = builder.segment_size;
         let segments = builder.heap_size / (builder.segment_size as usize);
 
-        debug!("heap size: {} seg size: {} segments: {}", builder.heap_size, segment_size, segments);
+        debug!(
+            "heap size: {} seg size: {} segments: {}",
+            builder.heap_size, segment_size, segments
+        );
 
         assert!(
             segments < (1 << 24), // we use just 24 bits to store the seg id
@@ -89,8 +92,8 @@ impl Segments {
             }
         }
 
-        increment_gauge_by!(&Stat::SegmentCurrent, segments as i64);
-        increment_gauge_by!(&Stat::SegmentFree, segments as i64);
+        set_gauge!(&Stat::SegmentCurrent, segments as i64);
+        set_gauge!(&Stat::SegmentFree, segments as i64);
 
         Self {
             headers,
