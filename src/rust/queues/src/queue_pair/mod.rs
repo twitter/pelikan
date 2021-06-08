@@ -13,9 +13,9 @@ pub struct QueuePair<T, U> {
     waker: Option<Arc<Waker>>,
 }
 
-/// Creats a new queue pair that can hold up to capacity items. The optional
-/// `Waker`s allow the sender to inform the receiver that a receive operation
-/// should return at least one message.
+/// Creats a new queue pair that can hold up to capacity items in each
+/// direction. The optional `Waker`s allow the sender to inform the receiver
+/// that a receive operation should return at least one message.
 pub fn queue_pair_with_capacity<A, B>(
     capacity: usize,
     waker_a: Option<Arc<Waker>>,
