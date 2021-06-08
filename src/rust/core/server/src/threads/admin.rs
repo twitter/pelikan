@@ -132,6 +132,35 @@ impl Admin {
         }
     }
 
+    fn handle_stats_request(session: &mut Session) {
+        increment_counter!(&Stat::AdminRequestParse);
+        let mut data = Vec::new();
+        for metric in Stat::iter() {
+            match metric.source() {
+                Source::Gauge => {
+                    data.push(format!(
+                        "STAT {} {}\r\n",
+                        metric,
+                        get_gauge!(&metric).unwrap_or(0)
+                    ));
+                }
+                Source::Counter => {
+                    data.push(format!(
+                        "STAT {} {}\r\n",
+                        metric,
+                        get_counter!(&metric).unwrap_or(0)
+                    ));
+                }
+            }
+        }
+        data.sort();
+        for line in data {
+            let _ = session.write(line.as_bytes());
+        }
+        let _ = session.write(b"END\r\n");
+        increment_counter!(&Stat::AdminResponseCompose);
+    }
+
     /// Handle an event on an existing session
     fn handle_session_event(&mut self, event: &Event) {
         let token = event.token();
@@ -294,34 +323,10 @@ impl EventLoop for Admin {
                         let consumed = parsed_request.consumed();
                         let request = parsed_request.into_inner();
                         session.consume(consumed);
+
                         match request {
                             AdminRequest::Stats => {
-                                increment_counter!(&Stat::AdminRequestParse);
-                                let mut data = Vec::new();
-                                for metric in Stat::iter() {
-                                    match metric.source() {
-                                        Source::Gauge => {
-                                            data.push(format!(
-                                                "STAT {} {}\r\n",
-                                                metric,
-                                                get_gauge!(&metric).unwrap_or(0)
-                                            ));
-                                        }
-                                        Source::Counter => {
-                                            data.push(format!(
-                                                "STAT {} {}\r\n",
-                                                metric,
-                                                get_counter!(&metric).unwrap_or(0)
-                                            ));
-                                        }
-                                    }
-                                }
-                                data.sort();
-                                for line in data {
-                                    let _ = session.write(line.as_bytes());
-                                }
-                                let _ = session.write(b"END\r\n");
-                                increment_counter!(&Stat::AdminResponseCompose);
+                                Self::handle_stats_request(session);
                             }
                             AdminRequest::Quit => {
                                 let _ = self.poll.close_session(token);
