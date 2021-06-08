@@ -9,7 +9,7 @@ use core::slice::Windows;
 use std::convert::TryFrom;
 
 const MAX_BYTES: usize = usize::MAX / 2;
-const MAX_COMMAND_LEN: usize = 255;
+const MAX_COMMAND_LEN: usize = 16;
 const MAX_KEY_LEN: usize = 250;
 const MAX_BATCH_SIZE: usize = 1024;
 
