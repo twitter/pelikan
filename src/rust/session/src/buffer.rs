@@ -60,6 +60,10 @@ impl Buffer {
                 self.buffer.truncate(self.target_capacity);
                 self.buffer.shrink_to_fit();
             }
+        } else if self.read_offset > self.target_capacity {
+            self.buffer.copy_within(self.read_offset..self.write_offset, 0);
+            self.write_offset -= self.read_offset;
+            self.read_offset = 0;
         }
     }
 
