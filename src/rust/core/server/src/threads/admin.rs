@@ -161,6 +161,13 @@ impl Admin {
         increment_counter!(&Stat::AdminResponseCompose);
     }
 
+    fn handle_version_request(session: &mut Session) {
+        let _ = session.write(
+            format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION")).as_bytes(),
+        );
+        increment_counter!(&Stat::AdminResponseCompose);
+    }
+
     /// Handle an event on an existing session
     fn handle_session_event(&mut self, event: &Event) {
         let token = event.token();
@@ -333,10 +340,7 @@ impl EventLoop for Admin {
                                 return Ok(());
                             }
                             AdminRequest::Version => {
-                                let _ = session.write(
-                                    format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION")).as_bytes(),
-                                );
-                                increment_counter!(&Stat::AdminResponseCompose);
+                                Self::handle_version_request(session);
                             }
                         }
                     }
