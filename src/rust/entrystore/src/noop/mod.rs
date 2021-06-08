@@ -2,10 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! Segment-structured storage which implements efficient proactive eviction.
-//! This storage type is suitable for use in simple key-value cache backends.
-//! See: [`::segcache`] crate for more details behind the underlying storage
-//! design.
+//! No-op storage which can be used for servers which do not have state.
 
 use crate::EntryStore;
 
