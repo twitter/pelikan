@@ -24,7 +24,7 @@ threads = 4
 # storage configuration
 [seg]
 # hash power adjusts how many items can be held in the hashtable
-hash_power = 16
+hash_power = 22
 # total bytes to use for item storage - 4GiB
 heap_size = 4294967296
 # size of each segment in bytes - 1MiB
@@ -47,7 +47,7 @@ time_type = "Memcache"
 
 [debug]
 # choose from: error, warn, info, debug, trace
-log_level = "debug"
+log_level = "info"
 
 [sockio]
 
