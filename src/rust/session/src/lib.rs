@@ -183,7 +183,6 @@ impl BufRead for Session {
                     break;
                 }
                 Ok(bytes) => {
-                    // self.read_buffer.extend(&self.tmp_buffer[0..bytes]);
                     total_bytes += bytes;
                     if bytes < self.capacity {
                         // we read less than the temp buffer size, next read
