@@ -184,11 +184,6 @@ impl BufRead for Session {
                 }
                 Ok(bytes) => {
                     total_bytes += bytes;
-                    if bytes < self.capacity {
-                        // we read less than the temp buffer size, next read
-                        // is likely to block so we can stop reading.
-                        break;
-                    }
                 }
                 Err(e) => {
                     if e.kind() == ErrorKind::WouldBlock {

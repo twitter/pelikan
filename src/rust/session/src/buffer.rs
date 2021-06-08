@@ -42,6 +42,7 @@ impl Buffer {
 
     pub fn reserve(&mut self, additional: usize) {
         self.buffer.reserve(additional);
+        self.buffer.resize(self.buffer.capacity(), 0);
     }
 
     pub fn extend_from_slice(&mut self, other: &[u8]) {
