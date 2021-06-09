@@ -30,6 +30,10 @@ impl Buffer {
         }
     }
 
+    pub fn available_capacity(&self) -> usize {
+        self.buffer.len() - self.write_offset
+    }
+
     /// Return the number of bytes currently in the buffer.
     pub fn len(&self) -> usize {
         self.write_offset - self.read_offset
@@ -41,8 +45,11 @@ impl Buffer {
     }
 
     pub fn reserve(&mut self, additional: usize) {
-        self.buffer.reserve(additional);
-        self.buffer.resize(self.buffer.capacity(), 0);
+        let needed = additional.saturating_sub(self.available_capacity());
+        if needed > 0 {
+            self.buffer.reserve(needed);
+            self.buffer.resize(self.buffer.capacity(), 0);
+        }
     }
 
     pub fn extend_from_slice(&mut self, other: &[u8]) {

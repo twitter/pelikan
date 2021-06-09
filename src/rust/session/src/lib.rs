@@ -183,6 +183,7 @@ impl BufRead for Session {
                     break;
                 }
                 Ok(bytes) => {
+                    self.read_buffer.increase_len(bytes);
                     total_bytes += bytes;
                 }
                 Err(e) => {
@@ -204,7 +205,6 @@ impl BufRead for Session {
             }
         }
         increment_counter_by!(&Stat::SessionRecvByte, total_bytes as u64);
-        self.read_buffer.increase_len(total_bytes);
         Ok(self.read_buffer.borrow())
     }
 
