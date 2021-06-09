@@ -5,9 +5,11 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
-use protocol::admin::AdminRequest;
+use protocol::admin::AdminRequestParser;
 use protocol::Parse;
 
+const PARSER: AdminRequestParser = AdminRequestParser {};
+
 fuzz_target!(|data: &[u8]| {
-    let _ = AdminRequest::parse(data);
+    let _ = PARSER.parse(data);
 });
