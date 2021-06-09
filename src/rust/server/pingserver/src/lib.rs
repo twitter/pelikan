@@ -25,6 +25,9 @@ impl Pingserver {
         // initialize storage
         let storage = Noop::default();
 
+        // use a fixed buffer size for the pingserver
+        let max_buffer_size = server::DEFAULT_BUFFER_SIZE;
+
         // initialize process
         let process_builder = ProcessBuilder::<Noop, PingRequest, PingResponse>::new(
             config.admin(),
@@ -32,6 +35,7 @@ impl Pingserver {
             config.tls(),
             config.worker(),
             storage,
+            max_buffer_size,
         );
 
         // spawn threads

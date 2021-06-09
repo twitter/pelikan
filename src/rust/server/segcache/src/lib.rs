@@ -25,6 +25,8 @@ impl Segcache {
         // initialize storage
         let storage = Seg::new(config.seg(), config.time().time_type());
 
+        let max_buffer_size = std::cmp::max(server::DEFAULT_BUFFER_SIZE, config.seg().segment_size() as usize * 2);
+
         // initialize process
         let process_builder = ProcessBuilder::<Seg, MemcacheRequest, MemcacheResponse>::new(
             config.admin(),
@@ -32,6 +34,7 @@ impl Segcache {
             config.tls(),
             config.worker(),
             storage,
+            max_buffer_size,
         );
 
         // spawn threads

@@ -32,7 +32,7 @@ where
     Request: Parse + std::marker::Send,
     Response: Compose + std::marker::Send,
 {
-    /// Creates a new `ProcessBuilder` with an optional config file.
+    /// Creates a new `ProcessBuilder`
     ///
     /// This function will terminate the program execution if there are any
     /// issues encountered while initializing the components.
@@ -42,6 +42,7 @@ where
         tls_config: &TlsConfig,
         worker_config: &WorkerConfig,
         storage: Storage,
+        max_buffer_size: usize,
     ) -> Self {
         // initialize admin
         let ssl_context = common::ssl::ssl_context(tls_config).unwrap_or_else(|e| {
@@ -64,7 +65,7 @@ where
             error!("failed to initialize TLS: {}", e);
             std::process::exit(1);
         });
-        let mut listener = Listener::new(server_config, ssl_context).unwrap_or_else(|e| {
+        let mut listener = Listener::new(server_config, ssl_context, max_buffer_size).unwrap_or_else(|e| {
             error!("failed to initialize listener: {}", e);
             std::process::exit(1);
         });

@@ -71,7 +71,7 @@ impl Admin {
 
     /// Adds a new fully established TLS session
     fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
-        let session = Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        let session = Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE, crate::ADMIN_MAX_BUFFER_SIZE);
         if self.poll.add_session(session).is_err() {
             increment_counter!(&Stat::TcpAcceptEx);
         }
@@ -79,7 +79,7 @@ impl Admin {
 
     /// Adds a new TLS session that requires further handshaking
     fn add_handshaking_tls_session(&mut self, stream: MidHandshakeSslStream<TcpStream>) {
-        let session = Session::handshaking_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        let session = Session::handshaking_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE, crate::ADMIN_MAX_BUFFER_SIZE);
         trace!("accepted new session: {:?}", session.peer_addr());
         if self.poll.add_session(session).is_err() {
             increment_counter!(&Stat::TcpAcceptEx);
@@ -88,7 +88,7 @@ impl Admin {
 
     /// Adds a new plain (non-TLS) session
     fn add_plain_session(&mut self, stream: TcpStream) {
-        let session = Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        let session = Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE, crate::ADMIN_MAX_BUFFER_SIZE);
         trace!("accepted new session: {:?}", session.peer_addr());
         if self.poll.add_session(session).is_err() {
             increment_counter!(&Stat::TcpAcceptEx);

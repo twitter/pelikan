@@ -33,6 +33,7 @@ pub struct Listener {
     ssl_context: Option<SslContext>,
     signal_queue: QueuePairs<(), Signal>,
     timeout: Duration,
+    max_buffer_size: usize,
 }
 
 impl Listener {
@@ -41,6 +42,7 @@ impl Listener {
     pub fn new(
         config: &ServerConfig,
         ssl_context: Option<SslContext>,
+        max_buffer_size: usize,
     ) -> Result<Self, std::io::Error> {
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
@@ -67,6 +69,7 @@ impl Listener {
             ssl_context,
             signal_queue,
             timeout,
+            max_buffer_size,
         })
     }
 
@@ -109,7 +112,7 @@ impl Listener {
 
     /// Adds a new fully established TLS session
     fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
-        let session = Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        let session = Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE, self.max_buffer_size);
         trace!("accepted new session: {:?}", session.peer_addr());
         if self.session_queue.send_rr(session).is_err() {
             error!("error sending session to worker");
@@ -119,7 +122,7 @@ impl Listener {
 
     /// Adds a new TLS session that requires further handshaking
     fn add_handshaking_tls_session(&mut self, stream: MidHandshakeSslStream<TcpStream>) {
-        let session = Session::handshaking_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        let session = Session::handshaking_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE, self.max_buffer_size);
         if self.poll.add_session(session).is_err() {
             increment_counter!(&Stat::TcpAcceptEx);
         }
@@ -127,7 +130,7 @@ impl Listener {
 
     /// Adds a new plain (non-TLS) session
     fn add_plain_session(&mut self, stream: TcpStream) {
-        let session = Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE);
+        let session = Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE, self.max_buffer_size);
         trace!("accepted new session: {:?}", session.peer_addr());
         if self.session_queue.send_rr(session).is_err() {
             error!("error sending session to worker");

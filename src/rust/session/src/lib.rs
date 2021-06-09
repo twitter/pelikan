@@ -37,39 +37,41 @@ pub struct Session {
     stream: Stream,
     read_buffer: Buffer,
     write_buffer: Buffer,
-    capacity: usize,
+    min_capacity: usize,
+    max_capacity: usize,
 }
 
 impl Session {
     /// Create a new `Session` with  representing a plain `TcpStream` with
     /// internal buffers which can hold up to capacity bytes without
     /// reallocating.
-    pub fn plain_with_capacity(stream: TcpStream, capacity: usize) -> Self {
-        Self::new(Stream::plain(stream), capacity)
+    pub fn plain_with_capacity(stream: TcpStream, min_capacity: usize, max_capacity: usize) -> Self {
+        Self::new(Stream::plain(stream), min_capacity, max_capacity)
     }
 
     /// Create a new `Session` representing a negotiated `SslStream`
-    pub fn tls_with_capacity(stream: SslStream<TcpStream>, capacity: usize) -> Self {
-        Self::new(Stream::tls(stream), capacity)
+    pub fn tls_with_capacity(stream: SslStream<TcpStream>, min_capacity: usize, max_capacity: usize) -> Self {
+        Self::new(Stream::tls(stream), min_capacity, max_capacity)
     }
 
     /// Create a new `Session` representing a `MidHandshakeSslStream`
     pub fn handshaking_with_capacity(
         stream: MidHandshakeSslStream<TcpStream>,
-        capacity: usize,
+        min_capacity: usize, max_capacity: usize
     ) -> Self {
-        Self::new(Stream::handshaking(stream), capacity)
+        Self::new(Stream::handshaking(stream), min_capacity, max_capacity)
     }
 
     /// Create a new `Session`
-    fn new(stream: Stream, capacity: usize) -> Self {
+    fn new(stream: Stream, min_capacity: usize, max_capacity: usize) -> Self {
         increment_counter!(&Stat::TcpAccept);
         Self {
             token: Token(0),
             stream,
-            read_buffer: Buffer::with_capacity(capacity),
-            write_buffer: Buffer::with_capacity(capacity),
-            capacity,
+            read_buffer: Buffer::with_capacity(min_capacity),
+            write_buffer: Buffer::with_capacity(min_capacity),
+            min_capacity,
+            max_capacity,
         }
     }
 
@@ -139,8 +141,11 @@ impl Session {
         self.write_buffer.len()
     }
 
+    /// Returns the number of bytes free in the write buffer relative to the
+    /// minimum buffer size. This allows us to use it as a signal that we should
+    /// apply some backpressure on handling requests for the session.
     pub fn write_capacity(&self) -> usize {
-        self.capacity.saturating_sub(self.write_pending())
+        self.min_capacity.saturating_sub(self.write_pending())
     }
 
     /// Returns a reference to the internally buffered data.
@@ -176,7 +181,10 @@ impl BufRead for Session {
         increment_counter!(&Stat::SessionRecv);
         let mut total_bytes = 0;
         loop {
-            self.read_buffer.reserve(self.capacity);
+            self.read_buffer.reserve(self.min_capacity);
+            if self.read_buffer.capacity() > self.max_capacity {
+                return Err(std::io::Error::new(ErrorKind::Other, "buffer too large"));
+            }
             match self.stream.read(self.read_buffer.borrow_mut()) {
                 Ok(0) => {
                     // Stream is disconnected, stop reading

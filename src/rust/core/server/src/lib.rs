@@ -102,6 +102,12 @@ pub use process::{Process, ProcessBuilder};
 
 // The default buffer size is matched to the upper-bound on TLS fragment size as
 // per RFC 5246 https://datatracker.ietf.org/doc/html/rfc5246#section-6.2.1
-const DEFAULT_BUFFER_SIZE: usize = 16 * 1024; // 16KB
+pub const DEFAULT_BUFFER_SIZE: usize = 16 * 1024; // 16KB
+
+// The admin thread (control plane) sessions use a fixed upper-bound on the
+// session buffer size. The max buffer size for data plane sessions are to be
+// specified during `Listener` initialization. This allows protocol and config
+// specific upper bounds.
+const ADMIN_MAX_BUFFER_SIZE: usize = 2 * 1024 * 1024; // 1MB
 
 const THREAD_PREFIX: &str = "pelikan";

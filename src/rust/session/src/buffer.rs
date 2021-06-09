@@ -36,6 +36,10 @@ impl Buffer {
         self.buffer.len() - self.write_offset
     }
 
+    pub fn capacity(&self) -> usize {
+        self.buffer.len()
+    }
+
     /// Return the number of bytes currently in the buffer.
     pub fn len(&self) -> usize {
         self.write_offset - self.read_offset
