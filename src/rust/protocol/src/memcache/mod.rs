@@ -8,4 +8,4 @@ mod wire;
 
 pub use entry::MemcacheEntry;
 pub use storage::{MemcacheStorage, MemcacheStorageError};
-pub use wire::{MemcacheRequest, MemcacheResponse};
+pub use wire::{MemcacheRequest, MemcacheRequestParser, MemcacheResponse};

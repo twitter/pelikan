@@ -28,7 +28,7 @@ use std::io::{BufRead, Write};
 use std::sync::Arc;
 
 /// A `Worker` handles events on `Session`s
-pub struct SingleWorker<Storage, Request, Response> {
+pub struct SingleWorker<Storage, Parser, Request, Response> {
     storage: Storage,
     poll: Poll,
     nevent: usize,
@@ -37,16 +37,21 @@ pub struct SingleWorker<Storage, Request, Response> {
     signal_queue: QueuePairs<(), Signal>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
+    parser: Parser,
 }
 
-impl<Storage, Request, Response> SingleWorker<Storage, Request, Response>
+impl<Storage, Parser, Request, Response> SingleWorker<Storage, Parser, Request, Response>
 where
-    Request: Parse,
+    Parser: Parse<Request>,
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(config: &WorkerConfig, storage: Storage) -> Result<Self, std::io::Error> {
+    pub fn new(
+        config: &WorkerConfig,
+        storage: Storage,
+        parser: Parser,
+    ) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
@@ -64,6 +69,7 @@ where
             session_queue,
             _request: PhantomData,
             _response: PhantomData,
+            parser,
         })
     }
 
@@ -192,9 +198,10 @@ where
     }
 }
 
-impl<Storage, Request, Response> EventLoop for SingleWorker<Storage, Request, Response>
+impl<Storage, Parser, Request, Response> EventLoop
+    for SingleWorker<Storage, Parser, Request, Response>
 where
-    Request: Parse,
+    Parser: Parse<Request>,
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {
@@ -206,7 +213,7 @@ where
                     // if the write buffer is over-full, skip processing
                     break;
                 }
-                match Parse::parse(session.buffer()) {
+                match self.parser.parse(session.buffer()) {
                     Ok(parsed_request) => {
                         increment_counter!(&Stat::ProcessReq);
                         let consumed = parsed_request.consumed();

@@ -6,4 +6,4 @@ mod storage;
 mod wire;
 
 pub use storage::PingStorage;
-pub use wire::{PingRequest, PingResponse};
+pub use wire::{PingRequest, PingRequestParser, PingResponse};

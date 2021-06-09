@@ -44,9 +44,6 @@ impl<T> ParseOk<T> {
     }
 }
 
-pub trait Parse
-where
-    Self: Sized,
-{
-    fn parse(buffer: &[u8]) -> Result<ParseOk<Self>, ParseError>;
+pub trait Parse<T> {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<T>, ParseError>;
 }

@@ -45,19 +45,28 @@ impl Session {
     /// Create a new `Session` with  representing a plain `TcpStream` with
     /// internal buffers which can hold up to capacity bytes without
     /// reallocating.
-    pub fn plain_with_capacity(stream: TcpStream, min_capacity: usize, max_capacity: usize) -> Self {
+    pub fn plain_with_capacity(
+        stream: TcpStream,
+        min_capacity: usize,
+        max_capacity: usize,
+    ) -> Self {
         Self::new(Stream::plain(stream), min_capacity, max_capacity)
     }
 
     /// Create a new `Session` representing a negotiated `SslStream`
-    pub fn tls_with_capacity(stream: SslStream<TcpStream>, min_capacity: usize, max_capacity: usize) -> Self {
+    pub fn tls_with_capacity(
+        stream: SslStream<TcpStream>,
+        min_capacity: usize,
+        max_capacity: usize,
+    ) -> Self {
         Self::new(Stream::tls(stream), min_capacity, max_capacity)
     }
 
     /// Create a new `Session` representing a `MidHandshakeSslStream`
     pub fn handshaking_with_capacity(
         stream: MidHandshakeSslStream<TcpStream>,
-        min_capacity: usize, max_capacity: usize
+        min_capacity: usize,
+        max_capacity: usize,
     ) -> Self {
         Self::new(Stream::handshaking(stream), min_capacity, max_capacity)
     }

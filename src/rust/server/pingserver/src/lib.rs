@@ -8,7 +8,7 @@
 
 use config::PingserverConfig;
 use entrystore::Noop;
-use protocol::ping::{PingRequest, PingResponse};
+use protocol::ping::{PingRequest, PingRequestParser, PingResponse};
 use server::{Process, ProcessBuilder};
 
 /// This structure represents a running `Pingserver` process.
@@ -29,14 +29,16 @@ impl Pingserver {
         let max_buffer_size = server::DEFAULT_BUFFER_SIZE;
 
         // initialize process
-        let process_builder = ProcessBuilder::<Noop, PingRequest, PingResponse>::new(
-            config.admin(),
-            config.server(),
-            config.tls(),
-            config.worker(),
-            storage,
-            max_buffer_size,
-        );
+        let process_builder =
+            ProcessBuilder::<Noop, PingRequestParser, PingRequest, PingResponse>::new(
+                config.admin(),
+                config.server(),
+                config.tls(),
+                config.worker(),
+                storage,
+                max_buffer_size,
+                PingRequestParser::new(),
+            );
 
         // spawn threads
         let process = process_builder.spawn();

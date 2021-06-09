@@ -35,9 +35,9 @@ const WAKER_TOKEN: usize = usize::MAX;
 
 /// A `MultiWorker` handles events on `Session`s and routes storage requests to
 /// the `Storage` thread.
-pub struct MultiWorker<Storage, Request, Response>
+pub struct MultiWorker<Storage, Parser, Request, Response>
 where
-    Request: Parse,
+    Parser: Parse<Request>,
     Response: protocol::Compose,
 {
     signal_queue: QueuePairs<(), Signal>,
@@ -48,11 +48,13 @@ where
     storage_queue: QueuePair<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
     wake_storage: bool,
     _storage: PhantomData<Storage>,
+    parser: Parser,
 }
 
-impl<Storage, Request, Response> MultiWorker<Storage, Request, Response>
+impl<Storage, Parser, Request, Response> MultiWorker<Storage, Parser, Request, Response>
 where
-    Request: Parse + Send,
+    Parser: Parse<Request> + Send,
+    Request: Send,
     Response: Compose + Send,
     Storage: Execute<Request, Response> + EntryStore + Send,
 {
@@ -60,6 +62,7 @@ where
     pub fn new(
         config: &WorkerConfig,
         storage: &mut StorageWorker<Storage, Request, Response>,
+        parser: Parser,
     ) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
@@ -80,6 +83,7 @@ where
             storage_queue,
             wake_storage: false,
             _storage: PhantomData,
+            parser,
         })
     }
 
@@ -170,7 +174,10 @@ where
     }
 
     fn handle_session_read(&mut self, token: Token) -> Result<(), std::io::Error> {
-        match Request::parse(self.poll.get_mut_session(token)?.buffer()) {
+        match self
+            .parser
+            .parse(self.poll.get_mut_session(token)?.buffer())
+        {
             Ok(request) => {
                 let consumed = request.consumed();
                 let request = request.into_inner();
@@ -264,9 +271,11 @@ where
     }
 }
 
-impl<Storage, Request, Response> EventLoop for MultiWorker<Storage, Request, Response>
+impl<Storage, Parser, Request, Response> EventLoop
+    for MultiWorker<Storage, Parser, Request, Response>
 where
-    Request: Parse + Send,
+    Parser: Parse<Request> + Send,
+    Request: Send,
     Response: Compose + Send,
     Storage: Execute<Request, Response> + EntryStore + Send,
 {

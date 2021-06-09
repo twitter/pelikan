@@ -19,8 +19,17 @@ pub enum AdminRequest {
     Quit,
 }
 
-impl Parse for AdminRequest {
-    fn parse(buffer: &[u8]) -> Result<ParseOk<Self>, ParseError> {
+#[derive(Default, Copy, Clone)]
+pub struct AdminRequestParser {}
+
+impl AdminRequestParser {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Parse<AdminRequest> for AdminRequestParser {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<AdminRequest>, ParseError> {
         // check if we got a CRLF
         let mut double_byte_windows = buffer.windows(CRLF.len());
         if let Some(command_end) = double_byte_windows.position(|w| w == CRLF.as_bytes()) {
@@ -37,15 +46,15 @@ impl Parse for AdminRequest {
             } else {
                 match &buffer[0..command_end] {
                     b"stats" => Ok(ParseOk {
-                        message: Self::Stats,
+                        message: AdminRequest::Stats,
                         consumed: command_end + CRLF.len(),
                     }),
                     b"quit" => Ok(ParseOk {
-                        message: Self::Quit,
+                        message: AdminRequest::Quit,
                         consumed: command_end + CRLF.len(),
                     }),
                     b"version" => Ok(ParseOk {
-                        message: Self::Version,
+                        message: AdminRequest::Version,
                         consumed: command_end + CRLF.len(),
                     }),
                     _ => Err(ParseError::UnknownCommand),
@@ -63,29 +72,37 @@ mod tests {
 
     #[test]
     fn parse_incomplete() {
+        let parser = AdminRequestParser::new();
+
         let buffers: Vec<&[u8]> = vec![b"", b"stats", b"stats\r"];
         for buffer in buffers.iter() {
-            assert_eq!(AdminRequest::parse(buffer), Err(ParseError::Incomplete));
+            assert_eq!(parser.parse(buffer), Err(ParseError::Incomplete));
         }
     }
 
     #[test]
     fn parse_quit() {
-        let parsed = AdminRequest::parse(b"quit\r\n");
+        let parser = AdminRequestParser::new();
+
+        let parsed = parser.parse(b"quit\r\n");
         assert!(parsed.is_ok());
         assert_eq!(parsed.unwrap().into_inner(), AdminRequest::Quit);
     }
 
     #[test]
     fn parse_stats() {
-        let parsed = AdminRequest::parse(b"stats\r\n");
+        let parser = AdminRequestParser::new();
+
+        let parsed = parser.parse(b"stats\r\n");
         assert!(parsed.is_ok());
         assert_eq!(parsed.unwrap().into_inner(), AdminRequest::Stats);
     }
 
     #[test]
     fn parse_version() {
-        let parsed = AdminRequest::parse(b"version\r\n");
+        let parser = AdminRequestParser::new();
+
+        let parsed = parser.parse(b"version\r\n");
         assert!(parsed.is_ok());
         assert_eq!(parsed.unwrap().into_inner(), AdminRequest::Version);
     }

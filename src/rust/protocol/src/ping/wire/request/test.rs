@@ -2,18 +2,22 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::ping::PingRequest;
+use crate::ping::PingRequestParser;
 use crate::*;
 
 #[test]
 fn ping() {
-    assert!(PingRequest::parse(b"ping\r\n").is_ok());
-    assert!(PingRequest::parse(b"PING\r\n").is_ok());
+    let parser = PingRequestParser::new();
+
+    assert!(parser.parse(b"ping\r\n").is_ok());
+    assert!(parser.parse(b"PING\r\n").is_ok());
 }
 
 #[test]
 fn incomplete() {
-    if let Err(e) = PingRequest::parse(b"ping") {
+    let parser = PingRequestParser::new();
+
+    if let Err(e) = parser.parse(b"ping") {
         if e != ParseError::Incomplete {
             panic!("invalid parse result");
         }
@@ -24,13 +28,17 @@ fn incomplete() {
 
 #[test]
 fn trailing_whitespace() {
-    assert!(PingRequest::parse(b"ping \r\n").is_ok())
+    let parser = PingRequestParser::new();
+
+    assert!(parser.parse(b"ping \r\n").is_ok())
 }
 
 #[test]
 fn unknown() {
+    let parser = PingRequestParser::new();
+
     for request in &["unknown\r\n"] {
-        if let Err(e) = PingRequest::parse(request.as_bytes()) {
+        if let Err(e) = parser.parse(request.as_bytes()) {
             if e != ParseError::UnknownCommand {
                 panic!("invalid parse result");
             }
@@ -42,5 +50,7 @@ fn unknown() {
 
 #[test]
 fn pipelined() {
-    assert!(PingRequest::parse(b"ping\r\nping\r\n").is_ok());
+    let parser = PingRequestParser::new();
+
+    assert!(parser.parse(b"ping\r\nping\r\n").is_ok());
 }

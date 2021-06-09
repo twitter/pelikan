@@ -89,14 +89,16 @@ impl Buffer {
             // this case results in a memmove of the buffer contents to the
             // beginning of the buffer storage and tries to free additional
             // space
-            self.buffer.copy_within(self.read_offset..self.write_offset, 0);
+            self.buffer
+                .copy_within(self.read_offset..self.write_offset, 0);
             self.write_offset -= self.read_offset;
             self.read_offset = 0;
             // if the buffer is occupying less than 1/2 of the storage capacity
             // we can resize it to free up the unused space at the end of the
             // buffer storage.
             if self.len() < self.buffer.capacity() / 2 {
-                self.buffer.truncate(std::cmp::max(self.len(), self.target_capacity));
+                self.buffer
+                    .truncate(std::cmp::max(self.len(), self.target_capacity));
                 self.buffer.resize(self.buffer.capacity(), 0);
             }
         }

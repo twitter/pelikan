@@ -9,6 +9,7 @@ mod parse;
 mod test;
 
 pub use command::PingCommand;
+pub use parse::PingRequestParser;
 
 #[derive(Debug)]
 pub enum PingRequest {

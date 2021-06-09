@@ -8,7 +8,7 @@
 
 use config::SegcacheConfig;
 use entrystore::Seg;
-use protocol::memcache::{MemcacheRequest, MemcacheResponse};
+use protocol::memcache::{MemcacheRequest, MemcacheRequestParser, MemcacheResponse};
 use server::{Process, ProcessBuilder};
 
 /// This structure represents a running `Segcache` process.
@@ -25,17 +25,22 @@ impl Segcache {
         // initialize storage
         let storage = Seg::new(config.seg(), config.time().time_type());
 
-        let max_buffer_size = std::cmp::max(server::DEFAULT_BUFFER_SIZE, config.seg().segment_size() as usize * 2);
+        let max_buffer_size = std::cmp::max(
+            server::DEFAULT_BUFFER_SIZE,
+            config.seg().segment_size() as usize * 2,
+        );
 
         // initialize process
-        let process_builder = ProcessBuilder::<Seg, MemcacheRequest, MemcacheResponse>::new(
-            config.admin(),
-            config.server(),
-            config.tls(),
-            config.worker(),
-            storage,
-            max_buffer_size,
-        );
+        let process_builder =
+            ProcessBuilder::<Seg, MemcacheRequestParser, MemcacheRequest, MemcacheResponse>::new(
+                config.admin(),
+                config.server(),
+                config.tls(),
+                config.worker(),
+                storage,
+                max_buffer_size,
+                MemcacheRequestParser::new(config.seg().segment_size() as usize),
+            );
 
         // spawn threads
         let process = process_builder.spawn();

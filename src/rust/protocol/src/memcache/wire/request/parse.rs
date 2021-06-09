@@ -8,20 +8,31 @@ use crate::*;
 use core::slice::Windows;
 use std::convert::TryFrom;
 
-const MAX_BYTES: usize = usize::MAX / 2;
+// const MAX_BYTES: usize = usize::MAX / 2;
 const MAX_COMMAND_LEN: usize = 16;
 const MAX_KEY_LEN: usize = 250;
 const MAX_BATCH_SIZE: usize = 1024;
 
-impl Parse for MemcacheRequest {
-    fn parse(buffer: &[u8]) -> Result<ParseOk<Self>, ParseError> {
+#[derive(Copy, Clone)]
+pub struct MemcacheRequestParser {
+    max_value_size: usize,
+}
+
+impl MemcacheRequestParser {
+    pub fn new(max_value_size: usize) -> Self {
+        Self { max_value_size }
+    }
+}
+
+impl Parse<MemcacheRequest> for MemcacheRequestParser {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         match parse_command(buffer)? {
             MemcacheCommand::Get => parse_get(buffer),
             MemcacheCommand::Gets => parse_gets(buffer),
-            MemcacheCommand::Set => parse_set(buffer, false),
-            MemcacheCommand::Add => parse_add(buffer),
-            MemcacheCommand::Replace => parse_replace(buffer),
-            MemcacheCommand::Cas => parse_set(buffer, true),
+            MemcacheCommand::Set => parse_set(buffer, false, self.max_value_size),
+            MemcacheCommand::Add => parse_add(buffer, self.max_value_size),
+            MemcacheCommand::Replace => parse_replace(buffer, self.max_value_size),
+            MemcacheCommand::Cas => parse_set(buffer, true, self.max_value_size),
             MemcacheCommand::Delete => parse_delete(buffer),
             MemcacheCommand::Quit => {
                 // TODO(bmartin): in-band control commands need to be handled
@@ -190,7 +201,11 @@ fn parse_gets(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     Ok(ParseOk { message, consumed })
 }
 
-fn parse_set(buffer: &[u8], cas: bool) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+fn parse_set(
+    buffer: &[u8],
+    cas: bool,
+    max_value_size: usize,
+) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     let mut parse_state = ParseState::new(buffer);
 
     // this was already checked for when determining the command
@@ -256,7 +271,7 @@ fn parse_set(buffer: &[u8], cas: bool) -> Result<ParseOk<MemcacheRequest>, Parse
         .parse::<usize>()
         .map_err(|_| ParseError::Invalid)?;
 
-    if bytes > MAX_BYTES {
+    if bytes > max_value_size {
         return Err(ParseError::Invalid);
     }
 
@@ -328,8 +343,8 @@ fn parse_set(buffer: &[u8], cas: bool) -> Result<ParseOk<MemcacheRequest>, Parse
     }
 }
 
-fn parse_add(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
-    let request = parse_set(buffer, false)?;
+fn parse_add(buffer: &[u8], max_value_size: usize) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let request = parse_set(buffer, false, max_value_size)?;
     let consumed = request.consumed();
 
     let message = if let MemcacheRequest::Set { entry, noreply } = request.into_inner() {
@@ -341,8 +356,11 @@ fn parse_add(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     Ok(ParseOk { message, consumed })
 }
 
-fn parse_replace(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
-    let request = parse_set(buffer, false)?;
+fn parse_replace(
+    buffer: &[u8],
+    max_value_size: usize,
+) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let request = parse_set(buffer, false, max_value_size)?;
     let consumed = request.consumed();
 
     let message = if let MemcacheRequest::Set { entry, noreply } = request.into_inner() {

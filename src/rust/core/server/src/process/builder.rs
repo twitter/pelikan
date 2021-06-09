@@ -14,22 +14,24 @@ use protocol::{Compose, Execute, Parse};
 use queues::QueuePairs;
 
 /// A builder type for a Pelikan cache process.
-pub struct ProcessBuilder<Storage, Request, Response>
+pub struct ProcessBuilder<Storage, Parser, Request, Response>
 where
     Storage: Execute<Request, Response> + EntryStore + Send,
-    Request: Parse + std::marker::Send,
+    Parser: Parse<Request> + Clone + Send,
+    Request: Send,
     Response: Compose + std::marker::Send,
 {
     admin: Admin,
     listener: Listener,
-    worker: WorkerBuilder<Storage, Request, Response>,
+    worker: WorkerBuilder<Storage, Parser, Request, Response>,
 }
 
-impl<Storage: 'static, Request: 'static, Response: 'static>
-    ProcessBuilder<Storage, Request, Response>
+impl<Storage: 'static, Parser: 'static, Request: 'static, Response: 'static>
+    ProcessBuilder<Storage, Parser, Request, Response>
 where
     Storage: Execute<Request, Response> + EntryStore + Send,
-    Request: Parse + std::marker::Send,
+    Parser: Parse<Request> + Clone + Send,
+    Request: Send,
     Response: Compose + std::marker::Send,
 {
     /// Creates a new `ProcessBuilder`
@@ -43,6 +45,7 @@ where
         worker_config: &WorkerConfig,
         storage: Storage,
         max_buffer_size: usize,
+        parser: Parser,
     ) -> Self {
         // initialize admin
         let ssl_context = common::ssl::ssl_context(tls_config).unwrap_or_else(|e| {
@@ -55,9 +58,9 @@ where
         });
 
         let mut worker = if worker_config.threads() > 1 {
-            Self::multi_worker(worker_config, storage)
+            Self::multi_worker(worker_config, storage, parser)
         } else {
-            Self::single_worker(worker_config, storage)
+            Self::single_worker(worker_config, storage, parser)
         };
 
         // initialize server
@@ -65,10 +68,11 @@ where
             error!("failed to initialize TLS: {}", e);
             std::process::exit(1);
         });
-        let mut listener = Listener::new(server_config, ssl_context, max_buffer_size).unwrap_or_else(|e| {
-            error!("failed to initialize listener: {}", e);
-            std::process::exit(1);
-        });
+        let mut listener = Listener::new(server_config, ssl_context, max_buffer_size)
+            .unwrap_or_else(|e| {
+                error!("failed to initialize listener: {}", e);
+                std::process::exit(1);
+            });
         let mut session_queues = worker.session_queues(listener.waker());
         for session_queue in session_queues.drain(..) {
             listener.add_session_queue(session_queue);
@@ -85,7 +89,8 @@ where
     fn multi_worker(
         worker_config: &WorkerConfig,
         storage: Storage,
-    ) -> WorkerBuilder<Storage, Request, Response> {
+        parser: Parser,
+    ) -> WorkerBuilder<Storage, Parser, Request, Response> {
         // initialize storage
         let mut storage = StorageWorker::new(worker_config, storage).unwrap_or_else(|e| {
             error!("{}", e);
@@ -95,10 +100,11 @@ where
         // initialize workers
         let mut workers = Vec::new();
         for _ in 0..worker_config.threads() {
-            let worker = MultiWorker::new(worker_config, &mut storage).unwrap_or_else(|e| {
-                error!("{}", e);
-                std::process::exit(1);
-            });
+            let worker = MultiWorker::new(worker_config, &mut storage, parser.clone())
+                .unwrap_or_else(|e| {
+                    error!("{}", e);
+                    std::process::exit(1);
+                });
             workers.push(worker);
         }
 
@@ -109,9 +115,10 @@ where
     fn single_worker(
         worker_config: &WorkerConfig,
         storage: Storage,
-    ) -> WorkerBuilder<Storage, Request, Response> {
+        parser: Parser,
+    ) -> WorkerBuilder<Storage, Parser, Request, Response> {
         // initialize worker
-        let worker = SingleWorker::new(worker_config, storage).unwrap_or_else(|e| {
+        let worker = SingleWorker::new(worker_config, storage, parser).unwrap_or_else(|e| {
             error!("{}", e);
             std::process::exit(1);
         });

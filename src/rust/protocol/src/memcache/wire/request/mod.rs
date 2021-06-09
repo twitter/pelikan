@@ -11,6 +11,8 @@ mod test;
 use crate::memcache::MemcacheEntry;
 pub use command::MemcacheCommand;
 
+pub use parse::MemcacheRequestParser;
+
 pub const NOREPLY: &str = "noreply";
 
 pub type Key = Box<[u8]>;

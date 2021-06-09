@@ -15,9 +15,9 @@ use std::thread::JoinHandle;
 
 /// A builder for worker threads which abstracts the differences between single
 /// and multi worker processes.
-pub enum WorkerBuilder<Storage, Request, Response>
+pub enum WorkerBuilder<Storage, Parser, Request, Response>
 where
-    Request: Parse,
+    Parser: Parse<Request>,
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {
@@ -25,18 +25,19 @@ where
     /// `storage` thread.
     Multi {
         storage: StorageWorker<Storage, Request, Response>,
-        workers: Vec<MultiWorker<Storage, Request, Response>>,
+        workers: Vec<MultiWorker<Storage, Parser, Request, Response>>,
     },
     /// Used to create a single `worker` thread with thread-local storage.
     Single {
-        worker: SingleWorker<Storage, Request, Response>,
+        worker: SingleWorker<Storage, Parser, Request, Response>,
     },
 }
 
-impl<Storage: 'static, Request: 'static, Response: 'static>
-    WorkerBuilder<Storage, Request, Response>
+impl<Storage: 'static, Parser: 'static, Request: 'static, Response: 'static>
+    WorkerBuilder<Storage, Parser, Request, Response>
 where
-    Request: Parse + Send,
+    Parser: Parse<Request> + Send,
+    Request: Send,
     Response: Compose + Send,
     Storage: Execute<Request, Response> + EntryStore + Send,
 {

@@ -8,8 +8,17 @@ use crate::*;
 use core::slice::Windows;
 use std::convert::TryFrom;
 
-impl Parse for PingRequest {
-    fn parse(buffer: &[u8]) -> Result<ParseOk<Self>, ParseError> {
+#[derive(Default, Copy, Clone)]
+pub struct PingRequestParser {}
+
+impl PingRequestParser {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Parse<PingRequest> for PingRequestParser {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<PingRequest>, ParseError> {
         match parse_command(buffer)? {
             PingCommand::Ping => parse_ping(buffer),
         }
