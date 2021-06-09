@@ -814,8 +814,10 @@ name = "protocol"
 version = "0.1.0"
 dependencies = [
  "common",
+ "config",
  "metrics",
  "rustcommon-fastmetrics",
+ "rustcommon-time",
 ]
 
 [[package]]

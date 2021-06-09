@@ -23,11 +23,17 @@ impl Segcache {
         metrics::init();
 
         // initialize storage
-        let storage = Seg::new(config.seg(), config.time().time_type());
+        let storage = Seg::new(config.seg());
 
         let max_buffer_size = std::cmp::max(
             server::DEFAULT_BUFFER_SIZE,
             config.seg().segment_size() as usize * 2,
+        );
+
+        // initialize parser
+        let parser = MemcacheRequestParser::new(
+            config.seg().segment_size() as usize,
+            config.time().time_type(),
         );
 
         // initialize process
@@ -39,7 +45,7 @@ impl Segcache {
                 config.worker(),
                 storage,
                 max_buffer_size,
-                MemcacheRequestParser::new(config.seg().segment_size() as usize),
+                parser,
             );
 
         // spawn threads

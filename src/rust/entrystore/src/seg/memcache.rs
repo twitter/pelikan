@@ -18,7 +18,7 @@ impl MemcacheStorage for Seg {
                     value: item.value().to_vec().into_boxed_slice(),
                     flags,
                     cas: Some(item.cas().into()),
-                    expiry: 0,
+                    ttl: None,
                 });
             }
         }
@@ -27,14 +27,17 @@ impl MemcacheStorage for Seg {
     }
 
     fn set(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = self
-            .get_ttl(entry.expiry())
-            .ok_or(MemcacheStorageError::NotStored)?;
+        let ttl = if entry.ttl() == Some(0) {
+            return Err(MemcacheStorageError::NotStored);
+        } else {
+            CoarseDuration::from_secs(entry.ttl().unwrap_or(0))
+        };
+
         match self.data.insert(
             entry.key(),
             entry.value(),
             Some(&entry.flags().to_be_bytes()),
-            CoarseDuration::from_secs(ttl),
+            ttl,
         ) {
             Ok(_) => Ok(()),
             Err(_) => Err(MemcacheStorageError::NotStored),
@@ -42,9 +45,12 @@ impl MemcacheStorage for Seg {
     }
 
     fn add(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = self
-            .get_ttl(entry.expiry())
-            .ok_or(MemcacheStorageError::NotStored)?;
+        let ttl = if entry.ttl() == Some(0) {
+            return Err(MemcacheStorageError::NotStored);
+        } else {
+            CoarseDuration::from_secs(entry.ttl().unwrap_or(0))
+        };
+
         if self.data.get_no_freq_incr(entry.key()).is_none()
             && self
                 .data
@@ -52,7 +58,7 @@ impl MemcacheStorage for Seg {
                     entry.key(),
                     entry.value(),
                     Some(&entry.flags().to_be_bytes()),
-                    CoarseDuration::from_secs(ttl),
+                    ttl,
                 )
                 .is_ok()
         {
@@ -63,17 +69,20 @@ impl MemcacheStorage for Seg {
     }
 
     fn replace(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = self
-            .get_ttl(entry.expiry())
-            .ok_or(MemcacheStorageError::NotStored)?;
+        let ttl = if entry.ttl() == Some(0) {
+            return Err(MemcacheStorageError::NotStored);
+        } else {
+            CoarseDuration::from_secs(entry.ttl().unwrap_or(0))
+        };
+
         if self.data.get_no_freq_incr(entry.key()).is_some()
             && self
                 .data
                 .insert(
                     entry.key(),
                     entry.value(),
-                    Some(&entry.expiry().to_be_bytes()),
-                    CoarseDuration::from_secs(ttl),
+                    Some(&entry.flags().to_be_bytes()),
+                    ttl,
                 )
                 .is_ok()
         {
@@ -92,14 +101,17 @@ impl MemcacheStorage for Seg {
     }
 
     fn cas(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = self
-            .get_ttl(entry.expiry())
-            .ok_or(MemcacheStorageError::NotStored)?;
+        let ttl = if entry.ttl() == Some(0) {
+            return Err(MemcacheStorageError::NotStored);
+        } else {
+            CoarseDuration::from_secs(entry.ttl().unwrap_or(0))
+        };
+
         match self.data.cas(
             entry.key(),
             entry.value(),
             Some(&entry.flags().to_be_bytes()),
-            CoarseDuration::from_secs(ttl),
+            ttl,
             entry.cas().unwrap_or(0) as u32,
         ) {
             Ok(_) => Ok(()),

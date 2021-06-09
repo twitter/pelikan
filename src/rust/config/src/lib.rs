@@ -17,7 +17,7 @@ mod server;
 mod sockio;
 mod stats_log;
 mod tcp;
-mod time;
+pub mod time;
 mod tls;
 mod worker;
 

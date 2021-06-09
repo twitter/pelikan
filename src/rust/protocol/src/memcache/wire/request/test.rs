@@ -6,11 +6,9 @@ use crate::memcache::MemcacheRequest;
 use crate::memcache::MemcacheRequestParser;
 use crate::*;
 
-const MAX_VALUE_SIZE: usize = 1024 * 1024; // 1MB
-
 #[test]
 fn get() {
-    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE);
+    let parser = MemcacheRequestParser::default();
 
     // keysets which are used for requests
     let keysets = vec![
@@ -50,7 +48,7 @@ fn get() {
 
 #[test]
 fn gets() {
-    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE);
+    let parser = MemcacheRequestParser::default();
 
     // keysets which are used for requests
     let keysets = vec![
@@ -81,7 +79,7 @@ fn gets() {
 
 #[test]
 fn set() {
-    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE);
+    let parser = MemcacheRequestParser::default();
 
     // keysets which are used for requests
     let keys = vec!["0", "1", "espresso"];
@@ -118,7 +116,7 @@ fn set() {
 
 #[test]
 fn cas() {
-    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE);
+    let parser = MemcacheRequestParser::default();
 
     let request = parser
         .parse(b"cas 0 0 0 1 0\r\n0\r\n")
@@ -135,7 +133,7 @@ fn cas() {
 
 #[test]
 fn incomplete() {
-    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE);
+    let parser = MemcacheRequestParser::default();
 
     // incomplete
     if let Err(e) = parser.parse(b"get partial") {
@@ -149,7 +147,7 @@ fn incomplete() {
 
 #[test]
 fn trailing_whitespace() {
-    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE);
+    let parser = MemcacheRequestParser::default();
 
     // get
     let request = parser.parse(b"get key \r\n").expect("parse failure");
@@ -188,7 +186,7 @@ fn trailing_whitespace() {
 
 #[test]
 fn invalid() {
-    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE);
+    let parser = MemcacheRequestParser::default();
 
     // invalid
     for request in &[
@@ -223,7 +221,7 @@ fn invalid() {
 
 #[test]
 fn pipelined() {
-    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE);
+    let parser = MemcacheRequestParser::default();
 
     let request = parser.parse(b"get 0\r\nget 1\r\n").expect("parse failure");
     if let MemcacheRequest::Get { keys } = request.message {

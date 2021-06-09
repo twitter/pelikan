@@ -5,22 +5,38 @@
 use super::super::*;
 use crate::*;
 
+use config::TimeType;
+
 use core::slice::Windows;
 use std::convert::TryFrom;
 
-// const MAX_BYTES: usize = usize::MAX / 2;
 const MAX_COMMAND_LEN: usize = 16;
 const MAX_KEY_LEN: usize = 250;
 const MAX_BATCH_SIZE: usize = 1024;
 
+const DEFAULT_MAX_VALUE_SIZE: usize = usize::MAX / 2;
+
 #[derive(Copy, Clone)]
 pub struct MemcacheRequestParser {
     max_value_size: usize,
+    time_type: TimeType,
 }
 
 impl MemcacheRequestParser {
-    pub fn new(max_value_size: usize) -> Self {
-        Self { max_value_size }
+    pub fn new(max_value_size: usize, time_type: TimeType) -> Self {
+        Self {
+            max_value_size,
+            time_type,
+        }
+    }
+}
+
+impl Default for MemcacheRequestParser {
+    fn default() -> Self {
+        Self {
+            max_value_size: DEFAULT_MAX_VALUE_SIZE,
+            time_type: config::time::DEFAULT_TIME_TYPE,
+        }
     }
 }
 
@@ -29,10 +45,10 @@ impl Parse<MemcacheRequest> for MemcacheRequestParser {
         match parse_command(buffer)? {
             MemcacheCommand::Get => parse_get(buffer),
             MemcacheCommand::Gets => parse_gets(buffer),
-            MemcacheCommand::Set => parse_set(buffer, false, self.max_value_size),
-            MemcacheCommand::Add => parse_add(buffer, self.max_value_size),
-            MemcacheCommand::Replace => parse_replace(buffer, self.max_value_size),
-            MemcacheCommand::Cas => parse_set(buffer, true, self.max_value_size),
+            MemcacheCommand::Set => parse_set(buffer, false, self.max_value_size, self.time_type),
+            MemcacheCommand::Add => parse_add(buffer, self.max_value_size, self.time_type),
+            MemcacheCommand::Replace => parse_replace(buffer, self.max_value_size, self.time_type),
+            MemcacheCommand::Cas => parse_set(buffer, true, self.max_value_size, self.time_type),
             MemcacheCommand::Delete => parse_delete(buffer),
             MemcacheCommand::Quit => {
                 // TODO(bmartin): in-band control commands need to be handled
@@ -205,6 +221,7 @@ fn parse_set(
     buffer: &[u8],
     cas: bool,
     max_value_size: usize,
+    time_type: TimeType,
 ) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     let mut parse_state = ParseState::new(buffer);
 
@@ -231,7 +248,16 @@ fn parse_set(
     let expiry_end = parse_state.next_space().ok_or(ParseError::Invalid)? + flags_end + 1;
     let expiry_str = std::str::from_utf8(&buffer[(flags_end + 1)..expiry_end])
         .map_err(|_| ParseError::Invalid)?;
-    let expiry = expiry_str.parse().map_err(|_| ParseError::Invalid)?;
+    let expiry: u32 = expiry_str.parse().map_err(|_| ParseError::Invalid)?;
+    let ttl = if time_type == TimeType::Unix
+        || (time_type == TimeType::Memcache && expiry >= 60 * 60 * 24 * 30)
+    {
+        Some(expiry.saturating_sub(rustcommon_time::recent_unix()))
+    } else if expiry == 0 {
+        None
+    } else {
+        Some(expiry)
+    };
 
     let mut noreply = false;
 
@@ -322,7 +348,7 @@ fn parse_set(
         let entry = MemcacheEntry {
             key,
             value,
-            expiry,
+            ttl,
             flags,
             cas,
         };
@@ -343,8 +369,12 @@ fn parse_set(
     }
 }
 
-fn parse_add(buffer: &[u8], max_value_size: usize) -> Result<ParseOk<MemcacheRequest>, ParseError> {
-    let request = parse_set(buffer, false, max_value_size)?;
+fn parse_add(
+    buffer: &[u8],
+    max_value_size: usize,
+    time_type: TimeType,
+) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let request = parse_set(buffer, false, max_value_size, time_type)?;
     let consumed = request.consumed();
 
     let message = if let MemcacheRequest::Set { entry, noreply } = request.into_inner() {
@@ -359,8 +389,9 @@ fn parse_add(buffer: &[u8], max_value_size: usize) -> Result<ParseOk<MemcacheReq
 fn parse_replace(
     buffer: &[u8],
     max_value_size: usize,
+    time_type: TimeType,
 ) -> Result<ParseOk<MemcacheRequest>, ParseError> {
-    let request = parse_set(buffer, false, max_value_size)?;
+    let request = parse_set(buffer, false, max_value_size, time_type)?;
     let consumed = request.consumed();
 
     let message = if let MemcacheRequest::Set { entry, noreply } = request.into_inner() {

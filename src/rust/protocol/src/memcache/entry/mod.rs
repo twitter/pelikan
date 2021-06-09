@@ -6,7 +6,7 @@
 pub struct MemcacheEntry {
     pub key: Box<[u8]>,
     pub value: Box<[u8]>,
-    pub expiry: u32,
+    pub ttl: Option<u32>,
     pub flags: u32,
     pub cas: Option<u64>,
 }
@@ -20,8 +20,10 @@ impl MemcacheEntry {
         &self.value
     }
 
-    pub fn expiry(&self) -> u32 {
-        self.expiry
+    /// The TTL in seconds. `Some(0)` indicates immediate expiration. `None`
+    /// indicates that the item will not expire.
+    pub fn ttl(&self) -> Option<u32> {
+        self.ttl
     }
 
     pub fn flags(&self) -> u32 {
