@@ -11,6 +11,11 @@ use entrystore::Seg;
 use protocol::memcache::{MemcacheRequest, MemcacheRequestParser, MemcacheResponse};
 use server::{Process, ProcessBuilder};
 
+type Parser = MemcacheRequestParser;
+type Request = MemcacheRequest;
+type Response = MemcacheResponse;
+type Storage = Seg;
+
 /// This structure represents a running `Segcache` process.
 pub struct Segcache {
     process: Process,
@@ -23,7 +28,7 @@ impl Segcache {
         metrics::init();
 
         // initialize storage
-        let storage = Seg::new(config.seg());
+        let storage = Storage::new(config.seg());
 
         let max_buffer_size = std::cmp::max(
             server::DEFAULT_BUFFER_SIZE,
@@ -31,14 +36,14 @@ impl Segcache {
         );
 
         // initialize parser
-        let parser = MemcacheRequestParser::new(
+        let parser = Parser::new(
             config.seg().segment_size() as usize,
             config.time().time_type(),
         );
 
         // initialize process
         let process_builder =
-            ProcessBuilder::<Seg, MemcacheRequestParser, MemcacheRequest, MemcacheResponse>::new(
+            ProcessBuilder::<Storage, Parser, Request, Response>::new(
                 config.admin(),
                 config.server(),
                 config.tls(),
