@@ -11,6 +11,11 @@ use entrystore::Noop;
 use protocol::ping::{PingRequest, PingRequestParser, PingResponse};
 use server::{Process, ProcessBuilder};
 
+type Parser = PingRequestParser;
+type Request = PingRequest;
+type Response = PingResponse;
+type Storage = Noop;
+
 /// This structure represents a running `Pingserver` process.
 pub struct Pingserver {
     process: Process,
@@ -23,21 +28,24 @@ impl Pingserver {
         metrics::init();
 
         // initialize storage
-        let storage = Noop::default();
+        let storage = Storage::new();
 
         // use a fixed buffer size for the pingserver
         let max_buffer_size = server::DEFAULT_BUFFER_SIZE;
 
+        // initialize parser
+        let parser = Parser::new();
+
         // initialize process
         let process_builder =
-            ProcessBuilder::<Noop, PingRequestParser, PingRequest, PingResponse>::new(
+            ProcessBuilder::<Storage, Parser, Request, Response>::new(
                 config.admin(),
                 config.server(),
                 config.tls(),
                 config.worker(),
                 storage,
                 max_buffer_size,
-                PingRequestParser::new(),
+                parser,
             );
 
         // spawn threads
