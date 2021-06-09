@@ -5,6 +5,7 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
+use config::TimeType;
 use protocol::memcache::{MemcacheRequest, MemcacheRequestParser};
 use protocol::Parse;
 
@@ -13,7 +14,8 @@ const MAX_BATCH_SIZE: usize = 1024;
 const MAX_VALUE_SIZE: usize = 1024*1024;
 
 fuzz_target!(|data: &[u8]| {
-    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE);
+    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE, TimeType::Memcache);
+
     if let Ok(request) = parser.parse(data) {
         match request.into_inner() {
             MemcacheRequest::Get { keys } | MemcacheRequest::Gets { keys } => {

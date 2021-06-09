@@ -197,9 +197,9 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "heck"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87cbf45460356b7deeb5e3415b5563308c0a9b057c85e12b06ad551f98d0a6ac"
+checksum = "6d621efb26863f0e9924c6ac577e8275e5e6b77455db64ffa6c65c904e9e132c"
 dependencies = [
  "unicode-segmentation",
 ]
@@ -233,9 +233,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.95"
+version = "0.2.96"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "789da6d93f1b866ffe175afc5322a4d76c038605a1c3319bb57b06967ca98a36"
+checksum = "5600b4e6efc5421841a2138a6b082e07fe12f9aaa12783d50e5d13325b26b4fc"
 
 [[package]]
 name = "libfuzzer-sys"
@@ -327,14 +327,17 @@ name = "protocol"
 version = "0.1.0"
 dependencies = [
  "common",
+ "config",
  "metrics",
  "rustcommon-fastmetrics",
+ "rustcommon-time",
 ]
 
 [[package]]
 name = "protocol-fuzz"
 version = "0.0.0"
 dependencies = [
+ "config",
  "libfuzzer-sys",
  "protocol",
 ]
@@ -374,7 +377,7 @@ checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 [[package]]
 name = "rustcommon-fastmetrics"
 version = "0.0.3"
-source = "git+https://github.com/twitter/rustcommon#4388cc999e64afbe83e1014a7d8b14c065cbea4f"
+source = "git+https://github.com/twitter/rustcommon#4e48dcf23accda109775fd88f3de207d504d751b"
 dependencies = [
  "thiserror",
 ]
@@ -382,7 +385,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-time"
 version = "0.0.6"
-source = "git+https://github.com/twitter/rustcommon#4388cc999e64afbe83e1014a7d8b14c065cbea4f"
+source = "git+https://github.com/twitter/rustcommon#4e48dcf23accda109775fd88f3de207d504d751b"
 dependencies = [
  "lazy_static",
  "libc",
