@@ -31,9 +31,15 @@ fuzz_target!(|data: &[u8]| {
             | MemcacheRequest::Add { entry, .. }
             | MemcacheRequest::Replace { entry, .. } => {
                 validate_key(entry.key());
+                if entry.value().len() > MAX_VALUE_SIZE {
+                    panic!("value too long");
+                }
             }
             MemcacheRequest::Cas { entry, .. } => {
                 validate_key(entry.key());
+                if entry.value().len() > MAX_VALUE_SIZE {
+                    panic!("value too long");
+                }
             }
             MemcacheRequest::Delete { key, .. } => {
                 validate_key(&key);
