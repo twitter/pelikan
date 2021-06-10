@@ -11,6 +11,11 @@ pub use response::*;
 use super::PingStorage;
 use crate::*;
 
+// TODO(bmartin): we currently don't have pingserver specific metrics. Once we
+// have a better way of handling distributed metrics regisitry we should enable
+// pingserver specific stats and ensure we don't get segcache stats exported in
+// the pingserver. For now, we are prioritizing segcache stats.
+
 // use metrics::Stat;
 
 impl<'a, T> Execute<PingRequest, PingResponse> for T
