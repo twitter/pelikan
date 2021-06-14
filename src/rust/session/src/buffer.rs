@@ -61,13 +61,15 @@ impl Buffer {
         let needed = additional.saturating_sub(self.available_capacity());
         if needed > 0 {
             self.buffer.reserve(needed);
-            self.buffer.resize(self.buffer.capacity(), 0);
+            // SAFETY: we maintain our own write offset which ensures the
+            // uninitialized bytes are not read until they have been written.
+            unsafe { self.buffer.set_len(self.buffer.capacity()); }
         }
     }
 
     /// Append the bytes from `other` onto `self`.
     pub fn extend_from_slice(&mut self, other: &[u8]) {
-        self.buffer.resize(self.write_offset + other.len(), 0);
+        self.reserve(other.len());
         self.buffer[self.write_offset..(self.write_offset + other.len())].copy_from_slice(other);
         self.increase_len(other.len());
     }
@@ -99,7 +101,9 @@ impl Buffer {
             if self.len() < self.buffer.capacity() / 2 {
                 self.buffer
                     .truncate(std::cmp::max(self.len(), self.target_capacity));
-                self.buffer.resize(self.buffer.capacity(), 0);
+                // SAFETY: we maintain our own write offset which ensures the
+                // uninitialized bytes are not read until they have been written.
+                unsafe { self.buffer.set_len(self.buffer.capacity()); }
             }
         }
     }
