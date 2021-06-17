@@ -111,6 +111,7 @@ pub enum Stat {
     WorkerEventWrite,
 
     // storage/segcache
+    ExpireTime,       // total time spent in expiration, nanoseconds
     HashLookup,       // total number of hash lookups
     HashInsert,       // total number of inserts
     HashInsertEx,     // caused by insert exceptions, typically ENOSPC

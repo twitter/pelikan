@@ -97,10 +97,14 @@ impl TtlBuckets {
     }
 
     pub(crate) fn expire(&mut self, hashtable: &mut HashTable, segments: &mut Segments) -> usize {
+        let start = Instant::now();
         let mut expired = 0;
         for bucket in self.buckets.iter_mut() {
             expired += bucket.expire(hashtable, segments);
         }
+        let duration = start.elapsed();
+        debug!("expired: {} segments in {:?}", expired, duration);
+        increment_counter_by!(&Stat::ExpireTime, duration.as_nanos() as u64);
         expired
     }
 }
