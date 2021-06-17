@@ -77,11 +77,6 @@ where
     pub fn run(&mut self) {
         let mut events = Events::with_capacity(self.nevent);
 
-        #[cfg(feature = "heap_dump")]
-        let mut ops = 0;
-        #[cfg(feature = "heap_dump")]
-        let mut seq = 0;
-
         loop {
             increment_counter!(&Stat::WorkerEventLoop);
 
@@ -160,19 +155,6 @@ where
         if event.is_readable() {
             increment_counter!(&Stat::WorkerEventRead);
             let _ = self.do_read(token);
-
-            #[cfg(feature = "heap_dump")]
-            {
-                ops += 1;
-                if ops >= 1_000_000 {
-                    let dump = self.data.dump();
-                    let serialized = serde_json::to_string(&dump).unwrap();
-                    let mut file = std::fs::File::create(&format!("dump_{}.raw", seq)).unwrap();
-                    let _ = file.write_all(serialized.as_bytes());
-                    seq += 1;
-                    ops = 0;
-                }
-            }
         }
 
         if let Ok(session) = self.poll.get_mut_session(token) {

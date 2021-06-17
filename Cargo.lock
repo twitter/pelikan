@@ -1090,8 +1090,6 @@ dependencies = [
  "rand_xoshiro",
  "rustcommon-logger",
  "rustcommon-time",
- "serde",
- "serde_json",
  "thiserror",
 ]
 

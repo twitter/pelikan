@@ -8,9 +8,6 @@ use core::num::NonZeroU32;
 
 pub const SEG_MAGIC: u64 = 0xBADC0FFEEBADCAFE;
 
-#[cfg(feature = "dump")]
-use serde::{Deserialize, Serialize};
-
 /// A `Segment` is a contiguous allocation of bytes and an associated header
 /// which contains metadata. This structure allows us to operate on mutable
 /// borrows of the header and data sections to perform basic operations.
@@ -665,68 +662,6 @@ impl<'a> Segment<'a> {
 
         self.set_write_offset(self.live_bytes());
     }
-
-    /// Creates a dump of this segment. Used for analysis / debugging
-    #[cfg(feature = "dump")]
-    pub(crate) fn dump(&mut self) -> SegmentDump {
-        let mut ret = SegmentDump {
-            id: self.id(),
-            write_offset: self.write_offset(),
-            live_bytes: self.live_bytes(),
-            live_items: self.live_items(),
-            prev_seg: self.prev_seg().unwrap_or(-1),
-            next_seg: self.next_seg().unwrap_or(-1),
-            ttl: self.ttl().as_secs(),
-            items: Vec::new(),
-        };
-
-        let max_offset = self.max_item_offset();
-        let mut offset = if cfg!(feature = "magic") {
-            std::mem::size_of_val(&SEG_MAGIC)
-        } else {
-            0
-        };
-
-        while offset <= max_offset {
-            let item = self.get_item_at(offset).unwrap();
-            if item.klen() == 0 && self.live_items() == 0 {
-                break;
-            }
-            ret.items.push(ItemDump {
-                offset: offset as i32,
-                size: item.size() as i32,
-                is_dead: item.deleted(),
-            });
-
-            offset += item.size();
-        }
-        ret
-    }
-}
-
-/// A `SegmentDump` represents the current state of the segment, containing meta
-/// data about the segment itself and all the items in it
-#[cfg(feature = "dump")]
-#[derive(Serialize, Deserialize)]
-pub(crate) struct SegmentDump {
-    id: i32,
-    write_offset: i32,
-    live_bytes: i32,
-    live_items: i32,
-    prev_seg: i32,
-    next_seg: i32,
-    ttl: u32,
-    items: Vec<ItemDump>,
-}
-
-/// An `ItemDump` represents item state at the time a segment dump was taken,
-/// it contains the item offset, size, and whether it is marked dead.
-#[cfg(feature = "dump")]
-#[derive(Serialize, Deserialize)]
-pub struct ItemDump {
-    offset: i32,
-    size: i32,
-    is_dead: bool,
 }
 
 #[cfg(feature = "magic")]

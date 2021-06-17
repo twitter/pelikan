@@ -42,13 +42,6 @@ pub struct TtlBucket {
     _pad: [u8; 44],
 }
 
-#[cfg(feature = "dump")]
-#[derive(Serialize, Deserialize)]
-pub struct TtlBucketDump {
-    ttl: i32,
-    head: i32,
-}
-
 impl TtlBucket {
     pub(super) fn new(ttl: i32) -> Self {
         Self {

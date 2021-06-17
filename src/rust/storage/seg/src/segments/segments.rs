@@ -2,9 +2,6 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-#[cfg(feature = "dump")]
-use crate::segments::segment::SegmentDump;
-
 use crate::datapool::*;
 use crate::eviction::*;
 use crate::item::*;
@@ -581,16 +578,6 @@ impl Segments {
             }
         }
         integrity
-    }
-
-    #[cfg(feature = "dump")]
-    pub(crate) fn dump(&mut self) -> Vec<SegmentDump> {
-        let mut ret = Vec::new();
-        for id in 0..self.cap {
-            let mut segment = self.get_mut(id).unwrap();
-            ret.push(segment.dump());
-        }
-        ret
     }
 
     fn merge_evict_chain_len(&mut self, start: NonZeroU32) -> usize {

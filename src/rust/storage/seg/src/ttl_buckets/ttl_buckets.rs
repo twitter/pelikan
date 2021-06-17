@@ -71,18 +71,6 @@ impl TtlBuckets {
         Self { buckets }
     }
 
-    #[cfg(feature = "dump")]
-    pub(crate) fn dump(&self) -> Vec<TtlBucketDump> {
-        let mut ret = Vec::new();
-        for bucket in self.buckets.iter() {
-            ret.push(TtlBucketDump {
-                ttl: bucket.ttl,
-                head: bucket.head,
-            });
-        }
-        ret
-    }
-
     pub(crate) fn get_bucket_index(&self, ttl: CoarseDuration) -> usize {
         let ttl = ttl.as_secs() as i32;
         if ttl <= 0 {

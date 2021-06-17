@@ -265,16 +265,6 @@ impl Seg {
             .expire(&mut self.hashtable, &mut self.segments)
     }
 
-    /// Produces a dump of the cache for analysis
-    /// *NOTE*: this operation is relatively expensive
-    #[cfg(feature = "dump")]
-    pub fn dump(&mut self) -> SegDump {
-        SegDump {
-            ttl_buckets: self.ttl_buckets.dump(),
-            segments: self.segments.dump(),
-        }
-    }
-
     /// Checks the integrity of all segments
     /// *NOTE*: this operation is relatively expensive
     #[cfg(feature = "debug")]

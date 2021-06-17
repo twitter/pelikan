@@ -66,10 +66,3 @@ pub(crate) use item::*;
 pub(crate) use metrics::*;
 pub(crate) use segments::*;
 pub(crate) use ttl_buckets::*;
-
-#[cfg(feature = "dump")]
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct SegCacheDump {
-    ttl_buckets: Vec<TtlBucketDump>,
-    segments: Vec<SegmentDump>,
-}

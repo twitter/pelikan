@@ -15,14 +15,11 @@ harness = false
 
 [features]
 
-# enable functions to dump JSON formatted state to disk for analysis
-dump = ["serde", "serde_json"]
-
 # enables setting/checking magic strings
 magic = []
 
 # metafeatures
-debug = ["magic", "dump"]
+debug = ["magic"]
 
 # default set of enabled features
 default = []
@@ -37,8 +34,6 @@ rand_xoshiro = { version = "0.6.0" }
 rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
 thiserror = "1.0.24"
-serde = { version = "1.0", optional = true, features = ["derive"] }
-serde_json = { version = "1.0.64", optional = true }
 
 [dev-dependencies]
 criterion = "0.3.4"

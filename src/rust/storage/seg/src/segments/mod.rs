@@ -21,9 +21,6 @@ pub(crate) use header::SegmentHeader;
 pub(crate) use segment::Segment;
 pub(crate) use segments::Segments;
 
-#[cfg(feature = "dump")]
-pub(crate) use segment::SegmentDump;
-
 #[cfg(test)]
 mod test {
     use super::*;
