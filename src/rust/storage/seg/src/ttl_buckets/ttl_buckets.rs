@@ -3,6 +3,22 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 //! A collection of [`TtlBucket`]s which covers the full range of TTLs.
+//!
+//! We use a total of 1024 buckets to represent the full range of TTLs. We
+//! divide the buckets into 4 ranges:
+//! * 1-2048s (1 second - ~34 minutes) are stored in buckets which are 8s wide.
+//! * 2048-32_768s (~34 minutes - ~9 hours) are stored in buckets which are 128s
+//!   (~2 minutes) wide.
+//! * 32_768-524_288s (~9 hours - ~6 days) are stored in buckets which are 2048s
+//!   (~34 minutes) wide.
+//! * 524_288-8_388_608s (~6 days - ~97 days) are stored in buckets which are
+//!   32_768s (~9 hours) wide.
+//! * TTLs beyond 8_388_608s (~97 days) and TTLs of 0 are all treated as the max
+//!   TTL.
+//!
+//! See the
+//! [Segcache paper](https://www.usenix.org/system/files/nsdi21-yang.pdf) for
+//! more detail.
 
 use crate::*;
 
