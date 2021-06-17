@@ -33,6 +33,10 @@ use rustcommon_time::*;
 use rustcommon_time::CoarseDuration as Duration;
 use rustcommon_time::CoarseInstant as Instant;
 
+// the minimum age of a segment before it is eligible for eviction
+// TODO(bmartin): this should be parameterized.
+const SEG_MATURE_TIME: u32 = 20;
+
 #[derive(Debug)]
 #[repr(C)]
 pub struct SegmentHeader {
@@ -271,6 +275,7 @@ impl SegmentHeader {
     pub fn can_evict(&self) -> bool {
         self.evictable()
             && self.next_seg().is_some()
-            && (self.create_at() + self.ttl()) >= (Instant::recent() + Duration::from_secs(5))
+            && (self.create_at() + self.ttl())
+                >= (Instant::recent() + Duration::from_secs(SEG_MATURE_TIME))
     }
 }
