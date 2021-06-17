@@ -37,10 +37,10 @@ impl Builder {
     ///
     /// // create a cache with a small hashtable that has room for ~114k items
     /// // without using any overflow buckets.
-    /// let cache = Seg::builder().power(17).build();
+    /// let cache = Seg::builder().hash_power(17).build();
     ///
     /// // create a cache with a larger hashtable with room for ~1.8M items
-    /// let cache = Seg::builder().power(21).build();
+    /// let cache = Seg::builder().hash_power(21).build();
     /// ```
     pub fn hash_power(mut self, hash_power: u8) -> Self {
         assert!(hash_power >= 3, "hash power must be at least 3");

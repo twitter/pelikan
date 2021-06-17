@@ -54,6 +54,7 @@ pub trait EventLoop {
                         }
                         ErrorKind::Interrupted => self.do_read(token),
                         _ => {
+                            trace!("some other error: {:?}", e);
                             // some read error
                             self.handle_error(token);
                             Err(())

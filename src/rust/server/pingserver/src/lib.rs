@@ -37,16 +37,15 @@ impl Pingserver {
         let parser = Parser::new();
 
         // initialize process
-        let process_builder =
-            ProcessBuilder::<Storage, Parser, Request, Response>::new(
-                config.admin(),
-                config.server(),
-                config.tls(),
-                config.worker(),
-                storage,
-                max_buffer_size,
-                parser,
-            );
+        let process_builder = ProcessBuilder::<Storage, Parser, Request, Response>::new(
+            config.admin(),
+            config.server(),
+            config.tls(),
+            config.worker(),
+            storage,
+            max_buffer_size,
+            parser,
+        );
 
         // spawn threads
         let process = process_builder.spawn();

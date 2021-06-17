@@ -31,7 +31,7 @@ impl Seg {
     /// let cache = Seg::builder()
     ///     .heap_size(64 * MB)
     ///     .segment_size(1 * MB as i32)
-    ///     .power(16)
+    ///     .hash_power(16)
     ///     .eviction(Policy::Random).build();
     /// ```
     pub fn builder() -> Builder {

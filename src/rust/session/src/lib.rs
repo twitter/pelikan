@@ -190,10 +190,12 @@ impl BufRead for Session {
         increment_counter!(&Stat::SessionRecv);
         let mut total_bytes = 0;
         loop {
-            self.read_buffer.reserve(self.min_capacity);
-            if self.read_buffer.capacity() > self.max_capacity {
-                return Err(std::io::Error::new(ErrorKind::Other, "buffer too large"));
+            if self.read_buffer.len() == self.max_capacity {
+                return Err(std::io::Error::new(ErrorKind::Other, "buffer full"));
             }
+
+            self.read_buffer.reserve(self.min_capacity);
+
             match self.stream.read(self.read_buffer.borrow_mut()) {
                 Ok(0) => {
                     // Stream is disconnected, stop reading

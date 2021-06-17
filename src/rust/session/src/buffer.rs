@@ -36,10 +36,6 @@ impl Buffer {
         self.buffer.len() - self.write_offset
     }
 
-    pub fn capacity(&self) -> usize {
-        self.buffer.len()
-    }
-
     /// Return the number of bytes currently in the buffer.
     pub fn len(&self) -> usize {
         self.write_offset - self.read_offset
@@ -63,7 +59,9 @@ impl Buffer {
             self.buffer.reserve(needed);
             // SAFETY: we maintain our own write offset which ensures the
             // uninitialized bytes are not read until they have been written.
-            unsafe { self.buffer.set_len(self.buffer.capacity()); }
+            unsafe {
+                self.buffer.set_len(self.buffer.capacity());
+            }
         }
     }
 
@@ -103,7 +101,9 @@ impl Buffer {
                     .truncate(std::cmp::max(self.len(), self.target_capacity));
                 // SAFETY: we maintain our own write offset which ensures the
                 // uninitialized bytes are not read until they have been written.
-                unsafe { self.buffer.set_len(self.buffer.capacity()); }
+                unsafe {
+                    self.buffer.set_len(self.buffer.capacity());
+                }
             }
         }
     }

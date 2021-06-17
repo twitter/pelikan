@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 rustup toolchain add nightly
 cargo fuzz --version || cargo +nightly install cargo-fuzz
