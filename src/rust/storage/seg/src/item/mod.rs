@@ -24,7 +24,7 @@ pub struct Item {
 impl Item {
     /// Creates a new `Item` from its parts
     pub(crate) fn new(raw: RawItem, cas: u32) -> Self {
-        Item { raw, cas }
+        Item { cas, raw }
     }
 
     /// If the `magic` or `debug` features are enabled, this allows for checking

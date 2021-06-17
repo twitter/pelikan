@@ -8,8 +8,8 @@ use rustcommon_time::{CoarseDuration, Duration};
 use std::time::SystemTime;
 
 pub struct Expiry {
-    time_type: TimeType,
     expiry: u32,
+    time_type: TimeType,
 }
 
 impl Expiry {

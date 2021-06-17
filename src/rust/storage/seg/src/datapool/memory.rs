@@ -15,9 +15,15 @@ pub struct Memory {
 impl Memory {
     /// Create a new `Memory` datapool with the specified size (in bytes)
     pub fn create(size: usize, prefault: bool) -> Self {
+        // We allow slow vector initialization here because it is necessary for
+        // prefaulting the vector. If we use just the macro, the memory region
+        // is allocated but will not become resident.
+        #[allow(clippy::slow_vector_initialization)]
         let data = if prefault {
-            let mut data = Vec::with_capacity(0);
-            data.reserve_exact(size);
+            // TODO(bmartin): this pattern can likely be replaced with the vec
+            // macro + a read every page_size bytes which may be faster than the
+            // resize pattern used here.
+            let mut data = Vec::with_capacity(size);
             data.resize(size, 0);
             data
         } else {
