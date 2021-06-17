@@ -26,7 +26,7 @@ fn get_benchmark(c: &mut Criterion) {
 
         // launch the server
         let mut cache = Seg::builder()
-            .power(16)
+            .hash_power(16)
             .heap_size(64 * MB)
             .segment_size(MB as i32)
             .build();
@@ -82,7 +82,7 @@ fn set_benchmark(c: &mut Criterion) {
 
             // launch the server
             let mut cache = Seg::builder()
-                .power(16)
+                .hash_power(16)
                 .heap_size(64 * MB)
                 .segment_size(MB as i32)
                 .build();
