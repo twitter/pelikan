@@ -9,15 +9,6 @@ pub use inner::*;
 pub use rand::Rng as RandRng;
 pub use rand::RngCore as RandRngCore;
 
-// TODO(bmartin): this might be dangerous to gate with the `cfg(test)`. The
-// intent is to allow predictable testing. Many of the behaviors are
-// probabilistic during testing - insertion order, eviction order, etc. We
-// should prefer consistent testing results rather than flaky testing.
-//
-// The risk comes from not proving that the code works with the normal RNG
-// This can be mitigated by adding a smoketest using a release build, which is
-// a good idea anyway.
-
 #[cfg(test)]
 mod inner {
     use rand::SeedableRng;
@@ -37,7 +28,7 @@ mod inner {
     pub type Random = rand_chacha::ChaCha20Rng;
 
     // A cryptographically secure RNG using the ChaCha algorithm. Appropriate
-    // for runtime.
+    // for production.
     pub fn rng() -> Random {
         rand_chacha::ChaCha20Rng::from_entropy()
     }
