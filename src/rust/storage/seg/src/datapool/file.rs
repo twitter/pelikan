@@ -11,6 +11,8 @@ use memmap2::{MmapMut, MmapOptions};
 use std::fs::OpenOptions;
 use std::path::Path;
 
+const PAGE_SIZE: usize = 4096;
+
 /// The actual `File` datapool which owns the allocated data.
 pub struct File {
     mmap: MmapMut,
@@ -38,7 +40,7 @@ impl File {
             let mut offset = 0;
             while offset < size {
                 mmap[offset] = 0;
-                offset += 4096;
+                offset += PAGE_SIZE;
             }
             mmap.flush()?;
         }
