@@ -8,7 +8,7 @@
 //! TTL Bucket:
 //! ```text
 //! ┌──────────────┬──────────────┬─────────────┬──────────────┐
-//! │   HEAD SEG   │   TAIL SEG   │     TTL     │   SEGMENTS   │
+//! │   HEAD SEG   │   TAIL SEG   │     TTL     │     NSEG     │
 //! │              │              │             │              │
 //! │    32 bit    │    32 bit    │    32 bit   │    32 bit    │
 //! ├──────────────┼──────────────┴─────────────┴──────────────┤
@@ -37,7 +37,7 @@ pub struct TtlBucket {
     head: Option<NonZeroU32>,
     tail: Option<NonZeroU32>,
     ttl: i32,
-    segments: i32,
+    nseg: i32,
     next_to_merge: Option<NonZeroU32>,
     _pad: [u8; 44],
 }
@@ -55,7 +55,7 @@ impl TtlBucket {
             head: None,
             tail: None,
             ttl,
-            segments: 0,
+            nseg: 0,
             next_to_merge: None,
             _pad: [0; 44],
         }
@@ -130,7 +130,7 @@ impl TtlBucket {
                 self.head = Some(id);
             }
             self.tail = Some(id);
-            self.segments += 1;
+            self.nseg += 1;
             debug_assert_eq!(segment.evictable(), false);
             segment.set_evictable(true);
             segment.set_accessible(true);
