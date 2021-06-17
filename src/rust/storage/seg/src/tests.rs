@@ -182,7 +182,7 @@ fn collisions_2() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .power(3)
+        .hash_power(3)
         .build();
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 2);
@@ -209,7 +209,7 @@ fn collisions() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .power(3)
+        .hash_power(3)
         .build();
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 64);
@@ -246,7 +246,7 @@ fn full_cache_long() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .power(16)
+        .hash_power(16)
         .build();
 
     assert_eq!(cache.items(), 0);
@@ -284,7 +284,7 @@ fn full_cache_long_2() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .power(16)
+        .hash_power(16)
         .build();
 
     assert_eq!(cache.items(), 0);
@@ -319,7 +319,7 @@ fn expiration() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .power(16)
+        .hash_power(16)
         .build();
 
     assert_eq!(cache.items(), 0);

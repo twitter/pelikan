@@ -42,7 +42,7 @@ impl Seg {
 
         // build the datastructure from the config
         let data = ::seg::Seg::builder()
-            .power(config.hash_power())
+            .hash_power(config.hash_power())
             .overflow_factor(config.overflow_factor())
             .heap_size(config.heap_size())
             .segment_size(config.segment_size())

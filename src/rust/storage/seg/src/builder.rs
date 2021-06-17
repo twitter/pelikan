@@ -9,7 +9,7 @@ use std::path::Path;
 
 /// A builder that is used to construct a new [`Seg`] instance.
 pub struct Builder {
-    power: u8,
+    hash_power: u8,
     overflow_factor: f64,
     segments_builder: SegmentsBuilder,
 }
@@ -18,7 +18,7 @@ pub struct Builder {
 impl Default for Builder {
     fn default() -> Self {
         Self {
-            power: 16,
+            hash_power: 16,
             overflow_factor: 0.0,
             segments_builder: SegmentsBuilder::default(),
         }
@@ -42,9 +42,9 @@ impl Builder {
     /// // create a cache with a larger hashtable with room for ~1.8M items
     /// let cache = Seg::builder().power(21).build();
     /// ```
-    pub fn power(mut self, power: u8) -> Self {
-        assert!(power >= 3, "power must be at least 3");
-        self.power = power;
+    pub fn hash_power(mut self, hash_power: u8) -> Self {
+        assert!(hash_power >= 3, "hash power must be at least 3");
+        self.hash_power = hash_power;
         self
     }
 
@@ -56,17 +56,17 @@ impl Builder {
     /// use seg::Seg;
     ///
     /// // create a cache with a hashtable with room for ~228k items, which is
-    /// // about the same as using a power of 18, but is more tolerant of hash
-    /// // collisions
+    /// // about the same as using a hash power of 18, but is more tolerant of
+    /// // hash collisions.
     /// let cache = Seg::builder()
-    ///     .power(17)
+    ///     .hash_power(17)
     ///     .overflow_factor(1.0)
     ///     .build();
     ///
     /// // smaller overflow factors may be specified, meaning only some buckets
     /// // can ever be chained
     /// let cache = Seg::builder()
-    ///     .power(17)
+    ///     .hash_power(17)
     ///     .overflow_factor(0.2)
     ///     .build();
     /// ```
@@ -155,11 +155,11 @@ impl Builder {
     /// let cache = Seg::builder()
     ///     .heap_size(64 * MB)
     ///     .segment_size(1 * MB as i32)
-    ///     .power(16)
+    ///     .hash_power(16)
     ///     .eviction(Policy::Random).build();
     /// ```
     pub fn build(self) -> Seg {
-        let hashtable = HashTable::new(self.power, self.overflow_factor);
+        let hashtable = HashTable::new(self.hash_power, self.overflow_factor);
         let segments = self.segments_builder.build();
         let ttl_buckets = TtlBuckets::default();
 

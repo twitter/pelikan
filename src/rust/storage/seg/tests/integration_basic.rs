@@ -13,7 +13,7 @@ fn integration_basic() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .power(16)
+        .hash_power(16)
         .build();
 
     println!("filling seg 0");
