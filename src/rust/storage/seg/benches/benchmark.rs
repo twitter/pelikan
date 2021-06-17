@@ -21,7 +21,7 @@ fn get_benchmark(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(30));
     group.throughput(Throughput::Elements(1));
 
-    for key_size in [1, 2, 4, 8, 16, 32, 64, 128, 255].iter() {
+    for key_size in [1, 255].iter() {
         let (keys, _values) = key_values(*key_size, 1_000_000, 0, 0);
 
         // launch the server
@@ -76,8 +76,8 @@ fn set_benchmark(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(30));
     group.throughput(Throughput::Elements(1));
 
-    for key_size in [1, 2, 4, 8, 16, 32, 64, 128, 255].iter() {
-        for value_size in [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096].iter() {
+    for key_size in [1, 255].iter() {
+        for value_size in [1, 64, 1024, 16384].iter() {
             let (keys, values) = key_values(*key_size, 1_000_000, *value_size, 10_000);
 
             // launch the server
