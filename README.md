@@ -35,6 +35,12 @@ Currently Pelikan yields three main products, all of which are backends/servers.
 - **[Experimental]**`pelikan_segcache`: a Memcached-like server with extremely high
   memory efficiency and excellent core scalability. See our [NSDI'21 paper](https://www.usenix.org/conference/nsdi21/presentation/yang-juncheng)
   for design and evaluation details.
+- **[Experimental]**`pelikan_segcache_rs`: a Rust implementation of
+  `pelikan_segcache` which includes TLS support and is the preferred Segcache
+  implementation.
+- **[Experimental**]`pelikan_pingserver_rs`: a Rust implementation of
+  `pelikan_pingserver` which includes TLS support.
+
 
 ## Features
 - runtime separation of control and data plane
@@ -79,6 +85,26 @@ in packages installed by the current versions of `brew` (OS X),
 `CentOS` and `Ubuntu LTS`. The bug does not affect building executables.
 
 
+# Building Pelikan (Rust)
+
+## Requirement
+- Rust [stable toolchain](https://www.rust-lang.org/learn/get-started)
+- C toolchain: `llvm/clang (>= 7.0)`
+- Build tools: `cmake (>= 3.2)`
+
+## Build
+```sh
+git clone https://github.com/twitter/pelikan.git
+cd pelikan
+cargo build --release
+```
+
+## Tests
+```sh
+cargo test
+```
+
+
 # Usage
 Using `pelikan_twemcache` as an example, other executables are highly similar.
 
@@ -96,6 +122,9 @@ To launch the service with the sample config file, run:
 ```sh
 _bin/pelikan_twemcache config/twemcache.conf
 ```
+
+**NOTE**: The Rust servers use TOML configuration files, sample configs can be
+found in the `config` folder of this repository.
 
 You should be able to try out the server using an existing memcached client,
 or simply with `telnet`.
