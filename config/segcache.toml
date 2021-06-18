@@ -1,0 +1,56 @@
+daemonize = false
+
+[admin]
+port = "9999"
+
+[server]
+# interfaces listening on
+host = "0.0.0.0"
+# port listening on
+port = "12321"
+# epoll timeout in milliseconds
+timeout = 100
+# epoll max events returned
+nevent = 1024
+
+[worker]
+# epoll timeout in milliseconds
+timeout = 100
+# epoll max events returned
+nevent = 1024
+# number of worker threads
+threads = 4
+
+# storage configuration
+[seg]
+# hash power adjusts how many items can be held in the hashtable
+hash_power = 22
+# total bytes to use for item storage - 4GiB
+heap_size = 4294967296
+# size of each segment in bytes - 1MiB
+segment_size = 1048576
+# number of segments for a non-evict compaction
+compact_target = 2
+# number of segments to merge in one merge eviction pass
+merge_target = 4
+# max number of segments to merge in one pass
+merge_max = 8
+# use merge based eviction
+eviction = "Merge"
+# optionally, set a file path to back the datapool
+# datapool_path = "/path/to/fast/storage/filename"
+
+[time]
+time_type = "Memcache"
+
+[buf]
+
+[debug]
+# choose from: error, warn, info, debug, trace
+log_level = "info"
+
+[sockio]
+
+[tcp]
+
+[tls]

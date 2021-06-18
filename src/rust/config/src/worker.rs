@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 // constants to define default values
 const WORKER_TIMEOUT: usize = 100;
 const WORKER_NEVENT: usize = 1024;
+const WORKER_THREADS: usize = 1;
 
 // helper functions
 fn timeout() -> usize {
@@ -17,6 +18,10 @@ fn nevent() -> usize {
     WORKER_NEVENT
 }
 
+fn threads() -> usize {
+    WORKER_THREADS
+}
+
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WorkerConfig {
@@ -24,6 +29,8 @@ pub struct WorkerConfig {
     timeout: usize,
     #[serde(default = "nevent")]
     nevent: usize,
+    #[serde(default = "threads")]
+    threads: usize,
 }
 
 // implementation
@@ -35,6 +42,14 @@ impl WorkerConfig {
     pub fn nevent(&self) -> usize {
         self.nevent
     }
+
+    pub fn threads(&self) -> usize {
+        self.threads
+    }
+
+    pub fn set_threads(&mut self, threads: usize) {
+        self.threads = threads
+    }
 }
 
 // trait implementations
@@ -43,6 +58,7 @@ impl Default for WorkerConfig {
         Self {
             timeout: timeout(),
             nevent: nevent(),
+            threads: threads(),
         }
     }
 }

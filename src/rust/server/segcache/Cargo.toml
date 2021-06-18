@@ -1,0 +1,51 @@
+[package]
+name = "segcache"
+version = "0.1.0"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+edition = "2018"
+description = "a Memcache protocol server with segment-structured storage"
+homepage = "https://pelikan.io"
+repository = "https://github.com/twitter/pelikan"
+license = "Apache-2.0"
+
+[lib]
+name = "pelikan_segcache_rs"
+path = "src/lib.rs"
+doc = true
+
+[[bin]]
+name = "pelikan_segcache_rs"
+path = "src/main.rs"
+doc = false
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+harness = false
+
+[[test]]
+name = "integration_multi"
+path = "tests/integration_multi.rs"
+harness = false
+
+[[bench]]
+name = "benchmark"
+path = "benches/benchmark.rs"
+harness = false
+
+[features]
+debug = ["entrystore/debug"]
+
+[dependencies]
+backtrace = "0.3.56"
+config = { path = "../../config" }
+entrystore = { path = "../../entrystore" }
+metrics = { path = "../../metrics" }
+protocol = { path = "../../protocol" }
+rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-fastmetrics = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
+server = { path = "../../core/server" }
+
+[dev-dependencies]
+criterion = "0.3"

@@ -4,8 +4,10 @@
 
 use serde::{Deserialize, Serialize};
 
+// TODO(bmartin): set the default back to unix
+
 // constants to define default values
-const DEFAULT_TIME_TYPE: TimeType = TimeType::Unix;
+pub const DEFAULT_TIME_TYPE: TimeType = TimeType::Memcache;
 
 // helper functions
 fn time_type() -> TimeType {
@@ -13,12 +15,11 @@ fn time_type() -> TimeType {
 }
 
 // definitions
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum TimeType {
     Unix = 0,
     Delta = 1,
     Memcache = 2,
-    Sentinel = 3,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
