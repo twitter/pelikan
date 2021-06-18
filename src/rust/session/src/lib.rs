@@ -194,7 +194,10 @@ impl BufRead for Session {
                 return Err(std::io::Error::new(ErrorKind::Other, "buffer full"));
             }
 
-            self.read_buffer.reserve(self.min_capacity);
+            // reserve additional space in the buffer if needed
+            if self.read_buffer.available_capacity() == 0 {
+                self.read_buffer.reserve(self.min_capacity);
+            }
 
             match self.stream.read(self.read_buffer.borrow_mut()) {
                 Ok(0) => {
