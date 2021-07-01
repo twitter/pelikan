@@ -16,7 +16,7 @@ export pmem_paths=()
 export use_adq=1
 
 export SERVER=
-export CLIENTS=
+export CLIENTS=()
 
 
 export pelikan_binary="$HOME/pelikan_twemcache"

@@ -29,7 +29,7 @@ run_all_tests()
     item_size=${server_conf##*_}
     for client_conf in rpcperf_*_"${item_size}"; do
       echo -e "####### start ${server_conf} \t----- ${client_conf} \t#######"
-      if [ -f "rpcperf_log/${client_conf}_12300_0.log.smf1-dwk-24-sr1" ]; then
+      if [ -f "rpcperf_log/${client_conf}_12300_0.log" ]; then
         echo skip ${client_conf}
         continue
       fi
@@ -47,4 +47,3 @@ run_all_tests
 
 tput bel
 date
-

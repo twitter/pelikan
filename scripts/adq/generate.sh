@@ -70,6 +70,7 @@ gen_rpcperf() {
   done
 }
 
+set -e
 get_args "${@}"
 if [ "$client" = true ]; then
   gen_rpcperf
@@ -78,4 +79,4 @@ if [ "$server" = true ]; then
   gen_pelikan
 fi
 
-
+set +e

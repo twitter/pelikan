@@ -136,4 +136,3 @@ if __name__ == "__main__":
                     args.ksize, args.vsize, args.mem_bytes,
                     args.get_weight, args.set_weight, args.threads, args.backend)
     generate_runscript(args.binary, args.server_ip, args.instances)
-

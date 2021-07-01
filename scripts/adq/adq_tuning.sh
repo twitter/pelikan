@@ -5,7 +5,7 @@
 
 
 
-ICE_PATH= #
+ICE_PATH=/home/junchengy/adq/ice/
 iface=eth0
 num_instance=24
 port=12300
@@ -75,7 +75,23 @@ offline_cores() {
 }
 
 turnoff_service() {
-  # turn off most background jobs to avoid interference
+  sudo puppet-util setbranch off
+
+  sudo systemctl stop rezolus
+  sudo systemctl stop monit
+  sudo systemctl stop ntpdate
+  sudo systemctl stop osqueryd
+  sudo systemctl stop pcscd
+  sudo systemctl stop rsyslog
+  sudo systemctl stop scribe
+  sudo systemctl stop splunk
+  sudo systemctl stop tricorder
+  sudo systemctl stop tss-host-daemon
+  sudo systemctl stop twitcher
+  sudo systemctl stop twitterfw
+  sudo systemctl stop vexd
+  sudo systemctl stop fleetexec-server
+  sudo systemctl stop absorber.tss.production.host-daemon.13399.service
 }
 
 
@@ -214,4 +230,3 @@ turnoff_service
 
 # non_adq
 adq
-

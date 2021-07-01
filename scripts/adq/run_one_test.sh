@@ -75,4 +75,3 @@ get_args "${@}"
 server_launch
 client_run
 cleanup
-
