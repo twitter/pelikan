@@ -7,7 +7,6 @@ use crate::*;
 
 use config::TimeType;
 
-use core::slice::Windows;
 use std::convert::TryFrom;
 
 const MAX_COMMAND_LEN: usize = 16;
@@ -61,83 +60,87 @@ impl Parse<MemcacheRequest> for MemcacheRequestParser {
 }
 
 struct ParseState<'a> {
-    single_byte: Windows<'a, u8>,
-    double_byte: Windows<'a, u8>,
+    buffer: &'a [u8],
+    position: usize,
+}
+
+#[derive(PartialEq)]
+enum Sequence {
+    Space,
+    Crlf,
+    SpaceCrlf,
+}
+
+impl Sequence {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Space => 1,
+            Self::Crlf => 2,
+            Self::SpaceCrlf => 3,
+        }
+    }
 }
 
 impl<'a> ParseState<'a> {
     fn new(buffer: &'a [u8]) -> Self {
-        let single_byte = buffer.windows(1);
-        let double_byte = buffer.windows(2);
         Self {
-            single_byte,
-            double_byte,
+            buffer,
+            position: 0,
         }
     }
 
-    fn next_space(&mut self) -> Option<usize> {
-        self.single_byte.position(|w| w == b" ")
+    fn position(&self) -> usize {
+        self.position
     }
 
-    fn next_crlf(&mut self) -> Option<usize> {
-        self.double_byte.position(|w| w == CRLF.as_bytes())
+    fn next_sequence(&mut self) -> Option<(Sequence, usize)> {
+        for i in self.position..self.buffer.len() {
+            match self.buffer[i] {
+                b' ' => {
+                    if self.buffer.len() > i + 2
+                        && self.buffer[i + 1] == b'\r'
+                        && self.buffer[i + 2] == b'\n'
+                    {
+                        let s = Sequence::SpaceCrlf;
+                        self.position += s.len();
+                        return Some((s, i));
+                    } else {
+                        let s = Sequence::Space;
+                        self.position += s.len();
+                        return Some((s, i));
+                    }
+                }
+                b'\r' => {
+                    if self.buffer.len() > i + 1 && self.buffer[i + 1] == b'\n' {
+                        let s = Sequence::Crlf;
+                        self.position += s.len();
+                        return Some((s, i));
+                    } else {
+                        self.position += 1;
+                    }
+                }
+                b'\0' => {
+                    return None;
+                }
+                _ => {
+                    self.position += 1;
+                }
+            }
+        }
+        None
     }
 }
 
 #[allow(clippy::unnecessary_unwrap)]
 fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
-    let command;
-    {
-        let mut parse_state = ParseState::new(buffer);
-        let next_crlf = parse_state.next_crlf();
-        let next_space = parse_state.next_space();
-        if next_crlf.is_some() && next_space.is_some() {
-            let cmd_end = std::cmp::min(next_crlf.unwrap(), next_space.unwrap());
-            command = MemcacheCommand::try_from(&buffer[0..cmd_end])?;
-        } else if next_space.is_some() {
-            let mut this_space = next_space.unwrap();
-            match MemcacheCommand::try_from(&buffer[0..next_space.unwrap()])? {
-                MemcacheCommand::Get | MemcacheCommand::Gets => {
-                    let mut keys = 0;
-                    while let Some(next_space) = parse_state.next_space() {
-                        if next_space > MAX_KEY_LEN {
-                            return Err(ParseError::Invalid);
-                        }
-                        keys += 1;
-                        if keys >= MAX_BATCH_SIZE {
-                            return Err(ParseError::Invalid);
-                        }
-                        this_space += next_space;
-                    }
-                    if buffer.len() > MAX_KEY_LEN + this_space {
-                        return Err(ParseError::Invalid);
-                    } else {
-                        return Err(ParseError::Incomplete);
-                    }
-                }
-                _ => {
-                    if buffer.len() > MAX_COMMAND_LEN + MAX_KEY_LEN + 128 {
-                        return Err(ParseError::Invalid);
-                    } else {
-                        return Err(ParseError::Incomplete);
-                    }
-                }
-            };
-        } else if next_crlf.is_some() {
-            command = MemcacheCommand::try_from(&buffer[0..next_crlf.unwrap()])?;
-            match command {
-                MemcacheCommand::Quit => {}
-                _ => {
-                    return Err(ParseError::Invalid);
-                }
-            }
-        } else if buffer.len() > MAX_COMMAND_LEN {
-            return Err(ParseError::Invalid);
-        } else {
-            return Err(ParseError::Incomplete);
-        }
+    let mut parse_state = ParseState::new(buffer);
+    if let Some((_, position)) = parse_state.next_sequence() {
+        Ok(MemcacheCommand::try_from(&buffer[0..position])?)
+    } else if buffer.len() > MAX_COMMAND_LEN {
+        Err(ParseError::Invalid)
+    } else {
+        Err(ParseError::Incomplete)
     }
-    Ok(command)
 }
 
 #[allow(clippy::unnecessary_wraps)]
@@ -145,63 +148,59 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     let mut parse_state = ParseState::new(buffer);
 
     // this was already checked for when determining the command
-    let line_end = parse_state.next_crlf().unwrap();
-    let cmd_end = parse_state.next_space().unwrap();
+    let (whitespace, cmd_end) = parse_state.next_sequence().unwrap();
+
+    match whitespace {
+        Sequence::Crlf | Sequence::SpaceCrlf => {
+            return Err(ParseError::Invalid);
+        }
+        _ => {}
+    }
 
     let mut previous = cmd_end + 1;
     let mut keys = Vec::new();
 
     // command may have multiple keys, we need to loop until we hit
     // a CRLF
-    loop {
-        if let Some(key_end) = parse_state.next_space() {
-            if (previous + key_end) < line_end {
-                if key_end > 0 {
-                    if (previous + key_end) - previous > MAX_KEY_LEN {
+    while let Some((sequence, key_end)) = parse_state.next_sequence() {
+        match sequence {
+            Sequence::Space => {
+                if key_end <= previous || key_end > previous + MAX_KEY_LEN {
+                    return Err(ParseError::Invalid);
+                } else {
+                    keys.push(buffer[previous..key_end].to_vec().into_boxed_slice());
+
+                    previous = key_end + whitespace.len();
+
+                    if keys.len() >= MAX_BATCH_SIZE {
                         return Err(ParseError::Invalid);
                     }
-                    keys.push(
-                        buffer[previous..(previous + key_end)]
-                            .to_vec()
-                            .into_boxed_slice(),
-                    );
+                }
+            }
+            Sequence::Crlf | Sequence::SpaceCrlf => {
+                if key_end > previous && key_end <= previous + MAX_KEY_LEN {
+                    keys.push(buffer[previous..key_end].to_vec().into_boxed_slice());
+
+                    let consumed = key_end + whitespace.len();
+
+                    if keys.is_empty() {
+                        return Err(ParseError::Invalid);
+                    } else {
+                        let message = MemcacheRequest::Get {
+                            keys: keys.into_boxed_slice(),
+                        };
+                        return Ok(ParseOk { message, consumed });
+                    }
                 } else {
                     return Err(ParseError::Invalid);
                 }
-                previous += key_end + 1;
-            } else {
-                if line_end > previous {
-                    if line_end - previous > MAX_KEY_LEN {
-                        return Err(ParseError::Invalid);
-                    }
-                    keys.push(buffer[previous..line_end].to_vec().into_boxed_slice());
-                }
-                break;
             }
-        } else {
-            if line_end > previous {
-                if line_end - previous > MAX_KEY_LEN {
-                    return Err(ParseError::Invalid);
-                }
-                keys.push(buffer[previous..line_end].to_vec().into_boxed_slice());
-            }
-            break;
-        }
-        if keys.len() >= MAX_BATCH_SIZE {
-            return Err(ParseError::Invalid);
         }
     }
-
-    if keys.is_empty() {
+    if buffer.len() > cmd_end + MAX_KEY_LEN {
         Err(ParseError::Invalid)
     } else {
-        let consumed = line_end + CRLF.len();
-
-        let message = MemcacheRequest::Get {
-            keys: keys.into_boxed_slice(),
-        };
-
-        Ok(ParseOk { message, consumed })
+        Err(ParseError::Incomplete)
     }
 }
 
@@ -226,26 +225,35 @@ fn parse_set(
     let mut parse_state = ParseState::new(buffer);
 
     // this was already checked for when determining the command
-    let line_end = parse_state.next_crlf().unwrap();
-    let cmd_end = parse_state.next_space().unwrap();
+    let (whitespace, cmd_end) = parse_state.next_sequence().unwrap();
 
-    // key
-    let key_end = parse_state.next_space().ok_or(ParseError::Invalid)? + cmd_end + 1;
-    if key_end <= cmd_end + 1 {
+    if whitespace != Sequence::Space {
         return Err(ParseError::Invalid);
     }
-    if key_end - (cmd_end + 1) > MAX_KEY_LEN {
+
+    // key
+    let (whitespace, key_end) = parse_state.next_sequence().ok_or(ParseError::Incomplete)?;
+    if whitespace != Sequence::Space
+        || key_end <= cmd_end + 1
+        || key_end - (cmd_end + 1) > MAX_KEY_LEN
+    {
         return Err(ParseError::Invalid);
     }
 
     // flags
-    let flags_end = parse_state.next_space().ok_or(ParseError::Invalid)? + key_end + 1;
+    let (whitespace, flags_end) = parse_state.next_sequence().ok_or(ParseError::Incomplete)?;
+    if whitespace != Sequence::Space {
+        return Err(ParseError::Invalid);
+    }
     let flags_str =
         std::str::from_utf8(&buffer[(key_end + 1)..flags_end]).map_err(|_| ParseError::Invalid)?;
     let flags = flags_str.parse().map_err(|_| ParseError::Invalid)?;
 
     // expiry
-    let expiry_end = parse_state.next_space().ok_or(ParseError::Invalid)? + flags_end + 1;
+    let (whitespace, expiry_end) = parse_state.next_sequence().ok_or(ParseError::Incomplete)?;
+    if whitespace != Sequence::Space {
+        return Err(ParseError::Invalid);
+    }
     let expiry_str = std::str::from_utf8(&buffer[(flags_end + 1)..expiry_end])
         .map_err(|_| ParseError::Invalid)?;
     let expiry: u32 = expiry_str.parse().map_err(|_| ParseError::Invalid)?;
@@ -261,35 +269,34 @@ fn parse_set(
 
     let mut noreply = false;
 
-    let bytes_end = if cas {
-        parse_state.next_space().ok_or(ParseError::Invalid)? + expiry_end + 1
-    } else if let Some(next_space) = parse_state.next_space() {
-        let next_space = next_space + expiry_end + 1;
-        if line_end < next_space {
-            line_end
-        } else if line_end - next_space == 1 {
-            next_space
-        } else if line_end - (next_space + 1) == NOREPLY.len()
-            || line_end - (next_space + 1) == NOREPLY.len() + 1
-        {
-            if &buffer[(next_space + 1)..=(next_space + NOREPLY.len())] == NOREPLY.as_bytes() {
+    let (whitespace, bytes_end) = parse_state.next_sequence().ok_or(ParseError::Incomplete)?;
+    let cas_end = if cas {
+        if whitespace != Sequence::Space {
+            return Err(ParseError::Invalid);
+        }
+        let (whitespace, cas_end) = parse_state.next_sequence().ok_or(ParseError::Incomplete)?;
+        if whitespace == Sequence::Space {
+            let (_whitespace, noreply_end) =
+                parse_state.next_sequence().ok_or(ParseError::Incomplete)?;
+            if &buffer[(noreply_end - NOREPLY.len())..noreply_end] == NOREPLY.as_bytes() {
                 noreply = true;
-                next_space
             } else {
                 return Err(ParseError::Invalid);
             }
+        }
+        Some(cas_end)
+    } else if whitespace == Sequence::Space {
+        let (_whitespace, noreply_end) =
+            parse_state.next_sequence().ok_or(ParseError::Incomplete)?;
+        if &buffer[(noreply_end - NOREPLY.len())..noreply_end] == NOREPLY.as_bytes() {
+            noreply = true;
         } else {
             return Err(ParseError::Invalid);
         }
+        None
     } else {
-        line_end
+        None
     };
-
-    // this checks for malformed requests where a CRLF is at an
-    // unexpected part of the request
-    if (expiry_end + 1) >= bytes_end {
-        return Err(ParseError::Invalid);
-    }
 
     let bytes_str = std::str::from_utf8(&buffer[(expiry_end + 1)..bytes_end])
         .map_err(|_| ParseError::Invalid)?;
@@ -300,32 +307,6 @@ fn parse_set(
     if bytes > max_value_size {
         return Err(ParseError::Invalid);
     }
-
-    let cas_end = if !cas {
-        None
-    } else if let Some(next_space) = parse_state.next_space() {
-        let next_space = next_space + bytes_end + 1;
-        if line_end > next_space {
-            if line_end - next_space == 1 {
-                Some(next_space)
-            } else if line_end - (next_space + 1) == NOREPLY.len()
-                || line_end - (next_space + 1) == NOREPLY.len() + 1
-            {
-                if &buffer[(next_space + 1)..=(next_space + NOREPLY.len())] == NOREPLY.as_bytes() {
-                    noreply = true;
-                    Some(next_space)
-                } else {
-                    return Err(ParseError::Invalid);
-                }
-            } else {
-                return Err(ParseError::Invalid);
-            }
-        } else {
-            Some(line_end)
-        }
-    } else {
-        Some(line_end)
-    };
 
     let cas = if let Some(cas_end) = cas_end {
         if (bytes_end + 1) >= cas_end {
@@ -338,10 +319,10 @@ fn parse_set(
         None
     };
 
-    let consumed = line_end + CRLF.len() + bytes + CRLF.len();
+    let consumed = parse_state.position() + bytes + CRLF.len();
     if buffer.len() >= consumed {
         let key = buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice();
-        let value = buffer[(line_end + CRLF.len())..(line_end + CRLF.len() + bytes)]
+        let value = buffer[parse_state.position()..(parse_state.position() + bytes)]
             .to_vec()
             .into_boxed_slice();
 
@@ -404,40 +385,29 @@ fn parse_replace(
 }
 
 fn parse_delete(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
-    let mut single_byte = buffer.windows(1);
-    // we already checked for this in the MemcacheParser::parse()
-    let cmd_end = single_byte.position(|w| w == b" ").unwrap();
+    let mut parse_state = ParseState::new(buffer);
+
+    // this was already checked for when determining the command
+    let (whitespace, cmd_end) = parse_state.next_sequence().unwrap();
+
+    if whitespace != Sequence::Space {
+        return Err(ParseError::Invalid);
+    }
 
     let mut noreply = false;
-    let mut double_byte = buffer.windows(CRLF.len());
-    // get the position of the next space and first CRLF
-    let next_space = single_byte.position(|w| w == b" ").map(|v| v + cmd_end + 1);
-    let first_crlf = double_byte
-        .position(|w| w == CRLF.as_bytes())
-        .ok_or(ParseError::Incomplete)?;
 
-    let key_end = if let Some(next_space) = next_space {
-        // if we have both, bytes_end is before the earlier of the two
-        if next_space < first_crlf {
-            // validate that noreply isn't malformed
-            if &buffer[(next_space + 1)..(first_crlf)] == NOREPLY.as_bytes() {
-                noreply = true;
-                next_space
-            } else {
-                return Err(ParseError::Invalid);
-            }
+    let (whitespace, key_end) = parse_state.next_sequence().ok_or(ParseError::Incomplete)?;
+    if whitespace == Sequence::Space {
+        let (_whitespace, noreply_end) =
+            parse_state.next_sequence().ok_or(ParseError::Incomplete)?;
+        if &buffer[(noreply_end - NOREPLY.len())..noreply_end] == NOREPLY.as_bytes() {
+            noreply = true;
         } else {
-            first_crlf
+            return Err(ParseError::Invalid);
         }
-    } else {
-        first_crlf
-    };
+    }
 
-    let consumed = if noreply {
-        key_end + NOREPLY.len() + CRLF.len()
-    } else {
-        key_end + CRLF.len()
-    };
+    let consumed = parse_state.position();
 
     if key_end <= (cmd_end + 1) {
         return Err(ParseError::Invalid);

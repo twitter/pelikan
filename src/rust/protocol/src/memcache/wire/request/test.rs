@@ -129,6 +129,54 @@ fn cas() {
     } else {
         panic!("invalid parse result");
     }
+
+    let request = parser
+        .parse(b"cas 0 0 0 1 0 noreply\r\n0\r\n")
+        .expect("parse failure");
+    if let MemcacheRequest::Cas { entry, noreply } = request.message {
+        assert_eq!(entry.key(), b"0");
+        assert_eq!(entry.value(), b"0");
+        assert_eq!(entry.cas(), Some(0));
+        assert!(noreply);
+    } else {
+        panic!("invalid parse result");
+    }
+}
+
+#[test]
+fn delete() {
+    let parser = MemcacheRequestParser::default();
+
+    // keysets which are used for requests
+    let keys = vec!["0", "1", "espresso"];
+
+    // covers delete with reply
+    for k in &keys {
+        println!("key: {:?}", k);
+        let request = parser
+            .parse(format!("delete {}\r\n", k).as_bytes())
+            .expect("parse failure");
+        if let MemcacheRequest::Delete { key, noreply } = request.message {
+            assert_eq!(key.as_ref(), k.as_bytes());
+            assert!(!noreply);
+        } else {
+            panic!("invalid parse result");
+        }
+    }
+
+    // covers delete with noreply
+    for k in keys {
+        println!("key: {:?}", k);
+        let request = parser
+            .parse(format!("delete {} noreply\r\n", k).as_bytes())
+            .expect("parse failure");
+        if let MemcacheRequest::Delete { key, noreply } = request.message {
+            assert_eq!(key.as_ref(), k.as_bytes());
+            assert!(noreply);
+        } else {
+            panic!("invalid parse result");
+        }
+    }
 }
 
 #[test]
@@ -137,6 +185,15 @@ fn incomplete() {
 
     // incomplete
     if let Err(e) = parser.parse(b"get partial") {
+        if e != ParseError::Incomplete {
+            panic!("invalid parse result");
+        }
+    } else {
+        panic!("invalid parse result");
+    }
+
+    // incomplete
+    if let Err(e) = parser.parse(b"delete ") {
         if e != ParseError::Incomplete {
             panic!("invalid parse result");
         }
@@ -182,6 +239,32 @@ fn trailing_whitespace() {
     } else {
         panic!("invalid parse result");
     }
+
+    // cas
+    let request = parser
+        .parse(b"cas 0 0 0 1 0 \r\n1\r\n")
+        .expect("parse failure");
+    if let MemcacheRequest::Cas { entry, noreply } = request.message {
+        assert_eq!(entry.key(), b"0");
+        assert_eq!(entry.value(), b"1");
+        assert_eq!(entry.cas(), Some(0));
+        assert!(!noreply);
+    } else {
+        panic!("invalid parse result");
+    }
+
+    // cas + noreply
+    let request = parser
+        .parse(b"cas 0 0 0 1 0 noreply \r\n1\r\n")
+        .expect("parse failure");
+    if let MemcacheRequest::Cas { entry, noreply } = request.message {
+        assert_eq!(entry.key(), b"0");
+        assert_eq!(entry.value(), b"1");
+        assert_eq!(entry.cas(), Some(0));
+        assert!(noreply);
+    } else {
+        panic!("invalid parse result");
+    }
 }
 
 #[test]
@@ -208,12 +291,15 @@ fn invalid() {
         tempor_incididunt_ut_labore_et_dolore_magna_aliqua_Ut_enim_ad_minim_\
         veniam_quis_nostrud_exercitation_ullamco_laboris_nisi_ut_aliquip_ex_ea_\
         commodo_consequat_Duis_aute_irure_dolor_in_reprehenderit",
+        "cas \r 1 2 abc\r\n",
     ] {
         if let Err(e) = parser.parse(request.as_bytes()) {
             if e != ParseError::Invalid {
-                panic!("invalid parse result");
+                println!("request: {}", request);
+                panic!("invalid parse result: {:?}", e);
             }
         } else {
+            println!("request: {}", request);
             panic!("invalid parse result");
         }
     }

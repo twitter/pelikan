@@ -813,10 +813,11 @@ dependencies = [
 
 [[package]]
 name = "protocol"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "common",
  "config",
+ "criterion",
  "metrics",
  "rustcommon-fastmetrics",
  "rustcommon-time",
