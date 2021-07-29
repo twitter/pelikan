@@ -319,10 +319,17 @@ fn parse_set(
         None
     };
 
-    let consumed = parse_state.position() + bytes + CRLF.len();
-    if buffer.len() >= consumed {
+    let value_start = parse_state.position();
+    let value_end = value_start + bytes;
+    let request_end = value_end + CRLF.len();
+    if buffer.len() >= request_end {
+        // check that we have a CRLF
+        if &buffer[value_end..request_end] != CRLF.as_bytes() {
+            return Err(ParseError::Invalid);
+        }
+
         let key = buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice();
-        let value = buffer[parse_state.position()..(parse_state.position() + bytes)]
+        let value = buffer[value_start..value_end]
             .to_vec()
             .into_boxed_slice();
 
@@ -336,12 +343,12 @@ fn parse_set(
         if cas.is_some() {
             Ok(ParseOk {
                 message: MemcacheRequest::Cas { entry, noreply },
-                consumed,
+                consumed: request_end,
             })
         } else {
             Ok(ParseOk {
                 message: MemcacheRequest::Set { entry, noreply },
-                consumed,
+                consumed: request_end,
             })
         }
     } else {

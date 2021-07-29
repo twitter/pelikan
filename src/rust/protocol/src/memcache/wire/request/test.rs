@@ -292,6 +292,7 @@ fn invalid() {
         veniam_quis_nostrud_exercitation_ullamco_laboris_nisi_ut_aliquip_ex_ea_\
         commodo_consequat_Duis_aute_irure_dolor_in_reprehenderit",
         "cas \r 1 2 abc\r\n",
+        "set 0 0 0 1\r\nhello\r\n",
     ] {
         if let Err(e) = parser.parse(request.as_bytes()) {
             if e != ParseError::Invalid {
