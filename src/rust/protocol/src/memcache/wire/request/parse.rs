@@ -181,7 +181,7 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
                 if key_end > previous && key_end <= previous + MAX_KEY_LEN {
                     keys.push(buffer[previous..key_end].to_vec().into_boxed_slice());
 
-                    let consumed = key_end + whitespace.len();
+                    let consumed = key_end + whitespace.len() + 1;
 
                     if keys.is_empty() {
                         return Err(ParseError::Invalid);
@@ -343,12 +343,12 @@ fn parse_set(
         if cas.is_some() {
             Ok(ParseOk {
                 message: MemcacheRequest::Cas { entry, noreply },
-                consumed: request_end,
+                consumed: request_end + 1,
             })
         } else {
             Ok(ParseOk {
                 message: MemcacheRequest::Set { entry, noreply },
-                consumed: request_end,
+                consumed: request_end + 1,
             })
         }
     } else {

@@ -200,6 +200,15 @@ fn incomplete() {
     } else {
         panic!("invalid parse result");
     }
+
+    // incomplete
+    if let Err(e) = parser.parse(b"set 0 0 0 1\r\n") {
+        if e != ParseError::Incomplete {
+            panic!("invalid parse result");
+        }
+    } else {
+        panic!("invalid parse result");
+    }
 }
 
 #[test]
