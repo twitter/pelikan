@@ -55,6 +55,8 @@ pub struct PingserverConfig {
     #[serde(default)]
     debug: DebugConfig,
     #[serde(default)]
+    klog: KlogConfig,
+    #[serde(default)]
     sockio: SockioConfig,
     #[serde(default)]
     tcp: TcpConfig,
@@ -114,6 +116,10 @@ impl PingserverConfig {
         &self.debug
     }
 
+    pub fn klog(&self) -> &KlogConfig {
+        &self.klog
+    }
+
     pub fn sockio(&self) -> &SockioConfig {
         &self.sockio
     }
@@ -142,6 +148,7 @@ impl Default for PingserverConfig {
 
             buf: Default::default(),
             debug: Default::default(),
+            klog: Default::default(),
             sockio: Default::default(),
             tcp: Default::default(),
             tls: Default::default(),

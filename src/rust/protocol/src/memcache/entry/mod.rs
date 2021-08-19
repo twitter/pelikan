@@ -5,7 +5,7 @@
 #[derive(Debug)]
 pub struct MemcacheEntry {
     pub key: Box<[u8]>,
-    pub value: Box<[u8]>,
+    pub value: Option<Box<[u8]>>,
     pub ttl: Option<u32>,
     pub flags: u32,
     pub cas: Option<u64>,
@@ -16,8 +16,12 @@ impl MemcacheEntry {
         &self.key
     }
 
-    pub fn value(&self) -> &[u8] {
-        &self.value
+    pub fn value(&self) -> Option<&[u8]> {
+        if self.value.is_some() {
+            Some(self.value.as_ref().unwrap().as_ref())
+        } else {
+            None
+        }
     }
 
     /// The TTL in seconds. `Some(0)` indicates immediate expiration. `None`

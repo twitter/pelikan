@@ -121,7 +121,7 @@ where
                         }
                     }
                     Token(_) => {
-                        self.handle_event(&event);
+                        self.handle_event(event);
                     }
                 }
             }

@@ -48,9 +48,34 @@ time_type = "Memcache"
 [debug]
 # choose from: error, warn, info, debug, trace
 log_level = "info"
+# optionally, log to the file below instead of standard out
+# log_file = "segcache.log"
+# backup file name for use with log rotation
+log_backup = "segcache.log.old"
+# trigger log rotation when the file grows beyond this size (in bytes). Set this
+# option to '0' to disable log rotation.
+log_max_size = 1073741824
+
+[klog]
+# optionally, log commands to the file below
+# file = "segcache.cmd"
+# backup file name for use with log rotation
+backup = "segcache.cmd.old"
+# trigger log rotation when the file grows beyond this size (in bytes). Set this
+# option to '0' to disable log rotation.
+max_size = 1073741824
+# specify the sampling ratio, 1 in N commands will be logged. Setting to '0'
+# will disable command logging.
+sample = 100
 
 [sockio]
 
 [tcp]
 
 [tls]
+# certificate chain used to validate client certificate
+# certificate_chain = "client.chain"
+# server certificate
+# certificate = "server.crt"
+# server private key
+# private_key = "server.key"

@@ -6,6 +6,7 @@ use crate::ParseError;
 use core::convert::TryFrom;
 
 /// Memcache protocol commands
+#[derive(PartialEq)]
 pub enum MemcacheCommand {
     Get,
     Gets,
@@ -35,5 +36,21 @@ impl TryFrom<&[u8]> for MemcacheCommand {
             }
         };
         Ok(cmd)
+    }
+}
+
+impl std::fmt::Display for MemcacheCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        let name = match self {
+            Self::Get => "get",
+            Self::Gets => "gets",
+            Self::Set => "set",
+            Self::Add => "add",
+            Self::Replace => "replace",
+            Self::Cas => "cas",
+            Self::Delete => "delete",
+            Self::Quit => "quit",
+        };
+        write!(f, "{}", name)
     }
 }

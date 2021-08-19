@@ -20,6 +20,7 @@ common = { path = "../../common" }
 config = { path = "../../config" }
 crossbeam-channel = "0.5.0"
 libc = "0.2.83"
+logger = { path = "../../logger" }
 metrics = { path = "../../metrics" }
 mio = { version = "0.7.7", features = ["os-poll", "tcp"] }
 protocol = { path = "../../protocol" }

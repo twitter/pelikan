@@ -145,6 +145,7 @@ fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
 
 #[allow(clippy::unnecessary_wraps)]
 fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    increment_counter!(&Stat::Get);
     let mut parse_state = ParseState::new(buffer);
 
     // this was already checked for when determining the command
@@ -329,9 +330,7 @@ fn parse_set(
         }
 
         let key = buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice();
-        let value = buffer[value_start..value_end]
-            .to_vec()
-            .into_boxed_slice();
+        let value = Some(buffer[value_start..value_end].to_vec().into_boxed_slice());
 
         let entry = MemcacheEntry {
             key,

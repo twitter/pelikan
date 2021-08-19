@@ -26,7 +26,27 @@ nevent = 1024
 [buf]
 
 [debug]
+# choose from: error, warn, info, debug, trace
 log_level = "info"
+# optionally, log to the file below instead of standard out
+# log_file = "pingserver.log"
+# backup file name for use with log rotation
+log_backup = "pingserver.log.old"
+# trigger log rotation when the file grows beyond this size (in bytes). Set this
+# option to '0' to disable log rotation.
+log_max_size = 1073741824
+
+[klog]
+# optionally, log commands to the file below
+# file = "pingserver.cmd"
+# backup file name for use with log rotation
+backup = "pingserver.cmd.old"
+# trigger log rotation when the file grows beyond this size (in bytes). Set this
+# option to '0' to disable log rotation.
+max_size = 1073741824
+# specify the sampling ratio, 1 in N commands will be logged. Setting to '0'
+# will disable command logging.
+sample = 100
 
 # NOTE: not currently implemented
 [sockio]

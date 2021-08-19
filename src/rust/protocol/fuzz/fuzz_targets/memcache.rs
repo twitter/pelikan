@@ -33,13 +33,13 @@ fuzz_target!(|data: &[u8]| {
             | MemcacheRequest::Add { entry, .. }
             | MemcacheRequest::Replace { entry, .. } => {
                 validate_key(entry.key());
-                if entry.value().len() > MAX_VALUE_SIZE {
+                if entry.value().map(|v| v.len()).unwrap_or(0) > MAX_VALUE_SIZE {
                     panic!("value too long");
                 }
             }
             MemcacheRequest::Cas { entry, .. } => {
                 validate_key(entry.key());
-                if entry.value().len() > MAX_VALUE_SIZE {
+                if entry.value().map(|v| v.len()).unwrap_or(0) > MAX_VALUE_SIZE {
                     panic!("value too long");
                 }
             }

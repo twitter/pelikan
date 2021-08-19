@@ -3,7 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 #[macro_use]
-extern crate rustcommon_logger;
+extern crate logger;
 
 mod common;
 
@@ -11,18 +11,10 @@ use common::*;
 
 use config::SegcacheConfig;
 use pelikan_segcache_rs::Segcache;
-use rustcommon_logger::{Level, Logger};
 
 use std::time::Duration;
 
 fn main() {
-    // initialize logging
-    Logger::new()
-        .label("test")
-        .level(Level::Info)
-        .init()
-        .expect("Failed to initialize logger");
-
     debug!("launching multi-worker server");
     let mut config = SegcacheConfig::default();
     config.worker_mut().set_threads(2);

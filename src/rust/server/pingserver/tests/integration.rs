@@ -3,24 +3,16 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 #[macro_use]
-extern crate rustcommon_logger;
+extern crate logger;
 
 use config::PingserverConfig;
 use pelikan_pingserver_rs::Pingserver;
-use rustcommon_logger::{Level, Logger};
 
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 
 fn main() {
-    // initialize logging
-    Logger::new()
-        .label("test")
-        .level(Level::Info)
-        .init()
-        .expect("Failed to initialize logger");
-
     debug!("launching server");
     let server = Pingserver::new(PingserverConfig::default());
 
@@ -60,12 +52,12 @@ fn test(name: &str, data: &[(&str, Option<&str>)]) {
                     debug!("full request sent");
                 } else {
                     error!("incomplete write");
-                    fatal!("status: failed\n");
+                    panic!("status: failed\n");
                 }
             }
             Err(_) => {
                 error!("error sending request");
-                fatal!("status: failed\n");
+                panic!("status: failed\n");
             }
         }
 
@@ -74,11 +66,11 @@ fn test(name: &str, data: &[(&str, Option<&str>)]) {
 
         if let Some(response) = response {
             if stream.read(&mut buf).is_err() {
-                fatal!("error reading response");
+                panic!("error reading response");
             } else if response.as_bytes() != &buf[0..response.len()] {
                 error!("expected: {:?}", response.as_bytes());
                 error!("received: {:?}", &buf[0..response.len()]);
-                fatal!("status: failed\n");
+                panic!("status: failed\n");
             } else {
                 debug!("correct response");
             }
@@ -88,11 +80,11 @@ fn test(name: &str, data: &[(&str, Option<&str>)]) {
                 debug!("got no response");
             } else {
                 error!("error reading response");
-                fatal!("status: failed\n");
+                panic!("status: failed\n");
             }
         } else {
             error!("expected no response");
-            fatal!("status: failed\n");
+            panic!("status: failed\n");
         }
 
         if data.len() > 1 {

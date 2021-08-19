@@ -8,16 +8,24 @@ use protocol::memcache::{MemcacheEntry, MemcacheStorage, MemcacheStorageError};
 
 impl MemcacheStorage for Seg {
     fn get(&mut self, keys: &[Box<[u8]>]) -> Box<[MemcacheEntry]> {
-        let mut items = Vec::new();
+        let mut items = Vec::with_capacity(keys.len());
         for key in keys {
             if let Some(item) = self.data.get(key) {
                 let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
                 let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
                 items.push(MemcacheEntry {
                     key: item.key().to_vec().into_boxed_slice(),
-                    value: item.value().to_vec().into_boxed_slice(),
+                    value: Some(item.value().to_vec().into_boxed_slice()),
                     flags,
                     cas: Some(item.cas().into()),
+                    ttl: None,
+                });
+            } else {
+                items.push(MemcacheEntry {
+                    key: key.to_vec().into_boxed_slice(),
+                    value: None,
+                    flags: 0,
+                    cas: None,
                     ttl: None,
                 });
             }
@@ -26,7 +34,7 @@ impl MemcacheStorage for Seg {
         items.into_boxed_slice()
     }
 
-    fn set(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
+    fn set(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
         let ttl = if entry.ttl() == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
@@ -35,7 +43,7 @@ impl MemcacheStorage for Seg {
 
         match self.data.insert(
             entry.key(),
-            entry.value(),
+            entry.value().unwrap_or(b""),
             Some(&entry.flags().to_be_bytes()),
             ttl,
         ) {
@@ -44,7 +52,7 @@ impl MemcacheStorage for Seg {
         }
     }
 
-    fn add(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
+    fn add(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
         let ttl = if entry.ttl() == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
@@ -56,7 +64,7 @@ impl MemcacheStorage for Seg {
                 .data
                 .insert(
                     entry.key(),
-                    entry.value(),
+                    entry.value().unwrap_or(b""),
                     Some(&entry.flags().to_be_bytes()),
                     ttl,
                 )
@@ -68,7 +76,7 @@ impl MemcacheStorage for Seg {
         }
     }
 
-    fn replace(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
+    fn replace(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
         let ttl = if entry.ttl() == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
@@ -80,7 +88,7 @@ impl MemcacheStorage for Seg {
                 .data
                 .insert(
                     entry.key(),
-                    entry.value(),
+                    entry.value().unwrap_or(b""),
                     Some(&entry.flags().to_be_bytes()),
                     ttl,
                 )
@@ -100,7 +108,7 @@ impl MemcacheStorage for Seg {
         }
     }
 
-    fn cas(&mut self, entry: MemcacheEntry) -> Result<(), MemcacheStorageError> {
+    fn cas(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
         let ttl = if entry.ttl() == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
@@ -109,7 +117,7 @@ impl MemcacheStorage for Seg {
 
         match self.data.cas(
             entry.key(),
-            entry.value(),
+            entry.value().unwrap_or(b""),
             Some(&entry.flags().to_be_bytes()),
             ttl,
             entry.cas().unwrap_or(0) as u32,

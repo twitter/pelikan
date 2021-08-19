@@ -1,0 +1,12 @@
+[package]
+name = "logger"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = "0.4.19"
+config = { path = "../config" }
+crossbeam = "*"
+log = { version = "0.4.8", features = ["std", "release_max_level_debug"] }

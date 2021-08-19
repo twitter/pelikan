@@ -22,6 +22,7 @@ use mio::Waker;
 use protocol::{Compose, Execute, Parse, ParseError};
 use queues::QueuePair;
 use queues::QueuePairs;
+use rustcommon_time::CoarseInstant;
 use session::Session;
 use std::convert::TryInto;
 use std::io::{BufRead, Write};
@@ -76,11 +77,16 @@ where
     /// Run the `Worker` in a loop, handling new session events
     pub fn run(&mut self) {
         let mut events = Events::with_capacity(self.nevent);
+        let mut last_expire = CoarseInstant::recent();
 
         loop {
             increment_counter!(&Stat::WorkerEventLoop);
 
-            self.storage.expire();
+            let now = CoarseInstant::recent();
+            if now != last_expire {
+                self.storage.expire();
+                last_expire = now;
+            }
 
             // get events with timeout
             if self.poll.poll(&mut events, self.timeout).is_err() {
@@ -108,7 +114,7 @@ where
                         }
                     }
                     _ => {
-                        self.handle_event(&event);
+                        self.handle_event(event);
                     }
                 }
             }

@@ -8,6 +8,7 @@
 
 use config::PingserverConfig;
 use entrystore::Noop;
+use logger::PelikanLogBuilder;
 use protocol::ping::{PingRequest, PingRequestParser, PingResponse};
 use server::{Process, ProcessBuilder};
 
@@ -24,6 +25,14 @@ pub struct Pingserver {
 impl Pingserver {
     /// Creates a new `Pingserver` process from the given `PingserverConfig`.
     pub fn new(config: PingserverConfig) -> Self {
+        // initialize logging
+        let (logger, receiver) = PelikanLogBuilder::default()
+            .debug(config.debug().clone())
+            .command(config.klog().clone())
+            .build();
+
+        logger.start();
+
         // initialize metrics
         metrics::init();
 
@@ -45,6 +54,7 @@ impl Pingserver {
             storage,
             max_buffer_size,
             parser,
+            receiver,
         );
 
         // spawn threads

@@ -3,9 +3,12 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 #[macro_use]
+extern crate logger;
+
+#[macro_use]
 extern crate rustcommon_fastmetrics;
 
-use std::io::Write;
+use session::Session;
 
 pub mod admin;
 pub mod memcache;
@@ -14,7 +17,7 @@ pub mod ping;
 pub const CRLF: &str = "\r\n";
 
 pub trait Compose {
-    fn compose<Buffer: Write>(self, dst: &mut Buffer);
+    fn compose(self, dst: &mut Session);
 }
 
 pub trait Execute<Request, Response> {

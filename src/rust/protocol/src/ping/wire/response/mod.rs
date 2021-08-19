@@ -3,6 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::Compose;
+use session::Session;
 use std::io::Write;
 
 pub enum PingResponse {
@@ -15,7 +16,7 @@ pub enum PingResponse {
 // the current trait bound.
 #[allow(unused_must_use)]
 impl Compose for PingResponse {
-    fn compose<Buffer: Write>(self, dst: &mut Buffer) {
+    fn compose(self, dst: &mut Session) {
         match self {
             Self::Pong => {
                 dst.write_all(b"PONG\r\n");

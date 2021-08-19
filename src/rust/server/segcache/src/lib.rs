@@ -8,6 +8,7 @@
 
 use config::SegcacheConfig;
 use entrystore::Seg;
+use logger::PelikanLogBuilder;
 use protocol::memcache::{MemcacheRequest, MemcacheRequestParser, MemcacheResponse};
 use server::{Process, ProcessBuilder};
 
@@ -17,6 +18,7 @@ type Response = MemcacheResponse;
 type Storage = Seg;
 
 /// This structure represents a running `Segcache` process.
+#[allow(dead_code)]
 pub struct Segcache {
     process: Process,
 }
@@ -24,6 +26,14 @@ pub struct Segcache {
 impl Segcache {
     /// Creates a new `Segcache` process from the given `SegcacheConfig`.
     pub fn new(config: SegcacheConfig) -> Self {
+        // initialize logging
+        let (logger, receiver) = PelikanLogBuilder::default()
+            .debug(config.debug().clone())
+            .command(config.klog().clone())
+            .build();
+
+        logger.start();
+
         // initialize metrics
         metrics::init();
 
@@ -50,6 +60,7 @@ impl Segcache {
             storage,
             max_buffer_size,
             parser,
+            receiver,
         );
 
         // spawn threads

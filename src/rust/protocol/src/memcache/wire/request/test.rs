@@ -93,7 +93,7 @@ fn set() {
             let request = parser.parse(request_str.as_bytes()).expect("parse failure");
             if let MemcacheRequest::Set { entry, noreply } = request.message {
                 assert_eq!(entry.key(), key.as_bytes());
-                assert_eq!(entry.value(), value.as_bytes());
+                assert_eq!(entry.value(), Some(value.as_bytes()));
                 assert_eq!(entry.cas(), None);
                 assert!(!noreply);
             } else {
@@ -107,7 +107,7 @@ fn set() {
         .expect("parse failure");
     if let MemcacheRequest::Set { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
-        assert_eq!(entry.value(), b"0");
+        assert_eq!(entry.value(), Some("0".as_bytes()));
         assert!(noreply);
     } else {
         panic!("invalid parse result");
@@ -123,7 +123,7 @@ fn cas() {
         .expect("parse failure");
     if let MemcacheRequest::Cas { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
-        assert_eq!(entry.value(), b"0");
+        assert_eq!(entry.value(), Some("0".as_bytes()));
         assert_eq!(entry.cas(), Some(0));
         assert!(!noreply);
     } else {
@@ -135,7 +135,7 @@ fn cas() {
         .expect("parse failure");
     if let MemcacheRequest::Cas { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
-        assert_eq!(entry.value(), b"0");
+        assert_eq!(entry.value(), Some("0".as_bytes()));
         assert_eq!(entry.cas(), Some(0));
         assert!(noreply);
     } else {
@@ -231,7 +231,7 @@ fn trailing_whitespace() {
         .expect("parse failure");
     if let MemcacheRequest::Set { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
-        assert_eq!(entry.value(), b"1");
+        assert_eq!(entry.value(), Some("1".as_bytes()));
         assert!(!noreply);
     } else {
         panic!("invalid parse result");
@@ -243,7 +243,7 @@ fn trailing_whitespace() {
         .expect("parse failure");
     if let MemcacheRequest::Set { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
-        assert_eq!(entry.value(), b"1");
+        assert_eq!(entry.value(), Some("1".as_bytes()));
         assert!(noreply);
     } else {
         panic!("invalid parse result");
@@ -255,7 +255,7 @@ fn trailing_whitespace() {
         .expect("parse failure");
     if let MemcacheRequest::Cas { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
-        assert_eq!(entry.value(), b"1");
+        assert_eq!(entry.value(), Some("1".as_bytes()));
         assert_eq!(entry.cas(), Some(0));
         assert!(!noreply);
     } else {
@@ -268,7 +268,7 @@ fn trailing_whitespace() {
         .expect("parse failure");
     if let MemcacheRequest::Cas { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
-        assert_eq!(entry.value(), b"1");
+        assert_eq!(entry.value(), Some("1".as_bytes()));
         assert_eq!(entry.cas(), Some(0));
         assert!(noreply);
     } else {
