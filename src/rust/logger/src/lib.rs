@@ -2,8 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use chrono::DateTime;
-use chrono::Local;
+use rustcommon_time::{recent_local, DateTime, Local, SecondsFormat};
 use core::sync::atomic::{AtomicUsize, Ordering};
 use std::path::Path;
 
@@ -59,7 +58,7 @@ pub fn default_format(
     writeln!(
         w,
         "{} {} [{}] {}",
-        now.to_rfc3339(),
+        now.to_rfc3339_opts(SecondsFormat::Secs, true),
         record.level(),
         record.module_path().unwrap_or("<unnamed>"),
         record.args()
@@ -246,7 +245,7 @@ impl Log for LogSender {
             .pop()
             .unwrap_or_else(|| Vec::with_capacity(self.buf_size));
 
-        if (self.format)(&mut buffer, chrono::Local::now(), record).is_ok() {
+        if (self.format)(&mut buffer, recent_local(), record).is_ok() {
             let _ = self.sender.push(buffer);
         }
     }

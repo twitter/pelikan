@@ -615,10 +615,10 @@ dependencies = [
 name = "logger"
 version = "0.1.0"
 dependencies = [
- "chrono",
  "config",
  "log",
  "mpmc",
+ "rustcommon-time",
 ]
 
 [[package]]
@@ -1028,7 +1028,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-atomics"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
+source = "git+https://github.com/twitter/rustcommon#09e576e03a7468a98333cd0b016e144b513b3d61"
 dependencies = [
  "serde",
 ]
@@ -1036,7 +1036,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-buffer"
 version = "0.2.0"
-source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
+source = "git+https://github.com/twitter/rustcommon#09e576e03a7468a98333cd0b016e144b513b3d61"
 dependencies = [
  "bytes",
 ]
@@ -1044,7 +1044,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-fastmetrics"
 version = "0.0.3"
-source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
+source = "git+https://github.com/twitter/rustcommon#09e576e03a7468a98333cd0b016e144b513b3d61"
 dependencies = [
  "thiserror",
 ]
@@ -1052,7 +1052,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-histogram"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
+source = "git+https://github.com/twitter/rustcommon#09e576e03a7468a98333cd0b016e144b513b3d61"
 dependencies = [
  "rustcommon-atomics",
  "thiserror",
@@ -1061,7 +1061,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-logger"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
+source = "git+https://github.com/twitter/rustcommon#09e576e03a7468a98333cd0b016e144b513b3d61"
 dependencies = [
  "log",
  "time",
@@ -1070,7 +1070,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-time"
 version = "0.0.6"
-source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
+source = "git+https://github.com/twitter/rustcommon#09e576e03a7468a98333cd0b016e144b513b3d61"
 dependencies = [
  "chrono",
  "lazy_static",
