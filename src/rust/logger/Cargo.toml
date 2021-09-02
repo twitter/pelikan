@@ -8,5 +8,5 @@ edition = "2018"
 [dependencies]
 chrono = "0.4.19"
 config = { path = "../config" }
-crossbeam = "*"
 log = { version = "0.4.8", features = ["std", "release_max_level_debug"] }
+mpmc = "*"

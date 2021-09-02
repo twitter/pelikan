@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use config::{DebugConfig, KlogConfig};
-use crossbeam::queue::ArrayQueue;
+use mpmc::Queue;
 
 pub use log::*;
 
@@ -33,8 +33,8 @@ pub struct NopSender {}
 
 pub struct LogSender {
     level: LevelFilter,
-    sender: Arc<ArrayQueue<Vec<u8>>>,
-    buf_pool: Arc<ArrayQueue<Vec<u8>>>,
+    sender: Queue<Vec<u8>>,
+    buf_pool: Queue<Vec<u8>>,
     buf_size: usize,
     format: FormatFunction,
 }
@@ -67,8 +67,8 @@ pub fn default_format(
 }
 
 pub struct LogReceiver {
-    receiver: Arc<ArrayQueue<Vec<u8>>>,
-    buf_pool: Arc<ArrayQueue<Vec<u8>>>,
+    receiver: Queue<Vec<u8>>,
+    buf_pool: Queue<Vec<u8>>,
     buf_size: usize,
     active_path: Option<PathBuf>,
     backup_path: Option<PathBuf>,
@@ -78,15 +78,11 @@ pub struct LogReceiver {
 
 impl LogReceiver {
     pub fn flush(&mut self) {
-        for _ in 0..self.receiver.len() {
-            if let Some(mut msg) = self.receiver.pop() {
-                let _ = self.writer.write(&msg);
-                if msg.capacity() <= self.buf_size {
-                    msg.clear();
-                    let _ = self.buf_pool.push(msg);
-                }
-            } else {
-                break;
+        while let Some(mut msg) = self.receiver.pop() {
+            let _ = self.writer.write(&msg);
+            if msg.capacity() <= self.buf_size {
+                msg.clear();
+                let _ = self.buf_pool.push(msg);
             }
         }
         let _ = self.writer.flush();
@@ -194,8 +190,8 @@ impl LogBuilder {
     }
 
     pub fn build(self) -> (LogSender, LogReceiver) {
-        let log_queue = Arc::new(ArrayQueue::new(DEFAULT_BUFFER_SIZE / DEFAULT_MSG_SIZE));
-        let buf_queue = Arc::new(ArrayQueue::new(self.buf_pool));
+        let log_queue = Queue::with_capacity(DEFAULT_BUFFER_SIZE / DEFAULT_MSG_SIZE);
+        let buf_queue = Queue::with_capacity(self.buf_pool);
 
         let sender = LogSender {
             level: self.level,

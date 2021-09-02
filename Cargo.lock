@@ -617,8 +617,8 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "config",
- "crossbeam",
  "log",
+ "mpmc",
 ]
 
 [[package]]
@@ -694,6 +694,12 @@ checksum = "b9f1c5b025cda876f66ef43a113f91ebc9f4ccef34843000e0adf6ebbab84e21"
 dependencies = [
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "mpmc"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf78b1242a953be96e01b5f8ed8ffdfc8055c0a2b779899b3835e5d27a69dced"
 
 [[package]]
 name = "nom"
@@ -1022,7 +1028,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-atomics"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#88e07783af36f011b3847baf4f0bef0724c4eaad"
+source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
 dependencies = [
  "serde",
 ]
@@ -1030,7 +1036,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-buffer"
 version = "0.2.0"
-source = "git+https://github.com/twitter/rustcommon#88e07783af36f011b3847baf4f0bef0724c4eaad"
+source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
 dependencies = [
  "bytes",
 ]
@@ -1038,7 +1044,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-fastmetrics"
 version = "0.0.3"
-source = "git+https://github.com/twitter/rustcommon#88e07783af36f011b3847baf4f0bef0724c4eaad"
+source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
 dependencies = [
  "thiserror",
 ]
@@ -1046,7 +1052,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-histogram"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#88e07783af36f011b3847baf4f0bef0724c4eaad"
+source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
 dependencies = [
  "rustcommon-atomics",
  "thiserror",
@@ -1055,7 +1061,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-logger"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#88e07783af36f011b3847baf4f0bef0724c4eaad"
+source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
 dependencies = [
  "log",
  "time",
@@ -1064,8 +1070,9 @@ dependencies = [
 [[package]]
 name = "rustcommon-time"
 version = "0.0.6"
-source = "git+https://github.com/twitter/rustcommon#88e07783af36f011b3847baf4f0bef0724c4eaad"
+source = "git+https://github.com/twitter/rustcommon#53f1548a85a389d0d5d4fe0b9090ced274f8de45"
 dependencies = [
+ "chrono",
  "lazy_static",
  "libc",
  "mach",
