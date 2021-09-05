@@ -28,6 +28,7 @@
 
 use crate::*;
 use core::num::NonZeroU32;
+use super::SEGMENT_EXPIRE;
 
 /// Each ttl bucket contains a segment chain to store items with a similar TTL
 /// in an ordered fashion. The first segment to expire will be the head of the
@@ -95,6 +96,7 @@ impl TtlBucket {
                     let _ = segment.clear(hashtable, true);
                     segments.push_free(seg_id);
                     increment_counter!(&Stat::SegmentExpire);
+                    SEGMENT_EXPIRE.increment();
                     expired += 1;
                 } else {
                     return expired;

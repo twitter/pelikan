@@ -76,12 +76,27 @@ const MAX_CHAIN_LEN: u64 = 16;
 use crate::*;
 use ahash::RandomState;
 use core::num::NonZeroU32;
+use metrics::{pelikan_metrics, Counter};
 
 use rustcommon_time::CoarseInstant as Instant;
 
 mod hash_bucket;
 
 pub(crate) use hash_bucket::*;
+
+pelikan_metrics! {
+    static HASH_TAG_COLLISION: Counter;
+    static HASH_INSERT: Counter;
+    static HASH_INSERT_EX: Counter;
+    static HASH_REMOVE: Counter;
+    static HASH_LOOKUP: Counter;
+
+    static ITEM_RELINK: Counter;
+    static ITEM_REPLACE: Counter;
+    static ITEM_DELETE: Counter;
+    static ITEM_EVICT: Counter;
+    static ITEM_EXPIRE: Counter;
+}
 
 /// Main structure for performing item lookup. Contains a contiguous allocation
 /// of [`HashBucket`]s which are used to store item info and metadata.
@@ -202,6 +217,7 @@ impl HashTable {
                     let current_item = segments.get_item(current_info).unwrap();
                     if current_item.key() != key {
                         increment_counter!(&Stat::HashTagCollision);
+                        HASH_TAG_COLLISION.increment();
                     } else {
                         // update item frequency
                         let mut freq = get_freq(current_info);
@@ -270,6 +286,7 @@ impl HashTable {
                     let current_item = segments.get_item(current_info).unwrap();
                     if current_item.key() != key {
                         increment_counter!(&Stat::HashTagCollision);
+                        HASH_TAG_COLLISION.increment();
                     } else {
                         let item = Item::new(
                             current_item,
@@ -382,6 +399,7 @@ impl HashTable {
                         }
                     } else {
                         increment_counter!(&Stat::HashTagCollision);
+                        HASH_TAG_COLLISION.increment();
                     }
                 }
             }
@@ -395,6 +413,7 @@ impl HashTable {
 
         if updated {
             increment_counter!(&Stat::ItemRelink);
+            ITEM_RELINK.increment();
             Ok(())
         } else {
             Err(())
@@ -413,6 +432,7 @@ impl HashTable {
         segments: &mut Segments,
     ) -> Result<(), ()> {
         increment_counter!(&Stat::HashInsert);
+        HASH_INSERT.increment();
 
         let hash = self.hash(&item.key());
         let tag = tag_from_hash(hash);
@@ -447,10 +467,12 @@ impl HashTable {
                 }
                 if segments.get_item(current_item_info).unwrap().key() != item.key() {
                     increment_counter!(&Stat::HashTagCollision);
+                    HASH_TAG_COLLISION.increment();
                 } else {
                     // update existing key
                     self.data[bucket_id].data[i] = insert_item_info;
                     increment_counter!(&Stat::ItemReplace);
+                    ITEM_REPLACE.increment();
                     let _ = segments.remove_item(current_item_info, true, ttl_buckets, self);
                     insert_item_info = 0;
                 }
@@ -483,6 +505,7 @@ impl HashTable {
             Ok(())
         } else {
             increment_counter!(&Stat::HashInsertEx);
+            HASH_INSERT_EX.increment();
             Err(())
         }
     }
@@ -531,6 +554,7 @@ impl HashTable {
                     let current_item = segments.get_item(current_info).unwrap();
                     if current_item.key() != key {
                         increment_counter!(&Stat::HashTagCollision);
+                        HASH_TAG_COLLISION.increment();
                     } else {
                         // update item frequency
                         let mut freq = get_freq(current_info);
@@ -596,9 +620,11 @@ impl HashTable {
                     let current_item = segments.get_item(current_item_info).unwrap();
                     if current_item.key() != key {
                         increment_counter!(&Stat::HashTagCollision);
+                        HASH_TAG_COLLISION.increment();
                         continue;
                     } else {
                         increment_counter!(&Stat::HashRemove);
+                        HASH_REMOVE.increment();
                         let _ =
                             segments.remove_item(current_item_info, !deleted, ttl_buckets, self);
                         self.data[bucket_id].data[i] = 0;
@@ -616,6 +642,7 @@ impl HashTable {
 
         if deleted {
             increment_counter!(&Stat::ItemDelete);
+            ITEM_DELETE.increment();
         }
 
         deleted
@@ -626,6 +653,7 @@ impl HashTable {
         let result = self.remove_from(key, offset, segment);
         if result {
             increment_counter!(&Stat::ItemEvict);
+            ITEM_EVICT.increment();
         }
         result
     }
@@ -635,6 +663,7 @@ impl HashTable {
         let result = self.remove_from(key, offset, segment);
         if result {
             increment_counter!(&Stat::ItemExpire);
+            ITEM_EXPIRE.increment();
         }
         result
     }
@@ -708,6 +737,7 @@ impl HashTable {
     /// Internal function used to calculate a hash value for a key
     fn hash(&self, key: &[u8]) -> u64 {
         increment_counter!(&Stat::HashLookup);
+        HASH_LOOKUP.increment();
         let mut hasher = self.hash_builder.build_hasher();
         hasher.write(key);
         hasher.finish()

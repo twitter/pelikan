@@ -21,6 +21,7 @@
 //! more detail.
 
 use crate::*;
+use super::EXPIRE_TIME;
 
 const N_BUCKET_PER_STEP_N_BIT: usize = 8;
 const N_BUCKET_PER_STEP: usize = 1 << N_BUCKET_PER_STEP_N_BIT;
@@ -109,6 +110,7 @@ impl TtlBuckets {
         let duration = start.elapsed();
         debug!("expired: {} segments in {:?}", expired, duration);
         increment_counter_by!(&Stat::ExpireTime, duration.as_nanos() as u64);
+        EXPIRE_TIME.add(duration.as_nanos() as _);
         expired
     }
 }
