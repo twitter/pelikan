@@ -202,6 +202,8 @@ impl Admin {
             }
         }
 
+        // Disabled until metrics conversion is complete.
+        #[cfg(any())]
         for metric in &metrics::rustcommon_metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
