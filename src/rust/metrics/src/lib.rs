@@ -6,7 +6,28 @@ pub use rustcommon_fastmetrics::*;
 use strum::IntoEnumIterator;
 use strum_macros::{AsRefStr, EnumIter};
 
+pub use macros::to_lowercase;
+pub use rustcommon_metrics::{metric, Counter, Gauge};
+
 pub type Metrics = rustcommon_fastmetrics::Metrics<Stat>;
+
+#[doc(hidden)]
+pub extern crate rustcommon_metrics;
+
+#[macro_export]
+macro_rules! pelikan_metrics {
+    {$(
+        $( #[ $attr:meta ] )*
+        $vis:vis static $name:ident : $ty:ty ;
+    )*} => {$(
+        #[$crate::metric(
+            name = $crate::to_lowercase!($name),
+            crate = $crate::rustcommon_metrics
+        )]
+        $( #[ $attr ] )*
+        $vis static $name : $ty = <$ty>::new();
+    )*};
+}
 
 // As a temporary work-around for requiring all metrics to have a common type,
 // we combine server and storage metrics here.
