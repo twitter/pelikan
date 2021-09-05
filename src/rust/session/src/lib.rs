@@ -21,6 +21,7 @@ use std::net::SocketAddr;
 
 use boring::ssl::{MidHandshakeSslStream, SslStream};
 use metrics::Stat;
+use metrics::{pelikan_metrics, Counter};
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
 
@@ -28,6 +29,21 @@ use buffer::Buffer;
 use stream::Stream;
 
 pub use tcp_stream::TcpStream;
+
+pelikan_metrics! {
+    static TCP_ACCEPT: Counter;
+    static TCP_CLOSE: Counter;
+    static TCP_RECV_BYTE: Counter;
+    static TCP_SEND_BYTE: Counter;
+    static TCP_SEND_PARTIAL: Counter;
+
+    static SESSION_RECV: Counter;
+    static SESSION_RECV_EX: Counter;
+    static SESSION_RECV_BYTE: Counter;
+    static SESSION_SEND: Counter;
+    static SESSION_SEND_EX: Counter;
+    static SESSION_SEND_BYTE: Counter;
+}
 
 // TODO(bmartin): implement connect/reconnect so we can use this in clients too.
 /// The core `Session` type which represents a TCP stream (with or without TLS),
@@ -74,6 +90,7 @@ impl Session {
     /// Create a new `Session`
     fn new(stream: Stream, min_capacity: usize, max_capacity: usize) -> Self {
         increment_counter!(&Stat::TcpAccept);
+        TCP_ACCEPT.increment();
         Self {
             token: Token(0),
             stream,
@@ -188,6 +205,7 @@ impl Read for Session {
 impl BufRead for Session {
     fn fill_buf(&mut self) -> Result<&[u8], std::io::Error> {
         increment_counter!(&Stat::SessionRecv);
+        SESSION_RECV.increment();
         let mut total_bytes = 0;
         loop {
             if self.read_buffer.len() == self.max_capacity {
@@ -221,12 +239,14 @@ impl BufRead for Session {
                         }
                     } else {
                         increment_counter!(&Stat::SessionRecvEx);
+                        SESSION_RECV_EX.increment();
                         return Err(e);
                     }
                 }
             }
         }
         increment_counter_by!(&Stat::SessionRecvByte, total_bytes as u64);
+        SESSION_RECV_BYTE.add(total_bytes as _);
         Ok(self.read_buffer.borrow())
     }
 
@@ -244,15 +264,18 @@ impl Write for Session {
 
     fn flush(&mut self) -> Result<(), std::io::Error> {
         increment_counter!(&Stat::SessionSend);
+        SESSION_SEND.increment();
         match self.stream.write((self.write_buffer).borrow()) {
             Ok(0) => Ok(()),
             Ok(bytes) => {
                 increment_counter_by!(&Stat::SessionSendByte, bytes as u64);
+                SESSION_SEND_BYTE.add(bytes as _);
                 self.write_buffer.consume(bytes);
                 self.stream.flush()
             }
             Err(e) => {
                 increment_counter!(&Stat::SessionSendEx);
+                SESSION_SEND_EX.increment();
                 Err(e)
             }
         }

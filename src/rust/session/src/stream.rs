@@ -12,6 +12,7 @@ use boring::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
 use metrics::Stat;
 
 use super::TcpStream;
+use crate::TCP_CLOSE;
 
 pub struct Stream {
     inner: Option<StreamType>,
@@ -78,6 +79,7 @@ impl Stream {
 
     pub fn close(&mut self) {
         increment_counter!(&Stat::TcpClose);
+        TCP_CLOSE.increment();
         if let Some(stream) = self.inner.take() {
             self.inner = match stream {
                 StreamType::Plain(s) => {

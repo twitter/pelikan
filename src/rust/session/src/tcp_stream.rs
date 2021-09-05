@@ -11,6 +11,8 @@ use std::net::SocketAddr;
 
 use metrics::Stat;
 
+use crate::{TCP_RECV_BYTE, TCP_SEND_BYTE, TCP_SEND_PARTIAL};
+
 pub struct TcpStream {
     inner: mio::net::TcpStream,
 }
@@ -39,6 +41,7 @@ impl Read for TcpStream {
         let result = self.inner.read(buf);
         if let Ok(bytes) = result {
             increment_counter_by!(&Stat::TcpRecvByte, bytes as u64);
+            TCP_RECV_BYTE.add(bytes as _);
         }
         result
     }
@@ -50,8 +53,10 @@ impl Write for TcpStream {
         if let Ok(bytes) = result {
             if bytes != buf.len() {
                 increment_counter!(&Stat::TcpSendPartial);
+                TCP_SEND_PARTIAL.increment();
             }
             increment_counter_by!(&Stat::TcpSendByte, bytes as u64);
+            TCP_SEND_BYTE.add(bytes as _);
         }
         result
     }
