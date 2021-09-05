@@ -12,7 +12,6 @@ license = "Apache-2.0"
 
 [dependencies]
 rustcommon-metrics = { path = "../../../../rustcommon/metrics-v2", package = "rustcommon-metrics-v2" }
-rustcommon-fastmetrics = { git = "https://github.com/twitter/rustcommon" }
 macros = { path = "../macros" }
 strum = "0.20.0"
 strum_macros = "0.20.1"
