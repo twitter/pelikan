@@ -8,6 +8,7 @@
 //! session buffer.
 
 use super::EventLoop;
+use super::*;
 use crate::poll::{Poll, WAKER_TOKEN};
 use common::signal::Signal;
 use config::WorkerConfig;
@@ -79,6 +80,7 @@ where
 
         loop {
             increment_counter!(&Stat::WorkerEventLoop);
+            WORKER_EVENT_LOOP.increment();
 
             self.storage.expire();
 
@@ -91,6 +93,7 @@ where
                 &Stat::WorkerEventTotal,
                 events.iter().count().try_into().unwrap(),
             );
+            WORKER_EVENT_TOTAL.add(events.iter().count() as _);
 
             // process all events
             for event in events.iter() {
@@ -141,6 +144,7 @@ where
         // handle error events first
         if event.is_error() {
             increment_counter!(&Stat::WorkerEventError);
+            WORKER_EVENT_ERROR.increment();
             self.handle_error(token);
         }
 
@@ -148,12 +152,14 @@ where
         // growth if there is also a readable event
         if event.is_writable() {
             increment_counter!(&Stat::WorkerEventWrite);
+            WORKER_EVENT_WRITE.increment();
             self.do_write(token);
         }
 
         // read events are handled last
         if event.is_readable() {
             increment_counter!(&Stat::WorkerEventRead);
+            WORKER_EVENT_READ.increment();
             let _ = self.do_read(token);
         }
 
@@ -198,6 +204,7 @@ where
                 match self.parser.parse(session.buffer()) {
                     Ok(parsed_request) => {
                         increment_counter!(&Stat::ProcessReq);
+                        PROCESS_REQ.increment();
                         let consumed = parsed_request.consumed();
                         let request = parsed_request.into_inner();
                         session.consume(consumed);

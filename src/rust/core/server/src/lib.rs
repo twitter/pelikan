@@ -100,6 +100,12 @@ mod threads;
 
 pub use process::{Process, ProcessBuilder};
 
+use metrics::{pelikan_metrics, Counter};
+
+pelikan_metrics!{
+    static TCP_ACCEPT_EX: Counter;
+}
+
 // The default buffer size is matched to the upper-bound on TLS fragment size as
 // per RFC 5246 https://datatracker.ietf.org/doc/html/rfc5246#section-6.2.1
 pub const DEFAULT_BUFFER_SIZE: usize = 16 * 1024; // 16KB

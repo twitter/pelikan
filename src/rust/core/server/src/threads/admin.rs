@@ -7,10 +7,12 @@
 
 use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
+use crate::TCP_ACCEPT_EX;
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
 use config::AdminConfig;
 use metrics::Stat;
+use metrics::{pelikan_metrics, Counter, Gauge};
 use mio::event::Event;
 use mio::Events;
 use mio::Token;
@@ -26,6 +28,33 @@ use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use std::time::Duration;
 use strum::IntoEnumIterator;
+
+pelikan_metrics! {
+    static ADMIN_REQUEST_PARSE: Counter;
+    static ADMIN_RESPONSE_COMPOSE: Counter;
+    static ADMIN_EVENT_ERROR: Counter;
+    static ADMIN_EVENT_WRITE: Counter;
+    static ADMIN_EVENT_READ: Counter;
+    static ADMIN_EVENT_LOOP: Counter;
+    static ADMIN_EVENT_TOTAL: Counter;
+
+    static RU_UTIME: Counter;
+    static RU_STIME: Counter;
+    static RU_MAXRSS: Gauge;
+    static RU_IXRSS: Gauge;
+    static RU_IDRSS: Gauge;
+    static RU_ISRSS: Gauge;
+    static RU_MINFLT: Counter;
+    static RU_MAJFLT: Counter;
+    static RU_NSWAP: Counter;
+    static RU_INBLOCK: Counter;
+    static RU_OUBLOCK: Counter;
+    static RU_MSGSND: Counter;
+    static RU_MSGRCV: Counter;
+    static RU_NSIGNALS: Counter;
+    static RU_NVCSW: Counter;
+    static RU_NIVCSW: Counter;
+}
 
 /// A `Admin` is used to bind to a given socket address and handle out-of-band
 /// admin requests.
@@ -80,6 +109,7 @@ impl Admin {
         );
         if self.poll.add_session(session).is_err() {
             increment_counter!(&Stat::TcpAcceptEx);
+            TCP_ACCEPT_EX.increment();
         }
     }
 
@@ -93,6 +123,7 @@ impl Admin {
         trace!("accepted new session: {:?}", session.peer_addr());
         if self.poll.add_session(session).is_err() {
             increment_counter!(&Stat::TcpAcceptEx);
+            TCP_ACCEPT_EX.increment();
         }
     }
 
@@ -106,6 +137,7 @@ impl Admin {
         trace!("accepted new session: {:?}", session.peer_addr());
         if self.poll.add_session(session).is_err() {
             increment_counter!(&Stat::TcpAcceptEx);
+            TCP_ACCEPT_EX.increment();
         }
     }
 
@@ -131,6 +163,7 @@ impl Admin {
                             // stream
                             Ok(Err(_)) | Err(_) => {
                                 increment_counter!(&Stat::TcpAcceptEx);
+                                TCP_ACCEPT_EX.increment();
                             }
                         }
                     } else {
@@ -148,6 +181,7 @@ impl Admin {
 
     fn handle_stats_request(session: &mut Session) {
         increment_counter!(&Stat::AdminRequestParse);
+        ADMIN_REQUEST_PARSE.increment();
         let mut data = Vec::new();
         for metric in Stat::iter() {
             match metric.source() {
@@ -167,17 +201,33 @@ impl Admin {
                 }
             }
         }
+
+        for metric in &metrics::rustcommon_metrics::metrics() {
+            let any = match metric.as_any() {
+                Some(any) => any,
+                None => continue,
+            };
+
+            if let Some(counter) = any.downcast_ref::<Counter>() {
+                data.push(format!("STAT {} {}\r\n", metric.name(), counter.value()));
+            } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
+                data.push(format!("STAT {} {}\r\n", metric.name(), gauge.value()));
+            }
+        }
+
         data.sort();
         for line in data {
             let _ = session.write(line.as_bytes());
         }
         let _ = session.write(b"END\r\n");
         increment_counter!(&Stat::AdminResponseCompose);
+        ADMIN_RESPONSE_COMPOSE.increment();
     }
 
     fn handle_version_request(session: &mut Session) {
         let _ = session.write(format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION")).as_bytes());
         increment_counter!(&Stat::AdminResponseCompose);
+        ADMIN_RESPONSE_COMPOSE.increment();
     }
 
     /// Handle an event on an existing session
@@ -188,6 +238,7 @@ impl Admin {
         // handle error events first
         if event.is_error() {
             increment_counter!(&Stat::AdminEventError);
+            ADMIN_EVENT_ERROR.increment();
             self.handle_error(token);
         }
 
@@ -210,12 +261,14 @@ impl Admin {
         // buffer growth if there is also a readable event
         if event.is_writable() {
             increment_counter!(&Stat::AdminEventWrite);
+            ADMIN_EVENT_WRITE.increment();
             self.do_write(token);
         }
 
         // read events are handled last
         if event.is_readable() {
             increment_counter!(&Stat::AdminEventRead);
+            ADMIN_EVENT_READ.increment();
             let _ = self.do_read(token);
         };
     }
@@ -230,6 +283,7 @@ impl Admin {
         // run in a loop, accepting new sessions and events on existing sessions
         loop {
             increment_counter!(&Stat::AdminEventLoop);
+            ADMIN_EVENT_LOOP.increment();
 
             if self.poll.poll(&mut events, self.timeout).is_err() {
                 error!("Error polling");
@@ -239,6 +293,7 @@ impl Admin {
                 &Stat::AdminEventTotal,
                 events.iter().count().try_into().unwrap(),
             );
+            ADMIN_EVENT_TOTAL.add(events.iter().count() as _);
 
             // handle all events
             for event in events.iter() {
@@ -324,6 +379,27 @@ impl Admin {
             set_counter!(&Stat::RuNsignals, rusage.ru_nsignals as u64);
             set_counter!(&Stat::RuNvcsw, rusage.ru_nvcsw as u64);
             set_counter!(&Stat::RuNivcsw, rusage.ru_nivcsw as u64);
+
+            RU_UTIME.set(
+                rusage.ru_utime.tv_sec as u64 * 1000000000 + rusage.ru_utime.tv_usec as u64 * 1000,
+            );
+            RU_STIME.set(
+                rusage.ru_stime.tv_sec as u64 * 1000000000 + rusage.ru_stime.tv_usec as u64 * 1000,
+            );
+            RU_MAXRSS.set(rusage.ru_maxrss as i64);
+            RU_IXRSS.set(rusage.ru_ixrss as i64);
+            RU_IDRSS.set(rusage.ru_idrss as i64);
+            RU_ISRSS.set(rusage.ru_isrss as i64);
+            RU_MINFLT.set(rusage.ru_minflt as u64);
+            RU_MAJFLT.set(rusage.ru_majflt as u64);
+            RU_NSWAP.set(rusage.ru_nswap as u64);
+            RU_INBLOCK.set(rusage.ru_inblock as u64);
+            RU_OUBLOCK.set(rusage.ru_oublock as u64);
+            RU_MSGSND.set(rusage.ru_msgsnd as u64);
+            RU_MSGRCV.set(rusage.ru_msgrcv as u64);
+            RU_NSIGNALS.set(rusage.ru_nsignals as u64);
+            RU_NVCSW.set(rusage.ru_nvcsw as u64);
+            RU_NIVCSW.set(rusage.ru_nivcsw as u64);
         }
     }
 }
