@@ -109,7 +109,6 @@ impl TtlBuckets {
         }
         let duration = start.elapsed();
         debug!("expired: {} segments in {:?}", expired, duration);
-        increment_counter_by!(&Stat::ExpireTime, duration.as_nanos() as u64);
         EXPIRE_TIME.add(duration.as_nanos() as _);
         expired
     }

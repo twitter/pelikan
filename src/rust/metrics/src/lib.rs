@@ -56,6 +56,7 @@ macro_rules! test_no_duplicates {
 /// Defines various statistics
 #[derive(Copy, Clone, Debug, AsRefStr, EnumIter)]
 #[strum(serialize_all = "snake_case")]
+#[deprecated]
 pub enum Stat {
     // server/twemcache-rs
     Add,

@@ -284,8 +284,6 @@ impl<'a> Segment<'a> {
     pub(crate) fn alloc_item(&mut self, size: i32) -> RawItem {
         let offset = self.write_offset() as usize;
         self.incr_item(size);
-        increment_gauge!(&Stat::ItemCurrent);
-        increment_gauge_by!(&Stat::ItemCurrentBytes, size as i64);
         ITEM_CURRENT.increment();
         ITEM_CURRENT_BYTES.add(size as _);
 
@@ -309,11 +307,6 @@ impl<'a> Segment<'a> {
         }
 
         let item_size = item.size() as i64;
-
-        decrement_gauge!(&Stat::ItemCurrent);
-        decrement_gauge_by!(&Stat::ItemCurrentBytes, item_size);
-        increment_gauge!(&Stat::ItemDead);
-        increment_gauge_by!(&Stat::ItemDeadBytes, item_size);
 
         ITEM_CURRENT.decrement();
         ITEM_CURRENT_BYTES.sub(item_size);
@@ -372,13 +365,10 @@ impl<'a> Segment<'a> {
             // don't copy deleted items
             if item.deleted() {
                 // since the segment won't be cleared, we decrement dead items
-                decrement_gauge!(&Stat::ItemDead);
-                decrement_gauge_by!(&Stat::ItemDeadBytes, item.size() as i64);
                 ITEM_DEAD.decrement();
                 ITEM_DEAD_BYTES.sub(item.size() as _);
                 // move read offset forward, leave write offset trailing
                 read_offset += item_size;
-                increment_counter!(&Stat::ItemCompacted);
                 ITEM_COMPACTED.increment();
                 continue;
             }
@@ -481,8 +471,6 @@ impl<'a> Segment<'a> {
                 target.header.incr_live_items();
                 target.header.incr_live_bytes(item_size as i32);
                 target.set_write_offset(write_offset as i32 + item_size as i32);
-                increment_gauge!(&Stat::ItemCurrent);
-                increment_gauge_by!(&Stat::ItemCurrentBytes, item_size as i64);
                 ITEM_CURRENT.increment();
                 ITEM_CURRENT_BYTES.add(item_size as _);
             } else {
@@ -659,8 +647,6 @@ impl<'a> Segment<'a> {
             offset += item.size();
         }
 
-        decrement_gauge_by!(&Stat::ItemDead, items as i64);
-        decrement_gauge_by!(&Stat::ItemDeadBytes, bytes as i64);
         ITEM_DEAD.sub(items as _);
         ITEM_DEAD_BYTES.sub(bytes as _);
 

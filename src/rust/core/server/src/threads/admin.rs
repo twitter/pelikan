@@ -11,7 +11,6 @@ use crate::TCP_ACCEPT_EX;
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
 use config::AdminConfig;
-use metrics::Stat;
 use metrics::{pelikan_metrics, Counter, Gauge};
 use mio::event::Event;
 use mio::Events;
@@ -20,14 +19,11 @@ use protocol::admin::*;
 use protocol::*;
 use queues::QueuePair;
 use queues::QueuePairs;
-use rustcommon_fastmetrics::{Metric, Source};
 use session::*;
-use std::convert::TryInto;
 use std::io::{BufRead, Write};
 use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use std::time::Duration;
-use strum::IntoEnumIterator;
 
 pelikan_metrics! {
     static ADMIN_REQUEST_PARSE: Counter;
@@ -108,7 +104,6 @@ impl Admin {
             crate::ADMIN_MAX_BUFFER_SIZE,
         );
         if self.poll.add_session(session).is_err() {
-            increment_counter!(&Stat::TcpAcceptEx);
             TCP_ACCEPT_EX.increment();
         }
     }
@@ -122,7 +117,6 @@ impl Admin {
         );
         trace!("accepted new session: {:?}", session.peer_addr());
         if self.poll.add_session(session).is_err() {
-            increment_counter!(&Stat::TcpAcceptEx);
             TCP_ACCEPT_EX.increment();
         }
     }
@@ -136,7 +130,6 @@ impl Admin {
         );
         trace!("accepted new session: {:?}", session.peer_addr());
         if self.poll.add_session(session).is_err() {
-            increment_counter!(&Stat::TcpAcceptEx);
             TCP_ACCEPT_EX.increment();
         }
     }
@@ -162,7 +155,6 @@ impl Admin {
                             // some other error has occurred and we drop the
                             // stream
                             Ok(Err(_)) | Err(_) => {
-                                increment_counter!(&Stat::TcpAcceptEx);
                                 TCP_ACCEPT_EX.increment();
                             }
                         }
@@ -180,30 +172,8 @@ impl Admin {
     }
 
     fn handle_stats_request(session: &mut Session) {
-        increment_counter!(&Stat::AdminRequestParse);
         ADMIN_REQUEST_PARSE.increment();
         let mut data = Vec::new();
-        for metric in Stat::iter() {
-            match metric.source() {
-                Source::Gauge => {
-                    data.push(format!(
-                        "STAT {} {}\r\n",
-                        metric,
-                        get_gauge!(&metric).unwrap_or(0)
-                    ));
-                }
-                Source::Counter => {
-                    data.push(format!(
-                        "STAT {} {}\r\n",
-                        metric,
-                        get_counter!(&metric).unwrap_or(0)
-                    ));
-                }
-            }
-        }
-
-        // Disabled until metrics conversion is complete.
-        #[cfg(any())]
         for metric in &metrics::rustcommon_metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
@@ -222,13 +192,11 @@ impl Admin {
             let _ = session.write(line.as_bytes());
         }
         let _ = session.write(b"END\r\n");
-        increment_counter!(&Stat::AdminResponseCompose);
         ADMIN_RESPONSE_COMPOSE.increment();
     }
 
     fn handle_version_request(session: &mut Session) {
         let _ = session.write(format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION")).as_bytes());
-        increment_counter!(&Stat::AdminResponseCompose);
         ADMIN_RESPONSE_COMPOSE.increment();
     }
 
@@ -239,7 +207,6 @@ impl Admin {
 
         // handle error events first
         if event.is_error() {
-            increment_counter!(&Stat::AdminEventError);
             ADMIN_EVENT_ERROR.increment();
             self.handle_error(token);
         }
@@ -262,14 +229,12 @@ impl Admin {
         // handle write events before read events to reduce write
         // buffer growth if there is also a readable event
         if event.is_writable() {
-            increment_counter!(&Stat::AdminEventWrite);
             ADMIN_EVENT_WRITE.increment();
             self.do_write(token);
         }
 
         // read events are handled last
         if event.is_readable() {
-            increment_counter!(&Stat::AdminEventRead);
             ADMIN_EVENT_READ.increment();
             let _ = self.do_read(token);
         };
@@ -284,17 +249,12 @@ impl Admin {
 
         // run in a loop, accepting new sessions and events on existing sessions
         loop {
-            increment_counter!(&Stat::AdminEventLoop);
             ADMIN_EVENT_LOOP.increment();
 
             if self.poll.poll(&mut events, self.timeout).is_err() {
                 error!("Error polling");
             }
 
-            increment_counter_by!(
-                &Stat::AdminEventTotal,
-                events.iter().count().try_into().unwrap(),
-            );
             ADMIN_EVENT_TOTAL.add(events.iter().count() as _);
 
             // handle all events
@@ -359,29 +319,6 @@ impl Admin {
         };
 
         if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut rusage) } == 0 {
-            set_counter!(
-                &Stat::RuUtime,
-                rusage.ru_utime.tv_sec as u64 * 1000000000 + rusage.ru_utime.tv_usec as u64 * 1000,
-            );
-            set_counter!(
-                &Stat::RuStime,
-                rusage.ru_stime.tv_sec as u64 * 1000000000 + rusage.ru_stime.tv_usec as u64 * 1000,
-            );
-            set_gauge!(&Stat::RuMaxrss, rusage.ru_maxrss as i64);
-            set_gauge!(&Stat::RuIxrss, rusage.ru_ixrss as i64);
-            set_gauge!(&Stat::RuIdrss, rusage.ru_idrss as i64);
-            set_gauge!(&Stat::RuIsrss, rusage.ru_isrss as i64);
-            set_counter!(&Stat::RuMinflt, rusage.ru_minflt as u64);
-            set_counter!(&Stat::RuMajflt, rusage.ru_majflt as u64);
-            set_counter!(&Stat::RuNswap, rusage.ru_nswap as u64);
-            set_counter!(&Stat::RuInblock, rusage.ru_inblock as u64);
-            set_counter!(&Stat::RuOublock, rusage.ru_oublock as u64);
-            set_counter!(&Stat::RuMsgsnd, rusage.ru_msgsnd as u64);
-            set_counter!(&Stat::RuMsgrcv, rusage.ru_msgrcv as u64);
-            set_counter!(&Stat::RuNsignals, rusage.ru_nsignals as u64);
-            set_counter!(&Stat::RuNvcsw, rusage.ru_nvcsw as u64);
-            set_counter!(&Stat::RuNivcsw, rusage.ru_nivcsw as u64);
-
             RU_UTIME.set(
                 rusage.ru_utime.tv_sec as u64 * 1000000000 + rusage.ru_utime.tv_usec as u64 * 1000,
             );

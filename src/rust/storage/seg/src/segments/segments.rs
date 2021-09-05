@@ -8,7 +8,6 @@ use crate::item::*;
 use crate::segments::*;
 
 use core::num::NonZeroU32;
-use metrics::Stat;
 use metrics::{pelikan_metrics, Counter, Gauge};
 use rustcommon_time::CoarseInstant as Instant;
 
@@ -20,6 +19,7 @@ pelikan_metrics! {
     static SEGMENT_REQUEST: Counter;
     static SEGMENT_REQUEST_EX: Counter;
     static SEGMENT_MERGE: Counter;
+    static SEGMENT_CURRENT: Gauge;
 }
 
 /// `Segments` contain all items within the cache. This struct is a collection
@@ -100,8 +100,8 @@ impl Segments {
             }
         }
 
-        set_gauge!(&Stat::SegmentCurrent, segments as i64);
-        set_gauge!(&Stat::SegmentFree, segments as i64);
+        SEGMENT_CURRENT.set(segments as _);
+        SEGMENT_FREE.set(segments as _);
 
         Self {
             headers,
@@ -190,7 +190,6 @@ impl Segments {
     ) -> Result<(), SegmentsError> {
         match self.evict.policy() {
             Policy::Merge { .. } => {
-                increment_counter!(&Stat::SegmentEvict);
                 SEGMENT_EVICT.increment();
 
                 let mut seg_idx = self.evict.random();
@@ -214,7 +213,6 @@ impl Segments {
                                 return Ok(());
                             }
                             Err(_) => {
-                                increment_counter!(&Stat::SegmentEvictEx);
                                 SEGMENT_EVICT_EX.increment();
                                 ttl_bucket.set_next_to_merge(None);
                                 continue;
@@ -222,13 +220,11 @@ impl Segments {
                         }
                     }
                 }
-                increment_counter!(&Stat::SegmentEvictEx);
                 SEGMENT_EVICT_EX.increment();
                 Err(SegmentsError::NoEvictableSegments)
             }
             Policy::None => Err(SegmentsError::NoEvictableSegments),
             _ => {
-                increment_counter!(&Stat::SegmentEvict);
                 SEGMENT_EVICT.increment();
                 if let Some(id) = self.least_valuable_seg() {
                     self.clear_segment(id, hashtable, false)
@@ -242,7 +238,6 @@ impl Segments {
                     self.push_free(id);
                     Ok(())
                 } else {
-                    increment_counter!(&Stat::SegmentEvictEx);
                     SEGMENT_EVICT_EX.increment();
                     Err(SegmentsError::NoEvictableSegments)
                 }
@@ -360,8 +355,6 @@ impl Segments {
     /// Returns a segment to the free queue, to be used after clearing the
     /// segment.
     pub(crate) fn push_free(&mut self, id: NonZeroU32) {
-        increment_counter!(&Stat::SegmentReturn);
-        increment_gauge!(&Stat::SegmentFree);
         SEGMENT_RETURN.increment();
         SEGMENT_FREE.increment();
         // unlinks the next segment
@@ -385,15 +378,12 @@ impl Segments {
     pub(crate) fn pop_free(&mut self) -> Option<NonZeroU32> {
         assert!(self.free <= self.cap);
 
-        increment_counter!(&Stat::SegmentRequest);
         SEGMENT_REQUEST.increment();
 
         if self.free == 0 {
-            increment_counter!(&Stat::SegmentRequestEx);
             SEGMENT_REQUEST_EX.increment();
             None
         } else {
-            decrement_gauge!(&Stat::SegmentFree);
             SEGMENT_FREE.decrement();
             self.free -= 1;
             let id = self.free_q;
@@ -670,7 +660,6 @@ impl Segments {
         start: NonZeroU32,
         hashtable: &mut HashTable,
     ) -> Result<Option<NonZeroU32>, SegmentsError> {
-        increment_counter!(&Stat::SegmentMerge);
         SEGMENT_MERGE.increment();
 
         let dst_id = start;
@@ -782,7 +771,6 @@ impl Segments {
         start: NonZeroU32,
         hashtable: &mut HashTable,
     ) -> Result<Option<NonZeroU32>, SegmentsError> {
-        increment_counter!(&Stat::SegmentMerge);
         SEGMENT_MERGE.increment();
 
         let dst_id = start;
