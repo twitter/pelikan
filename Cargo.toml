@@ -6,6 +6,7 @@ members = [
     "src/rust/core/server",
     "src/rust/entrystore",
     "src/rust/metrics",
+    "src/rust/macros",
     "src/rust/protocol",
     "src/rust/queues",
     "src/rust/server/pingserver",
