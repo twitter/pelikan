@@ -281,3 +281,5 @@ impl Write for Session {
         }
     }
 }
+
+metrics::test_no_duplicates!();

@@ -47,3 +47,5 @@ impl<T> ParseOk<T> {
 pub trait Parse<T> {
     fn parse(&self, buffer: &[u8]) -> Result<ParseOk<T>, ParseError>;
 }
+
+metrics::test_no_duplicates!();

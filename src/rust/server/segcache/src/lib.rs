@@ -71,3 +71,5 @@ impl Segcache {
         self.process.shutdown()
     }
 }
+
+metrics::test_no_duplicates!();

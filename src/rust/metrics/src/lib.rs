@@ -29,6 +29,27 @@ macro_rules! pelikan_metrics {
     )*};
 }
 
+/// Creates a test that verifies that no two metrics have the same name.
+#[macro_export]
+macro_rules! test_no_duplicates {
+    () => {
+        #[cfg(test)]
+        mod __metrics_tests {
+            #[test]
+            fn assert_no_duplicate_metric_names() {
+                use $crate::rustcommon_metrics::*;
+                use std::collections::HashSet;
+
+                let mut seen = HashSet::new();
+                for metric in metrics().static_metrics() {
+                    let name = metric.name();
+                    assert!(seen.insert(name), "found duplicate metric name '{}'", name);
+                }
+            }
+        }
+    };
+}
+
 // As a temporary work-around for requiring all metrics to have a common type,
 // we combine server and storage metrics here.
 

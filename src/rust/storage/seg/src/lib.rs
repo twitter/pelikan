@@ -66,3 +66,5 @@ pub(crate) use item::*;
 pub(crate) use metrics::*;
 pub(crate) use segments::*;
 pub(crate) use ttl_buckets::*;
+
+metrics::test_no_duplicates!();
