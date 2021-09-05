@@ -11,6 +11,7 @@ use crate::TCP_ACCEPT_EX;
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
 use config::ServerConfig;
+use metrics::{pelikan_metrics, Counter};
 use mio::event::Event;
 use mio::Events;
 use mio::Token;
@@ -20,7 +21,6 @@ use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use metrics::{pelikan_metrics, Counter};
 
 pelikan_metrics! {
     static SERVER_EVENT_ERROR: Counter;

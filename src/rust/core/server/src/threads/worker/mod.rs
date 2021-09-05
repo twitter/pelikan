@@ -29,7 +29,6 @@ pelikan_metrics! {
     static PROCESS_REQ: Counter;
 }
 
-
 pub struct TokenWrapper<T> {
     inner: T,
     token: Token,

@@ -99,7 +99,7 @@ pub use process::{Process, ProcessBuilder};
 
 use metrics::{pelikan_metrics, Counter};
 
-pelikan_metrics!{
+pelikan_metrics! {
     static TCP_ACCEPT_EX: Counter;
 }
 

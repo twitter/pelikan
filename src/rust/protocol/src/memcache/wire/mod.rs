@@ -18,7 +18,7 @@ pelikan_metrics! {
     static GET_KEY: Counter;
     static GET_KEY_HIT: Counter;
     static GET_KEY_MISS: Counter;
-    
+
     static GETS: Counter;
     static GETS_KEY: Counter;
     static GETS_KEY_HIT: Counter;

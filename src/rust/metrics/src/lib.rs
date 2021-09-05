@@ -33,8 +33,8 @@ macro_rules! test_no_duplicates {
         mod __metrics_tests {
             #[test]
             fn assert_no_duplicate_metric_names() {
-                use $crate::rustcommon_metrics::*;
                 use std::collections::HashSet;
+                use $crate::rustcommon_metrics::*;
 
                 let mut seen = HashSet::new();
                 for metric in metrics().static_metrics() {
