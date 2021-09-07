@@ -511,10 +511,6 @@ impl HashTable {
 
         trace!("hash: {} mask: {} bucket: {}", hash, self.mask, bucket_id);
 
-        if cas != get_cas(bucket.data[0]) {
-            return Err(SegError::Exists);
-        }
-
         loop {
             let n_item_slot = if chain_idx == chain_len {
                 N_BUCKET_SLOT
@@ -550,6 +546,8 @@ impl HashTable {
                             // TODO(bmartin): what is expected on overflow of the cas bits?
                             self.data[(hash & self.mask) as usize].data[0] += 1;
                             return Ok(());
+                        } else {
+                            return Err(SegError::Exists);
                         }
                     }
                 }
