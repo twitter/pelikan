@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Sean Lynch <seanl@twitter.com>"]
 edition = "2018"
 license = "Apache-2.0"
+description = "Utility macros for use within pelikan"
 
 [lib]
 proc-macro = true
