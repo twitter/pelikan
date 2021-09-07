@@ -688,6 +688,7 @@ impl HashTable {
                 if get_seg_id(current_item_info) == Some(segment.id()) {
                     let current_item = segment.get_item(current_item_info).unwrap();
                     if current_item.key() != key {
+                        HASH_TAG_COLLISION.increment();
                         continue;
                     }
 
