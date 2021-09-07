@@ -2,27 +2,47 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-// pub use rustcommon_fastmetrics::*;
-
-pub use macros::to_lowercase;
 pub use rustcommon_metrics::{metric, Counter, Gauge};
 
 #[doc(hidden)]
 pub extern crate rustcommon_metrics;
+#[doc(hidden)]
+pub use macros::to_lowercase;
 
+/// Create a set of metrics. Metrics are named with the lowercase name of the
+/// static that they are declared with.
+///
+/// # Example
+/// ```
+/// # use metrics::*;
+/// pelikan_metrics! {
+///     // Creates a counter metric called "my_metric" and constructs it by
+///     // calling Counter::new.
+///     static MY_METRIC: Counter;
+/// 
+///     // Creates a gauge metric called "some_other_metric" and initializes 
+///     // it to have the value 8.
+///     pub static SOME_OTHER_METRIC: Gauge = Gauge::with_value(8);
+/// }
+/// ```
 #[macro_export]
 macro_rules! pelikan_metrics {
     {$(
         $( #[ $attr:meta ] )*
-        $vis:vis static $name:ident : $ty:ty ;
+        $vis:vis static $name:ident : $ty:ty $( = $init:expr )?;
     )*} => {$(
         #[$crate::metric(
             name = $crate::to_lowercase!($name),
             crate = $crate::rustcommon_metrics
         )]
         $( #[ $attr ] )*
-        $vis static $name : $ty = <$ty>::new();
+        $vis static $name : $ty = $crate::pelikan_metrics!(
+            crate __internal; [ $( $init, )? <$ty>::new() ]
+        );
     )*};
+
+    // Used to internally take the first expression
+    ( crate __internal; [ $a:expr $( , $rest:expr )* ] ) => { $a };
 }
 
 /// Creates a test that verifies that no two metrics have the same name.
