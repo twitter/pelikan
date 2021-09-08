@@ -45,6 +45,7 @@ const MAX_TTL_BUCKET_IDX: usize = MAX_N_TTL_BUCKET - 1;
 
 pub struct TtlBuckets {
     pub(crate) buckets: Box<[TtlBucket]>,
+    pub(crate) last_expired: CoarseInstant,
 }
 
 impl TtlBuckets {
@@ -68,8 +69,12 @@ impl TtlBuckets {
         }
 
         let buckets = buckets.into_boxed_slice();
+        let last_expired = CoarseInstant::now();
 
-        Self { buckets }
+        Self {
+            buckets,
+            last_expired,
+        }
     }
 
     pub(crate) fn get_bucket_index(&self, ttl: CoarseDuration) -> usize {
@@ -102,6 +107,14 @@ impl TtlBuckets {
     }
 
     pub(crate) fn expire(&mut self, hashtable: &mut HashTable, segments: &mut Segments) -> usize {
+        let now = CoarseInstant::now();
+
+        if now == self.last_expired {
+            return 0;
+        } else {
+            self.last_expired = now;
+        }
+
         let start = Instant::now();
         let mut expired = 0;
         for bucket in self.buckets.iter_mut() {
