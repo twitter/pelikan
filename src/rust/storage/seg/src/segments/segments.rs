@@ -8,10 +8,10 @@ use crate::item::*;
 use crate::segments::*;
 
 use core::num::NonZeroU32;
-use metrics::{pelikan_metrics, Counter, Gauge};
+use metrics::{static_metrics, Counter, Gauge};
 use rustcommon_time::CoarseInstant as Instant;
 
-pelikan_metrics! {
+static_metrics! {
     static SEGMENT_EVICT: Counter;
     static SEGMENT_EVICT_EX: Counter;
     static SEGMENT_RETURN: Counter;

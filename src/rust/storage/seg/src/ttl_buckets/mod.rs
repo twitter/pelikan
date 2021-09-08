@@ -26,7 +26,7 @@ pub use ttl_buckets::TtlBuckets;
 
 use metrics::Counter;
 
-metrics::pelikan_metrics! {
+metrics::static_metrics! {
     static SEGMENT_EXPIRE: Counter;
     static EXPIRE_TIME: Counter;
 }

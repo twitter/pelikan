@@ -17,7 +17,7 @@ use std::io::{ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
 use boring::ssl::{MidHandshakeSslStream, SslStream};
-use metrics::{pelikan_metrics, Counter};
+use metrics::{static_metrics, Counter};
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
 
@@ -26,7 +26,7 @@ use stream::Stream;
 
 pub use tcp_stream::TcpStream;
 
-pelikan_metrics! {
+static_metrics! {
     static TCP_ACCEPT: Counter;
     static TCP_CLOSE: Counter;
     static TCP_RECV_BYTE: Counter;

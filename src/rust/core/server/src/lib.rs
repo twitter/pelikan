@@ -97,9 +97,9 @@ mod threads;
 
 pub use process::{Process, ProcessBuilder};
 
-use metrics::{pelikan_metrics, Counter};
+use metrics::{static_metrics, Counter};
 
-pelikan_metrics! {
+static_metrics! {
     static TCP_ACCEPT_EX: Counter;
 }
 

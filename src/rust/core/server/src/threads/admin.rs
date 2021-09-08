@@ -11,7 +11,7 @@ use crate::TCP_ACCEPT_EX;
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
 use config::AdminConfig;
-use metrics::{pelikan_metrics, Counter, Gauge};
+use metrics::{static_metrics, Counter, Gauge};
 use mio::event::Event;
 use mio::Events;
 use mio::Token;
@@ -25,7 +25,7 @@ use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use std::time::Duration;
 
-pelikan_metrics! {
+static_metrics! {
     static ADMIN_REQUEST_PARSE: Counter;
     static ADMIN_RESPONSE_COMPOSE: Counter;
     static ADMIN_EVENT_ERROR: Counter;

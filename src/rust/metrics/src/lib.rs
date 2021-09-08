@@ -15,18 +15,18 @@ pub use macros::to_lowercase;
 /// # Example
 /// ```
 /// # use metrics::*;
-/// pelikan_metrics! {
+/// static_metrics! {
 ///     // Creates a counter metric called "my_metric" and constructs it by
 ///     // calling Counter::new.
 ///     static MY_METRIC: Counter;
-/// 
-///     // Creates a gauge metric called "some_other_metric" and initializes 
+///
+///     // Creates a gauge metric called "some_other_metric" and initializes
 ///     // it to have the value 8.
 ///     pub static SOME_OTHER_METRIC: Gauge = Gauge::with_value(8);
 /// }
 /// ```
 #[macro_export]
-macro_rules! pelikan_metrics {
+macro_rules! static_metrics {
     {$(
         $( #[ $attr:meta ] )*
         $vis:vis static $name:ident : $ty:ty $( = $init:expr )?;
@@ -36,7 +36,7 @@ macro_rules! pelikan_metrics {
             crate = $crate::rustcommon_metrics
         )]
         $( #[ $attr ] )*
-        $vis static $name : $ty = $crate::pelikan_metrics!(
+        $vis static $name : $ty = $crate::static_metrics!(
             crate __internal; [ $( $init, )? <$ty>::new() ]
         );
     )*};
@@ -66,7 +66,7 @@ macro_rules! test_no_duplicates {
     };
 }
 
-pelikan_metrics! {
+static_metrics! {
     static PID: Gauge;
 }
 

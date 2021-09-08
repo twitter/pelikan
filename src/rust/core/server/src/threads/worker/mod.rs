@@ -15,9 +15,9 @@ pub use multi::MultiWorker;
 pub use single::SingleWorker;
 
 use super::EventLoop;
-use metrics::{pelikan_metrics, Counter};
+use metrics::{static_metrics, Counter};
 
-pelikan_metrics! {
+static_metrics! {
     static WORKER_EVENT_LOOP: Counter;
     static WORKER_EVENT_TOTAL: Counter;
     static WORKER_EVENT_ERROR: Counter;

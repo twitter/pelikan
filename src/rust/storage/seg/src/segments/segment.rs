@@ -5,9 +5,9 @@
 use super::{SegmentHeader, SegmentsError};
 use crate::*;
 use core::num::NonZeroU32;
-use metrics::{pelikan_metrics, Counter, Gauge};
+use metrics::{static_metrics, Counter, Gauge};
 
-pelikan_metrics! {
+static_metrics! {
     static ITEM_CURRENT: Gauge;
     static ITEM_CURRENT_BYTES: Gauge;
     static ITEM_DEAD: Gauge;

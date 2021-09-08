@@ -11,9 +11,9 @@ pub use response::*;
 use super::*;
 use crate::*;
 
-use metrics::{pelikan_metrics, Counter};
+use metrics::{static_metrics, Counter};
 
-pelikan_metrics! {
+static_metrics! {
     static GET: Counter;
     static GET_KEY: Counter;
     static GET_KEY_HIT: Counter;

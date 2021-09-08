@@ -76,7 +76,7 @@ const MAX_CHAIN_LEN: u64 = 16;
 use crate::*;
 use ahash::RandomState;
 use core::num::NonZeroU32;
-use metrics::{pelikan_metrics, Counter};
+use metrics::{static_metrics, Counter};
 
 use rustcommon_time::CoarseInstant as Instant;
 
@@ -84,7 +84,7 @@ mod hash_bucket;
 
 pub(crate) use hash_bucket::*;
 
-pelikan_metrics! {
+static_metrics! {
     static HASH_TAG_COLLISION: Counter;
     static HASH_INSERT: Counter;
     static HASH_INSERT_EX: Counter;
