@@ -5,6 +5,15 @@
 use super::{SegmentHeader, SegmentsError};
 use crate::*;
 use core::num::NonZeroU32;
+use metrics::{static_metrics, Counter, Gauge};
+
+static_metrics! {
+    static ITEM_CURRENT: Gauge;
+    static ITEM_CURRENT_BYTES: Gauge;
+    static ITEM_DEAD: Gauge;
+    static ITEM_DEAD_BYTES: Gauge;
+    static ITEM_COMPACTED: Counter;
+}
 
 pub const SEG_MAGIC: u64 = 0xBADC0FFEEBADCAFE;
 
@@ -275,8 +284,8 @@ impl<'a> Segment<'a> {
     pub(crate) fn alloc_item(&mut self, size: i32) -> RawItem {
         let offset = self.write_offset() as usize;
         self.incr_item(size);
-        increment_gauge!(&Stat::ItemCurrent);
-        increment_gauge_by!(&Stat::ItemCurrentBytes, size as i64);
+        ITEM_CURRENT.increment();
+        ITEM_CURRENT_BYTES.add(size as _);
 
         let ptr = unsafe { self.data.as_mut_ptr().add(offset) };
         RawItem::from_ptr(ptr)
@@ -299,10 +308,10 @@ impl<'a> Segment<'a> {
 
         let item_size = item.size() as i64;
 
-        decrement_gauge!(&Stat::ItemCurrent);
-        decrement_gauge_by!(&Stat::ItemCurrentBytes, item_size);
-        increment_gauge!(&Stat::ItemDead);
-        increment_gauge_by!(&Stat::ItemDeadBytes, item_size);
+        ITEM_CURRENT.decrement();
+        ITEM_CURRENT_BYTES.sub(item_size);
+        ITEM_DEAD.increment();
+        ITEM_DEAD_BYTES.sub(item_size);
 
         self.check_magic();
         self.decr_item(item_size as i32);
@@ -356,11 +365,11 @@ impl<'a> Segment<'a> {
             // don't copy deleted items
             if item.deleted() {
                 // since the segment won't be cleared, we decrement dead items
-                decrement_gauge!(&Stat::ItemDead);
-                decrement_gauge_by!(&Stat::ItemDeadBytes, item.size() as i64);
+                ITEM_DEAD.decrement();
+                ITEM_DEAD_BYTES.sub(item.size() as _);
                 // move read offset forward, leave write offset trailing
                 read_offset += item_size;
-                increment_counter!(&Stat::ItemCompacted);
+                ITEM_COMPACTED.increment();
                 continue;
             }
 
@@ -462,8 +471,8 @@ impl<'a> Segment<'a> {
                 target.header.incr_live_items();
                 target.header.incr_live_bytes(item_size as i32);
                 target.set_write_offset(write_offset as i32 + item_size as i32);
-                increment_gauge!(&Stat::ItemCurrent);
-                increment_gauge_by!(&Stat::ItemCurrentBytes, item_size as i64);
+                ITEM_CURRENT.increment();
+                ITEM_CURRENT_BYTES.add(item_size as _);
             } else {
                 // TODO(bmartin): figure out if this could happen and make the
                 // relink function infallible if it can't happen
@@ -638,8 +647,8 @@ impl<'a> Segment<'a> {
             offset += item.size();
         }
 
-        decrement_gauge_by!(&Stat::ItemDead, items as i64);
-        decrement_gauge_by!(&Stat::ItemDeadBytes, bytes as i64);
+        ITEM_DEAD.sub(items as _);
+        ITEM_DEAD_BYTES.sub(bytes as _);
 
         // skips over seg_wait_refcount and evict retry, because no threading
 

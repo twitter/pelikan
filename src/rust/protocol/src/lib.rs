@@ -2,9 +2,6 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-#[macro_use]
-extern crate rustcommon_fastmetrics;
-
 use std::io::Write;
 
 pub mod admin;
@@ -47,3 +44,5 @@ impl<T> ParseOk<T> {
 pub trait Parse<T> {
     fn parse(&self, buffer: &[u8]) -> Result<ParseOk<T>, ParseError>;
 }
+
+metrics::test_no_duplicates!();

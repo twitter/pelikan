@@ -38,7 +38,6 @@ entrystore = { path = "../../entrystore" }
 metrics = { path = "../../metrics" }
 protocol = { path = "../../protocol" }
 rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
-rustcommon-fastmetrics = { git = "https://github.com/twitter/rustcommon" }
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
 server = { path = "../../core/server" }
 

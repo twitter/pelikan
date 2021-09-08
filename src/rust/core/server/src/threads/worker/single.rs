@@ -8,13 +8,13 @@
 //! session buffer.
 
 use super::EventLoop;
+use super::*;
 use crate::poll::{Poll, WAKER_TOKEN};
 use common::signal::Signal;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
 use entrystore::EntryStore;
-use metrics::Stat;
 use mio::event::Event;
 use mio::Events;
 use mio::Token;
@@ -23,7 +23,6 @@ use protocol::{Compose, Execute, Parse, ParseError};
 use queues::QueuePair;
 use queues::QueuePairs;
 use session::Session;
-use std::convert::TryInto;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
 
@@ -78,7 +77,7 @@ where
         let mut events = Events::with_capacity(self.nevent);
 
         loop {
-            increment_counter!(&Stat::WorkerEventLoop);
+            WORKER_EVENT_LOOP.increment();
 
             self.storage.expire();
 
@@ -87,10 +86,7 @@ where
                 error!("Error polling");
             }
 
-            increment_counter_by!(
-                &Stat::WorkerEventTotal,
-                events.iter().count().try_into().unwrap(),
-            );
+            WORKER_EVENT_TOTAL.add(events.iter().count() as _);
 
             // process all events
             for event in events.iter() {
@@ -140,20 +136,20 @@ where
 
         // handle error events first
         if event.is_error() {
-            increment_counter!(&Stat::WorkerEventError);
+            WORKER_EVENT_ERROR.increment();
             self.handle_error(token);
         }
 
         // handle write events before read events to reduce write buffer
         // growth if there is also a readable event
         if event.is_writable() {
-            increment_counter!(&Stat::WorkerEventWrite);
+            WORKER_EVENT_WRITE.increment();
             self.do_write(token);
         }
 
         // read events are handled last
         if event.is_readable() {
-            increment_counter!(&Stat::WorkerEventRead);
+            WORKER_EVENT_READ.increment();
             let _ = self.do_read(token);
         }
 
@@ -197,7 +193,7 @@ where
                 }
                 match self.parser.parse(session.buffer()) {
                     Ok(parsed_request) => {
-                        increment_counter!(&Stat::ProcessReq);
+                        PROCESS_REQ.increment();
                         let consumed = parsed_request.consumed();
                         let request = parsed_request.into_inner();
                         session.consume(consumed);

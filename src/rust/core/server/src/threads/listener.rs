@@ -7,20 +7,28 @@
 
 use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
+use crate::TCP_ACCEPT_EX;
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
 use config::ServerConfig;
-use metrics::Stat;
+use metrics::{static_metrics, Counter};
 use mio::event::Event;
 use mio::Events;
 use mio::Token;
 use queues::*;
 use session::{Session, TcpStream};
-use std::convert::TryInto;
 use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+
+static_metrics! {
+    static SERVER_EVENT_ERROR: Counter;
+    static SERVER_EVENT_WRITE: Counter;
+    static SERVER_EVENT_READ: Counter;
+    static SERVER_EVENT_LOOP: Counter;
+    static SERVER_EVENT_TOTAL: Counter;
+}
 
 /// A `Server` is used to bind to a given socket address and accept new
 /// sessions. Fully negotiated sessions are then moved into a `Worker` thread
@@ -94,7 +102,7 @@ impl Listener {
                             // some other error has occurred and we drop the
                             // stream
                             Ok(Err(_)) | Err(_) => {
-                                increment_counter!(&Stat::TcpAcceptEx);
+                                TCP_ACCEPT_EX.increment();
                             }
                         }
                     } else {
@@ -117,7 +125,7 @@ impl Listener {
         trace!("accepted new session: {:?}", session.peer_addr());
         if self.session_queue.send_rr(session).is_err() {
             error!("error sending session to worker");
-            increment_counter!(&Stat::TcpAcceptEx);
+            TCP_ACCEPT_EX.increment();
         }
     }
 
@@ -129,7 +137,7 @@ impl Listener {
             self.max_buffer_size,
         );
         if self.poll.add_session(session).is_err() {
-            increment_counter!(&Stat::TcpAcceptEx);
+            TCP_ACCEPT_EX.increment();
         }
     }
 
@@ -140,7 +148,7 @@ impl Listener {
         trace!("accepted new session: {:?}", session.peer_addr());
         if self.session_queue.send_rr(session).is_err() {
             error!("error sending session to worker");
-            increment_counter!(&Stat::TcpAcceptEx);
+            TCP_ACCEPT_EX.increment();
         }
     }
 
@@ -151,20 +159,20 @@ impl Listener {
 
         // handle error events first
         if event.is_error() {
-            increment_counter!(&Stat::ServerEventError);
+            SERVER_EVENT_ERROR.increment();
             self.handle_error(token);
         }
 
         // handle write events before read events to reduce write
         // buffer growth if there is also a readable event
         if event.is_writable() {
-            increment_counter!(&Stat::ServerEventWrite);
+            SERVER_EVENT_WRITE.increment();
             self.do_write(token);
         }
 
         // read events are handled last
         if event.is_readable() {
-            increment_counter!(&Stat::ServerEventRead);
+            SERVER_EVENT_READ.increment();
             let _ = self.do_read(token);
         }
 
@@ -173,11 +181,11 @@ impl Listener {
                 if let Ok(session) = self.poll.remove_session(token) {
                     if self.session_queue.send_rr(session).is_err() {
                         error!("error sending session to worker");
-                        increment_counter!(&Stat::TcpAcceptEx);
+                        TCP_ACCEPT_EX.increment();
                     }
                 } else {
                     error!("error removing session from poller");
-                    increment_counter!(&Stat::TcpAcceptEx);
+                    TCP_ACCEPT_EX.increment();
                 }
             }
         }
@@ -192,14 +200,11 @@ impl Listener {
 
         // repeatedly run accepting new connections and moving them to the worker
         loop {
-            increment_counter!(&Stat::ServerEventLoop);
+            SERVER_EVENT_LOOP.increment();
             if self.poll.poll(&mut events, self.timeout).is_err() {
                 error!("Error polling server");
             }
-            increment_counter_by!(
-                &Stat::ServerEventTotal,
-                events.iter().count().try_into().unwrap(),
-            );
+            SERVER_EVENT_TOTAL.add(events.iter().count() as _);
 
             // handle all events
             for event in events.iter() {

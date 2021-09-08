@@ -20,6 +20,7 @@
 //! [Segcache paper](https://www.usenix.org/system/files/nsdi21-yang.pdf) for
 //! more detail.
 
+use super::EXPIRE_TIME;
 use crate::*;
 
 const N_BUCKET_PER_STEP_N_BIT: usize = 8;
@@ -108,7 +109,7 @@ impl TtlBuckets {
         }
         let duration = start.elapsed();
         debug!("expired: {} segments in {:?}", expired, duration);
-        increment_counter_by!(&Stat::ExpireTime, duration.as_nanos() as u64);
+        EXPIRE_TIME.add(duration.as_nanos() as _);
         expired
     }
 }
