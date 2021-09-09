@@ -11,12 +11,11 @@ pub use response::*;
 use super::PingStorage;
 use crate::*;
 
-// TODO(bmartin): we currently don't have pingserver specific metrics. Once we
-// have a better way of handling distributed metrics regisitry we should enable
-// pingserver specific stats and ensure we don't get segcache stats exported in
-// the pingserver. For now, we are prioritizing segcache stats.
+use metrics::{static_metrics, Counter};
 
-// use metrics::Stat;
+static_metrics! {
+    static PING: Counter;
+}
 
 impl<'a, T> Execute<PingRequest, PingResponse> for T
 where
@@ -25,7 +24,7 @@ where
     fn execute(&mut self, request: PingRequest) -> Option<PingResponse> {
         let response = match request {
             PingRequest::Ping => {
-                // increment_counter!(&Stat::Ping);
+                PING.increment();
 
                 PingResponse::Pong
             }
