@@ -76,16 +76,11 @@ where
     /// Run the `Worker` in a loop, handling new session events
     pub fn run(&mut self) {
         let mut events = Events::with_capacity(self.nevent);
-        let mut last_expire = CoarseInstant::recent();
 
         loop {
             WORKER_EVENT_LOOP.increment();
 
-            let now = CoarseInstant::recent();
-            if now != last_expire {
-                self.storage.expire();
-                last_expire = now;
-            }
+            self.storage.expire();
 
             // get events with timeout
             if self.poll.poll(&mut events, self.timeout).is_err() {
