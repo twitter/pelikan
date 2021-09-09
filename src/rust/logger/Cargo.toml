@@ -7,6 +7,6 @@ edition = "2018"
 
 [dependencies]
 config = { path = "../config" }
-log = { version = "0.4.8", features = ["std", "release_max_level_debug"] }
-mpmc = "*"
+log = { version = "0.4.8", features = ["std"] }
+mpmc = "0.1.6"
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
