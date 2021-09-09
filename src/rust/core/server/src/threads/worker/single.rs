@@ -22,7 +22,6 @@ use mio::Waker;
 use protocol::{Compose, Execute, Parse, ParseError};
 use queues::QueuePair;
 use queues::QueuePairs;
-use rustcommon_time::CoarseInstant;
 use session::Session;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
