@@ -18,7 +18,6 @@ common = { path = "../../rust/common" }
 config = { path = "../../rust/config" }
 logger = { path = "../../rust/logger" }
 metrics = { path = "../../rust/metrics" }
-rustcommon-fastmetrics = { git = "https://github.com/twitter/rustcommon" }
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
 session = { path = "../../rust/session" }
 

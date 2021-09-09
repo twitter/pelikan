@@ -12,6 +12,10 @@ pub fn tests() {
     debug!("beginning tests");
     println!();
 
+    test(
+        "cas not found (key: 0)",
+        &[("cas 0 0 0 1 1\r\n0\r\n", Some("NOT_FOUND\r\n"))],
+    );
     test("get empty (key: 0)", &[("get 0\r\n", Some("END\r\n"))]);
     test("gets empty (key: 0)", &[("gets 0\r\n", Some("END\r\n"))]);
     test(

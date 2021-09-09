@@ -91,14 +91,17 @@
 #[macro_use]
 extern crate rustcommon_logger;
 
-#[macro_use]
-extern crate rustcommon_fastmetrics;
-
 mod poll;
 mod process;
 mod threads;
 
 pub use process::{Process, ProcessBuilder};
+
+use metrics::{static_metrics, Counter};
+
+static_metrics! {
+    static TCP_ACCEPT_EX: Counter;
+}
 
 // The default buffer size is matched to the upper-bound on TLS fragment size as
 // per RFC 5246 https://datatracker.ietf.org/doc/html/rfc5246#section-6.2.1
@@ -111,3 +114,5 @@ pub const DEFAULT_BUFFER_SIZE: usize = 16 * 1024; // 16KB
 const ADMIN_MAX_BUFFER_SIZE: usize = 2 * 1024 * 1024; // 1MB
 
 const THREAD_PREFIX: &str = "pelikan";
+
+metrics::test_no_duplicates!();

@@ -11,7 +11,41 @@ pub use response::*;
 use super::*;
 use crate::*;
 
-use metrics::Stat;
+use metrics::{static_metrics, Counter};
+
+static_metrics! {
+    static GET: Counter;
+    static GET_KEY: Counter;
+    static GET_KEY_HIT: Counter;
+    static GET_KEY_MISS: Counter;
+
+    static GETS: Counter;
+    static GETS_KEY: Counter;
+    static GETS_KEY_HIT: Counter;
+    static GETS_KEY_MISS: Counter;
+
+    static SET: Counter;
+    static SET_STORED: Counter;
+    static SET_NOT_STORED: Counter;
+
+    static ADD: Counter;
+    static ADD_STORED: Counter;
+    static ADD_NOT_STORED: Counter;
+
+    static REPLACE: Counter;
+    static REPLACE_STORED: Counter;
+    static REPLACE_NOT_STORED: Counter;
+
+    static DELETE: Counter;
+    static DELETE_DELETED: Counter;
+    static DELETE_NOT_FOUND: Counter;
+
+    static CAS: Counter;
+    static CAS_EX: Counter;
+    static CAS_EXISTS: Counter;
+    static CAS_NOT_FOUND: Counter;
+    static CAS_STORED: Counter;
+}
 
 impl<'a, T> Execute<MemcacheRequest, MemcacheResponse> for T
 where

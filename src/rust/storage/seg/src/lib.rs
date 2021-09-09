@@ -63,6 +63,7 @@ pub use rustcommon_time::CoarseDuration;
 pub(crate) use crate::rand::*;
 pub(crate) use hashtable::*;
 pub(crate) use item::*;
-pub(crate) use metrics::*;
 pub(crate) use segments::*;
 pub(crate) use ttl_buckets::*;
+
+metrics::test_no_duplicates!();

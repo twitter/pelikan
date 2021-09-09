@@ -76,3 +76,5 @@ impl Pingserver {
         self.process.shutdown()
     }
 }
+
+metrics::test_no_duplicates!();

@@ -15,6 +15,19 @@ pub use multi::MultiWorker;
 pub use single::SingleWorker;
 
 use super::EventLoop;
+use metrics::{static_metrics, Counter};
+
+static_metrics! {
+    static WORKER_EVENT_LOOP: Counter;
+    static WORKER_EVENT_TOTAL: Counter;
+    static WORKER_EVENT_ERROR: Counter;
+    static WORKER_EVENT_WRITE: Counter;
+    static WORKER_EVENT_READ: Counter;
+
+    static STORAGE_EVENT_LOOP: Counter;
+
+    static PROCESS_REQ: Counter;
+}
 
 pub struct TokenWrapper<T> {
     inner: T,

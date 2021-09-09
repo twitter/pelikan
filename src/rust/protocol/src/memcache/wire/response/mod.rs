@@ -7,10 +7,10 @@ use crate::memcache::MemcacheEntry;
 use crate::memcache::MemcacheRequest;
 use crate::Compose;
 use crate::CRLF;
-use metrics::Stat;
 use session::Session;
 use std::borrow::Cow;
 use std::io::Write;
+use super::*;
 
 pub struct MemcacheResponse {
     pub(crate) request: MemcacheRequest,
@@ -76,49 +76,49 @@ impl MemcacheResult {
 impl Compose for MemcacheResponse {
     fn compose(self, dst: &mut Session) {
         match self.request {
-            MemcacheRequest::Get { .. } => increment_counter!(&Stat::Get),
-            MemcacheRequest::Gets { .. } => increment_counter!(&Stat::Gets),
+            MemcacheRequest::Get { .. } => { GET.increment(); }
+            MemcacheRequest::Gets { .. } => { GETS.increment(); }
             MemcacheRequest::Set { .. } => {
                 match self.result {
-                    MemcacheResult::Stored => increment_counter!(&Stat::SetStored),
-                    MemcacheResult::NotStored => increment_counter!(&Stat::SetNotstored),
+                    MemcacheResult::Stored => { SET_STORED.increment(); }
+                    MemcacheResult::NotStored => { SET_NOT_STORED.increment(); }
                     _ => unreachable!(),
                 }
-                increment_counter!(&Stat::Set);
+                SET.increment();
             }
             MemcacheRequest::Add { .. } => {
                 match self.result {
-                    MemcacheResult::Stored => increment_counter!(&Stat::AddStored),
-                    MemcacheResult::NotStored => increment_counter!(&Stat::AddNotstored),
+                    MemcacheResult::Stored => { ADD_STORED.increment(); }
+                    MemcacheResult::NotStored => { ADD_NOT_STORED.increment(); }
                     _ => unreachable!(),
                 }
-                increment_counter!(&Stat::Add);
+                ADD.increment();
             }
             MemcacheRequest::Replace { .. } => {
                 match self.result {
-                    MemcacheResult::Stored => increment_counter!(&Stat::ReplaceStored),
-                    MemcacheResult::NotStored => increment_counter!(&Stat::ReplaceNotstored),
+                    MemcacheResult::Stored => { REPLACE_STORED.increment(); }
+                    MemcacheResult::NotStored => { REPLACE_NOT_STORED.increment(); }
                     _ => unreachable!(),
                 }
-                increment_counter!(&Stat::Replace);
+                REPLACE.increment();
             }
             MemcacheRequest::Delete { .. } => {
                 match self.result {
-                    MemcacheResult::NotFound => increment_counter!(&Stat::DeleteNotfound),
-                    MemcacheResult::Deleted => increment_counter!(&Stat::DeleteDeleted),
+                    MemcacheResult::NotFound => { DELETE_NOT_FOUND.increment(); }
+                    MemcacheResult::Deleted => { DELETE_DELETED.increment(); }
                     _ => unreachable!(),
                 }
-                increment_counter!(&Stat::Delete);
+                DELETE.increment();
             }
             MemcacheRequest::Cas { .. } => {
                 match self.result {
-                    MemcacheResult::Exists => increment_counter!(&Stat::CasExists),
-                    MemcacheResult::NotFound => increment_counter!(&Stat::CasNotfound),
-                    MemcacheResult::NotStored => increment_counter!(&Stat::CasEx),
-                    MemcacheResult::Stored => increment_counter!(&Stat::CasStored),
+                    MemcacheResult::Exists => { CAS_EXISTS.increment(); }
+                    MemcacheResult::NotFound => { CAS_NOT_FOUND.increment(); }
+                    MemcacheResult::NotStored => { CAS_EX.increment(); }
+                    MemcacheResult::Stored => { CAS_STORED.increment(); }
                     _ => unreachable!(),
                 }
-                increment_counter!(&Stat::Cas);
+                CAS.increment();
             }
         }
         if let MemcacheResult::Values { ref entries, cas } = self.result {
@@ -156,13 +156,13 @@ impl Compose for MemcacheResponse {
                 klog_get(&self.request.command(), entry.key(), response_len);
             }
             if self.request.command() == MemcacheCommand::Get {
-                increment_counter_by!(&Stat::GetKey, total as u64);
-                increment_counter_by!(&Stat::GetKeyHit, hits as u64);
-                increment_counter_by!(&Stat::GetKeyMiss, (total - hits) as u64);
+                GET_KEY.add(total as _);
+                GET_KEY_HIT.add(hits as _);
+                GET_KEY_MISS.add((total - hits) as _);
             } else {
-                increment_counter_by!(&Stat::GetsKey, total as u64);
-                increment_counter_by!(&Stat::GetsKeyHit, hits as u64);
-                increment_counter_by!(&Stat::GetsKeyMiss, (total - hits) as u64);
+                GETS_KEY.add(total as _);
+                GETS_KEY_HIT.add(hits as _);
+                GETS_KEY_MISS.add((total - hits) as _);
             }
 
             dst.write_all(b"END\r\n");
@@ -189,7 +189,7 @@ impl Compose for MemcacheResponse {
 
 /// Transform
 fn string_key(key: Result<&[u8], ()>) -> Cow<'_, str> {
-    String::from_utf8_lossy(key.unwrap_or_else(|_| b""))
+    String::from_utf8_lossy(key.unwrap_or(b""))
 }
 
 /// Logs a CAS command

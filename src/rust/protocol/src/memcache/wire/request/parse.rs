@@ -145,7 +145,6 @@ fn parse_command(buffer: &[u8]) -> Result<MemcacheCommand, ParseError> {
 
 #[allow(clippy::unnecessary_wraps)]
 fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
-    increment_counter!(&Stat::Get);
     let mut parse_state = ParseState::new(buffer);
 
     // this was already checked for when determining the command

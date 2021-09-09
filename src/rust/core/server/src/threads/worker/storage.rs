@@ -2,12 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use super::*;
 use crate::threads::worker::TokenWrapper;
 use common::signal::Signal;
 use config::WorkerConfig;
 use core::time::Duration;
 use entrystore::EntryStore;
-use metrics::Stat;
 use mio::Events;
 use mio::Poll;
 use mio::Token;
@@ -86,7 +86,7 @@ where
         let timeout = Some(self.timeout);
 
         loop {
-            increment_counter!(&Stat::StorageEventLoop);
+            STORAGE_EVENT_LOOP.increment();
 
             self.storage.expire();
 
@@ -107,7 +107,7 @@ where
                         if worker_pending[id] > 0 {
                             if let Ok(message) = self.worker_queues.recv_from(id) {
                                 trace!("handling request from worker: {}", id);
-                                increment_counter!(&Stat::ProcessReq);
+                                PROCESS_REQ.increment();
                                 let token = message.token();
                                 let response = self.storage.execute(message.into_inner());
                                 let mut message = TokenWrapper::new(response, token);
