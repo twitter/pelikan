@@ -10,7 +10,7 @@ use config::ServerConfig;
 use config::TlsConfig;
 use config::WorkerConfig;
 use entrystore::EntryStore;
-use logger::PelikanLogReceiver;
+use logger::LogReceiver;
 use protocol::{Compose, Execute, Parse};
 use queues::QueuePairs;
 
@@ -47,7 +47,7 @@ where
         storage: Storage,
         max_buffer_size: usize,
         parser: Parser,
-        logger: PelikanLogReceiver,
+        logger: LogReceiver,
     ) -> Self {
         // initialize admin
         let ssl_context = common::ssl::ssl_context(tls_config).unwrap_or_else(|e| {

@@ -11,7 +11,7 @@ use crate::TCP_ACCEPT_EX;
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
 use config::AdminConfig;
-use logger::PelikanLogReceiver;
+use logger::LogReceiver;
 use metrics::{static_metrics, Counter, Gauge};
 use mio::event::Event;
 use mio::Events;
@@ -63,7 +63,7 @@ pub struct Admin {
     ssl_context: Option<SslContext>,
     signal_queue: QueuePairs<(), Signal>,
     parser: AdminRequestParser,
-    log_receiver: PelikanLogReceiver,
+    log_receiver: LogReceiver,
 }
 
 impl Admin {
@@ -71,7 +71,7 @@ impl Admin {
     pub fn new(
         config: &AdminConfig,
         ssl_context: Option<SslContext>,
-        log_receiver: PelikanLogReceiver,
+        log_receiver: LogReceiver,
     ) -> Result<Self, Error> {
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);

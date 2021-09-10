@@ -8,7 +8,7 @@
 
 use config::SegcacheConfig;
 use entrystore::Seg;
-use logger::PelikanLogBuilder;
+use logger::LogBuilder;
 use protocol::memcache::{MemcacheRequest, MemcacheRequestParser, MemcacheResponse};
 use server::{Process, ProcessBuilder};
 
@@ -27,7 +27,7 @@ impl Segcache {
     /// Creates a new `Segcache` process from the given `SegcacheConfig`.
     pub fn new(config: SegcacheConfig) -> Self {
         // initialize logging
-        let (logger, receiver) = PelikanLogBuilder::default()
+        let (logger, receiver) = LogBuilder::default()
             .debug(config.debug().clone())
             .command(config.klog().clone())
             .build();

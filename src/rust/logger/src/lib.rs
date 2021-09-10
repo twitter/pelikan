@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use rustcommon_time::recent_local;
 use core::sync::atomic::{AtomicUsize, Ordering};
+use rustcommon_time::recent_local;
 use std::path::Path;
 
 use std::io::{BufWriter, Write};
@@ -23,7 +23,6 @@ mod receiver;
 mod sender;
 
 pub(crate) use backend::*;
-
 
 pub use builder::*;
 pub use format::*;

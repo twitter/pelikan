@@ -8,7 +8,7 @@
 
 use config::PingserverConfig;
 use entrystore::Noop;
-use logger::PelikanLogBuilder;
+use logger::LogBuilder;
 use protocol::ping::{PingRequest, PingRequestParser, PingResponse};
 use server::{Process, ProcessBuilder};
 
@@ -26,7 +26,7 @@ impl Pingserver {
     /// Creates a new `Pingserver` process from the given `PingserverConfig`.
     pub fn new(config: PingserverConfig) -> Self {
         // initialize logging
-        let (logger, receiver) = PelikanLogBuilder::default()
+        let (logger, receiver) = LogBuilder::default()
             .debug(config.debug().clone())
             .command(config.klog().clone())
             .build();
