@@ -92,7 +92,7 @@ impl FileLogBuilder {
 
         // allocate all the msg buffers
         for _ in 0..msg_count {
-            let _ = buf_queue.push(vec![0; self.msg_size]);
+            let _ = buf_queue.push(Vec::with_capacity(self.msg_size));
         }
 
         let sender = FileLogSender {
