@@ -19,7 +19,7 @@ pub fn default_format(
     writeln!(
         w,
         "{} {} [{}] {}",
-        now.to_rfc3339_opts(SecondsFormat::Secs, true),
+        now.to_rfc3339_opts(SecondsFormat::Millis, true),
         record.level(),
         record.module_path().unwrap_or("<unnamed>"),
         record.args()
@@ -34,7 +34,7 @@ pub fn klog_format(
     writeln!(
         w,
         "{} {}",
-        now.to_rfc3339_opts(SecondsFormat::Secs, true),
+        now.to_rfc3339_opts(SecondsFormat::Millis, true),
         record.args()
     )
 }
