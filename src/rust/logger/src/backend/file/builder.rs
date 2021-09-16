@@ -90,6 +90,11 @@ impl FileLogBuilder {
         let log_queue = Queue::with_capacity(msg_count);
         let buf_queue = Queue::with_capacity(msg_count);
 
+        // allocate all the msg buffers
+        for _ in 0..msg_count {
+            let _ = buf_queue.push(vec![0; self.msg_size]);
+        }
+
         let sender = FileLogSender {
             level_filter: self.level_filter,
             format: self.format,
