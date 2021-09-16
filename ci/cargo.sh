@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+set -euo pipefail
+
 cargo build
 cargo test
 cargo build --release

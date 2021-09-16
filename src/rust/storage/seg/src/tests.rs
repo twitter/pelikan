@@ -22,7 +22,7 @@ fn sizes() {
     assert_eq!(std::mem::size_of::<HashTable>(), 64);
 
     assert_eq!(std::mem::size_of::<crate::ttl_buckets::TtlBucket>(), 64);
-    assert_eq!(std::mem::size_of::<TtlBuckets>(), 16);
+    assert_eq!(std::mem::size_of::<TtlBuckets>(), 24);
 }
 
 #[test]
