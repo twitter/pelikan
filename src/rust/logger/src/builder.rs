@@ -59,7 +59,7 @@ impl LogBuilder {
             let (s, r) = FileLogBuilder::default()
                 .msg_size(DEFAULT_MSG_SIZE)
                 .buf_size(self.command.nbuf())
-                .format(default_format)
+                .format(klog_format)
                 .active_path(
                     self.command
                         .file()

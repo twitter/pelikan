@@ -21,3 +21,16 @@ pub fn default_format(
         record.args()
     )
 }
+
+pub fn klog_format(
+    w: &mut dyn std::io::Write,
+    now: DateTime<Local>,
+    record: &Record,
+) -> Result<(), std::io::Error> {
+    writeln!(
+        w,
+        "{} {}",
+        now.to_rfc3339_opts(SecondsFormat::Secs, true),
+        record.args()
+    )
+}
