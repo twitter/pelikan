@@ -9,21 +9,21 @@ use crate::*;
 /// configured), and returns cleared buffers to the `FileLogSender` for re-use.
 pub struct FileLogReceiver {
     // a queue for receiving log messages from the sender
-    receiver: Queue<Vec<u8>>,
+    pub(crate) receiver: Queue<Vec<u8>>,
     // a queue for returning log buffers to the sender for re-use
-    buf_pool: Queue<Vec<u8>>,
+    pub(crate) buf_pool: Queue<Vec<u8>>,
     // log buffers above this size will not be re-used
-    msg_size: usize,
+    pub(crate) msg_size: usize,
     // current log file path. None implies logging to standard out
-    active_path: Option<PathBuf>,
+    pub(crate) active_path: Option<PathBuf>,
     // backup log file path. None implies the default ".old" extension will be
     // appended to the log file path on rotation
-    backup_path: Option<PathBuf>,
+    pub(crate) backup_path: Option<PathBuf>,
     // a buffered writer for writing messages to the log file or standard out
-    writer: BufWriter<Box<dyn Write + Send>>,
+    pub(crate) writer: BufWriter<Box<dyn Write + Send>>,
     // the maximum size of the log file before rotation. 0 implies that there is
     // no size limit.
-    max_size: u64,
+    pub(crate) max_size: u64,
 }
 
 impl FileLogReceiver {
@@ -32,11 +32,17 @@ impl FileLogReceiver {
     pub fn flush(&mut self) {
         while let Some(mut msg) = self.receiver.pop() {
             let _ = self.writer.write(&msg);
-            // recycle the buffer if it's not oversized
-            if msg.capacity() <= self.msg_size {
+
+            // shrink oversized buffer
+            if msg.len() > self.msg_size {
+                msg.truncate(self.msg_size);
+                msg.shrink_to_fit();
                 msg.clear();
-                let _ = self.buf_pool.push(msg);
             }
+
+            // recycle the buffer, buffer will be dropped if the pool is full
+            msg.clear();
+            let _ = self.buf_pool.push(msg);
         }
         // since we are using a buffered writer, we need to flush it
         let _ = self.writer.flush();

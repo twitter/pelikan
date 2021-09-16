@@ -11,15 +11,15 @@ use crate::*;
 /// re-use.
 pub struct FileLogSender {
     // level filter for determining if a log message should be logged
-    level_filter: LevelFilter,
+    pub(crate) level_filter: LevelFilter,
     // a queue for submitting log messages to the receiver
-    sender: Queue<Vec<u8>>,
+    pub(crate) sender: Queue<Vec<u8>>,
     // a queue for receiving log buffers for re-use
-    buf_pool: Queue<Vec<u8>>,
+    pub(crate) buf_pool: Queue<Vec<u8>>,
     // the size of newly created log buffers
-    msg_size: usize,
+    pub(crate) msg_size: usize,
     // a function used to format log messages
-    format: FormatFunction,
+    pub(crate) format: FormatFunction,
 }
 
 impl Log for FileLogSender {
@@ -41,6 +41,8 @@ impl Log for FileLogSender {
 
         // write the log message into the buffer and send to the receiver
         if (self.format)(&mut buffer, recent_local(), record).is_ok() {
+            // not this is fallible and may drop a log message, but it's better
+            // than blocking if the queue is full.
             let _ = self.sender.push(buffer);
         }
     }
