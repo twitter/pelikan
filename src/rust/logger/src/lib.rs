@@ -2,6 +2,16 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! This crate provides logging functionality that is focused on both normal log
+//! messages through the usual `log` macros, as well as command logging using
+//! the custom `klog!()` macro.
+//!
+//! This logging crate focuses on minimizing the costs at the callsite and
+//! relying on a thread outside of the critical path to handle any IO, whether
+//! to a file or to standard out. This crate realizes this goal by sending the
+//! log messages over a queue to a `LogReceiver`. It is expected that this
+//! struct will be flushed periodically to free up room in the queue.
+
 use core::sync::atomic::{AtomicUsize, Ordering};
 use rustcommon_time::recent_local;
 use std::path::Path;

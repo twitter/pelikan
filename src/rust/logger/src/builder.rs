@@ -4,6 +4,9 @@
 
 use crate::*;
 
+/// A `LogBuilder` allows for configuring a `LogSender` and `LogReceiver` for
+/// logging via the usual `log` macros as well as with the `klog!()` command
+/// logging macro.
 #[derive(Default)]
 pub struct LogBuilder {
     debug: DebugConfig,
@@ -11,20 +14,30 @@ pub struct LogBuilder {
 }
 
 impl LogBuilder {
+    /// Provide a `DebugConfig` to the log builder which configures the behavior
+    /// of the standard `log` macros, including log level, and whether or not to
+    /// log to standard out or a file. See the documentation for `DebugConfig`
+    /// for more details.
     pub fn debug(mut self, config: DebugConfig) -> Self {
         self.debug = config;
         self
     }
 
+    /// Provide a `KlogConfig` to the log builder which configures the behavior
+    /// of the `klog!()` macro for logging commands. This configuration enables
+    /// the command log, sets a sampling rate, and specifies a file path for
+    /// logging. See the documentation for `KlogConfig` for more details.
     pub fn command(mut self, config: KlogConfig) -> Self {
         self.command = config;
         self
     }
 
+    /// Consumes the builder and returns a `LogSender` and `LogReceiver` which
+    /// can then be used for logging.
     pub fn build(self) -> (LogSender, LogReceiver) {
         let (debug_send, debug_recv) = FileLogBuilder::default()
-            .buf_size(DEFAULT_MSG_SIZE)
-            .buf_pool(DEFAULT_BUFFER_SIZE / DEFAULT_MSG_SIZE)
+            .msg_size(DEFAULT_MSG_SIZE)
+            .buf_size(DEFAULT_BUFFER_SIZE)
             .level(self.debug.log_level())
             .format(default_format)
             .active_path(
@@ -44,8 +57,8 @@ impl LogBuilder {
 
         let (klog_send, klog_recv) = if let Some(_file) = self.command.file() {
             let (s, r) = FileLogBuilder::default()
-                .buf_size(DEFAULT_MSG_SIZE)
-                .buf_pool(DEFAULT_BUFFER_SIZE / DEFAULT_MSG_SIZE)
+                .msg_size(DEFAULT_MSG_SIZE)
+                .buf_size(DEFAULT_BUFFER_SIZE)
                 .format(default_format)
                 .active_path(
                     self.command

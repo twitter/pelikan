@@ -4,6 +4,7 @@
 
 use crate::*;
 
+/// A no-op log sender
 pub struct NopLogSender {}
 
 impl Log for NopLogSender {
