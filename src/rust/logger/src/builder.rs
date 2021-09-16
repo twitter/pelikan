@@ -37,7 +37,7 @@ impl LogBuilder {
     pub fn build(self) -> (LogSender, LogReceiver) {
         let (debug_send, debug_recv) = FileLogBuilder::default()
             .msg_size(DEFAULT_MSG_SIZE)
-            .buf_size(DEFAULT_BUFFER_SIZE)
+            .buf_size(self.debug.log_nbuf())
             .level(self.debug.log_level())
             .format(default_format)
             .active_path(
@@ -58,7 +58,7 @@ impl LogBuilder {
         let (klog_send, klog_recv) = if let Some(_file) = self.command.file() {
             let (s, r) = FileLogBuilder::default()
                 .msg_size(DEFAULT_MSG_SIZE)
-                .buf_size(DEFAULT_BUFFER_SIZE)
+                .buf_size(self.command.nbuf())
                 .format(default_format)
                 .active_path(
                     self.command
