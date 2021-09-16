@@ -124,4 +124,3 @@ impl FileLogBuilder {
         (sender, receiver)
     }
 }
-
