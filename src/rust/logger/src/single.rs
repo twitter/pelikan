@@ -52,7 +52,7 @@ impl Log for Logger {
     fn flush(&self) {}
 }
 
-pub trait Output: Write + Send + Sync { }
+pub trait Output: Write + Send + Sync {}
 
 pub trait Drain {
     fn flush(&mut self) -> Result<(), Error>;

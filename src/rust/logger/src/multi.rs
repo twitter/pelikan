@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::io::Error;
 use crate::*;
+use std::io::Error;
 
 use ahash::AHashMap as HashMap;
 
@@ -41,7 +41,7 @@ impl Log for MultiLogger {
         }
     }
 
-    fn flush(&self) { }
+    fn flush(&self) {}
 }
 
 impl LogEx for MultiLogger {
@@ -123,7 +123,9 @@ impl MultiLogBuilder {
 
         for (target_name, (target_logger, target_log_handle)) in self.targets.drain() {
             logger.targets.insert(target_name.to_owned(), target_logger);
-            log_handle.targets.insert(target_name.to_owned(), target_log_handle);
+            log_handle
+                .targets
+                .insert(target_name.to_owned(), target_log_handle);
         }
 
         (logger, log_handle)

@@ -35,7 +35,7 @@ impl Write for Stdout {
     }
 }
 
-impl Output for Stdout { }
+impl Output for Stdout {}
 
 /// An output that writes to `stderr`.
 pub struct Stderr {
@@ -65,7 +65,7 @@ impl Write for Stderr {
     }
 }
 
-impl Output for Stderr { }
+impl Output for Stderr {}
 
 /// A file based output which allows rotating the current log file off to a
 /// backup location.
@@ -121,5 +121,4 @@ impl Write for File {
     }
 }
 
-impl Output for File { }
-
+impl Output for File {}

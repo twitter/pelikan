@@ -17,9 +17,9 @@ pub use outputs::*;
 pub use single::*;
 pub use traits::*;
 
-// for convenience include these 
-use rustcommon_time::recent_local;
+// for convenience include these
 use mpmc::Queue;
+use rustcommon_time::recent_local;
 
 #[macro_export]
 macro_rules! klog {

@@ -12,40 +12,38 @@ macro_rules! command {
 }
 
 fn main() {
-	let default = LogBuilder::new()
-		.output(Box::new(Stdout::new()))
-		.build()
-		.expect("failed to initialize default log");
+    let default = LogBuilder::new()
+        .output(Box::new(Stdout::new()))
+        .build()
+        .expect("failed to initialize default log");
 
-	let command = LogBuilder::new()
-		.output(
-			Box::new(File::new("command.log", "command.old", 100).expect("failed to create file log"))
-		)
-		.format(klog_format)
-		.build()
-		.expect("failed to initialize command log");
+    let command = LogBuilder::new()
+        .output(Box::new(
+            File::new("command.log", "command.old", 100).expect("failed to create file log"),
+        ))
+        .format(klog_format)
+        .build()
+        .expect("failed to initialize command log");
 
-	let (logger, mut log_handle) = MultiLogBuilder::new()
-		.default(default)
-		.add_target("command", command)
-		.build();
+    let (logger, mut log_handle) = MultiLogBuilder::new()
+        .default(default)
+        .add_target("command", command)
+        .build();
 
-	logger.start();
+    logger.start();
 
-	std::thread::spawn(move || {
-		loop {
-			let _ = log_handle.flush();
-			std::thread::sleep(Duration::from_millis(100));
-		}
-	});
+    std::thread::spawn(move || loop {
+        let _ = log_handle.flush();
+        std::thread::sleep(Duration::from_millis(100));
+    });
 
-	error!("error");
-	warn!("warning");
-	info!("info");
-	debug!("debug");
-	trace!("trace");
+    error!("error");
+    warn!("warning");
+    info!("info");
+    debug!("debug");
+    trace!("trace");
 
-	command!("\"get 0\" 0 0");
+    command!("\"get 0\" 0 0");
 
-	std::thread::sleep(Duration::from_millis(1000));
+    std::thread::sleep(Duration::from_millis(1000));
 }
