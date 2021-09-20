@@ -10,7 +10,7 @@ use config::ServerConfig;
 use config::TlsConfig;
 use config::WorkerConfig;
 use entrystore::EntryStore;
-use logger::LogReceiver;
+use logger::*;
 use protocol::{Compose, Execute, Parse};
 use queues::QueuePairs;
 
@@ -47,14 +47,14 @@ where
         storage: Storage,
         max_buffer_size: usize,
         parser: Parser,
-        logger: LogReceiver,
+        log_drain: MultiLogDrain,
     ) -> Self {
         // initialize admin
         let ssl_context = common::ssl::ssl_context(tls_config).unwrap_or_else(|e| {
             error!("failed to initialize TLS: {}", e);
             std::process::exit(1);
         });
-        let admin = Admin::new(admin_config, ssl_context, logger).unwrap_or_else(|e| {
+        let admin = Admin::new(admin_config, ssl_context, log_drain).unwrap_or_else(|e| {
             error!("failed to initialize admin: {}", e);
             std::process::exit(1);
         });

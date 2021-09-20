@@ -11,7 +11,7 @@ use crate::TCP_ACCEPT_EX;
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
 use config::AdminConfig;
-use logger::LogReceiver;
+use logger::*;
 use metrics::{static_metrics, Counter, Gauge};
 use mio::event::Event;
 use mio::Events;
@@ -63,7 +63,7 @@ pub struct Admin {
     ssl_context: Option<SslContext>,
     signal_queue: QueuePairs<(), Signal>,
     parser: AdminRequestParser,
-    log_receiver: LogReceiver,
+    log_drain: MultiLogDrain,
 }
 
 impl Admin {
@@ -71,7 +71,7 @@ impl Admin {
     pub fn new(
         config: &AdminConfig,
         ssl_context: Option<SslContext>,
-        log_receiver: LogReceiver,
+        log_drain: MultiLogDrain,
     ) -> Result<Self, Error> {
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
@@ -99,7 +99,7 @@ impl Admin {
             ssl_context,
             signal_queue,
             parser: AdminRequestParser::new(),
-            log_receiver,
+            log_drain,
         })
     }
 
@@ -289,7 +289,7 @@ impl Admin {
 
             self.get_rusage();
 
-            self.log_receiver.flush();
+            let _ = self.log_drain.flush();
         }
     }
 

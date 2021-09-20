@@ -2,7 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::Record;
+use crate::*;
+
 use rustcommon_time::{DateTime, Local, SecondsFormat};
 
 pub type FormatFunction = fn(
