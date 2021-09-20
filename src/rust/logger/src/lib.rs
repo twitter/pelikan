@@ -53,7 +53,9 @@ pub fn configure_logging(debug_config: &DebugConfig, klog_config: &KlogConfig) -
 	    .build()
 	    .expect("failed to initialize debug log");
 
-	let mut log_builder = MultiLogBuilder::new().default(debug_log);
+	let mut log_builder = MultiLogBuilder::new()
+		.level_filter(debug_config.log_level().to_level_filter())
+		.default(debug_log);
 
 	if let Some(file) = klog_config.file() {
         let backup = klog_config.backup().unwrap_or(format!("{}.old", file));
@@ -63,6 +65,7 @@ pub fn configure_logging(debug_config: &DebugConfig, klog_config: &KlogConfig) -
         );
         let klog = LogBuilder::new()
             .output(output)
+            .format(klog_format)
             .build()
             .expect("failed to initialize klog");
         log_builder = log_builder.add_target("klog", klog);
