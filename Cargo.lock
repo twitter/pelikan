@@ -613,7 +613,7 @@ name = "logger"
 version = "0.1.0"
 dependencies = [
  "ahash 0.6.3",
- "linkme",
+ "config",
  "log",
  "mpmc",
  "rustcommon-time",

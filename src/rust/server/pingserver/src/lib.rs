@@ -26,42 +26,7 @@ impl Pingserver {
     /// Creates a new `Pingserver` process from the given `PingserverConfig`.
     pub fn new(config: PingserverConfig) -> Self {
         // initialize logging
-        let debug_output: Box<dyn Output> = if let Some(file) = config.debug().log_file() {
-            let backup = config
-                .debug()
-                .log_backup()
-                .unwrap_or(format!("{}.old", file));
-            Box::new(
-                File::new(&file, &backup, config.debug().log_max_size())
-                    .expect("failed to open debug log file"),
-            )
-        } else {
-            Box::new(Stdout::new())
-        };
-
-        let debug_log = LogBuilder::new()
-            .output(debug_output)
-            .build()
-            .expect("failed to initialize debug log");
-
-        let mut log_builder = MultiLogBuilder::new().default(debug_log);
-
-        if let Some(file) = config.klog().file() {
-            let backup = config.klog().backup().unwrap_or(format!("{}.old", file));
-            let output = Box::new(
-                File::new(&file, &backup, config.klog().max_size())
-                    .expect("failed to open klog file"),
-            );
-            let klog = LogBuilder::new()
-                .output(output)
-                .build()
-                .expect("failed to initialize klog");
-            log_builder = log_builder.add_target("klog", klog);
-        }
-
-        let (logger, log_drain) = log_builder.build();
-
-        logger.start();
+        let log_drain = configure_logging(config.debug(), config.klog());
 
         // initialize metrics
         metrics::init();

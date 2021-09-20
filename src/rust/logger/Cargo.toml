@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 ahash = "*"
-linkme = "*"
-mpmc = "*"
+config = { path = "../config" }
 log = { version = "*", features = ["std"] }
+mpmc = "*"
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
