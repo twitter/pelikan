@@ -5,35 +5,16 @@
 use core::time::Duration;
 use logger::*;
 
-macro_rules! command {
-    ($($arg:tt)*) => (
-        error!(target: "command", $($arg)*);
-    )
-}
-
 fn main() {
-    let default = LogBuilder::new()
+    let log = LogBuilder::new()
         .output(Box::new(Stdout::new()))
         .build()
-        .expect("failed to initialize default log");
+        .expect("failed to initialize log");
 
-    let command = LogBuilder::new()
-        .output(Box::new(
-            File::new("command.log", "command.old", 100).expect("failed to create file log"),
-        ))
-        .format(klog_format)
-        .build()
-        .expect("failed to initialize command log");
-
-    let (logger, mut log_handle) = MultiLogBuilder::new()
-        .default(default)
-        .add_target("command", command)
-        .build();
-
-    logger.start();
+    let mut drain = log.start();
 
     std::thread::spawn(move || loop {
-        let _ = log_handle.flush();
+        let _ = drain.flush();
         std::thread::sleep(Duration::from_millis(100));
     });
 
@@ -42,8 +23,6 @@ fn main() {
     info!("info");
     debug!("debug");
     trace!("trace");
-
-    command!("\"get 0\" 0 0");
 
     std::thread::sleep(Duration::from_millis(1000));
 }

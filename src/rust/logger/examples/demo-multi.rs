@@ -25,15 +25,15 @@ fn main() {
         .build()
         .expect("failed to initialize command log");
 
-    let (logger, mut log_handle) = MultiLogBuilder::new()
+    let log = MultiLogBuilder::new()
         .default(default)
         .add_target("command", command)
         .build();
 
-    logger.start();
+    let mut drain = log.start();
 
     std::thread::spawn(move || loop {
-        let _ = log_handle.flush();
+        let _ = drain.flush();
         std::thread::sleep(Duration::from_millis(100));
     });
 
