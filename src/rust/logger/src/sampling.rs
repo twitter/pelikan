@@ -2,13 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use core::sync::atomic::{AtomicUsize, Ordering};
 use crate::*;
+use core::sync::atomic::{AtomicUsize, Ordering};
 
-/// The core of the logging backend, this type is registered as the global
-/// logger and is compatible with the `log` crate's macros. Instead of directly
-/// logging, it enqueues the formatted log message. Users will typically not
-/// interact with this type directly, but would work with the `LogHandle`.
+/// Implements a logger which only logs 1 in N log messages.
 pub(crate) struct SamplingLogger {
     logger: Logger,
     counter: AtomicUsize,
@@ -32,8 +29,6 @@ impl Log for SamplingLogger {
             return;
         }
 
-        // TODO(bmartin): double check logic here
-
         // if this is the Nth message, we should log it
         if self.counter.fetch_add(1, Ordering::Relaxed) == self.sample {
             self.counter.fetch_sub(self.sample, Ordering::Relaxed);
@@ -44,8 +39,8 @@ impl Log for SamplingLogger {
     fn flush(&self) {}
 }
 
-
-/// A type to construct a `Logger` and `LogDrain` pair.
+/// A type to construct a basic `AsyncLog` which routes 1 in N log messages to a
+/// single `Output`.
 pub struct SamplingLogBuilder {
     log_builder: LogBuilder,
     sample: usize,
@@ -98,7 +93,7 @@ impl SamplingLogBuilder {
         self
     }
 
-    /// Consumes the builder and returns a configured `Logger` and `LogHandle`.
+    /// Consumes the builder and returns a configured `SamplingLogger` and `LogDrain`.
     pub(crate) fn build_raw(self) -> Result<(SamplingLogger, LogDrain), &'static str> {
         let (logger, log_handle) = self.log_builder.build_raw()?;
         let logger = SamplingLogger {
@@ -110,9 +105,14 @@ impl SamplingLogBuilder {
         Ok((logger, log_handle))
     }
 
-    /// Consumes the builder and returns a configured `Box<dyn Log>` and `Box<dyn Drain>`.
+    /// Consumes the builder and returns an `AsyncLog`.
     pub fn build(self) -> Result<AsyncLog, &'static str> {
         let (logger, drain) = self.build_raw()?;
-        Ok(AsyncLog { logger: Box::new(logger), drain: Box::new(drain) })
+        let level_filter = logger.level_filter();
+        Ok(AsyncLog {
+            logger: Box::new(logger),
+            drain: Box::new(drain),
+            level_filter,
+        })
     }
 }

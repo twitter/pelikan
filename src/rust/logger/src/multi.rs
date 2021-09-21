@@ -7,7 +7,7 @@ use std::io::Error;
 
 use ahash::AHashMap as HashMap;
 
-pub struct MultiLogger {
+pub(crate) struct MultiLogger {
     default: Option<Box<dyn Log>>,
     targets: HashMap<String, Box<dyn Log>>,
     level_filter: LevelFilter,
@@ -15,7 +15,10 @@ pub struct MultiLogger {
 
 impl MultiLogger {
     fn get_target(&self, target: &str) -> Option<&dyn Log> {
-        self.targets.get(target).map(|t| t.as_ref()).or_else(|| self.default.as_deref())
+        self.targets
+            .get(target)
+            .map(|t| t.as_ref())
+            .or_else(|| self.default.as_deref())
     }
 }
 
@@ -50,7 +53,7 @@ impl LogEx for MultiLogger {
     }
 }
 
-pub struct MultiLogDrain {
+pub(crate) struct MultiLogDrain {
     default: Option<Box<dyn Drain>>,
     targets: HashMap<String, Box<dyn Drain>>,
 }
@@ -67,6 +70,10 @@ impl Drain for MultiLogDrain {
     }
 }
 
+/// A type to construct a multi-target `AsyncLog` which routes messages based
+/// on the log's `target` metadata to a corresponding `AsyncLog`. Targets which
+/// do not match a specific target will be routed to the default `AsyncLog` if
+/// one is configured.
 pub struct MultiLogBuilder {
     default: Option<AsyncLog>,
     targets: HashMap<String, AsyncLog>,
@@ -104,7 +111,7 @@ impl MultiLogBuilder {
         self
     }
 
-    pub fn build(mut self) -> (MultiLogger, MultiLogDrain) {
+    pub fn build(mut self) -> AsyncLog {
         let mut loggers = MultiLogger {
             default: None,
             targets: HashMap::new(),
@@ -123,11 +130,13 @@ impl MultiLogBuilder {
 
         for (name, log) in self.targets.drain() {
             loggers.targets.insert(name.to_owned(), log.logger);
-            drains
-                .targets
-                .insert(name.to_owned(), log.drain);
+            drains.targets.insert(name.to_owned(), log.drain);
         }
 
-        (loggers, drains)
+        AsyncLog {
+            logger: Box::new(loggers),
+            drain: Box::new(drains),
+            level_filter: self.level_filter,
+        }
     }
 }

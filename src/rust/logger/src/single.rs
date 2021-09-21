@@ -5,10 +5,7 @@
 use crate::*;
 use std::io::{Error, Write};
 
-/// The core of the logging backend, this type is registered as the global
-/// logger and is compatible with the `log` crate's macros. Instead of directly
-/// logging, it enqueues the formatted log message. Users will typically not
-/// interact with this type directly, but would work with the `LogHandle`.
+/// Implements a basic logger which sends all log messages to a single queue.
 pub(crate) struct Logger {
     log_filled: Queue<LogBuffer>,
     log_cleared: Queue<LogBuffer>,
@@ -52,17 +49,8 @@ impl Log for Logger {
     fn flush(&self) {}
 }
 
-pub trait Output: Write + Send + Sync {}
-
-pub trait Drain: Send {
-    fn flush(&mut self) -> Result<(), Error>;
-}
-
-/// The `LogHandle` type is used to flush enqueued log messages out to some
-/// underlying log output. The `flush` function should be called regularly
-/// outside of any critical path. For example, from an admin thread, dedicated
-/// logging thread, or other thread that can accept delays from writing to
-/// underlying file descriptors and rotating log files.
+/// Implements a basic drain type which receives log messages over a queue and
+/// flushes them to a single buffered output.
 pub(crate) struct LogDrain {
     log_filled: Queue<LogBuffer>,
     log_cleared: Queue<LogBuffer>,
@@ -90,7 +78,8 @@ impl Drain for LogDrain {
     }
 }
 
-/// A type to construct a `Logger` and `LogDrain` pair.
+/// A type to construct a basic `AsyncLog` which routes all log messages to a
+/// single `Output`.
 pub struct LogBuilder {
     total_buffer_size: usize,
     log_message_size: usize,
@@ -171,9 +160,14 @@ impl LogBuilder {
         }
     }
 
-    /// Consumes the builder and returns a configured `Box<dyn Log>` and `Box<dyn Drain>`.
+    /// Consumes the builder and returns an `AsyncLog`.
     pub fn build(self) -> Result<AsyncLog, &'static str> {
         let (logger, drain) = self.build_raw()?;
-        Ok(AsyncLog { logger: Box::new(logger), drain: Box::new(drain) })
+        let level_filter = logger.level_filter();
+        Ok(AsyncLog {
+            logger: Box::new(logger),
+            drain: Box::new(drain),
+            level_filter,
+        })
     }
 }
