@@ -9,7 +9,7 @@ use std::io::{Error, Write};
 /// logger and is compatible with the `log` crate's macros. Instead of directly
 /// logging, it enqueues the formatted log message. Users will typically not
 /// interact with this type directly, but would work with the `LogHandle`.
-pub struct Logger {
+pub(crate) struct Logger {
     log_filled: Queue<LogBuffer>,
     log_cleared: Queue<LogBuffer>,
     buffer_size: usize,
@@ -63,7 +63,7 @@ pub trait Drain: Send {
 /// outside of any critical path. For example, from an admin thread, dedicated
 /// logging thread, or other thread that can accept delays from writing to
 /// underlying file descriptors and rotating log files.
-pub struct LogDrain {
+pub(crate) struct LogDrain {
     log_filled: Queue<LogBuffer>,
     log_cleared: Queue<LogBuffer>,
     buffer_size: usize,
@@ -144,7 +144,7 @@ impl LogBuilder {
     }
 
     /// Consumes the builder and returns a configured `Logger` and `LogHandle`.
-    pub fn build_unboxed(self) -> Result<(Logger, LogDrain), &'static str> {
+    pub(crate) fn build_raw(self) -> Result<(Logger, LogDrain), &'static str> {
         if let Some(output) = self.output {
             let queue_capacity = self.total_buffer_size / self.log_message_size;
             let log_filled = Queue::with_capacity(queue_capacity);
@@ -172,8 +172,8 @@ impl LogBuilder {
     }
 
     /// Consumes the builder and returns a configured `Box<dyn Log>` and `Box<dyn Drain>`.
-    pub fn build(self) -> Result<(Box<dyn Log>, Box<dyn Drain>), &'static str> {
-        let (logger, log_drain) = self.build_unboxed()?;
-        Ok((Box::new(logger), Box::new(log_drain)))
+    pub fn build(self) -> Result<AsyncLog, &'static str> {
+        let (logger, drain) = self.build_raw()?;
+        Ok(AsyncLog { logger: Box::new(logger), drain: Box::new(drain) })
     }
 }

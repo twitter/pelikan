@@ -25,6 +25,11 @@ pub use traits::*;
 use mpmc::Queue;
 use rustcommon_time::recent_local;
 
+pub struct AsyncLog {
+	pub(crate) logger: Box<dyn Log>,
+	pub(crate) drain: Box<dyn Drain>,
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // TODO(bmartin): everything below is Pelikan specific, and should be factored
 // out into a helper when we move this crate into rustcommon

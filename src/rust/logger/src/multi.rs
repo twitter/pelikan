@@ -14,8 +14,8 @@ pub struct MultiLogger {
 }
 
 impl MultiLogger {
-    fn get_target(&self, target: &str) -> Option<&Box<dyn Log>> {
-        self.targets.get(target).or_else(|| self.default.as_ref())
+    fn get_target(&self, target: &str) -> Option<&dyn Log> {
+        self.targets.get(target).map(|t| t.as_ref()).or_else(|| self.default.as_deref())
     }
 }
 
@@ -68,8 +68,8 @@ impl Drain for MultiLogDrain {
 }
 
 pub struct MultiLogBuilder {
-    default: Option<(Box<dyn Log>, Box<dyn Drain>)>,
-    targets: HashMap<String, (Box<dyn Log>, Box<dyn Drain>)>,
+    default: Option<AsyncLog>,
+    targets: HashMap<String, AsyncLog>,
     level_filter: LevelFilter,
 }
 
@@ -89,12 +89,12 @@ impl MultiLogBuilder {
         Default::default()
     }
 
-    pub fn default(mut self, log: (Box<dyn Log>, Box<dyn Drain>)) -> Self {
+    pub fn default(mut self, log: AsyncLog) -> Self {
         self.default = Some(log);
         self
     }
 
-    pub fn add_target(mut self, target: &str, log: (Box<dyn Log>, Box<dyn Drain>)) -> Self {
+    pub fn add_target(mut self, target: &str, log: AsyncLog) -> Self {
         self.targets.insert(target.to_owned(), log);
         self
     }
@@ -105,29 +105,29 @@ impl MultiLogBuilder {
     }
 
     pub fn build(mut self) -> (MultiLogger, MultiLogDrain) {
-        let mut logger = MultiLogger {
+        let mut loggers = MultiLogger {
             default: None,
             targets: HashMap::new(),
             level_filter: self.level_filter,
         };
 
-        let mut log_handle = MultiLogDrain {
+        let mut drains = MultiLogDrain {
             default: None,
             targets: HashMap::new(),
         };
 
-        if let Some((default_logger, default_log_handle)) = self.default.take() {
-            logger.default = Some(default_logger);
-            log_handle.default = Some(default_log_handle);
+        if let Some(log) = self.default.take() {
+            loggers.default = Some(log.logger);
+            drains.default = Some(log.drain);
         }
 
-        for (target_name, (target_logger, target_log_handle)) in self.targets.drain() {
-            logger.targets.insert(target_name.to_owned(), target_logger);
-            log_handle
+        for (name, log) in self.targets.drain() {
+            loggers.targets.insert(name.to_owned(), log.logger);
+            drains
                 .targets
-                .insert(target_name.to_owned(), target_log_handle);
+                .insert(name.to_owned(), log.drain);
         }
 
-        (logger, log_handle)
+        (loggers, drains)
     }
 }

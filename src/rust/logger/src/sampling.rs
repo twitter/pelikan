@@ -9,7 +9,7 @@ use crate::*;
 /// logger and is compatible with the `log` crate's macros. Instead of directly
 /// logging, it enqueues the formatted log message. Users will typically not
 /// interact with this type directly, but would work with the `LogHandle`.
-pub struct SamplingLogger {
+pub(crate) struct SamplingLogger {
     logger: Logger,
     counter: AtomicUsize,
     sample: usize,
@@ -99,8 +99,8 @@ impl SamplingLogBuilder {
     }
 
     /// Consumes the builder and returns a configured `Logger` and `LogHandle`.
-    pub fn build_unboxed(self) -> Result<(SamplingLogger, LogDrain), &'static str> {
-        let (logger, log_handle) = self.log_builder.build_unboxed()?;
+    pub(crate) fn build_raw(self) -> Result<(SamplingLogger, LogDrain), &'static str> {
+        let (logger, log_handle) = self.log_builder.build_raw()?;
         let logger = SamplingLogger {
             logger,
             // initialize to 1 not 0 so the first fetch_add returns a 1
@@ -111,8 +111,8 @@ impl SamplingLogBuilder {
     }
 
     /// Consumes the builder and returns a configured `Box<dyn Log>` and `Box<dyn Drain>`.
-    pub fn build(self) -> Result<(Box<dyn Log>, Box<dyn Drain>), &'static str> {
-        let (logger, log_drain) = self.build_unboxed()?;
-        Ok((Box::new(logger), Box::new(log_drain)))
+    pub fn build(self) -> Result<AsyncLog, &'static str> {
+        let (logger, drain) = self.build_raw()?;
+        Ok(AsyncLog { logger: Box::new(logger), drain: Box::new(drain) })
     }
 }
