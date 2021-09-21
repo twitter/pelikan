@@ -47,12 +47,6 @@ impl Log for MultiLogger {
     fn flush(&self) {}
 }
 
-impl LogEx for MultiLogger {
-    fn level_filter(&self) -> LevelFilter {
-        self.level_filter
-    }
-}
-
 pub(crate) struct MultiLogDrain {
     default: Option<Box<dyn Drain>>,
     targets: HashMap<String, Box<dyn Drain>>,

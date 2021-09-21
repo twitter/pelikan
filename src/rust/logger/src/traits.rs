@@ -2,25 +2,18 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::*;
-use std::io::Error;
-use std::io::Write;
+use std::io::{Error, Write};
 
-/// An extended version of the `Log` trait that provides a convenience function
-/// for starting the logger.
-pub(crate) trait LogEx: 'static + log::Log + Sized {
-    fn level_filter(&self) -> LevelFilter;
-
-    fn start(self) {
-        let level_filter = self.level_filter();
-        log::set_boxed_logger(Box::new(self))
-            .map(|()| log::set_max_level(level_filter))
-            .expect("failed to start logger");
-    }
-}
-
+/// An `Output` is a logging destination, for example, standard out or a file.
 pub trait Output: Write + Send + Sync {}
 
+/// A `Drain` serves to receive log messages from a queue and flush them to an
+/// `Output`.
 pub trait Drain: Send {
+    /// Flushes log messages from the queue to the `Output` for this `Drain`.
+    /// This function must be called periodically to ensure there is capacity on
+    /// the queue for new log messages. It is recommended that this function is
+    /// called outside of any critical paths. For example, offloading to an
+    /// admin thread or dedicated logging thread.
     fn flush(&mut self) -> Result<(), Error>;
 }

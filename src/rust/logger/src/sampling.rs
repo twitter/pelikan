@@ -12,15 +12,15 @@ pub(crate) struct SamplingLogger {
     sample: usize,
 }
 
-impl LogEx for SamplingLogger {
-    fn level_filter(&self) -> LevelFilter {
+impl SamplingLogger {
+    pub fn level_filter(&self) -> LevelFilter {
         self.logger.level_filter()
     }
 }
 
 impl Log for SamplingLogger {
     fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
-        metadata.level() <= self.logger.level_filter()
+        metadata.level() <= self.level_filter()
     }
 
     fn log(&self, record: &log::Record<'_>) {

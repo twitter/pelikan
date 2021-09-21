@@ -14,8 +14,8 @@ pub(crate) struct Logger {
     level_filter: LevelFilter,
 }
 
-impl LogEx for Logger {
-    fn level_filter(&self) -> LevelFilter {
+impl Logger {
+    pub fn level_filter(&self) -> LevelFilter {
         self.level_filter
     }
 }
