@@ -2,6 +2,38 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! This crate provides an asynchronous logging backend that can direct logs to
+//! one or more outputs.
+//!
+//! The core of this crate is the `AsyncLog` type, which is constructed using a
+//! builder that is specific to your logging needs. After building the
+//! `AsyncLog`, it can be registered as the global logger using the `start`
+//! method. You will be left with a `Box<dyn Drain>` which should be
+//! periodically flushed outside of any critical path. For example, in an admin
+//! thread or dedicated logging thread.
+//!
+//! For logging to a single file, the `LogBuilder` type can be used to construct
+//! an `AsyncLog` which has low overhead, but directs log messages to a single
+//! `Output`.
+//!
+//! A `SamplingLogBuilder` can be used to construct an `AsyncLog` which will
+//! filter the log messages using sampling before directing the log messages to
+//! a single `Output`.
+//!
+//! A `MultiLogBuilder` can be used to construct an `AsyncLog` which routes log
+//! messages based on the `target` metadata of the log `Record`. If there is an
+//! `AsyncLog` registered for that specific `target`, then the log message will
+//! be routed to that instance of `AsyncLog`. Log messages that do not match any
+//! specific target will be routed to the default `AsyncLog` that has been added
+//! to the `MultiLogBuilder`. If there is no default, messages that do not match
+//! any specific target will be simply dropped.
+//!
+//! This combination of logging types allows us to compose a logging backend
+//! which meets the application's needs. For example, you can use a local log
+//! macro to set the target to some specific category and log those messages to
+//! a file, while letting all other log messages pass to standard out. This
+//! could allow splitting command/access/audit logs from the normal logging.
+
 pub use log::*;
 
 mod format;
