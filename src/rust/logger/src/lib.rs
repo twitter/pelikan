@@ -2,10 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use config::DebugConfig;
-use config::KlogConfig;
 pub use log::*;
-pub type LogBuffer = Vec<u8>;
 
 mod format;
 mod multi;
@@ -21,9 +18,11 @@ pub use sampling::*;
 pub use single::*;
 pub use traits::*;
 
-// for convenience include these
+use config::{DebugConfig, KlogConfig};
 use mpmc::Queue;
 use rustcommon_time::recent_local;
+
+pub(crate) type LogBuffer = Vec<u8>;
 
 /// A type which implements an asynchronous logging backend.
 pub struct AsyncLog {
