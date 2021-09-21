@@ -54,7 +54,7 @@ impl Log for Logger {
 
 pub trait Output: Write + Send + Sync {}
 
-pub trait Drain {
+pub trait Drain: Send {
     fn flush(&mut self) -> Result<(), Error>;
 }
 
@@ -144,7 +144,7 @@ impl LogBuilder {
     }
 
     /// Consumes the builder and returns a configured `Logger` and `LogHandle`.
-    pub fn build(self) -> Result<(Logger, LogDrain), &'static str> {
+    pub fn build_unboxed(self) -> Result<(Logger, LogDrain), &'static str> {
         if let Some(output) = self.output {
             let queue_capacity = self.total_buffer_size / self.log_message_size;
             let log_filled = Queue::with_capacity(queue_capacity);
@@ -169,5 +169,11 @@ impl LogBuilder {
         } else {
             Err("no output configured")
         }
+    }
+
+    /// Consumes the builder and returns a configured `Box<dyn Log>` and `Box<dyn Drain>`.
+    pub fn build(self) -> Result<(Box<dyn Log>, Box<dyn Drain>), &'static str> {
+        let (logger, log_drain) = self.build_unboxed()?;
+        Ok((Box::new(logger), Box::new(log_drain)))
     }
 }

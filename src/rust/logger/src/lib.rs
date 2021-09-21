@@ -10,12 +10,14 @@ pub type LogBuffer = Vec<u8>;
 mod format;
 mod multi;
 mod outputs;
+mod sampling;
 mod single;
 mod traits;
 
 pub use format::*;
 pub use multi::*;
 pub use outputs::*;
+pub use sampling::*;
 pub use single::*;
 pub use traits::*;
 
@@ -63,9 +65,10 @@ pub fn configure_logging(debug_config: &DebugConfig, klog_config: &KlogConfig) -
             File::new(&file, &backup, klog_config.max_size())
                 .expect("failed to open klog file"),
         );
-        let klog = LogBuilder::new()
+        let klog = SamplingLogBuilder::new()
             .output(output)
             .format(klog_format)
+            .sample(klog_config.sample())
             .build()
             .expect("failed to initialize klog");
         log_builder = log_builder.add_target("klog", klog);

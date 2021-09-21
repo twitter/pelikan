@@ -8,13 +8,13 @@ use std::io::Error;
 use ahash::AHashMap as HashMap;
 
 pub struct MultiLogger {
-    default: Option<Logger>,
-    targets: HashMap<String, Logger>,
+    default: Option<Box<dyn Log>>,
+    targets: HashMap<String, Box<dyn Log>>,
     level_filter: LevelFilter,
 }
 
 impl MultiLogger {
-    fn get_target(&self, target: &str) -> Option<&Logger> {
+    fn get_target(&self, target: &str) -> Option<&Box<dyn Log>> {
         self.targets.get(target).or_else(|| self.default.as_ref())
     }
 }
@@ -51,8 +51,8 @@ impl LogEx for MultiLogger {
 }
 
 pub struct MultiLogDrain {
-    default: Option<LogDrain>,
-    targets: HashMap<String, LogDrain>,
+    default: Option<Box<dyn Drain>>,
+    targets: HashMap<String, Box<dyn Drain>>,
 }
 
 impl Drain for MultiLogDrain {
@@ -68,8 +68,8 @@ impl Drain for MultiLogDrain {
 }
 
 pub struct MultiLogBuilder {
-    default: Option<(Logger, LogDrain)>,
-    targets: HashMap<String, (Logger, LogDrain)>,
+    default: Option<(Box<dyn Log>, Box<dyn Drain>)>,
+    targets: HashMap<String, (Box<dyn Log>, Box<dyn Drain>)>,
     level_filter: LevelFilter,
 }
 
@@ -89,12 +89,12 @@ impl MultiLogBuilder {
         Default::default()
     }
 
-    pub fn default(mut self, log: (Logger, LogDrain)) -> Self {
+    pub fn default(mut self, log: (Box<dyn Log>, Box<dyn Drain>)) -> Self {
         self.default = Some(log);
         self
     }
 
-    pub fn add_target(mut self, target: &str, log: (Logger, LogDrain)) -> Self {
+    pub fn add_target(mut self, target: &str, log: (Box<dyn Log>, Box<dyn Drain>)) -> Self {
         self.targets.insert(target.to_owned(), log);
         self
     }
