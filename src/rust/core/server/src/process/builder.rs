@@ -47,7 +47,7 @@ where
         storage: Storage,
         max_buffer_size: usize,
         parser: Parser,
-        log_drain: MultiLogDrain,
+        log_drain: Box<dyn Drain>,
     ) -> Self {
         // initialize admin
         let ssl_context = common::ssl::ssl_context(tls_config).unwrap_or_else(|e| {

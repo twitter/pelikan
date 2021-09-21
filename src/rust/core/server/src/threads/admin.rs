@@ -63,7 +63,7 @@ pub struct Admin {
     ssl_context: Option<SslContext>,
     signal_queue: QueuePairs<(), Signal>,
     parser: AdminRequestParser,
-    log_drain: MultiLogDrain,
+    log_drain: Box<dyn Drain>,
 }
 
 impl Admin {
@@ -71,7 +71,7 @@ impl Admin {
     pub fn new(
         config: &AdminConfig,
         ssl_context: Option<SslContext>,
-        log_drain: MultiLogDrain,
+        log_drain: Box<dyn Drain>,
     ) -> Result<Self, Error> {
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
