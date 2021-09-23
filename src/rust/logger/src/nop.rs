@@ -33,8 +33,7 @@ impl Drain for NopLogDrain {
     }
 }
 
-/// A type to construct a basic `AsyncLog` which routes all log messages to a
-/// single `Output`.
+/// A type to construct a basic `AsyncLog` which drops all log messages.
 pub struct NopLogBuilder {}
 
 impl Default for NopLogBuilder {
