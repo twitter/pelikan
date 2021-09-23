@@ -11,6 +11,12 @@ macro_rules! command {
     )
 }
 
+macro_rules! noplog {
+    ($($arg:tt)*) => (
+        error!(target: "noplog", $($arg)*);
+    )
+}
+
 fn main() {
     let default = LogBuilder::new()
         .output(Box::new(Stdout::new()))
@@ -25,12 +31,14 @@ fn main() {
         .build()
         .expect("failed to initialize command log");
 
-    let log = MultiLogBuilder::new()
+    let noplog = NopLogBuilder::new().build();
+
+    let mut drain = MultiLogBuilder::new()
         .default(default)
         .add_target("command", command)
-        .build();
-
-    let mut drain = log.start();
+        .add_target("noplog", noplog)
+        .build()
+        .start();
 
     std::thread::spawn(move || loop {
         let _ = drain.flush();
@@ -44,6 +52,8 @@ fn main() {
     trace!("trace");
 
     command!("\"get 0\" 0 0");
+
+    noplog!("this won't get displayed");
 
     std::thread::sleep(Duration::from_millis(1000));
 }
