@@ -85,6 +85,8 @@ impl AsyncLog {
 #[macro_export]
 macro_rules! klog {
     ($($arg:tt)*) => (
+        // we choose error level here because it is the lowest level and will
+        // not be filtered unless the level filter is set to `off`
         error!(target: "klog", $($arg)*);
     )
 }

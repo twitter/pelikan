@@ -7,12 +7,16 @@ use logger::*;
 
 macro_rules! command {
     ($($arg:tt)*) => (
+        // we choose error level here because it is the lowest level and will
+        // not be filtered unless the level filter is set to `off`
         error!(target: "command", $($arg)*);
     )
 }
 
 macro_rules! noplog {
     ($($arg:tt)*) => (
+        // we choose error level here because it is the lowest level and will
+        // not be filtered unless the level filter is set to `off`
         error!(target: "noplog", $($arg)*);
     )
 }
