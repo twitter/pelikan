@@ -11,7 +11,8 @@ const LOG_LEVEL: Level = Level::Info;
 const LOG_FILE: Option<String> = None;
 const LOG_BACKUP: Option<String> = None;
 const LOG_MAX_SIZE: u64 = GB as u64;
-const LOG_NBUF: usize = 0;
+const LOG_QUEUE_DEPTH: usize = 4096;
+const LOG_SINGLE_MESSAGE_SIZE: usize = KB;
 
 // helper functions
 fn log_level() -> Level {
@@ -30,8 +31,12 @@ fn log_max_size() -> u64 {
     LOG_MAX_SIZE
 }
 
-fn log_nbuf() -> usize {
-    LOG_NBUF
+fn log_queue_depth() -> usize {
+    LOG_QUEUE_DEPTH
+}
+
+fn log_single_message_size() -> usize {
+    LOG_SINGLE_MESSAGE_SIZE
 }
 
 // struct definitions
@@ -46,8 +51,10 @@ pub struct DebugConfig {
     log_backup: Option<String>,
     #[serde(default = "log_max_size")]
     log_max_size: u64,
-    #[serde(default = "log_nbuf")]
-    log_nbuf: usize,
+    #[serde(default = "log_queue_depth")]
+    log_queue_depth: usize,
+    #[serde(default = "log_single_message_size")]
+    log_single_message_size: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -83,8 +90,12 @@ impl DebugConfig {
         self.log_max_size
     }
 
-    pub fn log_nbuf(&self) -> usize {
-        self.log_nbuf
+    pub fn log_queue_depth(&self) -> usize {
+        self.log_queue_depth
+    }
+
+    pub fn log_single_message_size(&self) -> usize {
+        self.log_single_message_size
     }
 }
 
@@ -96,7 +107,8 @@ impl Default for DebugConfig {
             log_file: log_file(),
             log_backup: log_backup(),
             log_max_size: log_max_size(),
-            log_nbuf: log_nbuf(),
+            log_queue_depth: log_queue_depth(),
+            log_single_message_size: log_single_message_size(),
         }
     }
 }

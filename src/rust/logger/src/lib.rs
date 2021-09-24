@@ -104,6 +104,8 @@ pub fn configure_logging(debug_config: &DebugConfig, klog_config: &KlogConfig) -
 
     let debug_log = LogBuilder::new()
         .output(debug_output)
+        .log_queue_depth(debug_config.log_queue_depth())
+        .single_message_size(debug_config.log_single_message_size())
         .build()
         .expect("failed to initialize debug log");
 
@@ -116,6 +118,8 @@ pub fn configure_logging(debug_config: &DebugConfig, klog_config: &KlogConfig) -
             .output(output)
             .format(klog_format)
             .sample(klog_config.sample())
+            .log_queue_depth(klog_config.queue_depth())
+            .single_message_size(klog_config.single_message_size())
             .build()
             .expect("failed to initialize klog")
     } else {

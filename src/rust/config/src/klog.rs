@@ -21,11 +21,14 @@ const INTERVAL: usize = 100;
 // max log size before rotate in bytes
 const MAX_SIZE: u64 = GB as u64;
 
-// buffer size in bytes
-const NBUF: usize = 0;
+// logger queue depth
+const QUEUE_DEPTH: usize = 4096;
 
 // log 1 in every N commands
 const SAMPLE: usize = 100;
+
+// single message buffer size in bytes
+const SINGLE_MESSAGE_SIZE: usize = KB;
 
 ////////////////////////////////////////////////////////////////////////////////
 // helper functions
@@ -47,12 +50,16 @@ fn max_size() -> u64 {
     MAX_SIZE
 }
 
-fn nbuf() -> usize {
-    NBUF
+fn queue_depth() -> usize {
+    QUEUE_DEPTH
 }
 
 fn sample() -> usize {
     SAMPLE
+}
+
+fn single_message_size() -> usize {
+    SINGLE_MESSAGE_SIZE
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -61,18 +68,20 @@ fn sample() -> usize {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct KlogConfig {
-    #[serde(default = "file")]
-    file: Option<String>,
     #[serde(default = "backup")]
     backup: Option<String>,
+    #[serde(default = "file")]
+    file: Option<String>,
     #[serde(default = "interval")]
     interval: usize,
-    #[serde(default = "nbuf")]
-    nbuf: usize,
-    #[serde(default = "sample")]
-    sample: usize,
     #[serde(default = "max_size")]
     max_size: u64,
+    #[serde(default = "queue_depth")]
+    queue_depth: usize,
+    #[serde(default = "sample")]
+    sample: usize,
+    #[serde(default = "single_message_size")]
+    single_message_size: usize,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -99,12 +108,16 @@ impl KlogConfig {
         self.max_size
     }
 
-    pub fn nbuf(&self) -> usize {
-        self.nbuf
+    pub fn queue_depth(&self) -> usize {
+        self.queue_depth
     }
 
     pub fn sample(&self) -> usize {
         self.sample
+    }
+
+    pub fn single_message_size(&self) -> usize {
+        self.single_message_size
     }
 }
 
@@ -116,8 +129,9 @@ impl Default for KlogConfig {
             backup: backup(),
             interval: interval(),
             max_size: max_size(),
-            nbuf: nbuf(),
+            queue_depth: queue_depth(),
             sample: sample(),
+            single_message_size: single_message_size(),
         }
     }
 }
