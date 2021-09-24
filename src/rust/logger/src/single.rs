@@ -86,8 +86,8 @@ impl Drain for LogDrain {
 /// A type to construct a basic `AsyncLog` which routes all log messages to a
 /// single `Output`.
 pub struct LogBuilder {
-    total_buffer_size: usize,
-    log_message_size: usize,
+    log_queue_depth: usize,
+    single_message_size: usize,
     format: FormatFunction,
     level_filter: LevelFilter,
     output: Option<Box<dyn Output>>,
@@ -96,8 +96,8 @@ pub struct LogBuilder {
 impl Default for LogBuilder {
     fn default() -> Self {
         Self {
-            total_buffer_size: 4 * 1024 * 1024,
-            log_message_size: 1024,
+            log_queue_depth: 4096,
+            single_message_size: 1024,
             format: default_format,
             level_filter: LevelFilter::Trace,
             output: None,
@@ -111,17 +111,18 @@ impl LogBuilder {
         Default::default()
     }
 
-    /// Sets the total buffer size for log messages.
-    pub fn total_buffer_size(mut self, bytes: usize) -> Self {
-        self.total_buffer_size = bytes;
+    /// Sets the depth of the log queue. Deeper queues are less likely to drop
+    /// messages, but come at the cost of additional memory utilization.
+    pub fn log_queue_depth(mut self, messages: usize) -> Self {
+        self.log_queue_depth = messages;
         self
     }
 
-    /// Sets the log message buffer size. Oversized messages will result in an
-    /// extra allocation, but keeping this small allows deeper queues for the
-    /// same total buffer size without dropping log messages.
-    pub fn log_message_size(mut self, bytes: usize) -> Self {
-        self.log_message_size = bytes;
+    /// Sets the buffer size for a single message. Oversized messages will
+    /// result in an extra allocation, but keeping this small allows deeper
+    /// queues for the same total buffer size without dropping log messages.
+    pub fn single_message_size(mut self, bytes: usize) -> Self {
+        self.single_message_size = bytes;
         self
     }
 
@@ -140,23 +141,22 @@ impl LogBuilder {
     /// Consumes the builder and returns a configured `Logger` and `LogHandle`.
     pub(crate) fn build_raw(self) -> Result<(Logger, LogDrain), &'static str> {
         if let Some(output) = self.output {
-            let queue_capacity = self.total_buffer_size / self.log_message_size;
-            let log_filled = Queue::with_capacity(queue_capacity);
-            let log_cleared = Queue::with_capacity(queue_capacity);
-            for _ in 0..queue_capacity {
-                let _ = log_cleared.push(Vec::with_capacity(self.log_message_size));
+            let log_filled = Queue::with_capacity(self.log_queue_depth);
+            let log_cleared = Queue::with_capacity(self.log_queue_depth);
+            for _ in 0..self.log_queue_depth {
+                let _ = log_cleared.push(Vec::with_capacity(self.single_message_size));
             }
             let logger = Logger {
                 log_filled: log_filled.clone(),
                 log_cleared: log_cleared.clone(),
-                buffer_size: self.log_message_size,
+                buffer_size: self.single_message_size,
                 format: self.format,
                 level_filter: self.level_filter,
             };
             let log_handle = LogDrain {
                 log_filled,
                 log_cleared,
-                buffer_size: self.log_message_size,
+                buffer_size: self.single_message_size,
                 output,
             };
             Ok((logger, log_handle))

@@ -61,17 +61,18 @@ impl SamplingLogBuilder {
         Default::default()
     }
 
-    /// Sets the total buffer size for log messages.
-    pub fn total_buffer_size(mut self, bytes: usize) -> Self {
-        self.log_builder = self.log_builder.total_buffer_size(bytes);
+    /// Sets the depth of the log queue. Deeper queues are less likely to drop
+    /// messages, but come at the cost of additional memory utilization.
+    pub fn log_queue_depth(mut self, messages: usize) -> Self {
+        self.log_builder = self.log_builder.log_queue_depth(messages);
         self
     }
 
-    /// Sets the log message buffer size. Oversized messages will result in an
-    /// extra allocation, but keeping this small allows deeper queues for the
-    /// same total buffer size without dropping log messages.
-    pub fn log_message_size(mut self, bytes: usize) -> Self {
-        self.log_builder = self.log_builder.log_message_size(bytes);
+    /// Sets the buffer size for a single message. Oversized messages will
+    /// result in an extra allocation, but keeping this small allows deeper
+    /// queues for the same total buffer size without dropping log messages.
+    pub fn single_message_size(mut self, bytes: usize) -> Self {
+        self.log_builder = self.log_builder.single_message_size(bytes);
         self
     }
 
