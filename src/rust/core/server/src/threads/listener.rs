@@ -88,7 +88,7 @@ impl Listener {
                 Ok((stream, _)) => {
                     // handle TLS if it is configured
                     if let Some(ssl_context) = &self.ssl_context {
-                        match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
+                        match Ssl::new(ssl_context).map(|v| v.accept(stream)) {
                             // handle case where we have a fully-negotiated
                             // TLS stream on accept()
                             Ok(Ok(tls_stream)) => {
@@ -224,7 +224,7 @@ impl Listener {
                         }
                     }
                     _ => {
-                        self.handle_session_event(&event);
+                        self.handle_session_event(event);
                     }
                 }
             }

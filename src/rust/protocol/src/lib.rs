@@ -2,7 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::io::Write;
+#[macro_use]
+extern crate logger;
+
+use session::Session;
 
 pub mod admin;
 pub mod memcache;
@@ -11,7 +14,7 @@ pub mod ping;
 pub const CRLF: &str = "\r\n";
 
 pub trait Compose {
-    fn compose<Buffer: Write>(self, dst: &mut Buffer);
+    fn compose(self, dst: &mut Session);
 }
 
 pub trait Execute<Request, Response> {

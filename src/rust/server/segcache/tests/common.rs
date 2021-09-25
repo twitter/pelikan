@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use rustcommon_logger::*;
+use logger::*;
 
 use std::io::{Read, Write};
 use std::net::TcpStream;
@@ -110,12 +110,12 @@ fn test(name: &str, data: &[(&str, Option<&str>)]) {
                     debug!("full request sent");
                 } else {
                     error!("incomplete write");
-                    fatal!("status: failed\n");
+                    panic!("status: failed\n");
                 }
             }
             Err(_) => {
                 error!("error sending request");
-                fatal!("status: failed\n");
+                panic!("status: failed\n");
             }
         }
 
@@ -124,11 +124,11 @@ fn test(name: &str, data: &[(&str, Option<&str>)]) {
 
         if let Some(response) = response {
             if stream.read(&mut buf).is_err() {
-                fatal!("error reading response");
+                panic!("error reading response");
             } else if response.as_bytes() != &buf[0..response.len()] {
                 error!("expected: {:?}", response.as_bytes());
                 error!("received: {:?}", &buf[0..response.len()]);
-                fatal!("status: failed\n");
+                panic!("status: failed\n");
             } else {
                 debug!("correct response");
             }
@@ -138,11 +138,11 @@ fn test(name: &str, data: &[(&str, Option<&str>)]) {
                 debug!("got no response");
             } else {
                 error!("error reading response");
-                fatal!("status: failed\n");
+                panic!("status: failed\n");
             }
         } else {
             error!("expected no response");
-            fatal!("status: failed\n");
+            panic!("status: failed\n");
         }
 
         if data.len() > 1 {

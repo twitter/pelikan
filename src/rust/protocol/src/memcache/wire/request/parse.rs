@@ -329,7 +329,7 @@ fn parse_set(
         }
 
         let key = buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice();
-        let value = buffer[value_start..value_end].to_vec().into_boxed_slice();
+        let value = Some(buffer[value_start..value_end].to_vec().into_boxed_slice());
 
         let entry = MemcacheEntry {
             key,

@@ -1,0 +1,13 @@
+[package]
+name = "logger"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ahash = "0.7.4"
+config = { path = "../config" }
+log = { version = "0.4.14", features = ["std"] }
+mpmc = "0.1.6"
+rustcommon-time = { git = "https://github.com/twitter/rustcommon" }

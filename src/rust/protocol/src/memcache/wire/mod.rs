@@ -33,10 +33,18 @@ static_metrics! {
     static ADD_NOT_STORED: Counter;
 
     static REPLACE: Counter;
+    static REPLACE_STORED: Counter;
+    static REPLACE_NOT_STORED: Counter;
 
     static DELETE: Counter;
+    static DELETE_DELETED: Counter;
+    static DELETE_NOT_FOUND: Counter;
 
     static CAS: Counter;
+    static CAS_EX: Counter;
+    static CAS_EXISTS: Counter;
+    static CAS_NOT_FOUND: Counter;
+    static CAS_STORED: Counter;
 }
 
 impl<'a, T> Execute<MemcacheRequest, MemcacheResponse> for T
@@ -44,44 +52,19 @@ where
     T: MemcacheStorage,
 {
     fn execute(&mut self, request: MemcacheRequest) -> Option<MemcacheResponse> {
-        let response = match request {
-            MemcacheRequest::Get { keys } => {
-                GET.increment();
-
-                let entries = self.get(&keys);
-
-                GET_KEY.add(keys.len() as _);
-                GET_KEY_HIT.add(entries.len() as _);
-                GET_KEY_MISS.add(keys.len() as _);
-
-                MemcacheResponse::Values {
-                    entries,
-                    cas: false,
-                }
-            }
-            MemcacheRequest::Gets { keys } => {
-                GETS.increment();
-
-                let entries = self.get(&keys);
-
-                GETS_KEY.add(keys.len() as _);
-                GETS_KEY_HIT.add(keys.len() as _);
-                GETS_KEY_MISS.add(keys.len() as _);
-
-                MemcacheResponse::Values { entries, cas: true }
-            }
-            MemcacheRequest::Set { entry, noreply } => {
-                SET.increment();
-
+        let result = match request {
+            MemcacheRequest::Get { ref keys } => MemcacheResult::Values {
+                entries: self.get(keys),
+                cas: false,
+            },
+            MemcacheRequest::Gets { ref keys } => MemcacheResult::Values {
+                entries: self.get(keys),
+                cas: true,
+            },
+            MemcacheRequest::Set { ref entry, noreply } => {
                 let response = match self.set(entry) {
-                    Ok(_) => {
-                        SET_STORED.increment();
-                        MemcacheResponse::Stored
-                    }
-                    Err(MemcacheStorageError::NotStored) => {
-                        SET_NOT_STORED.increment();
-                        MemcacheResponse::NotStored
-                    }
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
                     _ => {
                         unreachable!()
                     }
@@ -91,18 +74,10 @@ where
                 }
                 response
             }
-            MemcacheRequest::Add { entry, noreply } => {
-                ADD.increment();
-
+            MemcacheRequest::Add { ref entry, noreply } => {
                 let response = match self.add(entry) {
-                    Ok(_) => {
-                        ADD_STORED.increment();
-                        MemcacheResponse::Stored
-                    }
-                    Err(MemcacheStorageError::NotStored) => {
-                        ADD_NOT_STORED.increment();
-                        MemcacheResponse::NotStored
-                    }
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
                     _ => {
                         unreachable!()
                     }
@@ -112,11 +87,10 @@ where
                 }
                 response
             }
-            MemcacheRequest::Replace { entry, noreply } => {
-                REPLACE.increment();
+            MemcacheRequest::Replace { ref entry, noreply } => {
                 let response = match self.replace(entry) {
-                    Ok(_) => MemcacheResponse::Stored,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResponse::NotStored,
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
                     _ => {
                         unreachable!()
                     }
@@ -126,11 +100,10 @@ where
                 }
                 response
             }
-            MemcacheRequest::Delete { key, noreply } => {
-                DELETE.increment();
-                let response = match self.delete(&key) {
-                    Ok(_) => MemcacheResponse::Deleted,
-                    Err(MemcacheStorageError::NotFound) => MemcacheResponse::NotFound,
+            MemcacheRequest::Delete { ref key, noreply } => {
+                let response = match self.delete(key) {
+                    Ok(_) => MemcacheResult::Deleted,
+                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
                     _ => {
                         unreachable!()
                     }
@@ -140,13 +113,12 @@ where
                 }
                 response
             }
-            MemcacheRequest::Cas { entry, noreply } => {
-                CAS.increment();
+            MemcacheRequest::Cas { ref entry, noreply } => {
                 let response = match self.cas(entry) {
-                    Ok(_) => MemcacheResponse::Stored,
-                    Err(MemcacheStorageError::NotFound) => MemcacheResponse::NotFound,
-                    Err(MemcacheStorageError::Exists) => MemcacheResponse::Exists,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResponse::NotStored,
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
+                    Err(MemcacheStorageError::Exists) => MemcacheResult::Exists,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
                 };
                 if noreply {
                     return None;
@@ -155,6 +127,6 @@ where
             }
         };
 
-        Some(response)
+        Some(MemcacheResponse { request, result })
     }
 }

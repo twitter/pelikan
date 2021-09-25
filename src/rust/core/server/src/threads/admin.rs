@@ -11,6 +11,7 @@ use crate::TCP_ACCEPT_EX;
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
 use config::AdminConfig;
+use logger::*;
 use metrics::{static_metrics, Counter, Gauge};
 use mio::event::Event;
 use mio::Events;
@@ -62,11 +63,16 @@ pub struct Admin {
     ssl_context: Option<SslContext>,
     signal_queue: QueuePairs<(), Signal>,
     parser: AdminRequestParser,
+    log_drain: Box<dyn Drain>,
 }
 
 impl Admin {
     /// Creates a new `Admin` event loop.
-    pub fn new(config: &AdminConfig, ssl_context: Option<SslContext>) -> Result<Self, Error> {
+    pub fn new(
+        config: &AdminConfig,
+        ssl_context: Option<SslContext>,
+        log_drain: Box<dyn Drain>,
+    ) -> Result<Self, Error> {
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
@@ -93,6 +99,7 @@ impl Admin {
             ssl_context,
             signal_queue,
             parser: AdminRequestParser::new(),
+            log_drain,
         })
     }
 
@@ -141,7 +148,7 @@ impl Admin {
                 Ok((stream, _)) => {
                     // handle TLS if it is configured
                     if let Some(ssl_context) = &self.ssl_context {
-                        match Ssl::new(&ssl_context).map(|v| v.accept(stream)) {
+                        match Ssl::new(ssl_context).map(|v| v.accept(stream)) {
                             // handle case where we have a fully-negotiated
                             // TLS stream on accept()
                             Ok(Ok(tls_stream)) => {
@@ -281,6 +288,8 @@ impl Admin {
             }
 
             self.get_rusage();
+
+            let _ = self.log_drain.flush();
         }
     }
 

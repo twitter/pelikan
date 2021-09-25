@@ -609,6 +609,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "logger"
+version = "0.1.0"
+dependencies = [
+ "ahash 0.7.4",
+ "config",
+ "log",
+ "mpmc",
+ "rustcommon-time",
+]
+
+[[package]]
 name = "mach"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -691,6 +702,12 @@ checksum = "b9f1c5b025cda876f66ef43a113f91ebc9f4ccef34843000e0adf6ebbab84e21"
 dependencies = [
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "mpmc"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf78b1242a953be96e01b5f8ed8ffdfc8055c0a2b779899b3835e5d27a69dced"
 
 [[package]]
 name = "nom"
@@ -815,6 +832,7 @@ dependencies = [
  "config",
  "criterion",
  "entrystore",
+ "logger",
  "metrics",
  "protocol",
  "rustcommon-logger",
@@ -882,8 +900,10 @@ dependencies = [
  "common",
  "config",
  "criterion",
+ "logger",
  "metrics",
  "rustcommon-time",
+ "session",
 ]
 
 [[package]]
@@ -1190,6 +1210,7 @@ dependencies = [
  "config",
  "criterion",
  "entrystore",
+ "logger",
  "metrics",
  "protocol",
  "rustcommon-logger",
@@ -1259,6 +1280,7 @@ dependencies = [
  "crossbeam-channel",
  "entrystore",
  "libc",
+ "logger",
  "metrics",
  "mio",
  "protocol",

@@ -8,6 +8,7 @@
 
 use config::PingserverConfig;
 use entrystore::Noop;
+use logger::*;
 use protocol::ping::{PingRequest, PingRequestParser, PingResponse};
 use server::{Process, ProcessBuilder};
 
@@ -24,6 +25,9 @@ pub struct Pingserver {
 impl Pingserver {
     /// Creates a new `Pingserver` process from the given `PingserverConfig`.
     pub fn new(config: PingserverConfig) -> Self {
+        // initialize logging
+        let log_drain = configure_logging(config.debug(), config.klog());
+
         // initialize metrics
         metrics::init();
 
@@ -45,6 +49,7 @@ impl Pingserver {
             storage,
             max_buffer_size,
             parser,
+            log_drain,
         );
 
         // spawn threads

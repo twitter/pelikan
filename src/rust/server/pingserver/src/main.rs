@@ -3,12 +3,11 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 #[macro_use]
-extern crate rustcommon_logger;
+extern crate logger;
 
 use backtrace::Backtrace;
 use config::PingserverConfig;
 use pelikan_pingserver_rs::Pingserver;
-use rustcommon_logger::Logger;
 
 fn main() {
     // custom panic hook to terminate whole process after unwinding
@@ -31,13 +30,6 @@ fn main() {
     } else {
         Default::default()
     };
-
-    // initialize logging
-    Logger::new()
-        .label(env!("CARGO_CRATE_NAME"))
-        .level(config.debug().log_level())
-        .init()
-        .expect("Failed to initialize logger");
 
     // launch
     Pingserver::new(config).wait()
