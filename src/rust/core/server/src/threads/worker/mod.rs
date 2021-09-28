@@ -12,10 +12,11 @@ mod storage;
 pub use self::storage::StorageWorker;
 use mio::Token;
 pub use multi::MultiWorker;
+use rustcommon_time::Duration;
 pub use single::SingleWorker;
 
 use super::EventLoop;
-use metrics::{static_metrics, Counter};
+use metrics::{static_metrics, Counter, Heatmap, Relaxed};
 
 static_metrics! {
     static WORKER_EVENT_LOOP: Counter;
@@ -27,6 +28,10 @@ static_metrics! {
     static STORAGE_EVENT_LOOP: Counter;
 
     static PROCESS_REQ: Counter;
+
+    static REQUEST_LATENCY: Relaxed<Heatmap> = Relaxed::new(||
+        Heatmap::new(1_000_000_000, 3, Duration::from_secs(60), Duration::from_secs(1))
+    );
 }
 
 pub struct TokenWrapper<T> {

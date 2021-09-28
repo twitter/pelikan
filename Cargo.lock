@@ -1078,7 +1078,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-atomics"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#ad0674fbc8b1d861a6200a2b17f13831b7f6fbcb"
+source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
 dependencies = [
  "serde",
 ]
@@ -1086,15 +1086,26 @@ dependencies = [
 [[package]]
 name = "rustcommon-buffer"
 version = "0.2.0"
-source = "git+https://github.com/twitter/rustcommon#ad0674fbc8b1d861a6200a2b17f13831b7f6fbcb"
+source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
 dependencies = [
  "bytes",
 ]
 
 [[package]]
+name = "rustcommon-heatmap"
+version = "0.1.1"
+source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
+dependencies = [
+ "rustcommon-atomics",
+ "rustcommon-histogram",
+ "rustcommon-time",
+ "thiserror",
+]
+
+[[package]]
 name = "rustcommon-histogram"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#ad0674fbc8b1d861a6200a2b17f13831b7f6fbcb"
+source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
 dependencies = [
  "rustcommon-atomics",
  "thiserror",
@@ -1103,7 +1114,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-logger"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#ad0674fbc8b1d861a6200a2b17f13831b7f6fbcb"
+source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
 dependencies = [
  "log",
  "time",
@@ -1112,7 +1123,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-metrics-derive"
 version = "0.1.0"
-source = "git+https://github.com/twitter/rustcommon#ad0674fbc8b1d861a6200a2b17f13831b7f6fbcb"
+source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -1123,17 +1134,21 @@ dependencies = [
 [[package]]
 name = "rustcommon-metrics-v2"
 version = "0.1.0"
-source = "git+https://github.com/twitter/rustcommon#ad0674fbc8b1d861a6200a2b17f13831b7f6fbcb"
+source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
 dependencies = [
  "linkme",
+ "once_cell",
  "parking_lot",
+ "rustcommon-atomics",
+ "rustcommon-heatmap",
  "rustcommon-metrics-derive",
+ "rustcommon-time",
 ]
 
 [[package]]
 name = "rustcommon-time"
 version = "0.0.6"
-source = "git+https://github.com/twitter/rustcommon#ad0674fbc8b1d861a6200a2b17f13831b7f6fbcb"
+source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
 dependencies = [
  "chrono",
  "lazy_static",

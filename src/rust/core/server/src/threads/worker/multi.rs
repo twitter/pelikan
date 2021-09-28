@@ -7,6 +7,7 @@
 //! the requests to the storage worker. Responses from the storage worker are
 //! then serialized onto the session buffer.
 
+use rustcommon_time::Instant;
 use super::EventLoop;
 use super::*;
 use crate::poll::Poll;
@@ -100,6 +101,8 @@ where
 
             WORKER_EVENT_TOTAL.add(events.iter().count() as _);
 
+            rustcommon_time::refresh_clock();
+
             // process all events
             for event in events.iter() {
                 match event.token() {
@@ -133,6 +136,8 @@ where
     fn handle_event(&mut self, event: &Event) {
         let token = event.token();
 
+
+
         // event for existing session
         trace!("got event for session: {}", token.0);
 
@@ -152,6 +157,9 @@ where
         // read events are handled last
         if event.is_readable() {
             WORKER_EVENT_READ.increment();
+            if let Ok(session) = self.poll.get_mut_session(token) {
+                session.set_timestamp(Instant::recent());
+            }
             let _ = self.do_read(token);
         }
 
@@ -229,6 +237,10 @@ where
                                 debug!("error flushing: {}", e);
                             }
                         }
+                    } else {
+                        let now = rustcommon_time::now_precise();
+                        let latency = (now - session.timestamp()).as_nanos();
+                        REQUEST_LATENCY.increment(now, latency as _, 1);
                     }
                 }
 

@@ -10,16 +10,15 @@ mod buffer;
 mod stream;
 mod tcp_stream;
 
-use std::borrow::Borrow;
-use std::borrow::BorrowMut;
-use std::io::BufRead;
-use std::io::{ErrorKind, Read, Write};
+use std::borrow::{Borrow, BorrowMut};
+use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
 use boring::ssl::{MidHandshakeSslStream, SslStream};
 use metrics::{static_metrics, Counter};
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
+use rustcommon_time::Instant;
 
 use buffer::Buffer;
 use stream::Stream;
@@ -51,6 +50,7 @@ pub struct Session {
     write_buffer: Buffer,
     min_capacity: usize,
     max_capacity: usize,
+    timestamp: Instant,
 }
 
 impl Session {
@@ -93,6 +93,7 @@ impl Session {
             write_buffer: Buffer::with_capacity(min_capacity),
             min_capacity,
             max_capacity,
+            timestamp: Instant::now(),
         }
     }
 
@@ -181,6 +182,14 @@ impl Session {
 
     pub fn peer_addr(&self) -> Result<SocketAddr, std::io::Error> {
         self.stream.peer_addr()
+    }
+
+    pub fn timestamp(&self) -> Instant {
+        self.timestamp
+    }
+
+    pub fn set_timestamp(&mut self, timestamp: Instant) {
+        self.timestamp = timestamp;
     }
 }
 

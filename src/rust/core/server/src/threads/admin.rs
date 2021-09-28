@@ -12,7 +12,7 @@ use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStr
 use common::signal::Signal;
 use config::AdminConfig;
 use logger::*;
-use metrics::{static_metrics, Counter, Gauge};
+use metrics::{static_metrics, Counter, Gauge, Heatmap};
 use mio::event::Event;
 use mio::Events;
 use mio::Token;
@@ -65,6 +65,16 @@ pub struct Admin {
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
 }
+
+static PERCENTILES: &[(&str, f64)] = &[
+    ("p25", 25.0),
+    ("p50", 50.0),
+    ("p75", 75.0),
+    ("p90", 90.0),
+    ("p99", 99.0),
+    ("p999", 99.9),
+    ("p9999", 99.99),
+];
 
 impl Admin {
     /// Creates a new `Admin` event loop.
@@ -184,13 +194,25 @@ impl Admin {
         for metric in &metrics::rustcommon_metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
-                None => continue,
+                None => {
+                    continue;
+                }
             };
 
             if let Some(counter) = any.downcast_ref::<Counter>() {
                 data.push(format!("STAT {} {}\r\n", metric.name(), counter.value()));
             } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
                 data.push(format!("STAT {} {}\r\n", metric.name(), gauge.value()));
+            } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
+                for (label, value) in PERCENTILES {
+                    let percentile = heatmap.percentile(*value).unwrap_or(0);
+                    data.push(format!(
+                        "STAT {}_{} {}\r\n",
+                        metric.name(),
+                        label,
+                        percentile
+                    ));
+                }
             }
         }
 
