@@ -28,10 +28,6 @@ static_metrics! {
     static STORAGE_EVENT_LOOP: Counter;
 
     static PROCESS_REQ: Counter;
-
-    static REQUEST_LATENCY: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(1_000_000_000, 3, Duration::from_secs(60), Duration::from_secs(1))
-    );
 }
 
 pub struct TokenWrapper<T> {

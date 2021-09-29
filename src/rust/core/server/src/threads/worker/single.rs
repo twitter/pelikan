@@ -7,7 +7,6 @@
 //! the request using the backing storage, and then composes a response onto the
 //! session buffer.
 
-use rustcommon_time::Instant;
 use super::EventLoop;
 use super::*;
 use crate::poll::{Poll, WAKER_TOKEN};
@@ -23,6 +22,7 @@ use mio::Waker;
 use protocol::{Compose, Execute, Parse, ParseError};
 use queues::QueuePair;
 use queues::QueuePairs;
+use rustcommon_time::Instant;
 use session::Session;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
@@ -206,6 +206,7 @@ where
 
                         if let Some(response) = self.storage.execute(request) {
                             response.compose(session);
+                            session.finalize_response();
                         }
                     }
                     Err(ParseError::Incomplete) => {
@@ -220,12 +221,14 @@ where
                     }
                 }
             }
-            if session.write_pending() > 0 && (session.flush().is_ok() && session.write_pending() > 0) {
+            // if we have pending writes, we should attempt to flush the session
+            // now. if we still have pending bytes, we should re-register to
+            // remove the read interest.
+            if session.write_pending() > 0 {
+                let _ = session.flush();
+                if session.write_pending() > 0 {
                     self.poll.reregister(token);
-            } else {
-                let now = rustcommon_time::now_precise();
-                let latency = (now - session.timestamp()).as_nanos();
-                REQUEST_LATENCY.increment(now, latency as _, 1);
+                }
             }
             Ok(())
         } else {

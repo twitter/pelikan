@@ -7,7 +7,6 @@
 //! the requests to the storage worker. Responses from the storage worker are
 //! then serialized onto the session buffer.
 
-use rustcommon_time::Instant;
 use super::EventLoop;
 use super::*;
 use crate::poll::Poll;
@@ -22,6 +21,7 @@ use mio::event::Event;
 use mio::{Events, Token, Waker};
 use protocol::{Compose, Execute, Parse, ParseError};
 use queues::{QueuePair, QueuePairs, SendError};
+use rustcommon_time::Instant;
 use session::Session;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
@@ -136,8 +136,6 @@ where
     fn handle_event(&mut self, event: &Event) {
         let token = event.token();
 
-
-
         // event for existing session
         trace!("got event for session: {}", token.0);
 
@@ -226,21 +224,15 @@ where
             if let Ok(mut session) = self.poll.get_mut_session(token) {
                 if let Some(response) = message.into_inner() {
                     response.compose(&mut session);
+                    session.finalize_response();
+                    // if we have pending writes, we should attempt to flush the session
+                    // now. if we still have pending bytes, we should re-register to
+                    // remove the read interest.
                     if session.write_pending() > 0 {
-                        match session.flush() {
-                            Ok(_) => {
-                                if session.write_pending() > 0 {
-                                    reregister = true;
-                                }
-                            }
-                            Err(e) => {
-                                debug!("error flushing: {}", e);
-                            }
+                        let _ = session.flush();
+                        if session.write_pending() > 0 {
+                            reregister = true;
                         }
-                    } else {
-                        let now = rustcommon_time::now_precise();
-                        let latency = (now - session.timestamp()).as_nanos();
-                        REQUEST_LATENCY.increment(now, latency as _, 1);
                     }
                 }
 
@@ -289,22 +281,30 @@ where
 {
     fn handle_data(&mut self, token: Token) -> Result<(), std::io::Error> {
         trace!("handling request for session: {}", token.0);
-        let write_capacity = self.poll.get_mut_session(token)?.write_capacity();
-        if write_capacity > 0 && self.handle_session_read(token).is_ok() {
+        if self.handle_session_read(token).is_ok() {
             self.wake_storage = true;
         }
+        // if let Ok(session) = self.poll.get_mut_session(token) {
+        //     if self.handle_session_read(token).is_ok() {
+        //         self.wake_storage = true;
+        //     }
+        // }
+        // let write_capacity = self.poll.get_mut_session(token)?.write_capacity();
+        // if write_capacity > 0 && self.handle_session_read(token).is_ok() {
+        //     self.wake_storage = true;
+        // }
 
-        let write_pending = self.poll.get_mut_session(token)?.write_pending();
-        if write_pending > 0 {
-            {
-                let session = self.poll.get_mut_session(token)?;
-                let _ = session.flush();
-            }
-            let write_pending = self.poll.get_mut_session(token)?.write_pending();
-            if write_pending > 0 {
-                self.poll.reregister(token);
-            }
-        }
+        // let write_pending = self.poll.get_mut_session(token)?.write_pending();
+        // if write_pending > 0 {
+        //     {
+        //         let session = self.poll.get_mut_session(token)?;
+        //         let _ = session.flush();
+        //     }
+        //     let write_pending = self.poll.get_mut_session(token)?.write_pending();
+        //     if write_pending > 0 {
+        //         self.poll.reregister(token);
+        //     }
+        // }
         Ok(())
     }
 
