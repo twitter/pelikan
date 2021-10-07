@@ -322,13 +322,6 @@ impl<'a> Segment<'a> {
         self.check_magic();
     }
 
-    /// Returns the item looking it up from the item_info
-    // TODO(bmartin): consider changing the return type here and removing asserts?
-    pub(crate) fn get_item(&mut self, item_info: u64) -> Option<RawItem> {
-        assert_eq!(get_seg_id(item_info), Some(self.id()));
-        self.get_item_at(get_offset(item_info) as usize)
-    }
-
     /// Returns the item at the given offset
     // TODO(bmartin): consider changing the return type here and removing asserts?
     #[allow(clippy::unnecessary_wraps)]
@@ -613,9 +606,10 @@ impl<'a> Segment<'a> {
 
             debug_assert!(item.klen() > 0, "invalid klen: ({})", item.klen());
 
+            items += 1;
+            bytes += item.size();
+
             if !item.deleted() {
-                items += 1;
-                bytes += item.size();
                 trace!("evicting from hashtable");
                 let removed = if expire {
                     hashtable.expire(item.key(), offset.try_into().unwrap(), self)

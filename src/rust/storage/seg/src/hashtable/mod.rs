@@ -429,7 +429,7 @@ impl HashTable {
     ) -> Result<(), ()> {
         HASH_INSERT.increment();
 
-        let hash = self.hash(&item.key());
+        let hash = self.hash(item.key());
         let tag = tag_from_hash(hash);
         let mut bucket_id = (hash & self.mask) as usize;
         let chain_len = chain_len(self.data[bucket_id].data[0]);
@@ -682,30 +682,28 @@ impl HashTable {
                 if get_tag(current_item_info) != tag {
                     continue;
                 }
+                if get_seg_id(current_item_info) != Some(segment.id())
+                    || get_offset(current_item_info) != offset as _
+                {
+                    HASH_TAG_COLLISION.increment();
+                    continue;
+                }
 
-                if get_seg_id(current_item_info) == Some(segment.id()) {
-                    let current_item = segment.get_item(current_item_info).unwrap();
-                    if current_item.key() != key {
-                        HASH_TAG_COLLISION.increment();
-                        continue;
-                    }
-
-                    if first_match {
-                        if evict_item_info == current_item_info {
-                            segment.remove_item(current_item_info, false);
-                            bucket.data[i] = 0;
-                            outdated = false;
-                            evicted = true;
-                        }
-                        first_match = false;
-                        continue;
-                    } else {
-                        if !evicted && current_item_info == evict_item_info {
-                            evicted = true;
-                        }
-                        segment.remove_item(bucket.data[i], !outdated);
+                if first_match {
+                    if evict_item_info == current_item_info {
+                        segment.remove_item(current_item_info, false);
                         bucket.data[i] = 0;
+                        outdated = false;
+                        evicted = true;
                     }
+                    first_match = false;
+                    continue;
+                } else {
+                    if !evicted && current_item_info == evict_item_info {
+                        evicted = true;
+                    }
+                    segment.remove_item(bucket.data[i], !outdated);
+                    bucket.data[i] = 0;
                 }
             }
             if chain_idx == chain_len {
