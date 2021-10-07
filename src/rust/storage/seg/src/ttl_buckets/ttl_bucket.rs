@@ -125,7 +125,7 @@ impl TtlBucket {
             }
             self.tail = Some(id);
             self.nseg += 1;
-            debug_assert!(segment.evictable(), "segment should not be evictable");
+            debug_assert!(!segment.evictable(), "segment should not be evictable");
             segment.set_evictable(true);
             segment.set_accessible(true);
             Ok(())
