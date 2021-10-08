@@ -198,7 +198,11 @@ impl Eviction {
     /// The compact ratio serves as a low watermark for triggering compaction
     /// and combining segments without eviction.
     pub fn compact_ratio(&self) -> f64 {
-        1.0 / self.n_compact() as f64
+        if self.n_compact() == 0 {
+            0.0
+        } else {
+            1.0 / self.n_compact() as f64
+        }
     }
 
     #[inline]
