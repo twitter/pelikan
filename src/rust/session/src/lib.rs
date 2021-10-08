@@ -67,12 +67,19 @@ pub struct Session {
     // out into a response tracking struct. It would make the session
     // type more applicable to clients if we move this out.
     //
-    /// a timestamp which is used to calculate response latency
+    /// A timestamp which is used to calculate response latency
     timestamp: Instant,
-    /// this is a queue of pending response sizes
+    /// This is a queue of pending response sizes. When a response is finalized,
+    /// the bytes in that response are pushed onto the back of the queue. As the
+    /// session flushes out to the underlying socket, we can calculate when a
+    /// response is completely flushed to the underlying socket and record a
+    /// response latency.
     pending_responses: VecDeque<usize>,
-    /// this holds the total response bytes pending so we can know how many
-    /// bytes have been accumulated
+    /// This holds the total number of bytes pending for finalized responses. By
+    /// tracking this, we can determine the size of a response even if it is
+    /// written into the session with multiple calls to write. It is essentially
+    /// a cached value of `write_buffer.pending_bytes()` that does not reflect
+    /// bytes from responses which are not yet finalized.
     pending_bytes: usize,
 }
 
@@ -238,6 +245,10 @@ impl Session {
 
         self.pending_bytes = current;
 
+        // `len` holds the number of bytes for the finalized response, for empty
+        // 'responses' (eg: memcache NOREPLY), we finalize an empty response to
+        // track the latency. This can be recorded immediately, as there is no
+        // queued response in the buffer.
         if len == 0 {
             let now = Instant::now();
             let latency = (now - self.timestamp()).as_nanos() as u64;
