@@ -50,6 +50,8 @@ pub enum Policy {
         /// will only occur if a segment falls below `1/N`th occupancy. Setting
         /// this higher will cause fewer compaction runs but can result in a
         /// larger percentage of dead bytes.
+        ///
+        /// Note: Compaction will be disabled by setting this parameter to zero.
         compact: usize,
     },
 }
