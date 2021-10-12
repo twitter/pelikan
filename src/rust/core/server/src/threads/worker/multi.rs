@@ -284,27 +284,6 @@ where
         if self.handle_session_read(token).is_ok() {
             self.wake_storage = true;
         }
-        // if let Ok(session) = self.poll.get_mut_session(token) {
-        //     if self.handle_session_read(token).is_ok() {
-        //         self.wake_storage = true;
-        //     }
-        // }
-        // let write_capacity = self.poll.get_mut_session(token)?.write_capacity();
-        // if write_capacity > 0 && self.handle_session_read(token).is_ok() {
-        //     self.wake_storage = true;
-        // }
-
-        // let write_pending = self.poll.get_mut_session(token)?.write_pending();
-        // if write_pending > 0 {
-        //     {
-        //         let session = self.poll.get_mut_session(token)?;
-        //         let _ = session.flush();
-        //     }
-        //     let write_pending = self.poll.get_mut_session(token)?.write_pending();
-        //     if write_pending > 0 {
-        //         self.poll.reregister(token);
-        //     }
-        // }
         Ok(())
     }
 
