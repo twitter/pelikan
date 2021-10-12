@@ -172,7 +172,9 @@ impl Segments {
         if segment.next_seg().is_none() && !expire {
             Err(())
         } else {
-            assert_eq!(segment.evictable(), true);
+            // TODO(bmartin): this should probably result in an error and not be
+            // an assert
+            assert!(segment.evictable(), "segment was not evictable");
             segment.set_evictable(false);
             segment.set_accessible(false);
             segment.clear(hashtable, expire);
