@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "src/client/pingclient-rs",
     "src/rust/common",
     "src/rust/config",
     "src/rust/core/server",
