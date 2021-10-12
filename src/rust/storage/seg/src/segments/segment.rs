@@ -623,9 +623,6 @@ impl<'a> Segment<'a> {
                     warn!("unlinked item was present in segment");
                     self.remove_item_at(offset, true);
                 }
-            } else {
-                items += 1;
-                bytes += item.size();
             }
 
             debug_assert!(
