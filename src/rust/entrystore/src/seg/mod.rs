@@ -30,6 +30,7 @@ impl Seg {
         let eviction = match config.eviction() {
             Eviction::None => Policy::None,
             Eviction::Random => Policy::Random,
+            Eviction::RandomFifo => Policy::RandomFifo,
             Eviction::Fifo => Policy::Fifo,
             Eviction::Cte => Policy::Cte,
             Eviction::Util => Policy::Util,
