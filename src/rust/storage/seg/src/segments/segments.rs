@@ -226,7 +226,7 @@ impl Segments {
             Policy::None => Err(SegmentsError::NoEvictableSegments),
             _ => {
                 SEGMENT_EVICT.increment();
-                if let Some(id) = self.least_valuable_seg() {
+                if let Some(id) = self.least_valuable_seg(ttl_buckets) {
                     self.clear_segment(id, hashtable, false)
                         .map_err(|_| SegmentsError::EvictFailure)?;
 
@@ -424,7 +424,10 @@ impl Segments {
     /// Returns the least valuable segment based on the configured eviction
     /// policy. An eviction attempt should be made for the corresponding segment
     /// before moving on to the next least valuable segment.
-    pub(crate) fn least_valuable_seg(&mut self) -> Option<NonZeroU32> {
+    pub(crate) fn least_valuable_seg(
+        &mut self,
+        ttl_buckets: &mut TtlBuckets,
+    ) -> Option<NonZeroU32> {
         match self.evict.policy() {
             Policy::None => None,
             Policy::Random => {
@@ -437,6 +440,28 @@ impl Segments {
                     if self.headers[idx as usize].can_evict() {
                         // safety: we are always adding 1 to the index
                         return Some(unsafe { NonZeroU32::new_unchecked(idx + 1) });
+                    }
+                }
+
+                None
+            }
+            Policy::RandomFifo => {
+                // This strategy is implemented by picking a random accessible
+                // segment and looking up the head of the corresponding
+                // `TtlBucket` and evicting that segment. This is functionally
+                // equivalent to picking a `TtlBucket` from a weighted
+                // distribution based on the number of segments per bucket.
+
+                let mut start: u32 = self.evict.random();
+
+                start %= self.cap;
+
+                for i in 0..self.cap {
+                    let idx = (start + i) % self.cap;
+                    if self.headers[idx as usize].accessible() {
+                        let ttl = self.headers[idx as usize].ttl();
+                        let ttl_bucket = ttl_buckets.get_mut_bucket(ttl);
+                        return ttl_bucket.head();
                     }
                 }
 

@@ -72,7 +72,7 @@ impl Eviction {
     pub fn should_rerank(&mut self) -> bool {
         let now = Instant::recent();
         match self.policy {
-            Policy::None | Policy::Random | Policy::Merge { .. } => false,
+            Policy::None | Policy::Random | Policy::RandomFifo | Policy::Merge { .. } => false,
             Policy::Fifo | Policy::Cte | Policy::Util => {
                 if self.ranked_segs[0].is_none()
                     || (now - self.last_update_time).as_secs() > 1
@@ -90,7 +90,7 @@ impl Eviction {
     pub fn rerank(&mut self, headers: &[SegmentHeader]) {
         let mut ids: Vec<NonZeroU32> = headers.iter().map(|h| h.id()).collect();
         match self.policy {
-            Policy::None | Policy::Random | Policy::Merge { .. } => {
+            Policy::None | Policy::Random | Policy::RandomFifo | Policy::Merge { .. } => {
                 return;
             }
             Policy::Fifo { .. } => {
