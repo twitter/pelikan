@@ -130,7 +130,7 @@ The goals of Pelikan are three folds:
 ### Performance and Reliability
 
 The way Pelikan achieves excellent, predictable runtime behavior is through
-improved architecture, including a [clean thread model](https://pelikan.io/2016/separation-concerns.html),
+improved architecture, including a [clean thread model](http://pelikan.io/2016/separation-concerns.html),
 deterministic memory allocation, wait-less logging/stats, and other carefully
 chosen design patterns. For more details, see [this talk](https://www.infoq.com/presentations/pelikan)
 at QConSF 2016.
