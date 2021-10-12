@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use super::*;
 use crate::memcache::wire::MemcacheCommand;
 use crate::memcache::MemcacheEntry;
 use crate::memcache::MemcacheRequest;
@@ -10,7 +11,6 @@ use crate::CRLF;
 use session::Session;
 use std::borrow::Cow;
 use std::io::Write;
-use super::*;
 
 pub struct MemcacheResponse {
     pub(crate) request: MemcacheRequest,
@@ -76,46 +76,74 @@ impl MemcacheResult {
 impl Compose for MemcacheResponse {
     fn compose(self, dst: &mut Session) {
         match self.request {
-            MemcacheRequest::Get { .. } => { GET.increment(); }
-            MemcacheRequest::Gets { .. } => { GETS.increment(); }
+            MemcacheRequest::Get { .. } => {
+                GET.increment();
+            }
+            MemcacheRequest::Gets { .. } => {
+                GETS.increment();
+            }
             MemcacheRequest::Set { .. } => {
                 match self.result {
-                    MemcacheResult::Stored => { SET_STORED.increment(); }
-                    MemcacheResult::NotStored => { SET_NOT_STORED.increment(); }
+                    MemcacheResult::Stored => {
+                        SET_STORED.increment();
+                    }
+                    MemcacheResult::NotStored => {
+                        SET_NOT_STORED.increment();
+                    }
                     _ => unreachable!(),
                 }
                 SET.increment();
             }
             MemcacheRequest::Add { .. } => {
                 match self.result {
-                    MemcacheResult::Stored => { ADD_STORED.increment(); }
-                    MemcacheResult::NotStored => { ADD_NOT_STORED.increment(); }
+                    MemcacheResult::Stored => {
+                        ADD_STORED.increment();
+                    }
+                    MemcacheResult::NotStored => {
+                        ADD_NOT_STORED.increment();
+                    }
                     _ => unreachable!(),
                 }
                 ADD.increment();
             }
             MemcacheRequest::Replace { .. } => {
                 match self.result {
-                    MemcacheResult::Stored => { REPLACE_STORED.increment(); }
-                    MemcacheResult::NotStored => { REPLACE_NOT_STORED.increment(); }
+                    MemcacheResult::Stored => {
+                        REPLACE_STORED.increment();
+                    }
+                    MemcacheResult::NotStored => {
+                        REPLACE_NOT_STORED.increment();
+                    }
                     _ => unreachable!(),
                 }
                 REPLACE.increment();
             }
             MemcacheRequest::Delete { .. } => {
                 match self.result {
-                    MemcacheResult::NotFound => { DELETE_NOT_FOUND.increment(); }
-                    MemcacheResult::Deleted => { DELETE_DELETED.increment(); }
+                    MemcacheResult::NotFound => {
+                        DELETE_NOT_FOUND.increment();
+                    }
+                    MemcacheResult::Deleted => {
+                        DELETE_DELETED.increment();
+                    }
                     _ => unreachable!(),
                 }
                 DELETE.increment();
             }
             MemcacheRequest::Cas { .. } => {
                 match self.result {
-                    MemcacheResult::Exists => { CAS_EXISTS.increment(); }
-                    MemcacheResult::NotFound => { CAS_NOT_FOUND.increment(); }
-                    MemcacheResult::NotStored => { CAS_EX.increment(); }
-                    MemcacheResult::Stored => { CAS_STORED.increment(); }
+                    MemcacheResult::Exists => {
+                        CAS_EXISTS.increment();
+                    }
+                    MemcacheResult::NotFound => {
+                        CAS_NOT_FOUND.increment();
+                    }
+                    MemcacheResult::NotStored => {
+                        CAS_EX.increment();
+                    }
+                    MemcacheResult::Stored => {
+                        CAS_STORED.increment();
+                    }
                     _ => unreachable!(),
                 }
                 CAS.increment();

@@ -6,20 +6,26 @@
 //! used with [`::mio`]. TLS/SSL is provided by BoringSSL with the [`::boring`]
 //! crate.
 
+#[macro_use]
+extern crate rustcommon_logger;
+
 mod buffer;
 mod stream;
 mod tcp_stream;
 
-use std::borrow::Borrow;
-use std::borrow::BorrowMut;
-use std::io::BufRead;
-use std::io::{ErrorKind, Read, Write};
+use metrics::Heatmap;
+use metrics::Relaxed;
+use rustcommon_time::Duration;
+use std::borrow::{Borrow, BorrowMut};
+use std::collections::VecDeque;
+use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
 use boring::ssl::{MidHandshakeSslStream, SslStream};
 use metrics::{static_metrics, Counter};
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
+use rustcommon_time::Instant;
 
 use buffer::Buffer;
 use stream::Stream;
@@ -39,6 +45,10 @@ static_metrics! {
     static SESSION_SEND: Counter;
     static SESSION_SEND_EX: Counter;
     static SESSION_SEND_BYTE: Counter;
+
+    static REQUEST_LATENCY: Relaxed<Heatmap> = Relaxed::new(||
+        Heatmap::new(1_000_000_000, 3, Duration::from_secs(60), Duration::from_secs(1))
+    );
 }
 
 // TODO(bmartin): implement connect/reconnect so we can use this in clients too.
@@ -51,6 +61,26 @@ pub struct Session {
     write_buffer: Buffer,
     min_capacity: usize,
     max_capacity: usize,
+    // hold current interest set
+    interest: Interest,
+    // TODO(bmartin): consider moving these fields and associated logic
+    // out into a response tracking struct. It would make the session
+    // type more applicable to clients if we move this out.
+    //
+    /// A timestamp which is used to calculate response latency
+    timestamp: Instant,
+    /// This is a queue of pending response sizes. When a response is finalized,
+    /// the bytes in that response are pushed onto the back of the queue. As the
+    /// session flushes out to the underlying socket, we can calculate when a
+    /// response is completely flushed to the underlying socket and record a
+    /// response latency.
+    pending_responses: VecDeque<usize>,
+    /// This holds the total number of bytes pending for finalized responses. By
+    /// tracking this, we can determine the size of a response even if it is
+    /// written into the session with multiple calls to write. It is essentially
+    /// a cached value of `write_buffer.pending_bytes()` that does not reflect
+    /// bytes from responses which are not yet finalized.
+    pending_bytes: usize,
 }
 
 impl Session {
@@ -93,6 +123,10 @@ impl Session {
             write_buffer: Buffer::with_capacity(min_capacity),
             min_capacity,
             max_capacity,
+            interest: Interest::READABLE,
+            timestamp: Instant::now(),
+            pending_responses: VecDeque::with_capacity(256),
+            pending_bytes: 0,
         }
     }
 
@@ -110,6 +144,11 @@ impl Session {
     /// Reregister the `Session` with the event loop
     pub fn reregister(&mut self, poll: &Poll) -> Result<(), std::io::Error> {
         let interest = self.readiness();
+        if interest == self.interest {
+            return Ok(());
+        }
+        debug!("reregister: {:?}", interest);
+        self.interest = interest;
         self.stream
             .reregister(poll.registry(), self.token, interest)
     }
@@ -125,11 +164,19 @@ impl Session {
     }
 
     /// Get the set of readiness events the session is waiting for
+    ///
+    /// NOTE: we effectively block additional reads when there are writes
+    /// pending. This may not be an appropriate choice for all use-cases, but
+    /// for a server, it can be used to apply back-pressure.
+    //
+    // TODO(bmartin): we could make this behavior conditional if we have a
+    // use-case that requires different handling, but it comes with complexity
+    // of having to set the behavior for each session.
     fn readiness(&self) -> Interest {
         if self.write_buffer.is_empty() {
             Interest::READABLE
         } else {
-            Interest::READABLE | Interest::WRITABLE
+            Interest::WRITABLE
         }
     }
 
@@ -181,6 +228,34 @@ impl Session {
 
     pub fn peer_addr(&self) -> Result<SocketAddr, std::io::Error> {
         self.stream.peer_addr()
+    }
+
+    pub fn timestamp(&self) -> Instant {
+        self.timestamp
+    }
+
+    pub fn set_timestamp(&mut self, timestamp: Instant) {
+        self.timestamp = timestamp;
+    }
+
+    pub fn finalize_response(&mut self) {
+        let previous = self.pending_bytes;
+        let current = self.write_pending();
+        let len = current - previous;
+
+        self.pending_bytes = current;
+
+        // `len` holds the number of bytes for the finalized response, for empty
+        // 'responses' (eg: memcache NOREPLY), we finalize an empty response to
+        // track the latency. This can be recorded immediately, as there is no
+        // queued response in the buffer.
+        if len == 0 {
+            let now = Instant::now();
+            let latency = (now - self.timestamp()).as_nanos() as u64;
+            REQUEST_LATENCY.increment(now, latency, 1);
+        } else {
+            self.pending_responses.push_back(len);
+        }
     }
 }
 
@@ -254,14 +329,43 @@ impl Write for Session {
         Ok(src.len())
     }
 
+    // need a different flush
     fn flush(&mut self) -> Result<(), std::io::Error> {
         SESSION_SEND.increment();
         match self.stream.write((self.write_buffer).borrow()) {
             Ok(0) => Ok(()),
-            Ok(bytes) => {
+            Ok(mut bytes) => {
                 SESSION_SEND_BYTE.add(bytes as _);
                 self.write_buffer.consume(bytes);
-                self.stream.flush()
+
+                // NOTE: we expect that the stream flush is essentially a no-op
+                // based on the implementation for `TcpStream`
+
+                let now = Instant::now();
+                let latency = (now - self.timestamp()).as_nanos() as u64;
+                let mut completed = 0;
+
+                while bytes > 0 {
+                    // it's more likely that we sent the entire response, cost
+                    // to requeue at front is minimal if we do hit a partial
+                    // write.
+                    if let Some(mut head) = self.pending_responses.pop_front() {
+                        if bytes >= head {
+                            bytes -= head;
+                            completed += 1;
+                        } else {
+                            head -= bytes;
+                            bytes = 0;
+                            self.pending_responses.push_front(head);
+                        }
+                    } else {
+                        break;
+                    }
+                }
+
+                REQUEST_LATENCY.increment(now, latency, completed);
+
+                Ok(())
             }
             Err(e) => {
                 SESSION_SEND_EX.increment();

@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-pub use rustcommon_metrics::{metric, Counter, Gauge};
+pub use rustcommon_metrics::{metric, Counter, Gauge, Heatmap, Relaxed};
 
 #[doc(hidden)]
 pub extern crate rustcommon_metrics;

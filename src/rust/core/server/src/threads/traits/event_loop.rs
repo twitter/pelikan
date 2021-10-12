@@ -74,17 +74,7 @@ pub trait EventLoop {
         if let Ok(session) = self.poll().get_mut_session(token) {
             match session.flush() {
                 Ok(_) => {
-                    // if we wrote data but still have data in the read buffer
-                    // attempt to process that data
-                    if session.read_pending() != 0 {
-                        if self.handle_data(token).is_err() {
-                            self.handle_error(token);
-                        } else {
-                            self.poll().reregister(token);
-                        }
-                    } else {
-                        self.poll().reregister(token);
-                    }
+                    self.poll().reregister(token);
                 }
                 Err(e) => match e.kind() {
                     ErrorKind::WouldBlock => {}
