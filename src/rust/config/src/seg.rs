@@ -31,6 +31,7 @@ const DATAPOOL_PATH: Option<&str> = None;
 pub enum Eviction {
     None,
     Random,
+    RandomFifo,
     Fifo,
     Cte,
     Util,
