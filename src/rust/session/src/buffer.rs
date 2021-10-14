@@ -33,6 +33,8 @@ impl Buffer {
     /// Returns the amount of space available to write into the buffer without
     /// reallocating.
     pub fn available_capacity(&self) -> usize {
+        println!("buffer: len: {} capacity: {}", self.buffer.len(), self.buffer.capacity());
+        println!("buffer: read_offset: {} write_offset: {}", self.read_offset, self.write_offset);
         self.buffer.len() - self.write_offset
     }
 
@@ -56,18 +58,19 @@ impl Buffer {
     pub fn reserve(&mut self, additional: usize) {
         let needed = additional.saturating_sub(self.available_capacity());
         if needed > 0 {
-            self.buffer.reserve(needed);
-            // SAFETY: we maintain our own write offset which ensures the
-            // uninitialized bytes are not read until they have been written.
-            unsafe {
-                self.buffer.set_len(self.buffer.capacity());
-            }
+            println!("buffer: len: {} capacity: {}", self.buffer.len(), self.buffer.capacity());
+            println!("reserve: {} more bytes", needed);
+            let current = self.buffer.len();
+            let target = (current + needed).next_power_of_two();
+            self.buffer.resize(target, 0);
+            println!("buffer: len: {} capacity: {}", self.buffer.len(), self.buffer.capacity());
         }
     }
 
     /// Append the bytes from `other` onto `self`.
     pub fn extend_from_slice(&mut self, other: &[u8]) {
         self.reserve(other.len());
+        println!("buffer now: len: {} capacity: {}", self.buffer.len(), self.buffer.capacity());
         self.buffer[self.write_offset..(self.write_offset + other.len())].copy_from_slice(other);
         self.increase_len(other.len());
     }
@@ -75,7 +78,9 @@ impl Buffer {
     /// Mark that `amt` bytes have been consumed and should not be returned in
     /// future reads from the buffer.
     pub fn consume(&mut self, amt: usize) {
+        println!("read offset was: {}", self.read_offset);
         self.read_offset = std::cmp::min(self.read_offset + amt, self.write_offset);
+        println!("read offset now: {}", self.read_offset);
         if self.is_empty() {
             // if the buffer is empty, we can simply shrink it down and move the
             // offsets to the start of the buffer storage
@@ -85,7 +90,7 @@ impl Buffer {
                 self.buffer.truncate(self.target_capacity);
                 self.buffer.shrink_to_fit();
             }
-        } else if self.read_offset > self.target_capacity {
+        } else if self.buffer.len() > self.target_capacity && self.len() * 2 < self.buffer.len() {
             // this case results in a memmove of the buffer contents to the
             // beginning of the buffer storage and tries to free additional
             // space
@@ -93,18 +98,10 @@ impl Buffer {
                 .copy_within(self.read_offset..self.write_offset, 0);
             self.write_offset -= self.read_offset;
             self.read_offset = 0;
-            // if the buffer is occupying less than 1/2 of the storage capacity
-            // we can resize it to free up the unused space at the end of the
-            // buffer storage.
-            if self.len() < self.buffer.capacity() / 2 {
-                self.buffer
-                    .truncate(std::cmp::max(self.len(), self.target_capacity));
-                // SAFETY: we maintain our own write offset which ensures the
-                // uninitialized bytes are not read until they have been written.
-                unsafe {
-                    self.buffer.set_len(self.buffer.capacity());
-                }
-            }
+
+            let target = self.buffer.len() / 2;
+            self.buffer.truncate(target);
+            self.buffer.resize(target, 0);
         }
     }
 
@@ -113,6 +110,7 @@ impl Buffer {
     /// underlying storage.
     pub fn increase_len(&mut self, amt: usize) {
         self.write_offset = std::cmp::min(self.write_offset + amt, self.buffer.len());
+        println!("write offset now: {}", self.write_offset);
     }
 }
 
@@ -126,5 +124,243 @@ impl BorrowMut<[u8]> for Buffer {
     fn borrow_mut(&mut self) -> &mut [u8] {
         let available = self.buffer.len();
         &mut self.buffer[self.write_offset..available]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Buffer;
+    use std::borrow::Borrow;
+
+    #[test]
+    // test buffer initialization with various capacities
+    fn new() {
+        let buffer = Buffer::with_capacity(1024);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 1024);
+        assert!(buffer.is_empty());
+
+        let buffer = Buffer::with_capacity(2048);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 2048);
+        assert!(buffer.is_empty());
+
+        // test zero capacity buffer
+        let buffer = Buffer::with_capacity(0);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 0);
+        assert!(buffer.is_empty());
+
+        // test with non power of 2
+        let buffer = Buffer::with_capacity(100);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 100);
+        assert!(buffer.is_empty());
+    }
+
+    #[test]
+    // tests a small buffer growing only on second write
+    fn write_1() {
+        let mut buffer = Buffer::with_capacity(8);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 8);
+        assert!(buffer.is_empty());
+
+        // first write fits in buffer
+        buffer.extend_from_slice(b"GET ");
+        assert_eq!(buffer.len(), 4);
+        assert_eq!(buffer.available_capacity(), 4);
+        assert!(!buffer.is_empty());
+        let content: &[u8] = buffer.borrow();
+        assert_eq!(content, b"GET ");
+
+        // second write causes buffer to grow
+        buffer.extend_from_slice(b"SOME_KEY\r\n");
+        assert_eq!(buffer.len(), 14);
+        assert_eq!(buffer.available_capacity(), 2);
+        assert!(!buffer.is_empty());
+        let content: &[u8] = buffer.borrow();
+        assert_eq!(content, b"GET SOME_KEY\r\n");
+    }
+
+    #[test]
+    // test a zero capacity buffer growing on two consecutive writes
+    fn write_2() {
+        let mut buffer = Buffer::with_capacity(0);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 0);
+        assert!(buffer.is_empty());
+
+        // zero capacity buffer grows on first write
+        buffer.extend_from_slice(b"GET KEY\r\n");
+        assert_eq!(buffer.len(), 9);
+        assert_eq!(buffer.available_capacity(), 7);
+        assert!(!buffer.is_empty());
+        let content: &[u8] = buffer.borrow();
+        assert_eq!(content, b"GET KEY\r\n");
+
+        // and again on second write
+        buffer.extend_from_slice(b"SET OTHER_KEY 0 0 1\r\nA\r\n");
+        assert_eq!(buffer.len(), 33);
+        assert_eq!(buffer.available_capacity(), 31);
+        assert!(!buffer.is_empty());
+        let content: &[u8] = buffer.borrow();
+        assert_eq!(content, b"GET KEY\r\nSET OTHER_KEY 0 0 1\r\nA\r\n");
+    }
+
+    #[test]
+    // tests a large buffer that grows on first write
+    fn write_3() {
+        let mut buffer = Buffer::with_capacity(16);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 16);
+        assert!(buffer.is_empty());
+
+        buffer.extend_from_slice(b"SET SOME_REALLY_LONG_KEY 0 0 1\r\nA\r\n");
+        assert_eq!(buffer.len(), 35);
+        assert_eq!(buffer.available_capacity(), 29);
+    }
+
+    #[test]
+    // tests a consume operation where all bytes are consumed and the buffer
+    // remains its original size
+    fn consume_1() {
+        let mut buffer = Buffer::with_capacity(16);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 16);
+        assert!(buffer.is_empty());
+
+        buffer.extend_from_slice(b"END\r\n");
+        assert_eq!(buffer.len(), 5);
+        assert_eq!(buffer.available_capacity(), 11);
+        assert!(!buffer.is_empty());
+
+        buffer.consume(5);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 16);
+        assert!(buffer.is_empty());
+    }
+
+    #[test]
+    // tests a consume operation where all bytes are consumed and the buffer
+    // shrinks to its original size
+    fn consume_2() {
+        let mut buffer = Buffer::with_capacity(2);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 2);
+        assert!(buffer.is_empty());
+
+        buffer.extend_from_slice(b"END\r\n");
+        assert_eq!(buffer.len(), 5);
+        assert_eq!(buffer.available_capacity(), 3);
+        assert!(!buffer.is_empty());
+
+        buffer.consume(5);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 2);
+        assert!(buffer.is_empty());
+    }
+
+    #[test]
+    // tests a consume operation where not all bytes are consumed and buffer
+    // remains its original size
+    fn consume_3() {
+        let mut buffer = Buffer::with_capacity(8);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 8);
+        assert!(buffer.is_empty());
+
+        let content = b"END\r\n";
+        let len = content.len();
+
+        buffer.extend_from_slice(content);
+        assert_eq!(buffer.len(), len);
+        assert_eq!(buffer.available_capacity(), 3);
+        assert!(!buffer.is_empty());
+
+        // consume all but the last byte of content in the buffer, one byte at
+        // a time
+        // - buffer len decreases with each call to consume()
+        // - buffer available capacity remains the same
+        for i in 1..len {
+            buffer.consume(1);
+            assert_eq!(buffer.len(), len - i);
+            assert_eq!(buffer.available_capacity(), 3);
+            assert!(!buffer.is_empty());
+        }
+
+        // when consuming the final byte, the read/write offsets move to the
+        // start of the buffer, and available capacity should be the original
+        // buffer size
+        buffer.consume(1);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 8);
+        assert!(buffer.is_empty());
+    }
+
+    #[test]
+    // tests a consume operation where not all bytes are consumed and buffer
+    // shrinks as bytes are consumed
+    fn consume_4() {
+        let mut buffer = Buffer::with_capacity(16);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 16);
+        assert!(buffer.is_empty());
+
+        let content = b"VALUE SOME_REALLY_LONG_KEY 0 1\r\n1\r\nEND\r\n";
+
+        // buffer resizes up to 64 bytes to hold 40 bytes
+        buffer.extend_from_slice(content);
+        assert_eq!(buffer.len(), 40);
+        assert_eq!(buffer.available_capacity(), 24);
+        assert!(!buffer.is_empty());
+
+        // partial consume, len decrease, capacity remains the same
+        // length = 32, size = 64
+        buffer.consume(8);
+        assert_eq!(buffer.len(), 32);
+        assert_eq!(buffer.available_capacity(), 24);
+
+        // consume one more byte and the buffer shrinks because we have less
+        // than half occupancy
+        // length = 31, size = 64 => len = 31, size = 32
+        buffer.consume(1);
+        assert_eq!(buffer.len(), 31);
+        assert_eq!(buffer.available_capacity(), 1);
+
+        // partial consume, len decrease, capacity remains the same
+        // length = 16, size = 32
+        buffer.consume(15);
+        assert_eq!(buffer.len(), 16);
+        assert_eq!(buffer.available_capacity(), 1);
+
+        // consume one more byte and the buffer shrinks because we have less
+        // than half occupancy
+        // length = 15, size = 32 => len = 15, size = 16
+        buffer.consume(1);
+        assert_eq!(buffer.len(), 15);
+        assert_eq!(buffer.available_capacity(), 1);
+
+        // partial consume, len decrease, capacity remains the same
+        // length = 8, size = 16
+        buffer.consume(7);
+        assert_eq!(buffer.len(), 8);
+        assert_eq!(buffer.available_capacity(), 1);
+
+        // consume one more byte, but the buffer does not shrink because the
+        // size is less than the target capacity
+        buffer.consume(1);
+        assert_eq!(buffer.len(), 7);
+        assert_eq!(buffer.available_capacity(), 1);
+
+        // consume all but the final byte, and available capacity is the same
+        buffer.consume(6);
+        assert_eq!(buffer.len(), 1);
+        assert_eq!(buffer.available_capacity(), 1);
+
+        // when consuming the final byte, the capacity resets
+        buffer.consume(1);
+        assert_eq!(buffer.len(), 0);
+        assert_eq!(buffer.available_capacity(), 16);
     }
 }
