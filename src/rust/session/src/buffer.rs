@@ -134,6 +134,12 @@ impl BorrowMut<[u8]> for Buffer {
     }
 }
 
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        BUFFER_CURRENT_BYTE.sub(self.buffer.capacity() as _);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::Buffer;
