@@ -22,7 +22,7 @@ use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
 use boring::ssl::{MidHandshakeSslStream, SslStream};
-use metrics::{static_metrics, Counter};
+use metrics::{static_metrics, Counter, Gauge};
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
 use rustcommon_time::Instant;
@@ -33,6 +33,8 @@ use stream::Stream;
 pub use tcp_stream::TcpStream;
 
 static_metrics! {
+    static BUFFER_CURRENT_BYTE: Gauge;
+
     static TCP_ACCEPT: Counter;
     static TCP_CLOSE: Counter;
     static TCP_RECV_BYTE: Counter;

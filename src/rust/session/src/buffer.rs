@@ -4,6 +4,8 @@
 
 //! A very simple buffer type that can be replaced in the future.
 
+use crate::BUFFER_CURRENT_BYTE;
+
 use core::borrow::{Borrow, BorrowMut};
 
 /// A growable byte buffer
@@ -21,6 +23,8 @@ impl Buffer {
     pub fn with_capacity(capacity: usize) -> Self {
         let mut buffer = Vec::with_capacity(capacity);
         buffer.resize(capacity, 0);
+
+        BUFFER_CURRENT_BYTE.add(capacity as _);
 
         Self {
             buffer,
@@ -58,6 +62,7 @@ impl Buffer {
         if needed > 0 {
             let current = self.buffer.len();
             let target = (current + needed).next_power_of_two();
+            BUFFER_CURRENT_BYTE.add((target - current) as _);
             self.buffer.resize(target, 0);
         }
     }
@@ -78,11 +83,14 @@ impl Buffer {
             // offsets to the start of the buffer storage
             self.write_offset = 0;
             self.read_offset = 0;
-            if self.buffer.len() > self.target_capacity {
+            let shrink_bytes = self.buffer.len() - self.target_capacity;
+            if shrink_bytes > 0 {
                 self.buffer.truncate(self.target_capacity);
                 self.buffer.shrink_to_fit();
+                BUFFER_CURRENT_BYTE.sub(shrink_bytes as _);
             }
         } else if self.buffer.len() > self.target_capacity && self.len() * 2 < self.buffer.len() {
+
             // this case results in a memmove of the buffer contents to the
             // beginning of the buffer storage and tries to free additional
             // space
@@ -92,8 +100,12 @@ impl Buffer {
             self.read_offset = 0;
 
             let target = self.buffer.len() / 2;
+            let shrink_bytes = self.buffer.len() - target;
+
             self.buffer.truncate(target);
             self.buffer.resize(target, 0);
+
+            BUFFER_CURRENT_BYTE.sub(shrink_bytes as _);
         }
     }
 
