@@ -24,7 +24,7 @@ impl Buffer {
         let mut buffer = Vec::with_capacity(capacity);
         buffer.resize(capacity, 0);
 
-        BUFFER_CURRENT_BYTE.add(capacity as _);
+        BUFFER_CURRENT_BYTE.add(buffer.capacity() as _);
 
         Self {
             buffer,
@@ -58,13 +58,14 @@ impl Buffer {
     /// space than requested to avoid frequent allocations. If the buffer
     /// already has sufficient available capacity, this is a no-op.
     pub fn reserve(&mut self, additional: usize) {
+        let old_cap = self.buffer.capacity();
         let needed = additional.saturating_sub(self.available_capacity());
         if needed > 0 {
             let current = self.buffer.len();
             let target = (current + needed).next_power_of_two();
-            BUFFER_CURRENT_BYTE.add((target - current) as _);
             self.buffer.resize(target, 0);
         }
+        BUFFER_CURRENT_BYTE.add((self.buffer.capacity() - old_cap) as _);
     }
 
     /// Append the bytes from `other` onto `self`.
@@ -77,6 +78,7 @@ impl Buffer {
     /// Mark that `amt` bytes have been consumed and should not be returned in
     /// future reads from the buffer.
     pub fn consume(&mut self, amt: usize) {
+        let old_capacity = self.buffer.capacity();
         self.read_offset = std::cmp::min(self.read_offset + amt, self.write_offset);
         if self.is_empty() {
             // if the buffer is empty, we can simply shrink it down and move the
@@ -87,10 +89,8 @@ impl Buffer {
             if shrink_bytes > 0 {
                 self.buffer.truncate(self.target_capacity);
                 self.buffer.shrink_to_fit();
-                BUFFER_CURRENT_BYTE.sub(shrink_bytes as _);
             }
         } else if self.buffer.len() > self.target_capacity && self.len() * 2 < self.buffer.len() {
-
             // this case results in a memmove of the buffer contents to the
             // beginning of the buffer storage and tries to free additional
             // space
@@ -100,12 +100,16 @@ impl Buffer {
             self.read_offset = 0;
 
             let target = self.buffer.len() / 2;
-            let shrink_bytes = self.buffer.len() - target;
 
             self.buffer.truncate(target);
-            self.buffer.resize(target, 0);
-
-            BUFFER_CURRENT_BYTE.sub(shrink_bytes as _);
+            self.buffer.shrink_to_fit();
+        }
+        let new_capacity = self.buffer.capacity();
+        if new_capacity > old_capacity {
+            warn!("leaking memory during consume()");
+            BUFFER_CURRENT_BYTE.add((new_capacity - old_capacity) as _);
+        } else {
+            BUFFER_CURRENT_BYTE.sub((old_capacity - new_capacity) as _);
         }
     }
 
