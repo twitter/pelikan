@@ -33,8 +33,6 @@ impl Buffer {
     /// Returns the amount of space available to write into the buffer without
     /// reallocating.
     pub fn available_capacity(&self) -> usize {
-        println!("buffer: len: {} capacity: {}", self.buffer.len(), self.buffer.capacity());
-        println!("buffer: read_offset: {} write_offset: {}", self.read_offset, self.write_offset);
         self.buffer.len() - self.write_offset
     }
 
@@ -58,19 +56,15 @@ impl Buffer {
     pub fn reserve(&mut self, additional: usize) {
         let needed = additional.saturating_sub(self.available_capacity());
         if needed > 0 {
-            println!("buffer: len: {} capacity: {}", self.buffer.len(), self.buffer.capacity());
-            println!("reserve: {} more bytes", needed);
             let current = self.buffer.len();
             let target = (current + needed).next_power_of_two();
             self.buffer.resize(target, 0);
-            println!("buffer: len: {} capacity: {}", self.buffer.len(), self.buffer.capacity());
         }
     }
 
     /// Append the bytes from `other` onto `self`.
     pub fn extend_from_slice(&mut self, other: &[u8]) {
         self.reserve(other.len());
-        println!("buffer now: len: {} capacity: {}", self.buffer.len(), self.buffer.capacity());
         self.buffer[self.write_offset..(self.write_offset + other.len())].copy_from_slice(other);
         self.increase_len(other.len());
     }
@@ -78,9 +72,7 @@ impl Buffer {
     /// Mark that `amt` bytes have been consumed and should not be returned in
     /// future reads from the buffer.
     pub fn consume(&mut self, amt: usize) {
-        println!("read offset was: {}", self.read_offset);
         self.read_offset = std::cmp::min(self.read_offset + amt, self.write_offset);
-        println!("read offset now: {}", self.read_offset);
         if self.is_empty() {
             // if the buffer is empty, we can simply shrink it down and move the
             // offsets to the start of the buffer storage
@@ -110,7 +102,6 @@ impl Buffer {
     /// underlying storage.
     pub fn increase_len(&mut self, amt: usize) {
         self.write_offset = std::cmp::min(self.write_offset + amt, self.buffer.len());
-        println!("write offset now: {}", self.write_offset);
     }
 }
 
