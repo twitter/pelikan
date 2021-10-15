@@ -261,7 +261,8 @@ impl Session {
             let latency = (now - self.timestamp()).as_nanos() as u64;
             REQUEST_LATENCY.increment(now, latency, 1);
         } else if self.pending_count < self.pending_responses.len() {
-            self.pending_responses[(self.pending_head + self.pending_count) % self.pending_responses.len()] = len;
+            self.pending_responses
+                [(self.pending_head + self.pending_count) % self.pending_responses.len()] = len;
             self.pending_count += 1;
         }
     }
@@ -353,29 +354,30 @@ impl Write for Session {
                 let latency = (now - self.timestamp()).as_nanos() as u64;
                 let mut completed = 0;
 
-                while bytes > 0 {
-                    if self.pending_count == 0 {
-                        break;
-                    }
-
+                // iterate through the pending response lengths and perform the
+                // bookkeeping to calculate how many have been flushed to the
+                // `TcpStream` in this call of `flush()`
+                while bytes > 0 && self.pending_count > 0 {
+                    // first response out of the buffer
                     let head = &mut self.pending_responses[self.pending_head];
 
-                    if *head > 0 {
-                        if bytes >= *head {
-                            bytes -= *head;
-                            completed += 1;
+                    if bytes >= *head {
+                        // we flushed all (or more) than the first response
+                        bytes -= *head;
+                        *head = 0;
+                        completed += 1;
+                        self.pending_count -= 1;
 
-                            if self.pending_head + 1 < self.pending_responses.len() {
-                                self.pending_head += 1;
-                            } else {
-                                self.pending_head = 0;
-                            }
-
-                            self.pending_count -= 1;
+                        // move the head pointer forward
+                        if self.pending_head + 1 < self.pending_responses.len() {
+                            self.pending_head += 1;
                         } else {
-                            *head -= bytes;
-                            bytes = 0;
+                            self.pending_head = 0;
                         }
+                    } else {
+                        // we only flushed part of the first response
+                        *head -= bytes;
+                        bytes = 0;
                     }
                 }
 
