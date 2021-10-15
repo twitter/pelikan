@@ -347,6 +347,7 @@ impl Write for Session {
         match self.stream.write((self.write_buffer).borrow()) {
             Ok(0) => Ok(()),
             Ok(mut bytes) => {
+                let flushed_bytes = bytes;
                 SESSION_SEND_BYTE.add(bytes as _);
                 self.write_buffer.consume(bytes);
 
@@ -383,6 +384,8 @@ impl Write for Session {
                         bytes = 0;
                     }
                 }
+
+                self.pending_bytes -= flushed_bytes;
 
                 REQUEST_LATENCY.increment(now, latency, completed);
 

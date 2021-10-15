@@ -221,6 +221,7 @@ impl Admin {
             let _ = session.write(line.as_bytes());
         }
         let _ = session.write(b"END\r\n");
+        session.finalize_response();
         ADMIN_RESPONSE_COMPOSE.increment();
     }
 
