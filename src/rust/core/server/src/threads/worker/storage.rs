@@ -72,7 +72,7 @@ where
         &mut self,
         waker: Arc<Waker>,
     ) -> QueuePair<TokenWrapper<Request>, TokenWrapper<Option<Response>>> {
-        self.worker_queues.new_pair(65536, Some(waker))
+        self.worker_queues.new_pair(4096, Some(waker))
     }
 
     /// Run the storage thread in a loop, handling incoming messages from the
