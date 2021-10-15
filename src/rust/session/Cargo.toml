@@ -16,6 +16,7 @@ common = { path = "../common" }
 config = { path = "../config" }
 metrics = { path = "../metrics" }
 mio = { version = "0.7.7", features = ["os-poll", "tcp"] }
+mpmc = "*"
 rand = "0.8.0"
 rtrb = "0.1.3"
 rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }

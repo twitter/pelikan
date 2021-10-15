@@ -1256,6 +1256,7 @@ dependencies = [
  "config",
  "metrics",
  "mio",
+ "mpmc",
  "rand",
  "rtrb",
  "rustcommon-logger",

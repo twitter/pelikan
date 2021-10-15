@@ -17,7 +17,6 @@ use metrics::Heatmap;
 use metrics::Relaxed;
 use rustcommon_time::Duration;
 use std::borrow::{Borrow, BorrowMut};
-use std::collections::VecDeque;
 use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
@@ -76,7 +75,11 @@ pub struct Session {
     /// session flushes out to the underlying socket, we can calculate when a
     /// response is completely flushed to the underlying socket and record a
     /// response latency.
-    pending_responses: VecDeque<usize>,
+    pending_responses: [usize; 256],
+    /// This is the index of the first pending response.
+    pending_head: usize,
+    /// This is the count of pending responses.
+    pending_count: usize,
     /// This holds the total number of bytes pending for finalized responses. By
     /// tracking this, we can determine the size of a response even if it is
     /// written into the session with multiple calls to write. It is essentially
@@ -127,7 +130,9 @@ impl Session {
             max_capacity,
             interest: Interest::READABLE,
             timestamp: Instant::now(),
-            pending_responses: VecDeque::with_capacity(256),
+            pending_responses: [0; 256],
+            pending_head: 0,
+            pending_count: 0,
             pending_bytes: 0,
         }
     }
@@ -256,7 +261,12 @@ impl Session {
             let latency = (now - self.timestamp()).as_nanos() as u64;
             REQUEST_LATENCY.increment(now, latency, 1);
         } else {
-            self.pending_responses.push_back(len);
+            if self.pending_count < self.pending_responses.len() {
+                self.pending_responses[(self.pending_head + self.pending_count) % self.pending_responses.len()] = len;
+                self.pending_count += 1;
+            } else {
+                self.pending_bytes = previous;
+            }
         }
     }
 }
@@ -348,25 +358,24 @@ impl Write for Session {
                 let mut completed = 0;
 
                 while bytes > 0 {
-                    // it's more likely that we sent the entire response, cost
-                    // to requeue at front is minimal if we do hit a partial
-                    // write.
-                    if let Some(mut head) = self.pending_responses.pop_front() {
-                        if bytes >= head {
-                            bytes -= head;
-                            completed += 1;
-                        } else {
-                            head -= bytes;
-                            bytes = 0;
-                            self.pending_responses.push_front(head);
-                        }
-                    } else {
+                    if self.pending_count == 0 {
                         break;
                     }
-                }
 
-                self.pending_responses.make_contiguous();
-                self.pending_responses.shrink_to_fit();
+                    let head = &mut self.pending_responses[self.pending_head];
+
+                    if *head > 0 {
+                        if bytes >= *head {
+                            bytes -= *head;
+                            completed += 1;
+                            self.pending_head += 1;
+                            self.pending_count -= 1;
+                        } else {
+                            *head -= bytes;
+                            bytes = 0;
+                        }
+                    }
+                }
 
                 REQUEST_LATENCY.increment(now, latency, completed);
 
