@@ -12,11 +12,10 @@ mod storage;
 pub use self::storage::StorageWorker;
 use mio::Token;
 pub use multi::MultiWorker;
-use rustcommon_time::Duration;
 pub use single::SingleWorker;
 
 use super::EventLoop;
-use metrics::{static_metrics, Counter, Heatmap, Relaxed};
+use metrics::{static_metrics, Counter};
 
 static_metrics! {
     static WORKER_EVENT_LOOP: Counter;
