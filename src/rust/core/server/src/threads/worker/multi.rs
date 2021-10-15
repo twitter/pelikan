@@ -263,7 +263,7 @@ where
     }
 
     pub fn session_sender(&mut self, waker: Arc<Waker>) -> QueuePair<Session, ()> {
-        self.session_queue.new_pair(4096, Some(waker))
+        self.session_queue.new_pair(65536, Some(waker))
     }
 
     pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
