@@ -365,6 +365,9 @@ impl Write for Session {
                     }
                 }
 
+                self.pending_responses.make_contiguous();
+                self.pending_responses.shrink_to_fit();
+
                 REQUEST_LATENCY.increment(now, latency, completed);
 
                 Ok(())
