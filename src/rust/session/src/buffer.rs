@@ -7,6 +7,7 @@
 use crate::BUFFER_CURRENT_BYTE;
 
 use core::borrow::{Borrow, BorrowMut};
+use core::cmp::Ordering;
 
 /// A growable byte buffer
 pub struct Buffer {
@@ -64,8 +65,8 @@ impl Buffer {
             let current = self.buffer.len();
             let target = (current + needed).next_power_of_two();
             self.buffer.resize(target, 0);
+            BUFFER_CURRENT_BYTE.add((self.buffer.capacity() - old_cap) as _);
         }
-        BUFFER_CURRENT_BYTE.add((self.buffer.capacity() - old_cap) as _);
     }
 
     /// Append the bytes from `other` onto `self`.
@@ -85,15 +86,15 @@ impl Buffer {
             // offsets to the start of the buffer storage
             self.write_offset = 0;
             self.read_offset = 0;
-            let shrink_bytes = self.buffer.len() - self.target_capacity;
-            if shrink_bytes > 0 {
+            if self.buffer.len() - self.target_capacity > 0 {
+                // buffer can be reduced back down to the target
                 self.buffer.truncate(self.target_capacity);
                 self.buffer.shrink_to_fit();
             }
         } else if self.buffer.len() > self.target_capacity && self.len() * 2 < self.buffer.len() {
-            // this case results in a memmove of the buffer contents to the
-            // beginning of the buffer storage and tries to free additional
-            // space
+            // the buffer is both oversized and less than half full, we can
+            // shrink the buffer size after memmove-ing the contents to the
+            // beginning of the buffer
             self.buffer
                 .copy_within(self.read_offset..self.write_offset, 0);
             self.write_offset -= self.read_offset;
@@ -104,12 +105,22 @@ impl Buffer {
             self.buffer.truncate(target);
             self.buffer.shrink_to_fit();
         }
+
+        // update stats if the buffer has resized
         let new_capacity = self.buffer.capacity();
-        if new_capacity > old_capacity {
-            warn!("leaking memory during consume()");
-            BUFFER_CURRENT_BYTE.add((new_capacity - old_capacity) as _);
-        } else {
-            BUFFER_CURRENT_BYTE.sub((old_capacity - new_capacity) as _);
+        match new_capacity.cmp(&old_capacity) {
+            Ordering::Equal => {
+                // no change to the buffer size
+            }
+            Ordering::Less => {
+                // buffer has shrunk during consume, decrement the stat
+                BUFFER_CURRENT_BYTE.sub((old_capacity - new_capacity) as _);
+            }
+            Ordering::Greater => {
+                // buffer shouldn't grow during consume, but this is necessary
+                // to ensure the stat remains accurate
+                BUFFER_CURRENT_BYTE.add((new_capacity - old_capacity) as _);
+            }
         }
     }
 
