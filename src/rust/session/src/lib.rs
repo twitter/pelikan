@@ -261,8 +261,11 @@ impl Session {
             let latency = (now - self.timestamp()).as_nanos() as u64;
             REQUEST_LATENCY.increment(now, latency, 1);
         } else if self.pending_count < self.pending_responses.len() {
-            self.pending_responses
-                [(self.pending_head + self.pending_count) % self.pending_responses.len()] = len;
+            let mut idx = self.pending_head + self.pending_count;
+            if idx > self.pending_responses.len() {
+                idx -= self.pending_responses.len();
+            }
+            self.pending_responses[idx] = len;
             self.pending_count += 1;
         }
     }
