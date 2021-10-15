@@ -260,13 +260,9 @@ impl Session {
             let now = Instant::now();
             let latency = (now - self.timestamp()).as_nanos() as u64;
             REQUEST_LATENCY.increment(now, latency, 1);
-        } else {
-            if self.pending_count < self.pending_responses.len() {
-                self.pending_responses[(self.pending_head + self.pending_count) % self.pending_responses.len()] = len;
-                self.pending_count += 1;
-            } else {
-                self.pending_bytes = previous;
-            }
+        } else if self.pending_count < self.pending_responses.len() {
+            self.pending_responses[(self.pending_head + self.pending_count) % self.pending_responses.len()] = len;
+            self.pending_count += 1;
         }
     }
 }
@@ -368,7 +364,13 @@ impl Write for Session {
                         if bytes >= *head {
                             bytes -= *head;
                             completed += 1;
-                            self.pending_head += 1;
+
+                            if self.pending_head + 1 < self.pending_responses.len() {
+                                self.pending_head += 1;
+                            } else {
+                                self.pending_head = 0;
+                            }
+
                             self.pending_count -= 1;
                         } else {
                             *head -= bytes;
