@@ -262,8 +262,8 @@ impl Session {
             REQUEST_LATENCY.increment(now, latency, 1);
         } else if self.pending_count < self.pending_responses.len() {
             let mut idx = self.pending_head + self.pending_count;
-            if idx > self.pending_responses.len() {
-                idx -= self.pending_responses.len();
+            if idx >= self.pending_responses.len() {
+                idx %= self.pending_responses.len();
             }
             self.pending_responses[idx] = len;
             self.pending_count += 1;
