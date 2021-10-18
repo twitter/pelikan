@@ -35,10 +35,7 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DBUILD_AND_INSTALL_CHECK=yes \
-            -DCARGO_CI=yes \
-            -DTARGET_CDB=yes \
-            -DHAVE_RUST=yes \
-            -DRUST_VERBOSE_BUILD=yes
+            -DCARGO_CI=yes
 
       - name: Build
         run: |
