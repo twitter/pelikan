@@ -125,6 +125,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   audit:
+    if: false
     name: audit
     runs-on: ubuntu-latest
     steps:
