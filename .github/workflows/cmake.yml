@@ -10,7 +10,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ ubuntu-18.04 ]
+        os: [ ubuntu-18.04, macos-10.15 ]
         profile: [ Release ]
     name: build-${{ matrix.os }}-${{ matrix.profile }}
     runs-on: ${{ matrix.os }}

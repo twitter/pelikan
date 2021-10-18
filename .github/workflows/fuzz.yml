@@ -12,7 +12,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ ubuntu-18.04, macos-10.15 ]
+        os: [ ubuntu-18.04 ]
         target: [ admin, memcache ]
     name: fuzz-${{ matrix.os }}-${{ matrix.target }}
     runs-on: ${{ matrix.os }}
