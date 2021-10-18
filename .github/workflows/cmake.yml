@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-18.04, macos-10.15 ]
-        profile: [ Release, Debug ]
+        profile: [ Release ]
     name: build-${{ matrix.os }}-${{ matrix.profile }}-${{ matrix.compiler }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -19,14 +19,6 @@ jobs:
       - uses: hendrikmuhs/ccache-action@v1
         with:
           key: ccache-${{ matrix.os }}-${{ matrix.profile }}-${{ matrix.compiler }}
-      - name: Install dependencies
-        if: ${{ runner.os == 'Linux' }}
-        run: |
-          sudo apt-get install -y check
-      - name: Install dependencies
-        if: ${{ runner.os == 'macOS'}}
-        run: |
-          brew install check
 
       - name: Configure
         run: |
@@ -34,7 +26,8 @@ jobs:
           cmake -B _build -S . \
             -DCMAKE_BUILD_TYPE=${{ matrix.profile }} \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DBUILD_AND_INSTALL_CHECK=yes
 
       - name: Build
         run: |
