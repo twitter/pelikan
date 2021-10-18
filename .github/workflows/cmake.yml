@@ -12,13 +12,23 @@ jobs:
       matrix:
         os: [ ubuntu-18.04, macos-10.15 ]
         profile: [ Release, Debug ]
-    name: build-${{ matrix.os }}-${{ matrix.profile }}
+        compiler: [ clang, gcc ]
+        # Exclude GCC profiles on MacOS since they will use clang anyway
+        exclude:
+          - os: macos-10.15
+            compiler: gcc
+            profile: Release
+        exclude:
+          - os: macos-10.15
+            compiler: gcc
+            profile: Debug
+    name: build-${{ matrix.os }}-${{ matrix.profile }}-${{ matrix.compiler }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
       - uses: hendrikmuhs/ccache-action@v1
         with:
-          key: ccache-${{ matrix.os }}-${{ matrix.profile }}
+          key: ccache-${{ matrix.os }}-${{ matrix.profile }}-${{ matrix.compiler }}
       - name: Install dependencies
         if: ${{ runner.os == 'Linux' }}
         run: |
@@ -27,6 +37,17 @@ jobs:
         if: ${{ runner.os == 'macOS'}}
         run: |
           brew install check
+
+      - name: Setup compiler env vars
+        if: ${{ matrix.compiler == 'clang' }}
+        run: |
+          echo CC=clang    >> $GITHUB_ENV
+          echo CXX=clang++ >> $GITHUB_ENV
+      - name: Setup compiler env vars
+        if: ${{ matrix.compiler == 'gcc' }}
+        run: |
+          echo CC=gcc  >> $GITHUB_ENV
+          echo CXX=g++ >> $GITHUB_ENV
 
       - name: Configure
         run: |
