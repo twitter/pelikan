@@ -16,15 +16,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
       - uses: hendrikmuhs/ccache-action@v1
         with:
           key: ccache-${{ matrix.os }}-${{ matrix.profile }}
-      - uses: Swatinem/rust-cache@v1
-        with:
-          key: ${{ matrix.os }}-${{ matrix.profile }}
+      - name: Install dependencies
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          apt-get install -y check
+      - name: Install dependencies
+        if: ${{ runner.os == 'macOS'}}
+        run: |
+          brew install check
 
       - name: Configure
         run: |
@@ -32,8 +34,7 @@ jobs:
           cmake -B _build -S . \
             -DCMAKE_BUILD_TYPE=${{ matrix.profile }} \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DBUILD_AND_INSTALL_CHECK=yes
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: |
