@@ -1,0 +1,38 @@
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+  FUZZ_TIME: 300
+  FUZZ_JOBS: 2
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ ubuntu-18.04, macos-10.15 ]
+        target: [ admin, memcache ]
+    name: build-${{ matrix.os }}-${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+      - uses: Swatinem/rust-cache@v1
+        with:
+          key: ${{ matrix.os }}-${{ matrix.target }}
+
+      - uses: actions-rs/cargo@v1
+        name: Install cargo-fuzz
+        with:
+          command: install
+          args: cargo-fuzz
+
+      - uses: actions-rs/cargo@v1
+        name: build
+        with:
+          command: fuzz
+          args: run ${{ matrix.target }} --jobs ${{ env.FUZZ_JOBS }} -- -max_total_time=${{ env.FUZZ_TIME }}
