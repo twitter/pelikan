@@ -1,0 +1,52 @@
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ ubuntu-18.04, macos-10.15 ]
+        profile: [ Release, Debug ]
+        compiler: [ clang, gcc ]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ccache-${{ matrix.os }}-${{ matrix.profile }}-${{ matrix.compiler }}
+      - uses: Swatinem/rust-cache@v1
+        with:
+          key: ${{ matrix.os}}-${{ matrix.profile }}-${{ matrix.compiler }}
+
+      - name: Configure
+        run: |
+          mkdir -p _build
+          cmake -B _build -S . -G Ninja \
+            -DCMAKE_BUILD_TYP${{ matrix.profile }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DBUILD_AND_INSTALL_CHECK=yes \
+            -DCARGO_CI=yes \
+            -DTARGET_CDB=yes \
+            -DHAVE_RUST=yes \
+            -DRUST_VERBOSE_BUILD=yes
+
+      - name: Build
+        run: |
+          cmake --build _build -j$(nproc)
+
+      - name: Test
+        run: |
+          ctest _build --output-on-failure -j$(nproc)
+
+      - name: Integration tests
+        run: |
+          cd test/integration
+          python test_twemcache.py
