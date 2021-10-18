@@ -33,7 +33,7 @@ use stream::Stream;
 pub use tcp_stream::TcpStream;
 
 static_metrics! {
-    static BUFFER_CURRENT_BYTE: Gauge;
+    static SESSION_BUFFER_BYTE: Gauge;
 
     static TCP_ACCEPT: Counter;
     static TCP_CLOSE: Counter;

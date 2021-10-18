@@ -4,7 +4,7 @@
 
 //! A very simple buffer type that can be replaced in the future.
 
-use crate::BUFFER_CURRENT_BYTE;
+use crate::SESSION_BUFFER_BYTE;
 
 use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
@@ -25,7 +25,7 @@ impl Buffer {
         let mut buffer = Vec::with_capacity(capacity);
         buffer.resize(capacity, 0);
 
-        BUFFER_CURRENT_BYTE.add(buffer.capacity() as _);
+        SESSION_BUFFER_BYTE.add(buffer.capacity() as _);
 
         Self {
             buffer,
@@ -65,7 +65,7 @@ impl Buffer {
             let current = self.buffer.len();
             let target = (current + needed).next_power_of_two();
             self.buffer.resize(target, 0);
-            BUFFER_CURRENT_BYTE.add((self.buffer.capacity() - old_cap) as _);
+            SESSION_BUFFER_BYTE.add((self.buffer.capacity() - old_cap) as _);
         }
     }
 
@@ -114,12 +114,12 @@ impl Buffer {
             }
             Ordering::Less => {
                 // buffer has shrunk during consume, decrement the stat
-                BUFFER_CURRENT_BYTE.sub((old_capacity - new_capacity) as _);
+                SESSION_BUFFER_BYTE.sub((old_capacity - new_capacity) as _);
             }
             Ordering::Greater => {
                 // buffer shouldn't grow during consume, but this is necessary
                 // to ensure the stat remains accurate
-                BUFFER_CURRENT_BYTE.add((new_capacity - old_capacity) as _);
+                SESSION_BUFFER_BYTE.add((new_capacity - old_capacity) as _);
             }
         }
     }
@@ -147,7 +147,7 @@ impl BorrowMut<[u8]> for Buffer {
 
 impl Drop for Buffer {
     fn drop(&mut self) {
-        BUFFER_CURRENT_BYTE.sub(self.buffer.capacity() as _);
+        SESSION_BUFFER_BYTE.sub(self.buffer.capacity() as _);
     }
 }
 
