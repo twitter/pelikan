@@ -22,11 +22,11 @@ jobs:
       - name: Install dependencies
         if: ${{ runner.os == 'Linux' }}
         run: |
-          apt-get install -y check
+          sudo apt-get install -y check
       - name: Install dependencies
         if: ${{ runner.os == 'macOS'}}
         run: |
-          brew install check
+          sudo brew install check
 
       - name: Configure
         run: |
