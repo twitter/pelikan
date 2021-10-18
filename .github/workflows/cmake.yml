@@ -35,7 +35,9 @@ jobs:
 
       - name: Test
         run: |
-          ctest _build --output-on-failure
+          cmake --build _build --target test
+        env:
+          CTEST_OUTPUT_ON_FAILURE: 1
 
       - name: Integration tests
         run: |
