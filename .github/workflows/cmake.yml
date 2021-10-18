@@ -31,7 +31,7 @@ jobs:
         run: |
           mkdir -p _build
           cmake -B _build -S . -G Ninja \
-            -DCMAKE_BUILD_TYP${{ matrix.profile }} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.profile }} \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DBUILD_AND_INSTALL_CHECK=yes \
