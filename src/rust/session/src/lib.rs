@@ -17,6 +17,7 @@ use metrics::Heatmap;
 use metrics::Relaxed;
 use rustcommon_time::Duration;
 use std::borrow::{Borrow, BorrowMut};
+use std::cmp::Ordering;
 use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
@@ -248,26 +249,39 @@ impl Session {
     pub fn finalize_response(&mut self) {
         let previous = self.pending_bytes;
         let current = self.write_pending();
-        let len = current - previous;
+
+        match current.cmp(&previous) {
+            Ordering::Greater => {
+                // We've finalized a response that has some pending bytes to
+                // track. If there's room in the tracking struct, we add it so
+                // we can determine latency later.
+                if self.pending_count < self.pending_responses.len() {
+                    let mut idx = self.pending_head + self.pending_count;
+                    if idx >= self.pending_responses.len() {
+                        idx %= self.pending_responses.len();
+                    }
+                    self.pending_responses[idx] = current - previous;
+                    self.pending_count += 1;
+                }
+            }
+            Ordering::Equal => {
+                // We've finalized a response that is zero-length. This is
+                // expected for empty responses such as when handling memcache
+                // requests which specify `NOREPLY`. Since there are no pending
+                // bytes for a zero-length response, we can determine the
+                // latency now.
+                let now = Instant::now();
+                let latency = (now - self.timestamp()).as_nanos() as u64;
+                REQUEST_LATENCY.increment(now, latency, 1);
+            }
+            Ordering::Less => {
+                // This indicates that our tracking is off. This could be due to
+                // a protocol failing to finalize some type of response. We will
+                // simply ignore this case.
+            }
+        }
 
         self.pending_bytes = current;
-
-        // `len` holds the number of bytes for the finalized response, for empty
-        // 'responses' (eg: memcache NOREPLY), we finalize an empty response to
-        // track the latency. This can be recorded immediately, as there is no
-        // queued response in the buffer.
-        if len == 0 {
-            let now = Instant::now();
-            let latency = (now - self.timestamp()).as_nanos() as u64;
-            REQUEST_LATENCY.increment(now, latency, 1);
-        } else if self.pending_count < self.pending_responses.len() {
-            let mut idx = self.pending_head + self.pending_count;
-            if idx >= self.pending_responses.len() {
-                idx %= self.pending_responses.len();
-            }
-            self.pending_responses[idx] = len;
-            self.pending_count += 1;
-        }
     }
 }
 
@@ -385,8 +399,28 @@ impl Write for Session {
                     }
                 }
 
-                self.pending_bytes -= flushed_bytes;
+                match flushed_bytes.cmp(&self.pending_bytes) {
+                    Ordering::Less => {
+                        // The buffer is not completely flushed to the
+                        // underlying stream, we will still have more pending
+                        // bytes.
+                        self.pending_bytes -= flushed_bytes;
+                    }
+                    Ordering::Equal => {
+                        // The buffer is completely flushed. We have no more
+                        // pending bytes.
+                        self.pending_bytes = 0;
+                    }
+                    Ordering::Greater => {
+                        // This indicates that the tracking is off. Potentially
+                        // due to a protocol implementation that failed to
+                        // finalize some response. We will simply zero out the
+                        // pending bytes.
+                        self.pending_bytes = 0;
+                    }
+                }
 
+                // Increment the histogram with the calculated latency.
                 REQUEST_LATENCY.increment(now, latency, completed);
 
                 Ok(())
