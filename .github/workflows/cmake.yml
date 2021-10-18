@@ -38,11 +38,11 @@ jobs:
 
       - name: Build
         run: |
-          cmake --build _build -j$(nproc)
+          cmake --build _build
 
       - name: Test
         run: |
-          ctest _build --output-on-failure -j$(nproc)
+          ctest _build --output-on-failure
 
       - name: Integration tests
         run: |
