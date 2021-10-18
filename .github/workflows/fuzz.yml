@@ -32,7 +32,7 @@ jobs:
           args: cargo-fuzz
 
       - name: build
-        run:
+        run: |
           cd src/rust/protocol
           cargo fuzz run ${{ matrix.target }} --jobs ${{ env.FUZZ_JOBS }} -- \
             -max_total_time=${{ env.FUZZ_TIME }}
