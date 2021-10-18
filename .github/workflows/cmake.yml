@@ -34,8 +34,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.profile }} \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DBUILD_AND_INSTALL_CHECK=yes \
-            -DCARGO_CI=yes
+            -DBUILD_AND_INSTALL_CHECK=yes
 
       - name: Build
         run: |
