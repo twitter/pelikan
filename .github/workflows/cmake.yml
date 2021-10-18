@@ -12,8 +12,7 @@ jobs:
       matrix:
         os: [ ubuntu-18.04, macos-10.15 ]
         profile: [ Release, Debug ]
-        compiler: [ clang, gcc ]
-    name: build-${{ matrix.os }}-${{ matrix.profile }}-${{ matrix.compiler }}
+    name: build-${{ matrix.os }}-${{ matrix.profile }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -22,10 +21,10 @@ jobs:
           toolchain: stable
       - uses: hendrikmuhs/ccache-action@v1
         with:
-          key: ccache-${{ matrix.os }}-${{ matrix.profile }}-${{ matrix.compiler }}
+          key: ccache-${{ matrix.os }}-${{ matrix.profile }}
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.os }}-${{ matrix.profile }}-${{ matrix.compiler }}
+          key: ${{ matrix.os }}-${{ matrix.profile }}
 
       - name: Configure
         run: |
