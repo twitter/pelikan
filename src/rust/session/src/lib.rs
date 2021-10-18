@@ -277,7 +277,12 @@ impl Session {
             Ordering::Less => {
                 // This indicates that our tracking is off. This could be due to
                 // a protocol failing to finalize some type of response. We will
-                // simply ignore this case.
+                // log a warning.
+                warn!("Failed to calculate length of finalized response. Previously pending bytes: {} Current write buffer length: {}", previous, current);
+
+                // If it's a debug build, we will also assert that this is
+                // unexpected.
+                debug_assert!(false);
             }
         }
 
@@ -414,9 +419,17 @@ impl Write for Session {
                     Ordering::Greater => {
                         // This indicates that the tracking is off. Potentially
                         // due to a protocol implementation that failed to
-                        // finalize some response. We will simply zero out the
-                        // pending bytes.
+                        // finalize some response. We will simply log a warning
+                        // and zero out the pending bytes.
+                        warn!(
+                            "Session flushed {} bytes, but only had {} pending bytes to track",
+                            flushed_bytes, self.pending_bytes
+                        );
                         self.pending_bytes = 0;
+
+                        // If it's a debug build, we will also assert that this
+                        // is unexpected.
+                        debug_assert!(false);
                     }
                 }
 
