@@ -81,16 +81,14 @@ impl Buffer {
     pub fn consume(&mut self, amt: usize) {
         let old_capacity = self.buffer.capacity();
         self.read_offset = std::cmp::min(self.read_offset + amt, self.write_offset);
-        if self.is_empty() {
-            // if the buffer is empty, we can simply shrink it down and move the
-            // offsets to the start of the buffer storage
+
+        // determine the target size of the buffer
+        let target_size = if self.is_empty() {
+            // if the buffer is empty, we can reset the read/write offsets to
+            // the start and reduce the size to the target capacity
             self.write_offset = 0;
             self.read_offset = 0;
-            if self.buffer.len() - self.target_capacity > 0 {
-                // buffer can be reduced back down to the target
-                self.buffer.truncate(self.target_capacity);
-                self.buffer.shrink_to_fit();
-            }
+            self.target_capacity
         } else if self.buffer.len() > self.target_capacity && self.len() * 2 < self.buffer.len() {
             // the buffer is both oversized and less than half full, we can
             // shrink the buffer size after memmove-ing the contents to the
@@ -100,11 +98,14 @@ impl Buffer {
             self.write_offset -= self.read_offset;
             self.read_offset = 0;
 
-            let target = self.buffer.len() / 2;
+            self.buffer.len() / 2
+        } else {
+            self.buffer.len()
+        };
 
-            self.buffer.truncate(target);
-            self.buffer.shrink_to_fit();
-        }
+        // buffer can be reduced to the target_size determined above
+        self.buffer.truncate(target_size);
+        self.buffer.shrink_to_fit();
 
         // update stats if the buffer has resized
         let new_capacity = self.buffer.capacity();
