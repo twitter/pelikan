@@ -277,8 +277,17 @@ impl Session {
             Ordering::Less => {
                 // This indicates that our tracking is off. This could be due to
                 // a protocol failing to finalize some type of response. We will
-                // log a warning.
-                warn!("Failed to calculate length of finalized response. Previously pending bytes: {} Current write buffer length: {}", previous, current);
+                // log an error.
+                //
+                // NOTE: this does not indicate corruption of the buffer and
+                // only indicates some issue with the pending response tracking
+                // used to calculate latencies. This path is an attempt to
+                // recover by skipping the tracking for this request.
+                error!("Failed to calculate length of finalized response. \
+                    Previous pending bytes: {} Current write buffer length: {}",
+                    previous,
+                    current
+                );
 
                 // If it's a debug build, we will also assert that this is
                 // unexpected.
@@ -419,9 +428,15 @@ impl Write for Session {
                     Ordering::Greater => {
                         // This indicates that the tracking is off. Potentially
                         // due to a protocol implementation that failed to
-                        // finalize some response. We will simply log a warning
+                        // finalize some response. We will simply log an error
                         // and zero out the pending bytes.
-                        warn!(
+                        //
+                        // NOTE: this does not indicate corruption of the buffer
+                        // and only indicates some issue with the pending
+                        // response tracking used to calculate latencies. This
+                        // path is an attempt to recover and resume tracking by
+                        // resetting the pending bytes for this session.
+                        error!(
                             "Session flushed {} bytes, but only had {} pending bytes to track",
                             flushed_bytes, self.pending_bytes
                         );
