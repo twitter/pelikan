@@ -260,6 +260,8 @@ mod tests {
         assert_eq!(buffer.available_capacity(), 2);
         assert!(buffer.is_empty());
 
+        // buffer extends to the next power of two
+        // with 5 byte message we need 8 bytes for the buffer
         buffer.extend_from_slice(b"END\r\n");
         assert_eq!(buffer.len(), 5);
         assert_eq!(buffer.available_capacity(), 3);
