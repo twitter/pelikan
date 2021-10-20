@@ -293,7 +293,7 @@ mod tests {
         // consume all but the last byte of content in the buffer, one byte at
         // a time
         // - buffer len decreases with each call to consume()
-        // - buffer available capacity remains the same
+        // - buffer available capacity increases with each call to consume()
         for i in 1..len {
             buffer.consume(1);
             assert_eq!(buffer.len(), len - i);
@@ -342,14 +342,15 @@ mod tests {
         assert_eq!(buffer.available_capacity(), 1);
         assert!(!buffer.is_empty());
 
-        // partial consume, len decrease, capacity remains the same
+        // partial consume, len decrease, buffer shrinks down to target capacity
         // length = 16, size = 16, capacity = 0
         buffer.consume(15);
         assert_eq!(buffer.len(), 16);
         assert_eq!(buffer.available_capacity(), 0);
 
-        // consume one more byte and the buffer shrinks because we have less
-        // than half occupancy
+        // from here on, buffer will not shrink below target capacity
+
+        // consume one more byte
         // length = 15, size = 16, capacity = 0
         buffer.consume(1);
         assert_eq!(buffer.len(), 15);
