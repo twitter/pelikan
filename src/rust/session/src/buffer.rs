@@ -78,8 +78,6 @@ impl Buffer {
     /// Mark that `amt` bytes have been consumed and should not be returned in
     /// future reads from the buffer.
     pub fn consume(&mut self, bytes: usize) {
-        println!("consume: {}", bytes);
-        println!("r_pos: {} w_pos: {} buf_len: {} vec_len: {}", self.read_offset, self.write_offset, self.len(), self.buffer.len());
         let old_capacity = self.buffer.capacity();
         self.read_offset = std::cmp::min(self.read_offset + bytes, self.write_offset);
 
@@ -94,8 +92,7 @@ impl Buffer {
 
         // determine the target size of the buffer
         let target_size = if self.len() * 2 > self.buffer.len() {
-            // buffer too full to shrink
-            println!("r_pos: {} w_pos: {} buf_len: {} vec_len: {}", self.read_offset, self.write_offset, self.len(), self.buffer.len());
+            // buffer too full to shrink, early return
             return;
         } else if self.len() > self.target_capacity {
             // should shrink, but not to target capacity
@@ -108,8 +105,6 @@ impl Buffer {
         // buffer can be reduced to the target_size determined above
         self.buffer.truncate(target_size);
         self.buffer.shrink_to_fit();
-
-        println!("r_pos: {} w_pos: {} buf_len: {} vec_len: {}", self.read_offset, self.write_offset, self.len(), self.buffer.len());
 
         // update stats if the buffer has resized
         SESSION_BUFFER_BYTE.sub(old_capacity as i64 - self.buffer.capacity() as i64);
