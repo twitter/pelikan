@@ -77,35 +77,39 @@ impl Buffer {
 
     /// Mark that `amt` bytes have been consumed and should not be returned in
     /// future reads from the buffer.
-    pub fn consume(&mut self, amt: usize) {
+    pub fn consume(&mut self, bytes: usize) {
+        println!("consume: {}", bytes);
+        println!("r_pos: {} w_pos: {} buf_len: {} vec_len: {}", self.read_offset, self.write_offset, self.len(), self.buffer.len());
         let old_capacity = self.buffer.capacity();
-        self.read_offset = std::cmp::min(self.read_offset + amt, self.write_offset);
+        self.read_offset = std::cmp::min(self.read_offset + bytes, self.write_offset);
+
+        // if we have content, before shrinking we must shift content left
+        if !self.is_empty() {
+            self.buffer
+                .copy_within(self.read_offset..self.write_offset, 0);
+        }
+
+        self.write_offset -= self.read_offset;
+        self.read_offset = 0;
 
         // determine the target size of the buffer
         let target_size = if self.len() * 2 > self.buffer.len() {
             // buffer too full to shrink
-            self.buffer.len()
+            println!("r_pos: {} w_pos: {} buf_len: {} vec_len: {}", self.read_offset, self.write_offset, self.len(), self.buffer.len());
+            return;
+        } else if self.len() > self.target_capacity {
+            // should shrink, but not to target capacity
+            self.buffer.len() / 2
         } else {
-            // if we have content, before shrinking we must shift content left
-            if !self.is_empty() {
-                self.buffer
-                    .copy_within(self.read_offset..self.write_offset, 0);
-            }
-
-            self.write_offset -= self.read_offset;
-            self.read_offset = 0;
-            if self.len() > self.target_capacity {
-                // should shrink, but not to target capacity
-                self.buffer.len() / 2
-            } else {
-                // we won't shrink, so return early
-                return;
-            }
+            // shrink down to target capacity
+            self.target_capacity
         };
 
         // buffer can be reduced to the target_size determined above
         self.buffer.truncate(target_size);
         self.buffer.shrink_to_fit();
+
+        println!("r_pos: {} w_pos: {} buf_len: {} vec_len: {}", self.read_offset, self.write_offset, self.len(), self.buffer.len());
 
         // update stats if the buffer has resized
         SESSION_BUFFER_BYTE.sub(old_capacity as i64 - self.buffer.capacity() as i64);
@@ -296,7 +300,7 @@ mod tests {
         for i in 1..len {
             buffer.consume(1);
             assert_eq!(buffer.len(), len - i);
-            assert_eq!(buffer.available_capacity(), 3);
+            assert_eq!(buffer.available_capacity(), 3 + i);
             assert!(!buffer.is_empty());
         }
 
@@ -321,55 +325,60 @@ mod tests {
         let content = b"VALUE SOME_REALLY_LONG_KEY 0 1\r\n1\r\nEND\r\n";
 
         // buffer resizes up to 64 bytes to hold 40 bytes
+        // length = 40, size = 64, capacity = 24
         buffer.extend_from_slice(content);
         assert_eq!(buffer.len(), 40);
         assert_eq!(buffer.available_capacity(), 24);
         assert!(!buffer.is_empty());
 
-        // partial consume, len decrease, capacity remains the same
-        // length = 32, size = 64
+        // partial consume, len decrease, buffer shrinks by half
+        // length = 32, size = 32, capacity = 0
         buffer.consume(8);
         assert_eq!(buffer.len(), 32);
-        assert_eq!(buffer.available_capacity(), 24);
+        assert_eq!(buffer.available_capacity(), 0);
+        assert!(!buffer.is_empty());
 
-        // consume one more byte and the buffer shrinks because we have less
-        // than half occupancy
-        // length = 31, size = 64 => len = 31, size = 32
+        // consume one more byte and we should get available capacity
+        // length = 31, size = 32, capacity = 1
         buffer.consume(1);
         assert_eq!(buffer.len(), 31);
         assert_eq!(buffer.available_capacity(), 1);
+        assert!(!buffer.is_empty());
 
         // partial consume, len decrease, capacity remains the same
-        // length = 16, size = 32
+        // length = 16, size = 16, capacity = 0
         buffer.consume(15);
         assert_eq!(buffer.len(), 16);
-        assert_eq!(buffer.available_capacity(), 1);
+        assert_eq!(buffer.available_capacity(), 0);
 
         // consume one more byte and the buffer shrinks because we have less
         // than half occupancy
-        // length = 15, size = 32 => len = 15, size = 16
+        // length = 15, size = 16, capacity = 0
         buffer.consume(1);
         assert_eq!(buffer.len(), 15);
         assert_eq!(buffer.available_capacity(), 1);
 
-        // partial consume, len decrease, capacity remains the same
-        // length = 8, size = 16
+        // partial consume, len decrease
+        // length = 8, size = 16, capacity = 8
         buffer.consume(7);
         assert_eq!(buffer.len(), 8);
-        assert_eq!(buffer.available_capacity(), 1);
+        assert_eq!(buffer.available_capacity(), 8);
 
-        // consume one more byte, but the buffer does not shrink because the
-        // size is less than the target capacity
+        // partial consume, len decrease
+        // length = 7, size = 16, capacity = 9
         buffer.consume(1);
         assert_eq!(buffer.len(), 7);
-        assert_eq!(buffer.available_capacity(), 1);
+        assert_eq!(buffer.available_capacity(), 9);
 
-        // consume all but the final byte, and available capacity is the same
+        // consume all but the final byte
+        // partial consume, len decrease
+        // length = 1, size = 16, capacity = 15
         buffer.consume(6);
         assert_eq!(buffer.len(), 1);
-        assert_eq!(buffer.available_capacity(), 1);
+        assert_eq!(buffer.available_capacity(), 15);
 
-        // when consuming the final byte, the capacity resets
+        // consume the final byte
+        // length = 0, size = 16, capacity = 16
         buffer.consume(1);
         assert_eq!(buffer.len(), 0);
         assert_eq!(buffer.available_capacity(), 16);
