@@ -54,7 +54,7 @@ pub use traits::*;
 
 use config::{DebugConfig, KlogConfig};
 use mpmc::Queue;
-use rustcommon_time::recent_local;
+use rustcommon_time::recent_utc;
 
 pub(crate) type LogBuffer = Vec<u8>;
 

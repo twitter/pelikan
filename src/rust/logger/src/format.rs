@@ -4,17 +4,17 @@
 
 use crate::*;
 
-use rustcommon_time::{DateTime, Local, SecondsFormat};
+use rustcommon_time::{DateTime, SecondsFormat};
 
 pub type FormatFunction = fn(
     write: &mut dyn std::io::Write,
-    now: DateTime<Local>,
+    now: DateTime,
     record: &Record,
 ) -> Result<(), std::io::Error>;
 
 pub fn default_format(
     w: &mut dyn std::io::Write,
-    now: DateTime<Local>,
+    now: DateTime,
     record: &Record,
 ) -> Result<(), std::io::Error> {
     writeln!(
@@ -29,7 +29,7 @@ pub fn default_format(
 
 pub fn klog_format(
     w: &mut dyn std::io::Write,
-    now: DateTime<Local>,
+    now: DateTime,
     record: &Record,
 ) -> Result<(), std::io::Error> {
     writeln!(
