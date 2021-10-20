@@ -333,7 +333,6 @@ START_TEST(test_nonblocking)
     pthread_join(thread, NULL);
 
     ck_assert_int_ge(duration_us(&duration), SLEEP_TIME);
-    ck_assert_int_le(duration_us(&duration), SLEEP_TIME + TOLERANCE_TIME);
 
     tcp_close(conn_listen);
     tcp_close(conn_server);
