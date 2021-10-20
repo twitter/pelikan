@@ -86,6 +86,9 @@ extern "C" {
 #define cc_strlen(_s)                                           \
     strlen((char *)(_s))
 
+#define cc_strnlen(_s, _n)                                      \
+    strnlen((char *)(_s), (size_t)(_n))
+
 #define cc_strcmp(_s1, _s2)                                     \
     strcmp((char *)(_s1), (char *)(_s2))
 

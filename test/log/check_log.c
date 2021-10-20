@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <cc_mm.h>
 
 #define SUITE_NAME "log"
 #define DEBUG_LOG  SUITE_NAME ".log"
@@ -52,7 +53,6 @@ static void
 tmpname_destroy(char *path)
 {
     unlink(path);
-    path[strlen(path) - 2] = 0;
     rmdir(path);
     free(path);
 }

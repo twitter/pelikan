@@ -66,6 +66,9 @@ extern "C" {
 #define cc_munmap(_p, _s)                                       \
     _cc_munmap(_p, (size_t)(_s), __FILE__, __LINE__)
 
+#define cc_alloc_usable_size(_p)                                \
+    _cc_alloc_usable_size(_p, __FILE__, __LINE__)
+
 void * _cc_alloc(size_t size, const char *name, int line);
 void * _cc_zalloc(size_t size, const char *name, int line);
 void * _cc_calloc(size_t nmemb, size_t size, const char *name, int line);
@@ -74,6 +77,7 @@ void * _cc_realloc_move(void *ptr, size_t size, const char *name, int line);
 void _cc_free(void *ptr, const char *name, int line);
 void * _cc_mmap(size_t size, const char *name, int line);
 int _cc_munmap(void *p, size_t size, const char *name, int line);
+size_t _cc_alloc_usable_size(void *ptr, const char *name, int line);
 
 #ifdef __cplusplus
 }
