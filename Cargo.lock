@@ -202,19 +202,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "chrono"
-version = "0.4.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
-dependencies = [
- "libc",
- "num-integer",
- "num-traits",
- "time",
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "clang-sys"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -723,16 +710,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-integer"
-version = "0.1.44"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
-dependencies = [
- "autocfg",
- "num-traits",
-]
-
-[[package]]
 name = "num-traits"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1042,7 +1019,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-atomics"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
+source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
 dependencies = [
  "serde",
 ]
@@ -1050,7 +1027,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-heatmap"
 version = "0.1.1"
-source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
+source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
 dependencies = [
  "rustcommon-atomics",
  "rustcommon-histogram",
@@ -1061,7 +1038,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-histogram"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
+source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
 dependencies = [
  "rustcommon-atomics",
  "thiserror",
@@ -1070,16 +1047,16 @@ dependencies = [
 [[package]]
 name = "rustcommon-logger"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
+source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
 dependencies = [
  "log",
- "time",
+ "rustcommon-time",
 ]
 
 [[package]]
 name = "rustcommon-metrics-derive"
 version = "0.1.0"
-source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
+source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -1090,7 +1067,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-metrics-v2"
 version = "0.1.0"
-source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
+source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
 dependencies = [
  "linkme",
  "once_cell",
@@ -1103,13 +1080,13 @@ dependencies = [
 
 [[package]]
 name = "rustcommon-time"
-version = "0.0.6"
-source = "git+https://github.com/twitter/rustcommon#f80fb5a83d057179b14e3871f77a5c61175edd75"
+version = "0.0.8"
+source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
 dependencies = [
- "chrono",
  "lazy_static",
  "libc",
  "mach",
+ "time",
  "winapi 0.3.9",
 ]
 
@@ -1221,7 +1198,6 @@ dependencies = [
  "backtrace",
  "boring",
  "bytes",
- "chrono",
  "common",
  "config",
  "criterion",
@@ -1374,13 +1350,12 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.1.44"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6db9e6914ab8b1ae1c260a4ae7a49b6c5611b40328a735b21862567685e73255"
+checksum = "cde1cf55178e0293453ba2cca0d5f8392a922e52aa958aee9c28ed02becc6d03"
 dependencies = [
+ "itoa",
  "libc",
- "wasi",
- "winapi 0.3.9",
 ]
 
 [[package]]
