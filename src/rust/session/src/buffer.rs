@@ -7,7 +7,6 @@
 use crate::SESSION_BUFFER_BYTE;
 
 use core::borrow::{Borrow, BorrowMut};
-use core::cmp::Ordering;
 
 /// A growable byte buffer
 pub struct Buffer {
@@ -100,7 +99,8 @@ impl Buffer {
 
             self.buffer.len() / 2
         } else {
-            self.buffer.len()
+            // we don't need to resize, early return to avoid stats call
+            return;
         };
 
         // buffer can be reduced to the target_size determined above
@@ -108,21 +108,7 @@ impl Buffer {
         self.buffer.shrink_to_fit();
 
         // update stats if the buffer has resized
-        let new_capacity = self.buffer.capacity();
-        match new_capacity.cmp(&old_capacity) {
-            Ordering::Equal => {
-                // no change to the buffer size
-            }
-            Ordering::Less => {
-                // buffer has shrunk during consume, decrement the stat
-                SESSION_BUFFER_BYTE.sub((old_capacity - new_capacity) as _);
-            }
-            Ordering::Greater => {
-                // buffer shouldn't grow during consume, but this is necessary
-                // to ensure the stat remains accurate
-                SESSION_BUFFER_BYTE.add((new_capacity - old_capacity) as _);
-            }
-        }
+        SESSION_BUFFER_BYTE.sub(old_capacity as i64 - self.buffer.capacity() as i64);
     }
 
     /// Marks the buffer as now containing `amt` additional bytes. This function
