@@ -82,25 +82,25 @@ impl Buffer {
         self.read_offset = std::cmp::min(self.read_offset + amt, self.write_offset);
 
         // determine the target size of the buffer
-        let target_size = if self.is_empty() {
-            // if the buffer is empty, we can reset the read/write offsets to
-            // the start and reduce the size to the target capacity
-            self.write_offset = 0;
-            self.read_offset = 0;
-            self.target_capacity
-        } else if self.buffer.len() > self.target_capacity && self.len() * 2 < self.buffer.len() {
-            // the buffer is both oversized and less than half full, we can
-            // shrink the buffer size after memmove-ing the contents to the
-            // beginning of the buffer
-            self.buffer
-                .copy_within(self.read_offset..self.write_offset, 0);
+        let target_size = if self.len() * 2 > self.buffer.len() {
+            // buffer too full to shrink
+            self.buffer.len()
+        } else {
+            // if we have content, before shrinking we must shift content left
+            if !self.is_empty() {
+                self.buffer
+                    .copy_within(self.read_offset..self.write_offset, 0);
+            }
+
             self.write_offset -= self.read_offset;
             self.read_offset = 0;
-
-            self.buffer.len() / 2
-        } else {
-            // we don't need to resize, early return to avoid stats call
-            return;
+            if self.len() > self.target_capacity {
+                // should shrink, but not to target capacity
+                self.buffer.len() / 2
+            } else {
+                // we won't shrink, so return early
+                return;
+            }
         };
 
         // buffer can be reduced to the target_size determined above

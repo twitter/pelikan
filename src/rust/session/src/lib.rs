@@ -282,10 +282,10 @@ impl Session {
                 // only indicates some issue with the pending response tracking
                 // used to calculate latencies. This path is an attempt to
                 // recover by skipping the tracking for this request.
-                error!("Failed to calculate length of finalized response. \
+                error!(
+                    "Failed to calculate length of finalized response. \
                     Previous pending bytes: {} Current write buffer length: {}",
-                    previous,
-                    current
+                    previous, current
                 );
 
                 // If it's a debug build, we will also assert that this is
