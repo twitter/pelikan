@@ -410,8 +410,8 @@ impl Segments {
                 self.headers[id_idx].write_offset() as usize,
                 std::mem::size_of_val(&SEG_MAGIC),
                 "segment: ({}) in free queue has write_offset: ({})",
-                id,
-                self.headers[id as usize].write_offset()
+                id.unwrap(),
+                self.headers[id_idx].write_offset()
             );
 
             rustcommon_time::refresh_clock();
@@ -611,7 +611,11 @@ impl Segments {
     pub(crate) fn check_integrity(&mut self) -> bool {
         let mut integrity = true;
         for id in 0..self.cap {
-            if !self.get_mut(id).unwrap().check_integrity() {
+            if !self
+                .get_mut(NonZeroU32::new(id + 1).unwrap())
+                .unwrap()
+                .check_integrity()
+            {
                 integrity = false;
             }
         }
