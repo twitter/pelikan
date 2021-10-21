@@ -11,7 +11,7 @@ use std::net::SocketAddr;
 use boring::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
 
 use super::TcpStream;
-use crate::TCP_CLOSE;
+use crate::{TCP_CLOSE, TCP_CONN_CURR};
 
 pub struct Stream {
     inner: Option<StreamType>,
@@ -78,6 +78,7 @@ impl Stream {
 
     pub fn close(&mut self) {
         TCP_CLOSE.increment();
+        TCP_CONN_CURR.sub(1);
         if let Some(stream) = self.inner.take() {
             self.inner = match stream {
                 StreamType::Plain(s) => {
