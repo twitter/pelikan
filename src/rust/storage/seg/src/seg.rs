@@ -6,7 +6,14 @@
 
 use crate::*;
 
+use metrics::{static_metrics, Counter};
+
 const RESERVE_RETRIES: usize = 3;
+
+static_metrics! {
+    static SEGMENT_ACQUIRE: Counter;
+    static SEGMENT_ACQUIRE_EX: Counter;
+}
 
 /// A pre-allocated key-value store with eager expiration. It uses a
 /// segment-structured design that stores data in fixed-size segments, grouping
@@ -137,11 +144,16 @@ impl Seg {
                     {
                         retries -= 1;
                     } else {
+                        // segment acquire successful, increment stat and exit
+                        // the loop
+                        SEGMENT_ACQUIRE.increment();
                         continue;
                     }
                 }
             }
             if retries == 0 {
+                // segment acquire failed, increment the exception stat
+                SEGMENT_ACQUIRE_EX.increment();
                 return Err(SegError::NoFreeSegments);
             }
             retries -= 1;
