@@ -11,8 +11,9 @@ use metrics::{static_metrics, Counter};
 const RESERVE_RETRIES: usize = 3;
 
 static_metrics! {
-    static SEGMENT_ACQUIRE: Counter;
-    static SEGMENT_ACQUIRE_EX: Counter;
+    static SEGMENT_REQUEST: Counter;
+    static SEGMENT_REQUEST_FAILURE: Counter;
+    static SEGMENT_REQUEST_SUCCESS: Counter;
 }
 
 /// A pre-allocated key-value store with eager expiration. It uses a
@@ -137,6 +138,11 @@ impl Seg {
                     return Err(SegError::ItemOversized { size, key });
                 }
                 Err(TtlBucketsError::NoFreeSegments) => {
+                    if retries == RESERVE_RETRIES {
+                        // first attempt to acquire a free segment, increment
+                        // the stats
+                        SEGMENT_REQUEST.increment();
+                    }
                     if self
                         .segments
                         .evict(&mut self.ttl_buckets, &mut self.hashtable)
@@ -144,16 +150,17 @@ impl Seg {
                     {
                         retries -= 1;
                     } else {
-                        // segment acquire successful, increment stat and exit
-                        // the loop
-                        SEGMENT_ACQUIRE.increment();
+                        // we successfully got a segment, increment the stat and
+                        // return to start of loop to reserve the item
+                        SEGMENT_REQUEST_SUCCESS.increment();
                         continue;
                     }
                 }
             }
             if retries == 0 {
-                // segment acquire failed, increment the exception stat
-                SEGMENT_ACQUIRE_EX.increment();
+                // segment acquire failed, increment the stat and return with
+                // an error
+                SEGMENT_REQUEST_FAILURE.increment();
                 return Err(SegError::NoFreeSegments);
             }
             retries -= 1;

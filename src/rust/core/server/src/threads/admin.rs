@@ -355,12 +355,8 @@ impl Admin {
         };
 
         if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut rusage) } == 0 {
-            RU_UTIME.set(
-                rusage.ru_utime.tv_sec as u64 * S + rusage.ru_utime.tv_usec as u64 * US,
-            );
-            RU_STIME.set(
-                rusage.ru_stime.tv_sec as u64 * S + rusage.ru_stime.tv_usec as u64 * US,
-            );
+            RU_UTIME.set(rusage.ru_utime.tv_sec as u64 * S + rusage.ru_utime.tv_usec as u64 * US);
+            RU_STIME.set(rusage.ru_stime.tv_sec as u64 * S + rusage.ru_stime.tv_usec as u64 * US);
             RU_MAXRSS.set(rusage.ru_maxrss * KB as i64);
             RU_IXRSS.set(rusage.ru_ixrss * KB as i64);
             RU_IDRSS.set(rusage.ru_idrss * KB as i64);
