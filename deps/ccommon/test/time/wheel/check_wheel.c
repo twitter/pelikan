@@ -42,7 +42,7 @@ _incr_cb(void *v)
 
 START_TEST(test_timing_wheel_basic)
 {
-#define TICK_NS 1000000
+#define TICK_NS 100000000
 #define NSLOT 3
 #define NTICK 2
 
@@ -182,7 +182,7 @@ END_TEST
 
 START_TEST(test_timing_wheel_edge_case)
 {
-#define TICK_NS 1000000
+#define TICK_NS 100000000
 #define NSLOT 3
 #define NTICK 2
 
