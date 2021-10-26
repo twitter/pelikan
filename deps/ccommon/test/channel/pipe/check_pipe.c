@@ -128,7 +128,6 @@ START_TEST(test_read_blocking)
     pthread_join(thread, NULL);
 
     ck_assert_int_ge(duration_us(&duration), SLEEP_TIME - TOLERANCE_UNDER);
-    ck_assert_int_le(duration_us(&duration), SLEEP_TIME + TOLERANCE_OVER);
 
     ck_assert_str_eq(write_message, read_message);
 
