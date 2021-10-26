@@ -596,6 +596,7 @@ dependencies = [
  "ahash 0.7.4",
  "config",
  "log",
+ "metrics",
  "mpmc",
  "rustcommon-time",
 ]
