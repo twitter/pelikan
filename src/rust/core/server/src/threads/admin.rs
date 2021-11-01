@@ -53,6 +53,10 @@ static_metrics! {
     static RU_NIVCSW: Counter;
 }
 
+const KB: u64 = 1024; // one kilobyte in bytes
+const S: u64 = 1_000_000_000; // one second in nanoseconds
+const US: u64 = 1_000; // one microsecond in nanoseconds
+
 /// A `Admin` is used to bind to a given socket address and handle out-of-band
 /// admin requests.
 pub struct Admin {
@@ -351,16 +355,12 @@ impl Admin {
         };
 
         if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut rusage) } == 0 {
-            RU_UTIME.set(
-                rusage.ru_utime.tv_sec as u64 * 1000000000 + rusage.ru_utime.tv_usec as u64 * 1000,
-            );
-            RU_STIME.set(
-                rusage.ru_stime.tv_sec as u64 * 1000000000 + rusage.ru_stime.tv_usec as u64 * 1000,
-            );
-            RU_MAXRSS.set(rusage.ru_maxrss as i64);
-            RU_IXRSS.set(rusage.ru_ixrss as i64);
-            RU_IDRSS.set(rusage.ru_idrss as i64);
-            RU_ISRSS.set(rusage.ru_isrss as i64);
+            RU_UTIME.set(rusage.ru_utime.tv_sec as u64 * S + rusage.ru_utime.tv_usec as u64 * US);
+            RU_STIME.set(rusage.ru_stime.tv_sec as u64 * S + rusage.ru_stime.tv_usec as u64 * US);
+            RU_MAXRSS.set(rusage.ru_maxrss * KB as i64);
+            RU_IXRSS.set(rusage.ru_ixrss * KB as i64);
+            RU_IDRSS.set(rusage.ru_idrss * KB as i64);
+            RU_ISRSS.set(rusage.ru_isrss * KB as i64);
             RU_MINFLT.set(rusage.ru_minflt as u64);
             RU_MAJFLT.set(rusage.ru_majflt as u64);
             RU_NSWAP.set(rusage.ru_nswap as u64);

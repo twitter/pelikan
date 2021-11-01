@@ -37,6 +37,7 @@ static_metrics! {
 
     static TCP_ACCEPT: Counter;
     static TCP_CLOSE: Counter;
+    static TCP_CONN_CURR: Gauge;
     static TCP_RECV_BYTE: Counter;
     static TCP_SEND_BYTE: Counter;
     static TCP_SEND_PARTIAL: Counter;
@@ -122,6 +123,7 @@ impl Session {
     /// Create a new `Session`
     fn new(stream: Stream, min_capacity: usize, max_capacity: usize) -> Self {
         TCP_ACCEPT.increment();
+        TCP_CONN_CURR.add(1);
         Self {
             token: Token(0),
             stream,

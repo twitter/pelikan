@@ -16,8 +16,6 @@ static_metrics! {
     static SEGMENT_EVICT_EX: Counter;
     static SEGMENT_RETURN: Counter;
     static SEGMENT_FREE: Gauge;
-    static SEGMENT_REQUEST: Counter;
-    static SEGMENT_REQUEST_EX: Counter;
     static SEGMENT_MERGE: Counter;
     static SEGMENT_CURRENT: Gauge;
 }
@@ -380,10 +378,7 @@ impl Segments {
     pub(crate) fn pop_free(&mut self) -> Option<NonZeroU32> {
         assert!(self.free <= self.cap);
 
-        SEGMENT_REQUEST.increment();
-
         if self.free == 0 {
-            SEGMENT_REQUEST_EX.increment();
             None
         } else {
             SEGMENT_FREE.decrement();
