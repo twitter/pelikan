@@ -41,13 +41,21 @@ impl Log for Logger {
 
         // Write the log message into the buffer and send to the receiver
         if (self.format)(&mut buffer, recent_utc(), record).is_ok() {
+            let bytes = buffer.len();
+
             // Note this may drop a log message, but avoids blocking. The
             // preference here is to preserve log messages which lead up to the
             // point where we begin to drop log messages. For example, if an
             // error begins to happen which causes very many log messages, it is
             // more beneficial to have the history leading up to the issue than
             // to preserve more recent error messages.
-            let _ = self.log_filled.push(buffer);
+            if self.log_filled.push(buffer).is_ok() {
+                LOG_WRITE.increment();
+                LOG_WRITE_BYTE.add(bytes as _);
+            } else {
+                LOG_SKIP.increment();
+                LOG_SKIP_BYTE.add(bytes as _);
+            }
         }
     }
 
@@ -79,7 +87,12 @@ impl Drain for LogDrain {
             log_buffer.clear();
             let _ = self.log_cleared.push(log_buffer);
         }
-        self.output.flush()
+        LOG_FLUSH.increment();
+        let result = self.output.flush();
+        if result.is_err() {
+            LOG_FLUSH_EX.increment();
+        }
+        result
     }
 }
 
@@ -140,6 +153,8 @@ impl LogBuilder {
 
     /// Consumes the builder and returns a configured `Logger` and `LogHandle`.
     pub(crate) fn build_raw(self) -> Result<(Logger, LogDrain), &'static str> {
+        LOG_CREATE.increment();
+        LOG_CURR.increment();
         if let Some(output) = self.output {
             let log_filled = Queue::with_capacity(self.log_queue_depth);
             let log_cleared = Queue::with_capacity(self.log_queue_depth);
@@ -161,6 +176,7 @@ impl LogBuilder {
             };
             Ok((logger, log_handle))
         } else {
+            LOG_CREATE_EX.increment();
             Err("no output configured")
         }
     }
@@ -174,5 +190,12 @@ impl LogBuilder {
             drain: Box::new(drain),
             level_filter,
         })
+    }
+}
+
+impl Drop for Logger {
+    fn drop(&mut self) {
+        LOG_DESTROY.increment();
+        LOG_CURR.decrement();
     }
 }

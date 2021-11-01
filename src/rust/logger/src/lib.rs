@@ -53,10 +53,27 @@ pub use single::*;
 pub use traits::*;
 
 use config::{DebugConfig, KlogConfig};
+use metrics::{static_metrics, Counter, Gauge};
 use mpmc::Queue;
 use rustcommon_time::recent_utc;
 
 pub(crate) type LogBuffer = Vec<u8>;
+
+static_metrics! {
+    static LOG_CREATE: Counter;
+    static LOG_CREATE_EX: Counter;
+    static LOG_DESTROY: Counter;
+    static LOG_CURR: Gauge;
+    static LOG_OPEN: Counter;
+    static LOG_OPEN_EX: Counter;
+    static LOG_WRITE: Counter;
+    static LOG_WRITE_BYTE: Counter;
+    static LOG_WRITE_EX: Counter;
+    static LOG_SKIP: Counter;
+    static LOG_SKIP_BYTE: Counter;
+    static LOG_FLUSH: Counter;
+    static LOG_FLUSH_EX: Counter;
+}
 
 /// A type which implements an asynchronous logging backend.
 pub struct AsyncLog {
