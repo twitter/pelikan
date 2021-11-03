@@ -29,10 +29,13 @@ impl Log for SamplingLogger {
             return;
         }
 
+        let count = self.counter.fetch_add(1, Ordering::Relaxed);
+
         // if this is the Nth message, we should log it
-        if self.counter.fetch_add(1, Ordering::Relaxed) == self.sample {
-            self.counter.fetch_sub(self.sample, Ordering::Relaxed);
+        if (count % self.sample) == 0 {
             self.logger.log(record)
+        } else {
+            LOG_SKIP.increment();
         }
     }
 

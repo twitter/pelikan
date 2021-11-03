@@ -70,7 +70,8 @@ static_metrics! {
     static LOG_WRITE_BYTE: Counter;
     static LOG_WRITE_EX: Counter;
     static LOG_SKIP: Counter;
-    static LOG_SKIP_BYTE: Counter;
+    static LOG_DROP: Counter;
+    static LOG_DROP_BYTE: Counter;
     static LOG_FLUSH: Counter;
     static LOG_FLUSH_EX: Counter;
 }
@@ -150,3 +151,5 @@ pub fn configure_logging(debug_config: &DebugConfig, klog_config: &KlogConfig) -
         .build()
         .start()
 }
+
+metrics::test_no_duplicates!();
