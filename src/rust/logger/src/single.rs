@@ -53,8 +53,8 @@ impl Log for Logger {
                 LOG_WRITE.increment();
                 LOG_WRITE_BYTE.add(bytes as _);
             } else {
-                LOG_SKIP.increment();
-                LOG_SKIP_BYTE.add(bytes as _);
+                LOG_DROP.increment();
+                LOG_DROP_BYTE.add(bytes as _);
             }
         }
     }
@@ -73,8 +73,13 @@ pub(crate) struct LogDrain {
 
 impl Drain for LogDrain {
     fn flush(&mut self) -> Result<(), Error> {
+        LOG_FLUSH.increment();
         while let Some(mut log_buffer) = self.log_filled.pop() {
-            let _ = self.output.write(&log_buffer);
+            if let Err(e) = self.output.write_all(&log_buffer) {
+                LOG_FLUSH_EX.increment();
+                warn!("failed write to log buffer: {}", e);
+                return Err(e);
+            }
 
             // shrink oversized buffer
             if log_buffer.len() > self.buffer_size {
@@ -87,12 +92,14 @@ impl Drain for LogDrain {
             log_buffer.clear();
             let _ = self.log_cleared.push(log_buffer);
         }
-        LOG_FLUSH.increment();
-        let result = self.output.flush();
-        if result.is_err() {
+
+        if let Err(e) = self.output.flush() {
             LOG_FLUSH_EX.increment();
+            warn!("failed to flush log: {}", e);
+            Err(e)
+        } else {
+            Ok(())
         }
-        result
     }
 }
 

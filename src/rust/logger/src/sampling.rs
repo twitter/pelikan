@@ -33,6 +33,8 @@ impl Log for SamplingLogger {
         if self.counter.fetch_add(1, Ordering::Relaxed) == self.sample {
             self.counter.fetch_sub(self.sample, Ordering::Relaxed);
             self.logger.log(record)
+        } else {
+            LOG_SKIP.increment();
         }
     }
 
