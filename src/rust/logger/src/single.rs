@@ -76,7 +76,7 @@ impl Drain for LogDrain {
         LOG_FLUSH.increment();
         while let Some(mut log_buffer) = self.log_filled.pop() {
             if let Err(e) = self.output.write_all(&log_buffer) {
-                LOG_FLUSH_EX.increment();
+                LOG_WRITE_EX.increment();
                 warn!("failed write to log buffer: {}", e);
                 return Err(e);
             }
