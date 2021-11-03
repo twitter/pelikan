@@ -33,7 +33,6 @@ impl Log for SamplingLogger {
 
         // if this is the Nth message, we should log it
         if (count % self.sample) == 0 {
-            self.counter.fetch_sub(self.sample, Ordering::Relaxed);
             self.logger.log(record)
         } else {
             LOG_SKIP.increment();
