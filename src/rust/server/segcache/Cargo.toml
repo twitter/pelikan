@@ -38,6 +38,7 @@ debug = ["entrystore/debug"]
 
 [dependencies]
 backtrace = "0.3.56"
+clap = "2.33.3"
 config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }

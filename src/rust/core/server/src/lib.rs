@@ -96,6 +96,7 @@ mod process;
 mod threads;
 
 pub use process::{Process, ProcessBuilder};
+pub use threads::PERCENTILES;
 
 use metrics::{static_metrics, Counter};
 

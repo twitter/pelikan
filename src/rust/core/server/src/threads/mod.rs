@@ -7,7 +7,7 @@ mod listener;
 mod traits;
 mod worker;
 
-pub use admin::Admin;
+pub use admin::{Admin, PERCENTILES};
 pub use listener::Listener;
 pub use traits::EventLoop;
 pub use worker::{MultiWorker, SingleWorker, StorageWorker};

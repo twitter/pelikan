@@ -70,7 +70,7 @@ pub struct Admin {
     log_drain: Box<dyn Drain>,
 }
 
-static PERCENTILES: &[(&str, f64)] = &[
+pub static PERCENTILES: &[(&str, f64)] = &[
     ("p25", 25.0),
     ("p50", 50.0),
     ("p75", 75.0),
