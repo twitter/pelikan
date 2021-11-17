@@ -46,6 +46,7 @@ fuzz_target!(|data: &[u8]| {
             MemcacheRequest::Delete { key, .. } => {
                 validate_key(&key);
             }
+            MemcacheRequest::FlushAll => {}
         }
     }
 });
