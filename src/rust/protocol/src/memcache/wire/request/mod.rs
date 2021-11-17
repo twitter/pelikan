@@ -27,6 +27,7 @@ pub enum MemcacheRequest {
     Replace { entry: MemcacheEntry, noreply: bool },
     Delete { key: Key, noreply: bool },
     Cas { entry: MemcacheEntry, noreply: bool },
+    FlushAll,
 }
 
 impl MemcacheRequest {
@@ -71,6 +72,7 @@ impl MemcacheRequest {
             Self::Replace { .. } => MemcacheCommand::Replace,
             Self::Delete { .. } => MemcacheCommand::Delete,
             Self::Cas { .. } => MemcacheCommand::Cas,
+            Self::FlushAll => MemcacheCommand::FlushAll,
         }
     }
 }

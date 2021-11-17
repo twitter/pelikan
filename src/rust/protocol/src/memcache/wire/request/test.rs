@@ -180,6 +180,17 @@ fn delete() {
 }
 
 #[test]
+fn flush_all() {
+    let parser = MemcacheRequestParser::default();
+
+    let request = parser.parse(b"flush_all\r\n").expect("parse failure");
+    if let MemcacheRequest::FlushAll = request.message {
+    } else {
+        panic!("invalid parse result");
+    }
+}
+
+#[test]
 fn incomplete() {
     let parser = MemcacheRequestParser::default();
 
