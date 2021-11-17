@@ -16,6 +16,7 @@ pub enum MemcacheCommand {
     Delete,
     Cas,
     Quit,
+    FlushAll,
 }
 
 impl TryFrom<&[u8]> for MemcacheCommand {
@@ -31,6 +32,7 @@ impl TryFrom<&[u8]> for MemcacheCommand {
             b"cas" => MemcacheCommand::Cas,
             b"delete" => MemcacheCommand::Delete,
             b"quit" => MemcacheCommand::Quit,
+            b"flush_all" => MemcacheCommand::FlushAll,
             _ => {
                 return Err(ParseError::UnknownCommand);
             }
@@ -50,6 +52,7 @@ impl std::fmt::Display for MemcacheCommand {
             Self::Cas => "cas",
             Self::Delete => "delete",
             Self::Quit => "quit",
+            Self::FlushAll => "flush_all",
         };
         write!(f, "{}", name)
     }

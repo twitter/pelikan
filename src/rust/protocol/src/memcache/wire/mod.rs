@@ -125,6 +125,9 @@ where
                 }
                 response
             }
+            MemcacheRequest::FlushAll => {
+                return None;
+            }
         };
 
         Some(MemcacheResponse { request, result })
