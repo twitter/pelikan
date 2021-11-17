@@ -231,6 +231,7 @@ impl Admin {
 
     fn handle_version_request(session: &mut Session) {
         let _ = session.write(format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION")).as_bytes());
+        session.finalize_response();
         ADMIN_RESPONSE_COMPOSE.increment();
     }
 
@@ -391,6 +392,7 @@ impl EventLoop for Admin {
                         session.consume(consumed);
 
                         match request {
+                            AdminRequest::FlushAll => {}
                             AdminRequest::Stats => {
                                 Self::handle_stats_request(session);
                             }

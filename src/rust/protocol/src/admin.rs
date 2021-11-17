@@ -14,6 +14,7 @@ use crate::*;
 // modules.
 #[derive(PartialEq, Eq, Debug)]
 pub enum AdminRequest {
+    FlushAll,
     Stats,
     Version,
     Quit,
@@ -45,6 +46,10 @@ impl Parse<AdminRequest> for AdminRequestParser {
                 }
             } else {
                 match &buffer[0..command_end] {
+                    b"flush_all" => Ok(ParseOk {
+                        message: AdminRequest::FlushAll,
+                        consumed: command_end + CRLF.len(),
+                    }),
                     b"stats" => Ok(ParseOk {
                         message: AdminRequest::Stats,
                         consumed: command_end + CRLF.len(),
@@ -78,6 +83,15 @@ mod tests {
         for buffer in buffers.iter() {
             assert_eq!(parser.parse(buffer), Err(ParseError::Incomplete));
         }
+    }
+
+    #[test]
+    fn parse_flush_all() {
+        let parser = AdminRequestParser::new();
+
+        let parsed = parser.parse(b"flush_all\r\n");
+        assert!(parsed.is_ok());
+        assert_eq!(parsed.unwrap().into_inner(), AdminRequest::FlushAll);
     }
 
     #[test]
