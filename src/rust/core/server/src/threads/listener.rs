@@ -17,7 +17,6 @@ use mio::Events;
 use mio::Token;
 use queues::*;
 use session::{Session, TcpStream};
-use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -81,40 +80,37 @@ impl Listener {
         })
     }
 
-    /// Repeatedly call accept on the listener
+    /// Call accept one time
     fn do_accept(&mut self) {
-        loop {
-            match self.poll.accept() {
-                Ok((stream, _)) => {
-                    // handle TLS if it is configured
-                    if let Some(ssl_context) = &self.ssl_context {
-                        match Ssl::new(ssl_context).map(|v| v.accept(stream)) {
-                            // handle case where we have a fully-negotiated
-                            // TLS stream on accept()
-                            Ok(Ok(tls_stream)) => {
-                                self.add_established_tls_session(tls_stream);
-                            }
-                            // handle case where further negotiation is
-                            // needed
-                            Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
-                                self.add_handshaking_tls_session(tls_stream);
-                            }
-                            // some other error has occurred and we drop the
-                            // stream
-                            Ok(Err(_)) | Err(_) => {
-                                TCP_ACCEPT_EX.increment();
-                            }
-                        }
-                    } else {
-                        self.add_plain_session(stream);
-                    };
-                }
-                Err(e) => {
-                    if e.kind() == ErrorKind::WouldBlock {
-                        break;
+        if let Ok((stream, _)) = self.poll.accept() {
+            // handle TLS if it is configured
+            if let Some(ssl_context) = &self.ssl_context {
+                match Ssl::new(ssl_context).map(|v| v.accept(stream)) {
+                    // handle case where we have a fully-negotiated
+                    // TLS stream on accept()
+                    Ok(Ok(tls_stream)) => {
+                        self.add_established_tls_session(tls_stream);
+                    }
+                    // handle case where further negotiation is
+                    // needed
+                    Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
+                        self.add_handshaking_tls_session(tls_stream);
+                    }
+                    // some other error has occurred and we drop the
+                    // stream
+                    Ok(Err(e)) => {
+                        error!("accept failed: {}", e);
+                        TCP_ACCEPT_EX.increment();
+                    }
+                    Err(e) => {
+                        error!("accept failed: {}", e);
+                        TCP_ACCEPT_EX.increment();
                     }
                 }
-            }
+            } else {
+                self.add_plain_session(stream);
+            };
+            self.poll.reregister(LISTENER_TOKEN);
         }
     }
 
@@ -137,6 +133,7 @@ impl Listener {
             self.max_buffer_size,
         );
         if self.poll.add_session(session).is_err() {
+            error!("failed to register handshaking TLS session with epoll");
             TCP_ACCEPT_EX.increment();
         }
     }

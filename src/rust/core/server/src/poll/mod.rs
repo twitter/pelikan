@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use mio::event::Source;
 use mio::net::TcpListener;
 use mio::Events;
 use mio::Interest;
@@ -14,7 +15,6 @@ use std::convert::TryFrom;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-// use mio::Poll;
 
 pub const LISTENER_TOKEN: Token = Token(usize::MAX - 1);
 pub const WAKER_TOKEN: Token = Token(usize::MAX);
@@ -80,7 +80,7 @@ impl Poll {
     }
 
     pub fn accept(&mut self) -> Result<(TcpStream, SocketAddr), std::io::Error> {
-        if let Some(ref listener) = self.listener {
+        if let Some(ref mut listener) = self.listener {
             let (stream, addr) = listener.accept()?;
 
             // disable Nagle's algorithm
@@ -142,14 +142,38 @@ impl Poll {
     }
 
     pub fn reregister(&mut self, token: Token) {
-        trace!("reregistering session: {}", token.0);
-        if let Some(session) = self.sessions.get_mut(token.0) {
-            if session.reregister(&self.poll).is_err() {
-                error!("Failed to reregister");
-                let _ = self.close_session(token);
+        match token {
+            LISTENER_TOKEN => {
+                if let Some(ref mut listener) = self.listener {
+                    if listener
+                        .reregister(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE)
+                        .is_err()
+                    {
+                        warn!("reregister of listener failed, attempting to recover");
+                        let _ = listener.deregister(self.poll.registry());
+                        if listener
+                            .register(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE)
+                            .is_err()
+                        {
+                            fatal!("reregister of listener failed and was unrecoverable");
+                        }
+                    }
+                }
             }
-        } else {
-            trace!("attempted to reregister non-existent session: {}", token.0);
+            WAKER_TOKEN => {
+                trace!("reregister of waker token is not supported");
+            }
+            _ => {
+                trace!("reregistering session: {}", token.0);
+                if let Some(session) = self.sessions.get_mut(token.0) {
+                    if session.reregister(&self.poll).is_err() {
+                        error!("failed to reregister session");
+                        let _ = self.close_session(token);
+                    }
+                } else {
+                    trace!("attempted to reregister non-existent session: {}", token.0);
+                }
+            }
         }
     }
 }
