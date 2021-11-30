@@ -136,9 +136,6 @@ where
     fn handle_event(&mut self, event: &Event) {
         let token = event.token();
 
-        // event for existing session
-        trace!("got event for session: {}", token.0);
-
         // handle error events first
         if event.is_error() {
             WORKER_EVENT_ERROR.increment();
@@ -162,28 +159,31 @@ where
         }
 
         if let Ok(session) = self.poll.get_mut_session(token) {
-            trace!(
-                "{} bytes pending in rx buffer for session: {}",
-                session.read_pending(),
-                token.0
-            );
-            trace!(
-                "{} bytes pending in tx buffer for session: {}",
-                session.write_pending(),
-                token.0
-            )
+            if session.read_pending() > 0 {
+                trace!(
+                    "session: {:?} has {} bytes pending in read buffer",
+                    session,
+                    session.read_pending()
+                );
+            }
+            if session.write_pending() > 0 {
+                trace!(
+                    "session: {:?} has {} bytes pending in write buffer",
+                    session,
+                    session.read_pending()
+                );
+            }
         }
     }
 
     fn handle_session_read(&mut self, token: Token) -> Result<(), std::io::Error> {
-        match self
-            .parser
-            .parse(self.poll.get_mut_session(token)?.buffer())
-        {
+        let session = self.poll.get_mut_session(token)?;
+        match self.parser.parse(session.buffer()) {
             Ok(request) => {
                 let consumed = request.consumed();
                 let request = request.into_inner();
-                self.poll.get_mut_session(token)?.consume(consumed);
+                trace!("parsed request for sesion: {:?}", session);
+                session.consume(consumed);
                 let mut message = TokenWrapper::new(request, token);
 
                 for retry in 0..QUEUE_RETRIES {
@@ -201,11 +201,16 @@ where
                 }
                 Ok(())
             }
-            Err(ParseError::Incomplete) => Err(std::io::Error::new(
-                std::io::ErrorKind::WouldBlock,
-                "incomplete request",
-            )),
+            Err(ParseError::Incomplete) => {
+                trace!("incomplete request for session: {:?}", session);
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::WouldBlock,
+                    "incomplete request",
+                ))
+            }
             Err(_) => {
+                debug!("bad request for session: {:?}", session);
+                trace!("session: {:?} read buffer: {:?}", session, session.buffer());
                 let _ = self.poll.close_session(token);
                 Err(std::io::Error::new(
                     std::io::ErrorKind::Other,
@@ -223,6 +228,7 @@ where
             let mut reregister = false;
             if let Ok(mut session) = self.poll.get_mut_session(token) {
                 if let Some(response) = message.into_inner() {
+                    trace!("composing response for session: {:?}", session);
                     response.compose(&mut session);
                     session.finalize_response();
                     // if we have pending writes, we should attempt to flush the session
@@ -249,7 +255,11 @@ where
     fn handle_new_sessions(&mut self) {
         while let Ok(session) = self.session_queue.recv_from(0) {
             let pending = session.read_pending();
-            trace!("{} bytes pending in rx buffer for new session", pending);
+            trace!(
+                "new session: {:?} with {} bytes pending in read buffer",
+                session,
+                pending
+            );
 
             if let Ok(token) = self.poll.add_session(session) {
                 if pending > 0 {
@@ -280,7 +290,6 @@ where
     Storage: Execute<Request, Response> + EntryStore + Send,
 {
     fn handle_data(&mut self, token: Token) -> Result<(), std::io::Error> {
-        trace!("handling request for session: {}", token.0);
         if self.handle_session_read(token).is_ok() {
             self.wake_storage = true;
         }

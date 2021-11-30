@@ -26,17 +26,16 @@ pub trait EventLoop {
 
     /// Handle a read event for the `Session` with the `Token`.
     fn do_read(&mut self, token: Token) -> Result<(), ()> {
-        trace!("handling read for session: {}", token.0);
-
         if let Ok(session) = self.poll().get_mut_session(token) {
             // read from session to buffer
             match session.fill_buf().map(|b| b.len()) {
                 Ok(0) => {
-                    self.handle_hup(token);
+                    trace!("hangup for session: {:?}", session);
+                    let _ = self.poll().close_session(token);
                     Err(())
                 }
                 Ok(bytes) => {
-                    trace!("read: {} bytes for session: {}", bytes, token.0);
+                    trace!("read {} bytes for session: {:?}", bytes, session);
                     if self.handle_data(token).is_err() {
                         self.handle_error(token);
                         Err(())
@@ -48,13 +47,12 @@ pub trait EventLoop {
                     match e.kind() {
                         ErrorKind::WouldBlock => {
                             // spurious read
-                            trace!("spurious read");
                             self.poll().reregister(token);
                             Ok(())
                         }
                         ErrorKind::Interrupted => self.do_read(token),
                         _ => {
-                            trace!("some other error: {:?}", e);
+                            trace!("error reading for session: {:?} {:?}", session, e);
                             // some read error
                             self.handle_error(token);
                             Err(())
@@ -63,15 +61,15 @@ pub trait EventLoop {
                 }
             }
         } else {
-            trace!("attempted to read non-existent session: {}", token.0);
+            trace!("attempted to read from non-existent session: {}", token.0);
             Err(())
         }
     }
 
     /// Handle a write event for a `Session` with the `Token`.
     fn do_write(&mut self, token: Token) {
-        trace!("handling write for session: {}", token.0);
         if let Ok(session) = self.poll().get_mut_session(token) {
+            trace!("write for session: {:?}", session);
             match session.flush() {
                 Ok(_) => {
                     self.poll().reregister(token);
@@ -85,21 +83,21 @@ pub trait EventLoop {
                 },
             }
         } else {
-            trace!("attempted to flush non-existent session: {}", token.0)
+            trace!("attempted to write to non-existent session: {}", token.0)
         }
     }
 
     /// Handle errors for the `Session` with the `Token` by logging a message
     /// and closing the session.
     fn handle_error(&mut self, token: Token) {
-        trace!("handling error for session: {}", token.0);
-        let _ = self.poll().close_session(token);
-    }
-
-    /// Handle HUP (zero-length reads) for the `Session` with the `Token` by
-    /// logging a message and closing the session.
-    fn handle_hup(&mut self, token: Token) {
-        trace!("handling hup for session: {}", token.0);
-        let _ = self.poll().close_session(token);
+        if let Ok(session) = self.poll().get_mut_session(token) {
+            trace!("handling error for session: {:?}", session);
+            let _ = self.poll().close_session(token);
+        } else {
+            trace!(
+                "attempted to handle error for non-existent session: {}",
+                token.0
+            )
+        }
     }
 }
