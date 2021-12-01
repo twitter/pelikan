@@ -24,9 +24,7 @@ fn get() {
     for keyset in keysets {
         println!("keyset: {:?}", keyset);
         let buffer = format!("get {}\r\n", keyset.join(" "));
-        let request = parser
-            .parse(buffer.as_bytes())
-            .expect("parse failure");
+        let request = parser.parse(buffer.as_bytes()).expect("parse failure");
         if let MemcacheRequest::Get { keys } = request.message {
             println!("keys: {:?}", keys);
             assert_eq!(keys.len(), keyset.len());
@@ -67,9 +65,7 @@ fn gets() {
     for keyset in keysets {
         println!("keyset: {:?}", keyset);
         let buffer = format!("gets {}\r\n", keyset.join(" "));
-        let request = parser
-            .parse(buffer.as_bytes())
-            .expect("parse failure");
+        let request = parser.parse(buffer.as_bytes()).expect("parse failure");
         if let MemcacheRequest::Gets { keys } = request.message {
             println!("keys: {:?}", keys);
             assert_eq!(keys.len(), keyset.len());
@@ -110,9 +106,7 @@ fn set() {
     }
 
     let buffer = b"set 0 0 0 1 noreply\r\n0\r\n";
-    let request = parser
-        .parse(buffer)
-        .expect("parse failure");
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Set { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
         assert_eq!(entry.value(), Some("0".as_bytes()));
@@ -128,9 +122,7 @@ fn cas() {
     let parser = MemcacheRequestParser::default();
 
     let buffer = b"cas 0 0 0 1 0\r\n0\r\n";
-    let request = parser
-        .parse(buffer)
-        .expect("parse failure");
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Cas { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
         assert_eq!(entry.value(), Some("0".as_bytes()));
@@ -142,9 +134,7 @@ fn cas() {
     assert_eq!(request.consumed, buffer.len());
 
     let buffer = b"cas 0 0 0 1 0 noreply\r\n0\r\n";
-    let request = parser
-        .parse(buffer)
-        .expect("parse failure");
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Cas { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
         assert_eq!(entry.value(), Some("0".as_bytes()));
@@ -167,9 +157,7 @@ fn delete() {
     for k in &keys {
         println!("key: {:?}", k);
         let buffer = format!("delete {}\r\n", k);
-        let request = parser
-            .parse(buffer.as_bytes())
-            .expect("parse failure");
+        let request = parser.parse(buffer.as_bytes()).expect("parse failure");
         if let MemcacheRequest::Delete { key, noreply } = request.message {
             assert_eq!(key.as_ref(), k.as_bytes());
             assert!(!noreply);
@@ -183,9 +171,7 @@ fn delete() {
     for k in keys {
         println!("key: {:?}", k);
         let buffer = format!("delete {} noreply\r\n", k);
-        let request = parser
-            .parse(buffer.as_bytes())
-            .expect("parse failure");
+        let request = parser.parse(buffer.as_bytes()).expect("parse failure");
         if let MemcacheRequest::Delete { key, noreply } = request.message {
             assert_eq!(key.as_ref(), k.as_bytes());
             assert!(noreply);
@@ -246,7 +232,9 @@ fn middle_whitespace() {
     let parser = MemcacheRequestParser::default();
 
     // get
-    let request = parser.parse(b"get  a  b    c    d           e\r\n").expect("parse failure");
+    let request = parser
+        .parse(b"get  a  b    c    d           e\r\n")
+        .expect("parse failure");
     if let MemcacheRequest::Get { keys } = request.message {
         println!("keys: {:?}", keys);
         assert_eq!(keys.len(), 5);
