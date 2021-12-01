@@ -81,6 +81,9 @@ impl Listener {
     }
 
     /// Call accept one time
+    // TODO(bmartin): splitting accept and negotiation into separate threads
+    // would allow us to handle TLS handshake with multiple threads and avoid
+    // the overhead of re-registering the listener after each accept.
     fn do_accept(&mut self) {
         if let Ok((stream, _)) = self.poll.accept() {
             // handle TLS if it is configured
