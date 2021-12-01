@@ -110,8 +110,8 @@ impl Poll {
 
     /// Close an existing session
     pub fn close_session(&mut self, token: Token) -> Result<(), std::io::Error> {
-        trace!("closing session: {}", token.0);
         let mut session = self.remove_session(token)?;
+        trace!("closing session: {:?}", session);
         session.close();
         Ok(())
     }
@@ -119,6 +119,7 @@ impl Poll {
     /// Remove a session from the poller and return it to the caller
     pub fn remove_session(&mut self, token: Token) -> Result<Session, std::io::Error> {
         let mut session = self.take_session(token)?;
+        trace!("removing session: {:?}", session);
         session.deregister(&self.poll)?;
         Ok(session)
     }
@@ -164,8 +165,8 @@ impl Poll {
                 trace!("reregister of waker token is not supported");
             }
             _ => {
-                trace!("reregistering session: {}", token.0);
                 if let Some(session) = self.sessions.get_mut(token.0) {
+                    trace!("reregistering session: {:?}", session);
                     if session.reregister(&self.poll).is_err() {
                         error!("failed to reregister session");
                         let _ = self.close_session(token);

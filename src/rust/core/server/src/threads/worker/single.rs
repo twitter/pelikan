@@ -117,7 +117,11 @@ where
     fn handle_new_sessions(&mut self) {
         while let Ok(session) = self.session_queue.recv_from(0) {
             let pending = session.read_pending();
-            trace!("{} bytes pending in rx buffer for new session", pending);
+            trace!(
+                "new session: {:?} with {} bytes pending in read buffer",
+                session,
+                pending
+            );
 
             // reserve vacant slab
             if let Ok(token) = self.poll.add_session(session) {
@@ -133,9 +137,6 @@ where
 
     fn handle_event(&mut self, event: &Event) {
         let token = event.token();
-
-        // event for existing session
-        trace!("got event for session: {}", token.0);
 
         // handle error events first
         if event.is_error() {
@@ -160,16 +161,20 @@ where
         }
 
         if let Ok(session) = self.poll.get_mut_session(token) {
-            trace!(
-                "{} bytes pending in rx buffer for session: {}",
-                session.read_pending(),
-                token.0
-            );
-            trace!(
-                "{} bytes pending in tx buffer for session: {}",
-                session.write_pending(),
-                token.0
-            )
+            if session.read_pending() > 0 {
+                trace!(
+                    "session: {:?} has {} bytes pending in read buffer",
+                    session,
+                    session.read_pending()
+                );
+            }
+            if session.write_pending() > 0 {
+                trace!(
+                    "session: {:?} has {} bytes pending in write buffer",
+                    session,
+                    session.read_pending()
+                );
+            }
         }
     }
 
@@ -190,7 +195,6 @@ where
     Storage: Execute<Request, Response> + EntryStore,
 {
     fn handle_data(&mut self, token: Token) -> Result<(), std::io::Error> {
-        trace!("handling request for session: {}", token.0);
         if let Ok(session) = self.poll.get_mut_session(token) {
             loop {
                 if session.write_capacity() == 0 {
@@ -199,20 +203,25 @@ where
                 }
                 match self.parser.parse(session.buffer()) {
                     Ok(parsed_request) => {
+                        trace!("parsed request for sesion: {:?}", session);
                         PROCESS_REQ.increment();
                         let consumed = parsed_request.consumed();
                         let request = parsed_request.into_inner();
                         session.consume(consumed);
 
                         if let Some(response) = self.storage.execute(request) {
+                            trace!("composing response for session: {:?}", session);
                             response.compose(session);
                             session.finalize_response();
                         }
                     }
                     Err(ParseError::Incomplete) => {
+                        trace!("incomplete request for session: {:?}", session);
                         break;
                     }
                     Err(_) => {
+                        debug!("bad request for session: {:?}", session);
+                        trace!("session: {:?} read buffer: {:?}", session, session.buffer());
                         self.handle_error(token);
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::Other,
