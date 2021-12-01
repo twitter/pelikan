@@ -223,6 +223,25 @@ fn incomplete() {
 }
 
 #[test]
+fn middle_whitespace() {
+    let parser = MemcacheRequestParser::default();
+
+    // get
+    let request = parser.parse(b"get  a  b    c    d           e\r\n").expect("parse failure");
+    if let MemcacheRequest::Get { keys } = request.message {
+        println!("keys: {:?}", keys);
+        assert_eq!(keys.len(), 5);
+        assert_eq!(keys[0].as_ref(), b"a");
+        assert_eq!(keys[1].as_ref(), b"b");
+        assert_eq!(keys[2].as_ref(), b"c");
+        assert_eq!(keys[3].as_ref(), b"d");
+        assert_eq!(keys[4].as_ref(), b"e");
+    } else {
+        panic!("invalid parse result");
+    }
+}
+
+#[test]
 fn trailing_whitespace() {
     let parser = MemcacheRequestParser::default();
 
@@ -294,7 +313,6 @@ fn invalid() {
     // invalid
     for request in &[
         "get \r\n",
-        "get this     is    malformed\r\n",
         "get\r\n",
         "get lorem_ipsum_dolor_sit_amet_consectetur_adipiscing_elit_sed_do_\
         eiusmod_tempor_incididunt_ut_labore_et_dolore_magna_aliqua_Ut_enim_ad_\

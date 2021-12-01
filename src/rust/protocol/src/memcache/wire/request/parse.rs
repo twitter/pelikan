@@ -166,7 +166,9 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     while let Some((sequence, key_end)) = parse_state.next_sequence() {
         match sequence {
             Sequence::Space => {
-                if key_end <= previous || key_end > previous + MAX_KEY_LEN {
+                if key_end == previous {
+                    previous = key_end + whitespace.len();
+                } else if key_end < previous || key_end > previous + MAX_KEY_LEN {
                     return Err(ParseError::Invalid);
                 } else {
                     keys.push(buffer[previous..key_end].to_vec().into_boxed_slice());
