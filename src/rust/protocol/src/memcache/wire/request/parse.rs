@@ -65,7 +65,7 @@ struct ParseState<'a> {
     position: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum Sequence {
     Space,
     Crlf,
@@ -160,8 +160,8 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
 
     // command may have multiple keys, we need to loop until we hit
     // a CRLF
-    while let Some((sequence, key_end)) = parse_state.next_sequence() {
-        match sequence {
+    while let Some((whitespace, key_end)) = parse_state.next_sequence() {
+        match whitespace {
             Sequence::Space => {
                 if key_end == previous {
                     previous = key_end + whitespace.len();
@@ -180,8 +180,9 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
             Sequence::Crlf | Sequence::SpaceCrlf => {
                 if key_end > previous && key_end <= previous + MAX_KEY_LEN {
                     keys.push(buffer[previous..key_end].to_vec().into_boxed_slice());
+                    println!("whitespace sequence: {:?} with len: {}", whitespace, whitespace.len());
 
-                    let consumed = key_end + whitespace.len() + 1;
+                    let consumed = key_end + whitespace.len();
 
                     if keys.is_empty() {
                         return Err(ParseError::Invalid);
@@ -341,12 +342,12 @@ fn parse_set(
         if cas.is_some() {
             Ok(ParseOk {
                 message: MemcacheRequest::Cas { entry, noreply },
-                consumed: request_end + 1,
+                consumed: request_end,
             })
         } else {
             Ok(ParseOk {
                 message: MemcacheRequest::Set { entry, noreply },
-                consumed: request_end + 1,
+                consumed: request_end,
             })
         }
     } else {
