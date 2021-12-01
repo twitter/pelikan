@@ -180,7 +180,6 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
             Sequence::Crlf | Sequence::SpaceCrlf => {
                 if key_end > previous && key_end <= previous + MAX_KEY_LEN {
                     keys.push(buffer[previous..key_end].to_vec().into_boxed_slice());
-                    println!("whitespace sequence: {:?} with len: {}", whitespace, whitespace.len());
 
                     let consumed = key_end + whitespace.len();
 
