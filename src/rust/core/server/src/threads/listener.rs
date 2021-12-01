@@ -122,7 +122,7 @@ impl Listener {
     fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
         let session =
             Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE, self.max_buffer_size);
-        trace!("accepted new session: {:?}", session.peer_addr());
+        trace!("accepted new session: {:?}", session);
         if self.session_queue.send_rr(session).is_err() {
             error!("error sending session to worker");
             TCP_ACCEPT_EX.increment();
@@ -145,7 +145,7 @@ impl Listener {
     fn add_plain_session(&mut self, stream: TcpStream) {
         let session =
             Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE, self.max_buffer_size);
-        trace!("accepted new session: {:?}", session.peer_addr());
+        trace!("accepted new session: {:?}", session);
         if self.session_queue.send_rr(session).is_err() {
             error!("error sending session to worker");
             TCP_ACCEPT_EX.increment();
@@ -155,7 +155,6 @@ impl Listener {
     /// Handle an event on an existing session
     fn handle_session_event(&mut self, event: &Event) {
         let token = event.token();
-        trace!("got event for session: {}", token.0);
 
         // handle error events first
         if event.is_error() {
@@ -178,6 +177,7 @@ impl Listener {
 
         if let Ok(session) = self.poll.get_mut_session(token) {
             if session.do_handshake().is_ok() {
+                trace!("handshake complete for session: {:?}", session);
                 if let Ok(session) = self.poll.remove_session(token) {
                     if self.session_queue.send_rr(session).is_err() {
                         error!("error sending session to worker");
@@ -187,6 +187,8 @@ impl Listener {
                     error!("error removing session from poller");
                     TCP_ACCEPT_EX.increment();
                 }
+            } else {
+                trace!("handshake incomplete for session: {:?}", session);
             }
         }
     }

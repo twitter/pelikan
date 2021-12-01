@@ -90,6 +90,16 @@ pub struct Session {
     pending_bytes: usize,
 }
 
+impl std::fmt::Debug for Session {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        if let Ok(peer_addr) = self.peer_addr() {
+            write!(f, "{}", peer_addr)
+        } else {
+            write!(f, "no peer address")
+        }
+    }
+}
+
 impl Session {
     /// Create a new `Session` with  representing a plain `TcpStream` with
     /// internal buffers which can hold up to capacity bytes without
