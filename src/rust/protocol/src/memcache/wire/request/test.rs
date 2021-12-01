@@ -17,6 +17,7 @@ fn get() {
         vec!["0", "1", "2"],
         vec!["espresso"],
         vec!["ice", "cofffee"],
+        vec!["ca0\0\0"],
     ];
 
     // covers get on single and multiple keys

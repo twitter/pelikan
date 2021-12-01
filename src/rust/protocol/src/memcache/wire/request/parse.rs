@@ -120,9 +120,6 @@ impl<'a> ParseState<'a> {
                         self.position += 1;
                     }
                 }
-                b'\0' => {
-                    return None;
-                }
                 _ => {
                     self.position += 1;
                 }
