@@ -312,6 +312,7 @@ fn invalid() {
 
     // invalid
     for request in &[
+        "get   \r\n",
         "get \r\n",
         "get\r\n",
         "get lorem_ipsum_dolor_sit_amet_consectetur_adipiscing_elit_sed_do_\
@@ -352,6 +353,14 @@ fn pipelined() {
     if let MemcacheRequest::Get { keys } = request.message {
         assert!(keys.len() == 1);
         assert_eq!(keys[0].as_ref(), b"0");
+    } else {
+        panic!("invalid parse result");
+    }
+
+    let request = parser.parse(b"get t\x0d\x0a ").expect("parse failure");
+    if let MemcacheRequest::Get { keys } = request.message {
+        assert!(keys.len() == 1);
+        assert_eq!(keys[0].as_ref(), b"t");
     } else {
         panic!("invalid parse result");
     }

@@ -92,6 +92,7 @@ pub trait EventLoop {
     fn handle_error(&mut self, token: Token) {
         if let Ok(session) = self.poll().get_mut_session(token) {
             trace!("handling error for session: {:?}", session);
+            let _ = session.flush();
             let _ = self.poll().close_session(token);
         } else {
             trace!(

@@ -87,6 +87,10 @@ pub fn tests() {
         "pipelined get (key: 4 depth: 2)",
         &[("get 4\r\nget 4\r\n", Some("END\r\nEND\r\n"))],
     );
+    test(
+        "pipelined get and invalid (key 4, depth 2)",
+        &[("get 4\r\n ", Some("END\r\n"))],
+    );
 }
 
 // opens a new connection, operating on request + response pairs from the
