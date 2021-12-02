@@ -101,7 +101,10 @@ pub fn tests() {
     );
     test(
         "pipelined set and get (key 6, depth 3)",
-        &[("set 6 0 0 2 \r\nhi\r\nset 6 0 0 6\r\nhello!\r\nget 6 \r\n", Some("STORED\r\nSTORED\r\nVALUE 6 0 6\r\nhello!\r\nEND\r\n"))],
+        &[(
+            "set 6 0 0 2 \r\nhi\r\nset 6 0 0 6\r\nhello!\r\nget 6 \r\n",
+            Some("STORED\r\nSTORED\r\nVALUE 6 0 6\r\nhello!\r\nEND\r\n"),
+        )],
     );
 
     std::thread::sleep(Duration::from_millis(500));
