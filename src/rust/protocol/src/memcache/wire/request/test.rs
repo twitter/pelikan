@@ -180,6 +180,17 @@ fn delete() {
         }
         assert_eq!(request.consumed, buffer.len());
     }
+
+    // tricky edge-case where the key is 'noreply'
+    let buffer = b"delete  noreply\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
+    if let MemcacheRequest::Delete { key, noreply } = request.message {
+        assert_eq!(key.as_ref(), b"noreply");
+        assert!(!noreply);
+    } else {
+        panic!("invalid parse result");
+    }
+    assert_eq!(request.consumed, buffer.len());
 }
 
 #[test]
