@@ -95,6 +95,16 @@ pub fn tests() {
         "pipelined get and add (key 4, depth 2)",
         &[("get 4 \r\nadd 4 0 0 1\r\n1\r\n", Some("END\r\nSTORED\r\n"))],
     );
+    test(
+        "pipelined get and set (key 5, depth 2)",
+        &[("get 5 \r\nset 5 0 0 1 \r\n1\r\n", Some("END\r\nSTORED\r\n"))],
+    );
+    test(
+        "pipelined set and get (key 6, depth 3)",
+        &[("set 6 0 0 2 \r\nhi\r\nset 6 0 0 6\r\nhello!\r\nget 6 \r\n", Some("STORED\r\nSTORED\r\nVALUE 6 0 6\r\nhello!\r\nEND\r\n"))],
+    );
+
+    std::thread::sleep(Duration::from_millis(500));
 }
 
 // opens a new connection, operating on request + response pairs from the
@@ -132,10 +142,12 @@ fn test(name: &str, data: &[(&str, Option<&str>)]) {
 
         if let Some(response) = response {
             if stream.read(&mut buf).is_err() {
+                std::thread::sleep(Duration::from_millis(500));
                 panic!("error reading response");
             } else if response.as_bytes() != &buf[0..response.len()] {
                 error!("expected: {:?}", response.as_bytes());
                 error!("received: {:?}", &buf[0..response.len()]);
+                std::thread::sleep(Duration::from_millis(500));
                 panic!("status: failed\n");
             } else {
                 debug!("correct response");
@@ -146,10 +158,12 @@ fn test(name: &str, data: &[(&str, Option<&str>)]) {
                 debug!("got no response");
             } else {
                 error!("error reading response");
+                std::thread::sleep(Duration::from_millis(500));
                 panic!("status: failed\n");
             }
         } else {
             error!("expected no response");
+            std::thread::sleep(Duration::from_millis(500));
             panic!("status: failed\n");
         }
 

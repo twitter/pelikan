@@ -358,13 +358,16 @@ fn invalid() {
 fn pipelined() {
     let parser = MemcacheRequestParser::default();
 
-    let request = parser.parse(b"get 0\r\nget 1\r\n").expect("parse failure");
+    // 2 get requests in the buffer, parsing once returns only the first
+    let buffer = b"get 0\r\nget 1\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Get { keys } = request.message {
         assert!(keys.len() == 1);
         assert_eq!(keys[0].as_ref(), b"0");
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, 7);
 
     let request = parser.parse(b"get t\x0d\x0a ").expect("parse failure");
     if let MemcacheRequest::Get { keys } = request.message {
@@ -373,4 +376,5 @@ fn pipelined() {
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, 7);
 }
