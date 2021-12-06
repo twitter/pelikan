@@ -11,7 +11,7 @@ use std::convert::TryFrom;
 
 const MAX_COMMAND_LEN: usize = 16;
 const MAX_KEY_LEN: usize = 250;
-const MAX_BATCH_SIZE: usize = 1024;
+pub const MAX_BATCH_SIZE: usize = 1024;
 
 const DEFAULT_MAX_VALUE_SIZE: usize = usize::MAX / 2;
 

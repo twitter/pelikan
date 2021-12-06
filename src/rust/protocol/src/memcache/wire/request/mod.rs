@@ -11,7 +11,7 @@ mod test;
 use crate::memcache::MemcacheEntry;
 pub use command::MemcacheCommand;
 
-pub use parse::MemcacheRequestParser;
+pub use parse::{MemcacheRequestParser, MAX_BATCH_SIZE};
 
 pub const NOREPLY: &str = "noreply";
 

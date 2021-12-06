@@ -11,15 +11,22 @@ pub use response::*;
 use super::*;
 use crate::*;
 
-use metrics::{static_metrics, Counter};
+use metrics::{static_metrics, Counter, Relaxed, Heatmap};
+use rustcommon_time::{Duration, Instant};
 
 static_metrics! {
     static GET: Counter;
+    static GET_CARDINALITY: Relaxed<Heatmap> = Relaxed::new(||
+        Heatmap::new(request::MAX_BATCH_SIZE as _, 3, Duration::from_secs(60), Duration::from_secs(1))
+    );
     static GET_KEY: Counter;
     static GET_KEY_HIT: Counter;
     static GET_KEY_MISS: Counter;
 
     static GETS: Counter;
+    static GETS_CARDINALITY: Relaxed<Heatmap> = Relaxed::new(||
+        Heatmap::new(request::MAX_BATCH_SIZE as _, 3, Duration::from_secs(60), Duration::from_secs(1))
+    );
     static GETS_KEY: Counter;
     static GETS_KEY_HIT: Counter;
     static GETS_KEY_MISS: Counter;
@@ -53,14 +60,20 @@ where
 {
     fn execute(&mut self, request: MemcacheRequest) -> Option<MemcacheResponse> {
         let result = match request {
-            MemcacheRequest::Get { ref keys } => MemcacheResult::Values {
-                entries: self.get(keys),
-                cas: false,
+            MemcacheRequest::Get { ref keys } => {
+                GET_CARDINALITY.increment(Instant::now(), keys.len() as _, 1);
+                MemcacheResult::Values {
+                    entries: self.get(keys),
+                    cas: false,
+                }
             },
-            MemcacheRequest::Gets { ref keys } => MemcacheResult::Values {
-                entries: self.get(keys),
-                cas: true,
-            },
+            MemcacheRequest::Gets { ref keys } => {
+                GETS_CARDINALITY.increment(Instant::now(), keys.len() as _, 1);
+                MemcacheResult::Values {
+                    entries: self.get(keys),
+                    cas: true,
+                }
+            }
             MemcacheRequest::Set { ref entry, noreply } => {
                 let response = match self.set(entry) {
                     Ok(_) => MemcacheResult::Stored,
