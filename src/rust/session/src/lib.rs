@@ -52,6 +52,10 @@ static_metrics! {
     static REQUEST_LATENCY: Relaxed<Heatmap> = Relaxed::new(||
         Heatmap::new(1_000_000_000, 3, Duration::from_secs(60), Duration::from_secs(1))
     );
+
+    static PIPELINE_DEPTH: Relaxed<Heatmap> = Relaxed::new(||
+        Heatmap::new(100_000, 3, Duration::from_secs(60), Duration::from_secs(1))
+    );
 }
 
 // TODO(bmartin): implement connect/reconnect so we can use this in clients too.
@@ -88,6 +92,9 @@ pub struct Session {
     /// a cached value of `write_buffer.pending_bytes()` that does not reflect
     /// bytes from responses which are not yet finalized.
     pending_bytes: usize,
+    /// This tracks the pipeline depth by tracking the number of responses
+    /// between resets of the session timestamp.
+    processed: usize,
 }
 
 impl std::fmt::Debug for Session {
@@ -147,6 +154,7 @@ impl Session {
             pending_head: 0,
             pending_count: 0,
             pending_bytes: 0,
+            processed: 0,
         }
     }
 
@@ -255,10 +263,15 @@ impl Session {
     }
 
     pub fn set_timestamp(&mut self, timestamp: Instant) {
+        if self.processed > 0 {
+            PIPELINE_DEPTH.increment(self.timestamp, self.processed as _, 1);
+            self.processed = 0;
+        }
         self.timestamp = timestamp;
     }
 
     pub fn finalize_response(&mut self) {
+        self.processed += 1;
         let previous = self.pending_bytes;
         let current = self.write_pending();
 
