@@ -14,6 +14,7 @@ use mio::Token;
 use mio::Waker;
 use protocol::{Compose, Execute};
 use queues::{QueueError, QueuePair, QueuePairs};
+use rustcommon_time::Instant;
 use std::sync::Arc;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
@@ -97,6 +98,8 @@ where
 
             if !events.is_empty() {
                 let mut worker_pending = self.worker_queues.pending();
+                let total_pending: usize = worker_pending.iter().sum();
+                STORAGE_QUEUE_DEPTH.increment(Instant::now(), total_pending as _, 1);
 
                 trace!("handling events");
                 let mut empty = false;
