@@ -10,12 +10,14 @@ mod single;
 mod storage;
 
 pub use self::storage::StorageWorker;
-use mio::Token;
 pub use multi::MultiWorker;
 pub use single::SingleWorker;
 
 use super::EventLoop;
-use metrics::{static_metrics, Counter};
+
+use metrics::{static_metrics, Counter, Heatmap, Relaxed};
+use mio::Token;
+use rustcommon_time::Duration;
 
 static_metrics! {
     static WORKER_EVENT_LOOP: Counter;
@@ -25,6 +27,9 @@ static_metrics! {
     static WORKER_EVENT_READ: Counter;
 
     static STORAGE_EVENT_LOOP: Counter;
+    static STORAGE_QUEUE_DEPTH: Relaxed<Heatmap> = Relaxed::new(||
+        Heatmap::new(1_000_000, 3, Duration::from_secs(60), Duration::from_secs(1))
+    );
 
     static PROCESS_REQ: Counter;
 }
