@@ -11,7 +11,7 @@ pub use response::*;
 use super::*;
 use crate::*;
 
-use metrics::{static_metrics, Counter, Relaxed, Heatmap};
+use metrics::{static_metrics, Counter, Heatmap, Relaxed};
 use rustcommon_time::{Duration, Instant};
 
 static_metrics! {
@@ -66,7 +66,7 @@ where
                     entries: self.get(keys),
                     cas: false,
                 }
-            },
+            }
             MemcacheRequest::Gets { ref keys } => {
                 GETS_CARDINALITY.increment(Instant::now(), keys.len() as _, 1);
                 MemcacheResult::Values {
