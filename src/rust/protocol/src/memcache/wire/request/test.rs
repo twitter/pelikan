@@ -17,14 +17,14 @@ fn get() {
         vec!["0", "1", "2"],
         vec!["espresso"],
         vec!["ice", "cofffee"],
+        vec!["ca0\0\0"],
     ];
 
     // covers get on single and multiple keys
     for keyset in keysets {
         println!("keyset: {:?}", keyset);
-        let request = parser
-            .parse(format!("get {}\r\n", keyset.join(" ")).as_bytes())
-            .expect("parse failure");
+        let buffer = format!("get {}\r\n", keyset.join(" "));
+        let request = parser.parse(buffer.as_bytes()).expect("parse failure");
         if let MemcacheRequest::Get { keys } = request.message {
             println!("keys: {:?}", keys);
             assert_eq!(keys.len(), keyset.len());
@@ -34,6 +34,7 @@ fn get() {
         } else {
             panic!("invalid parse result");
         }
+        assert_eq!(request.consumed, buffer.len());
     }
 
     let request = parser.parse(b"get 0\r\n1 ").expect("parse failure");
@@ -44,6 +45,7 @@ fn get() {
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, 7);
 }
 
 #[test]
@@ -62,9 +64,8 @@ fn gets() {
     // covers get on single and multiple keys
     for keyset in keysets {
         println!("keyset: {:?}", keyset);
-        let request = parser
-            .parse(format!("gets {}\r\n", keyset.join(" ")).as_bytes())
-            .expect("parse failure");
+        let buffer = format!("gets {}\r\n", keyset.join(" "));
+        let request = parser.parse(buffer.as_bytes()).expect("parse failure");
         if let MemcacheRequest::Gets { keys } = request.message {
             println!("keys: {:?}", keys);
             assert_eq!(keys.len(), keyset.len());
@@ -74,6 +75,7 @@ fn gets() {
         } else {
             panic!("invalid parse result");
         }
+        assert_eq!(request.consumed, buffer.len());
     }
 }
 
@@ -88,9 +90,9 @@ fn set() {
 
     for key in &keys {
         for value in &values {
-            let request_str = format!("set {} 0 0 {}\r\n{}\r\n", key, value.len(), value);
-            println!("request: {}", request_str);
-            let request = parser.parse(request_str.as_bytes()).expect("parse failure");
+            let buffer = format!("set {} 0 0 {}\r\n{}\r\n", key, value.len(), value);
+            println!("request: {}", buffer);
+            let request = parser.parse(buffer.as_bytes()).expect("parse failure");
             if let MemcacheRequest::Set { entry, noreply } = request.message {
                 assert_eq!(entry.key(), key.as_bytes());
                 assert_eq!(entry.value(), Some(value.as_bytes()));
@@ -99,12 +101,12 @@ fn set() {
             } else {
                 panic!("invalid parse result");
             }
+            assert_eq!(request.consumed, buffer.len());
         }
     }
 
-    let request = parser
-        .parse(b"set 0 0 0 1 noreply\r\n0\r\n")
-        .expect("parse failure");
+    let buffer = b"set 0 0 0 1 noreply\r\n0\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Set { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
         assert_eq!(entry.value(), Some("0".as_bytes()));
@@ -112,15 +114,15 @@ fn set() {
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, buffer.len());
 }
 
 #[test]
 fn cas() {
     let parser = MemcacheRequestParser::default();
 
-    let request = parser
-        .parse(b"cas 0 0 0 1 0\r\n0\r\n")
-        .expect("parse failure");
+    let buffer = b"cas 0 0 0 1 0\r\n0\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Cas { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
         assert_eq!(entry.value(), Some("0".as_bytes()));
@@ -129,10 +131,10 @@ fn cas() {
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, buffer.len());
 
-    let request = parser
-        .parse(b"cas 0 0 0 1 0 noreply\r\n0\r\n")
-        .expect("parse failure");
+    let buffer = b"cas 0 0 0 1 0 noreply\r\n0\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Cas { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
         assert_eq!(entry.value(), Some("0".as_bytes()));
@@ -141,6 +143,7 @@ fn cas() {
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, buffer.len());
 }
 
 #[test]
@@ -153,41 +156,54 @@ fn delete() {
     // covers delete with reply
     for k in &keys {
         println!("key: {:?}", k);
-        let request = parser
-            .parse(format!("delete {}\r\n", k).as_bytes())
-            .expect("parse failure");
+        let buffer = format!("delete {}\r\n", k);
+        let request = parser.parse(buffer.as_bytes()).expect("parse failure");
         if let MemcacheRequest::Delete { key, noreply } = request.message {
             assert_eq!(key.as_ref(), k.as_bytes());
             assert!(!noreply);
         } else {
             panic!("invalid parse result");
         }
+        assert_eq!(request.consumed, buffer.len());
     }
 
     // covers delete with noreply
     for k in keys {
         println!("key: {:?}", k);
-        let request = parser
-            .parse(format!("delete {} noreply\r\n", k).as_bytes())
-            .expect("parse failure");
+        let buffer = format!("delete {} noreply\r\n", k);
+        let request = parser.parse(buffer.as_bytes()).expect("parse failure");
         if let MemcacheRequest::Delete { key, noreply } = request.message {
             assert_eq!(key.as_ref(), k.as_bytes());
             assert!(noreply);
         } else {
             panic!("invalid parse result");
         }
+        assert_eq!(request.consumed, buffer.len());
     }
+
+    // tricky edge-case where the key is 'noreply'
+    let buffer = b"delete  noreply\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
+    if let MemcacheRequest::Delete { key, noreply } = request.message {
+        assert_eq!(key.as_ref(), b"noreply");
+        assert!(!noreply);
+    } else {
+        panic!("invalid parse result");
+    }
+    assert_eq!(request.consumed, buffer.len());
 }
 
 #[test]
 fn flush_all() {
     let parser = MemcacheRequestParser::default();
 
-    let request = parser.parse(b"flush_all\r\n").expect("parse failure");
+    let buffer = b"flush_all\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::FlushAll = request.message {
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, buffer.len());
 }
 
 #[test]
@@ -223,11 +239,33 @@ fn incomplete() {
 }
 
 #[test]
+fn middle_whitespace() {
+    let parser = MemcacheRequestParser::default();
+
+    // get
+    let request = parser
+        .parse(b"get  a  b    c    d           e\r\n")
+        .expect("parse failure");
+    if let MemcacheRequest::Get { keys } = request.message {
+        println!("keys: {:?}", keys);
+        assert_eq!(keys.len(), 5);
+        assert_eq!(keys[0].as_ref(), b"a");
+        assert_eq!(keys[1].as_ref(), b"b");
+        assert_eq!(keys[2].as_ref(), b"c");
+        assert_eq!(keys[3].as_ref(), b"d");
+        assert_eq!(keys[4].as_ref(), b"e");
+    } else {
+        panic!("invalid parse result");
+    }
+}
+
+#[test]
 fn trailing_whitespace() {
     let parser = MemcacheRequestParser::default();
 
     // get
-    let request = parser.parse(b"get key \r\n").expect("parse failure");
+    let buffer = b"get key \r\n";
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Get { keys } = request.message {
         println!("keys: {:?}", keys);
         assert_eq!(keys.len(), 1);
@@ -235,11 +273,11 @@ fn trailing_whitespace() {
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, buffer.len());
 
     // set
-    let request = parser
-        .parse(b"set 0 0 0 1 \r\n1\r\n")
-        .expect("parse failure");
+    let buffer = b"set 0 0 0 1 \r\n1\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Set { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
         assert_eq!(entry.value(), Some("1".as_bytes()));
@@ -247,11 +285,11 @@ fn trailing_whitespace() {
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, buffer.len());
 
     // set + noreply
-    let request = parser
-        .parse(b"set 0 0 0 1 noreply \r\n1\r\n")
-        .expect("parse failure");
+    let buffer = b"set 0 0 0 1 noreply \r\n1\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Set { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
         assert_eq!(entry.value(), Some("1".as_bytes()));
@@ -259,11 +297,11 @@ fn trailing_whitespace() {
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, buffer.len());
 
     // cas
-    let request = parser
-        .parse(b"cas 0 0 0 1 0 \r\n1\r\n")
-        .expect("parse failure");
+    let buffer = b"cas 0 0 0 1 0 \r\n1\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Cas { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
         assert_eq!(entry.value(), Some("1".as_bytes()));
@@ -272,11 +310,11 @@ fn trailing_whitespace() {
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, buffer.len());
 
     // cas + noreply
-    let request = parser
-        .parse(b"cas 0 0 0 1 0 noreply \r\n1\r\n")
-        .expect("parse failure");
+    let buffer = b"cas 0 0 0 1 0 noreply \r\n1\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Cas { entry, noreply } = request.message {
         assert_eq!(entry.key(), b"0");
         assert_eq!(entry.value(), Some("1".as_bytes()));
@@ -285,6 +323,7 @@ fn trailing_whitespace() {
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, buffer.len());
 }
 
 #[test]
@@ -293,8 +332,8 @@ fn invalid() {
 
     // invalid
     for request in &[
+        "get   \r\n",
         "get \r\n",
-        "get this     is    malformed\r\n",
         "get\r\n",
         "get lorem_ipsum_dolor_sit_amet_consectetur_adipiscing_elit_sed_do_\
         eiusmod_tempor_incididunt_ut_labore_et_dolore_magna_aliqua_Ut_enim_ad_\
@@ -330,11 +369,23 @@ fn invalid() {
 fn pipelined() {
     let parser = MemcacheRequestParser::default();
 
-    let request = parser.parse(b"get 0\r\nget 1\r\n").expect("parse failure");
+    // 2 get requests in the buffer, parsing once returns only the first
+    let buffer = b"get 0\r\nget 1\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
     if let MemcacheRequest::Get { keys } = request.message {
         assert!(keys.len() == 1);
         assert_eq!(keys[0].as_ref(), b"0");
     } else {
         panic!("invalid parse result");
     }
+    assert_eq!(request.consumed, 7);
+
+    let request = parser.parse(b"get t\x0d\x0a ").expect("parse failure");
+    if let MemcacheRequest::Get { keys } = request.message {
+        assert!(keys.len() == 1);
+        assert_eq!(keys[0].as_ref(), b"t");
+    } else {
+        panic!("invalid parse result");
+    }
+    assert_eq!(request.consumed, 7);
 }

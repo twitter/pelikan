@@ -65,7 +65,7 @@ struct ParseState<'a> {
     position: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum Sequence {
     Space,
     Crlf,
@@ -120,9 +120,6 @@ impl<'a> ParseState<'a> {
                         self.position += 1;
                     }
                 }
-                b'\0' => {
-                    return None;
-                }
                 _ => {
                     self.position += 1;
                 }
@@ -163,10 +160,12 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
 
     // command may have multiple keys, we need to loop until we hit
     // a CRLF
-    while let Some((sequence, key_end)) = parse_state.next_sequence() {
-        match sequence {
+    while let Some((whitespace, key_end)) = parse_state.next_sequence() {
+        match whitespace {
             Sequence::Space => {
-                if key_end <= previous || key_end > previous + MAX_KEY_LEN {
+                if key_end == previous {
+                    previous = key_end + whitespace.len();
+                } else if key_end < previous || key_end > previous + MAX_KEY_LEN {
                     return Err(ParseError::Invalid);
                 } else {
                     keys.push(buffer[previous..key_end].to_vec().into_boxed_slice());
@@ -182,7 +181,7 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
                 if key_end > previous && key_end <= previous + MAX_KEY_LEN {
                     keys.push(buffer[previous..key_end].to_vec().into_boxed_slice());
 
-                    let consumed = key_end + whitespace.len() + 1;
+                    let consumed = key_end + whitespace.len();
 
                     if keys.is_empty() {
                         return Err(ParseError::Invalid);
@@ -342,12 +341,12 @@ fn parse_set(
         if cas.is_some() {
             Ok(ParseOk {
                 message: MemcacheRequest::Cas { entry, noreply },
-                consumed: request_end + 1,
+                consumed: request_end,
             })
         } else {
             Ok(ParseOk {
                 message: MemcacheRequest::Set { entry, noreply },
-                consumed: request_end + 1,
+                consumed: request_end,
             })
         }
     } else {
@@ -400,38 +399,66 @@ fn parse_delete(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
         return Err(ParseError::Invalid);
     }
 
-    let mut noreply = false;
+    let mut previous = cmd_end + 1;
+    let mut fields = Vec::new();
 
-    let (whitespace, key_end) = parse_state.next_sequence().ok_or(ParseError::Incomplete)?;
-    if whitespace == Sequence::Space {
-        let (_whitespace, noreply_end) =
-            parse_state.next_sequence().ok_or(ParseError::Incomplete)?;
-        if &buffer[(noreply_end - NOREPLY.len())..noreply_end] == NOREPLY.as_bytes() {
-            noreply = true;
-        } else {
-            return Err(ParseError::Invalid);
+    // command has variable number of fields (noreply) so we need to chase to
+    // the first CRLF
+    while let Some((whitespace, field_end)) = parse_state.next_sequence() {
+        match whitespace {
+            Sequence::Space => {
+                if field_end == previous {
+                    previous = field_end + whitespace.len();
+                } else if field_end < previous || field_end > previous + MAX_KEY_LEN {
+                    return Err(ParseError::Invalid);
+                } else {
+                    fields.push(buffer[previous..field_end].to_vec().into_boxed_slice());
+
+                    previous = field_end + whitespace.len();
+
+                    // delete allows a single key + noreply
+                    if fields.len() > 2 {
+                        return Err(ParseError::Invalid);
+                    }
+                }
+            }
+            Sequence::Crlf | Sequence::SpaceCrlf => {
+                if field_end > previous && field_end <= previous + MAX_KEY_LEN {
+                    fields.push(buffer[previous..field_end].to_vec().into_boxed_slice());
+
+                    let consumed = field_end + whitespace.len();
+
+                    if fields.is_empty() {
+                        return Err(ParseError::Invalid);
+                    } else {
+                        let noreply = match fields.get(1) {
+                            None => false,
+                            Some(field) => {
+                                if field.as_ref() != b"noreply" {
+                                    return Err(ParseError::Invalid);
+                                }
+                                true
+                            }
+                        };
+
+                        let message = MemcacheRequest::Delete {
+                            key: fields[0].clone(),
+                            noreply,
+                        };
+                        return Ok(ParseOk { message, consumed });
+                    }
+                } else {
+                    return Err(ParseError::Invalid);
+                }
+            }
         }
     }
 
-    let consumed = parse_state.position();
-
-    if key_end <= (cmd_end + 1) {
-        return Err(ParseError::Invalid);
+    if buffer.len() > cmd_end + MAX_KEY_LEN {
+        Err(ParseError::Invalid)
+    } else {
+        Err(ParseError::Incomplete)
     }
-
-    if key_end - (cmd_end + 1) > MAX_KEY_LEN {
-        return Err(ParseError::Invalid);
-    }
-
-    let request = MemcacheRequest::Delete {
-        key: buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice(),
-        noreply,
-    };
-
-    Ok(ParseOk {
-        message: request,
-        consumed,
-    })
 }
 
 #[allow(clippy::unnecessary_unwrap)]
