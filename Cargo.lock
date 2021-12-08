@@ -1021,7 +1021,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-atomics"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
+source = "git+https://github.com/twitter/rustcommon#cd7411b687150d707a8cda5ec116eee79ef3a50b"
 dependencies = [
  "serde",
 ]
@@ -1029,7 +1029,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-heatmap"
 version = "0.1.1"
-source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
+source = "git+https://github.com/twitter/rustcommon#cd7411b687150d707a8cda5ec116eee79ef3a50b"
 dependencies = [
  "rustcommon-atomics",
  "rustcommon-histogram",
@@ -1040,7 +1040,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-histogram"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
+source = "git+https://github.com/twitter/rustcommon#cd7411b687150d707a8cda5ec116eee79ef3a50b"
 dependencies = [
  "rustcommon-atomics",
  "thiserror",
@@ -1049,7 +1049,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-logger"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
+source = "git+https://github.com/twitter/rustcommon#cd7411b687150d707a8cda5ec116eee79ef3a50b"
 dependencies = [
  "log",
  "rustcommon-time",
@@ -1058,7 +1058,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-metrics-derive"
 version = "0.1.0"
-source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
+source = "git+https://github.com/twitter/rustcommon#cd7411b687150d707a8cda5ec116eee79ef3a50b"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -1069,7 +1069,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-metrics-v2"
 version = "0.1.0"
-source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
+source = "git+https://github.com/twitter/rustcommon#cd7411b687150d707a8cda5ec116eee79ef3a50b"
 dependencies = [
  "linkme",
  "once_cell",
@@ -1082,8 +1082,8 @@ dependencies = [
 
 [[package]]
 name = "rustcommon-time"
-version = "0.0.8"
-source = "git+https://github.com/twitter/rustcommon#9bc6f5cf8ad5855cf1843e589e6795326333fc65"
+version = "0.0.10"
+source = "git+https://github.com/twitter/rustcommon#cd7411b687150d707a8cda5ec116eee79ef3a50b"
 dependencies = [
  "lazy_static",
  "libc",
