@@ -31,7 +31,9 @@ fuzz_target!(|data: &[u8]| {
             }
             MemcacheRequest::Set { entry, .. }
             | MemcacheRequest::Add { entry, .. }
-            | MemcacheRequest::Replace { entry, .. } => {
+            | MemcacheRequest::Replace { entry, .. }
+            | MemcacheRequest::Append { entry, .. }
+            | MemcacheRequest::Prepend { entry, .. } => {
                 validate_key(entry.key());
                 if entry.value().map(|v| v.len()).unwrap_or(0) > MAX_VALUE_SIZE {
                     panic!("value too long");
@@ -43,7 +45,9 @@ fuzz_target!(|data: &[u8]| {
                     panic!("value too long");
                 }
             }
-            MemcacheRequest::Delete { key, .. } => {
+            MemcacheRequest::Delete { key, .. }
+            | MemcacheRequest::Incr { key, .. }
+            | MemcacheRequest::Decr { key, .. } => {
                 validate_key(&key);
             }
             MemcacheRequest::FlushAll => {}
