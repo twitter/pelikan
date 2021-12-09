@@ -538,7 +538,7 @@ fn parse_incr(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
 
                     let consumed = field_end + whitespace.len();
 
-                    if fields.is_empty() {
+                    if fields.len() < 2 {
                         return Err(ParseError::Invalid);
                     } else {
                         let noreply = match fields.get(2) {
