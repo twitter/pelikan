@@ -100,12 +100,28 @@ impl MemcacheStorage for Seg {
         }
     }
 
+    fn append(&mut self, _entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
+        Err(MemcacheStorageError::NotSupported)
+    }
+
+    fn prepend(&mut self, _entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
+        Err(MemcacheStorageError::NotSupported)
+    }
+
     fn delete(&mut self, key: &[u8]) -> Result<(), MemcacheStorageError> {
         if self.data.delete(key) {
             Ok(())
         } else {
             Err(MemcacheStorageError::NotFound)
         }
+    }
+
+    fn incr(&mut self, _key: &[u8], _value: u64) -> Result<u64, MemcacheStorageError> {
+        Err(MemcacheStorageError::NotSupported)
+    }
+
+    fn decr(&mut self, _key: &[u8], _value: u64) -> Result<u64, MemcacheStorageError> {
+        Err(MemcacheStorageError::NotSupported)
     }
 
     fn cas(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {

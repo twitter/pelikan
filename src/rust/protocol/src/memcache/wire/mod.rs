@@ -15,30 +15,54 @@ use metrics::{static_metrics, Counter};
 
 static_metrics! {
     static GET: Counter;
+    static GET_EX: Counter;
     static GET_KEY: Counter;
     static GET_KEY_HIT: Counter;
     static GET_KEY_MISS: Counter;
 
     static GETS: Counter;
+    static GETS_EX: Counter;
     static GETS_KEY: Counter;
     static GETS_KEY_HIT: Counter;
     static GETS_KEY_MISS: Counter;
 
     static SET: Counter;
+    static SET_EX: Counter;
     static SET_STORED: Counter;
     static SET_NOT_STORED: Counter;
 
     static ADD: Counter;
+    static ADD_EX: Counter;
     static ADD_STORED: Counter;
     static ADD_NOT_STORED: Counter;
 
     static REPLACE: Counter;
+    static REPLACE_EX: Counter;
     static REPLACE_STORED: Counter;
     static REPLACE_NOT_STORED: Counter;
 
+    static APPEND: Counter;
+    static APPEND_EX: Counter;
+    static APPEND_STORED: Counter;
+    static APPEND_NOT_STORED: Counter;
+
+    static PREPEND: Counter;
+    static PREPEND_EX: Counter;
+    static PREPEND_STORED: Counter;
+    static PREPEND_NOT_STORED: Counter;
+
     static DELETE: Counter;
+    static DELETE_EX: Counter;
     static DELETE_DELETED: Counter;
     static DELETE_NOT_FOUND: Counter;
+
+    static INCR: Counter;
+    static INCR_EX: Counter;
+    static INCR_NOT_FOUND: Counter;
+
+    static DECR: Counter;
+    static DECR_EX: Counter;
+    static DECR_NOT_FOUND: Counter;
 
     static CAS: Counter;
     static CAS_EX: Counter;
@@ -100,10 +124,74 @@ where
                 }
                 response
             }
+            MemcacheRequest::Append { ref entry, noreply } => {
+                let response = match self.append(entry) {
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
+                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::Prepend { ref entry, noreply } => {
+                let response = match self.prepend(entry) {
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
+                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
             MemcacheRequest::Delete { ref key, noreply } => {
                 let response = match self.delete(key) {
                     Ok(_) => MemcacheResult::Deleted,
                     Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::Incr {
+                ref key,
+                value,
+                noreply,
+            } => {
+                let response = match self.incr(key, value) {
+                    Ok(count) => MemcacheResult::Count(count),
+                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
+                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::Decr {
+                ref key,
+                value,
+                noreply,
+            } => {
+                let response = match self.decr(key, value) {
+                    Ok(count) => MemcacheResult::Count(count),
+                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
+                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
                     _ => {
                         unreachable!()
                     }
@@ -119,6 +207,9 @@ where
                     Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
                     Err(MemcacheStorageError::Exists) => MemcacheResult::Exists,
                     Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
+                    _ => {
+                        unreachable!()
+                    }
                 };
                 if noreply {
                     return None;
