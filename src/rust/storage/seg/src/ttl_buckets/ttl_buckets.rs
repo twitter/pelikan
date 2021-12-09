@@ -20,7 +20,7 @@
 //! [Segcache paper](https://www.usenix.org/system/files/nsdi21-yang.pdf) for
 //! more detail.
 
-use super::EXPIRE_TIME;
+use super::{CLEAR_TIME, EXPIRE_TIME};
 use crate::*;
 
 const N_BUCKET_PER_STEP_N_BIT: usize = 8;
@@ -124,6 +124,19 @@ impl TtlBuckets {
         debug!("expired: {} segments in {:?}", expired, duration);
         EXPIRE_TIME.add(duration.as_nanos() as _);
         expired
+    }
+
+    pub(crate) fn clear(&mut self, hashtable: &mut HashTable, segments: &mut Segments) -> usize {
+        let start = Instant::now();
+        let mut cleared = 0;
+        for bucket in self.buckets.iter_mut() {
+            cleared += bucket.clear(hashtable, segments);
+        }
+        segments.set_flush_at(CoarseInstant::now());
+        let duration = start.elapsed();
+        debug!("expired: {} segments in {:?}", cleared, duration);
+        CLEAR_TIME.add(duration.as_nanos() as _);
+        cleared
     }
 }
 
