@@ -14,7 +14,7 @@ impl MemcacheStorage for Seg {
                 let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
                 let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
                 let value = item.value();
-                let mut owned_value = vec![0; value.len()];
+                let mut owned_value = Vec::with_capacity(value.len());
                 let _ = value.write_all_to(&mut owned_value);
                 items.push(MemcacheEntry {
                     key: item.key().to_vec().into_boxed_slice(),

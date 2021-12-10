@@ -5,8 +5,8 @@
 //! A reserved item is an item which has been allocated, but has not been
 //! defined or linked in the hashtable.
 
-use crate::Value;
 use crate::RawItem;
+use crate::Value;
 use core::num::NonZeroU32;
 
 /// Represents an item which has been allocated but is not defined or linked in

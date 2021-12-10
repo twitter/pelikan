@@ -7,8 +7,8 @@
 //! Unlike an [`Item`], the [`RawItem`] does not contain any fields which are
 //! shared within a hash bucket such as the CAS value.
 
-use crate::SegError;
 use crate::item::*;
+use crate::SegError;
 use std::convert::TryInto;
 
 /// The raw byte-level representation of an item

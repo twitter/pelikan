@@ -198,7 +198,9 @@ fn incr_decr() {
     assert_eq!(item.value(), 0, "item is: {:?}", item);
     cache.increment(b"coffee", 1).expect("failed to increment");
     assert_eq!(item.value(), 1, "item is: {:?}", item);
-    cache.increment(b"coffee", u64::MAX - 1).expect("failed to increment");
+    cache
+        .increment(b"coffee", u64::MAX - 1)
+        .expect("failed to increment");
     assert_eq!(item.value(), u64::MAX, "item is: {:?}", item);
     cache.increment(b"coffee", 1).expect("failed to increment");
     assert_eq!(item.value(), 0, "item is: {:?}", item);

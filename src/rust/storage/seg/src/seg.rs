@@ -26,7 +26,6 @@ pub struct Seg {
     pub(crate) ttl_buckets: TtlBuckets,
 }
 
-
 impl Seg {
     /// Returns a new `Builder` which is used to configure and construct a
     /// `Seg` instance.
@@ -121,7 +120,8 @@ impl Seg {
         let optional = optional.unwrap_or(&[]);
 
         // calculate size for item
-        let size = (((ITEM_HDR_SIZE + key.len() + value.packed_len() + optional.len()) >> 3) + 1) << 3;
+        let size =
+            (((ITEM_HDR_SIZE + key.len() + value.packed_len() + optional.len()) >> 3) + 1) << 3;
 
         // try to get a `ReservedItem`
         let mut retries = RESERVE_RETRIES;

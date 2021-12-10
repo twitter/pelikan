@@ -55,15 +55,9 @@ impl Value<'_> {
     /// length.
     pub fn write_all_to<W: Write>(&self, mut dst: W) -> Result<(), std::io::Error> {
         match self.inner {
-            TypedValue::Bytes(v) => {
-                dst.write_all(v)
-            },
-            TypedValue::OwnedBytes(ref v) => {
-                dst.write_all(v)
-            }
-            TypedValue::U64(v) => {
-                dst.write_all(format!("{}", v).as_bytes())
-            },
+            TypedValue::Bytes(v) => dst.write_all(v),
+            TypedValue::OwnedBytes(ref v) => dst.write_all(v),
+            TypedValue::U64(v) => dst.write_all(format!("{}", v).as_bytes()),
         }
     }
 }
@@ -81,7 +75,7 @@ impl<'a> core::fmt::Debug for Value<'a> {
 impl<'a, const N: usize> From<[u8; N]> for Value<'a> {
     fn from(other: [u8; N]) -> Self {
         Value {
-            inner: TypedValue::OwnedBytes(Box::new(other))
+            inner: TypedValue::OwnedBytes(Box::new(other)),
         }
     }
 }
@@ -89,7 +83,7 @@ impl<'a, const N: usize> From<[u8; N]> for Value<'a> {
 impl<'a, const N: usize> From<&'a [u8; N]> for Value<'a> {
     fn from(other: &'a [u8; N]) -> Self {
         Value {
-            inner: TypedValue::Bytes(&other[0..N])
+            inner: TypedValue::Bytes(&other[0..N]),
         }
     }
 }
@@ -97,7 +91,7 @@ impl<'a, const N: usize> From<&'a [u8; N]> for Value<'a> {
 impl<'a> From<Box<[u8]>> for Value<'a> {
     fn from(other: Box<[u8]>) -> Self {
         Value {
-            inner: TypedValue::OwnedBytes(other)
+            inner: TypedValue::OwnedBytes(other),
         }
     }
 }
@@ -105,7 +99,7 @@ impl<'a> From<Box<[u8]>> for Value<'a> {
 impl<'a> From<&'a [u8]> for Value<'a> {
     fn from(other: &'a [u8]) -> Self {
         Value {
-            inner: TypedValue::Bytes(other)
+            inner: TypedValue::Bytes(other),
         }
     }
 }
@@ -113,7 +107,7 @@ impl<'a> From<&'a [u8]> for Value<'a> {
 impl<'a> From<Vec<u8>> for Value<'a> {
     fn from(other: Vec<u8>) -> Self {
         Value {
-            inner: TypedValue::OwnedBytes(other.into_boxed_slice())
+            inner: TypedValue::OwnedBytes(other.into_boxed_slice()),
         }
     }
 }
@@ -121,7 +115,7 @@ impl<'a> From<Vec<u8>> for Value<'a> {
 impl<'a> From<&'a Vec<u8>> for Value<'a> {
     fn from(other: &'a Vec<u8>) -> Self {
         Value {
-            inner: TypedValue::Bytes(other)
+            inner: TypedValue::Bytes(other),
         }
     }
 }
@@ -129,7 +123,7 @@ impl<'a> From<&'a Vec<u8>> for Value<'a> {
 impl<'a> From<u64> for Value<'a> {
     fn from(other: u64) -> Self {
         Value {
-            inner: TypedValue::U64(other)
+            inner: TypedValue::U64(other),
         }
     }
 }
@@ -137,15 +131,9 @@ impl<'a> From<u64> for Value<'a> {
 impl<'a> PartialEq<[u8]> for Value<'a> {
     fn eq(&self, rhs: &[u8]) -> bool {
         match self.inner {
-            TypedValue::Bytes(v) => {
-                v == rhs
-            }
-            TypedValue::OwnedBytes(ref v) => {
-                v.as_ref() == rhs
-            }
-            TypedValue::U64(_) => {
-                false
-            }
+            TypedValue::Bytes(v) => v == rhs,
+            TypedValue::OwnedBytes(ref v) => v.as_ref() == rhs,
+            TypedValue::U64(_) => false,
         }
     }
 }
@@ -153,15 +141,9 @@ impl<'a> PartialEq<[u8]> for Value<'a> {
 impl<'a, const N: usize> PartialEq<[u8; N]> for Value<'a> {
     fn eq(&self, rhs: &[u8; N]) -> bool {
         match self.inner {
-            TypedValue::Bytes(v) => {
-                v == rhs
-            }
-            TypedValue::OwnedBytes(ref v) => {
-                v.as_ref() == rhs
-            }
-            TypedValue::U64(_) => {
-                false
-            }
+            TypedValue::Bytes(v) => v == rhs,
+            TypedValue::OwnedBytes(ref v) => v.as_ref() == rhs,
+            TypedValue::U64(_) => false,
         }
     }
 }
@@ -169,15 +151,9 @@ impl<'a, const N: usize> PartialEq<[u8; N]> for Value<'a> {
 impl<'a, const N: usize> PartialEq<&[u8; N]> for Value<'a> {
     fn eq(&self, rhs: &&[u8; N]) -> bool {
         match self.inner {
-            TypedValue::Bytes(v) => {
-                v == *rhs
-            }
-            TypedValue::OwnedBytes(ref v) => {
-                v.as_ref() == *rhs
-            }
-            TypedValue::U64(_) => {
-                false
-            }
+            TypedValue::Bytes(v) => v == *rhs,
+            TypedValue::OwnedBytes(ref v) => v.as_ref() == *rhs,
+            TypedValue::U64(_) => false,
         }
     }
 }
@@ -185,16 +161,9 @@ impl<'a, const N: usize> PartialEq<&[u8; N]> for Value<'a> {
 impl<'a> PartialEq<u64> for Value<'a> {
     fn eq(&self, rhs: &u64) -> bool {
         match self.inner {
-            TypedValue::Bytes(_) => {
-                false
-            }
-            TypedValue::OwnedBytes(_) => {
-                false
-            }
-            TypedValue::U64(v) => {
-                v == *rhs
-            }
+            TypedValue::Bytes(_) => false,
+            TypedValue::OwnedBytes(_) => false,
+            TypedValue::U64(v) => v == *rhs,
         }
     }
 }
-
