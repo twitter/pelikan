@@ -171,9 +171,46 @@ fn delete() {
     let value = item.value();
     assert_eq!(value, b"coffee", "item is: {:?}", item);
 
-    assert_eq!(cache.delete(b"drink"), true);
+    assert!(cache.delete(b"drink"));
     assert_eq!(cache.segments.free(), 63);
     assert_eq!(cache.items(), 0);
+}
+
+#[test]
+fn incr_decr() {
+    let ttl = CoarseDuration::ZERO;
+    let segment_size = 4096;
+    let segments = 64;
+    let heap_size = segments * segment_size as usize;
+
+    let mut cache = Seg::builder()
+        .segment_size(segment_size)
+        .heap_size(heap_size)
+        .build();
+    assert_eq!(cache.items(), 0);
+    assert_eq!(cache.segments.free(), 64);
+    assert!(cache.insert(b"coffee", 0, None, ttl).is_ok());
+    assert_eq!(cache.segments.free(), 63);
+    assert_eq!(cache.items(), 1);
+    assert!(cache.get(b"coffee").is_some());
+
+    let item = cache.get(b"coffee").unwrap();
+    assert_eq!(item.value(), 0, "item is: {:?}", item);
+    cache.increment(b"coffee", 1).expect("failed to increment");
+    assert_eq!(item.value(), 1, "item is: {:?}", item);
+    cache.increment(b"coffee", u64::MAX - 1).expect("failed to increment");
+    assert_eq!(item.value(), u64::MAX, "item is: {:?}", item);
+    cache.increment(b"coffee", 1).expect("failed to increment");
+    assert_eq!(item.value(), 0, "item is: {:?}", item);
+    cache.increment(b"coffee", 2).expect("failed to increment");
+    assert_eq!(item.value(), 2, "item is: {:?}", item);
+
+    cache.decrement(b"coffee", 1).expect("failed to decrement");
+    assert_eq!(item.value(), 1, "item is: {:?}", item);
+    cache.decrement(b"coffee", 2).expect("failed to decrement");
+    assert_eq!(item.value(), 0, "item is: {:?}", item);
+    cache.decrement(b"coffee", 1).expect("failed to decrement");
+    assert_eq!(item.value(), 0, "item is: {:?}", item);
 }
 
 #[test]
@@ -231,7 +268,7 @@ fn collisions() {
     let v = b"8";
     assert!(cache.insert(v, v, None, ttl).is_err());
     assert_eq!(cache.items(), 7);
-    assert_eq!(cache.delete(b"0"), true);
+    assert!(cache.delete(b"0"));
     assert_eq!(cache.items(), 6);
     assert!(cache.insert(v, v, None, ttl).is_ok());
     assert_eq!(cache.items(), 7);

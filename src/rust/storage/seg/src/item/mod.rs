@@ -7,13 +7,18 @@
 mod header;
 mod raw;
 mod reserved;
+mod value;
+
+pub use value::Value;
 
 #[cfg(any(feature = "magic", feature = "debug"))]
 pub(crate) use header::ITEM_MAGIC_SIZE;
-
 pub(crate) use header::{ItemHeader, ITEM_HDR_SIZE};
 pub(crate) use raw::RawItem;
 pub(crate) use reserved::ReservedItem;
+pub(crate) use value::TypedValue;
+
+use crate::SegError;
 
 /// Items are the base unit of data stored within the cache.
 pub struct Item {
@@ -44,7 +49,7 @@ impl Item {
     }
 
     /// Borrow the item value
-    pub fn value(&self) -> &[u8] {
+    pub fn value(&self) -> Value {
         self.raw.value()
     }
 
@@ -56,6 +61,14 @@ impl Item {
     /// Borrow the optional data
     pub fn optional(&self) -> Option<&[u8]> {
         self.raw.optional()
+    }
+
+    pub(crate) fn increment(&mut self, rhs: u64) -> Result<u64, SegError> {
+        self.raw.increment(rhs)
+    }
+
+    pub(crate) fn decrement(&mut self, rhs: u64) -> Result<u64, SegError> {
+        self.raw.decrement(rhs)
     }
 }
 

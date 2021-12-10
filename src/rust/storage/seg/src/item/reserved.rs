@@ -5,6 +5,7 @@
 //! A reserved item is an item which has been allocated, but has not been
 //! defined or linked in the hashtable.
 
+use crate::Value;
 use crate::RawItem;
 use core::num::NonZeroU32;
 
@@ -24,7 +25,7 @@ impl ReservedItem {
     }
 
     /// Store the key, value, and optional data into the item
-    pub fn define(&mut self, key: &[u8], value: &[u8], optional: &[u8]) {
+    pub fn define(&mut self, key: &[u8], value: &Value, optional: &[u8]) {
         self.item.define(key, value, optional)
     }
 

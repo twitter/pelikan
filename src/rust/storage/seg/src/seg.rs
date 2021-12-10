@@ -26,6 +26,7 @@ pub struct Seg {
     pub(crate) ttl_buckets: TtlBuckets,
 }
 
+
 impl Seg {
     /// Returns a new `Builder` which is used to configure and construct a
     /// `Seg` instance.
@@ -107,18 +108,20 @@ impl Seg {
     /// let item = cache.get(b"drink").expect("didn't get item back");
     /// assert_eq!(item.value(), b"whisky");
     /// ```
-    pub fn insert<'a>(
+    pub fn insert<'a, T: Into<Value<'a>>>(
         &mut self,
         key: &'a [u8],
-        value: &[u8],
+        value: T,
         optional: Option<&[u8]>,
         ttl: CoarseDuration,
     ) -> Result<(), SegError<'a>> {
+        let value = value.into();
+
         // default optional data is empty
         let optional = optional.unwrap_or(&[]);
 
         // calculate size for item
-        let size = (((ITEM_HDR_SIZE + key.len() + value.len() + optional.len()) >> 3) + 1) << 3;
+        let size = (((ITEM_HDR_SIZE + key.len() + value.packed_len() + optional.len()) >> 3) + 1) << 3;
 
         // try to get a `ReservedItem`
         let mut retries = RESERVE_RETRIES;
@@ -130,7 +133,7 @@ impl Seg {
                 .reserve(size, &mut self.segments)
             {
                 Ok(mut reserved_item) => {
-                    reserved_item.define(key, value, optional);
+                    reserved_item.define(key, &value, optional);
                     reserved = reserved_item;
                     break;
                 }
@@ -222,10 +225,10 @@ impl Seg {
     /// let item = cache.get(b"drink").expect("not found");
     /// assert_eq!(item.value(), b"whisky"); // item is updated
     /// ```
-    pub fn cas<'a>(
+    pub fn cas<'a, T: Into<Value<'a>>>(
         &mut self,
         key: &'a [u8],
-        value: &[u8],
+        value: T,
         optional: Option<&[u8]>,
         ttl: CoarseDuration,
         cas: u32,
@@ -256,6 +259,22 @@ impl Seg {
     pub fn delete(&mut self, key: &[u8]) -> bool {
         self.hashtable
             .delete(key, &mut self.ttl_buckets, &mut self.segments)
+    }
+
+    pub fn increment(&mut self, key: &[u8], rhs: u64) -> Result<u64, SegError> {
+        if let Some(mut item) = self.get(key) {
+            item.increment(rhs).map_err(|_| SegError::NotNumeric)
+        } else {
+            Err(SegError::NotFound)
+        }
+    }
+
+    pub fn decrement(&mut self, key: &[u8], rhs: u64) -> Result<u64, SegError> {
+        if let Some(mut item) = self.get(key) {
+            item.decrement(rhs).map_err(|_| SegError::NotNumeric)
+        } else {
+            Err(SegError::NotFound)
+        }
     }
 
     /// Loops through the TTL Buckets to handle eager expiration, returns the

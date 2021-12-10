@@ -7,7 +7,9 @@
 //! Unlike an [`Item`], the [`RawItem`] does not contain any fields which are
 //! shared within a hash bucket such as the CAS value.
 
+use crate::SegError;
 use crate::item::*;
+use std::convert::TryInto;
 
 /// The raw byte-level representation of an item
 #[repr(C)]
@@ -60,13 +62,34 @@ impl RawItem {
         self.header().vlen()
     }
 
+    pub fn value(&self) -> Value {
+        if let Ok(v) = self.value_numeric() {
+            Value {
+                inner: TypedValue::U64(v),
+            }
+        } else {
+            Value {
+                inner: TypedValue::Bytes(self.value_bytes()),
+            }
+        }
+    }
+
     /// Borrow the value
     // TODO(bmartin): should probably change this to be Option<>
-    pub(crate) fn value(&self) -> &[u8] {
+    fn value_bytes(&self) -> &[u8] {
         unsafe {
             let ptr = self.data.add(self.value_offset());
             let len = self.vlen() as usize;
             std::slice::from_raw_parts(ptr, len)
+        }
+    }
+
+    /// Get the value as an unsigned 64bit integer if it is numeric
+    fn value_numeric(&self) -> Result<u64, SegError> {
+        if self.header().is_num() && self.header().vlen() == 8 {
+            Ok(u64::from_be_bytes(self.value_bytes().try_into().unwrap()))
+        } else {
+            Err(SegError::NotNumeric)
         }
     }
 
@@ -105,11 +128,10 @@ impl RawItem {
     }
 
     /// Copy data into the item
-    pub(crate) fn define(&mut self, key: &[u8], value: &[u8], optional: &[u8]) {
+    pub(crate) fn define(&mut self, key: &[u8], value: &Value, optional: &[u8]) {
         unsafe {
             self.set_magic();
             (*self.header_mut()).set_deleted(false);
-            (*self.header_mut()).set_num(false);
             (*self.header_mut()).set_olen(optional.len() as u8);
             std::ptr::copy_nonoverlapping(
                 optional.as_ptr(),
@@ -122,12 +144,34 @@ impl RawItem {
                 self.data.add(self.key_offset()),
                 key.len(),
             );
-            (*self.header_mut()).set_vlen(value.len() as u32);
-            std::ptr::copy_nonoverlapping(
-                value.as_ptr(),
-                self.data.add(self.value_offset()),
-                value.len(),
-            );
+            (*self.header_mut()).set_vlen(value.packed_len() as u32);
+            match value.inner {
+                TypedValue::Bytes(value) => {
+                    (*self.header_mut()).set_num(false);
+                    std::ptr::copy_nonoverlapping(
+                        value.as_ptr(),
+                        self.data.add(self.value_offset()),
+                        value.len(),
+                    );
+                }
+                TypedValue::OwnedBytes(ref value) => {
+                    (*self.header_mut()).set_num(false);
+                    std::ptr::copy_nonoverlapping(
+                        value.as_ptr(),
+                        self.data.add(self.value_offset()),
+                        value.len(),
+                    );
+                }
+                TypedValue::U64(value) => {
+                    let value = value.to_be_bytes().to_vec();
+                    (*self.header_mut()).set_num(true);
+                    std::ptr::copy_nonoverlapping(
+                        value.as_ptr(),
+                        self.data.add(self.value_offset()),
+                        value.len(),
+                    );
+                }
+            }
         }
     }
 
@@ -165,6 +209,32 @@ impl RawItem {
     /// Checks if the item is deleted
     pub(crate) fn deleted(&self) -> bool {
         self.header().is_deleted()
+    }
+
+    pub(crate) fn increment(&self, rhs: u64) -> Result<u64, SegError> {
+        let value = self.value_numeric()?;
+        let value = value.wrapping_add(rhs);
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                value.to_be_bytes().as_ptr(),
+                self.data.add(self.value_offset()),
+                core::mem::size_of::<u64>(),
+            );
+        }
+        Ok(value)
+    }
+
+    pub(crate) fn decrement(&self, rhs: u64) -> Result<u64, SegError> {
+        let value = self.value_numeric()?;
+        let value = value.saturating_sub(rhs);
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                value.to_be_bytes().as_ptr(),
+                self.data.add(self.value_offset()),
+                core::mem::size_of::<u64>(),
+            );
+        }
+        Ok(value)
     }
 }
 
