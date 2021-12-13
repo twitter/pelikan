@@ -4,6 +4,7 @@
 
 use super::super::*;
 use crate::*;
+use storage_types::OwnedValue;
 
 use config::TimeType;
 
@@ -329,11 +330,18 @@ fn parse_set(
         }
 
         let key = buffer[(cmd_end + 1)..key_end].to_vec().into_boxed_slice();
-        let value = Some(buffer[value_start..value_end].to_vec().into_boxed_slice());
+
+        let value = if let Ok(Ok(i)) =
+            std::str::from_utf8(&buffer[value_start..value_end]).map(|s| s.parse::<u64>())
+        {
+            OwnedValue::U64(i)
+        } else {
+            OwnedValue::Bytes(buffer[value_start..value_end].to_vec().into_boxed_slice())
+        };
 
         let entry = MemcacheEntry {
             key,
-            value,
+            value: Some(value),
             ttl,
             flags,
             cas,

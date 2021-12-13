@@ -15,7 +15,7 @@ impl MemcacheStorage for Seg {
                 let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
                 items.push(MemcacheEntry {
                     key: item.key().to_vec().into_boxed_slice(),
-                    value: Some(item.value().to_vec().into_boxed_slice()),
+                    value: Some(item.value().to_owned()),
                     flags,
                     cas: Some(item.cas().into()),
                     ttl: None,
@@ -43,7 +43,7 @@ impl MemcacheStorage for Seg {
 
         match self.data.insert(
             entry.key(),
-            entry.value().unwrap_or(b""),
+            entry.value().unwrap_or_else(|| b"".into()),
             Some(&entry.flags().to_be_bytes()),
             ttl,
         ) {
@@ -64,7 +64,7 @@ impl MemcacheStorage for Seg {
                 .data
                 .insert(
                     entry.key(),
-                    entry.value().unwrap_or(b""),
+                    entry.value().unwrap_or_else(|| b"".into()),
                     Some(&entry.flags().to_be_bytes()),
                     ttl,
                 )
@@ -88,7 +88,7 @@ impl MemcacheStorage for Seg {
                 .data
                 .insert(
                     entry.key(),
-                    entry.value().unwrap_or(b""),
+                    entry.value().unwrap_or_else(|| b"".into()),
                     Some(&entry.flags().to_be_bytes()),
                     ttl,
                 )
@@ -117,7 +117,7 @@ impl MemcacheStorage for Seg {
 
         match self.data.cas(
             entry.key(),
-            entry.value().unwrap_or(b""),
+            entry.value().unwrap_or_else(|| b"".into()),
             Some(&entry.flags().to_be_bytes()),
             ttl,
             entry.cas().unwrap_or(0) as u32,

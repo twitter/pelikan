@@ -11,6 +11,7 @@ use crate::CRLF;
 use session::Session;
 use std::borrow::Cow;
 use std::io::Write;
+use storage_types::Value;
 
 pub struct MemcacheResponse {
     pub(crate) request: MemcacheRequest,
@@ -161,20 +162,42 @@ impl Compose for MemcacheResponse {
                     dst.write_all(self.result.as_bytes());
                     dst.write_all(&*entry.key);
 
-                    if cas {
-                        write!(
-                            dst,
-                            " {} {} {}",
-                            entry.flags,
-                            value.len(),
-                            entry.cas.unwrap_or(0)
-                        )
-                    } else {
-                        write!(dst, " {} {}", entry.flags, value.len())
+                    match value {
+                        Value::Bytes(value) => {
+                            if cas {
+                                write!(
+                                    dst,
+                                    " {} {} {}",
+                                    entry.flags,
+                                    value.len(),
+                                    entry.cas.unwrap_or(0)
+                                )
+                            } else {
+                                write!(dst, " {} {}", entry.flags, value.len())
+                            };
+                            dst.write_all(CRLF.as_bytes());
+                            dst.write_all(value);
+                        }
+                        Value::U64(value) => {
+                            let value_string = format!("{}", value);
+                            let value = value_string.as_bytes();
+                            if cas {
+                                write!(
+                                    dst,
+                                    " {} {} {}",
+                                    entry.flags,
+                                    value.len(),
+                                    entry.cas.unwrap_or(0)
+                                )
+                            } else {
+                                write!(dst, " {} {}", entry.flags, value.len())
+                            };
+                            dst.write_all(CRLF.as_bytes());
+                            dst.write_all(value);
+                        }
+                        Value::I64(_) => {}
                     };
 
-                    dst.write_all(CRLF.as_bytes());
-                    dst.write_all(value);
                     dst.write_all(CRLF.as_bytes());
 
                     // return the number of bytes in the reply

@@ -19,7 +19,7 @@
 //! Flags:
 //! ```text
 //! ┌──────────────┬──────────────┬──────────────────────────────┐
-//! │   NUMERIC?   │   DELETED?   │             OLEN             │
+//! │    TYPED?    │   DELETED?   │             OLEN             │
 //! │              │              │                              │
 //! │    1 bit     │    1 bit     │            6 bit             │
 //! │              │              │                              │
@@ -55,7 +55,12 @@ const VLEN_MASK: u32 = 0xFFFFFF00;
 /// mask to get the actual value length
 const VLEN_SHIFT: u32 = 8;
 
-// olen/del/num
+/// The number of bits to shift the length field masked with the value length
+/// mask to get the value type. This is only valid if typed bit is set!!!
+const TYPE_MASK: u32 = 0xFF000000;
+const TYPE_SHIFT: u32 = 24;
+
+// olen/del/typed
 /// A mask to get the optional data length in bytes from the item header's flags
 /// field
 const OLEN_MASK: u8 = 0b00111111;
@@ -63,8 +68,46 @@ const OLEN_MASK: u8 = 0b00111111;
 /// header's flags field
 const DEL_MASK: u8 = 0b01000000;
 /// A mask to get the bit indicating the item value should be treated as a
-/// numeric from the item header's flags field
-const NUM_MASK: u8 = 0b10000000;
+/// typed value from the item header's flags field
+const TYPED_MASK: u8 = 0b10000000;
+
+use core::convert::TryFrom;
+
+#[derive(Copy, Clone, Debug)]
+pub(super) enum ValueType {
+    U64,
+    I64,
+}
+
+impl ValueType {
+    pub fn len(&self) -> u32 {
+        (match self {
+            Self::U64 => std::mem::size_of::<u64>(),
+            Self::I64 => std::mem::size_of::<i64>(),
+        }) as u32
+    }
+}
+
+impl TryFrom<u8> for ValueType {
+    type Error = ();
+    fn try_from(other: u8) -> Result<Self, <Self as TryFrom<u8>>::Error> {
+        match other {
+            0 => Ok(Self::U64),
+            1 => Ok(Self::I64),
+            _ => Err(()),
+        }
+    }
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<u8> for ValueType {
+    fn into(self) -> u8 {
+        match self {
+            Self::U64 => 0,
+            Self::I64 => 1,
+        }
+    }
+}
 
 /// A per-item header which is stored with the item data within a segment. This
 /// contains information about the item's raw representation within the segment.
@@ -111,7 +154,11 @@ impl ItemHeader {
     /// Get the item's value length
     #[inline]
     pub fn vlen(&self) -> u32 {
-        self.len >> VLEN_SHIFT
+        if self.is_typed() {
+            (self.len & !TYPE_MASK) >> VLEN_SHIFT
+        } else {
+            self.len >> VLEN_SHIFT
+        }
     }
 
     /// get the optional data length
@@ -120,10 +167,32 @@ impl ItemHeader {
         self.flags & OLEN_MASK
     }
 
-    /// Is the item a numeric value?
+    /// Is the item a typed value?
     #[inline]
-    pub fn is_num(&self) -> bool {
-        self.flags & NUM_MASK != 0
+    fn is_typed(&self) -> bool {
+        self.flags & TYPED_MASK != 0
+    }
+
+    pub(super) fn value_type(&self) -> Option<ValueType> {
+        if self.is_typed() {
+            if let Ok(t) = ValueType::try_from((self.len >> TYPE_SHIFT) as u8) {
+                Some(t)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn set_type(&mut self, value_type: Option<ValueType>) {
+        if let Some(value_type) = value_type {
+            self.set_typed(true);
+            self.len &= KLEN_MASK;
+            self.len |= (value_type.len() as u32) << VLEN_SHIFT;
+            let value_type: u8 = value_type.into();
+            self.len |= (value_type as u32) << TYPE_SHIFT;
+        }
     }
 
     /// Is the item deleted?
@@ -142,8 +211,10 @@ impl ItemHeader {
     // TODO(bmartin): where should we do error handling for out-of-range?
     #[inline]
     pub fn set_vlen(&mut self, len: u32) {
-        debug_assert!(len <= (u32::MAX >> VLEN_SHIFT));
-        self.len = (self.len & !VLEN_MASK) | (len << VLEN_SHIFT);
+        if !self.is_typed() {
+            debug_assert!(len <= (u32::MAX >> VLEN_SHIFT));
+            self.len = (self.len & !VLEN_MASK) | (len << VLEN_SHIFT);
+        }
     }
 
     /// Mark the item as deleted
@@ -158,11 +229,11 @@ impl ItemHeader {
 
     /// Mark the item as numeric
     #[inline]
-    pub fn set_num(&mut self, num: bool) {
-        if num {
-            self.flags |= NUM_MASK
+    fn set_typed(&mut self, typed: bool) {
+        if typed {
+            self.flags |= TYPED_MASK;
         } else {
-            self.flags &= !NUM_MASK
+            self.flags &= !TYPED_MASK;
         }
     }
 
@@ -180,7 +251,7 @@ impl std::fmt::Debug for ItemHeader {
         f.debug_struct("ItemHeader")
             .field("klen", &self.klen())
             .field("vlen", &self.vlen())
-            .field("is_num", &self.is_num())
+            .field("type", &self.value_type())
             .field("deleted", &self.is_deleted())
             .field("olen", &self.olen())
             .finish()
@@ -195,7 +266,7 @@ impl std::fmt::Debug for ItemHeader {
             .field("magic", &format!("0x{:X}", magic))
             .field("klen", &self.klen())
             .field("vlen", &self.vlen())
-            .field("is_num", &self.is_num())
+            .field("typed", &self.is_typed())
             .field("deleted", &self.is_deleted())
             .field("olen", &self.olen())
             .finish()

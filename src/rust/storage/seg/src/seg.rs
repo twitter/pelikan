@@ -4,6 +4,7 @@
 
 //! Core datastructure
 
+use crate::Value;
 use crate::*;
 
 use metrics::{static_metrics, Counter};
@@ -107,18 +108,20 @@ impl Seg {
     /// let item = cache.get(b"drink").expect("didn't get item back");
     /// assert_eq!(item.value(), b"whisky");
     /// ```
-    pub fn insert<'a>(
+    pub fn insert<'a, T: Into<Value<'a>>>(
         &mut self,
         key: &'a [u8],
-        value: &[u8],
+        value: T,
         optional: Option<&[u8]>,
         ttl: CoarseDuration,
     ) -> Result<(), SegError<'a>> {
+        let value: Value = value.into();
+
         // default optional data is empty
         let optional = optional.unwrap_or(&[]);
 
         // calculate size for item
-        let size = (((ITEM_HDR_SIZE + key.len() + value.len() + optional.len()) >> 3) + 1) << 3;
+        let size = (((ITEM_HDR_SIZE + key.len() + size_of(&value) + optional.len()) >> 3) + 1) << 3;
 
         // try to get a `ReservedItem`
         let mut retries = RESERVE_RETRIES;
@@ -222,10 +225,10 @@ impl Seg {
     /// let item = cache.get(b"drink").expect("not found");
     /// assert_eq!(item.value(), b"whisky"); // item is updated
     /// ```
-    pub fn cas<'a>(
+    pub fn cas<'a, T: Into<Value<'a>>>(
         &mut self,
         key: &'a [u8],
-        value: &[u8],
+        value: T,
         optional: Option<&[u8]>,
         ttl: CoarseDuration,
         cas: u32,

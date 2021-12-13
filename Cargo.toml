@@ -13,6 +13,7 @@ members = [
     "src/rust/server/segcache",
     "src/rust/session",
     "src/rust/storage/seg",
+    "src/rust/storage/types",
 ]
 
 [profile.release]

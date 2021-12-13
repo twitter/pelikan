@@ -58,6 +58,7 @@ pub use item::Item;
 
 // publicly exported items from external crates
 pub use rustcommon_time::CoarseDuration;
+pub use storage_types::Value;
 
 // items from submodules which are imported for convenience to the crate level
 pub(crate) use crate::rand::*;
