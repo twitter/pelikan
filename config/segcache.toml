@@ -82,3 +82,5 @@ sample = 100
 # certificate = "server.crt"
 # server private key
 # private_key = "server.key"
+# ca certificate file used as the root of trust
+# ca_file = "ca.crt"
