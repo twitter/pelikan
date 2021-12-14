@@ -24,9 +24,6 @@ static_metrics! {
     static GET_KEY_MISS: Counter;
 
     static GETS: Counter;
-    static GETS_CARDINALITY: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(request::MAX_BATCH_SIZE as _, 3, Duration::from_secs(60), Duration::from_secs(1))
-    );
     static GETS_KEY: Counter;
     static GETS_KEY_HIT: Counter;
     static GETS_KEY_MISS: Counter;
@@ -68,7 +65,6 @@ where
                 }
             }
             MemcacheRequest::Gets { ref keys } => {
-                GETS_CARDINALITY.increment(Instant::now(), keys.len() as _, 1);
                 MemcacheResult::Values {
                     entries: self.get(keys),
                     cas: true,
