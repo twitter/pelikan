@@ -19,7 +19,7 @@ fn poolsize() -> usize {
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct TcpConfig {
+pub struct Tcp {
     #[serde(default = "backlog")]
     backlog: usize,
     #[serde(default = "poolsize")]
@@ -27,7 +27,7 @@ pub struct TcpConfig {
 }
 
 // implementation
-impl TcpConfig {
+impl Tcp {
     pub fn backlog(&self) -> usize {
         self.backlog
     }
@@ -38,11 +38,16 @@ impl TcpConfig {
 }
 
 // trait implementations
-impl Default for TcpConfig {
+impl Default for Tcp {
     fn default() -> Self {
         Self {
             backlog: backlog(),
             poolsize: poolsize(),
         }
     }
+}
+
+// trait definitions
+pub trait TcpConfig {
+    fn tcp(&self) -> &Tcp;
 }

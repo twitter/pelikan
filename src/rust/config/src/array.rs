@@ -14,20 +14,24 @@ fn nelem_delta() -> usize {
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ArrayConfig {
+pub struct Array {
     #[serde(default = "nelem_delta")]
     nelem_delta: usize,
 }
 
 // implementation
-impl ArrayConfig {
+impl Array {
     pub fn nelem_delta(&self) -> usize {
         self.nelem_delta
     }
 }
 
+pub trait ArrayConfig {
+    fn array(&self) -> &Array;
+}
+
 // trait implementations
-impl Default for ArrayConfig {
+impl Default for Array {
     fn default() -> Self {
         Self {
             nelem_delta: nelem_delta(),

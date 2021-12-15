@@ -6,7 +6,7 @@
 //! a subset of the Memcache protocol. Segment based storage allows us to
 //! perform efficient eager expiration of items.
 
-use config::PingserverConfig;
+use config::*;
 use entrystore::Noop;
 use logger::*;
 use protocol::ping::{PingRequest, PingRequestParser, PingResponse};
@@ -26,7 +26,7 @@ impl Pingserver {
     /// Creates a new `Pingserver` process from the given `PingserverConfig`.
     pub fn new(config: PingserverConfig) -> Self {
         // initialize logging
-        let log_drain = configure_logging(config.debug(), config.klog());
+        let log_drain = configure_logging(&config);
 
         // initialize metrics
         metrics::init();
@@ -42,10 +42,7 @@ impl Pingserver {
 
         // initialize process
         let process_builder = ProcessBuilder::<Storage, Parser, Request, Response>::new(
-            config.admin(),
-            config.server(),
-            config.tls(),
-            config.worker(),
+            config,
             storage,
             max_buffer_size,
             parser,

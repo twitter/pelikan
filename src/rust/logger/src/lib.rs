@@ -109,7 +109,9 @@ macro_rules! klog {
     )
 }
 
-pub fn configure_logging(debug_config: &DebugConfig, klog_config: &KlogConfig) -> Box<dyn Drain> {
+pub fn configure_logging<T: DebugConfig + KlogConfig>(config: &T) -> Box<dyn Drain> {
+    let debug_config = config.debug();
+
     let debug_output: Box<dyn Output> = if let Some(file) = debug_config.log_file() {
         let backup = debug_config.log_backup().unwrap_or(format!("{}.old", file));
         Box::new(
@@ -126,6 +128,8 @@ pub fn configure_logging(debug_config: &DebugConfig, klog_config: &KlogConfig) -
         .single_message_size(debug_config.log_single_message_size())
         .build()
         .expect("failed to initialize debug log");
+
+    let klog_config = config.klog();
 
     let klog = if let Some(file) = klog_config.file() {
         let backup = klog_config.backup().unwrap_or(format!("{}.old", file));

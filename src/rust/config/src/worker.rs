@@ -24,7 +24,7 @@ fn threads() -> usize {
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct WorkerConfig {
+pub struct Worker {
     #[serde(default = "timeout")]
     timeout: usize,
     #[serde(default = "nevent")]
@@ -34,7 +34,7 @@ pub struct WorkerConfig {
 }
 
 // implementation
-impl WorkerConfig {
+impl Worker {
     pub fn timeout(&self) -> usize {
         self.timeout
     }
@@ -53,7 +53,7 @@ impl WorkerConfig {
 }
 
 // trait implementations
-impl Default for WorkerConfig {
+impl Default for Worker {
     fn default() -> Self {
         Self {
             timeout: timeout(),
@@ -61,4 +61,8 @@ impl Default for WorkerConfig {
             threads: threads(),
         }
     }
+}
+
+pub trait WorkerConfig {
+    fn worker(&self) -> &Worker;
 }

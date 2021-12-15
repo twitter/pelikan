@@ -14,23 +14,28 @@ fn buf_sock_poolsize() -> usize {
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SockioConfig {
+pub struct Sockio {
     #[serde(default = "buf_sock_poolsize")]
     buf_sock_poolsize: usize,
 }
 
 // implementation
-impl SockioConfig {
+impl Sockio {
     pub fn buf_sock_poolsize(&self) -> usize {
         self.buf_sock_poolsize
     }
 }
 
 // trait implementations
-impl Default for SockioConfig {
+impl Default for Sockio {
     fn default() -> Self {
         Self {
             buf_sock_poolsize: buf_sock_poolsize(),
         }
     }
+}
+
+// trait definitions
+pub trait SockioConfig {
+    fn sockio(&self) -> &Sockio;
 }

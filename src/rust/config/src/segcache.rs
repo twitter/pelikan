@@ -39,29 +39,29 @@ pub struct SegcacheConfig {
 
     // application modules
     #[serde(default)]
-    admin: AdminConfig,
+    admin: Admin,
     #[serde(default)]
-    server: ServerConfig,
+    server: Server,
     #[serde(default)]
-    worker: WorkerConfig,
+    worker: Worker,
     #[serde(default)]
-    time: TimeConfig,
+    time: Time,
     #[serde(default)]
-    tls: TlsConfig,
+    tls: Tls,
     #[serde(default)]
-    seg: SegConfig,
+    seg: Seg,
 
     // ccommon
     #[serde(default)]
-    buf: BufConfig,
+    buf: Buf,
     #[serde(default)]
-    debug: DebugConfig,
+    debug: Debug,
     #[serde(default)]
-    klog: KlogConfig,
+    klog: Klog,
     #[serde(default)]
-    sockio: SockioConfig,
+    sockio: Sockio,
     #[serde(default)]
-    tcp: TcpConfig,
+    tcp: Tcp,
 }
 
 // implementation
@@ -93,53 +93,71 @@ impl SegcacheConfig {
     pub fn dlog_interval(&self) -> usize {
         self.dlog_interval
     }
+}
 
-    pub fn admin(&self) -> &AdminConfig {
+impl AdminConfig for SegcacheConfig {
+    fn admin(&self) -> &Admin {
         &self.admin
     }
+}
 
-    pub fn server(&self) -> &ServerConfig {
-        &self.server
-    }
-
-    pub fn worker(&self) -> &WorkerConfig {
-        &self.worker
-    }
-
-    pub fn worker_mut(&mut self) -> &mut WorkerConfig {
-        &mut self.worker
-    }
-
-    pub fn time(&self) -> &TimeConfig {
-        &self.time
-    }
-
-    pub fn buf(&self) -> &BufConfig {
+impl BufConfig for SegcacheConfig {
+    fn buf(&self) -> &Buf {
         &self.buf
     }
+}
 
-    pub fn debug(&self) -> &DebugConfig {
+impl DebugConfig for SegcacheConfig {
+    fn debug(&self) -> &Debug {
         &self.debug
     }
+}
 
-    pub fn klog(&self) -> &KlogConfig {
+impl KlogConfig for SegcacheConfig {
+    fn klog(&self) -> &Klog {
         &self.klog
     }
+}
 
-    pub fn sockio(&self) -> &SockioConfig {
+impl SegConfig for SegcacheConfig {
+    fn seg(&self) -> &Seg {
+        &self.seg
+    }
+}
+
+impl ServerConfig for SegcacheConfig {
+    fn server(&self) -> &Server {
+        &self.server
+    }
+}
+
+impl SockioConfig for SegcacheConfig {
+    fn sockio(&self) -> &Sockio {
         &self.sockio
     }
+}
 
-    pub fn tcp(&self) -> &TcpConfig {
+impl TcpConfig for SegcacheConfig {
+    fn tcp(&self) -> &Tcp {
         &self.tcp
     }
+}
 
-    pub fn tls(&self) -> &TlsConfig {
+impl TimeConfig for SegcacheConfig {
+    fn time(&self) -> &Time {
+        &self.time
+    }
+}
+
+impl TlsConfig for SegcacheConfig {
+    fn tls(&self) -> &Tls {
         &self.tls
     }
+}
 
-    pub fn seg(&self) -> &SegConfig {
-        &self.seg
+impl WorkerConfig for SegcacheConfig {
+    fn worker(&self) -> &Worker {
+        &self.worker
     }
 }
 

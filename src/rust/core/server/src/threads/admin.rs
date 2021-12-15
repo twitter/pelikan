@@ -88,11 +88,13 @@ pub static PERCENTILES: &[(&str, f64)] = &[
 
 impl Admin {
     /// Creates a new `Admin` event loop.
-    pub fn new(
-        config: &AdminConfig,
+    pub fn new<T: AdminConfig>(
+        config: &T,
         ssl_context: Option<SslContext>,
         mut log_drain: Box<dyn Drain>,
     ) -> Result<Self, Error> {
+        let config = config.admin();
+
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
             let _ = log_drain.flush();

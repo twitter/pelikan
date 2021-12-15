@@ -39,27 +39,87 @@ pub struct PingserverConfig {
 
     // application modules
     #[serde(default)]
-    admin: AdminConfig,
+    admin: Admin,
     #[serde(default)]
-    server: ServerConfig,
+    server: Server,
     #[serde(default)]
-    worker: WorkerConfig,
+    worker: Worker,
     #[serde(default)]
-    time: TimeConfig,
+    time: Time,
     #[serde(default)]
-    tls: TlsConfig,
+    tls: Tls,
 
     // ccommon
     #[serde(default)]
-    buf: BufConfig,
+    buf: Buf,
     #[serde(default)]
-    debug: DebugConfig,
+    debug: Debug,
     #[serde(default)]
-    klog: KlogConfig,
+    klog: Klog,
     #[serde(default)]
-    sockio: SockioConfig,
+    sockio: Sockio,
     #[serde(default)]
-    tcp: TcpConfig,
+    tcp: Tcp,
+}
+
+impl AdminConfig for PingserverConfig {
+    fn admin(&self) -> &Admin {
+        &self.admin
+    }
+}
+
+impl BufConfig for PingserverConfig {
+    fn buf(&self) -> &Buf {
+        &self.buf
+    }
+}
+
+impl DebugConfig for PingserverConfig {
+    fn debug(&self) -> &Debug {
+        &self.debug
+    }
+}
+
+impl KlogConfig for PingserverConfig {
+    fn klog(&self) -> &Klog {
+        &self.klog
+    }
+}
+
+impl ServerConfig for PingserverConfig {
+    fn server(&self) -> &Server {
+        &self.server
+    }
+}
+
+impl SockioConfig for PingserverConfig {
+    fn sockio(&self) -> &Sockio {
+        &self.sockio
+    }
+}
+
+impl TcpConfig for PingserverConfig {
+    fn tcp(&self) -> &Tcp {
+        &self.tcp
+    }
+}
+
+impl TimeConfig for PingserverConfig {
+    fn time(&self) -> &Time {
+        &self.time
+    }
+}
+
+impl TlsConfig for PingserverConfig {
+    fn tls(&self) -> &Tls {
+        &self.tls
+    }
+}
+
+impl WorkerConfig for PingserverConfig {
+    fn worker(&self) -> &Worker {
+        &self.worker
+    }
 }
 
 // implementation
@@ -90,46 +150,6 @@ impl PingserverConfig {
 
     pub fn dlog_interval(&self) -> usize {
         self.dlog_interval
-    }
-
-    pub fn admin(&self) -> &AdminConfig {
-        &self.admin
-    }
-
-    pub fn server(&self) -> &ServerConfig {
-        &self.server
-    }
-
-    pub fn worker(&self) -> &WorkerConfig {
-        &self.worker
-    }
-
-    pub fn time(&self) -> &TimeConfig {
-        &self.time
-    }
-
-    pub fn buf(&self) -> &BufConfig {
-        &self.buf
-    }
-
-    pub fn debug(&self) -> &DebugConfig {
-        &self.debug
-    }
-
-    pub fn klog(&self) -> &KlogConfig {
-        &self.klog
-    }
-
-    pub fn sockio(&self) -> &SockioConfig {
-        &self.sockio
-    }
-
-    pub fn tcp(&self) -> &TcpConfig {
-        &self.tcp
-    }
-
-    pub fn tls(&self) -> &TlsConfig {
-        &self.tls
     }
 }
 

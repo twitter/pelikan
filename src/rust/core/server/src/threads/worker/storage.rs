@@ -44,9 +44,7 @@ where
     Storage: Execute<Request, Response> + EntryStore + Send,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(config: &WorkerConfig, storage: Storage) -> Result<Self, std::io::Error> {
-        // let signal_queue = Queue::new(128);
-
+    pub fn new<T: WorkerConfig>(config: &T, storage: Storage) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
@@ -58,8 +56,8 @@ where
         let signal_queue = QueuePairs::new(Some(waker));
 
         Ok(Self {
-            nevent: config.nevent(),
-            timeout: Duration::from_millis(config.timeout() as u64),
+            nevent: config.worker().nevent(),
+            timeout: Duration::from_millis(config.worker().timeout() as u64),
             poll,
             storage,
             signal_queue,

@@ -14,20 +14,24 @@ fn max_power() -> usize {
 
 // struct definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct DbufConfig {
+pub struct Dbuf {
     #[serde(default = "max_power")]
     max_power: usize,
 }
 
 // implementation
-impl DbufConfig {
+impl Dbuf {
     pub fn max_power(&self) -> usize {
         self.max_power
     }
 }
 
+pub trait DbufConfig {
+    fn dbuf(&self) -> &Dbuf;
+}
+
 // trait implementations
-impl Default for DbufConfig {
+impl Default for Dbuf {
     fn default() -> Self {
         Self {
             max_power: max_power(),

@@ -11,7 +11,9 @@ use std::io::{Error, ErrorKind};
 /// was any issues during initialization. Otherwise, returns a `SslContext`
 /// wrapped in an option, where the `None` variant indicates that TLS should not
 /// be used.
-pub fn ssl_context(config: &TlsConfig) -> Result<Option<SslContext>, std::io::Error> {
+pub fn ssl_context(config: &dyn TlsConfig) -> Result<Option<SslContext>, std::io::Error> {
+    let config = config.tls();
+
     let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())?;
 
     // we use xor here to check if we have an under-specified tls configuration
