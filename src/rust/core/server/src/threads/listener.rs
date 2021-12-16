@@ -38,7 +38,7 @@ pub struct Listener {
     poll: Poll,
     session_queue: QueuePairs<Session, ()>,
     ssl_context: Option<SslContext>,
-    signal_queue: QueuePairs<(), Signal>,
+    signal_queue: QueuePairs<Signal, Signal>,
     timeout: Duration,
     max_buffer_size: usize,
 }
@@ -246,7 +246,7 @@ impl Listener {
     }
 
     /// Get a `QueuePair` for sending `Signal`s to this thread.
-    pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
+    pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
         self.signal_queue.new_pair(128, None)
     }
 }

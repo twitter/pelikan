@@ -40,7 +40,7 @@ where
     Parser: Parse<Request>,
     Response: protocol::Compose,
 {
-    signal_queue: QueuePairs<(), Signal>,
+    signal_queue: QueuePairs<Signal, Signal>,
     poll: Poll,
     nevent: usize,
     timeout: Duration,
@@ -276,7 +276,7 @@ where
         self.session_queue.new_pair(65536, Some(waker))
     }
 
-    pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
+    pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
         self.signal_queue.new_pair(128, None)
     }
 }

@@ -13,6 +13,7 @@ use entrystore::EntryStore;
 use logger::*;
 use protocol::{Compose, Execute, Parse};
 use queues::QueuePairs;
+use std::io::Error;
 
 /// A builder type for a Pelikan cache process.
 pub struct ProcessBuilder<Storage, Parser, Request, Response>
@@ -47,22 +48,30 @@ where
         storage: Storage,
         max_buffer_size: usize,
         parser: Parser,
-        log_drain: Box<dyn Drain>,
+        mut log_drain: Box<dyn Drain>,
     ) -> Self {
         // initialize admin
         let ssl_context = common::ssl::ssl_context(tls_config).unwrap_or_else(|e| {
             error!("failed to initialize TLS: {}", e);
+            let _ = log_drain.flush();
             std::process::exit(1);
         });
-        let mut admin = Admin::new(admin_config, ssl_context, log_drain).unwrap_or_else(|e| {
-            error!("failed to initialize admin: {}", e);
+        let mut admin = Admin::new(admin_config, ssl_context, log_drain).unwrap_or_else(|_| {
             std::process::exit(1);
         });
 
         let mut worker = if worker_config.threads() > 1 {
-            Self::multi_worker(worker_config, storage, parser)
+            Self::multi_worker(worker_config, storage, parser).unwrap_or_else(|e| {
+                error!("failed to initialize workers: {}", e);
+                let _ = admin.log_flush();
+                std::process::exit(1);
+            })
         } else {
-            Self::single_worker(worker_config, storage, parser)
+            Self::single_worker(worker_config, storage, parser).unwrap_or_else(|e| {
+                error!("failed to initialize workers: {}", e);
+                let _ = admin.log_flush();
+                std::process::exit(1);
+            })
         };
 
         // initialize server
@@ -94,25 +103,18 @@ where
         worker_config: &WorkerConfig,
         storage: Storage,
         parser: Parser,
-    ) -> WorkerBuilder<Storage, Parser, Request, Response> {
+    ) -> Result<WorkerBuilder<Storage, Parser, Request, Response>, Error> {
         // initialize storage
-        let mut storage = StorageWorker::new(worker_config, storage).unwrap_or_else(|e| {
-            error!("{}", e);
-            std::process::exit(1);
-        });
+        let mut storage = StorageWorker::new(worker_config, storage)?;
 
         // initialize workers
         let mut workers = Vec::new();
         for _ in 0..worker_config.threads() {
-            let worker = MultiWorker::new(worker_config, &mut storage, parser.clone())
-                .unwrap_or_else(|e| {
-                    error!("{}", e);
-                    std::process::exit(1);
-                });
+            let worker = MultiWorker::new(worker_config, &mut storage, parser.clone())?;
             workers.push(worker);
         }
 
-        WorkerBuilder::Multi { storage, workers }
+        Ok(WorkerBuilder::Multi { storage, workers })
     }
 
     // Creates a single-worker builder
@@ -120,26 +122,27 @@ where
         worker_config: &WorkerConfig,
         storage: Storage,
         parser: Parser,
-    ) -> WorkerBuilder<Storage, Parser, Request, Response> {
+    ) -> Result<WorkerBuilder<Storage, Parser, Request, Response>, Error> {
         // initialize worker
-        let worker = SingleWorker::new(worker_config, storage, parser).unwrap_or_else(|e| {
-            error!("{}", e);
-            std::process::exit(1);
-        });
+        let worker = SingleWorker::new(worker_config, storage, parser)?;
 
-        WorkerBuilder::Single { worker }
+        Ok(WorkerBuilder::Single { worker })
     }
 
     /// Converts the `ProcessBuilder` to a running `Process` by spawning the
     /// threads for each component. Returns a `Process` which may be used to
     /// block until the threads have exited or trigger a shutdown.
     pub fn spawn(mut self) -> Process {
-        // get message senders for each component
+        // initialize a queue to send a signal to the admin thread
         let mut signal_queue = QueuePairs::new(None);
         signal_queue.add_pair(self.admin.signal_queue());
+
+        // register signal queues with admin thread so it can send signals to
+        // all other threads
+        self.admin.add_signal_queue(self.listener.signal_queue());
         signal_queue.add_pair(self.listener.signal_queue());
         for queue in self.worker.signal_queues() {
-            signal_queue.add_pair(queue);
+            self.admin.add_signal_queue(queue);
         }
 
         // temporary bindings to prevent borrow-checker issues

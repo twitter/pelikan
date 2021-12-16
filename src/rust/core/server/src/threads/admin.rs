@@ -65,7 +65,7 @@ pub struct Admin {
     nevent: usize,
     poll: Poll,
     ssl_context: Option<SslContext>,
-    signal_queue: QueuePairs<(), Signal>,
+    signal_queue: QueuePairs<Signal, Signal>,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
 }
@@ -95,18 +95,21 @@ impl Admin {
     ) -> Result<Self, Error> {
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
+            error!("bad admin listen address");
             let _ = log_drain.flush();
-            std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
+            Error::new(ErrorKind::Other, "bad listen address")
         })?;
         let mut poll = Poll::new().map_err(|e| {
             error!("{}", e);
+            error!("failed to create epoll instance");
             let _ = log_drain.flush();
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
+            Error::new(ErrorKind::Other, "failed to create epoll instance")
         })?;
         poll.bind(addr).map_err(|e| {
             error!("{}", e);
+            error!("failed to bind admin tcp listener");
             let _ = log_drain.flush();
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to bind listener")
+            Error::new(ErrorKind::Other, "failed to bind listener")
         })?;
 
         let ssl_context = if config.use_tls() { ssl_context } else { None };
@@ -321,6 +324,11 @@ impl Admin {
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
                             match signal {
                                 Signal::Shutdown => {
+                                    info!("shutting down");
+                                    let _ = self.signal_queue.broadcast(Signal::Shutdown);
+                                    if self.signal_queue.wake_all().is_err() {
+                                        fatal!("error waking threads for shutdown");
+                                    }
                                     let _ = self.log_drain.flush();
                                     return;
                                 }
@@ -341,8 +349,12 @@ impl Admin {
 
     /// Returns a `SyncSender` which can be used to send `Message`s to the
     /// `Admin` component.
-    pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
+    pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
         self.signal_queue.new_pair(128, None)
+    }
+
+    pub fn add_signal_queue(&mut self, queue_pair: QueuePair<Signal, Signal>) {
+        self.signal_queue.add_pair(queue_pair)
     }
 
     // TODO(bmartin): move this into a common module, should be shared with

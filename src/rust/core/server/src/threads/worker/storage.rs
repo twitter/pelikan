@@ -33,7 +33,7 @@ pub struct StorageWorker<Storage, Request, Response> {
     nevent: usize,
     timeout: Duration,
     storage: Storage,
-    signal_queue: QueuePairs<(), Signal>,
+    signal_queue: QueuePairs<Signal, Signal>,
     worker_queues: QueuePairs<TokenWrapper<Option<Response>>, TokenWrapper<Request>>,
 }
 
@@ -155,7 +155,7 @@ where
         }
     }
 
-    pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
+    pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
         self.signal_queue.new_pair(128, None)
     }
 }

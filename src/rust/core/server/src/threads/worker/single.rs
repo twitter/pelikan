@@ -34,7 +34,7 @@ pub struct SingleWorker<Storage, Parser, Request, Response> {
     nevent: usize,
     timeout: Duration,
     session_queue: QueuePairs<(), Session>,
-    signal_queue: QueuePairs<(), Signal>,
+    signal_queue: QueuePairs<Signal, Signal>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
     parser: Parser,
@@ -182,7 +182,7 @@ where
         self.session_queue.new_pair(65536, Some(waker))
     }
 
-    pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
+    pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
         self.signal_queue.new_pair(128, None)
     }
 }

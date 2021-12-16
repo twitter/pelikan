@@ -19,7 +19,7 @@ use std::thread::JoinHandle;
 /// to call `shutdown()` to terminate the threads and block until termination.
 pub struct Process {
     threads: Vec<JoinHandle<()>>,
-    signal_queue: QueuePairs<Signal, ()>,
+    signal_queue: QueuePairs<Signal, Signal>,
 }
 
 impl Process {
