@@ -64,12 +64,10 @@ where
                     cas: false,
                 }
             }
-            MemcacheRequest::Gets { ref keys } => {
-                MemcacheResult::Values {
-                    entries: self.get(keys),
-                    cas: true,
-                }
-            }
+            MemcacheRequest::Gets { ref keys } => MemcacheResult::Values {
+                entries: self.get(keys),
+                cas: true,
+            },
             MemcacheRequest::Set { ref entry, noreply } => {
                 let response = match self.set(entry) {
                     Ok(_) => MemcacheResult::Stored,
