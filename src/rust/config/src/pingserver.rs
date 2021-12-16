@@ -120,6 +120,10 @@ impl WorkerConfig for PingserverConfig {
     fn worker(&self) -> &Worker {
         &self.worker
     }
+
+    fn worker_mut(&mut self) -> &mut Worker {
+        &mut self.worker
+    }
 }
 
 // implementation

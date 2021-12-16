@@ -65,4 +65,6 @@ impl Default for Worker {
 
 pub trait WorkerConfig {
     fn worker(&self) -> &Worker;
+
+    fn worker_mut(&mut self) -> &mut Worker;
 }
