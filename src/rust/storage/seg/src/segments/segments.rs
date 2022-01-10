@@ -5,6 +5,7 @@
 use crate::datapool::*;
 use crate::eviction::*;
 use crate::item::*;
+use crate::seg::{SEGMENT_REQUEST, SEGMENT_REQUEST_SUCCESS};
 use crate::segments::*;
 
 use core::num::NonZeroU32;
@@ -12,6 +13,7 @@ use metrics::{static_metrics, Counter, Gauge};
 use rustcommon_time::CoarseInstant as Instant;
 
 static_metrics! {
+    static EVICT_TIME: Gauge;
     static SEGMENT_EVICT: Counter;
     static SEGMENT_EVICT_EX: Counter;
     static SEGMENT_RETURN: Counter;
@@ -188,6 +190,7 @@ impl Segments {
         ttl_buckets: &mut TtlBuckets,
         hashtable: &mut HashTable,
     ) -> Result<(), SegmentsError> {
+        let now = CoarseInstant::now();
         match self.evict.policy() {
             Policy::Merge { .. } => {
                 SEGMENT_EVICT.increment();
@@ -210,6 +213,7 @@ impl Segments {
                             Ok(next_to_merge) => {
                                 debug!("merged ttl_bucket: {} seg: {}", bucket_id, start);
                                 ttl_bucket.set_next_to_merge(next_to_merge);
+                                EVICT_TIME.add(now.elapsed().as_nanos() as _);
                                 return Ok(());
                             }
                             Err(_) => {
@@ -221,14 +225,24 @@ impl Segments {
                     }
                 }
                 SEGMENT_EVICT_EX.increment();
+                EVICT_TIME.add(now.elapsed().as_nanos() as _);
                 Err(SegmentsError::NoEvictableSegments)
             }
-            Policy::None => Err(SegmentsError::NoEvictableSegments),
+            Policy::None => {
+                EVICT_TIME.add(now.elapsed().as_nanos() as _);
+                Err(SegmentsError::NoEvictableSegments)
+            }
             _ => {
                 SEGMENT_EVICT.increment();
                 if let Some(id) = self.least_valuable_seg(ttl_buckets) {
-                    self.clear_segment(id, hashtable, false)
-                        .map_err(|_| SegmentsError::EvictFailure)?;
+                    let result = self
+                        .clear_segment(id, hashtable, false)
+                        .map_err(|_| SegmentsError::EvictFailure);
+
+                    if result.is_err() {
+                        EVICT_TIME.add(now.elapsed().as_nanos() as _);
+                        return result;
+                    }
 
                     let id_idx = id.get() as usize - 1;
                     if self.headers[id_idx].prev_seg().is_none() {
@@ -236,9 +250,11 @@ impl Segments {
                         ttl_bucket.set_head(self.headers[id_idx].next_seg());
                     }
                     self.push_free(id);
+                    EVICT_TIME.add(now.elapsed().as_nanos() as _);
                     Ok(())
                 } else {
                     SEGMENT_EVICT_EX.increment();
+                    EVICT_TIME.add(now.elapsed().as_nanos() as _);
                     Err(SegmentsError::NoEvictableSegments)
                 }
             }
@@ -381,6 +397,8 @@ impl Segments {
         if self.free == 0 {
             None
         } else {
+            SEGMENT_REQUEST.increment();
+            SEGMENT_REQUEST_SUCCESS.increment();
             SEGMENT_FREE.decrement();
             self.free -= 1;
             let id = self.free_q;

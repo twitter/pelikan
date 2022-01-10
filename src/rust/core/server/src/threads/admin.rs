@@ -70,6 +70,12 @@ pub struct Admin {
     log_drain: Box<dyn Drain>,
 }
 
+impl Drop for Admin {
+    fn drop(&mut self) {
+        let _ = self.log_drain.flush();
+    }
+}
+
 pub static PERCENTILES: &[(&str, f64)] = &[
     ("p25", 25.0),
     ("p50", 50.0),
@@ -85,17 +91,23 @@ impl Admin {
     pub fn new(
         config: &AdminConfig,
         ssl_context: Option<SslContext>,
-        log_drain: Box<dyn Drain>,
+        mut log_drain: Box<dyn Drain>,
     ) -> Result<Self, Error> {
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
+            let _ = log_drain.flush();
             std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
         })?;
         let mut poll = Poll::new().map_err(|e| {
             error!("{}", e);
+            let _ = log_drain.flush();
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
-        poll.bind(addr)?;
+        poll.bind(addr).map_err(|e| {
+            error!("{}", e);
+            let _ = log_drain.flush();
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to bind listener")
+        })?;
 
         let ssl_context = if config.use_tls() { ssl_context } else { None };
 
@@ -115,6 +127,11 @@ impl Admin {
             parser: AdminRequestParser::new(),
             log_drain,
         })
+    }
+
+    /// Triggers a flush of the log
+    pub fn log_flush(&mut self) -> Result<(), std::io::Error> {
+        self.log_drain.flush()
     }
 
     /// Adds a new fully established TLS session
@@ -304,6 +321,7 @@ impl Admin {
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
                             match signal {
                                 Signal::Shutdown => {
+                                    let _ = self.log_drain.flush();
                                     return;
                                 }
                             }

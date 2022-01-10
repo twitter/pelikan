@@ -54,7 +54,7 @@ where
             error!("failed to initialize TLS: {}", e);
             std::process::exit(1);
         });
-        let admin = Admin::new(admin_config, ssl_context, log_drain).unwrap_or_else(|e| {
+        let mut admin = Admin::new(admin_config, ssl_context, log_drain).unwrap_or_else(|e| {
             error!("failed to initialize admin: {}", e);
             std::process::exit(1);
         });
@@ -68,11 +68,13 @@ where
         // initialize server
         let ssl_context = common::ssl::ssl_context(tls_config).unwrap_or_else(|e| {
             error!("failed to initialize TLS: {}", e);
+            let _ = admin.log_flush();
             std::process::exit(1);
         });
         let mut listener = Listener::new(server_config, ssl_context, max_buffer_size)
             .unwrap_or_else(|e| {
                 error!("failed to initialize listener: {}", e);
+                let _ = admin.log_flush();
                 std::process::exit(1);
             });
         let mut session_queues = worker.session_queues(listener.waker());
