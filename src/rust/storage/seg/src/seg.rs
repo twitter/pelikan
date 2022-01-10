@@ -279,6 +279,12 @@ impl Seg {
             .expire(&mut self.hashtable, &mut self.segments)
     }
 
+    pub fn clear(&mut self) -> usize {
+        rustcommon_time::refresh_clock();
+        self.ttl_buckets
+            .clear(&mut self.hashtable, &mut self.segments)
+    }
+
     /// Checks the integrity of all segments
     /// *NOTE*: this operation is relatively expensive
     #[cfg(feature = "debug")]

@@ -132,6 +132,11 @@ impl Segments {
         self.flush_at
     }
 
+    /// Mark the segments as flushed at a given instant
+    pub fn set_flush_at(&mut self, instant: CoarseInstant) {
+        self.flush_at = instant;
+    }
+
     /// Retrieve a `RawItem` from the segment id and offset encoded in the
     /// item info.
     pub(crate) fn get_item(&mut self, item_info: u64) -> Option<RawItem> {
