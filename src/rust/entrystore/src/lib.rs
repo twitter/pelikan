@@ -4,8 +4,8 @@
 
 //! A collection of storage datastructures suitable for use within Pelikan. A
 //! typical storage module will implement one or more storage protocol traits in
-//! addition to the base `Storage` trait. For example [`SegCache`] implements
-//! both [`Storage`] and [`protocol::memcache::MemcacheStorage`].
+//! addition to the base `EntryStore` trait. For example [`Seg`] implements both
+//! [`EntryStore`] and [`protocol::memcache::MemcacheStorage`].
 
 mod noop;
 mod seg;
