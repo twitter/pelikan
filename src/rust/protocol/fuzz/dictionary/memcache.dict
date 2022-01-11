@@ -5,3 +5,8 @@
 "delete"
 "noreply"
 "cas"
+"prepend"
+"append"
+"incr"
+"decr"
+"flush_all"
