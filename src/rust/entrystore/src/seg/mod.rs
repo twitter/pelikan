@@ -4,8 +4,7 @@
 
 //! Segment-structured storage which implements efficient proactive eviction.
 //! This storage type is suitable for use in simple key-value cache backends.
-//! See: [`::segcache`] crate for more details behind the underlying storage
-//! design.
+//! See: [`::seg`] crate for more details behind the underlying storage design.
 
 use crate::EntryStore;
 
@@ -23,7 +22,7 @@ pub struct Seg {
 }
 
 impl Seg {
-    /// Create a new `SegCache` based on the config and the `TimeType` which is
+    /// Create `Seg` storage based on the config and the `TimeType` which is
     /// used to interpret various expiry time formats.
     pub fn new(config: &SegConfig) -> Self {
         // build up the eviction policy from the config

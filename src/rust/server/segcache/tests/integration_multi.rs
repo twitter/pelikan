@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! This test module runs the integration test suite against a multi-threaded
+//! instance of Segcache.
+
 #[macro_use]
 extern crate logger;
 

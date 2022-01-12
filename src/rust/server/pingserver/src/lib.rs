@@ -2,9 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! Segcache is a cache implementation which used segment based storage and uses
-//! a subset of the Memcache protocol. Segment based storage allows us to
-//! perform efficient eager expiration of items.
+//! Pingserver is an implementation of a basic backend service which responds to
+//! each `PING` with a `PONG`. This allows for testing of the core components
+//! without the overheads associated with managing any state.
+//!
+//! This library is primarily used for automated testing. Users should prefer to
+//! run the Pingserver binary provided by this crate.
 
 use config::PingserverConfig;
 use entrystore::Noop;

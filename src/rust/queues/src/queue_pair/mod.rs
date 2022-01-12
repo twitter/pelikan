@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Implements a 1:1 bi-directional queue with the ability to wake the other
+//! thread.
+
 use crate::*;
 use rtrb::*;
 use std::sync::Arc;

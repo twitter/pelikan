@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Tests for the `Ping` protocol implementation.
+
 use crate::ping::PingRequestParser;
 use crate::*;
 

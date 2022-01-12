@@ -2,10 +2,14 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Implements the serialization of `Ping` protocol responses into the wire
+//! representation.
+
 use crate::Compose;
 use session::Session;
 use std::io::Write;
 
+/// A collection of all possible `Ping` responses
 pub enum PingResponse {
     Pong,
 }

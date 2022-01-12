@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Implements a 1:N set of bi-directional queues with the ability to wake
+//! threads on either side of a given queue pair.
+
 use crate::*;
 use queue_pair::queue_pair_with_capacity;
 use std::sync::Arc;
