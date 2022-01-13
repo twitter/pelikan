@@ -7,25 +7,25 @@
 //! crate.
 
 #[macro_use]
-extern crate rustcommon_logger;
+extern crate logger;
 
 mod buffer;
 mod stream;
 mod tcp_stream;
 
+use common::time::Duration;
 use metrics::Heatmap;
 use metrics::Relaxed;
-use rustcommon_time::Duration;
 use std::borrow::{Borrow, BorrowMut};
 use std::cmp::Ordering;
 use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
 use boring::ssl::{MidHandshakeSslStream, SslStream};
+use common::time::Instant;
 use metrics::{static_metrics, Counter, Gauge};
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
-use rustcommon_time::Instant;
 
 use buffer::Buffer;
 use stream::Stream;

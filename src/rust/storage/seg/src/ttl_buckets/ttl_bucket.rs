@@ -28,6 +28,7 @@
 
 use super::{SEGMENT_CLEAR, SEGMENT_EXPIRE};
 use crate::*;
+use common::time::CoarseDuration;
 use core::num::NonZeroU32;
 
 /// Each ttl bucket contains a segment chain to store items with a similar TTL

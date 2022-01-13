@@ -52,7 +52,7 @@ fn main() {
 
         let mut metrics = Vec::new();
 
-        for metric in &metrics::rustcommon_metrics::metrics() {
+        for metric in &metrics::common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {
