@@ -8,7 +8,7 @@ use std::io::{Error, ErrorKind};
 use std::io::{Read, Write};
 use std::net::SocketAddr;
 
-use boring::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
+use common::ssl::{HandshakeError, MidHandshakeSslStream, SslStream};
 
 use super::TcpStream;
 use crate::{TCP_CLOSE, TCP_CONN_CURR};

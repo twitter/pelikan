@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use boring::ssl::*;
+pub use boring::ssl::*;
 use boring::x509::X509;
 use config::TlsConfig;
 use std::io::{Error, ErrorKind};

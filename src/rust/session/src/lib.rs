@@ -21,7 +21,7 @@ use std::cmp::Ordering;
 use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
-use boring::ssl::{MidHandshakeSslStream, SslStream};
+use common::ssl::{MidHandshakeSslStream, SslStream};
 use metrics::{static_metrics, Counter, Gauge};
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
