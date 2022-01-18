@@ -264,7 +264,7 @@ fn parse_set(
     let ttl = if time_type == TimeType::Unix
         || (time_type == TimeType::Memcache && expiry >= 60 * 60 * 24 * 30)
     {
-        Some(expiry.saturating_sub(rustcommon_time::recent_unix()))
+        Some(expiry.saturating_sub(common::time::recent_unix()))
     } else if expiry == 0 {
         None
     } else {

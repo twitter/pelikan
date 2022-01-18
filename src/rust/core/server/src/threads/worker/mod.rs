@@ -15,9 +15,9 @@ pub use single::SingleWorker;
 
 use super::EventLoop;
 
+use common::time::Duration;
 use metrics::{static_metrics, Counter, Heatmap, Relaxed};
 use mio::Token;
-use rustcommon_time::Duration;
 
 static_metrics! {
     static WORKER_EVENT_LOOP: Counter;

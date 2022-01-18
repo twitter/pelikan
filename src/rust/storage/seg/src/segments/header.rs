@@ -27,11 +27,11 @@
 //! ```
 
 use super::SEG_MAGIC;
+use common::time::*;
 use core::num::NonZeroU32;
-use rustcommon_time::*;
 
-use rustcommon_time::CoarseDuration as Duration;
-use rustcommon_time::CoarseInstant as Instant;
+use common::time::CoarseDuration as Duration;
+use common::time::CoarseInstant as Instant;
 
 // the minimum age of a segment before it is eligible for eviction
 // TODO(bmartin): this should be parameterized.

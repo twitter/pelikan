@@ -2,10 +2,17 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use config::TimeType;
 use rustcommon_time::{CoarseDuration, Duration};
+use serde::{Deserialize, Serialize};
 
 use std::time::SystemTime;
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum TimeType {
+    Unix = 0,
+    Delta = 1,
+    Memcache = 2,
+}
 
 pub struct Expiry {
     expiry: u32,

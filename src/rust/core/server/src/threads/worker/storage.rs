@@ -5,6 +5,7 @@
 use super::*;
 use crate::threads::worker::TokenWrapper;
 use common::signal::Signal;
+use common::time::Instant;
 use config::WorkerConfig;
 use core::time::Duration;
 use entrystore::EntryStore;
@@ -14,7 +15,6 @@ use mio::Token;
 use mio::Waker;
 use protocol::{Compose, Execute};
 use queues::{QueueError, QueuePair, QueuePairs};
-use rustcommon_time::Instant;
 use std::sync::Arc;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be

@@ -11,8 +11,8 @@ pub use response::*;
 use super::*;
 use crate::*;
 
+use common::time::{Duration, Instant};
 use metrics::{static_metrics, Counter, Heatmap, Relaxed};
-use rustcommon_time::{Duration, Instant};
 
 static_metrics! {
     static GET: Counter;

@@ -8,9 +8,9 @@ use crate::item::*;
 use crate::seg::{SEGMENT_REQUEST, SEGMENT_REQUEST_SUCCESS};
 use crate::segments::*;
 
+use common::time::CoarseInstant as Instant;
 use core::num::NonZeroU32;
 use metrics::{static_metrics, Counter, Gauge};
-use rustcommon_time::CoarseInstant as Instant;
 
 static_metrics! {
     static EVICT_TIME: Gauge;
@@ -432,7 +432,7 @@ impl Segments {
                 self.headers[id_idx].write_offset()
             );
 
-            rustcommon_time::refresh_clock();
+            common::time::refresh_clock();
             self.headers[id_idx].mark_created();
             self.headers[id_idx].mark_merged();
 

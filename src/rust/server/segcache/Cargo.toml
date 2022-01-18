@@ -44,8 +44,6 @@ entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
 metrics = { path = "../../metrics" }
 protocol = { path = "../../protocol" }
-rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
-rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
 server = { path = "../../core/server" }
 
 [dev-dependencies]
