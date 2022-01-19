@@ -24,10 +24,10 @@
 
 // macro includes
 #[macro_use]
-extern crate rustcommon_logger;
+extern crate logger;
 
 // external crate includes
-use rustcommon_time::*;
+use common::time::*;
 
 // includes from core/std
 use core::hash::{BuildHasher, Hasher};
@@ -57,7 +57,7 @@ pub use eviction::Policy;
 pub use item::Item;
 
 // publicly exported items from external crates
-pub use rustcommon_time::CoarseDuration;
+pub use common::time::CoarseDuration;
 
 // items from submodules which are imported for convenience to the crate level
 pub(crate) use crate::rand::*;

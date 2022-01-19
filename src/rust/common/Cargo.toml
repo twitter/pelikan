@@ -12,5 +12,11 @@ license = "Apache-2.0"
 
 [dependencies]
 boring = "1.0.3"
-config = { path = "../config" }
-rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-time = { git = "https://github.com/twitter/rustcommon", rev = "cd7411b687150d707a8cda5ec116eee79ef3a50b" }
+serde = { version = "1.0.117", features = ["derive"] }
+
+[dependencies.rustcommon-metrics]
+git = "https://github.com/twitter/rustcommon"
+package="rustcommon-metrics-v2"
+features = ["heatmap"]
+rev = "cd7411b687150d707a8cda5ec116eee79ef3a50b"

@@ -2,10 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-pub use rustcommon_metrics::{metric, Counter, Gauge, Heatmap, Relaxed};
+pub use common::metrics::{metric, Counter, Gauge, Heatmap, Relaxed};
 
 #[doc(hidden)]
-pub extern crate rustcommon_metrics;
+pub extern crate common;
 #[doc(hidden)]
 pub use macros::to_lowercase;
 
@@ -33,7 +33,7 @@ macro_rules! static_metrics {
     )*} => {$(
         #[$crate::metric(
             name = $crate::to_lowercase!($name),
-            crate = $crate::rustcommon_metrics
+            crate = $crate::common::metrics
         )]
         $( #[ $attr ] )*
         $vis static $name : $ty = $crate::static_metrics!(
@@ -54,7 +54,7 @@ macro_rules! test_no_duplicates {
             #[test]
             fn assert_no_duplicate_metric_names() {
                 use std::collections::HashSet;
-                use $crate::rustcommon_metrics::*;
+                use $crate::common::metrics::*;
 
                 let mut seen = HashSet::new();
                 for metric in metrics().static_metrics() {
