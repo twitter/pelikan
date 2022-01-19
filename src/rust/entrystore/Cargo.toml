@@ -12,7 +12,7 @@ license = "Apache-2.0"
 debug = ["seg/debug"]
 
 [dependencies]
+common = { path = "../common" }
 config = { path = "../config" }
 protocol = { path = "../protocol" }
-rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
 seg = { path = "../storage/seg" }

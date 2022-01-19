@@ -212,7 +212,7 @@ impl Admin {
     fn handle_stats_request(session: &mut Session) {
         ADMIN_REQUEST_PARSE.increment();
         let mut data = Vec::new();
-        for metric in &metrics::rustcommon_metrics::metrics() {
+        for metric in &metrics::common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {

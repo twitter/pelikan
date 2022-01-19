@@ -78,7 +78,7 @@ use ahash::RandomState;
 use core::num::NonZeroU32;
 use metrics::{static_metrics, Counter};
 
-use rustcommon_time::CoarseInstant as Instant;
+use common::time::CoarseInstant as Instant;
 
 mod hash_bucket;
 
@@ -683,7 +683,7 @@ impl HashTable {
                     continue;
                 }
                 if get_seg_id(current_item_info) != Some(segment.id())
-                    || get_offset(current_item_info) != offset as _
+                    || get_offset(current_item_info) != offset as u64
                 {
                     HASH_TAG_COLLISION.increment();
                     continue;
