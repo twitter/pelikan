@@ -20,7 +20,7 @@
 //! [Segcache paper](https://www.usenix.org/system/files/nsdi21-yang.pdf) for
 //! more detail.
 
-use super::EXPIRE_TIME;
+use super::{CLEAR_TIME, EXPIRE_TIME};
 use crate::*;
 
 const N_BUCKET_PER_STEP_N_BIT: usize = 8;
@@ -49,6 +49,8 @@ pub struct TtlBuckets {
 }
 
 impl TtlBuckets {
+    /// Create a new set of `TtlBuckets` which cover the full range of TTLs. See
+    /// the module-level documentation for how the range of TTLs are stored.
     pub fn new() -> Self {
         let intervals = [
             TTL_BUCKET_INTERVAL_1,
@@ -77,6 +79,7 @@ impl TtlBuckets {
         }
     }
 
+    /// Get the index of the `TtlBucket` for the given TTL.
     pub(crate) fn get_bucket_index(&self, ttl: CoarseDuration) -> usize {
         let ttl = ttl.as_secs() as i32;
         if ttl <= 0 {
@@ -98,6 +101,7 @@ impl TtlBuckets {
     }
 
     // TODO(bmartin): confirm handling for negative TTLs here...
+    /// Get a mutable reference to the `TtlBucket` for the given TTL.
     pub(crate) fn get_mut_bucket(&mut self, ttl: CoarseDuration) -> &mut TtlBucket {
         let index = self.get_bucket_index(ttl);
 
@@ -124,6 +128,19 @@ impl TtlBuckets {
         debug!("expired: {} segments in {:?}", expired, duration);
         EXPIRE_TIME.add(duration.as_nanos() as _);
         expired
+    }
+
+    pub(crate) fn clear(&mut self, hashtable: &mut HashTable, segments: &mut Segments) -> usize {
+        let start = Instant::now();
+        let mut cleared = 0;
+        for bucket in self.buckets.iter_mut() {
+            cleared += bucket.clear(hashtable, segments);
+        }
+        segments.set_flush_at(CoarseInstant::now());
+        let duration = start.elapsed();
+        debug!("expired: {} segments in {:?}", cleared, duration);
+        CLEAR_TIME.add(duration.as_nanos() as _);
+        cleared
     }
 }
 

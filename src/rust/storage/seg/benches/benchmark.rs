@@ -2,12 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use core::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use rand::RngCore;
 use rand::SeedableRng;
-use rustcommon_time::*;
-use seg::Seg;
+use seg::*;
 
 pub const MB: usize = 1024 * 1024;
 
@@ -18,7 +16,7 @@ pub fn rng() -> impl RngCore {
 
 fn get_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("get");
-    group.measurement_time(Duration::from_secs(30));
+    group.measurement_time(core::time::Duration::from_secs(30));
     group.throughput(Throughput::Elements(1));
 
     for key_size in [1, 255].iter() {
@@ -71,9 +69,9 @@ fn key_values(
 }
 
 fn set_benchmark(c: &mut Criterion) {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = common::time::CoarseDuration::MAX;
     let mut group = c.benchmark_group("set");
-    group.measurement_time(Duration::from_secs(30));
+    group.measurement_time(core::time::Duration::from_secs(30));
     group.throughput(Throughput::Elements(1));
 
     for key_size in [1, 255].iter() {

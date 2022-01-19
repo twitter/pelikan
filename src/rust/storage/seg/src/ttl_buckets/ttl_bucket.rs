@@ -26,8 +26,9 @@
 //! └──────────────────────────────────────────────────────────┘
 //! ```
 
-use super::SEGMENT_EXPIRE;
+use super::{SEGMENT_CLEAR, SEGMENT_EXPIRE};
 use crate::*;
+use common::time::CoarseDuration;
 use core::num::NonZeroU32;
 
 /// Each ttl bucket contains a segment chain to store items with a similar TTL
@@ -44,6 +45,7 @@ pub struct TtlBucket {
 }
 
 impl TtlBucket {
+    /// Create a new `TtlBucket` which will hold items with the provided TTL.
     pub(super) fn new(ttl: i32) -> Self {
         Self {
             head: None,
@@ -55,23 +57,29 @@ impl TtlBucket {
         }
     }
 
+    /// Returns the segment ID of the head of the `TtlBucket`.
     pub fn head(&self) -> Option<NonZeroU32> {
         self.head
     }
 
+    /// Set the segment ID of the head of the `TtlBucket`.
     pub fn set_head(&mut self, id: Option<NonZeroU32>) {
         self.head = id;
     }
 
+    /// Returns the segment ID of the next segment to merge within the
+    /// `TtlBucket`.
     pub fn next_to_merge(&self) -> Option<NonZeroU32> {
         self.next_to_merge
     }
 
+    /// Set the next segment to be merged within the `TtlBucket`.
     pub fn set_next_to_merge(&mut self, next: Option<NonZeroU32>) {
         self.next_to_merge = next;
     }
 
-    // expire segments from this TtlBucket, returns the number of segments expired
+    /// Expire segments from this TtlBucket, returns the number of segments
+    /// expired.
     pub(super) fn expire(&mut self, hashtable: &mut HashTable, segments: &mut Segments) -> usize {
         if self.head.is_none() {
             return 0;
@@ -106,6 +114,38 @@ impl TtlBucket {
         }
     }
 
+    /// Clear segments from this TtlBucket, returns the number of segments
+    /// expired.
+    pub(super) fn clear(&mut self, hashtable: &mut HashTable, segments: &mut Segments) -> usize {
+        if self.head.is_none() {
+            return 0;
+        }
+
+        let mut cleared = 0;
+
+        loop {
+            let seg_id = self.head;
+            if let Some(seg_id) = seg_id {
+                let mut segment = segments.get_mut(seg_id).unwrap();
+                if let Some(next) = segment.next_seg() {
+                    self.head = Some(next);
+                } else {
+                    self.head = None;
+                    self.tail = None;
+                }
+                let _ = segment.clear(hashtable, true);
+                segments.push_free(seg_id);
+                SEGMENT_CLEAR.increment();
+                cleared += 1;
+            } else {
+                return cleared;
+            }
+        }
+    }
+
+    /// Attempts to expand the `TtlBucket` by allocating a segment from the free
+    /// queue. If there are no segments currently free, this function will
+    /// return and error. It is up to the caller to handle the error and retry.
     fn try_expand(&mut self, segments: &mut Segments) -> Result<(), TtlBucketsError> {
         if let Some(id) = segments.pop_free() {
             {
@@ -134,6 +174,10 @@ impl TtlBucket {
         }
     }
 
+    /// Reserve space in this `TtlBucket` for an item with the specified size in
+    /// bytes. This function will return an error if the item is oversized, or
+    /// if there is no space in the `TtlBucket` for the item and the `TtlBucket`
+    /// could not be expanded with a segment from the free queue.
     pub(crate) fn reserve(
         &mut self,
         size: usize,

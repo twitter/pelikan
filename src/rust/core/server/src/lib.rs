@@ -89,7 +89,7 @@
 //! thread.
 
 #[macro_use]
-extern crate rustcommon_logger;
+extern crate logger;
 
 mod poll;
 mod process;

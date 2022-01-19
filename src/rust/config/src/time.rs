@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+pub use common::expiry::TimeType;
 use serde::{Deserialize, Serialize};
 
 // TODO(bmartin): set the default back to unix
@@ -15,13 +16,6 @@ fn time_type() -> TimeType {
 }
 
 // definitions
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub enum TimeType {
-    Unix = 0,
-    Delta = 1,
-    Memcache = 2,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Time {
     #[serde(default = "time_type")]

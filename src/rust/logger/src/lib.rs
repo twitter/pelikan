@@ -52,10 +52,10 @@ pub use sampling::*;
 pub use single::*;
 pub use traits::*;
 
+use common::time::recent_utc;
 use config::{DebugConfig, KlogConfig};
 use metrics::{static_metrics, Counter, Gauge};
 use mpmc::Queue;
-use rustcommon_time::recent_utc;
 
 pub(crate) type LogBuffer = Vec<u8>;
 
@@ -93,6 +93,22 @@ impl AsyncLog {
             .expect("failed to start logger");
         self.drain
     }
+}
+
+#[macro_export]
+macro_rules! fatal {
+    () => (
+        error!();
+        std::process::exit(1);
+        );
+    ($fmt:expr) => (
+        error!($fmt);
+        std::process::exit(1);
+        );
+    ($fmt:expr, $($arg:tt)*) => (
+        error!($fmt, $($arg)*);
+        std::process::exit(1);
+        );
 }
 
 ////////////////////////////////////////////////////////////////////////////////

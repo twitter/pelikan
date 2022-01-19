@@ -3,7 +3,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use super::*;
-use rustcommon_time::CoarseDuration;
+
+use common::time::*;
 
 #[test]
 fn bucket_index() {

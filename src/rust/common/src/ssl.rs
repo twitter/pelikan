@@ -2,18 +2,25 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use boring::ssl::*;
+pub use boring::ssl::*;
 use boring::x509::X509;
-use config::TlsConfig;
 use std::io::{Error, ErrorKind};
+
+pub trait TlsConfig {
+    fn certificate_chain(&self) -> Option<String>;
+
+    fn private_key(&self) -> Option<String>;
+
+    fn certificate(&self) -> Option<String>;
+
+    fn ca_file(&self) -> Option<String>;
+}
 
 /// Create an `SslContext` from the given `TlsConfig`. Returns an error if there
 /// was any issues during initialization. Otherwise, returns a `SslContext`
 /// wrapped in an option, where the `None` variant indicates that TLS should not
 /// be used.
 pub fn ssl_context(config: &dyn TlsConfig) -> Result<Option<SslContext>, std::io::Error> {
-    let config = config.tls();
-
     let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())?;
 
     // we use xor here to check if we have an under-specified tls configuration

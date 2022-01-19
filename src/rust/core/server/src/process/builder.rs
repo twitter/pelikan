@@ -47,7 +47,7 @@ where
         log_drain: Box<dyn Drain>,
     ) -> Self {
         // initialize admin
-        let ssl_context = common::ssl::ssl_context(&config).unwrap_or_else(|e| {
+        let ssl_context = common::ssl::ssl_context(config.tls()).unwrap_or_else(|e| {
             error!("failed to initialize TLS: {}", e);
             std::process::exit(1);
         });
@@ -63,7 +63,7 @@ where
         };
 
         // initialize server
-        let ssl_context = common::ssl::ssl_context(&config).unwrap_or_else(|e| {
+        let ssl_context = common::ssl::ssl_context(config.tls()).unwrap_or_else(|e| {
             error!("failed to initialize TLS: {}", e);
             let _ = admin.log_flush();
             std::process::exit(1);
