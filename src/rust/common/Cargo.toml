@@ -11,7 +11,7 @@ license = "Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-boring = "1.0.3"
+boring = "2.0.0"
 rustcommon-time = { git = "https://github.com/twitter/rustcommon", rev = "cd7411b687150d707a8cda5ec116eee79ef3a50b" }
 serde = { version = "1.0.117", features = ["derive"] }
 
