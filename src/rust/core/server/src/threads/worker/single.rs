@@ -155,7 +155,7 @@ where
         if event.is_readable() {
             WORKER_EVENT_READ.increment();
             if let Ok(session) = self.poll.get_mut_session(token) {
-                session.set_timestamp(Instant::recent());
+                session.set_timestamp(Instant::<Nanoseconds<u64>>::recent());
             }
             let _ = self.do_read(token);
         }

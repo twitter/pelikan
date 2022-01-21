@@ -27,7 +27,7 @@
 extern crate logger;
 
 // external crate includes
-use common::time::*;
+use common::time::Seconds;
 
 // includes from core/std
 use core::hash::{BuildHasher, Hasher};
@@ -56,8 +56,9 @@ pub use error::SegError;
 pub use eviction::Policy;
 pub use item::Item;
 
-// publicly exported items from external crates
-pub use common::time::CoarseDuration;
+// type aliases
+pub(crate) type Duration = common::time::Duration<Seconds<u32>>;
+pub(crate) type Instant = common::time::Instant<Seconds<u32>>;
 
 // items from submodules which are imported for convenience to the crate level
 pub(crate) use crate::rand::*;

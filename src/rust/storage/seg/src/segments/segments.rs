@@ -8,7 +8,6 @@ use crate::item::*;
 use crate::seg::{SEGMENT_REQUEST, SEGMENT_REQUEST_SUCCESS};
 use crate::segments::*;
 
-use common::time::CoarseInstant as Instant;
 use core::num::NonZeroU32;
 use metrics::{static_metrics, Counter, Gauge};
 
@@ -39,7 +38,7 @@ pub(crate) struct Segments {
     /// Head of the free segment queue
     free_q: Option<NonZeroU32>,
     /// Time last flushed
-    flush_at: CoarseInstant,
+    flush_at: Instant,
     /// Eviction configuration and state
     evict: Box<Eviction>,
 }
@@ -128,12 +127,12 @@ impl Segments {
     }
 
     /// Returns the time the segments were last flushed
-    pub fn flush_at(&self) -> CoarseInstant {
+    pub fn flush_at(&self) -> Instant {
         self.flush_at
     }
 
     /// Mark the segments as flushed at a given instant
-    pub fn set_flush_at(&mut self, instant: CoarseInstant) {
+    pub fn set_flush_at(&mut self, instant: Instant) {
         self.flush_at = instant;
     }
 
@@ -195,7 +194,7 @@ impl Segments {
         ttl_buckets: &mut TtlBuckets,
         hashtable: &mut HashTable,
     ) -> Result<(), SegmentsError> {
-        let now = CoarseInstant::now();
+        let now = Instant::now();
         match self.evict.policy() {
             Policy::Merge { .. } => {
                 SEGMENT_EVICT.increment();

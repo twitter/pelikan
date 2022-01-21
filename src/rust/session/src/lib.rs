@@ -19,13 +19,16 @@ use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
 use common::ssl::{MidHandshakeSslStream, SslStream};
-use common::time::{Duration, Instant};
+use common::time::{Nanoseconds};
 use metrics::{static_metrics, Counter, Gauge, Heatmap, Relaxed};
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
 
 use buffer::Buffer;
 use stream::Stream;
+
+type Instant = common::time::Instant<Nanoseconds<u64>>;
+type Duration = common::time::Duration<Nanoseconds<u64>>;
 
 pub use tcp_stream::TcpStream;
 
