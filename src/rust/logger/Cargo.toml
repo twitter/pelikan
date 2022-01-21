@@ -7,8 +7,8 @@ edition = "2018"
 
 [dependencies]
 ahash = "0.7.4"
+common = { path = "../common" }
 config = { path = "../config" }
 log = { version = "0.4.14", features = ["std"] }
 metrics = { path = "../metrics" }
 mpmc = "0.1.6"
-rustcommon-time = { git = "https://github.com/twitter/rustcommon" }

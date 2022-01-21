@@ -8,9 +8,9 @@
 
 use crate::EntryStore;
 
+use common::time::CoarseDuration;
 use config::seg::Eviction;
 use config::SegConfig;
-use rustcommon_time::CoarseDuration;
 use seg::{Policy, SegError};
 
 mod memcache;
