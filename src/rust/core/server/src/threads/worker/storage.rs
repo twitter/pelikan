@@ -99,7 +99,11 @@ where
             if !events.is_empty() {
                 let mut worker_pending = self.worker_queues.pending();
                 let total_pending: usize = worker_pending.iter().sum();
-                STORAGE_QUEUE_DEPTH.increment(Instant::<Nanoseconds<u64>>::now(), total_pending as _, 1);
+                STORAGE_QUEUE_DEPTH.increment(
+                    Instant::<Nanoseconds<u64>>::now(),
+                    total_pending as _,
+                    1,
+                );
 
                 trace!("handling events");
                 let mut empty = false;

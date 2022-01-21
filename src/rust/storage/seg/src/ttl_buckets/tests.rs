@@ -11,17 +11,14 @@ fn bucket_index() {
 
     // Zero TTL and max duration both go into the same TtlBucket
     assert_eq!(ttl_buckets.get_bucket_index(Duration::from_secs(0)), 1023);
-    assert_eq!(ttl_buckets.get_bucket_index(Duration::from_secs(u32::MAX)), 1023);
+    assert_eq!(
+        ttl_buckets.get_bucket_index(Duration::from_secs(u32::MAX)),
+        1023
+    );
 
     // first bucket is only 7s wide because 0 is no ttl
-    assert_eq!(
-        ttl_buckets.get_bucket_index(Duration::from_secs(1)),
-        0
-    );
-    assert_eq!(
-        ttl_buckets.get_bucket_index(Duration::from_secs(7)),
-        0
-    );
+    assert_eq!(ttl_buckets.get_bucket_index(Duration::from_secs(1)), 0);
+    assert_eq!(ttl_buckets.get_bucket_index(Duration::from_secs(7)), 0);
 
     // buckets from 8s - 2048s (0..34 minutes) are all 8s wide
     for bucket in 1..256 {

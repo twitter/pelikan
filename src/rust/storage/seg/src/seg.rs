@@ -4,8 +4,8 @@
 
 //! Core datastructure
 
-use std::cmp::min;
 use crate::*;
+use std::cmp::min;
 
 use metrics::{static_metrics, Counter};
 

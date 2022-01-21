@@ -40,7 +40,10 @@ impl MemcacheStorage for Seg {
         let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
-            entry.ttl().map(|v| Duration::from_secs(v.as_secs())).unwrap_or_else(|| Duration::from_secs(0))
+            entry
+                .ttl()
+                .map(|v| Duration::from_secs(v.as_secs()))
+                .unwrap_or_else(|| Duration::from_secs(0))
         };
 
         match self.data.insert(
@@ -58,7 +61,10 @@ impl MemcacheStorage for Seg {
         let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
-            entry.ttl().map(|v| Duration::from_secs(v.as_secs())).unwrap_or_else(|| Duration::from_secs(0))
+            entry
+                .ttl()
+                .map(|v| Duration::from_secs(v.as_secs()))
+                .unwrap_or_else(|| Duration::from_secs(0))
         };
 
         if self.data.get_no_freq_incr(entry.key()).is_none()
@@ -82,7 +88,10 @@ impl MemcacheStorage for Seg {
         let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
-            entry.ttl().map(|v| Duration::from_secs(v.as_secs())).unwrap_or_else(|| Duration::from_secs(0))
+            entry
+                .ttl()
+                .map(|v| Duration::from_secs(v.as_secs()))
+                .unwrap_or_else(|| Duration::from_secs(0))
         };
 
         if self.data.get_no_freq_incr(entry.key()).is_some()
@@ -130,7 +139,10 @@ impl MemcacheStorage for Seg {
         let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
-            entry.ttl().map(|v| Duration::from_secs(v.as_secs())).unwrap_or_else(|| Duration::from_secs(0))
+            entry
+                .ttl()
+                .map(|v| Duration::from_secs(v.as_secs()))
+                .unwrap_or_else(|| Duration::from_secs(0))
         };
 
         match self.data.cas(
