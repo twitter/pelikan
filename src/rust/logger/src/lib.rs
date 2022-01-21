@@ -52,7 +52,7 @@ pub use sampling::*;
 pub use single::*;
 pub use traits::*;
 
-use common::time::recent_utc;
+use common::time::DateTime;
 use config::{DebugConfig, KlogConfig};
 use metrics::{static_metrics, Counter, Gauge};
 use mpmc::Queue;

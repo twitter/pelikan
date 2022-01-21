@@ -6,6 +6,8 @@ use super::*;
 
 use protocol::memcache::{MemcacheEntry, MemcacheStorage, MemcacheStorageError};
 
+use std::time::Duration;
+
 impl MemcacheStorage for Seg {
     fn get(&mut self, keys: &[Box<[u8]>]) -> Box<[MemcacheEntry]> {
         let mut items = Vec::with_capacity(keys.len());
@@ -35,10 +37,13 @@ impl MemcacheStorage for Seg {
     }
 
     fn set(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = if entry.ttl() == Some(0) {
+        let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
-            CoarseDuration::from_secs(entry.ttl().unwrap_or(0))
+            entry
+                .ttl()
+                .map(|v| Duration::from_secs(v.as_secs()))
+                .unwrap_or_else(|| Duration::from_secs(0))
         };
 
         match self.data.insert(
@@ -53,10 +58,13 @@ impl MemcacheStorage for Seg {
     }
 
     fn add(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = if entry.ttl() == Some(0) {
+        let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
-            CoarseDuration::from_secs(entry.ttl().unwrap_or(0))
+            entry
+                .ttl()
+                .map(|v| Duration::from_secs(v.as_secs()))
+                .unwrap_or_else(|| Duration::from_secs(0))
         };
 
         if self.data.get_no_freq_incr(entry.key()).is_none()
@@ -77,10 +85,13 @@ impl MemcacheStorage for Seg {
     }
 
     fn replace(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = if entry.ttl() == Some(0) {
+        let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
-            CoarseDuration::from_secs(entry.ttl().unwrap_or(0))
+            entry
+                .ttl()
+                .map(|v| Duration::from_secs(v.as_secs()))
+                .unwrap_or_else(|| Duration::from_secs(0))
         };
 
         if self.data.get_no_freq_incr(entry.key()).is_some()
@@ -125,10 +136,13 @@ impl MemcacheStorage for Seg {
     }
 
     fn cas(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = if entry.ttl() == Some(0) {
+        let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
             return Err(MemcacheStorageError::NotStored);
         } else {
-            CoarseDuration::from_secs(entry.ttl().unwrap_or(0))
+            entry
+                .ttl()
+                .map(|v| Duration::from_secs(v.as_secs()))
+                .unwrap_or_else(|| Duration::from_secs(0))
         };
 
         match self.data.cas(

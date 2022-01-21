@@ -45,7 +45,7 @@ const MAX_TTL_BUCKET_IDX: usize = MAX_N_TTL_BUCKET - 1;
 
 pub struct TtlBuckets {
     pub(crate) buckets: Box<[TtlBucket]>,
-    pub(crate) last_expired: CoarseInstant,
+    pub(crate) last_expired: Instant,
 }
 
 impl TtlBuckets {
@@ -71,7 +71,7 @@ impl TtlBuckets {
         }
 
         let buckets = buckets.into_boxed_slice();
-        let last_expired = CoarseInstant::now();
+        let last_expired = Instant::now();
 
         Self {
             buckets,
@@ -80,7 +80,7 @@ impl TtlBuckets {
     }
 
     /// Get the index of the `TtlBucket` for the given TTL.
-    pub(crate) fn get_bucket_index(&self, ttl: CoarseDuration) -> usize {
+    pub(crate) fn get_bucket_index(&self, ttl: Duration) -> usize {
         let ttl = ttl.as_secs() as i32;
         if ttl <= 0 {
             self.buckets.len() - 1
@@ -102,7 +102,7 @@ impl TtlBuckets {
 
     // TODO(bmartin): confirm handling for negative TTLs here...
     /// Get a mutable reference to the `TtlBucket` for the given TTL.
-    pub(crate) fn get_mut_bucket(&mut self, ttl: CoarseDuration) -> &mut TtlBucket {
+    pub(crate) fn get_mut_bucket(&mut self, ttl: Duration) -> &mut TtlBucket {
         let index = self.get_bucket_index(ttl);
 
         // NOTE: since get_bucket_index() must return an index within the slice,
@@ -111,7 +111,7 @@ impl TtlBuckets {
     }
 
     pub(crate) fn expire(&mut self, hashtable: &mut HashTable, segments: &mut Segments) -> usize {
-        let now = CoarseInstant::now();
+        let now = Instant::now();
 
         if now == self.last_expired {
             return 0;
@@ -136,7 +136,7 @@ impl TtlBuckets {
         for bucket in self.buckets.iter_mut() {
             cleared += bucket.clear(hashtable, segments);
         }
-        segments.set_flush_at(CoarseInstant::now());
+        segments.set_flush_at(Instant::now());
         let duration = start.elapsed();
         debug!("expired: {} segments in {:?}", cleared, duration);
         CLEAR_TIME.add(duration.as_nanos() as _);

@@ -11,14 +11,13 @@ pub use response::*;
 use super::*;
 use crate::*;
 
-use common::time::{Duration, Instant};
 use metrics::{static_metrics, Counter, Heatmap, Relaxed};
 
 static_metrics! {
     static GET: Counter;
     static GET_EX: Counter;
     static GET_CARDINALITY: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(request::MAX_BATCH_SIZE as _, 3, Duration::from_secs(60), Duration::from_secs(1))
+        Heatmap::new(request::MAX_BATCH_SIZE as _, 3, PreciseDuration::from_secs(60), PreciseDuration::from_secs(1))
     );
     static GET_KEY: Counter;
     static GET_KEY_HIT: Counter;
@@ -82,7 +81,7 @@ where
     fn execute(&mut self, request: MemcacheRequest) -> Option<MemcacheResponse> {
         let result = match request {
             MemcacheRequest::Get { ref keys } => {
-                GET_CARDINALITY.increment(Instant::now(), keys.len() as _, 1);
+                GET_CARDINALITY.increment(PreciseInstant::now(), keys.len() as _, 1);
                 MemcacheResult::Values {
                     entries: self.get(keys),
                     cas: false,

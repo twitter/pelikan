@@ -78,8 +78,6 @@ use ahash::RandomState;
 use core::num::NonZeroU32;
 use metrics::{static_metrics, Counter};
 
-use common::time::CoarseInstant as Instant;
-
 mod hash_bucket;
 
 pub(crate) use hash_bucket::*;
@@ -107,7 +105,7 @@ pub(crate) struct HashTable {
     mask: u64,
     data: Box<[HashBucket]>,
     rng: Box<Random>,
-    started: CoarseInstant,
+    started: Instant,
     next_to_chain: u64,
 }
 

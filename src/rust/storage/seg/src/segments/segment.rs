@@ -198,19 +198,19 @@ impl<'a> Segment<'a> {
 
     /// Return the segment's TTL
     #[inline]
-    pub fn ttl(&self) -> CoarseDuration {
+    pub fn ttl(&self) -> Duration {
         self.header.ttl()
     }
 
     /// Set the segment's TTL, used when linking it into a TtlBucket
     #[inline]
-    pub fn set_ttl(&mut self, ttl: CoarseDuration) {
+    pub fn set_ttl(&mut self, ttl: Duration) {
         self.header.set_ttl(ttl)
     }
 
     /// Returns the time the segment was last initialized
     #[inline]
-    pub fn create_at(&self) -> CoarseInstant {
+    pub fn create_at(&self) -> Instant {
         self.header.create_at()
     }
 
