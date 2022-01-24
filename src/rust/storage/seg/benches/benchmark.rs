@@ -2,12 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use core::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use rand::RngCore;
 use rand::SeedableRng;
-use rustcommon_time::*;
-use seg::Seg;
+use seg::*;
+
+use std::time::Duration;
 
 pub const MB: usize = 1024 * 1024;
 
@@ -71,7 +71,7 @@ fn key_values(
 }
 
 fn set_benchmark(c: &mut Criterion) {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = Duration::ZERO;
     let mut group = c.benchmark_group("set");
     group.measurement_time(Duration::from_secs(30));
     group.throughput(Throughput::Elements(1));

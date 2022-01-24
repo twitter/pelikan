@@ -8,8 +8,8 @@
 use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use crate::TCP_ACCEPT_EX;
-use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
+use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use config::AdminConfig;
 use logger::*;
 use metrics::{static_metrics, Counter, Gauge, Heatmap};
@@ -70,6 +70,12 @@ pub struct Admin {
     log_drain: Box<dyn Drain>,
 }
 
+impl Drop for Admin {
+    fn drop(&mut self) {
+        let _ = self.log_drain.flush();
+    }
+}
+
 pub static PERCENTILES: &[(&str, f64)] = &[
     ("p25", 25.0),
     ("p50", 50.0),
@@ -85,17 +91,23 @@ impl Admin {
     pub fn new(
         config: &AdminConfig,
         ssl_context: Option<SslContext>,
-        log_drain: Box<dyn Drain>,
+        mut log_drain: Box<dyn Drain>,
     ) -> Result<Self, Error> {
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
+            let _ = log_drain.flush();
             std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
         })?;
         let mut poll = Poll::new().map_err(|e| {
             error!("{}", e);
+            let _ = log_drain.flush();
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
-        poll.bind(addr)?;
+        poll.bind(addr).map_err(|e| {
+            error!("{}", e);
+            let _ = log_drain.flush();
+            std::io::Error::new(std::io::ErrorKind::Other, "Failed to bind listener")
+        })?;
 
         let ssl_context = if config.use_tls() { ssl_context } else { None };
 
@@ -115,6 +127,11 @@ impl Admin {
             parser: AdminRequestParser::new(),
             log_drain,
         })
+    }
+
+    /// Triggers a flush of the log
+    pub fn log_flush(&mut self) -> Result<(), std::io::Error> {
+        self.log_drain.flush()
     }
 
     /// Adds a new fully established TLS session
@@ -195,7 +212,7 @@ impl Admin {
     fn handle_stats_request(session: &mut Session) {
         ADMIN_REQUEST_PARSE.increment();
         let mut data = Vec::new();
-        for metric in &metrics::rustcommon_metrics::metrics() {
+        for metric in &metrics::common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {
@@ -304,6 +321,7 @@ impl Admin {
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
                             match signal {
                                 Signal::Shutdown => {
+                                    let _ = self.log_drain.flush();
                                     return;
                                 }
                             }

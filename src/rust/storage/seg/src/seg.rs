@@ -6,15 +6,16 @@
 
 use crate::Value;
 use crate::*;
+use std::cmp::min;
 
 use metrics::{static_metrics, Counter};
 
 const RESERVE_RETRIES: usize = 3;
 
 static_metrics! {
-    static SEGMENT_REQUEST: Counter;
-    static SEGMENT_REQUEST_FAILURE: Counter;
-    static SEGMENT_REQUEST_SUCCESS: Counter;
+    pub(crate) static SEGMENT_REQUEST: Counter;
+    pub(crate) static SEGMENT_REQUEST_FAILURE: Counter;
+    pub(crate) static SEGMENT_REQUEST_SUCCESS: Counter;
 }
 
 /// A pre-allocated key-value store with eager expiration. It uses a
@@ -66,12 +67,13 @@ impl Seg {
     /// Get the item in the `Seg` with the provided key
     ///
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg};
+    /// use seg::{Policy, Seg};
+    /// use std::time::Duration;
     ///
     /// let mut cache = Seg::builder().build();
     /// assert!(cache.get(b"coffee").is_none());
     ///
-    /// cache.insert(b"coffee", b"strong", None, CoarseDuration::ZERO);
+    /// cache.insert(b"coffee", b"strong", None, Duration::ZERO);
     /// let item = cache.get(b"coffee").expect("didn't get item back");
     /// assert_eq!(item.value(), b"strong");
     /// ```
@@ -83,7 +85,7 @@ impl Seg {
     /// increasing the item frequency - useful for combined operations that
     /// check for presence - eg replace is a get + set
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg};
+    /// use seg::{Policy, Seg};
     ///
     /// let mut cache = Seg::builder().build();
     /// assert!(cache.get_no_freq_incr(b"coffee").is_none());
@@ -95,16 +97,17 @@ impl Seg {
     /// Insert a new item into the cache. May return an error indicating that
     /// the insert was not successful.
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg};
+    /// use seg::{Policy, Seg};
+    /// use std::time::Duration;
     ///
     /// let mut cache = Seg::builder().build();
     /// assert!(cache.get(b"drink").is_none());
     ///
-    /// cache.insert(b"drink", b"coffee", None, CoarseDuration::ZERO);
+    /// cache.insert(b"drink", b"coffee", None, Duration::ZERO);
     /// let item = cache.get(b"drink").expect("didn't get item back");
     /// assert_eq!(item.value(), b"coffee");
     ///
-    /// cache.insert(b"drink", b"whisky", None, CoarseDuration::ZERO);
+    /// cache.insert(b"drink", b"whisky", None, Duration::ZERO);
     /// let item = cache.get(b"drink").expect("didn't get item back");
     /// assert_eq!(item.value(), b"whisky");
     /// ```
@@ -113,7 +116,7 @@ impl Seg {
         key: &'a [u8],
         value: T,
         optional: Option<&[u8]>,
-        ttl: CoarseDuration,
+        ttl: std::time::Duration,
     ) -> Result<(), SegError<'a>> {
         let value: Value = value.into();
 
@@ -122,6 +125,8 @@ impl Seg {
 
         // calculate size for item
         let size = (((ITEM_HDR_SIZE + key.len() + size_of(&value) + optional.len()) >> 3) + 1) << 3;
+
+        let ttl = Duration::from_secs(min(u32::MAX as u64, ttl.as_secs()) as u32);
 
         // try to get a `ReservedItem`
         let mut retries = RESERVE_RETRIES;
@@ -141,11 +146,6 @@ impl Seg {
                     return Err(SegError::ItemOversized { size, key });
                 }
                 Err(TtlBucketsError::NoFreeSegments) => {
-                    if retries == RESERVE_RETRIES {
-                        // first attempt to acquire a free segment, increment
-                        // the stats
-                        SEGMENT_REQUEST.increment();
-                    }
                     if self
                         .segments
                         .evict(&mut self.ttl_buckets, &mut self.hashtable)
@@ -153,16 +153,16 @@ impl Seg {
                     {
                         retries -= 1;
                     } else {
-                        // we successfully got a segment, increment the stat and
-                        // return to start of loop to reserve the item
-                        SEGMENT_REQUEST_SUCCESS.increment();
+                        // we successfully evicted a segment, return to start of
+                        // loop to reserve the item
                         continue;
                     }
                 }
             }
             if retries == 0 {
-                // segment acquire failed, increment the stat and return with
+                // segment acquire failed, increment the stats and return with
                 // an error
+                SEGMENT_REQUEST.increment();
                 SEGMENT_REQUEST_FAILURE.increment();
                 return Err(SegError::NoFreeSegments);
             }
@@ -201,27 +201,28 @@ impl Seg {
     /// matches the current value for that item.
     ///
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg, SegError};
+    /// use seg::{Policy, Seg, SegError};
+    /// use std::time::Duration;
     ///
     /// let mut cache = Seg::builder().build();
     ///
     /// // If the item is not in the cache, CAS will fail as 'NotFound'
     /// assert_eq!(
-    ///     cache.cas(b"drink", b"coffee", None, CoarseDuration::ZERO, 0),
+    ///     cache.cas(b"drink", b"coffee", None, Duration::ZERO, 0),
     ///     Err(SegError::NotFound)
     /// );
     ///
     /// // If a stale CAS value is provided, CAS will fail as 'Exists'
-    /// cache.insert(b"drink", b"coffee", None, CoarseDuration::ZERO);
+    /// cache.insert(b"drink", b"coffee", None, Duration::ZERO);
     /// assert_eq!(
-    ///     cache.cas(b"drink", b"coffee", None, CoarseDuration::ZERO, 0),
+    ///     cache.cas(b"drink", b"coffee", None, Duration::ZERO, 0),
     ///     Err(SegError::Exists)
     /// );
     ///
     /// // Getting the CAS value and then performing the operation ensures
     /// // success in absence of a race with another client
     /// let current = cache.get(b"drink").expect("not found");
-    /// assert!(cache.cas(b"drink", b"whisky", None, CoarseDuration::ZERO, current.cas()).is_ok());
+    /// assert!(cache.cas(b"drink", b"whisky", None, Duration::ZERO, current.cas()).is_ok());
     /// let item = cache.get(b"drink").expect("not found");
     /// assert_eq!(item.value(), b"whisky"); // item is updated
     /// ```
@@ -230,7 +231,7 @@ impl Seg {
         key: &'a [u8],
         value: T,
         optional: Option<&[u8]>,
-        ttl: CoarseDuration,
+        ttl: std::time::Duration,
         cas: u32,
     ) -> Result<(), SegError<'a>> {
         match self.hashtable.try_update_cas(key, cas, &mut self.segments) {
@@ -242,7 +243,8 @@ impl Seg {
     /// Remove the item with the given key, returns a bool indicating if it was
     /// removed.
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg, SegError};
+    /// use seg::{Policy, Seg, SegError};
+    /// use std::time::Duration;
     ///
     /// let mut cache = Seg::builder().build();
     ///
@@ -250,7 +252,7 @@ impl Seg {
     /// assert_eq!(cache.delete(b"coffee"), false);
     ///
     /// // And will return true on success
-    /// cache.insert(b"coffee", b"strong", None, CoarseDuration::ZERO);
+    /// cache.insert(b"coffee", b"strong", None, Duration::ZERO);
     /// assert!(cache.get(b"coffee").is_some());
     /// assert_eq!(cache.delete(b"coffee"), true);
     /// assert!(cache.get(b"coffee").is_none());
@@ -264,27 +266,34 @@ impl Seg {
     /// Loops through the TTL Buckets to handle eager expiration, returns the
     /// number of segments expired
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg, SegError};
+    /// use seg::{Policy, Seg, SegError};
+    /// use std::time::Duration;
     ///
     /// let mut cache = Seg::builder().build();
     ///
     /// // Insert an item with a short ttl
-    /// cache.insert(b"coffee", b"strong", None, CoarseDuration::from_secs(5));
+    /// cache.insert(b"coffee", b"strong", None, Duration::from_secs(5));
     ///
     /// // The item is still in the cache
     /// assert!(cache.get(b"coffee").is_some());
     ///
     /// // Delay and then trigger expiration
-    /// std::thread::sleep(std::time::Duration::from_secs(6));
+    /// std::thread::sleep(Duration::from_secs(6));
     /// cache.expire();
     ///
     /// // And the expired item is not in the cache
     /// assert!(cache.get(b"coffee").is_none());
     /// ```
     pub fn expire(&mut self) -> usize {
-        rustcommon_time::refresh_clock();
+        common::time::refresh_clock();
         self.ttl_buckets
             .expire(&mut self.hashtable, &mut self.segments)
+    }
+
+    pub fn clear(&mut self) -> usize {
+        common::time::refresh_clock();
+        self.ttl_buckets
+            .clear(&mut self.hashtable, &mut self.segments)
     }
 
     /// Checks the integrity of all segments

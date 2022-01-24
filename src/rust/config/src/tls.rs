@@ -13,19 +13,25 @@ pub struct TlsConfig {
     private_key: Option<String>,
     #[serde(default)]
     certificate: Option<String>,
+    #[serde(default)]
+    ca_file: Option<String>,
 }
 
 // implementation
-impl TlsConfig {
-    pub fn certificate_chain(&self) -> Option<String> {
+impl common::ssl::TlsConfig for TlsConfig {
+    fn certificate_chain(&self) -> Option<String> {
         self.certificate_chain.clone()
     }
 
-    pub fn private_key(&self) -> Option<String> {
+    fn private_key(&self) -> Option<String> {
         self.private_key.clone()
     }
 
-    pub fn certificate(&self) -> Option<String> {
+    fn certificate(&self) -> Option<String> {
         self.certificate.clone()
+    }
+
+    fn ca_file(&self) -> Option<String> {
+        self.ca_file.clone()
     }
 }

@@ -26,13 +26,13 @@ default = []
 
 [dependencies]
 ahash = "0.7.2"
+common = { path = "../../common" }
+logger = { path = "../../logger" }
 memmap2 = "0.2.2"
 metrics = { path = "../../metrics" }
 rand = { version = "0.8.3", features = ["small_rng", "getrandom"] }
 rand_chacha = { version = "0.3.0" }
 rand_xoshiro = { version = "0.6.0" }
-rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
-rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
 storage-types = { path = "../types" }
 thiserror = "1.0.24"
 

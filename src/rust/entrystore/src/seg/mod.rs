@@ -11,7 +11,6 @@ use crate::EntryStore;
 
 use config::seg::Eviction;
 use config::SegConfig;
-use rustcommon_time::CoarseDuration;
 use seg::{Policy, SegError};
 
 mod memcache;

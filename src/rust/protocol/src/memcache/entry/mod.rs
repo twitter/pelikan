@@ -3,12 +3,13 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use storage_types::{OwnedValue, Value};
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct MemcacheEntry {
     pub key: Box<[u8]>,
     pub value: Option<OwnedValue>,
-    pub ttl: Option<u32>,
+    pub ttl: Option<Duration>,
     pub flags: u32,
     pub cas: Option<u64>,
 }
@@ -22,9 +23,8 @@ impl MemcacheEntry {
         self.value.as_ref().map(|v| v.as_value())
     }
 
-    /// The TTL in seconds. `Some(0)` indicates immediate expiration. `None`
-    /// indicates that the item will not expire.
-    pub fn ttl(&self) -> Option<u32> {
+    /// The TTL in seconds. `None` indicates that the item will not expire.
+    pub fn ttl(&self) -> Option<Duration> {
         self.ttl
     }
 

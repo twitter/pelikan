@@ -11,6 +11,12 @@ license = "Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-boring = "1.0.3"
-config = { path = "../config" }
-rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
+boring = "2.0.0"
+rustcommon-time = { git = "https://github.com/twitter/rustcommon", rev = "c8aeeb605b3bdc42c2c309ac8c096f17fed5380d" }
+serde = { version = "1.0.117", features = ["derive"] }
+
+[dependencies.rustcommon-metrics]
+git = "https://github.com/twitter/rustcommon"
+package="rustcommon-metrics-v2"
+features = ["heatmap"]
+rev = "c8aeeb605b3bdc42c2c309ac8c096f17fed5380d"

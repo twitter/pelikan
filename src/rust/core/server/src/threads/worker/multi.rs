@@ -13,6 +13,7 @@ use crate::poll::Poll;
 use crate::threads::worker::StorageWorker;
 use crate::threads::worker::TokenWrapper;
 use common::signal::Signal;
+use common::time::Instant;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -21,7 +22,6 @@ use mio::event::Event;
 use mio::{Events, Token, Waker};
 use protocol::{Compose, Execute, Parse, ParseError};
 use queues::{QueuePair, QueuePairs, SendError};
-use rustcommon_time::Instant;
 use session::Session;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
@@ -101,7 +101,7 @@ where
 
             WORKER_EVENT_TOTAL.add(events.iter().count() as _);
 
-            rustcommon_time::refresh_clock();
+            common::time::refresh_clock();
 
             // process all events
             for event in events.iter() {
@@ -153,7 +153,7 @@ where
         if event.is_readable() {
             WORKER_EVENT_READ.increment();
             if let Ok(session) = self.poll.get_mut_session(token) {
-                session.set_timestamp(Instant::recent());
+                session.set_timestamp(Instant::<Nanoseconds<u64>>::recent());
             }
             let _ = self.do_read(token);
         }
