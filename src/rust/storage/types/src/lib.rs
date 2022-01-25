@@ -54,6 +54,12 @@ impl<'a> From<&'a [u8]> for Value<'a> {
     }
 }
 
+impl<'a> From<&'a str> for Value<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::Bytes(value.as_bytes())
+    }
+}
+
 impl<'a, const N: usize> From<&'a [u8; N]> for Value<'a> {
     fn from(value: &'a [u8; N]) -> Self {
         Self::Bytes(value)
