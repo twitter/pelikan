@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-
 //! This module defines a `MemcacheEntry` type which is used by the protocol and
 //! storage implementations to execute requests.
 
