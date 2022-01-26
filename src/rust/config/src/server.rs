@@ -31,7 +31,7 @@ fn nevent() -> usize {
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ServerConfig {
+pub struct Server {
     #[serde(default = "host")]
     host: String,
     #[serde(default = "port")]
@@ -43,7 +43,7 @@ pub struct ServerConfig {
 }
 
 // implementation
-impl ServerConfig {
+impl Server {
     /// Host address to listen on
     pub fn host(&self) -> String {
         self.host.clone()
@@ -71,7 +71,7 @@ impl ServerConfig {
 }
 
 // trait implementations
-impl Default for ServerConfig {
+impl Default for Server {
     fn default() -> Self {
         Self {
             host: host(),
@@ -80,4 +80,9 @@ impl Default for ServerConfig {
             nevent: nevent(),
         }
     }
+}
+
+// trait definitions
+pub trait ServerConfig {
+    fn server(&self) -> &Server;
 }

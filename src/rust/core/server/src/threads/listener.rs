@@ -46,11 +46,13 @@ pub struct Listener {
 impl Listener {
     /// Creates a new `Listener` from a `ServerConfig` and an optional
     /// `SslContext`.
-    pub fn new(
-        config: &ServerConfig,
+    pub fn new<T: ServerConfig>(
+        config: &T,
         ssl_context: Option<SslContext>,
         max_buffer_size: usize,
     ) -> Result<Self, std::io::Error> {
+        let config = config.server();
+
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")

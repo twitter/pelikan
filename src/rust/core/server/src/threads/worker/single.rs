@@ -47,8 +47,8 @@ where
     Storage: Execute<Request, Response> + EntryStore,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(
-        config: &WorkerConfig,
+    pub fn new<T: WorkerConfig>(
+        config: &T,
         storage: Storage,
         parser: Parser,
     ) -> Result<Self, std::io::Error> {
@@ -62,8 +62,8 @@ where
 
         Ok(Self {
             poll,
-            nevent: config.nevent(),
-            timeout: Duration::from_millis(config.timeout() as u64),
+            nevent: config.worker().nevent(),
+            timeout: Duration::from_millis(config.worker().timeout() as u64),
             storage,
             signal_queue,
             session_queue,

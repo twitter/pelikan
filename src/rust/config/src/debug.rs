@@ -41,7 +41,7 @@ fn log_single_message_size() -> usize {
 
 // struct definitions
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DebugConfig {
+pub struct Debug {
     #[serde(with = "LevelDef")]
     #[serde(default = "log_level")]
     log_level: Level,
@@ -70,7 +70,7 @@ enum LevelDef {
 }
 
 // implementation
-impl DebugConfig {
+impl Debug {
     pub fn log_level(&self) -> Level {
         self.log_level
     }
@@ -100,7 +100,7 @@ impl DebugConfig {
 }
 
 // trait implementations
-impl Default for DebugConfig {
+impl Default for Debug {
     fn default() -> Self {
         Self {
             log_level: log_level(),
@@ -111,4 +111,9 @@ impl Default for DebugConfig {
             log_single_message_size: log_single_message_size(),
         }
     }
+}
+
+// trait definitions
+pub trait DebugConfig {
+    fn debug(&self) -> &Debug;
 }

@@ -24,7 +24,9 @@ pub struct Seg {
 impl Seg {
     /// Create a new `SegCache` based on the config and the `TimeType` which is
     /// used to interpret various expiry time formats.
-    pub fn new(config: &SegConfig) -> Self {
+    pub fn new<T: SegConfig>(config: &T) -> Self {
+        let config = config.seg();
+
         // build up the eviction policy from the config
         let eviction = match config.eviction() {
             Eviction::None => Policy::None,

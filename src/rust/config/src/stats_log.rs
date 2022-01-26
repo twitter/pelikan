@@ -19,7 +19,7 @@ fn nbuf() -> usize {
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct StatsLogConfig {
+pub struct StatsLog {
     #[serde(default = "file")]
     file: Option<String>,
     #[serde(default = "nbuf")]
@@ -27,7 +27,7 @@ pub struct StatsLogConfig {
 }
 
 // implementation
-impl StatsLogConfig {
+impl StatsLog {
     pub fn log_file(&self) -> Option<String> {
         self.file.clone()
     }
@@ -37,8 +37,13 @@ impl StatsLogConfig {
     }
 }
 
+// trait definitions
+pub trait StatsLogConfig {
+    fn stats_log(&self) -> &StatsLog;
+}
+
 // trait implementations
-impl Default for StatsLogConfig {
+impl Default for StatsLog {
     fn default() -> Self {
         Self {
             file: file(),
