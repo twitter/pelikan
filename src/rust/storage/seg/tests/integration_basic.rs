@@ -2,12 +2,13 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use common::time::*;
 use seg::*;
+
+use std::time::Duration;
 
 #[test]
 fn integration_basic() {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = Duration::ZERO;
     let heap_size = 2 * 256;
     let segment_size = 256;
     let mut cache = Seg::builder()

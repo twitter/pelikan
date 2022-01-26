@@ -8,7 +8,6 @@
 
 use crate::EntryStore;
 
-use common::time::CoarseDuration;
 use config::seg::Eviction;
 use config::SegConfig;
 use seg::{Policy, SegError};

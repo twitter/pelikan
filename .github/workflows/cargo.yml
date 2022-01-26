@@ -1,3 +1,5 @@
+name: cargo-build
+
 on:
   push:
   pull_request:

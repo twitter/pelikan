@@ -1,3 +1,5 @@
+name: cargo-fuzz
+
 on:
   push:
   pull_request:

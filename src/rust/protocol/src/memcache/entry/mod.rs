@@ -2,8 +2,11 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+
 //! This module defines a `MemcacheEntry` type which is used by the protocol and
 //! storage implementations to execute requests.
+
+use std::time::Duration;
 
 #[derive(Debug)]
 /// Defines a `MemcacheEntry`
@@ -16,7 +19,7 @@ pub struct MemcacheEntry {
     // A optional time-to-live for the entry. `None` variant indicates that the
     // item will not expire. A zero-duration should be interpreted as immediate
     // expiration.
-    pub ttl: Option<u32>,
+    pub ttl: Option<Duration>,
     // Opaque flags which may be set by the client and stored alongside the
     // item.
     pub flags: u32,
@@ -40,9 +43,8 @@ impl MemcacheEntry {
         }
     }
 
-    /// The TTL in seconds. `Some(0)` indicates immediate expiration. `None`
-    /// indicates that the item will not expire.
-    pub fn ttl(&self) -> Option<u32> {
+    /// The TTL in seconds. `None` indicates that the item will not expire.
+    pub fn ttl(&self) -> Option<Duration> {
         self.ttl
     }
 

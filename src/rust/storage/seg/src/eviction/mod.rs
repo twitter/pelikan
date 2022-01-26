@@ -8,12 +8,12 @@
 use core::cmp::{max, Ordering};
 use core::num::NonZeroU32;
 
-use common::time::CoarseInstant as Instant;
-use rand::Rng;
+use ::rand::Rng;
 
 use crate::rng;
 use crate::segments::*;
 use crate::Random;
+use crate::*;
 
 mod policy;
 

@@ -336,7 +336,7 @@ fn klog_cas(response: &MemcacheResponse, response_len: usize) {
             response.request.command(),
             string_key(response.request.key()),
             entry.flags(),
-            entry.ttl.unwrap_or(0),
+            entry.ttl.map(|v| v.as_secs()).unwrap_or(0),
             entry.value().map(|v| v.len()).unwrap_or(0),
             entry.cas().unwrap_or(0) as u32,
             response.result.code(),
@@ -386,7 +386,7 @@ fn klog_store(response: &MemcacheResponse, response_len: usize) {
             response.request.command(),
             string_key(response.request.key()),
             entry.flags(),
-            entry.ttl.unwrap_or(0),
+            entry.ttl.map(|v| v.as_secs()).unwrap_or(0),
             entry.value().map(|v| v.len()).unwrap_or(0),
             response.result.code(),
             response_len

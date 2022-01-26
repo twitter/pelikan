@@ -7,6 +7,8 @@ use crate::hashtable::HashBucket;
 use crate::item::ITEM_HDR_SIZE;
 use core::num::NonZeroU32;
 
+use std::time::Duration;
+
 #[test]
 fn sizes() {
     #[cfg(feature = "magic")]
@@ -53,7 +55,7 @@ fn get_free_seg() {
 
 #[test]
 fn get() {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = Duration::ZERO;
     let segment_size = 4096;
     let segments = 64;
     let heap_size = segments * segment_size as usize;
@@ -76,7 +78,7 @@ fn get() {
 
 #[test]
 fn cas() {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = Duration::ZERO;
     let segment_size = 4096;
     let segments = 64;
     let heap_size = segments * segment_size as usize;
@@ -103,7 +105,7 @@ fn cas() {
 
 #[test]
 fn overwrite() {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = Duration::ZERO;
     let segment_size = 4096;
     let segments = 64;
     let heap_size = segments * segment_size as usize;
@@ -149,7 +151,7 @@ fn overwrite() {
 
 #[test]
 fn delete() {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = Duration::ZERO;
     let segment_size = 4096;
     let segments = 64;
     let heap_size = segments * segment_size as usize;
@@ -178,7 +180,7 @@ fn delete() {
 
 #[test]
 fn collisions_2() {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = Duration::ZERO;
     let segment_size = 64;
     let segments = 2;
     let heap_size = segments * segment_size as usize;
@@ -205,7 +207,7 @@ fn collisions_2() {
 
 #[test]
 fn collisions() {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = Duration::ZERO;
     let segment_size = 4096;
     let segments = 64;
     let heap_size = segments * segment_size as usize;
@@ -239,7 +241,7 @@ fn collisions() {
 
 #[test]
 fn full_cache_long() {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = Duration::ZERO;
     let iters = 1_000_000;
     let segments = 32;
     let segment_size = 1024;
@@ -277,7 +279,7 @@ fn full_cache_long() {
 
 #[test]
 fn full_cache_long_2() {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = Duration::ZERO;
     let iters = 10_000_000;
     let segments = 64;
     let segment_size = 2 * 1024;
@@ -330,10 +332,10 @@ fn expiration() {
     assert_eq!(cache.segments.free(), segments);
 
     assert!(cache
-        .insert(b"latte", b"", None, CoarseDuration::from_secs(5))
+        .insert(b"latte", b"", None, Duration::from_secs(5))
         .is_ok());
     assert!(cache
-        .insert(b"espresso", b"", None, CoarseDuration::from_secs(15))
+        .insert(b"espresso", b"", None, Duration::from_secs(15))
         .is_ok());
 
     assert!(cache.get(b"latte").is_some());
@@ -369,7 +371,7 @@ fn expiration() {
 
 #[test]
 fn clear() {
-    let ttl = CoarseDuration::ZERO;
+    let ttl = Duration::ZERO;
     let segment_size = 4096;
     let segments = 64;
     let heap_size = segments * segment_size as usize;

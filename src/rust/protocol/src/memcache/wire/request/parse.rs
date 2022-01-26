@@ -5,12 +5,14 @@
 //! This module handles parsing of the wire representation of a `Memcache`
 //! request into a request object.
 
-use super::super::*;
+use crate::memcache::wire::*;
+use crate::memcache::*;
 use crate::*;
 
 use config::TimeType;
 
 use std::convert::TryFrom;
+use std::time::Duration;
 
 const MAX_COMMAND_LEN: usize = 16;
 const MAX_KEY_LEN: usize = 250;
@@ -267,11 +269,17 @@ fn parse_set(
     let ttl = if time_type == TimeType::Unix
         || (time_type == TimeType::Memcache && expiry >= 60 * 60 * 24 * 30)
     {
-        Some(expiry.saturating_sub(common::time::recent_unix()))
+        if let Some(d) =
+            UnixInstant::from_secs(expiry).checked_duration_since(UnixInstant::recent())
+        {
+            Some(Duration::from_secs(d.as_secs().into()))
+        } else {
+            Some(Duration::from_secs(0))
+        }
     } else if expiry == 0 {
         None
     } else {
-        Some(expiry)
+        Some(Duration::from_secs(expiry.into()))
     };
 
     let mut noreply = false;
