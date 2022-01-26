@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! A basic integration test suite to run against the Pingserver.
+
 #[macro_use]
 extern crate logger;
 

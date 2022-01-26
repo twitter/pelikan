@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! The memcache admin protocol
+//! Implements the `Admin` protocol.
 
 // TODO(bmartin): we will replace the admin protocol and listener with a HTTP
 // listener in the future.

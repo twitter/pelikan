@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! This module defines what operations that a storage implementation must
+//! implement to be used as storage for the `Memcache` protocol.
+
 use crate::memcache::MemcacheEntry;
 
 pub enum MemcacheStorageError {
