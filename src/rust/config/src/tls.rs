@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 // definitions
 #[derive(Serialize, Deserialize, Debug, Default)]
-pub struct TlsConfig {
+pub struct Tls {
     #[serde(default)]
     certificate_chain: Option<String>,
     #[serde(default)]
@@ -18,20 +18,25 @@ pub struct TlsConfig {
 }
 
 // implementation
-impl TlsConfig {
-    pub fn certificate_chain(&self) -> Option<String> {
+impl common::ssl::TlsConfig for Tls {
+    fn certificate_chain(&self) -> Option<String> {
         self.certificate_chain.clone()
     }
 
-    pub fn private_key(&self) -> Option<String> {
+    fn private_key(&self) -> Option<String> {
         self.private_key.clone()
     }
 
-    pub fn certificate(&self) -> Option<String> {
+    fn certificate(&self) -> Option<String> {
         self.certificate.clone()
     }
 
-    pub fn ca_file(&self) -> Option<String> {
+    fn ca_file(&self) -> Option<String> {
         self.ca_file.clone()
     }
+}
+
+// trait definitions
+pub trait TlsConfig {
+    fn tls(&self) -> &Tls;
 }

@@ -107,6 +107,18 @@ pub fn tests() {
         )],
     );
 
+    // test unsupported commands
+    test(
+        "append (key: 7)",
+        &[("append 7 0 0 1\r\n0\r\n", Some("ERROR\r\n"))],
+    );
+    test(
+        "prepend (key: 8)",
+        &[("prepend 8 0 0 1\r\n0\r\n", Some("ERROR\r\n"))],
+    );
+    test("incr (key: 9)", &[("incr 9 1\r\n", Some("ERROR\r\n"))]);
+    test("decr (key: 9)", &[("decr 9 1\r\n", Some("ERROR\r\n"))]);
+
     std::thread::sleep(Duration::from_millis(500));
 }
 

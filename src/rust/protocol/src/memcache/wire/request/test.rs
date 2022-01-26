@@ -118,6 +118,176 @@ fn set() {
 }
 
 #[test]
+fn append() {
+    let parser = MemcacheRequestParser::default();
+
+    // keysets which are used for requests
+    let keys = vec!["0", "1", "espresso"];
+
+    let values = vec!["0", "1", "coffee is important"];
+
+    for key in &keys {
+        for value in &values {
+            let buffer = format!("append {} 0 0 {}\r\n{}\r\n", key, value.len(), value);
+            println!("request: {}", buffer);
+            let request = parser.parse(buffer.as_bytes()).expect("parse failure");
+            if let MemcacheRequest::Append { entry, noreply } = request.message {
+                assert_eq!(entry.key(), key.as_bytes());
+                assert_eq!(entry.value(), Some(value.as_bytes()));
+                assert_eq!(entry.cas(), None);
+                assert!(!noreply);
+            } else {
+                panic!("invalid parse result");
+            }
+            assert_eq!(request.consumed, buffer.len());
+        }
+    }
+
+    let buffer = b"append 0 0 0 1 noreply\r\n0\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
+    if let MemcacheRequest::Append { entry, noreply } = request.message {
+        assert_eq!(entry.key(), b"0");
+        assert_eq!(entry.value(), Some("0".as_bytes()));
+        assert!(noreply);
+    } else {
+        panic!("invalid parse result");
+    }
+    assert_eq!(request.consumed, buffer.len());
+}
+
+#[test]
+fn prepend() {
+    let parser = MemcacheRequestParser::default();
+
+    // keysets which are used for requests
+    let keys = vec!["0", "1", "espresso"];
+
+    let values = vec!["0", "1", "coffee is important"];
+
+    for key in &keys {
+        for value in &values {
+            let buffer = format!("prepend {} 0 0 {}\r\n{}\r\n", key, value.len(), value);
+            println!("request: {}", buffer);
+            let request = parser.parse(buffer.as_bytes()).expect("parse failure");
+            if let MemcacheRequest::Prepend { entry, noreply } = request.message {
+                assert_eq!(entry.key(), key.as_bytes());
+                assert_eq!(entry.value(), Some(value.as_bytes()));
+                assert_eq!(entry.cas(), None);
+                assert!(!noreply);
+            } else {
+                panic!("invalid parse result");
+            }
+            assert_eq!(request.consumed, buffer.len());
+        }
+    }
+
+    let buffer = b"prepend 0 0 0 1 noreply\r\n0\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
+    if let MemcacheRequest::Prepend { entry, noreply } = request.message {
+        assert_eq!(entry.key(), b"0");
+        assert_eq!(entry.value(), Some("0".as_bytes()));
+        assert!(noreply);
+    } else {
+        panic!("invalid parse result");
+    }
+    assert_eq!(request.consumed, buffer.len());
+}
+
+#[test]
+fn incr() {
+    let parser = MemcacheRequestParser::default();
+
+    // keysets which are used for requests
+    let keys = vec!["0", "1", "espresso"];
+
+    let values: Vec<u64> = vec![0, 1, 42];
+
+    for k in &keys {
+        for v in &values {
+            let buffer = format!("incr {} {}\r\n", k, v);
+            println!("request: {}", buffer);
+            let request = parser.parse(buffer.as_bytes()).expect("parse failure");
+            if let MemcacheRequest::Incr {
+                key,
+                value,
+                noreply,
+            } = request.message
+            {
+                assert_eq!(key.as_ref(), k.as_bytes());
+                assert_eq!(value, *v);
+                assert!(!noreply);
+            } else {
+                panic!("invalid parse result");
+            }
+            assert_eq!(request.consumed, buffer.len());
+        }
+    }
+
+    let buffer = b"incr 0 1 noreply\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
+    if let MemcacheRequest::Incr {
+        key,
+        value,
+        noreply,
+    } = request.message
+    {
+        assert_eq!(key.as_ref(), b"0");
+        assert_eq!(value, 1);
+        assert!(noreply);
+    } else {
+        panic!("invalid parse result");
+    }
+    assert_eq!(request.consumed, buffer.len());
+}
+
+#[test]
+fn decr() {
+    let parser = MemcacheRequestParser::default();
+
+    // keysets which are used for requests
+    let keys = vec!["0", "1", "espresso"];
+
+    let values: Vec<u64> = vec![0, 1, 42];
+
+    for k in &keys {
+        for v in &values {
+            let buffer = format!("decr {} {}\r\n", k, v);
+            println!("request: {}", buffer);
+            let request = parser.parse(buffer.as_bytes()).expect("parse failure");
+            if let MemcacheRequest::Decr {
+                key,
+                value,
+                noreply,
+            } = request.message
+            {
+                assert_eq!(key.as_ref(), k.as_bytes());
+                assert_eq!(value, *v);
+                assert!(!noreply);
+            } else {
+                panic!("invalid parse result");
+            }
+            assert_eq!(request.consumed, buffer.len());
+        }
+    }
+
+    let buffer = b"decr 0 1 noreply\r\n";
+    let request = parser.parse(buffer).expect("parse failure");
+    if let MemcacheRequest::Decr {
+        key,
+        value,
+        noreply,
+    } = request.message
+    {
+        assert_eq!(key.as_ref(), b"0");
+        assert_eq!(value, 1);
+        assert!(noreply);
+    } else {
+        panic!("invalid parse result");
+    }
+    assert_eq!(request.consumed, buffer.len());
+}
+
+#[test]
 fn cas() {
     let parser = MemcacheRequestParser::default();
 

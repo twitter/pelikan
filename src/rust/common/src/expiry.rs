@@ -2,10 +2,17 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use config::TimeType;
-use rustcommon_time::{CoarseDuration, Duration};
+use crate::time::*;
+use serde::{Deserialize, Serialize};
 
 use std::time::SystemTime;
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum TimeType {
+    Unix = 0,
+    Delta = 1,
+    Memcache = 2,
+}
 
 pub struct Expiry {
     expiry: u32,
@@ -63,11 +70,11 @@ impl Expiry {
         }
     }
 
-    pub fn as_duration(&self) -> Duration {
-        Duration::from_secs(self.as_secs().into())
+    pub fn as_duration(&self) -> Duration<Nanoseconds<u64>> {
+        Duration::<Nanoseconds<u64>>::from_secs(self.as_secs().into())
     }
 
-    pub fn as_coarse_duration(&self) -> CoarseDuration {
-        CoarseDuration::from_secs(self.as_secs())
+    pub fn as_coarse_duration(&self) -> Duration<Seconds<u32>> {
+        Duration::<Seconds<u32>>::from_secs(self.as_secs())
     }
 }

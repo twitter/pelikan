@@ -77,7 +77,7 @@ fn datapool_path() -> Option<String> {
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SegConfig {
+pub struct Seg {
     #[serde(default = "hash_power")]
     hash_power: u8,
     #[serde(default = "overflow_factor")]
@@ -98,7 +98,7 @@ pub struct SegConfig {
     datapool_path: Option<String>,
 }
 
-impl Default for SegConfig {
+impl Default for Seg {
     fn default() -> Self {
         Self {
             hash_power: hash_power(),
@@ -115,7 +115,7 @@ impl Default for SegConfig {
 }
 
 // implementation
-impl SegConfig {
+impl Seg {
     pub fn hash_power(&self) -> u8 {
         self.hash_power
     }
@@ -151,4 +151,9 @@ impl SegConfig {
     pub fn datapool_path(&self) -> Option<PathBuf> {
         self.datapool_path.as_ref().map(|v| Path::new(v).to_owned())
     }
+}
+
+// trait definitions
+pub trait SegConfig {
+    fn seg(&self) -> &Seg;
 }

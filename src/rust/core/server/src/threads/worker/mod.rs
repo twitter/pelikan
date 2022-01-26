@@ -15,9 +15,9 @@ pub use single::SingleWorker;
 
 use super::EventLoop;
 
+use common::time::{Duration, Nanoseconds};
 use metrics::{static_metrics, Counter, Heatmap, Relaxed};
 use mio::Token;
-use rustcommon_time::Duration;
 
 static_metrics! {
     static WORKER_EVENT_LOOP: Counter;
@@ -28,7 +28,7 @@ static_metrics! {
 
     static STORAGE_EVENT_LOOP: Counter;
     static STORAGE_QUEUE_DEPTH: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(1_000_000, 3, Duration::from_secs(60), Duration::from_secs(1))
+        Heatmap::new(1_000_000, 3, Duration::<Nanoseconds<u64>>::from_secs(60), Duration::<Nanoseconds<u64>>::from_secs(1))
     );
 
     static PROCESS_REQ: Counter;

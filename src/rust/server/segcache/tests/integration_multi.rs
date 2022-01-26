@@ -9,7 +9,7 @@ mod common;
 
 use common::*;
 
-use config::SegcacheConfig;
+use config::{SegcacheConfig, WorkerConfig};
 use pelikan_segcache_rs::Segcache;
 
 use std::time::Duration;

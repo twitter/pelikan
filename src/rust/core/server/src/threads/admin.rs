@@ -8,8 +8,8 @@
 use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use crate::TCP_ACCEPT_EX;
-use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
+use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use config::AdminConfig;
 use logger::*;
 use metrics::{static_metrics, Counter, Gauge, Heatmap};
@@ -88,11 +88,13 @@ pub static PERCENTILES: &[(&str, f64)] = &[
 
 impl Admin {
     /// Creates a new `Admin` event loop.
-    pub fn new(
-        config: &AdminConfig,
+    pub fn new<T: AdminConfig>(
+        config: &T,
         ssl_context: Option<SslContext>,
         mut log_drain: Box<dyn Drain>,
     ) -> Result<Self, Error> {
+        let config = config.admin();
+
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
             error!("bad admin listen address");
@@ -215,7 +217,7 @@ impl Admin {
     fn handle_stats_request(session: &mut Session) {
         ADMIN_REQUEST_PARSE.increment();
         let mut data = Vec::new();
-        for metric in &metrics::rustcommon_metrics::metrics() {
+        for metric in &metrics::common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {

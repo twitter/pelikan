@@ -2,16 +2,18 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use super::super::*;
+use crate::memcache::wire::*;
+use crate::memcache::*;
 use crate::*;
 
 use config::TimeType;
 
 use std::convert::TryFrom;
+use std::time::Duration;
 
 const MAX_COMMAND_LEN: usize = 16;
 const MAX_KEY_LEN: usize = 250;
-const MAX_BATCH_SIZE: usize = 1024;
+pub const MAX_BATCH_SIZE: usize = 1024;
 
 const DEFAULT_MAX_VALUE_SIZE: usize = usize::MAX / 2;
 
@@ -47,8 +49,12 @@ impl Parse<MemcacheRequest> for MemcacheRequestParser {
             MemcacheCommand::Set => parse_set(buffer, false, self.max_value_size, self.time_type),
             MemcacheCommand::Add => parse_add(buffer, self.max_value_size, self.time_type),
             MemcacheCommand::Replace => parse_replace(buffer, self.max_value_size, self.time_type),
+            MemcacheCommand::Append => parse_append(buffer, self.max_value_size, self.time_type),
+            MemcacheCommand::Prepend => parse_prepend(buffer, self.max_value_size, self.time_type),
             MemcacheCommand::Cas => parse_set(buffer, true, self.max_value_size, self.time_type),
             MemcacheCommand::Delete => parse_delete(buffer),
+            MemcacheCommand::Incr => parse_incr(buffer),
+            MemcacheCommand::Decr => parse_decr(buffer),
             MemcacheCommand::Quit => {
                 // TODO(bmartin): in-band control commands need to be handled
                 // differently, this is a quick hack to emulate the 'quit'
@@ -260,11 +266,17 @@ fn parse_set(
     let ttl = if time_type == TimeType::Unix
         || (time_type == TimeType::Memcache && expiry >= 60 * 60 * 24 * 30)
     {
-        Some(expiry.saturating_sub(rustcommon_time::recent_unix()))
+        if let Some(d) =
+            UnixInstant::from_secs(expiry).checked_duration_since(UnixInstant::recent())
+        {
+            Some(Duration::from_secs(d.as_secs().into()))
+        } else {
+            Some(Duration::from_secs(0))
+        }
     } else if expiry == 0 {
         None
     } else {
-        Some(expiry)
+        Some(Duration::from_secs(expiry.into()))
     };
 
     let mut noreply = false;
@@ -389,6 +401,40 @@ fn parse_replace(
     Ok(ParseOk { message, consumed })
 }
 
+fn parse_append(
+    buffer: &[u8],
+    max_value_size: usize,
+    time_type: TimeType,
+) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let request = parse_set(buffer, false, max_value_size, time_type)?;
+    let consumed = request.consumed();
+
+    let message = if let MemcacheRequest::Set { entry, noreply } = request.into_inner() {
+        MemcacheRequest::Append { entry, noreply }
+    } else {
+        unreachable!()
+    };
+
+    Ok(ParseOk { message, consumed })
+}
+
+fn parse_prepend(
+    buffer: &[u8],
+    max_value_size: usize,
+    time_type: TimeType,
+) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let request = parse_set(buffer, false, max_value_size, time_type)?;
+    let consumed = request.consumed();
+
+    let message = if let MemcacheRequest::Set { entry, noreply } = request.into_inner() {
+        MemcacheRequest::Prepend { entry, noreply }
+    } else {
+        unreachable!()
+    };
+
+    Ok(ParseOk { message, consumed })
+}
+
 fn parse_delete(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     let mut parse_state = ParseState::new(buffer);
 
@@ -459,6 +505,107 @@ fn parse_delete(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
     } else {
         Err(ParseError::Incomplete)
     }
+}
+
+fn parse_incr(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let mut parse_state = ParseState::new(buffer);
+
+    // this was already checked for when determining the command
+    let (whitespace, cmd_end) = parse_state.next_sequence().unwrap();
+
+    if whitespace != Sequence::Space {
+        return Err(ParseError::Invalid);
+    }
+
+    let mut previous = cmd_end + 1;
+    let mut fields = Vec::new();
+
+    // command has variable number of fields (noreply) so we need to chase to
+    // the first CRLF
+    while let Some((whitespace, field_end)) = parse_state.next_sequence() {
+        match whitespace {
+            Sequence::Space => {
+                if field_end == previous {
+                    previous = field_end + whitespace.len();
+                } else if field_end < previous || field_end > previous + MAX_KEY_LEN {
+                    return Err(ParseError::Invalid);
+                } else {
+                    fields.push(buffer[previous..field_end].to_vec().into_boxed_slice());
+
+                    previous = field_end + whitespace.len();
+
+                    // incr allows a single key + value + noreply
+                    if fields.len() > 3 {
+                        return Err(ParseError::Invalid);
+                    }
+                }
+            }
+            Sequence::Crlf | Sequence::SpaceCrlf => {
+                if field_end > previous && field_end <= previous + MAX_KEY_LEN {
+                    fields.push(buffer[previous..field_end].to_vec().into_boxed_slice());
+
+                    let consumed = field_end + whitespace.len();
+
+                    if fields.len() < 2 {
+                        return Err(ParseError::Invalid);
+                    } else {
+                        let noreply = match fields.get(2) {
+                            None => false,
+                            Some(field) => {
+                                if field.as_ref() != b"noreply" {
+                                    return Err(ParseError::Invalid);
+                                }
+                                true
+                            }
+                        };
+
+                        if let Ok(Ok(value)) =
+                            String::from_utf8(fields[1].to_vec()).map(|v| v.parse::<u64>())
+                        {
+                            let message = MemcacheRequest::Incr {
+                                key: fields[0].clone(),
+                                value,
+                                noreply,
+                            };
+                            return Ok(ParseOk { message, consumed });
+                        } else {
+                            return Err(ParseError::Invalid);
+                        }
+                    }
+                } else {
+                    return Err(ParseError::Invalid);
+                }
+            }
+        }
+    }
+
+    if buffer.len() > cmd_end + MAX_KEY_LEN {
+        Err(ParseError::Invalid)
+    } else {
+        Err(ParseError::Incomplete)
+    }
+}
+
+fn parse_decr(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let request = parse_incr(buffer)?;
+    let consumed = request.consumed();
+
+    let message = if let MemcacheRequest::Incr {
+        key,
+        value,
+        noreply,
+    } = request.into_inner()
+    {
+        MemcacheRequest::Decr {
+            key,
+            value,
+            noreply,
+        }
+    } else {
+        unreachable!()
+    };
+
+    Ok(ParseOk { message, consumed })
 }
 
 #[allow(clippy::unnecessary_unwrap)]

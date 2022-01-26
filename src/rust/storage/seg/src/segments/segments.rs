@@ -10,7 +10,6 @@ use crate::segments::*;
 
 use core::num::NonZeroU32;
 use metrics::{static_metrics, Counter, Gauge};
-use rustcommon_time::CoarseInstant as Instant;
 
 static_metrics! {
     static EVICT_TIME: Gauge;
@@ -39,7 +38,7 @@ pub(crate) struct Segments {
     /// Head of the free segment queue
     free_q: Option<NonZeroU32>,
     /// Time last flushed
-    flush_at: CoarseInstant,
+    flush_at: Instant,
     /// Eviction configuration and state
     evict: Box<Eviction>,
 }
@@ -128,8 +127,13 @@ impl Segments {
     }
 
     /// Returns the time the segments were last flushed
-    pub fn flush_at(&self) -> CoarseInstant {
+    pub fn flush_at(&self) -> Instant {
         self.flush_at
+    }
+
+    /// Mark the segments as flushed at a given instant
+    pub fn set_flush_at(&mut self, instant: Instant) {
+        self.flush_at = instant;
     }
 
     /// Retrieve a `RawItem` from the segment id and offset encoded in the
@@ -190,7 +194,7 @@ impl Segments {
         ttl_buckets: &mut TtlBuckets,
         hashtable: &mut HashTable,
     ) -> Result<(), SegmentsError> {
-        let now = CoarseInstant::now();
+        let now = Instant::now();
         match self.evict.policy() {
             Policy::Merge { .. } => {
                 SEGMENT_EVICT.increment();
@@ -427,7 +431,7 @@ impl Segments {
                 self.headers[id_idx].write_offset()
             );
 
-            rustcommon_time::refresh_clock();
+            common::time::refresh_clock();
             self.headers[id_idx].mark_created();
             self.headers[id_idx].mark_merged();
 

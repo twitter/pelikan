@@ -5,6 +5,7 @@
 use super::*;
 use crate::threads::worker::TokenWrapper;
 use common::signal::Signal;
+use common::time::Instant;
 use config::WorkerConfig;
 use core::time::Duration;
 use entrystore::EntryStore;
@@ -14,7 +15,6 @@ use mio::Token;
 use mio::Waker;
 use protocol::{Compose, Execute};
 use queues::{QueueError, QueuePair, QueuePairs};
-use rustcommon_time::Instant;
 use std::sync::Arc;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
@@ -44,9 +44,7 @@ where
     Storage: Execute<Request, Response> + EntryStore + Send,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(config: &WorkerConfig, storage: Storage) -> Result<Self, std::io::Error> {
-        // let signal_queue = Queue::new(128);
-
+    pub fn new<T: WorkerConfig>(config: &T, storage: Storage) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
@@ -58,8 +56,8 @@ where
         let signal_queue = QueuePairs::new(Some(waker));
 
         Ok(Self {
-            nevent: config.nevent(),
-            timeout: Duration::from_millis(config.timeout() as u64),
+            nevent: config.worker().nevent(),
+            timeout: Duration::from_millis(config.worker().timeout() as u64),
             poll,
             storage,
             signal_queue,
@@ -99,7 +97,11 @@ where
             if !events.is_empty() {
                 let mut worker_pending = self.worker_queues.pending();
                 let total_pending: usize = worker_pending.iter().sum();
-                STORAGE_QUEUE_DEPTH.increment(Instant::now(), total_pending as _, 1);
+                STORAGE_QUEUE_DEPTH.increment(
+                    Instant::<Nanoseconds<u64>>::now(),
+                    total_pending as _,
+                    1,
+                );
 
                 trace!("handling events");
                 let mut empty = false;

@@ -49,7 +49,7 @@ fn main() {
 
         let mut metrics = Vec::new();
 
-        for metric in &metrics::rustcommon_metrics::metrics() {
+        for metric in &metrics::common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {
@@ -80,11 +80,10 @@ fn main() {
 
     // load config from file
     let config = if let Some(file) = matches.value_of("CONFIG") {
-        debug!("loading config: {}", file);
         match SegcacheConfig::load(file) {
             Ok(c) => c,
             Err(e) => {
-                error!("{}", e);
+                println!("{}", e);
                 std::process::exit(1);
             }
         }

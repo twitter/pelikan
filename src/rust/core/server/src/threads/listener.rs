@@ -8,8 +8,8 @@
 use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use crate::TCP_ACCEPT_EX;
-use boring::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use common::signal::Signal;
+use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use config::ServerConfig;
 use metrics::{static_metrics, Counter};
 use mio::event::Event;
@@ -46,11 +46,13 @@ pub struct Listener {
 impl Listener {
     /// Creates a new `Listener` from a `ServerConfig` and an optional
     /// `SslContext`.
-    pub fn new(
-        config: &ServerConfig,
+    pub fn new<T: ServerConfig>(
+        config: &T,
         ssl_context: Option<SslContext>,
         max_buffer_size: usize,
     ) -> Result<Self, std::io::Error> {
+        let config = config.server();
+
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")

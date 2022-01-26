@@ -51,7 +51,7 @@ fn use_tls() -> bool {
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AdminConfig {
+pub struct Admin {
     #[serde(default = "host")]
     host: String,
     #[serde(default = "port")]
@@ -71,7 +71,7 @@ pub struct AdminConfig {
 }
 
 // implementation
-impl AdminConfig {
+impl Admin {
     pub fn host(&self) -> String {
         self.host.clone()
     }
@@ -112,7 +112,7 @@ impl AdminConfig {
 }
 
 // trait implementations
-impl Default for AdminConfig {
+impl Default for Admin {
     fn default() -> Self {
         Self {
             host: host(),
@@ -125,4 +125,8 @@ impl Default for AdminConfig {
             use_tls: use_tls(),
         }
     }
+}
+
+pub trait AdminConfig {
+    fn admin(&self) -> &Admin;
 }

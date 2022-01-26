@@ -27,6 +27,9 @@ pub use ttl_buckets::TtlBuckets;
 use metrics::Counter;
 
 metrics::static_metrics! {
+    static SEGMENT_CLEAR: Counter;
     static SEGMENT_EXPIRE: Counter;
+
+    static CLEAR_TIME: Counter;
     static EXPIRE_TIME: Counter;
 }

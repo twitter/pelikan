@@ -67,7 +67,7 @@ fn single_message_size() -> usize {
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct KlogConfig {
+pub struct Klog {
     #[serde(default = "backup")]
     backup: Option<String>,
     #[serde(default = "file")]
@@ -88,7 +88,7 @@ pub struct KlogConfig {
 // implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-impl KlogConfig {
+impl Klog {
     pub fn file(&self) -> Option<String> {
         self.file.clone()
     }
@@ -122,7 +122,7 @@ impl KlogConfig {
 }
 
 // trait implementations
-impl Default for KlogConfig {
+impl Default for Klog {
     fn default() -> Self {
         Self {
             file: file(),
@@ -134,4 +134,9 @@ impl Default for KlogConfig {
             single_message_size: single_message_size(),
         }
     }
+}
+
+// trait definitions
+pub trait KlogConfig {
+    fn klog(&self) -> &Klog;
 }

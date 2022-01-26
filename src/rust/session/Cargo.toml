@@ -11,15 +11,13 @@ license = "Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-boring = "1.0.3"
 common = { path = "../common" }
 config = { path = "../config" }
+logger = { path = "../logger" }
 metrics = { path = "../metrics" }
 mio = { version = "0.7.7", features = ["os-poll", "tcp"] }
 rand = "0.8.0"
 rtrb = "0.1.3"
-rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
-rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.64"
 slab = "0.4.2"

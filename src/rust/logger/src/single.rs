@@ -40,7 +40,7 @@ impl Log for Logger {
             .unwrap_or_else(|| Vec::with_capacity(self.buffer_size));
 
         // Write the log message into the buffer and send to the receiver
-        if (self.format)(&mut buffer, recent_utc(), record).is_ok() {
+        if (self.format)(&mut buffer, DateTime::recent(), record).is_ok() {
             let bytes = buffer.len();
 
             // Note this may drop a log message, but avoids blocking. The

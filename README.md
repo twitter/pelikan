@@ -1,4 +1,24 @@
-#### Pelikan is Twitter's unified cache server.
+# Pelikan
+
+Pelikan is Twitter's framework for developing cache services. It is:
+
+* **Fast**: Pelikan provides high-throughput and low-latency caching solutions.
+
+* **Reliable**: Pelikan is designed for large-scale deployment and the
+  implementation is informed by our operational experiences.
+
+* **Modular**: Pelikan is a framework for rapidly developing new caching
+  solutions by focusing on the inherent architectural similarity between caching
+  services and providing reusable low-level components.
+
+[![License: Apache-2.0][license-badge]][license-url]
+[![Build Status: C][c-build-badge]][c-build-url]
+[![Build Status: Rust][cargo-build-badge]][cargo-build-url]
+[![Fuzz Status: Rust][cargo-fuzz-badge]][cargo-fuzz-url]
+[![Zulip Chat][zulip-badge]][zulip-url]
+
+[Website](http://pelikan.io) |
+[Chat][zulip-url]
 
 # Content
 * [Overview](#overview)
@@ -11,8 +31,6 @@
   * [Contributing](#contributing)
 * [Documentation](#documentation)
 * [License](#license)
-
-[![Build Status](https://travis-ci.org/twitter/pelikan.svg?branch=master)](https://travis-ci.org/twitter/pelikan)
 
 # Overview
 After years of using and working on various cache services, we built a common
@@ -33,14 +51,13 @@ Currently Pelikan yields three main products, all of which are backends/servers.
 - `pelikan_pingserver`: an over-engineered, production-ready ping server useful
   as a tutorial and for measuring baseline RPC performance
 - **[Experimental]**`pelikan_segcache`: a Memcached-like server with extremely high
-  memory efficiency and excellent core scalability. See our [NSDI'21 paper](https://www.usenix.org/conference/nsdi21/presentation/yang-juncheng)
+  memory efficiency and excellent core scalability. See our [NSDI'21 paper]
   for design and evaluation details.
 - **[Experimental]**`pelikan_segcache_rs`: a Rust implementation of
   `pelikan_segcache` which includes TLS support and is the preferred Segcache
   implementation.
-- **[Experimental**]`pelikan_pingserver_rs`: a Rust implementation of
+- **[Experimental]**`pelikan_pingserver_rs`: a Rust implementation of
   `pelikan_pingserver` which includes TLS support.
-
 
 ## Features
 - runtime separation of control and data plane
@@ -76,13 +93,14 @@ To skip building tests, replace the `cmake` step with the following:
 cmake -DCHECK_WORKING=off ..
 ```
 ## Install `check`
-To compile and run tests, you will have to install [check](http://libcheck.github.io/check/).
-Please follow instructions in the project.
+To compile and run tests, you will have to install `[check]`. Please follow
+instructions in the project.
 
 **Note**: we highly recommend installing the latest version of `check` from
-source, as there are, unfortunately, a [linker bug](https://sourceforge.net/p/check/mailman/message/32835594/)
-in packages installed by the current versions of `brew` (OS X),
-`CentOS` and `Ubuntu LTS`. The bug does not affect building executables.
+source, as there are, unfortunately, a [linker bug][check-linker-bug] in
+packages installed by the current versions of `brew` (OS X), `CentOS` and
+`Ubuntu LTS`. The bug does not affect building executables.
+
 
 
 # Building Pelikan (Rust)
@@ -170,9 +188,9 @@ _bin/pelikan_twemcache -c
 # Community
 
 ## Stay in touch
-- Join our project chat on [![Zulip](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://pelikan.zulipchat.com/)
+- Join our project chat on [![Zulip][zulip-badge]][zulip-url]
   for questions and discussions
-- Follow us on Twitter: [@pelikan_cache](https://twitter.com/pelikan_cache)
+- Follow us on Twitter: [@pelikan_cache]
 - Visit <http://pelikan.io>
 
 ## Contributing
@@ -195,3 +213,18 @@ on our website. Meanwhile, check out the current material under `docs/`
 
 ## License
 This software is licensed under the Apache 2.0 license, see [LICENSE](LICENSE) for details.
+
+[@pelikan_cache]: https://twitter.com/pelikan_cache
+[c-build-badge]: https://img.shields.io/github/workflow/status/twitter/pelikan/cmake-build/master?label=cmake%20build
+[c-build-url]: https://github.com/twitter/pelikan/actions/workflows/cmake.yml?query=branch%3Amaster+event%3Apush
+[cargo-build-badge]: https://img.shields.io/github/workflow/status/twitter/pelikan/cargo-build/master?label=cargo%20build
+[cargo-build-url]: https://github.com/twitter/pelikan/actions/workflows/cargo.yml?query=branch%3Amaster+event%3Apush
+[cargo-fuzz-badge]: https://img.shields.io/github/workflow/status/twitter/pelikan/cargo-fuzz/master?label=cargo%20fuzz
+[cargo-fuzz-url]: https://github.com/twitter/pelikan/actions/workflows/fuzz.yml?query=branch%3Amaster+event%3Apush
+[check]: (http://libcheck.github.io/check/)
+[check-linker-bug]: (https://sourceforge.net/p/check/mailman/message/32835594/)
+[license-badge]: https://img.shields.io/badge/license-Apache%202.0-blue.svg
+[license-url]: https://github.com/twitter/pelikan/blob/master/LICENSE
+[NSDI'21 paper]: https://www.usenix.org/conference/nsdi21/presentation/yang-juncheng
+[zulip-badge]: https://img.shields.io/badge/zulip-join_chat-blue.svg
+[zulip-url]: https://pelikan.zulipchat.com/

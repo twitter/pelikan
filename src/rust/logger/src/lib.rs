@@ -52,10 +52,10 @@ pub use sampling::*;
 pub use single::*;
 pub use traits::*;
 
+use common::time::DateTime;
 use config::{DebugConfig, KlogConfig};
 use metrics::{static_metrics, Counter, Gauge};
 use mpmc::Queue;
-use rustcommon_time::recent_utc;
 
 pub(crate) type LogBuffer = Vec<u8>;
 
@@ -95,6 +95,22 @@ impl AsyncLog {
     }
 }
 
+#[macro_export]
+macro_rules! fatal {
+    () => (
+        error!();
+        std::process::exit(1);
+        );
+    ($fmt:expr) => (
+        error!($fmt);
+        std::process::exit(1);
+        );
+    ($fmt:expr, $($arg:tt)*) => (
+        error!($fmt, $($arg)*);
+        std::process::exit(1);
+        );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // TODO(bmartin): everything below is Pelikan specific, and should be factored
 // out into a helper when we move this crate into rustcommon
@@ -109,7 +125,9 @@ macro_rules! klog {
     )
 }
 
-pub fn configure_logging(debug_config: &DebugConfig, klog_config: &KlogConfig) -> Box<dyn Drain> {
+pub fn configure_logging<T: DebugConfig + KlogConfig>(config: &T) -> Box<dyn Drain> {
+    let debug_config = config.debug();
+
     let debug_output: Box<dyn Output> = if let Some(file) = debug_config.log_file() {
         let backup = debug_config.log_backup().unwrap_or(format!("{}.old", file));
         Box::new(
@@ -126,6 +144,8 @@ pub fn configure_logging(debug_config: &DebugConfig, klog_config: &KlogConfig) -
         .single_message_size(debug_config.log_single_message_size())
         .build()
         .expect("failed to initialize debug log");
+
+    let klog_config = config.klog();
 
     let klog = if let Some(file) = klog_config.file() {
         let backup = klog_config.backup().unwrap_or(format!("{}.old", file));

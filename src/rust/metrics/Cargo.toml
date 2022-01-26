@@ -11,11 +11,7 @@ license = "Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+common = { path = "../common" }
 macros = { path = "../macros" }
 strum = "0.20.0"
 strum_macros = "0.20.1"
-
-[dependencies.rustcommon-metrics]
-git = "https://github.com/twitter/rustcommon"
-package="rustcommon-metrics-v2"
-features = ["heatmap"]
