@@ -285,7 +285,6 @@ impl Compose for MemcacheResponse {
                             dst.write_all(CRLF.as_bytes());
                             dst.write_all(value);
                         }
-                        Value::I64(_) => {}
                     };
 
                     dst.write_all(CRLF.as_bytes());

@@ -77,9 +77,6 @@ impl RawItem {
             Some(ValueType::U64) => Value::U64(u64::from_be_bytes([
                 bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
             ])),
-            Some(ValueType::I64) => Value::I64(i64::from_be_bytes([
-                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-            ])),
             None => Value::Bytes(bytes),
         }
     }
@@ -148,29 +145,6 @@ impl RawItem {
                 self.set_magic();
                 (*self.header_mut()).set_deleted(false);
                 (*self.header_mut()).set_type(Some(ValueType::U64));
-                (*self.header_mut()).set_olen(optional.len() as u8);
-                std::ptr::copy_nonoverlapping(
-                    optional.as_ptr(),
-                    self.data.add(self.optional_offset()),
-                    optional.len(),
-                );
-                (*self.header_mut()).set_klen(key.len() as u8);
-                std::ptr::copy_nonoverlapping(
-                    key.as_ptr(),
-                    self.data.add(self.key_offset()),
-                    key.len(),
-                );
-                let bytes = value.to_be_bytes();
-                std::ptr::copy_nonoverlapping(
-                    bytes.as_ptr(),
-                    self.data.add(self.value_offset()),
-                    bytes.len(),
-                );
-            },
-            Value::I64(value) => unsafe {
-                self.set_magic();
-                (*self.header_mut()).set_deleted(false);
-                (*self.header_mut()).set_type(Some(ValueType::I64));
                 (*self.header_mut()).set_olen(optional.len() as u8);
                 std::ptr::copy_nonoverlapping(
                     optional.as_ptr(),

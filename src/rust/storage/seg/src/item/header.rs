@@ -76,14 +76,12 @@ use core::convert::TryFrom;
 #[derive(Copy, Clone, Debug)]
 pub(super) enum ValueType {
     U64,
-    I64,
 }
 
 impl ValueType {
     pub fn len(&self) -> u32 {
         (match self {
             Self::U64 => std::mem::size_of::<u64>(),
-            Self::I64 => std::mem::size_of::<i64>(),
         }) as u32
     }
 }
@@ -93,7 +91,6 @@ impl TryFrom<u8> for ValueType {
     fn try_from(other: u8) -> Result<Self, <Self as TryFrom<u8>>::Error> {
         match other {
             0 => Ok(Self::U64),
-            1 => Ok(Self::I64),
             _ => Err(()),
         }
     }
@@ -104,7 +101,6 @@ impl Into<u8> for ValueType {
     fn into(self) -> u8 {
         match self {
             Self::U64 => 0,
-            Self::I64 => 1,
         }
     }
 }

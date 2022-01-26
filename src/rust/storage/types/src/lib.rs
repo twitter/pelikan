@@ -6,14 +6,12 @@
 pub enum Value<'a> {
     Bytes(&'a [u8]),
     U64(u64),
-    I64(i64),
 }
 
 #[derive(PartialEq)]
 pub enum OwnedValue {
     Bytes(Box<[u8]>),
     U64(u64),
-    I64(i64),
 }
 
 impl<'a> Value<'a> {
@@ -21,7 +19,6 @@ impl<'a> Value<'a> {
         match self {
             Self::Bytes(v) => OwnedValue::Bytes(v.to_vec().into_boxed_slice()),
             Self::U64(v) => OwnedValue::U64(*v),
-            Self::I64(v) => OwnedValue::I64(*v),
         }
     }
 }
@@ -31,7 +28,6 @@ impl<'a> OwnedValue {
         match self {
             Self::Bytes(v) => Value::Bytes(v.as_ref()),
             Self::U64(v) => Value::U64(*v),
-            Self::I64(v) => Value::I64(*v),
         }
     }
 }
@@ -39,12 +35,6 @@ impl<'a> OwnedValue {
 impl From<u64> for Value<'_> {
     fn from(value: u64) -> Self {
         Self::U64(value)
-    }
-}
-
-impl From<i64> for Value<'_> {
-    fn from(value: i64) -> Self {
-        Self::I64(value)
     }
 }
 
@@ -78,7 +68,6 @@ impl<'a> Value<'a> {
         match self {
             Value::Bytes(v) => v.len(),
             Value::U64(_) => core::mem::size_of::<u64>(),
-            Value::I64(_) => core::mem::size_of::<i64>(),
         }
     }
 }
@@ -88,7 +77,6 @@ impl<'a, const N: usize> PartialEq<&[u8; N]> for Value<'a> {
         match self {
             Value::Bytes(v) => v == *rhs,
             Value::U64(_) => false,
-            Value::I64(_) => false,
         }
     }
 }
@@ -98,7 +86,6 @@ impl<'a, const N: usize> PartialEq<[u8; N]> for Value<'a> {
         match self {
             Value::Bytes(v) => v == rhs,
             Value::U64(_) => false,
-            Value::I64(_) => false,
         }
     }
 }
@@ -108,7 +95,6 @@ impl<'a> PartialEq<[u8]> for Value<'a> {
         match self {
             Value::Bytes(v) => *v == rhs,
             Value::U64(_) => false,
-            Value::I64(_) => false,
         }
     }
 }
@@ -118,7 +104,6 @@ impl<'a> core::fmt::Debug for Value<'a> {
         match &self {
             Value::Bytes(v) => write!(f, "{:?}", v),
             Value::U64(v) => write!(f, "{}", v),
-            Value::I64(v) => write!(f, "{}", v),
         }
     }
 }

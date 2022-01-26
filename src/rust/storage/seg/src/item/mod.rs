@@ -74,6 +74,5 @@ pub fn size_of(value: &Value) -> usize {
     match value {
         Value::Bytes(v) => v.len(),
         Value::U64(_) => core::mem::size_of::<u64>(),
-        Value::I64(_) => core::mem::size_of::<i64>(),
     }
 }
