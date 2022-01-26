@@ -19,6 +19,7 @@ use std::thread::JoinHandle;
 /// to call `shutdown()` to terminate the threads and block until termination.
 pub struct Process {
     threads: Vec<JoinHandle<()>>,
+    /// used to send signals to and from the admin thread
     signal_queue: QueuePairs<Signal, Signal>,
 }
 
@@ -31,12 +32,15 @@ impl Process {
     ///
     /// This function will block until all threads have terminated.
     pub fn shutdown(mut self) {
+        // this sends a shutdown to the admin thread, which will broadcast the
+        // signal to all sibling threads in the process
         if self.signal_queue.broadcast(Signal::Shutdown).is_err() {
             fatal!("error sending shutdown signal to thread");
         }
 
+        // try to wake the admin thread to process the signal
         if self.signal_queue.wake_all().is_err() {
-            fatal!("error waking threads for shutdown");
+            error!("error waking threads for shutdown");
         }
 
         // wait and join all threads

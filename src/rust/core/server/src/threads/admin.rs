@@ -65,6 +65,9 @@ pub struct Admin {
     nevent: usize,
     poll: Poll,
     ssl_context: Option<SslContext>,
+    /// The admin thread can receive `Signal`s from other threads, and send
+    /// `Signal`s to any other thread. This gives it control of the entire
+    /// process through signaling.
     signal_queue: QueuePairs<Signal, Signal>,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
@@ -320,12 +323,16 @@ impl Admin {
                     LISTENER_TOKEN => {
                         self.do_accept();
                     }
-                    WAKER_TOKEN =>
-                    {
+                    WAKER_TOKEN => {
                         #[allow(clippy::never_loop)]
+                        // check if we have received signals from any sibling
+                        // thread
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
                             match signal {
                                 Signal::Shutdown => {
+                                    // if a shutdown is received from any
+                                    // thread, we will broadcast it to all
+                                    // sibling threads and stop our event loop
                                     info!("shutting down");
                                     let _ = self.signal_queue.broadcast(Signal::Shutdown);
                                     if self.signal_queue.wake_all().is_err() {
@@ -349,12 +356,14 @@ impl Admin {
         }
     }
 
-    /// Returns a `SyncSender` which can be used to send `Message`s to the
-    /// `Admin` component.
+    /// Returns a `QueuePair` which can be used to send signals to, or receive
+    /// signals from, the admin thread.
     pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
         self.signal_queue.new_pair(128, None)
     }
 
+    /// Register a new queue pair with the admin thread so it can send and
+    /// receive signals over the provided pair.
     pub fn add_signal_queue(&mut self, queue_pair: QueuePair<Signal, Signal>) {
         self.signal_queue.add_pair(queue_pair)
     }
