@@ -34,8 +34,6 @@ const DATAPOOL_PATH: Option<&str> = None;
 // segment headers
 const SEGMENT_FIELDS_PATH: Option<&str> = None;
 
-
-
 // ttl buckets
 const TTL_BUCKETS_PATH: Option<&str> = None;
 
@@ -112,7 +110,7 @@ fn hashtable_path() -> Option<String> {
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SegConfig {
+pub struct Seg {
     #[serde(default = "restore")]
     restore: bool,
     #[serde(default = "graceful_shutdown")]
@@ -143,7 +141,7 @@ pub struct SegConfig {
     hashtable_path: Option<String>,
 }
 
-impl Default for SegConfig {
+impl Default for Seg {
     fn default() -> Self {
         Self {
             restore: restore(),
@@ -165,7 +163,7 @@ impl Default for SegConfig {
 }
 
 // implementation
-impl SegConfig {
+impl Seg {
     pub fn restore(&self) -> bool {
         self.restore
     }
@@ -219,4 +217,9 @@ impl SegConfig {
     pub fn hashtable_path(&self) -> Option<PathBuf> {
         self.hashtable_path.as_ref().map(|v| Path::new(v).to_owned())
     }
+}
+
+// trait definitions
+pub trait SegConfig {
+    fn seg(&self) -> &Seg;
 }
