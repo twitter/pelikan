@@ -8,7 +8,7 @@
 use crate::datapool::Datapool;
 
 /// A contiguous allocation of bytes in main memory
-#[derive(Clone)]  // for testing
+#[derive(Clone)] // for testing
 pub struct Memory {
     data: Box<[u8]>,
 }
@@ -35,13 +35,12 @@ impl Memory {
 
         Self { data }
     }
-    
+
     // Used only in Segments::clone() in order to clone `Segments.data`
     #[cfg(test)]
-    pub fn memory_from_data(data : Box<[u8]>) -> Memory {
-        Memory {data}
+    pub fn memory_from_data(data: Box<[u8]>) -> Memory {
+        Memory { data }
     }
-
 }
 
 impl Datapool for Memory {
@@ -56,5 +55,4 @@ impl Datapool for Memory {
     fn flush(&self) -> Result<(), std::io::Error> {
         Ok(())
     }
-
 }

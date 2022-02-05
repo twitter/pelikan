@@ -35,8 +35,8 @@ use std::convert::TryInto;
 
 // submodules
 mod builder;
-mod demolisher;
 mod datapool;
+mod demolisher;
 mod error;
 mod eviction;
 mod hashtable;

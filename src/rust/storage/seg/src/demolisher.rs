@@ -32,9 +32,7 @@ impl Default for Demolisher {
     }
 }
 
-
 impl Demolisher {
-
     /// Function the same as from `SegmentsBuilder`.
     /// Specify the total heap size in bytes. The heap size will be divided by
     /// the segment size to determine the number of segments to allocate.
@@ -54,19 +52,19 @@ impl Demolisher {
     }
 
     // Set `Segments` fields' path
-    pub fn segments_fields_path(mut self, path : Option<PathBuf>) -> Self {
+    pub fn segments_fields_path(mut self, path: Option<PathBuf>) -> Self {
         self.segments_fields_path = path;
         self
     }
 
     // Set `TtlBuckets` path
-    pub fn ttl_buckets_path(mut self, path : Option<PathBuf>) -> Self {
+    pub fn ttl_buckets_path(mut self, path: Option<PathBuf>) -> Self {
         self.ttl_buckets_path = path;
         self
     }
 
     // Set `Hashtable` path
-    pub fn hashtable_path(mut self, path : Option<PathBuf>) -> Self {
+    pub fn hashtable_path(mut self, path: Option<PathBuf>) -> Self {
         self.hashtable_path = path;
         self
     }
@@ -74,14 +72,13 @@ impl Demolisher {
     // Demolish the cache by attempting to save the `Segments`,
     // `TtlBuckets` and `HashTable` to the paths specified
     // If successful, return True. Else, return False.
-    pub fn demolish(self, cache : Seg) -> bool {
-        cache.segments.demolish(self.segments_fields_path, 
-                                self.heap_size) &&
-        cache.ttl_buckets.demolish(self.ttl_buckets_path) &&
-        cache.hashtable.demolish(self.hashtable_path,
-                                 self.overflow_factor)
+    pub fn demolish(self, cache: Seg) -> bool {
+        cache
+            .segments
+            .demolish(self.segments_fields_path, self.heap_size)
+            && cache.ttl_buckets.demolish(self.ttl_buckets_path)
+            && cache
+                .hashtable
+                .demolish(self.hashtable_path, self.overflow_factor)
     }
-
-
-
 }

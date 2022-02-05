@@ -41,7 +41,6 @@ impl Builder {
         self
     }
 
-
     /// Specify the hash power, which limits the size of the hashtable to 2^N
     /// entries. 1/8th of these are used for metadata storage, meaning that the
     /// total number of items which can be held in the cache is limited to
@@ -175,8 +174,6 @@ impl Builder {
         self
     }
 
-
-
     /// Consumes the builder and returns a fully-allocated `Seg` instance.
     /// If `restore` and valid paths to the structures are given, `Seg` will
     /// be restored. Otherwise, create a new `Seg` instance.
@@ -193,13 +190,14 @@ impl Builder {
     ///     .eviction(Policy::Random).build();
     /// ```
     pub fn build(self) -> Seg {
-        // Build `Segments`. 
+        // Build `Segments`.
         // If `restore` and a valid path is given,
         // it will be copied back
         let segments = self.segments_builder.build();
         if segments.fields_copied_back && self.restore {
             // Attempt to restore `HashTable` and `TtlBuckets`
-            let hashtable = HashTable::restore(self.hashtable_path, self.hash_power, self.overflow_factor);
+            let hashtable =
+                HashTable::restore(self.hashtable_path, self.hash_power, self.overflow_factor);
             let ttl_buckets = TtlBuckets::restore(self.ttl_buckets_path);
 
             // If successful, return a restored segcache
@@ -208,8 +206,8 @@ impl Builder {
                     hashtable,
                     segments,
                     ttl_buckets,
-                    _restored : true,
-                    };
+                    _restored: true,
+                };
             }
         }
 
@@ -220,7 +218,7 @@ impl Builder {
             hashtable,
             segments,
             ttl_buckets,
-            _restored : false,
-            }
+            _restored: false,
+        }
     }
 }

@@ -207,15 +207,21 @@ impl Seg {
     }
 
     pub fn segments_fields_path(&self) -> Option<PathBuf> {
-        self.segments_fields_path.as_ref().map(|v| Path::new(v).to_owned())
+        self.segments_fields_path
+            .as_ref()
+            .map(|v| Path::new(v).to_owned())
     }
 
     pub fn ttl_buckets_path(&self) -> Option<PathBuf> {
-        self.ttl_buckets_path.as_ref().map(|v| Path::new(v).to_owned())
+        self.ttl_buckets_path
+            .as_ref()
+            .map(|v| Path::new(v).to_owned())
     }
 
     pub fn hashtable_path(&self) -> Option<PathBuf> {
-        self.hashtable_path.as_ref().map(|v| Path::new(v).to_owned())
+        self.hashtable_path
+            .as_ref()
+            .map(|v| Path::new(v).to_owned())
     }
 }
 

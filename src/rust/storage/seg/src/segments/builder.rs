@@ -98,7 +98,4 @@ impl<'a> SegmentsBuilder {
             Segments::from_builder_new(self)
         }
     }
-
-
-    
 }

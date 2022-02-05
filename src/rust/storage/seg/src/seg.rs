@@ -51,7 +51,7 @@ impl Seg {
 
     // Returns a new `Demolisher` which is used to configure the graceful
     // deconstruction of a `Seg` instance.
-    // 
+    //
     // Example code:
     // ```
     // let segment_size = 4096;
@@ -61,12 +61,12 @@ impl Seg {
     // let segments_fields_path: Option<PathBuf> = Some(PathBuf::from(<path>));
     // let ttl_buckets_path : Option<PathBuf> = Some(PathBuf::from(<path>));
     // let hashtable_path: Option<PathBuf> = Some(PathBuf::from(<path>));
-    // 
+    //
     // // demolish cache by triggering graceful shutdown
     //     Seg::demolisher()
     //         .heap_size(heap_size)
     //         .datapool_path(datapool_path)
-    //         .segments_fields_path(segments_fields_path) 
+    //         .segments_fields_path(segments_fields_path)
     //         .ttl_buckets_path(ttl_buckets_path)
     //         .hashtable_path(hashtable_path)
     //         .demolish(cache)
@@ -162,7 +162,7 @@ impl Seg {
             match self
                 .ttl_buckets
                 .get_mut_bucket(ttl)
-                .reserve(size, &mut self.segments)  
+                .reserve(size, &mut self.segments)
             {
                 Ok(mut reserved_item) => {
                     reserved_item.define(key, value, optional);
@@ -349,16 +349,15 @@ impl Seg {
             segments,
             ttl_buckets,
             hashtable,
-            _restored : false,  // this field doesn't matter as it won't be compared
+            _restored: false, // this field doesn't matter as it won't be compared
         }
     }
 
     // Used in testing to compare `Seg`s
     #[cfg(test)]
     pub(crate) fn equivalent_seg(&self, s: Seg) -> bool {
-        self.segments.equivalent_segments(s.segments) &&
-        self.ttl_buckets.equivalent_ttlbuckets(s.ttl_buckets) &&
-        self.hashtable.equivalent_hashtables(s.hashtable)
+        self.segments.equivalent_segments(s.segments)
+            && self.ttl_buckets.equivalent_ttlbuckets(s.ttl_buckets)
+            && self.hashtable.equivalent_hashtables(s.hashtable)
     }
-    
 }

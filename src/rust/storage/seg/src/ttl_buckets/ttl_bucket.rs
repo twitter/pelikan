@@ -137,7 +137,7 @@ impl TtlBucket {
         }
     }
 
-    // attempt to allocate a new segment 
+    // attempt to allocate a new segment
     fn try_expand(&mut self, segments: &mut Segments) -> Result<(), TtlBucketsError> {
         if let Some(id) = segments.pop_free() {
             {

@@ -21,9 +21,9 @@
 //! more detail.
 
 use super::{CLEAR_TIME, EXPIRE_TIME};
+use crate::datapool::*;
 use crate::*;
 use std::path::PathBuf;
-use crate::datapool::*;
 
 const N_BUCKET_PER_STEP_N_BIT: usize = 8;
 const N_BUCKET_PER_STEP: usize = 1 << N_BUCKET_PER_STEP_N_BIT;
@@ -44,7 +44,7 @@ const TTL_BOUNDARY_3: i32 = 1 << (TTL_BUCKET_INTERVAL_N_BIT_3 + N_BUCKET_PER_STE
 
 const MAX_N_TTL_BUCKET: usize = N_BUCKET_PER_STEP * 4;
 const MAX_TTL_BUCKET_IDX: usize = MAX_N_TTL_BUCKET - 1;
-#[derive(Clone)]  // for testing
+#[derive(Clone)] // for testing
 pub struct TtlBuckets {
     pub(crate) buckets: Box<[TtlBucket]>,
     pub(crate) last_expired: Instant,
@@ -53,7 +53,6 @@ pub struct TtlBuckets {
 }
 
 impl TtlBuckets {
-
     // Return a new `TtlBuckets`
     pub fn new() -> Self {
         let intervals = [
@@ -80,19 +79,15 @@ impl TtlBuckets {
         Self {
             buckets,
             last_expired,
-            buckets_copied_back : false,
+            buckets_copied_back: false,
         }
     }
 
-
-    // Returns a restored `TtlBuckets` if file path 
+    // Returns a restored `TtlBuckets` if file path
     // to restore from is valid. Otherwise return a new `TtlBuckets`
-    pub fn restore(ttl_buckets_path : Option<PathBuf>) -> Self {
-
-
+    pub fn restore(ttl_buckets_path: Option<PathBuf>) -> Self {
         // if there is a path to restore from, restore the `TtlBuckets`
-        if let Some(file) = ttl_buckets_path {  
-
+        if let Some(file) = ttl_buckets_path {
             let bucket_size = ::std::mem::size_of::<TtlBucket>();
             // size from all `TtlBucket`s in `TtlBuckets`
             let buckets_size = MAX_N_TTL_BUCKET * bucket_size;
@@ -102,24 +97,24 @@ impl TtlBuckets {
             // Mmap file
             let pool = File::create(file, ttl_buckets_struct_size, true)
                 .expect("failed to allocate file backed storage");
-            let data = Box::new(pool.as_slice());  
+            let data = Box::new(pool.as_slice());
 
             // create blank bytes to copy data into
             let mut bytes = vec![0; ttl_buckets_struct_size];
             // retrieve bytes from mmapped file
             bytes.copy_from_slice(&data[0..ttl_buckets_struct_size]);
 
-
             // ----- Retrieve `last_expired` -----
             let mut offset = 0;
-            let last_expired = unsafe { *(bytes[offset..last_expired_size].as_mut_ptr() as *mut Instant) };
+            let last_expired =
+                unsafe { *(bytes[offset..last_expired_size].as_mut_ptr() as *mut Instant) };
 
-            // ----- Retrieve `buckets` ----- 
+            // ----- Retrieve `buckets` -----
             offset += last_expired_size;
 
             let mut buckets = Vec::with_capacity(0);
             buckets.reserve_exact(MAX_N_TTL_BUCKET);
-            
+
             // Get each `TtlBucket` from the raw bytes
             for id in 0..MAX_N_TTL_BUCKET {
                 let begin = offset + (bucket_size as usize * id);
@@ -128,15 +123,14 @@ impl TtlBuckets {
                 // cast bytes to `TtlBucket`
                 let bucket = unsafe { *(bytes[begin..finish].as_mut_ptr() as *mut TtlBucket) };
                 buckets.push(bucket);
-
             }
-            
+
             let buckets = buckets.into_boxed_slice();
 
             Self {
                 buckets,
                 last_expired,
-                buckets_copied_back : true, 
+                buckets_copied_back: true,
             }
         }
         // otherwise, create a new `TtlBuckets`
@@ -146,14 +140,13 @@ impl TtlBuckets {
     }
 
     /// Demolishes the `TtlBuckets` by storing them to
-    /// PMEM (if a path is specified) 
-    pub fn demolish(&self, ttl_buckets_path : Option<PathBuf>) -> bool {
+    /// PMEM (if a path is specified)
+    pub fn demolish(&self, ttl_buckets_path: Option<PathBuf>) -> bool {
         let mut gracefully_shutdown = false;
 
-        // if a path is specified, copy all the `TtlBucket`s 
+        // if a path is specified, copy all the `TtlBucket`s
         // to the file specified by `ttl_buckets_path`
-        if let Some(file) = ttl_buckets_path {   
-
+        if let Some(file) = ttl_buckets_path {
             let bucket_size = ::std::mem::size_of::<TtlBucket>();
             // size of all `TtlBucket`s in `TtlBuckets`
             let buckets_size = MAX_N_TTL_BUCKET * bucket_size;
@@ -172,8 +165,8 @@ impl TtlBuckets {
             let byte_ptr = (&self.last_expired as *const Instant) as *const u8;
 
             // get corresponding bytes from byte pointer
-            let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, last_expired_size)};
-            
+            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, last_expired_size) };
+
             // store `started` back to mmapped file
             data[offset..last_expired_size].copy_from_slice(bytes);
 
@@ -184,23 +177,22 @@ impl TtlBuckets {
             for id in 0..MAX_N_TTL_BUCKET {
                 let begin = offset + (bucket_size as usize * id);
                 let finish = begin + bucket_size as usize;
-        
+
                 // cast `TtlBucket` to byte pointer
                 let byte_ptr = (&self.buckets[id] as *const TtlBucket) as *const u8;
-                
+
                 // get corresponding bytes from byte pointer
-                let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, bucket_size)};
-                
+                let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, bucket_size) };
+
                 // store `TtlBucket` back to mmapped file
                 data[begin..finish].copy_from_slice(bytes);
             }
 
             gracefully_shutdown = true;
-             // TODO: flush data from CPU caches
+            // TODO: flush data from CPU caches
         }
 
         gracefully_shutdown
-
     }
 
     pub(crate) fn get_bucket_index(&self, ttl: Duration) -> usize {
@@ -265,11 +257,8 @@ impl TtlBuckets {
         cleared
     }
 
-
     #[cfg(test)]
     pub(crate) fn equivalent_ttlbuckets(&self, t: TtlBuckets) -> bool {
-        self.buckets == t.buckets &&
-        self.last_expired == t.last_expired
+        self.buckets == t.buckets && self.last_expired == t.last_expired
     }
-
 }

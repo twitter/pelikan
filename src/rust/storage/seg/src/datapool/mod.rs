@@ -25,5 +25,4 @@ pub trait Datapool: Send {
     /// Performs any actions necessary to persist the data to the backing store.
     /// This may be a no-op for datapools which cannot persist data.
     fn flush(&self) -> Result<(), std::io::Error>;
-
 }
