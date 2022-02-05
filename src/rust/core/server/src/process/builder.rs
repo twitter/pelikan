@@ -13,6 +13,7 @@ use entrystore::EntryStore;
 use logger::*;
 use protocol::{Compose, Execute, Parse};
 use queues::QueuePairs;
+use std::io::Error;
 
 /// A builder type for a Pelikan cache process.
 pub struct ProcessBuilder<Storage, Parser, Request, Response>
@@ -44,22 +45,32 @@ where
         storage: Storage,
         max_buffer_size: usize,
         parser: Parser,
-        log_drain: Box<dyn Drain>,
+        mut log_drain: Box<dyn Drain>,
     ) -> Self {
         // initialize admin
         let ssl_context = common::ssl::ssl_context(config.tls()).unwrap_or_else(|e| {
             error!("failed to initialize TLS: {}", e);
+            let _ = log_drain.flush();
             std::process::exit(1);
         });
+
         let mut admin = Admin::new(&config, ssl_context, log_drain).unwrap_or_else(|e| {
             error!("failed to initialize admin: {}", e);
             std::process::exit(1);
         });
 
         let mut worker = if config.worker().threads() > 1 {
-            Self::multi_worker(&config, storage, parser)
+            Self::multi_worker(&config, storage, parser).unwrap_or_else(|e| {
+                error!("failed to initialize workers: {}", e);
+                let _ = admin.log_flush();
+                std::process::exit(1);
+            })
         } else {
-            Self::single_worker(&config, storage, parser)
+            Self::single_worker(&config, storage, parser).unwrap_or_else(|e| {
+                error!("failed to initialize workers: {}", e);
+                let _ = admin.log_flush();
+                std::process::exit(1);
+            })
         };
 
         // initialize server
@@ -91,7 +102,7 @@ where
         config: &T,
         storage: Storage,
         parser: Parser,
-    ) -> WorkerBuilder<Storage, Parser, Request, Response> {
+    ) -> Result<WorkerBuilder<Storage, Parser, Request, Response>, Error> {
         let worker_config = config.worker();
 
         // initialize storage
@@ -111,7 +122,7 @@ where
             workers.push(worker);
         }
 
-        WorkerBuilder::Multi { storage, workers }
+        Ok(WorkerBuilder::Multi { storage, workers })
     }
 
     // Creates a single-worker builder
@@ -119,26 +130,30 @@ where
         config: &T,
         storage: Storage,
         parser: Parser,
-    ) -> WorkerBuilder<Storage, Parser, Request, Response> {
+    ) -> Result<WorkerBuilder<Storage, Parser, Request, Response>, Error> {
         // initialize worker
         let worker = SingleWorker::new(config, storage, parser).unwrap_or_else(|e| {
             error!("{}", e);
             std::process::exit(1);
         });
 
-        WorkerBuilder::Single { worker }
+        Ok(WorkerBuilder::Single { worker })
     }
 
     /// Converts the `ProcessBuilder` to a running `Process` by spawning the
     /// threads for each component. Returns a `Process` which may be used to
     /// block until the threads have exited or trigger a shutdown.
     pub fn spawn(mut self) -> Process {
-        // get message senders for each component
+        // initialize a queue to send a signal to the admin thread
         let mut signal_queue = QueuePairs::new(None);
         signal_queue.add_pair(self.admin.signal_queue());
+
+        // register signal queues with admin thread so it can send signals to
+        // all other threads
+        self.admin.add_signal_queue(self.listener.signal_queue());
         signal_queue.add_pair(self.listener.signal_queue());
         for queue in self.worker.signal_queues() {
-            signal_queue.add_pair(queue);
+            self.admin.add_signal_queue(queue);
         }
 
         // temporary bindings to prevent borrow-checker issues

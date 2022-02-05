@@ -31,7 +31,7 @@ impl Poll {
     pub fn new() -> Result<Self, std::io::Error> {
         let poll = mio::Poll::new().map_err(|e| {
             error!("{}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to create poll instance")
+            std::io::Error::new(std::io::ErrorKind::Other, "failed to create poll instance")
         })?;
 
         let waker = Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap());
@@ -50,7 +50,7 @@ impl Poll {
     pub fn bind(&mut self, addr: SocketAddr) -> Result<(), std::io::Error> {
         let mut listener = TcpListener::bind(addr).map_err(|e| {
             error!("{}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, "Failed to start tcp listener")
+            std::io::Error::new(std::io::ErrorKind::Other, "failed to start tcp listener")
         })?;
 
         // register listener to event loop
@@ -61,7 +61,7 @@ impl Poll {
                 error!("{}", e);
                 std::io::Error::new(
                     std::io::ErrorKind::Other,
-                    "Failed to register listener with epoll",
+                    "failed to register listener with epoll",
                 )
             })?;
 

@@ -43,6 +43,14 @@ pub fn queue_pair_with_capacity<A, B>(
 }
 
 impl<T, U> QueuePair<T, U> {
+    pub fn with_capacity(
+        capacity: usize,
+        waker_a: Option<Arc<Waker>>,
+        waker_b: Option<Arc<Waker>>,
+    ) -> (QueuePair<T, U>, QueuePair<U, T>) {
+        queue_pair_with_capacity(capacity, waker_a, waker_b)
+    }
+
     /// Attempt to send a message over the queue pair.
     pub fn try_send(&mut self, msg: T) -> Result<(), SendError<T>> {
         match self.send.push(msg) {
