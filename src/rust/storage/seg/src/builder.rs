@@ -6,26 +6,42 @@
 
 use crate::*;
 use std::path::Path;
+use std::path::PathBuf;
 
 /// A builder that is used to construct a new [`Seg`] instance.
 pub struct Builder {
+    restore: bool,
     hash_power: u8,
     overflow_factor: f64,
     segments_builder: SegmentsBuilder,
+    ttl_buckets_path: Option<PathBuf>,
+    hashtable_path: Option<PathBuf>,
 }
 
 // Defines the default parameters
 impl Default for Builder {
     fn default() -> Self {
         Self {
+            restore: false,
             hash_power: 16,
             overflow_factor: 0.0,
             segments_builder: SegmentsBuilder::default(),
+            ttl_buckets_path: None,
+            hashtable_path: None,
         }
     }
 }
 
 impl Builder {
+    /// Specify to `Builder` and `SegmentsBuilder` whether the cache will be restored.
+    /// Otherwise, the cache will be created and treated as new.
+    pub fn restore(mut self, will_restore: bool) -> Self {
+        self.restore = will_restore;
+        self.segments_builder = self.segments_builder.restore(will_restore);
+        self
+    }
+
+
     /// Specify the hash power, which limits the size of the hashtable to 2^N
     /// entries. 1/8th of these are used for metadata storage, meaning that the
     /// total number of items which can be held in the cache is limited to
@@ -135,17 +151,35 @@ impl Builder {
         self
     }
 
-    /// Specify a backing file to be used for segment storage.
-    ///
-    /// # Panics
-    ///
-    /// This will panic if the file already exists
+    /// Specify a backing file to be used for `Segment.data` storage.
     pub fn datapool_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
         self.segments_builder = self.segments_builder.datapool_path(path);
         self
     }
 
+    /// Specify a backing file to be used for `Segments` fields' storage.
+    pub fn segments_fields_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
+        self.segments_builder = self.segments_builder.segments_fields_path(path);
+        self
+    }
+
+    /// Specify a backing file to be used for `TtlBuckets` storage.
+    pub fn ttl_buckets_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
+        self.ttl_buckets_path = path.map(|p| p.as_ref().to_owned());
+        self
+    }
+
+    /// Specify a backing file to be used for `HashTable` storage.
+    pub fn hashtable_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
+        self.hashtable_path = path.map(|p| p.as_ref().to_owned());
+        self
+    }
+
+
+
     /// Consumes the builder and returns a fully-allocated `Seg` instance.
+    /// If `restore` and valid paths to the structures are given, `Seg` will
+    /// be restored. Otherwise, create a new `Seg` instance.
     ///
     /// ```
     /// use seg::{Policy, Seg};
@@ -159,14 +193,34 @@ impl Builder {
     ///     .eviction(Policy::Random).build();
     /// ```
     pub fn build(self) -> Seg {
-        let hashtable = HashTable::new(self.hash_power, self.overflow_factor);
+        // Build `Segments`. 
+        // If `restore` and a valid path is given,
+        // it will be copied back
         let segments = self.segments_builder.build();
-        let ttl_buckets = TtlBuckets::default();
+        if segments.fields_copied_back && self.restore {
+            // Attempt to restore `HashTable` and `TtlBuckets`
+            let hashtable = HashTable::restore(self.hashtable_path, self.hash_power, self.overflow_factor);
+            let ttl_buckets = TtlBuckets::restore(self.ttl_buckets_path);
 
+            // If successful, return a restored segcache
+            if hashtable.table_copied_back && ttl_buckets.buckets_copied_back {
+                return Seg {
+                    hashtable,
+                    segments,
+                    ttl_buckets,
+                    _restored : true,
+                    };
+            }
+        }
+
+        // If not `restore` or restoration failed, create a new cache
+        let hashtable = HashTable::new(self.hash_power, self.overflow_factor);
+        let ttl_buckets = TtlBuckets::new();
         Seg {
             hashtable,
             segments,
             ttl_buckets,
-        }
+            _restored : false,
+            }
     }
 }

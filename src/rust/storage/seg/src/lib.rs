@@ -24,10 +24,10 @@
 
 // macro includes
 #[macro_use]
-extern crate logger;
+extern crate rustcommon_logger;
 
 // external crate includes
-use common::time::Seconds;
+use rustcommon_time::*;
 
 // includes from core/std
 use core::hash::{BuildHasher, Hasher};
@@ -35,6 +35,7 @@ use std::convert::TryInto;
 
 // submodules
 mod builder;
+mod demolisher;
 mod datapool;
 mod error;
 mod eviction;
@@ -52,13 +53,13 @@ mod tests;
 // publicly exported items from submodules
 pub use crate::seg::Seg;
 pub use builder::Builder;
+pub use demolisher::Demolisher;
 pub use error::SegError;
 pub use eviction::Policy;
 pub use item::Item;
 
-// type aliases
-pub(crate) type Duration = common::time::Duration<Seconds<u32>>;
-pub(crate) type Instant = common::time::Instant<Seconds<u32>>;
+// publicly exported items from external crates
+pub use rustcommon_time::CoarseDuration;
 
 // items from submodules which are imported for convenience to the crate level
 pub(crate) use crate::rand::*;
