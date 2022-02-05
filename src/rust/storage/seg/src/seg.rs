@@ -233,7 +233,8 @@ impl Seg {
     /// matches the current value for that item.
     ///
     /// ```
-    /// use seg::{Duration, Policy, Seg, SegError};
+    /// use seg::{Policy, Seg, SegError};
+    /// use std::time::Duration;
     ///
     /// let mut cache = Seg::builder().build();
     ///
@@ -274,7 +275,8 @@ impl Seg {
     /// Remove the item with the given key, returns a bool indicating if it was
     /// removed.
     /// ```
-    /// use seg::{Duration, Policy, Seg, SegError};
+    /// use seg::{Policy, Seg, SegError};
+    /// use std::time::Duration;
     ///
     /// let mut cache = Seg::builder().build();
     ///
@@ -296,7 +298,8 @@ impl Seg {
     /// Loops through the TTL Buckets to handle eager expiration, returns the
     /// number of segments expired
     /// ```
-    /// use seg::{Duration, Policy, Seg, SegError};
+    /// use seg::{Policy, Seg, SegError};
+    /// use std::time::Duration;
     ///
     /// let mut cache = Seg::builder().build();
     ///
