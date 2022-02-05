@@ -24,10 +24,10 @@
 
 // macro includes
 #[macro_use]
-extern crate rustcommon_logger;
+extern crate logger;
 
 // external crate includes
-use rustcommon_time::*;
+use common::time::Seconds;
 
 // includes from core/std
 use core::hash::{BuildHasher, Hasher};
