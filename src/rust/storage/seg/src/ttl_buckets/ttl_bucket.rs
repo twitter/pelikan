@@ -86,7 +86,7 @@ impl TtlBucket {
             if let Some(seg_id) = seg_id {
                 let flush_at = segments.flush_at();
                 let mut segment = segments.get_mut(seg_id).unwrap();
-                if segment.create_at() + segment.ttl() <= CoarseInstant::recent()
+                if segment.create_at() + segment.ttl() <= Instant::recent()
                     || segment.create_at() < flush_at
                 {
                     if let Some(next) = segment.next_seg() {
@@ -150,7 +150,7 @@ impl TtlBucket {
             let mut segment = segments.get_mut(id).unwrap();
             segment.set_prev_seg(self.tail);
             segment.set_next_seg(None);
-            segment.set_ttl(CoarseDuration::from_secs(self.ttl as u32));
+            segment.set_ttl(Duration::from_secs(self.ttl as u32));
             if self.head.is_none() {
                 debug_assert!(self.tail.is_none());
                 self.head = Some(id);

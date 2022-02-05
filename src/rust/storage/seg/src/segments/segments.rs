@@ -731,7 +731,7 @@ impl Segments {
                 self.headers[id_idx].write_offset()
             );
 
-            rustcommon_time::refresh_clock();
+            common::time::refresh_clock();
             self.headers[id_idx].mark_created();
             self.headers[id_idx].mark_merged();
 

@@ -5,6 +5,7 @@
 //! Core datastructure
 
 use crate::*;
+use std::cmp::min;
 
 use metrics::{static_metrics, Counter};
 
@@ -93,7 +94,8 @@ impl Seg {
     /// Get the item in the `Seg` with the provided key
     ///
     /// ```
-    /// use seg::{Duration, Policy, Seg};
+    /// use seg::{Policy, Seg};
+    /// use std::time::Duration;
     ///
     /// let mut cache = Seg::builder().build();
     /// assert!(cache.get(b"coffee").is_none());
@@ -110,7 +112,7 @@ impl Seg {
     /// increasing the item frequency - useful for combined operations that
     /// check for presence - eg replace is a get + set
     /// ```
-    /// use seg::{Duration, Policy, Seg};
+    /// use seg::{Policy, Seg};
     ///
     /// let mut cache = Seg::builder().build();
     /// assert!(cache.get_no_freq_incr(b"coffee").is_none());
@@ -122,7 +124,8 @@ impl Seg {
     /// Insert a new item into the cache. May return an error indicating that
     /// the insert was not successful.
     /// ```
-    /// use seg::{Duration, Policy, Seg};
+    /// use seg::{Policy, Seg};
+    /// use std::time::Duration;
     ///
     /// let mut cache = Seg::builder().build();
     /// assert!(cache.get(b"drink").is_none());
@@ -140,13 +143,15 @@ impl Seg {
         key: &'a [u8],
         value: &[u8],
         optional: Option<&[u8]>,
-        ttl: Duration,
+        ttl: std::time::Duration,
     ) -> Result<(), SegError<'a>> {
         // default optional data is empty
         let optional = optional.unwrap_or(&[]);
 
         // calculate size for item
         let size = (((ITEM_HDR_SIZE + key.len() + value.len() + optional.len()) >> 3) + 1) << 3;
+
+        let ttl = Duration::from_secs(min(u32::MAX as u64, ttl.as_secs()) as u32);
 
         // try to get a `ReservedItem`
         let mut retries = RESERVE_RETRIES;
@@ -257,7 +262,7 @@ impl Seg {
         key: &'a [u8],
         value: &[u8],
         optional: Option<&[u8]>,
-        ttl: Duration,
+        ttl: std::time::Duration,
         cas: u32,
     ) -> Result<(), SegError<'a>> {
         match self.hashtable.try_update_cas(key, cas, &mut self.segments) {
