@@ -28,10 +28,10 @@ const COMPACT_TARGET: usize = 2;
 const MERGE_TARGET: usize = 4;
 const MERGE_MAX: usize = 8;
 
-// datapool (segments)
+// datapool (`Segments.data`)
 const DATAPOOL_PATH: Option<&str> = None;
 
-// segment headers
+// `Segments` fields
 const SEGMENT_FIELDS_PATH: Option<&str> = None;
 
 // ttl buckets
