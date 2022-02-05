@@ -93,12 +93,12 @@ impl Seg {
     /// Get the item in the `Seg` with the provided key
     ///
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg};
+    /// use seg::{Duration, Policy, Seg};
     ///
     /// let mut cache = Seg::builder().build();
     /// assert!(cache.get(b"coffee").is_none());
     ///
-    /// cache.insert(b"coffee", b"strong", None, CoarseDuration::ZERO);
+    /// cache.insert(b"coffee", b"strong", None, Duration::ZERO);
     /// let item = cache.get(b"coffee").expect("didn't get item back");
     /// assert_eq!(item.value(), b"strong");
     /// ```
@@ -110,7 +110,7 @@ impl Seg {
     /// increasing the item frequency - useful for combined operations that
     /// check for presence - eg replace is a get + set
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg};
+    /// use seg::{Duration, Policy, Seg};
     ///
     /// let mut cache = Seg::builder().build();
     /// assert!(cache.get_no_freq_incr(b"coffee").is_none());
@@ -122,16 +122,16 @@ impl Seg {
     /// Insert a new item into the cache. May return an error indicating that
     /// the insert was not successful.
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg};
+    /// use seg::{Duration, Policy, Seg};
     ///
     /// let mut cache = Seg::builder().build();
     /// assert!(cache.get(b"drink").is_none());
     ///
-    /// cache.insert(b"drink", b"coffee", None, CoarseDuration::ZERO);
+    /// cache.insert(b"drink", b"coffee", None, Duration::ZERO);
     /// let item = cache.get(b"drink").expect("didn't get item back");
     /// assert_eq!(item.value(), b"coffee");
     ///
-    /// cache.insert(b"drink", b"whisky", None, CoarseDuration::ZERO);
+    /// cache.insert(b"drink", b"whisky", None, Duration::ZERO);
     /// let item = cache.get(b"drink").expect("didn't get item back");
     /// assert_eq!(item.value(), b"whisky");
     /// ```
@@ -140,7 +140,7 @@ impl Seg {
         key: &'a [u8],
         value: &[u8],
         optional: Option<&[u8]>,
-        ttl: CoarseDuration,
+        ttl: Duration,
     ) -> Result<(), SegError<'a>> {
         // default optional data is empty
         let optional = optional.unwrap_or(&[]);
@@ -228,27 +228,27 @@ impl Seg {
     /// matches the current value for that item.
     ///
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg, SegError};
+    /// use seg::{Duration, Policy, Seg, SegError};
     ///
     /// let mut cache = Seg::builder().build();
     ///
     /// // If the item is not in the cache, CAS will fail as 'NotFound'
     /// assert_eq!(
-    ///     cache.cas(b"drink", b"coffee", None, CoarseDuration::ZERO, 0),
+    ///     cache.cas(b"drink", b"coffee", None, Duration::ZERO, 0),
     ///     Err(SegError::NotFound)
     /// );
     ///
     /// // If a stale CAS value is provided, CAS will fail as 'Exists'
-    /// cache.insert(b"drink", b"coffee", None, CoarseDuration::ZERO);
+    /// cache.insert(b"drink", b"coffee", None, Duration::ZERO);
     /// assert_eq!(
-    ///     cache.cas(b"drink", b"coffee", None, CoarseDuration::ZERO, 0),
+    ///     cache.cas(b"drink", b"coffee", None, Duration::ZERO, 0),
     ///     Err(SegError::Exists)
     /// );
     ///
     /// // Getting the CAS value and then performing the operation ensures
     /// // success in absence of a race with another client
     /// let current = cache.get(b"drink").expect("not found");
-    /// assert!(cache.cas(b"drink", b"whisky", None, CoarseDuration::ZERO, current.cas()).is_ok());
+    /// assert!(cache.cas(b"drink", b"whisky", None, Duration::ZERO, current.cas()).is_ok());
     /// let item = cache.get(b"drink").expect("not found");
     /// assert_eq!(item.value(), b"whisky"); // item is updated
     /// ```
@@ -257,7 +257,7 @@ impl Seg {
         key: &'a [u8],
         value: &[u8],
         optional: Option<&[u8]>,
-        ttl: CoarseDuration,
+        ttl: Duration,
         cas: u32,
     ) -> Result<(), SegError<'a>> {
         match self.hashtable.try_update_cas(key, cas, &mut self.segments) {
@@ -269,7 +269,7 @@ impl Seg {
     /// Remove the item with the given key, returns a bool indicating if it was
     /// removed.
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg, SegError};
+    /// use seg::{Duration, Policy, Seg, SegError};
     ///
     /// let mut cache = Seg::builder().build();
     ///
@@ -277,7 +277,7 @@ impl Seg {
     /// assert_eq!(cache.delete(b"coffee"), false);
     ///
     /// // And will return true on success
-    /// cache.insert(b"coffee", b"strong", None, CoarseDuration::ZERO);
+    /// cache.insert(b"coffee", b"strong", None, Duration::ZERO);
     /// assert!(cache.get(b"coffee").is_some());
     /// assert_eq!(cache.delete(b"coffee"), true);
     /// assert!(cache.get(b"coffee").is_none());
@@ -291,12 +291,12 @@ impl Seg {
     /// Loops through the TTL Buckets to handle eager expiration, returns the
     /// number of segments expired
     /// ```
-    /// use seg::{CoarseDuration, Policy, Seg, SegError};
+    /// use seg::{Duration, Policy, Seg, SegError};
     ///
     /// let mut cache = Seg::builder().build();
     ///
     /// // Insert an item with a short ttl
-    /// cache.insert(b"coffee", b"strong", None, CoarseDuration::from_secs(5));
+    /// cache.insert(b"coffee", b"strong", None, Duration::from_secs(5));
     ///
     /// // The item is still in the cache
     /// assert!(cache.get(b"coffee").is_some());

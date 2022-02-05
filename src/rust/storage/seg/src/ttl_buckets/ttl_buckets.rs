@@ -203,7 +203,7 @@ impl TtlBuckets {
 
     }
 
-    pub(crate) fn get_bucket_index(&self, ttl: CoarseDuration) -> usize {
+    pub(crate) fn get_bucket_index(&self, ttl: Duration) -> usize {
         let ttl = ttl.as_secs() as i32;
         if ttl <= 0 {
             self.buckets.len() - 1
@@ -224,7 +224,7 @@ impl TtlBuckets {
     }
 
     // TODO(bmartin): confirm handling for negative TTLs here...
-    pub(crate) fn get_mut_bucket(&mut self, ttl: CoarseDuration) -> &mut TtlBucket {
+    pub(crate) fn get_mut_bucket(&mut self, ttl: Duration) -> &mut TtlBucket {
         let index = self.get_bucket_index(ttl);
 
         // NOTE: since get_bucket_index() must return an index within the slice,
