@@ -55,3 +55,6 @@ CMAKE_BINARY_DIR
 
 # Cargo build directory
 /target
+
+# Ignore target directories 
+**/target
