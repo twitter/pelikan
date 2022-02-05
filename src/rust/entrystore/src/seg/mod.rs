@@ -4,14 +4,12 @@
 
 //! Segment-structured storage which implements efficient proactive eviction.
 //! This storage type is suitable for use in simple key-value cache backends.
-//! See: [`::segcache`] crate for more details behind the underlying storage
-//! design.
+//! See: [`::seg`] crate for more details behind the underlying storage design.
 
 use crate::EntryStore;
 
 use config::seg::Eviction;
 use config::SegConfig;
-use rustcommon_time::CoarseDuration;
 use seg::{Policy, SegError};
 
 mod memcache;
@@ -23,9 +21,11 @@ pub struct Seg {
 }
 
 impl Seg {
-    /// Create a new `SegCache` based on the config and the `TimeType` which is
+    /// Create `Seg` storage based on the config and the `TimeType` which is
     /// used to interpret various expiry time formats.
-    pub fn new(config: &SegConfig) -> Self {
+    pub fn new<T: SegConfig>(config: &T) -> Self {
+        let config = config.seg();
+
         // build up the eviction policy from the config
         let eviction = match config.eviction() {
             Eviction::None => Policy::None,
@@ -58,10 +58,9 @@ impl Seg {
         Self { data }
     }
 
-
     /// Demolish (gracefully shutdown) the cache if 
     /// configured to do so
-    pub fn demolish(self, config: &SegConfig)  {
+    pub fn demolish<T: SegConfig>(self, config: &T)  {
         if config.graceful_shutdown() {
             ::seg::Seg::demolisher()
                 .heap_size(config.heap_size())
@@ -72,6 +71,7 @@ impl Seg {
                 .demolish(self.data);
         };
     }
+
 }
 
 impl EntryStore for Seg {
