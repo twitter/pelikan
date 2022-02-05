@@ -9,7 +9,6 @@ use crate::segments::*;
 
 use core::num::NonZeroU32;
 use metrics::{static_metrics, Counter, Gauge};
-use rustcommon_time::CoarseInstant as Instant;
 use std::path::PathBuf;
 
 static_metrics! {
@@ -38,7 +37,7 @@ pub(crate) struct Segments {
     /// Head of the free segment queue
     free_q: Option<NonZeroU32>,
     /// Time last flushed
-    flush_at: CoarseInstant,
+    flush_at: Instant,
     /// Eviction configuration and state
     evict: Box<Eviction>,
     /// Is `data` file backed? 
@@ -178,7 +177,7 @@ impl Segments {
             let i32_size = ::std::mem::size_of::<i32>();
             let u32_size = ::std::mem::size_of::<u32>();
             let free_q_size = ::std::mem::size_of::<Option<NonZeroU32>>();
-            let flush_at_size = ::std::mem::size_of::<CoarseInstant>();
+            let flush_at_size = ::std::mem::size_of::<Instant>();
             let evict_size = ::std::mem::size_of::<Eviction>();
             let fields_size = headers_size
                             + i32_size     // `segment_size`
@@ -242,7 +241,7 @@ impl Segments {
             offset += free_q_size;
             end += flush_at_size;
 
-            let flush_at = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut CoarseInstant) };
+            let flush_at = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut Instant) };
 
 
             // ----- Retrieve `evict` -----
@@ -293,7 +292,7 @@ impl Segments {
             let i32_size = ::std::mem::size_of::<i32>();
             let u32_size = ::std::mem::size_of::<u32>();
             let free_q_size = ::std::mem::size_of::<Option<NonZeroU32>>();
-            let flush_at_size = ::std::mem::size_of::<CoarseInstant>();
+            let flush_at_size = ::std::mem::size_of::<Instant>();
             let evict_size = ::std::mem::size_of::<Eviction>();
             let fields_size = headers_size
                             + i32_size     // `segment_size`
@@ -383,7 +382,7 @@ impl Segments {
             end += flush_at_size;
 
             // cast `flush_at` to byte pointer
-            let byte_ptr = (&self.flush_at as *const CoarseInstant) as *const u8;
+            let byte_ptr = (&self.flush_at as *const Instant) as *const u8;
 
             // get corresponding bytes from byte pointer
             let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, flush_at_size)};
@@ -444,7 +443,7 @@ impl Segments {
     }
 
     /// Returns the time the segments were last flushed
-    pub fn flush_at(&self) -> CoarseInstant {
+    pub fn flush_at(&self) -> Instant {
         self.flush_at
     }
 
@@ -867,7 +866,7 @@ impl Segments {
                 // reduces CPU load under heavy rewrite/delete workloads at the
                 // cost of letting more dead items remain in the segements,
                 // reducing the hitrate
-                // if self.headers[seg_id as usize].merge_at() + CoarseDuration::from_secs(30) > CoarseInstant::recent() {
+                // if self.headers[seg_id as usize].merge_at() + CoarseDuration::from_secs(30) > Instant::recent() {
                 //     return Ok(());
                 // }
 

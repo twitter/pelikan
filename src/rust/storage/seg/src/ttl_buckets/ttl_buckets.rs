@@ -47,7 +47,7 @@ const MAX_TTL_BUCKET_IDX: usize = MAX_N_TTL_BUCKET - 1;
 #[derive(Clone)]  // for testing
 pub struct TtlBuckets {
     pub(crate) buckets: Box<[TtlBucket]>,
-    pub(crate) last_expired: CoarseInstant,
+    pub(crate) last_expired: Instant,
     /// Are `TtlBuckets` copied back from a file?
     pub(crate) buckets_copied_back: bool,
 }
@@ -75,7 +75,7 @@ impl TtlBuckets {
         }
 
         let buckets = buckets.into_boxed_slice();
-        let last_expired = CoarseInstant::now();
+        let last_expired = Instant::now();
 
         Self {
             buckets,
@@ -96,7 +96,7 @@ impl TtlBuckets {
             let bucket_size = ::std::mem::size_of::<TtlBucket>();
             // size from all `TtlBucket`s in `TtlBuckets`
             let buckets_size = MAX_N_TTL_BUCKET * bucket_size;
-            let last_expired_size = ::std::mem::size_of::<CoarseInstant>();
+            let last_expired_size = ::std::mem::size_of::<Instant>();
             let ttl_buckets_struct_size = buckets_size + last_expired_size;
 
             // Mmap file
@@ -112,7 +112,7 @@ impl TtlBuckets {
 
             // ----- Retrieve `last_expired` -----
             let mut offset = 0;
-            let last_expired = unsafe { *(bytes[offset..last_expired_size].as_mut_ptr() as *mut CoarseInstant) };
+            let last_expired = unsafe { *(bytes[offset..last_expired_size].as_mut_ptr() as *mut Instant) };
 
             // ----- Retrieve `buckets` ----- 
             offset += last_expired_size;
@@ -157,7 +157,7 @@ impl TtlBuckets {
             let bucket_size = ::std::mem::size_of::<TtlBucket>();
             // size of all `TtlBucket`s in `TtlBuckets`
             let buckets_size = MAX_N_TTL_BUCKET * bucket_size;
-            let last_expired_size = ::std::mem::size_of::<CoarseInstant>();
+            let last_expired_size = ::std::mem::size_of::<Instant>();
             let ttl_buckets_struct_size = buckets_size + last_expired_size;
 
             // Mmap file
@@ -169,7 +169,7 @@ impl TtlBuckets {
             let mut offset = 0;
 
             // cast `last_expired` to byte pointer
-            let byte_ptr = (&self.last_expired as *const CoarseInstant) as *const u8;
+            let byte_ptr = (&self.last_expired as *const Instant) as *const u8;
 
             // get corresponding bytes from byte pointer
             let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, last_expired_size)};
@@ -233,7 +233,7 @@ impl TtlBuckets {
     }
 
     pub(crate) fn expire(&mut self, hashtable: &mut HashTable, segments: &mut Segments) -> usize {
-        let now = CoarseInstant::now();
+        let now = Instant::now();
 
         if now == self.last_expired {
             return 0;
