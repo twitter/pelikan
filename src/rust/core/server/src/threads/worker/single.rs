@@ -34,7 +34,7 @@ pub struct SingleWorker<Storage, Parser, Request, Response> {
     nevent: usize,
     timeout: Duration,
     session_queue: QueuePairs<(), Session>,
-    signal_queue: QueuePairs<(), Signal>,
+    signal_queue: QueuePairs<Signal, Signal>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
     parser: Parser,
@@ -47,8 +47,8 @@ where
     Storage: Execute<Request, Response> + EntryStore,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(
-        config: &WorkerConfig,
+    pub fn new<T: WorkerConfig>(
+        config: &T,
         storage: Storage,
         parser: Parser,
     ) -> Result<Self, std::io::Error> {
@@ -62,8 +62,8 @@ where
 
         Ok(Self {
             poll,
-            nevent: config.nevent(),
-            timeout: Duration::from_millis(config.timeout() as u64),
+            nevent: config.worker().nevent(),
+            timeout: Duration::from_millis(config.worker().timeout() as u64),
             storage,
             signal_queue,
             session_queue,
@@ -98,9 +98,12 @@ where
                         self.handle_new_sessions();
 
                         #[allow(clippy::never_loop)]
+                        // check if we received any signals from the admin thread
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
                             match signal {
                                 Signal::Shutdown => {
+                                    // if we received a shutdown, we can return
+                                    // and stop processing events
                                     return;
                                 }
                             }
@@ -182,7 +185,7 @@ where
         self.session_queue.new_pair(65536, Some(waker))
     }
 
-    pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
+    pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
         self.signal_queue.new_pair(128, None)
     }
 }

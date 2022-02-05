@@ -2,6 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Pingserver is an implementation of a basic backend service which responds to
+//! each `PING` with a `PONG`. This allows for testing of the core components
+//! without the overheads associated with managing any state.
+//!
+//! Running this binary is the primary way of using Pingserver.
+
 #[macro_use]
 extern crate logger;
 
@@ -12,6 +18,9 @@ use metrics::*;
 use pelikan_pingserver_rs::Pingserver;
 use server::PERCENTILES;
 
+/// The entry point into the running Pingserver instance. This function parses
+/// parses the command line options, loads the configuration, and launches the
+/// core threads.
 fn main() {
     // custom panic hook to terminate whole process after unwinding
     std::panic::set_hook(Box::new(|s| {

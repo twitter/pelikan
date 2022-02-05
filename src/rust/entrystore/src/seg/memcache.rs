@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! This module defines how `Seg` storage will be used to execute `Memcache`
+//! storage commands.
+
 use super::*;
 
 use protocol::memcache::{MemcacheEntry, MemcacheStorage, MemcacheStorageError};

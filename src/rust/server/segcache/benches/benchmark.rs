@@ -2,14 +2,15 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-// This is a very basic benchmark which tests only get requests with a few
-// different key and value sizes. It's only using one connection and a very
-// primitive blocking client, so these results do not reflect the true
-// performance of the server when under load. It can be used to get a rough idea
-// of how changes may impact performance.
-
-// For formal performance testing, it is recommended to use
-// https://github.com/twitter/rpc-perf or another memcached benchmarking tool.
+//! This is a very basic benchmark which tests only get requests with a few
+//! different key and value sizes. It's only using one connection and a very
+//! primitive blocking client, so these results do not reflect the true
+//! performance of the server when under load. It can be used to get a rough
+//! idea of how changes may impact performance.
+//!
+//! For formal performance testing, it is recommended to use
+//! [rpc-perf](https://github.com/twitter/rpc-perf) or another cache
+//! benchmarking tool which supports the Memcache ASCII protocol.
 
 use config::SegcacheConfig;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};

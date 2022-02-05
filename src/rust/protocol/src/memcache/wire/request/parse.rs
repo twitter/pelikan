@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! This module handles parsing of the wire representation of a `Memcache`
+//! request into a request object.
+
 use crate::memcache::wire::*;
 use crate::memcache::*;
 use crate::*;

@@ -55,7 +55,7 @@ where
     }
 
     /// Return the signal queues for all the workers.
-    pub fn signal_queues(&mut self) -> Vec<QueuePair<Signal, ()>> {
+    pub fn signal_queues(&mut self) -> Vec<QueuePair<Signal, Signal>> {
         let mut senders = Vec::new();
         match self {
             Self::Single { worker } => {

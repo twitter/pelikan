@@ -40,7 +40,7 @@ where
     Parser: Parse<Request>,
     Response: protocol::Compose,
 {
-    signal_queue: QueuePairs<(), Signal>,
+    signal_queue: QueuePairs<Signal, Signal>,
     poll: Poll,
     nevent: usize,
     timeout: Duration,
@@ -59,8 +59,8 @@ where
     Storage: Execute<Request, Response> + EntryStore + Send,
 {
     /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new(
-        config: &WorkerConfig,
+    pub fn new<T: WorkerConfig>(
+        config: &T,
         storage: &mut StorageWorker<Storage, Request, Response>,
         parser: Parser,
     ) -> Result<Self, std::io::Error> {
@@ -76,8 +76,8 @@ where
 
         Ok(Self {
             poll,
-            nevent: config.nevent(),
-            timeout: Duration::from_millis(config.timeout() as u64),
+            nevent: config.worker().nevent(),
+            timeout: Duration::from_millis(config.worker().timeout() as u64),
             signal_queue,
             session_queue,
             storage_queue,
@@ -111,9 +111,12 @@ where
                         self.handle_storage_queue();
 
                         #[allow(clippy::never_loop)]
+                        // check if we received any signals from the admin thread
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
                             match signal {
                                 Signal::Shutdown => {
+                                    // if we received a shutdown, we can return
+                                    // and stop processing events
                                     return;
                                 }
                             }
@@ -226,10 +229,10 @@ where
         while let Ok(message) = self.storage_queue.try_recv() {
             let token = message.token();
             let mut reregister = false;
-            if let Ok(mut session) = self.poll.get_mut_session(token) {
+            if let Ok(session) = self.poll.get_mut_session(token) {
                 if let Some(response) = message.into_inner() {
                     trace!("composing response for session: {:?}", session);
-                    response.compose(&mut session);
+                    response.compose(session);
                     session.finalize_response();
                     // if we have pending writes, we should attempt to flush the session
                     // now. if we still have pending bytes, we should re-register to
@@ -276,7 +279,7 @@ where
         self.session_queue.new_pair(65536, Some(waker))
     }
 
-    pub fn signal_queue(&mut self) -> QueuePair<Signal, ()> {
+    pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
         self.signal_queue.new_pair(128, None)
     }
 }

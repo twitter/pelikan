@@ -2,6 +2,16 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Segcache is an implementation of a cache backend that implements a subset of
+//! the Memcache ASCII protocol and is backed with segment based storage. By
+//! grouping items with a similar TTL, it is able to provide efficient eager
+//! expiration.
+//!
+//! More details about the benefits of this design can be found in this
+//! [blog post](https://twitter.github.io/pelikan/2021/segcache.html).
+//!
+//! Running this binary is the primary way of using Segcache.
+
 #[macro_use]
 extern crate logger;
 
@@ -12,6 +22,9 @@ use metrics::*;
 use pelikan_segcache_rs::Segcache;
 use server::PERCENTILES;
 
+/// The entry point into the running Segcache instance. This function parses the
+/// command line options, loads the configuration, and launches the core
+/// threads.
 fn main() {
     // custom panic hook to terminate whole process after unwinding
     std::panic::set_hook(Box::new(|s| {
@@ -44,6 +57,7 @@ fn main() {
         )
         .get_matches();
 
+    // output stats descriptions and exit if the `stats` option was provided
     if matches.is_present("stats") {
         println!("{:<31} {:<15} DESCRIPTION", "NAME", "TYPE");
 
@@ -80,11 +94,10 @@ fn main() {
 
     // load config from file
     let config = if let Some(file) = matches.value_of("CONFIG") {
-        debug!("loading config: {}", file);
         match SegcacheConfig::load(file) {
             Ok(c) => c,
             Err(e) => {
-                error!("{}", e);
+                println!("{}", e);
                 std::process::exit(1);
             }
         }

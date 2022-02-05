@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! A collection of macros which are used by other crates within Pelikan.
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::Ident;

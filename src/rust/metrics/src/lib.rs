@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! A wrapper library for metrics which contains helper functions and macros to
+//! make it easier to use metrics within Pelikan.
+
 pub use common::metrics::{metric, Counter, Gauge, Heatmap, Relaxed};
 
 #[doc(hidden)]

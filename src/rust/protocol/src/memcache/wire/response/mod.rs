@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Implements the serialization of `Memcache` protocol responses into the wire
+//! representation.
+
 use super::*;
 use crate::memcache::wire::MemcacheCommand;
 use crate::memcache::MemcacheEntry;

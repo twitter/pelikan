@@ -17,23 +17,28 @@ fn time_type() -> TimeType {
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct TimeConfig {
+pub struct Time {
     #[serde(default = "time_type")]
     time_type: TimeType,
 }
 
 // implementation
-impl TimeConfig {
+impl Time {
     pub fn time_type(&self) -> TimeType {
         self.time_type
     }
 }
 
 // trait implementations
-impl Default for TimeConfig {
+impl Default for Time {
     fn default() -> Self {
         Self {
             time_type: time_type(),
         }
     }
+}
+
+// trait definitions
+pub trait TimeConfig {
+    fn time(&self) -> &Time;
 }

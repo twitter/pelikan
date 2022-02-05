@@ -8,15 +8,10 @@ use crate::EntryStore;
 
 mod ping;
 
+#[derive(Default)]
 /// A no-op storage backend which implements `EntryStore` and storage protocol
 /// traits.
 pub struct Noop {}
-
-impl Default for Noop {
-    fn default() -> Self {
-        Noop {}
-    }
-}
 
 impl Noop {
     /// Create a new `Noop` storage backend

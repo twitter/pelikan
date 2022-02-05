@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Basic benchmarks to test performance of the protocol implementation.
+
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 

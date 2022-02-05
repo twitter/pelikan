@@ -2,6 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! This module provides a set of integration tests and a function to run the
+//! tests against a Segcache instance. This allows us to run the same test suite
+//! for multiple server configurations.
+
 use logger::*;
 
 use std::io::{Read, Write};

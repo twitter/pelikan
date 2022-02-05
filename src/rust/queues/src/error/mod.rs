@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Common error types used throughout this crate.
+
 /// An error type which may be returned for operations on `QueuePairs`
 pub enum QueueError<T> {
     /// Read operation returned no messages.

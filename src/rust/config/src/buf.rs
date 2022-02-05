@@ -21,7 +21,7 @@ fn poolsize() -> usize {
 
 // struct definitions
 #[derive(Serialize, Deserialize, Debug)]
-pub struct BufConfig {
+pub struct Buf {
     #[serde(default = "size")]
     size: usize,
     #[serde(default = "poolsize")]
@@ -29,7 +29,7 @@ pub struct BufConfig {
 }
 
 // implementation
-impl BufConfig {
+impl Buf {
     pub fn size(&self) -> usize {
         self.size
     }
@@ -40,11 +40,16 @@ impl BufConfig {
 }
 
 // trait implementations
-impl Default for BufConfig {
+impl Default for Buf {
     fn default() -> Self {
         Self {
             size: size(),
             poolsize: poolsize(),
         }
     }
+}
+
+// trait definitions
+pub trait BufConfig {
+    fn buf(&self) -> &Buf;
 }

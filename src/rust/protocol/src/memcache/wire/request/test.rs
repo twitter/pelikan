@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! Tests for the `Memcache` protocol implementation.
+
 use crate::memcache::MemcacheRequest;
 use crate::memcache::MemcacheRequestParser;
 use crate::*;

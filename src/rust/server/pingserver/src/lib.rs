@@ -2,11 +2,14 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! Segcache is a cache implementation which used segment based storage and uses
-//! a subset of the Memcache protocol. Segment based storage allows us to
-//! perform efficient eager expiration of items.
+//! Pingserver is an implementation of a basic backend service which responds to
+//! each `PING` with a `PONG`. This allows for testing of the core components
+//! without the overheads associated with managing any state.
+//!
+//! This library is primarily used for automated testing. Users should prefer to
+//! run the Pingserver binary provided by this crate.
 
-use config::PingserverConfig;
+use config::*;
 use entrystore::Noop;
 use logger::*;
 use protocol::ping::{PingRequest, PingRequestParser, PingResponse};
@@ -26,7 +29,7 @@ impl Pingserver {
     /// Creates a new `Pingserver` process from the given `PingserverConfig`.
     pub fn new(config: PingserverConfig) -> Self {
         // initialize logging
-        let log_drain = configure_logging(config.debug(), config.klog());
+        let log_drain = configure_logging(&config);
 
         // initialize metrics
         metrics::init();
@@ -42,10 +45,7 @@ impl Pingserver {
 
         // initialize process
         let process_builder = ProcessBuilder::<Storage, Parser, Request, Response>::new(
-            config.admin(),
-            config.server(),
-            config.tls(),
-            config.worker(),
+            config,
             storage,
             max_buffer_size,
             parser,
