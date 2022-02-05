@@ -80,7 +80,6 @@ use metrics::{static_metrics, Counter};
 use std::path::PathBuf;
 use crate::datapool::*;
 
-use rustcommon_time::CoarseInstant as Instant;
 
 mod hash_bucket;
 
@@ -110,7 +109,7 @@ pub(crate) struct HashTable {
     mask: u64,
     data: Box<[HashBucket]>,
     rng: Box<Random>,
-    started: CoarseInstant,
+    started: Instant,
     next_to_chain: u64,
     /// Is `HashTable` copied back from a file?
     pub(crate) table_copied_back: bool,
@@ -187,7 +186,7 @@ impl HashTable {
             let hash_builder_size = ::std::mem::size_of::<RandomState>();
             let u64_size = ::std::mem::size_of::<u64>();
             let rng_size =::std::mem::size_of::<Random>();
-            let started_size = ::std::mem::size_of::<CoarseInstant>();
+            let started_size = ::std::mem::size_of::<Instant>();
             let hashtable_size = hash_builder_size 
                                + u64_size * 3 // `power`, `mask`, `next_to_chain`
                                + buckets_size // `data`
@@ -261,7 +260,7 @@ impl HashTable {
             offset += rng_size;
             end += started_size;
 
-            let started = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut CoarseInstant) };
+            let started = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut Instant) };
 
             // ----- Retrieve `next_to_chain` ---------
 
@@ -312,7 +311,7 @@ impl HashTable {
             let hash_builder_size = ::std::mem::size_of::<RandomState>();
             let u64_size = ::std::mem::size_of::<u64>();
             let rng_size =::std::mem::size_of::<Random>();
-            let started_size = ::std::mem::size_of::<CoarseInstant>();
+            let started_size = ::std::mem::size_of::<Instant>();
             let hashtable_size = hash_builder_size 
                                + u64_size * 3 // `power`, `mask`, `next_to_chain`
                                + buckets_size // `data`
@@ -402,7 +401,7 @@ impl HashTable {
             end += started_size;
 
             // cast `started` to byte pointer
-            let byte_ptr = (&self.started as *const CoarseInstant) as *const u8;
+            let byte_ptr = (&self.started as *const Instant) as *const u8;
 
             // get corresponding bytes from byte pointer
             let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, started_size)};

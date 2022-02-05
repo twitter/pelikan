@@ -9,7 +9,6 @@ use core::cmp::{max, Ordering};
 use core::num::NonZeroU32;
 
 use rand::Rng;
-use rustcommon_time::CoarseInstant as Instant;
 
 use crate::rng;
 use crate::segments::*;
