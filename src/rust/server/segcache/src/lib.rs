@@ -6,7 +6,7 @@
 //! a subset of the Memcache protocol. Segment based storage allows us to
 //! perform efficient eager expiration of items.
 
-use config::*;
+use config::SegcacheConfig;
 use entrystore::Seg;
 use logger::*;
 use protocol::memcache::{MemcacheRequest, MemcacheRequestParser, MemcacheResponse};
@@ -27,13 +27,13 @@ impl Segcache {
     /// Creates a new `Segcache` process from the given `SegcacheConfig`.
     pub fn new(config: SegcacheConfig) -> Self {
         // initialize logging
-        let log_drain = configure_logging(&config);
+        let log_drain = configure_logging(config.debug(), config.klog());
 
         // initialize metrics
         metrics::init();
 
         // initialize storage
-        let storage = Storage::new(&config);
+        let storage = Storage::new(config.seg());
 
         let max_buffer_size = std::cmp::max(
             server::DEFAULT_BUFFER_SIZE,
@@ -48,7 +48,10 @@ impl Segcache {
 
         // initialize process
         let process_builder = ProcessBuilder::<Storage, Parser, Request, Response>::new(
-            config,
+            config.admin(),
+            config.server(),
+            config.tls(),
+            config.worker(),
             storage,
             max_buffer_size,
             parser,
@@ -71,6 +74,7 @@ impl Segcache {
     /// fully terminated. This is more likely to be used for running integration
     /// tests or other automated testing.
     pub fn shutdown(self) {
+        // TODO: demolish cache
         self.process.shutdown()
     }
 }
