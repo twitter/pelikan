@@ -159,7 +159,7 @@ impl Segments {
             let heap_size = cfg_segments * cfg_segment_size as usize;
 
             // TODO(bmartin): we always prefault, this should be configurable
-            // `Segment.data` must be file backed for a recovery
+            // `Segments.data` must be file backed for a recovery
             if let Some(data_file) = builder.datapool_path {
                 let pool = File::create(data_file, heap_size, true)
                     .expect("failed to allocate file backed storage");
@@ -266,7 +266,7 @@ impl Segments {
         }
     }
 
-    /// Demolishes the segments by flushing the `Segment.data` to PMEM
+    /// Demolishes the segments by flushing the `Segments.data` to PMEM
     /// (if filed backed) and storing the other `Segments` fields' to
     /// PMEM (if a path is specified)
     pub fn demolish(&self, segments_fields_path: Option<PathBuf>, heap_size: usize) -> bool {
@@ -396,11 +396,11 @@ impl Segments {
             gracefully_shutdown = true;
         }
 
-        // if `Segment.data` is file backed, flush it to PMEM
+        // if `Segments.data` is file backed, flush it to PMEM
         if self.data_file_backed {
             self.data
                 .flush()
-                .expect("failed to flush Segment.data to storage");
+                .expect("failed to flush Segments.data to storage");
         }
         // This else case is not expected to be reached as this function
         // is only called during a graceful shutdown, so it is expected that the
