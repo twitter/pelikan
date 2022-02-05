@@ -77,6 +77,10 @@ use crate::*;
 use ahash::RandomState;
 use core::num::NonZeroU32;
 use metrics::{static_metrics, Counter};
+use std::path::PathBuf;
+use crate::datapool::*;
+
+use rustcommon_time::CoarseInstant as Instant;
 
 mod hash_bucket;
 
@@ -98,6 +102,7 @@ static_metrics! {
 
 /// Main structure for performing item lookup. Contains a contiguous allocation
 /// of [`HashBucket`]s which are used to store item info and metadata.
+#[derive(Clone)]  // for testing
 #[repr(C)]
 pub(crate) struct HashTable {
     hash_builder: Box<RandomState>,
@@ -105,8 +110,10 @@ pub(crate) struct HashTable {
     mask: u64,
     data: Box<[HashBucket]>,
     rng: Box<Random>,
-    started: Instant,
+    started: CoarseInstant,
     next_to_chain: u64,
+    /// Is `HashTable` copied back from a file?
+    pub(crate) table_copied_back: bool,
 }
 
 impl HashTable {
@@ -130,7 +137,9 @@ impl HashTable {
         let total_buckets = (buckets as f64 * (1.0 + overflow_factor)).ceil() as usize;
 
         let mut data = Vec::with_capacity(0);
+        // set number of elements in `data` to be `total_buckets`
         data.reserve_exact(total_buckets as usize);
+        // fill all elements with `HashBucket::new()`
         data.resize(total_buckets as usize, HashBucket::new());
         debug!(
             "hashtable has: {} primary slots across {} primary buckets and {} total buckets",
@@ -152,7 +161,272 @@ impl HashTable {
             rng: Box::new(rng()),
             started: Instant::recent(),
             next_to_chain: buckets as u64,
+            table_copied_back : false,
         }
+    }
+
+    pub fn restore(hashtable_path : Option<PathBuf>,
+                   cfg_power: u8, 
+                   overflow_factor: f64) 
+                   -> Self {
+
+        // if there is a path to restore from, restore the `HashTable`
+        if let Some(file) = hashtable_path {  
+
+            // restore() assumes no changes in `power`. 
+            // I.e. config specifies same `power` as `HashTable` we are 
+            // restoring from
+            // TODO: Detect a change of `power` and adjust `HashTable` accordingly
+
+            let slots = 1_u64 << cfg_power;
+            let buckets = slots / 8;
+            let total_buckets = (buckets as f64 * (1.0 + overflow_factor)).ceil() as usize;
+            let bucket_size = ::std::mem::size_of::<HashBucket>();
+            // size from all `HashBucket`s in `data`
+            let buckets_size = total_buckets * bucket_size;
+            let hash_builder_size = ::std::mem::size_of::<RandomState>();
+            let u64_size = ::std::mem::size_of::<u64>();
+            let rng_size =::std::mem::size_of::<Random>();
+            let started_size = ::std::mem::size_of::<CoarseInstant>();
+            let hashtable_size = hash_builder_size 
+                               + u64_size * 3 // `power`, `mask`, `next_to_chain`
+                               + buckets_size // `data`
+                               + rng_size
+                               + started_size;
+
+
+            // Mmap file
+            let pool = File::create(file, hashtable_size, true)
+                .expect("failed to allocate file backed storage");
+            let file_data = Box::new(pool.as_slice());  
+
+            // create blank bytes to copy data into
+            let mut bytes = vec![0; hashtable_size];
+            // retrieve bytes from mmapped file
+            bytes.copy_from_slice(&file_data[0..hashtable_size]);
+
+            // ----- Retrieve `hash_builder` ---------
+
+            let mut offset = 0;
+            let mut end = hash_builder_size;
+
+            let hash_builder = unsafe { &*(bytes[offset..end].as_mut_ptr() as *mut RandomState) };
+            // TODO: make this more efficient?
+            let hash_builder = hash_builder.clone();
+
+            // ----- Retrieve `power` ---------
+
+            offset += hash_builder_size;
+            end += u64_size;
+
+            let power = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut u64) };
+            // TODO: compare `cfg_power` and `power` 
+
+            // ----- Retrieve `mask` ---------
+
+            offset += u64_size;
+            end += u64_size;
+
+            let mask = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut u64) };
+            
+            // ----- Retrieve `data` ---------
+            offset += u64_size;
+            end += buckets_size;
+
+            let mut data = Vec::with_capacity(0);
+            data.reserve_exact(total_buckets as usize);
+
+            // Get each `HashBucket` from the raw bytes
+            for id in 0..total_buckets {
+                let begin = offset + (bucket_size as usize * id);  
+                let finish = begin + bucket_size as usize;
+
+                // cast bytes to `HashBucket`
+                let bucket = unsafe { *(bytes[begin..finish].as_mut_ptr() as *mut HashBucket) };
+                data.push(bucket);
+
+            }
+
+            // ----- Retrieve `rng` ---------
+
+            offset += buckets_size;
+            end += rng_size;
+
+            let rng = unsafe { &*(bytes[offset..end].as_mut_ptr() as *mut Random) };
+            // TODO: make this more efficient?
+            let rng = rng.clone();
+
+            // ----- Retrieve `started` ---------
+
+            offset += rng_size;
+            end += started_size;
+
+            let started = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut CoarseInstant) };
+
+            // ----- Retrieve `next_to_chain` ---------
+
+            offset += started_size;
+            end += u64_size;
+
+            let next_to_chain = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut u64) };
+    
+            Self {
+                hash_builder: Box::new(hash_builder),
+                power,
+                mask,
+                data: data.into_boxed_slice(),
+                rng : Box::new(rng),
+                started,
+                next_to_chain,
+                table_copied_back : true,
+            }
+
+        } 
+
+        // otherwise, create a new `HashTable`
+        else {
+            HashTable::new(cfg_power, overflow_factor)
+        }
+
+    }
+
+
+    /// Demolishes the `HashTable` by storing it to
+    /// PMEM (if a path is specified) 
+    pub fn demolish(&self, 
+                    hashtable_path : Option<PathBuf>, 
+                    overflow_factor: f64) 
+                    -> bool {
+
+        let mut gracefully_shutdown = false;
+
+        // if a path is specified, copy all the `HashBucket`s 
+        // to the file specified by `hashtable_path`
+        if let Some(file) = hashtable_path {   
+            let slots = 1_u64 << self.power;
+            let buckets = slots / 8;
+            let total_buckets = (buckets as f64 * (1.0 + overflow_factor)).ceil() as usize;
+            let bucket_size = ::std::mem::size_of::<HashBucket>();
+            // size from all `HashBucket`s in `data`
+            let buckets_size = total_buckets * bucket_size;
+            let hash_builder_size = ::std::mem::size_of::<RandomState>();
+            let u64_size = ::std::mem::size_of::<u64>();
+            let rng_size =::std::mem::size_of::<Random>();
+            let started_size = ::std::mem::size_of::<CoarseInstant>();
+            let hashtable_size = hash_builder_size 
+                               + u64_size * 3 // `power`, `mask`, `next_to_chain`
+                               + buckets_size // `data`
+                               + rng_size
+                               + started_size;
+
+            // Mmap file
+            let mut pool = File::create(file, hashtable_size, true)
+                .expect("failed to allocate file backed storage");
+            let file_data = Box::new(pool.as_mut_slice());  
+
+            // --------------------- Store `hash_builder` -----------------
+            let mut offset = 0;
+            let mut end = hash_builder_size;
+
+            // cast `hash_builder` to byte pointer
+            // TODO: make this more efficient (avoid using clone())
+            let byte_ptr = Box::into_raw(self.hash_builder.clone()) as *const u8;
+            
+            // get corresponding bytes from byte pointer
+            let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, hash_builder_size)};
+            
+            // store `hash_builder` back to mmapped file
+            file_data[offset..end].copy_from_slice(bytes);
+
+            // --------------------- Store `power` -----------------
+            offset += hash_builder_size;
+            end += u64_size;
+
+            // cast `power` to byte pointer
+            let byte_ptr = (&self.power as *const u64) as *const u8;
+
+            // get corresponding bytes from byte pointer
+            let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, u64_size)};
+            
+            // store `power` back to mmapped file
+            file_data[offset..end].copy_from_slice(bytes);
+
+            // --------------------- Store `mask` -----------------
+            offset += u64_size;
+            end += u64_size;
+
+            // cast `mask` to byte pointer
+            let byte_ptr = (&self.mask as *const u64) as *const u8;
+
+            // get corresponding bytes from byte pointer
+            let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, u64_size)};
+            
+            // store `mask` back to mmapped file
+            file_data[offset..end].copy_from_slice(bytes);
+        
+            // --------------------- Store `data` -----------------
+            offset += u64_size;
+            end += buckets_size;
+
+            // for every `HashBucket`
+            for id in 0..total_buckets {
+                let begin = offset + (bucket_size as usize * id);  
+                let finish = begin + bucket_size as usize;
+        
+                // cast `HashBucket` to byte pointer
+                let byte_ptr =(&self.data[id] as *const HashBucket) as *const u8;
+                
+                // get corresponding bytes from byte pointer
+                let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, bucket_size)};
+                
+                // store `HashBucket` back to mmapped file
+                file_data[begin..finish].copy_from_slice(bytes);
+            }
+
+            // --------------------- Store `rng` -----------------
+            offset += buckets_size;
+            end += rng_size;
+
+            // cast `rng` to byte pointer
+            // TODO: make this more efficient (avoid using clone())
+            let byte_ptr = Box::into_raw(self.rng.clone()) as *const u8;
+            
+            // get corresponding bytes from byte pointer
+            let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, rng_size)};
+            
+            // store `rng` back to mmapped file
+            file_data[offset..end].copy_from_slice(bytes);
+
+            // --------------------- Store `started` -----------------
+            offset += rng_size;
+            end += started_size;
+
+            // cast `started` to byte pointer
+            let byte_ptr = (&self.started as *const CoarseInstant) as *const u8;
+
+            // get corresponding bytes from byte pointer
+            let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, started_size)};
+            
+            // store `started` back to mmapped file
+            file_data[offset..end].copy_from_slice(bytes);
+
+            // --------------------- Store `next_to_chain` -----------------
+            offset += started_size;
+            end += u64_size;
+
+            // cast `next_to_chain` to byte pointer
+            let byte_ptr = (&self.next_to_chain as *const u64) as *const u8;
+
+            // get corresponding bytes from byte pointer
+            let bytes = unsafe {::std::slice::from_raw_parts(byte_ptr, u64_size)};
+            
+            // store `next_to_chain` back to mmapped file
+            file_data[offset..end].copy_from_slice(bytes);
+
+            gracefully_shutdown = true;
+             // TODO: flush file_data from CPU caches
+        }
+        gracefully_shutdown
     }
 
     /// Lookup an item by key and return it
@@ -161,6 +435,7 @@ impl HashTable {
         let tag = tag_from_hash(hash);
         let bucket_id = hash & self.mask;
 
+        // ccc: get bucket corresponding to the key
         let mut bucket = &mut self.data[bucket_id as usize];
         let chain_len = chain_len(bucket.data[0]);
         let mut chain_idx = 0;
@@ -171,13 +446,14 @@ impl HashTable {
         if curr_ts != get_ts(bucket.data[0]) {
             bucket.data[0] = (bucket.data[0] & !TS_MASK) | (curr_ts << TS_BIT_SHIFT);
 
+            // ccc: Mask every "item info" in this bucket to remove the freq smoothing
             loop {
                 let n_item_slot = if chain_idx == chain_len {
                     N_BUCKET_SLOT
                 } else {
                     N_BUCKET_SLOT - 1
                 };
-
+                
                 for i in 0..n_item_slot {
                     if chain_idx == 0 && i == 0 {
                         continue;
@@ -196,21 +472,25 @@ impl HashTable {
             chain_idx = 0;
             bucket = &mut self.data[bucket_id as usize];
         }
-
+        
+         // ccc: look at every HashBucket in this chain
         loop {
             let n_item_slot = if chain_idx == chain_len {
-                N_BUCKET_SLOT
+                N_BUCKET_SLOT    // ccc: the last HashBucket in this chain has 8 items
             } else {
-                N_BUCKET_SLOT - 1
+                N_BUCKET_SLOT - 1 // ccc: every other has 7 items (or 6 in the case of HashBucket 0)
             };
 
+            // ccc: for every slot of "item info" in this HashBucket
             for i in 0..n_item_slot {
+                // ccc: ignore the "bucket info" slot (in HashBucket 0)
                 if chain_idx == 0 && i == 0 {
                     continue;
                 }
 
                 let current_info = bucket.data[i];
 
+                // ccc: check if the tags match
                 if get_tag(current_info) == tag {
                     let current_item = segments.get_item(current_info).unwrap();
                     if current_item.key() != key {
@@ -681,7 +961,7 @@ impl HashTable {
                     continue;
                 }
                 if get_seg_id(current_item_info) != Some(segment.id())
-                    || get_offset(current_item_info) != offset as u64
+                    || get_offset(current_item_info) != offset as _
                 {
                     HASH_TAG_COLLISION.increment();
                     continue;
@@ -720,5 +1000,16 @@ impl HashTable {
         let mut hasher = self.hash_builder.build_hasher();
         hasher.write(key);
         hasher.finish()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn equivalent_hashtables(&self, h: HashTable) -> bool{
+        // TODO compare hash_builder
+        self.power == h.power &&
+        self.mask == h.mask &&
+        self.data == h.data &&
+        self.rng == h.rng && 
+        self.started == h.started &&
+        self.next_to_chain == h.next_to_chain
     }
 }
