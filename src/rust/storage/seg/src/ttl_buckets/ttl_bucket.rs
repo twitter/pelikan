@@ -26,7 +26,7 @@
 //! └──────────────────────────────────────────────────────────┘
 //! ```
 
-use super::SEGMENT_EXPIRE;
+use super::{SEGMENT_CLEAR, SEGMENT_EXPIRE};
 use crate::*;
 use core::num::NonZeroU32;
 
@@ -104,6 +104,35 @@ impl TtlBucket {
                 }
             } else {
                 return expired;
+            }
+        }
+    }
+
+    /// Clear segments from this TtlBucket, returns the number of segments
+    /// expired.
+    pub(super) fn clear(&mut self, hashtable: &mut HashTable, segments: &mut Segments) -> usize {
+        if self.head.is_none() {
+            return 0;
+        }
+
+        let mut cleared = 0;
+
+        loop {
+            let seg_id = self.head;
+            if let Some(seg_id) = seg_id {
+                let mut segment = segments.get_mut(seg_id).unwrap();
+                if let Some(next) = segment.next_seg() {
+                    self.head = Some(next);
+                } else {
+                    self.head = None;
+                    self.tail = None;
+                }
+                let _ = segment.clear(hashtable, true);
+                segments.push_free(seg_id);
+                SEGMENT_CLEAR.increment();
+                cleared += 1;
+            } else {
+                return cleared;
             }
         }
     }
