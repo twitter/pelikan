@@ -8,12 +8,12 @@
 use core::cmp::{max, Ordering};
 use core::num::NonZeroU32;
 
-use ::rand::Rng;
+use rand::Rng;
+use rustcommon_time::CoarseInstant as Instant;
 
 use crate::rng;
 use crate::segments::*;
 use crate::Random;
-use crate::*;
 
 mod policy;
 
@@ -21,6 +21,7 @@ pub use policy::Policy;
 
 /// The `Eviction` struct is used to rank and return segments for eviction. It
 /// implements eviction strategies corresponding to the `Policy`.
+#[derive(Clone, PartialEq)]
 pub struct Eviction {
     policy: Policy,
     last_update_time: Instant,
