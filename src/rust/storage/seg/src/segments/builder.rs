@@ -12,24 +12,36 @@ use std::path::{Path, PathBuf};
 
 /// The `SegmentsBuilder` allows for the configuration of the segment storage.
 pub(crate) struct SegmentsBuilder {
+    pub(super) restore: bool,
     pub(super) heap_size: usize,
     pub(super) segment_size: i32,
     pub(super) evict_policy: Policy,
     pub(super) datapool_path: Option<PathBuf>,
+    pub(super) segments_fields_path: Option<PathBuf>,
 }
 
 impl Default for SegmentsBuilder {
     fn default() -> Self {
         Self {
+            restore: false,
             segment_size: 1024 * 1024,
             heap_size: 64 * 1024 * 1024,
             evict_policy: Policy::Random,
             datapool_path: None,
+            segments_fields_path: None,
         }
     }
 }
 
 impl<'a> SegmentsBuilder {
+    /// Specify whether the `SegmentHeader`s will be restored
+    /// from the segments_fields_path.
+    /// Otherwise, the cache will be created and treated as new.
+    pub fn restore(mut self, will_restore: bool) -> Self {
+        self.restore = will_restore;
+        self
+    }
+
     /// Set the segment size in bytes.
     ///
     /// # Panics
@@ -62,7 +74,7 @@ impl<'a> SegmentsBuilder {
         self
     }
 
-    /// Specify a backing file to be used for the segment storage. If provided,
+    /// Specify a backing file to be used for the `Segment.data` storage. If provided,
     /// a file will be created at the corresponding path and used for segment
     /// storage.
     pub fn datapool_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
@@ -70,8 +82,23 @@ impl<'a> SegmentsBuilder {
         self
     }
 
+    /// Specify a backing file to be used for the `Segment` fields' storage. If provided,
+    /// a file will be created at the corresponding path and used for segment header
+    /// storage.
+    pub fn segments_fields_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
+        self.segments_fields_path = path.map(|p| p.as_ref().to_owned());
+        self
+    }
+
     /// Construct the [`Segments`] from the builder
     pub fn build(self) -> Segments {
-        Segments::from_builder(self)
+        if self.restore {
+            Segments::from_builder_restore(self)
+        } else {
+            Segments::from_builder_new(self)
+        }
     }
+
+
+    
 }
