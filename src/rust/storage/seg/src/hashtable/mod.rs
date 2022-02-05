@@ -944,7 +944,7 @@ impl HashTable {
                     continue;
                 }
                 if get_seg_id(current_item_info) != Some(segment.id())
-                    || get_offset(current_item_info) != offset as _
+                    || get_offset(current_item_info) != offset as 64
                 {
                     HASH_TAG_COLLISION.increment();
                     continue;

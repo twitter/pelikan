@@ -53,7 +53,8 @@ pub struct TtlBuckets {
 }
 
 impl TtlBuckets {
-    // Return a new `TtlBuckets`
+    /// Create a new set of `TtlBuckets` which cover the full range of TTLs. See
+    /// the module-level documentation for how the range of TTLs are stored.
     pub fn new() -> Self {
         let intervals = [
             TTL_BUCKET_INTERVAL_1,
@@ -216,6 +217,7 @@ impl TtlBuckets {
     }
 
     // TODO(bmartin): confirm handling for negative TTLs here...
+    /// Get a mutable reference to the `TtlBucket` for the given TTL.
     pub(crate) fn get_mut_bucket(&mut self, ttl: Duration) -> &mut TtlBucket {
         let index = self.get_bucket_index(ttl);
 
@@ -261,4 +263,9 @@ impl TtlBuckets {
     pub(crate) fn equivalent_ttlbuckets(&self, t: TtlBuckets) -> bool {
         self.buckets == t.buckets && self.last_expired == t.last_expired
     }
+
+    impl Default for TtlBuckets {
+        fn default() -> Self {
+            Self::new()
+        }
 }

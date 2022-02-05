@@ -373,6 +373,34 @@ fn expiration() {
     assert_eq!(cache.segments.free(), segments);
 }
 
+#[test]
+fn clear() {
+    let ttl = Duration::ZERO;
+    let segment_size = 4096;
+    let segments = 64;
+    let heap_size = segments * segment_size as usize;
+
+    let mut cache = Seg::builder()
+        .segment_size(segment_size)
+        .heap_size(heap_size)
+        .build();
+    assert_eq!(cache.items(), 0);
+    assert_eq!(cache.segments.free(), segments);
+    assert!(cache.get(b"coffee").is_none());
+    assert!(cache.insert(b"coffee", b"strong", None, ttl).is_ok());
+    assert_eq!(cache.segments.free(), segments - 1);
+    assert_eq!(cache.items(), 1);
+    assert!(cache.get(b"coffee").is_some());
+
+    let item = cache.get(b"coffee").unwrap();
+    assert_eq!(item.value(), b"strong", "item is: {:?}", item);
+
+    cache.clear();
+    assert_eq!(cache.segments.free(), segments);
+    assert_eq!(cache.items(), 0);
+    assert!(cache.get(b"coffee").is_none());
+}
+
 // ----------- TESTS FOR RECOVERY -------------
 // Configuration Options:
 // New cache, not file backed

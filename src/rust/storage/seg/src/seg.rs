@@ -12,9 +12,9 @@ use metrics::{static_metrics, Counter};
 const RESERVE_RETRIES: usize = 3;
 
 static_metrics! {
-    static SEGMENT_REQUEST: Counter;
-    static SEGMENT_REQUEST_FAILURE: Counter;
-    static SEGMENT_REQUEST_SUCCESS: Counter;
+    pub(crate) static SEGMENT_REQUEST: Counter;
+    pub(crate) static SEGMENT_REQUEST_FAILURE: Counter;
+    pub(crate) static SEGMENT_REQUEST_SUCCESS: Counter;
 }
 
 /// A pre-allocated key-value store with eager expiration. It uses a
@@ -185,16 +185,16 @@ impl Seg {
                     {
                         retries -= 1;
                     } else {
-                        // we successfully got a segment, increment the stat and
-                        // return to start of loop to reserve the item
-                        SEGMENT_REQUEST_SUCCESS.increment();
+                        // we successfully evicted a segment, return to start of
+                        // loop to reserve the item
                         continue;
                     }
                 }
             }
             if retries == 0 {
-                // segment acquire failed, increment the stat and return with
+                // segment acquire failed, increment the stats and return with
                 // an error
+                SEGMENT_REQUEST.increment();
                 SEGMENT_REQUEST_FAILURE.increment();
                 return Err(SegError::NoFreeSegments);
             }
@@ -310,7 +310,7 @@ impl Seg {
     /// assert!(cache.get(b"coffee").is_some());
     ///
     /// // Delay and then trigger expiration
-    /// std::thread::sleep(std::time::Duration::from_secs(6));
+    /// std::thread::sleep(Duration::from_secs(6));
     /// cache.expire();
     ///
     /// // And the expired item is not in the cache
