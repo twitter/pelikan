@@ -61,6 +61,8 @@ impl Seg {
     /// Demolish (gracefully shutdown) the cache if 
     /// configured to do so
     pub fn demolish<T: SegConfig>(self, config: &T)  {
+        let config = config.seg();
+        
         if config.graceful_shutdown() {
             ::seg::Seg::demolisher()
                 .heap_size(config.heap_size())
