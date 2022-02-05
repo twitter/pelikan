@@ -263,7 +263,6 @@ impl TtlBuckets {
     pub(crate) fn equivalent_ttlbuckets(&self, t: TtlBuckets) -> bool {
         self.buckets == t.buckets && self.last_expired == t.last_expired
     }
-
 }
 
 impl Default for TtlBuckets {

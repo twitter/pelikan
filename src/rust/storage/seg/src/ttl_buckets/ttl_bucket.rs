@@ -74,7 +74,7 @@ impl TtlBucket {
         self.next_to_merge
     }
 
-/// Set the next segment to be merged within the `TtlBucket`.
+    /// Set the next segment to be merged within the `TtlBucket`.
     pub fn set_next_to_merge(&mut self, next: Option<NonZeroU32>) {
         self.next_to_merge = next;
     }
@@ -144,7 +144,7 @@ impl TtlBucket {
         }
     }
 
-   /// Attempts to expand the `TtlBucket` by allocating a segment from the free
+    /// Attempts to expand the `TtlBucket` by allocating a segment from the free
     /// queue. If there are no segments currently free, this function will
     /// return and error. It is up to the caller to handle the error and retry.
     fn try_expand(&mut self, segments: &mut Segments) -> Result<(), TtlBucketsError> {
