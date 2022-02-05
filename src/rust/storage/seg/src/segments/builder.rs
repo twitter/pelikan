@@ -34,7 +34,7 @@ impl Default for SegmentsBuilder {
 }
 
 impl<'a> SegmentsBuilder {
-    /// Specify whether the `SegmentHeader`s will be restored
+    /// Specify whether the `Segments` fields' will be restored
     /// from the segments_fields_path.
     /// Otherwise, the cache will be created and treated as new.
     pub fn restore(mut self, will_restore: bool) -> Self {
@@ -74,7 +74,7 @@ impl<'a> SegmentsBuilder {
         self
     }
 
-    /// Specify a backing file to be used for the `Segment.data` storage. If provided,
+    /// Specify a backing file to be used for the `Segments.data` storage. If provided,
     /// a file will be created at the corresponding path and used for segment
     /// storage.
     pub fn datapool_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {

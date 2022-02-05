@@ -150,7 +150,7 @@ impl Builder {
         self
     }
 
-    /// Specify a backing file to be used for `Segment.data` storage.
+    /// Specify a backing file to be used for `Segments.data` storage.
     pub fn datapool_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
         self.segments_builder = self.segments_builder.datapool_path(path);
         self
