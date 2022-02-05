@@ -28,10 +28,6 @@
 
 use super::SEG_MAGIC;
 use core::num::NonZeroU32;
-use rustcommon_time::*;
-
-use rustcommon_time::CoarseDuration as Duration;
-use rustcommon_time::CoarseInstant as Instant;
 
 // the minimum age of a segment before it is eligible for eviction
 // TODO(bmartin): this should be parameterized.
@@ -184,13 +180,13 @@ impl SegmentHeader {
 
     #[inline]
     /// Returns the TTL for the segment.
-    pub fn ttl(&self) -> CoarseDuration {
-        CoarseDuration::from_secs(self.ttl)
+    pub fn ttl(&self) -> Duration {
+        Duration::from_secs(self.ttl)
     }
 
     #[inline]
     /// Sets the TTL for the segment.
-    pub fn set_ttl(&mut self, ttl: CoarseDuration) {
+    pub fn set_ttl(&mut self, ttl: Duration) {
         self.ttl = ttl.as_secs();
     }
 
@@ -244,26 +240,26 @@ impl SegmentHeader {
 
     #[inline]
     /// Returns the instant at which the segment was created
-    pub fn create_at(&self) -> CoarseInstant {
+    pub fn create_at(&self) -> Instant {
         self.create_at
     }
 
     #[inline]
     /// Update the created time
     pub fn mark_created(&mut self) {
-        self.create_at = CoarseInstant::recent();
+        self.create_at = Instant::recent();
     }
 
     #[inline]
     /// Returns the instant at which the segment was merged
-    pub fn merge_at(&self) -> CoarseInstant {
+    pub fn merge_at(&self) -> Instant {
         self.merge_at
     }
 
     #[inline]
     /// Update the created time
     pub fn mark_merged(&mut self) {
-        self.merge_at = CoarseInstant::recent();
+        self.merge_at = Instant::recent();
     }
 
     #[inline]
