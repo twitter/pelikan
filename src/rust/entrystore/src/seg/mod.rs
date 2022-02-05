@@ -4,12 +4,14 @@
 
 //! Segment-structured storage which implements efficient proactive eviction.
 //! This storage type is suitable for use in simple key-value cache backends.
-//! See: [`::seg`] crate for more details behind the underlying storage design.
+//! See: [`::segcache`] crate for more details behind the underlying storage
+//! design.
 
 use crate::EntryStore;
 
 use config::seg::Eviction;
 use config::SegConfig;
+use rustcommon_time::CoarseDuration;
 use seg::{Policy, SegError};
 
 mod memcache;
@@ -21,11 +23,9 @@ pub struct Seg {
 }
 
 impl Seg {
-    /// Create `Seg` storage based on the config and the `TimeType` which is
+    /// Create a new `SegCache` based on the config and the `TimeType` which is
     /// used to interpret various expiry time formats.
-    pub fn new<T: SegConfig>(config: &T) -> Self {
-        let config = config.seg();
-
+    pub fn new(config: &SegConfig) -> Self {
         // build up the eviction policy from the config
         let eviction = match config.eviction() {
             Eviction::None => Policy::None,
@@ -43,15 +43,34 @@ impl Seg {
 
         // build the datastructure from the config
         let data = ::seg::Seg::builder()
+            .restore(config.restore())
             .hash_power(config.hash_power())
             .overflow_factor(config.overflow_factor())
             .heap_size(config.heap_size())
             .segment_size(config.segment_size())
             .eviction(eviction)
             .datapool_path(config.datapool_path())
+            .segments_fields_path(config.segments_fields_path())
+            .ttl_buckets_path(config.ttl_buckets_path())
+            .hashtable_path(config.hashtable_path())
             .build();
 
         Self { data }
+    }
+
+
+    /// Demolish (gracefully shutdown) the cache if 
+    /// configured to do so
+    pub fn demolish(self, config: &SegConfig)  {
+        if config.graceful_shutdown() {
+            ::seg::Seg::demolisher()
+                .heap_size(config.heap_size())
+                .overflow_factor(config.overflow_factor())
+                .segments_fields_path(config.segments_fields_path())
+                .ttl_buckets_path(config.ttl_buckets_path())
+                .hashtable_path(config.hashtable_path())
+                .demolish(self.data);
+        };
     }
 }
 
