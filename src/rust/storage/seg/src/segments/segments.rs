@@ -566,6 +566,7 @@ impl Segments {
                     Err(SegmentsError::NoEvictableSegments)
                 }
             }
+        }
     }
 
     /// Returns a mutable `Segment` view for the segment with the specified id

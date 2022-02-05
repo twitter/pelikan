@@ -264,8 +264,10 @@ impl TtlBuckets {
         self.buckets == t.buckets && self.last_expired == t.last_expired
     }
 
-    impl Default for TtlBuckets {
-        fn default() -> Self {
-            Self::new()
-        }
+}
+
+impl Default for TtlBuckets {
+    fn default() -> Self {
+        Self::new()
+    }
 }
