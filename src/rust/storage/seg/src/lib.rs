@@ -56,6 +56,9 @@ pub use error::SegError;
 pub use eviction::Policy;
 pub use item::Item;
 
+// publicly exported items from external crates
+pub use storage_types::Value;
+
 // type aliases
 pub(crate) type Duration = common::time::Duration<Seconds<u32>>;
 pub(crate) type Instant = common::time::Instant<Seconds<u32>>;

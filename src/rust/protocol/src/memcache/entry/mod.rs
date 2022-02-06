@@ -6,6 +6,7 @@
 //! storage implementations to execute requests.
 
 use std::time::Duration;
+use storage_types::{OwnedValue, Value};
 
 #[derive(Debug)]
 /// Defines a `MemcacheEntry`
@@ -14,7 +15,7 @@ pub struct MemcacheEntry {
     pub key: Box<[u8]>,
     // An optional value for the entry. A key may exist in the cache with no
     // associated value.
-    pub value: Option<Box<[u8]>>,
+    pub value: Option<OwnedValue>,
     // A optional time-to-live for the entry. `None` variant indicates that the
     // item will not expire. A zero-duration should be interpreted as immediate
     // expiration.
@@ -34,12 +35,8 @@ impl MemcacheEntry {
 
     /// Returns a reference to the value for the entry. The `None` variant is
     /// used when the key is present, but has no associated value.
-    pub fn value(&self) -> Option<&[u8]> {
-        if self.value.is_some() {
-            Some(self.value.as_ref().unwrap().as_ref())
-        } else {
-            None
-        }
+    pub fn value(&self) -> Option<Value> {
+        self.value.as_ref().map(|v| v.as_value())
     }
 
     /// The TTL in seconds. `None` indicates that the item will not expire.

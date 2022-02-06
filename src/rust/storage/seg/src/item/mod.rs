@@ -11,6 +11,8 @@ mod reserved;
 #[cfg(any(feature = "magic", feature = "debug"))]
 pub(crate) use header::ITEM_MAGIC_SIZE;
 
+use crate::Value;
+
 pub(crate) use header::{ItemHeader, ITEM_HDR_SIZE};
 pub(crate) use raw::RawItem;
 pub(crate) use reserved::ReservedItem;
@@ -44,7 +46,7 @@ impl Item {
     }
 
     /// Borrow the item value
-    pub fn value(&self) -> &[u8] {
+    pub fn value(&self) -> Value {
         self.raw.value()
     }
 
@@ -65,5 +67,12 @@ impl std::fmt::Debug for Item {
             .field("cas", &self.cas())
             .field("raw", &self.raw)
             .finish()
+    }
+}
+
+pub fn size_of(value: &Value) -> usize {
+    match value {
+        Value::Bytes(v) => v.len(),
+        Value::U64(_) => core::mem::size_of::<u64>(),
     }
 }
