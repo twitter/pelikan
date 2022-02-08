@@ -33,6 +33,7 @@ metrics = { path = "../../metrics" }
 rand = { version = "0.8.3", features = ["small_rng", "getrandom"] }
 rand_chacha = { version = "0.3.0" }
 rand_xoshiro = { version = "0.6.0" }
+storage-types = { path = "../types" }
 thiserror = "1.0.24"
 
 [dev-dependencies]

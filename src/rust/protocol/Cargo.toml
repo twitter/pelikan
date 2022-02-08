@@ -19,6 +19,7 @@ config = { path = "../../rust/config" }
 logger = { path = "../../rust/logger" }
 metrics = { path = "../../rust/metrics" }
 session = { path = "../../rust/session" }
+storage-types = { path = "../../rust/storage/types" }
 
 [dev-dependencies]
 criterion = "0.3.4"
