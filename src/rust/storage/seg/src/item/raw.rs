@@ -7,7 +7,9 @@
 //! Unlike an [`Item`], the [`RawItem`] does not contain any fields which are
 //! shared within a hash bucket such as the CAS value.
 
+use super::header::ValueType;
 use crate::item::*;
+use crate::Value;
 
 /// The raw byte-level representation of an item
 #[repr(C)]
@@ -54,19 +56,28 @@ impl RawItem {
         }
     }
 
-    /// Returns the value length
+    /// Returns the value length as stored in the header
     #[inline]
-    pub(crate) fn vlen(&self) -> u32 {
+    fn vlen(&self) -> u32 {
         self.header().vlen()
     }
 
     /// Borrow the value
     // TODO(bmartin): should probably change this to be Option<>
-    pub(crate) fn value(&self) -> &[u8] {
-        unsafe {
+    pub(crate) fn value(&self) -> Value {
+        let bytes = unsafe {
             let ptr = self.data.add(self.value_offset());
             let len = self.vlen() as usize;
             std::slice::from_raw_parts(ptr, len)
+        };
+
+        // TODO(bmartin): consider allowing other return types here by encoding
+        // the type in the vlen portion of the header
+        match self.header().value_type() {
+            Some(ValueType::U64) => Value::U64(u64::from_be_bytes([
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            ])),
+            None => Value::Bytes(bytes),
         }
     }
 
@@ -105,29 +116,54 @@ impl RawItem {
     }
 
     /// Copy data into the item
-    pub(crate) fn define(&mut self, key: &[u8], value: &[u8], optional: &[u8]) {
-        unsafe {
-            self.set_magic();
-            (*self.header_mut()).set_deleted(false);
-            (*self.header_mut()).set_num(false);
-            (*self.header_mut()).set_olen(optional.len() as u8);
-            std::ptr::copy_nonoverlapping(
-                optional.as_ptr(),
-                self.data.add(self.optional_offset()),
-                optional.len(),
-            );
-            (*self.header_mut()).set_klen(key.len() as u8);
-            std::ptr::copy_nonoverlapping(
-                key.as_ptr(),
-                self.data.add(self.key_offset()),
-                key.len(),
-            );
-            (*self.header_mut()).set_vlen(value.len() as u32);
-            std::ptr::copy_nonoverlapping(
-                value.as_ptr(),
-                self.data.add(self.value_offset()),
-                value.len(),
-            );
+    pub(crate) fn define(&mut self, key: &[u8], value: Value, optional: &[u8]) {
+        match value {
+            Value::Bytes(value) => unsafe {
+                self.set_magic();
+                (*self.header_mut()).set_deleted(false);
+                (*self.header_mut()).set_type(None);
+                (*self.header_mut()).set_olen(optional.len() as u8);
+                std::ptr::copy_nonoverlapping(
+                    optional.as_ptr(),
+                    self.data.add(self.optional_offset()),
+                    optional.len(),
+                );
+                (*self.header_mut()).set_klen(key.len() as u8);
+                std::ptr::copy_nonoverlapping(
+                    key.as_ptr(),
+                    self.data.add(self.key_offset()),
+                    key.len(),
+                );
+                (*self.header_mut()).set_vlen(value.len() as u32);
+                std::ptr::copy_nonoverlapping(
+                    value.as_ptr(),
+                    self.data.add(self.value_offset()),
+                    value.len(),
+                );
+            },
+            Value::U64(value) => unsafe {
+                self.set_magic();
+                (*self.header_mut()).set_deleted(false);
+                (*self.header_mut()).set_type(Some(ValueType::U64));
+                (*self.header_mut()).set_olen(optional.len() as u8);
+                std::ptr::copy_nonoverlapping(
+                    optional.as_ptr(),
+                    self.data.add(self.optional_offset()),
+                    optional.len(),
+                );
+                (*self.header_mut()).set_klen(key.len() as u8);
+                std::ptr::copy_nonoverlapping(
+                    key.as_ptr(),
+                    self.data.add(self.key_offset()),
+                    key.len(),
+                );
+                let bytes = value.to_be_bytes();
+                std::ptr::copy_nonoverlapping(
+                    bytes.as_ptr(),
+                    self.data.add(self.value_offset()),
+                    bytes.len(),
+                );
+            },
         }
     }
 

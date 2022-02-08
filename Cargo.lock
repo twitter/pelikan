@@ -882,6 +882,7 @@ dependencies = [
  "logger",
  "metrics",
  "session",
+ "storage-types",
 ]
 
 [[package]]
@@ -1146,7 +1147,11 @@ dependencies = [
  "rand",
  "rand_chacha",
  "rand_xoshiro",
+<<<<<<< HEAD
  "tempfile",
+=======
+ "storage-types",
+>>>>>>> 8bba661878c567ce136a6cee82fd31b4c68df41d
  "thiserror",
 ]
 
@@ -1279,6 +1284,10 @@ name = "smallvec"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
+
+[[package]]
+name = "storage-types"
+version = "0.1.0"
 
 [[package]]
 name = "strsim"
