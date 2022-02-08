@@ -9,6 +9,8 @@ use core::num::NonZeroU32;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Duration;
+mod temp_file;
+
 
 #[test]
 fn sizes() {
@@ -404,25 +406,25 @@ fn clear() {
 // ----------- TESTS FOR RECOVERY -------------
 // Configuration Options:
 // New cache, not file backed
-// Cache is created new in main memory.
+// ---- Cache is created new in main memory.
 // New cache, file backed
-// Cache is created new and is file backed.
-// In other words, PMEM is used as an extension of DRAM.
-// Note: Since the same `datapool_path` is used by the `builder` and
-// `demolisher`, the cache cannot be gracefully shutdown by the `demolisher`
-// if it wasn't file backed by the `builder`. That is, if there is no path
-// used to file back the cache, there is no path to copy the cache data to on shutdown
+// ---- Cache is created new and is file backed.
+// ---- In other words, PMEM is used as an extension of DRAM.
+// ---- Note: Since the same `datapool_path` is used by the `builder` and
+// ---- `demolisher`, the cache cannot be gracefully shutdown by the `demolisher`
+// ---- if it wasn't file backed by the `builder`. That is, if there is no path
+// ---- used to file back the cache, there is no path to copy the cache data to on shutdown
 // Not gracefully shutdown
-// Nothing is saved on shutdown.
+// ---- Nothing is saved on shutdown.
 // Gracefully shutdown
-// `Segments.data` is flushed to PMEM it is file backed
-// Rest of `Seg` instance saved on shutdown if the paths are valid
-// That is, all of `Seg.hashtable`, `Seg.ttl_buckets` and
-// the relevant `Seg.Segments` fields are saved
+// ---- `Segments.data` is flushed to PMEM it is file backed
+// ---- Rest of `Seg` instance saved on shutdown if the paths are valid
+// ---- That is, all of `Seg.hashtable`, `Seg.ttl_buckets` and
+// ---- the relevant `Seg.Segments` fields are saved
 // Restored cache
-// `Segments.data` must be file backed
-// Rest of `Seg` copied back from the files they were saved to and
-// If any of the file paths are not valid, then the cache is created new (TODO)
+// ---- `Segments.data` must be file backed
+// ---- Rest of `Seg` copied back from the files they were saved to and
+// ---- If any of the file paths are not valid, then the cache is created new (TODO)
 
 // ------------- Set up / Helper Functions for below tests ------------
 
@@ -515,6 +517,9 @@ fn demolish_cache(cache: Seg) -> bool {
 // are new (and not restored)
 #[test]
 fn new_cache_file_backed() {
+
+    let temp_file = temp_file::TempFile::create("hello");
+
     // create new, file backed cache
     let file_backed = true;
     let cache = new_cache(file_backed);

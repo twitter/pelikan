@@ -34,6 +34,7 @@ rand = { version = "0.8.3", features = ["small_rng", "getrandom"] }
 rand_chacha = { version = "0.3.0" }
 rand_xoshiro = { version = "0.6.0" }
 thiserror = "1.0.24"
+tempfile = "3"
 
 [dev-dependencies]
 criterion = "0.3.4"
