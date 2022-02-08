@@ -1147,11 +1147,8 @@ dependencies = [
  "rand",
  "rand_chacha",
  "rand_xoshiro",
-<<<<<<< HEAD
- "tempfile",
-=======
  "storage-types",
->>>>>>> 8bba661878c567ce136a6cee82fd31b4c68df41d
+ "tempfile",
  "thiserror",
 ]
 
