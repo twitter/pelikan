@@ -243,7 +243,7 @@ fn collisions() {
 }
 
 #[test]
-//#[ignore]
+#[ignore]
 fn full_cache_long() {
     let ttl = Duration::ZERO;
     let iters = 1_000_000;
@@ -282,7 +282,7 @@ fn full_cache_long() {
 }
 
 #[test]
-//#[ignore]
+#[ignore]
 fn full_cache_long_2() {
     let ttl = Duration::ZERO;
     let iters = 10_000_000;
@@ -479,35 +479,38 @@ fn demolish_cache(cache: Seg,
 
 // ------------------- Set Paths Correctly Tests --------------------------
 
+use tempfile::tempdir;
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::Write;
 
 // Check that a file backed, new cache is file backed and the `Seg`
 // and thus the `Segments` fields', `HashTable` and `TTLBuckets`
 // are new (and not restored)
-#[test]
-fn new_cache_file_backed() {
+// #[test]
+// fn new_cache_file_backed() {
 
-    // Create tempfile for datapool
-    let datapool_path: Option<PathBuf> = Some(temp_file::TempFile::create("datapool_path").path());
-    //let other = temp_file::TempFile::create("other");
+//     // Create a temporary directory 
+//     let temp_dir = tempdir().unwrap();
 
-    // create new, file backed cache
-    let restore = false;
-    let cache = make_cache(restore, datapool_path, None, None, None);
-    // the `Segments.data` should be filed backed
-    assert!(cache.segments.data_file_backed());
-    // -- Check entire `Seg` --
-    // the `Seg` should not be restored
-    assert!(!cache._restored);
-    // -- Check `Seg` fields/components --
-    // the `Segments` fields' should not have been restored
-    assert!(!cache.segments.fields_copied_back);
-    // the `TtlBuckets` should not have been restored
-    assert!(!cache.ttl_buckets.buckets_copied_back);
-    // the `HashTable` should not have been restored
-    assert!(!cache.hashtable.table_copied_back);
-}
+//     // Create tempfile for datapool
+//     let datapool_path: Option<PathBuf> = Some(temp_dir.path().join("datapool"));
+
+//     // create new, file backed cache
+//     let restore = false;
+//     let cache = make_cache(restore, datapool_path, None, None, None);
+//     // the `Segments.data` should be filed backed
+//     assert!(cache.segments.data_file_backed());
+//     // -- Check entire `Seg` --
+//     // the `Seg` should not be restored
+//     assert!(!cache._restored);
+//     // -- Check `Seg` fields/components --
+//     // the `Segments` fields' should not have been restored
+//     assert!(!cache.segments.fields_copied_back);
+//     // the `TtlBuckets` should not have been restored
+//     assert!(!cache.ttl_buckets.buckets_copied_back);
+//     // the `HashTable` should not have been restored
+//     assert!(!cache.hashtable.table_copied_back);
+// }
 
 // // Check that a new, not file backed cache is not file backed
 // // and the `Seg` is new (and not restored)
@@ -529,23 +532,42 @@ fn new_cache_file_backed() {
 //     assert!(!cache.hashtable.table_copied_back);
 // }
 
-// // Check that a restored cache is file backed and the `Seg` is restored
-// #[test]
-// #[ignore]
-// fn restored_cache_file_backed() {
-//     // restore, file backed cache
-//     let cache = restore_cache();
-//     // the `Segments.data` should be filed backed
-//     assert!(cache.segments.data_file_backed());
-//     // the `Seg` should be restored
-//     assert!(cache._restored);
-//     // the `Segments` fields' should have been restored
-//     assert!(cache.segments.fields_copied_back);
-//     // the `TtlBuckets` should have been restored
-//     assert!(cache.ttl_buckets.buckets_copied_back);
-//     // the `HashTable` should have been restored
-//     assert!(cache.hashtable.table_copied_back);
-// }
+// Check that a restored cache is file backed and the `Seg` is restored
+#[test]
+fn restored_cache_file_backed() {
+    // Create a temporary directory 
+    let temp_dir = tempdir().unwrap();
+
+    // Create tempfile for datapool
+    let datapool_path: Option<PathBuf> = Some(temp_dir.path().join("datapool"));
+    println!("{:?}", datapool_path);
+    // Create tempfile for `Segments` fields'
+    let segments_fields_path: Option<PathBuf> = Some(temp_dir.path().join("segments_fields"));
+    println!("{:?}", segments_fields_path);
+    // Create tempfile for `TtlBuckets`
+    let ttl_buckets_path: Option<PathBuf> = Some(temp_dir.path().join("ttl_buckets"));
+    println!("{:?}", ttl_buckets_path);
+    // Create tempfile for `HashTable`
+    let hashtable_path: Option<PathBuf> = Some(temp_dir.path().join("hash_table"));
+    println!("{:?}", hashtable_path);
+
+    // restore, file backed cache
+    let restore = true;
+    let cache = make_cache(restore, datapool_path, segments_fields_path, ttl_buckets_path, hashtable_path);
+    println!("e");
+    // the `Segments.data` should be filed backed
+    assert!(cache.segments.data_file_backed());
+    // the `Seg` should be restored
+    assert!(cache._restored);
+    // the `Segments` fields' should have been restored
+    assert!(cache.segments.fields_copied_back);
+    // the `TtlBuckets` should have been restored
+    assert!(cache.ttl_buckets.buckets_copied_back);
+    // the `HashTable` should have been restored
+    assert!(cache.hashtable.table_copied_back);
+
+
+}
 
 // // Edge Case: Check that an attempt to restore a cache without specifing
 // // any paths for the `Segments.data`, `Segments` fields',
