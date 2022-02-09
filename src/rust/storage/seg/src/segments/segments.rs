@@ -411,10 +411,10 @@ impl Segments {
                 .flush()
                 .expect("failed to flush Segments.data to storage");
         }
+        else {
         // This else case is not expected to be reached as this function
         // is only called during a graceful shutdown, so it is expected that the
         // data is file backed
-        else {
             gracefully_shutdown = false;
         }
 
