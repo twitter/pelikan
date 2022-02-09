@@ -208,7 +208,6 @@ impl Segments {
                 headers.push(header);
             }
 
-
             // ----- Retrieve `segment_size` -----
             let mut offset = headers_size;
             let mut end = offset + i32_size;
@@ -242,18 +241,17 @@ impl Segments {
 
             // ----- Retrieve `evict` -----
 
-            // TODO: uncomment code to convert retrieved `evict` into `Eviction` instead of creating a new `evict` 
+            // TODO: uncomment code to convert retrieved `evict` into `Eviction` instead of creating a new `evict`
             // offset += flush_at_size;
             // end += evict_size;
 
             // let evict = unsafe { &*(bytes[offset..end].as_mut_ptr() as *mut Eviction) }; // This line retrieves `evict`
             // let evict = evict.clone(); // This line converts `evict` into `Eviction`
-                                          // This line leads to an error when testing with temp files:
-                                          // process didn't exit successfully: ... (signal: 11, SIGSEGV: invalid memory reference)
+            // This line leads to an error when testing with temp files:
+            // process didn't exit successfully: ... (signal: 11, SIGSEGV: invalid memory reference)
 
             let evict_policy = builder.evict_policy;
             let evict = Eviction::new(cfg_segments, evict_policy);
-
 
             SEGMENT_CURRENT.set(cap as _);
             SEGMENT_FREE.set(free as _);
@@ -266,7 +264,7 @@ impl Segments {
                 cap,
                 free_q,
                 flush_at,
-                evict: Box::new(evict), 
+                evict: Box::new(evict),
                 data_file_backed: true,
                 fields_copied_back: true,
             }
@@ -410,11 +408,10 @@ impl Segments {
             self.data
                 .flush()
                 .expect("failed to flush Segments.data to storage");
-        }
-        else {
-        // This else case is not expected to be reached as this function
-        // is only called during a graceful shutdown, so it is expected that the
-        // data is file backed
+        } else {
+            // This else case is not expected to be reached as this function
+            // is only called during a graceful shutdown, so it is expected that the
+            // data is file backed
             gracefully_shutdown = false;
         }
 
@@ -971,8 +968,8 @@ impl Segments {
             && self.cap == s.cap
             && self.free_q == s.free_q
             && self.flush_at == s.flush_at
-            // TODO: uncomment line below once `evict` is restored
-            // && self.evict == s.evict
+        // TODO: uncomment line below once `evict` is restored
+        // && self.evict == s.evict
     }
 
     #[cfg(feature = "debug")]

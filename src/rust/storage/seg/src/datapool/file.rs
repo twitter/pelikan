@@ -29,7 +29,6 @@ impl File {
         size: usize,
         prefault: bool,
     ) -> Result<Self, std::io::Error> {
-
         let file = OpenOptions::new()
             .create(true)
             .read(true)
