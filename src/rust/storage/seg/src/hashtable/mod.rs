@@ -407,7 +407,9 @@ impl HashTable {
             file_data[offset..end].copy_from_slice(bytes);
 
             gracefully_shutdown = true;
-            // TODO: flush file_data from CPU caches
+
+            // TODO: check if this flushes the CPU caches
+            pool.flush().expect("failed to flush `HashTable` to storage");
         }
         gracefully_shutdown
     }

@@ -190,7 +190,9 @@ impl TtlBuckets {
             }
 
             gracefully_shutdown = true;
-            // TODO: flush data from CPU caches
+
+            // TODO: check if this flushes the CPU caches
+            pool.flush().expect("failed to flush `TtlBuckets` to storage");
         }
 
         gracefully_shutdown
