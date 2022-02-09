@@ -84,9 +84,6 @@ impl Segments {
 
         // TODO(bmartin): we always prefault, this should be configurable
         let mut data: Box<dyn Datapool> = if let Some(file) = builder.datapool_path {
-            // delete
-            println!("datapool path: {:?}", file);
-
             data_file_backed = true;
             let pool = File::create(file, heap_size, true)
                 .expect("failed to allocate file backed storage");
@@ -211,6 +208,7 @@ impl Segments {
                 headers.push(header);
             }
 
+
             // ----- Retrieve `segment_size` -----
             let mut offset = headers_size;
             let mut end = offset + i32_size;
@@ -246,8 +244,16 @@ impl Segments {
             offset += flush_at_size;
             end += evict_size;
 
-            let evict = unsafe { &*(bytes[offset..end].as_mut_ptr() as *mut Eviction) };
-            let evict = evict.clone();
+            // let evict = unsafe { &*(bytes[offset..end].as_mut_ptr() as *mut Eviction) }; // This line retrieves `evict`
+            // let evict = evict.clone(); // This line converts `evict` into `Eviction`
+                                          // This line leads to an error when testing with temp files:
+                                          // process didn't exit successfully: ... (signal: 11, SIGSEGV: invalid memory reference)
+
+
+            // TODO: convert retrieved `evict` into `Eviction` instead of creating a new `evict` 
+            let evict_policy = builder.evict_policy;
+            let evict = Eviction::new(cfg_segments, evict_policy);
+            
 
             SEGMENT_CURRENT.set(cap as _);
             SEGMENT_FREE.set(free as _);
@@ -260,7 +266,7 @@ impl Segments {
                 cap,
                 free_q,
                 flush_at,
-                evict: Box::new(evict),
+                evict: Box::new(evict), 
                 data_file_backed: true,
                 fields_copied_back: true,
             }

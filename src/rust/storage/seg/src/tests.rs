@@ -480,6 +480,7 @@ fn demolish_cache(cache: Seg,
 // ------------------- Set Paths Correctly Tests --------------------------
 
 use tempfile::tempdir;
+use tempfile::TempDir;
 use std::fs::File;
 use std::io::Write;
 
@@ -536,11 +537,21 @@ use std::io::Write;
 #[test]
 fn restored_cache_file_backed() {
     // Create a temporary directory 
-    let temp_dir = tempdir().unwrap();
+    //let temp_dir = tempdir().unwrap();
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create tempfile for datapool
+    let path: PathBuf = temp_dir.path().join("path");
+    let file = File::create(&path).expect("failed to create file");  //delete
+    println!("{:?}", path);
+
+    // Temp directory should exist
+    assert_eq!(path.exists(), true);
 
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(temp_dir.path().join("datapool"));
     println!("{:?}", datapool_path);
+
     // Create tempfile for `Segments` fields'
     let segments_fields_path: Option<PathBuf> = Some(temp_dir.path().join("segments_fields"));
     println!("{:?}", segments_fields_path);
@@ -548,17 +559,14 @@ fn restored_cache_file_backed() {
     let ttl_buckets_path: Option<PathBuf> = Some(temp_dir.path().join("ttl_buckets"));
     println!("{:?}", ttl_buckets_path);
     // Create tempfile for `HashTable`
-    let hashtable_path: Option<PathBuf> = Some(temp_dir.path().join("hash_table"));
+    let hashtable_path: Option<PathBuf> = Some(temp_dir.path().join("hashtable"));
     println!("{:?}", hashtable_path);
+
 
     // restore, file backed cache
     let restore = true;
     let cache = make_cache(restore, datapool_path, segments_fields_path, ttl_buckets_path, hashtable_path);
 
-    let mut file = File::create(&temp_dir.path().join("hash_table")).expect("failed to create file");
-    writeln!(file, "Cassy was here. Briefly.").expect("failed to write to file");
-
-    println!("e");
     // the `Segments.data` should be filed backed
     assert!(cache.segments.data_file_backed());
     // the `Seg` should be restored
