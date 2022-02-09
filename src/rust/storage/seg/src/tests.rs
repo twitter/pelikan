@@ -479,6 +479,9 @@ fn demolish_cache(cache: Seg,
 
 // ------------------- Set Paths Correctly Tests --------------------------
 
+use std::fs::File;
+use std::io::{self, Write};
+
 // Check that a file backed, new cache is file backed and the `Seg`
 // and thus the `Segments` fields', `HashTable` and `TTLBuckets`
 // are new (and not restored)
@@ -486,10 +489,7 @@ fn demolish_cache(cache: Seg,
 fn new_cache_file_backed() {
 
     // Create tempfile for datapool
-    //let datapool_path: Option<PathBuf> = Some(temp_file::TempFile::create("datapool_path").path());
-    let path : &str = "/mnt/pmem1.0/cassy/.tmp/pool";
-    let datapool_path: Option<PathBuf>  = Some(PathBuf::from(path));
-    println!("path:{:?}", datapool_path);
+    let datapool_path: Option<PathBuf> = Some(temp_file::TempFile::create("datapool_path").path());
     //let other = temp_file::TempFile::create("other");
 
     // create new, file backed cache

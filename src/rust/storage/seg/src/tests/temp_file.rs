@@ -3,6 +3,8 @@
 
 use std::path::PathBuf;
 use std::env::*;
+use std::fs::File;
+use std::io::{self, Write};
 use tempfile::*;
 
 pub struct TempFile {
@@ -14,18 +16,16 @@ impl TempFile {
     // Create a temporary file
     pub fn create(filename: &str) -> Self {
 
-        // First, figure out the right file in `tests/fixtures/`:
-        let root_dir = &std::env::var("CARGO_MANIFEST_DIR").expect("$CARGO_MANIFEST_DIR");
-        let mut source = PathBuf::from(root_dir);
-        source.push("tests/temp_files");
-        source.push(&filename);
-
         // The "real" path of the file is going to be under a temporary directory
         let tempdir = tempfile::tempdir().unwrap();
-        let mut path = PathBuf::from(&tempdir.path());
-        path.push(&filename);
+        let path = tempdir.path().join(filename);
+        // let mut file = File::create(&path).expect("failed to create file");
+        // writeln!(file, "Cassy was here. Briefly.").expect("failed to write to file");
 
-        println!("{:?}, {:?}", tempdir, path);
+        //let mut path = PathBuf::from(&tempdir.path());
+        //path.push(&filename);
+
+        println!("{:?}, {:?}", tempdir, &path);
 
         TempFile { _tempdir: tempdir, path }
     }
