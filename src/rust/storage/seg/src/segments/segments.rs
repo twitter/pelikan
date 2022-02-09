@@ -241,16 +241,16 @@ impl Segments {
             let flush_at = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut Instant) };
 
             // ----- Retrieve `evict` -----
-            offset += flush_at_size;
-            end += evict_size;
+
+            // TODO: uncomment code to convert retrieved `evict` into `Eviction` instead of creating a new `evict` 
+            // offset += flush_at_size;
+            // end += evict_size;
 
             // let evict = unsafe { &*(bytes[offset..end].as_mut_ptr() as *mut Eviction) }; // This line retrieves `evict`
             // let evict = evict.clone(); // This line converts `evict` into `Eviction`
                                           // This line leads to an error when testing with temp files:
                                           // process didn't exit successfully: ... (signal: 11, SIGSEGV: invalid memory reference)
 
-
-            // TODO: convert retrieved `evict` into `Eviction` instead of creating a new `evict` 
             let evict_policy = builder.evict_policy;
             let evict = Eviction::new(cfg_segments, evict_policy);
 
