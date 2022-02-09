@@ -486,8 +486,11 @@ fn demolish_cache(cache: Seg,
 fn new_cache_file_backed() {
 
     // Create tempfile for datapool
-    let datapool_path: Option<PathBuf> = Some(temp_file::TempFile::create("datapool_path").path());
-    let other = temp_file::TempFile::create("other");
+    //let datapool_path: Option<PathBuf> = Some(temp_file::TempFile::create("datapool_path").path());
+    let path : &str = "/mnt/pmem1.0/cassy/.tmp/pool";
+    let datapool_path: Option<PathBuf>  = Some(PathBuf::from(path));
+    println!("path:{:?}", datapool_path);
+    //let other = temp_file::TempFile::create("other");
 
     // create new, file backed cache
     let restore = false;
