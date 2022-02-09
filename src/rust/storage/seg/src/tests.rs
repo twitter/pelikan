@@ -554,6 +554,10 @@ fn restored_cache_file_backed() {
     // restore, file backed cache
     let restore = true;
     let cache = make_cache(restore, datapool_path, segments_fields_path, ttl_buckets_path, hashtable_path);
+
+    let mut file = File::create(&temp_dir.path().join("hash_table")).expect("failed to create file");
+    writeln!(file, "Cassy was here. Briefly.").expect("failed to write to file");
+
     println!("e");
     // the `Segments.data` should be filed backed
     assert!(cache.segments.data_file_backed());
