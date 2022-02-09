@@ -253,7 +253,7 @@ impl Segments {
             // TODO: convert retrieved `evict` into `Eviction` instead of creating a new `evict` 
             let evict_policy = builder.evict_policy;
             let evict = Eviction::new(cfg_segments, evict_policy);
-            
+
 
             SEGMENT_CURRENT.set(cap as _);
             SEGMENT_FREE.set(free as _);
@@ -971,7 +971,8 @@ impl Segments {
             && self.cap == s.cap
             && self.free_q == s.free_q
             && self.flush_at == s.flush_at
-            && self.evict == s.evict
+            // TODO: uncomment line below once `evict` is restored
+            // && self.evict == s.evict
     }
 
     #[cfg(feature = "debug")]
