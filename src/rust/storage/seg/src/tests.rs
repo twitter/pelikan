@@ -476,7 +476,7 @@ fn demolish_cache(
 // ------------------- Set Paths Correctly Tests --------------------------
 
 // path to tmp directory used for temp files
-const TMP_DIR: &str = "tests/tmp";
+const TMP_DIR: &str = "target/debug/tmp";
 
 // Check that a file backed, new cache is file backed and the `Seg`
 // and thus the `Segments` fields', `HashTable` and `TTLBuckets`
@@ -504,6 +504,7 @@ fn new_cache_file_backed() {
     assert!(!cache.ttl_buckets.buckets_copied_back);
     // the `HashTable` should not have been restored
     assert!(!cache.hashtable.table_copied_back);
+
 }
 
 // Check that a new, not file backed cache is not file backed
