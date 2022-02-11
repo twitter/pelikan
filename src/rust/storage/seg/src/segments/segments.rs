@@ -176,13 +176,11 @@ impl Segments {
             let u32_size = ::std::mem::size_of::<u32>();
             let free_q_size = ::std::mem::size_of::<Option<NonZeroU32>>();
             let flush_at_size = ::std::mem::size_of::<Instant>();
-            let evict_size = ::std::mem::size_of::<Eviction>();
             let fields_size = headers_size
                             + i32_size     // `segment_size`
                             + u32_size * 2 // `free` and `cap`
                             + free_q_size
-                            + flush_at_size
-                            + evict_size;
+                            + flush_at_size;
 
             // Mmap file
             let pool = File::create(fields_file, fields_size, true)
@@ -239,16 +237,7 @@ impl Segments {
 
             let flush_at = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut Instant) };
 
-            // ----- Retrieve `evict` -----
-
-            // TODO: uncomment code to convert retrieved `evict` into `Eviction` instead of creating a new `evict`
-            // offset += flush_at_size;
-            // end += evict_size;
-
-            // let evict = unsafe { &*(bytes[offset..end].as_mut_ptr() as *mut Eviction) }; // This line retrieves `evict`
-            // let evict = evict.clone(); // This line converts `evict` into `Eviction`
-            // This line leads to an error when testing with temp files:
-            // process didn't exit successfully: ... (signal: 11, SIGSEGV: invalid memory reference)
+            // ----- Re-initialise `evict` -----
 
             let evict_policy = builder.evict_policy;
             let evict = Eviction::new(cfg_segments, evict_policy);
@@ -289,13 +278,11 @@ impl Segments {
             let u32_size = ::std::mem::size_of::<u32>();
             let free_q_size = ::std::mem::size_of::<Option<NonZeroU32>>();
             let flush_at_size = ::std::mem::size_of::<Instant>();
-            let evict_size = ::std::mem::size_of::<Eviction>();
             let fields_size = headers_size
                             + i32_size     // `segment_size`
                             + u32_size * 2 // `free` and `cap`
                             + free_q_size
-                            + flush_at_size
-                            + evict_size;
+                            + flush_at_size;
 
             // mmap file
             let mut pool = File::create(file, fields_size, true)
@@ -384,19 +371,6 @@ impl Segments {
             // store `flush_at` back to mmapped file
             fields_data[offset..end].copy_from_slice(bytes);
 
-            // ----- Store `evict` -----
-            offset += flush_at_size;
-            end += evict_size;
-
-            // cast `evict` to byte pointer
-            // TODO: make this more efficient (avoid using clone())
-            let byte_ptr = Box::into_raw(self.evict.clone()) as *const u8;
-
-            // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, evict_size) };
-
-            // store `evict` back to mmapped file
-            fields_data[offset..end].copy_from_slice(bytes);
 
             // TODO: check if this flushes fields_data from CPU caches
             pool.flush()
