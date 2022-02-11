@@ -359,6 +359,11 @@ impl Seg {
     // Used in testing to compare `Seg`s
     #[cfg(test)]
     pub(crate) fn equivalent_seg(&self, s: Seg) -> bool {
+        // let a = self.segments.equivalent_segments(s.segments);
+        // let b = self.ttl_buckets.equivalent_ttlbuckets(s.ttl_buckets);
+        // let c = self.hashtable.equivalent_hashtables(s.hashtable);
+        // println!("segments: {}, ttl: {}, hash: {}",a,b,c);
+        // a && b && c
         self.segments.equivalent_segments(s.segments)
             && self.ttl_buckets.equivalent_ttlbuckets(s.ttl_buckets)
             && self.hashtable.equivalent_hashtables(s.hashtable)

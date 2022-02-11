@@ -177,14 +177,10 @@ impl HashTable {
             let bucket_size = ::std::mem::size_of::<HashBucket>();
             // size from all `HashBucket`s in `data`
             let buckets_size = total_buckets * bucket_size;
-            let hash_builder_size = ::std::mem::size_of::<RandomState>();
             let u64_size = ::std::mem::size_of::<u64>();
-            let rng_size = ::std::mem::size_of::<Random>();
             let started_size = ::std::mem::size_of::<Instant>();
-            let hashtable_size = hash_builder_size
-                               + u64_size * 3 // `power`, `mask`, `next_to_chain`
+            let hashtable_size = u64_size * 3 // `power`, `mask`, `next_to_chain`
                                + buckets_size // `data`
-                               + rng_size
                                + started_size;
 
             // Mmap file
@@ -197,19 +193,19 @@ impl HashTable {
             // retrieve bytes from mmapped file
             bytes.copy_from_slice(&file_data[0..hashtable_size]);
 
-            // ----- Retrieve `hash_builder` ---------
-
-            let mut offset = 0;
-            let mut end = hash_builder_size;
-
-            let hash_builder = unsafe { &*(bytes[offset..end].as_mut_ptr() as *mut RandomState) };
-            // TODO: make this more efficient?
-            let hash_builder = hash_builder.clone();
+            // ----- Re-initialise `hash_builder` -----
+        
+            let hash_builder = RandomState::with_seeds(
+                0xbb8c484891ec6c86,
+                0x0522a25ae9c769f9,
+                0xeed2797b9571bc75,
+                0x4feb29c1fbbd59d0,
+            );
 
             // ----- Retrieve `power` ---------
 
-            offset += hash_builder_size;
-            end += u64_size;
+            let mut offset = 0;
+            let mut end = u64_size;
 
             let power = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut u64) };
             // TODO: compare `cfg_power` and `power`
@@ -238,18 +234,9 @@ impl HashTable {
                 data.push(bucket);
             }
 
-            // ----- Retrieve `rng` ---------
-
-            offset += buckets_size;
-            end += rng_size;
-
-            let rng = unsafe { &*(bytes[offset..end].as_mut_ptr() as *mut Random) };
-            // TODO: make this more efficient?
-            let rng = rng.clone();
-
             // ----- Retrieve `started` ---------
 
-            offset += rng_size;
+            offset += buckets_size;
             end += started_size;
 
             let started = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut Instant) };
@@ -266,7 +253,7 @@ impl HashTable {
                 power,
                 mask,
                 data: data.into_boxed_slice(),
-                rng: Box::new(rng),
+                rng: Box::new(rng()),
                 started,
                 next_to_chain,
                 table_copied_back: true,
@@ -292,14 +279,10 @@ impl HashTable {
             let bucket_size = ::std::mem::size_of::<HashBucket>();
             // size from all `HashBucket`s in `data`
             let buckets_size = total_buckets * bucket_size;
-            let hash_builder_size = ::std::mem::size_of::<RandomState>();
             let u64_size = ::std::mem::size_of::<u64>();
-            let rng_size = ::std::mem::size_of::<Random>();
             let started_size = ::std::mem::size_of::<Instant>();
-            let hashtable_size = hash_builder_size
-                               + u64_size * 3 // `power`, `mask`, `next_to_chain`
+            let hashtable_size = u64_size * 3 // `power`, `mask`, `next_to_chain`
                                + buckets_size // `data`
-                               + rng_size
                                + started_size;
 
             // Mmap file
@@ -307,23 +290,9 @@ impl HashTable {
                 .expect("failed to allocate file backed storage");
             let file_data = Box::new(pool.as_mut_slice());
 
-            // --------------------- Store `hash_builder` -----------------
-            let mut offset = 0;
-            let mut end = hash_builder_size;
-
-            // cast `hash_builder` to byte pointer
-            // TODO: make this more efficient (avoid using clone())
-            let byte_ptr = Box::into_raw(self.hash_builder.clone()) as *const u8;
-
-            // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, hash_builder_size) };
-
-            // store `hash_builder` back to mmapped file
-            file_data[offset..end].copy_from_slice(bytes);
-
             // --------------------- Store `power` -----------------
-            offset += hash_builder_size;
-            end += u64_size;
+            let mut offset = 0;
+            let mut end = u64_size;
 
             // cast `power` to byte pointer
             let byte_ptr = (&self.power as *const u64) as *const u8;
@@ -366,22 +335,8 @@ impl HashTable {
                 file_data[begin..finish].copy_from_slice(bytes);
             }
 
-            // --------------------- Store `rng` -----------------
-            offset += buckets_size;
-            end += rng_size;
-
-            // cast `rng` to byte pointer
-            // TODO: make this more efficient (avoid using clone())
-            let byte_ptr = Box::into_raw(self.rng.clone()) as *const u8;
-
-            // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, rng_size) };
-
-            // store `rng` back to mmapped file
-            file_data[offset..end].copy_from_slice(bytes);
-
             // --------------------- Store `started` -----------------
-            offset += rng_size;
+            offset += buckets_size;
             end += started_size;
 
             // cast `started` to byte pointer
@@ -990,11 +945,9 @@ impl HashTable {
 
     #[cfg(test)]
     pub(crate) fn equivalent_hashtables(&self, h: HashTable) -> bool {
-        // TODO compare hash_builder
         self.power == h.power
             && self.mask == h.mask
             && self.data == h.data
-            && self.rng == h.rng
             && self.started == h.started
             && self.next_to_chain == h.next_to_chain
     }
