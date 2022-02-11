@@ -371,7 +371,6 @@ impl Segments {
             // store `flush_at` back to mmapped file
             fields_data[offset..end].copy_from_slice(bytes);
 
-
             // TODO: check if this flushes fields_data from CPU caches
             pool.flush()
                 .expect("failed to flush `Segments` fields' to storage");
@@ -942,14 +941,13 @@ impl Segments {
         // ensure number of `SegmentHeader`s is the same
         let mut equivalent = total_buckets == headers.len();
 
-        // Compare each `SegmentHeader` 
+        // Compare each `SegmentHeader`
         for id in 0..total_buckets {
             equivalent = equivalent && self.headers[id] == headers[id];
         }
 
         equivalent
     }
-
 
     // Checks if `Segments` are equivalent
     #[cfg(test)]

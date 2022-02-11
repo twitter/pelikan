@@ -194,7 +194,7 @@ impl HashTable {
             bytes.copy_from_slice(&file_data[0..hashtable_size]);
 
             // ----- Re-initialise `hash_builder` -----
-        
+
             let hash_builder = RandomState::with_seeds(
                 0xbb8c484891ec6c86,
                 0x0522a25ae9c769f9,
@@ -951,7 +951,7 @@ impl HashTable {
         // ensure number of `HashBucket`s is the same
         let mut equivalent = total_buckets == buckets.len();
 
-        // Compare each `HashBucket` 
+        // Compare each `HashBucket`
         for id in 0..total_buckets {
             equivalent = equivalent && self.data[id] == buckets[id];
         }

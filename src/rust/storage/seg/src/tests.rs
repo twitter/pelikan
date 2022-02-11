@@ -438,7 +438,6 @@ fn tmp_dir() -> TempDir {
     TempDir::new_in(TMP_DIR).unwrap()
 }
 
-
 // Returns a `Seg` instance.
 // Cache is restored only if `restore` and `segments_fields_path`, `ttl_buckets_path`. `hashtable_path` are not `None`.
 // Otherwise, new `Seg` instance is returned.
@@ -688,7 +687,7 @@ fn new_file_backed_cache_changed_and_restored() {
     let ttl_buckets_path: Option<PathBuf> = Some(dir.path().join("ttl_buckets"));
     // Create tempfile for `HashTable`
     let hashtable_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
-    
+
     // create new, file backed cache
     let mut restore = false;
     let mut cache = make_cache(restore, datapool_path, None, None, None);

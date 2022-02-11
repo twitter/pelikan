@@ -270,7 +270,7 @@ impl TtlBuckets {
         // ensure number of `TtlBucket`s is the same
         let mut equivalent = total_buckets == buckets.len();
 
-        // Compare each `TtlBucket` 
+        // Compare each `TtlBucket`
         for id in 0..total_buckets {
             equivalent = equivalent && self.buckets[id] == buckets[id];
         }

@@ -38,7 +38,7 @@ impl File {
             .read(true)
             .write(true)
             .open(path)?;
-               
+
         // if file exists, check that the size it is expected to have
         // matches its actual size
         if file_exists {
@@ -50,15 +50,15 @@ impl File {
         let mut mmap = unsafe { MmapOptions::new().populate().map_mut(&file)? };
 
         if !file_exists && prefault {
-                let mut offset = 0;
-                while offset < size {
-                    mmap[offset] = 0;
-                    offset += PAGE_SIZE;
-                }
-                mmap.flush()?;
+            let mut offset = 0;
+            while offset < size {
+                mmap[offset] = 0;
+                offset += PAGE_SIZE;
             }
+            mmap.flush()?;
+        }
 
-        Ok(Self { mmap, size})
+        Ok(Self { mmap, size })
     }
 }
 
@@ -74,5 +74,4 @@ impl Datapool for File {
     fn flush(&self) -> Result<(), std::io::Error> {
         self.mmap.flush()
     }
-
 }
