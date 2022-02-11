@@ -263,8 +263,25 @@ impl TtlBuckets {
     }
 
     #[cfg(test)]
+    // Checks if `TtlBuckets.buckets` are equivalent
+    pub(crate) fn equivalent_buckets(&self, buckets: Box<[TtlBucket]>) -> bool {
+        let total_buckets = self.buckets.len();
+
+        // ensure number of `TtlBucket`s is the same
+        let mut equivalent = total_buckets == buckets.len();
+
+        // Compare each `TtlBucket` 
+        for id in 0..total_buckets {
+            equivalent = equivalent && self.buckets[id] == buckets[id];
+        }
+
+        equivalent
+    }
+
+    #[cfg(test)]
+    // Checks if `TtlBuckets.buckets` are equivalent
     pub(crate) fn equivalent_ttlbuckets(&self, t: TtlBuckets) -> bool {
-        self.buckets == t.buckets && self.last_expired == t.last_expired
+        self.equivalent_buckets(t.buckets.clone()) && self.last_expired == t.last_expired
     }
 }
 

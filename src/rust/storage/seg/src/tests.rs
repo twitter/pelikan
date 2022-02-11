@@ -429,7 +429,15 @@ const TMP_DIR: &str = "target/debug/tmp";
 
 const SEGMENTS: usize = 64;
 
-//fn tmp_dir()
+// Creates a temporary directory for temporary test files
+fn tmp_dir() -> TempDir {
+    // Create parent directory for the temporary directory
+    std::fs::create_dir_all(TMP_DIR).expect("failed to create parent tmp directory");
+
+    // Create the temporary directory
+    TempDir::new_in(TMP_DIR).unwrap()
+}
+
 
 // Returns a `Seg` instance.
 // Cache is restored only if `restore` and `segments_fields_path`, `ttl_buckets_path`. `hashtable_path` are not `None`.
@@ -486,7 +494,7 @@ fn demolish_cache(
 #[test]
 fn new_cache_file_backed() {
     // Create parent directory for temporary test files
-    let dir = TempDir::new_in(TMP_DIR).unwrap();
+    let dir = tmp_dir();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
 
@@ -532,7 +540,7 @@ fn new_cache_not_file_backed() {
 #[test]
 fn restored_cache_file_backed() {
     // Create a temporary directory
-    let dir = TempDir::new_in(TMP_DIR).unwrap();
+    let dir = tmp_dir();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
     // Create tempfile for `Segments` fields'
@@ -599,7 +607,7 @@ fn restored_cache_no_paths_set() {
 #[test]
 fn cache_gracefully_shutdown() {
     // Create a temporary directory
-    let dir = TempDir::new_in(TMP_DIR).unwrap();
+    let dir = tmp_dir();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
     let segment_size = 4096;
@@ -634,7 +642,7 @@ fn cache_gracefully_shutdown() {
 #[test]
 fn cache_not_gracefully_shutdown() {
     // Create a temporary directory
-    let dir = TempDir::new_in(TMP_DIR).unwrap();
+    let dir = tmp_dir();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
     let segment_size = 4096;
@@ -671,7 +679,7 @@ fn cache_not_gracefully_shutdown() {
 #[test]
 fn new_file_backed_cache_changed_and_restored() {
     // Create a temporary directory
-    let dir = TempDir::new_in(TMP_DIR).unwrap();
+    let dir = tmp_dir();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
     // Create tempfile for `Segments` fields'
@@ -680,7 +688,7 @@ fn new_file_backed_cache_changed_and_restored() {
     let ttl_buckets_path: Option<PathBuf> = Some(dir.path().join("ttl_buckets"));
     // Create tempfile for `HashTable`
     let hashtable_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
-
+    
     // create new, file backed cache
     let mut restore = false;
     let mut cache = make_cache(restore, datapool_path, None, None, None);
@@ -745,7 +753,7 @@ fn new_file_backed_cache_changed_and_restored() {
 #[test]
 fn new_file_backed_cache_not_changed_and_restored() {
     // Create a temporary directory
-    let dir = TempDir::new_in(TMP_DIR).unwrap();
+    let dir = tmp_dir();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
     // Create tempfile for `Segments` fields'
@@ -801,7 +809,7 @@ fn new_file_backed_cache_not_changed_and_restored() {
 #[test]
 fn new_cache_changed_and_not_restored() {
     // Create a temporary directory
-    let dir = TempDir::new_in(TMP_DIR).unwrap();
+    let dir = tmp_dir();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
     // Create tempfile for `Segments` fields'
@@ -870,7 +878,7 @@ fn new_cache_changed_and_not_restored() {
 #[test]
 fn new_cache_changed_and_restoration_fails() {
     // Create a temporary directory
-    let dir = TempDir::new_in(TMP_DIR).unwrap();
+    let dir = tmp_dir();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
     // Create tempfile for `Segments` fields'
@@ -951,7 +959,7 @@ fn new_cache_changed_and_restoration_fails() {
 #[test]
 fn full_cache_recovery_long() {
     // Create a temporary directory
-    let dir = TempDir::new_in(TMP_DIR).unwrap();
+    let dir = tmp_dir();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
     // Create tempfile for `Segments` fields'

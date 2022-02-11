@@ -944,10 +944,27 @@ impl HashTable {
     }
 
     #[cfg(test)]
+    // Checks if `HashTable.data` are equivalent
+    pub(crate) fn equivalent_hashbuckets(&self, buckets: Box<[HashBucket]>) -> bool {
+        let total_buckets = self.data.len();
+
+        // ensure number of `HashBucket`s is the same
+        let mut equivalent = total_buckets == buckets.len();
+
+        // Compare each `HashBucket` 
+        for id in 0..total_buckets {
+            equivalent = equivalent && self.data[id] == buckets[id];
+        }
+
+        equivalent
+    }
+
+    #[cfg(test)]
+    // Checks if `HashTable` are equivalent
     pub(crate) fn equivalent_hashtables(&self, h: HashTable) -> bool {
         self.power == h.power
             && self.mask == h.mask
-            && self.data == h.data
+            && self.equivalent_hashbuckets(h.data.clone())
             && self.started == h.started
             && self.next_to_chain == h.next_to_chain
     }

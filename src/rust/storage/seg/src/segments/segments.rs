@@ -934,10 +934,27 @@ impl Segments {
         }
     }
 
-    // Used in testing to compare `Segments`
+    #[cfg(test)]
+    // Checks if `Segments.headers` are equivalent
+    pub(crate) fn equivalent_headers(&self, headers: Box<[SegmentHeader]>) -> bool {
+        let total_buckets = self.headers.len();
+
+        // ensure number of `SegmentHeader`s is the same
+        let mut equivalent = total_buckets == headers.len();
+
+        // Compare each `SegmentHeader` 
+        for id in 0..total_buckets {
+            equivalent = equivalent && self.headers[id] == headers[id];
+        }
+
+        equivalent
+    }
+
+
+    // Checks if `Segments` are equivalent
     #[cfg(test)]
     pub(crate) fn equivalent_segments(&self, s: Segments) -> bool {
-        self.headers == s.headers
+        self.equivalent_headers(s.headers.clone())
             && self.data.as_slice() == s.data.as_slice()
             && self.segment_size == s.segment_size
             && self.free == s.free
