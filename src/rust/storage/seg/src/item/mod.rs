@@ -11,7 +11,7 @@ mod reserved;
 #[cfg(any(feature = "magic", feature = "debug"))]
 pub(crate) use header::ITEM_MAGIC_SIZE;
 
-use crate::Value;
+use crate::{Value, SegError};
 
 pub(crate) use header::{ItemHeader, ITEM_HDR_SIZE};
 pub(crate) use raw::RawItem;
@@ -58,6 +58,14 @@ impl Item {
     /// Borrow the optional data
     pub fn optional(&self) -> Option<&[u8]> {
         self.raw.optional()
+    }
+
+    pub(crate) fn increment(&mut self, rhs: u64) -> Result<u64, SegError> {
+        self.raw.increment(rhs)
+    }
+
+    pub(crate) fn decrement(&mut self, rhs: u64) -> Result<u64, SegError> {
+        self.raw.decrement(rhs)
     }
 }
 

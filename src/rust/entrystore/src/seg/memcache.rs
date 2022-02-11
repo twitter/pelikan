@@ -130,12 +130,22 @@ impl MemcacheStorage for Seg {
         }
     }
 
-    fn incr(&mut self, _key: &[u8], _value: u64) -> Result<u64, MemcacheStorageError> {
-        Err(MemcacheStorageError::NotSupported)
+    fn incr(&mut self, key: &[u8], value: u64) -> Result<u64, MemcacheStorageError> {
+        match self.data.increment(key, value) {
+            Ok(count) => Ok(count),
+            Err(SegError::NotFound) => Err(MemcacheStorageError::NotFound),
+            Err(SegError::NotNumeric) => Err(MemcacheStorageError::NotNumeric),
+            Err(_) => Err(MemcacheStorageError::NotSupported),
+        }
     }
 
-    fn decr(&mut self, _key: &[u8], _value: u64) -> Result<u64, MemcacheStorageError> {
-        Err(MemcacheStorageError::NotSupported)
+    fn decr(&mut self, key: &[u8], value: u64) -> Result<u64, MemcacheStorageError> {
+        match self.data.decrement(key, value) {
+            Ok(count) => Ok(count),
+            Err(SegError::NotFound) => Err(MemcacheStorageError::NotFound),
+            Err(SegError::NotNumeric) => Err(MemcacheStorageError::NotNumeric),
+            Err(_) => Err(MemcacheStorageError::NotSupported),
+        }
     }
 
     fn cas(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {

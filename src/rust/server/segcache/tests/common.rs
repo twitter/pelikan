@@ -76,6 +76,40 @@ pub fn tests() {
     );
     test("get value (key: 2)", &[("get 2\r\n", Some("END\r\n"))]);
 
+    // test incr/decr
+    test(
+        "set value (key: 0)",
+        &[("set 0 0 100 1\r\n1\r\n", Some("STORED\r\n"))],
+    );
+    test(
+        "set value (key: key)",
+        &[("set key 0 100 1\r\na\r\n", Some("STORED\r\n"))],
+    );
+    test(
+        "incr (key: 0)",
+        &[("incr 0 1\r\n", Some("2\r\n"))]
+    );
+    test(
+        "decr (key: 0)",
+        &[("decr 0 1\r\n", Some("1\r\n"))]
+    );
+    test(
+        "incr (key: key)",
+        &[("incr key 1\r\n", Some("CLIENT_ERROR\r\n"))]
+    );
+    test(
+        "decr (key: key)",
+        &[("decr key 1\r\n", Some("CLIENT_ERROR\r\n"))]
+    );
+    test(
+        "incr (key: 9)",
+        &[("incr 9 1\r\n", Some("NOT_FOUND\r\n"))]
+    );
+    test(
+        "decr (key: 9)",
+        &[("decr 9 1\r\n", Some("NOT_FOUND\r\n"))]
+    );
+
     // test storing and retrieving flags
     test(
         "set value (key: 3)",
@@ -120,8 +154,6 @@ pub fn tests() {
         "prepend (key: 8)",
         &[("prepend 8 0 0 1\r\n0\r\n", Some("ERROR\r\n"))],
     );
-    test("incr (key: 9)", &[("incr 9 1\r\n", Some("ERROR\r\n"))]);
-    test("decr (key: 9)", &[("decr 9 1\r\n", Some("ERROR\r\n"))]);
 
     std::thread::sleep(Duration::from_millis(500));
 }

@@ -181,6 +181,7 @@ where
                 let response = match self.incr(key, value) {
                     Ok(count) => MemcacheResult::Count(count),
                     Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
+                    Err(MemcacheStorageError::NotNumeric) => MemcacheResult::ClientError,
                     Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
                     _ => {
                         unreachable!()
@@ -199,6 +200,7 @@ where
                 let response = match self.decr(key, value) {
                     Ok(count) => MemcacheResult::Count(count),
                     Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
+                    Err(MemcacheStorageError::NotNumeric) => MemcacheResult::ClientError,
                     Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
                     _ => {
                         unreachable!()

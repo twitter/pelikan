@@ -34,6 +34,7 @@ pub enum MemcacheResult {
     Stored,
     Error,
     Count(u64),
+    ClientError,
 }
 
 impl Debug for MemcacheResult {
@@ -47,6 +48,7 @@ impl Debug for MemcacheResult {
             Self::Stored => "Stored",
             Self::Error => "Error",
             Self::Count(_) => "Count",
+            Self::ClientError => "ClientError",
         };
         write!(f, "MemcacheResult::{}", name)
     }
@@ -67,6 +69,7 @@ impl MemcacheResult {
             Self::Stored => b"STORED\r\n",
             Self::Error => b"ERROR\r\n",
             Self::Count(_) => b"",
+            Self::ClientError => b"CLIENT_ERROR\r\n",
         }
     }
 
@@ -86,7 +89,7 @@ impl MemcacheResult {
             Self::Deleted => 7,
             Self::NotFound => 8,
             Self::NotStored => 9,
-            // CLIENT_ERROR
+            Self::ClientError => 10,
             // SERVER_ERROR
             _ => usize::MAX,
         }
@@ -196,8 +199,14 @@ impl Compose for MemcacheResponse {
             }
             MemcacheRequest::Incr { .. } => {
                 match self.result {
+                    MemcacheResult::Count(_) => {
+                        INCR.increment();
+                    }
                     MemcacheResult::NotFound => {
                         INCR_NOT_FOUND.increment();
+                    }
+                    MemcacheResult::ClientError => {
+                        INCR_EX.increment();
                     }
                     MemcacheResult::Error => {
                         INCR_EX.increment();
@@ -211,8 +220,14 @@ impl Compose for MemcacheResponse {
             }
             MemcacheRequest::Decr { .. } => {
                 match self.result {
+                    MemcacheResult::Count(_) => {
+                        DECR.increment();
+                    }
                     MemcacheResult::NotFound => {
                         DECR_NOT_FOUND.increment();
+                    }
+                    MemcacheResult::ClientError => {
+                        DECR_EX.increment();
                     }
                     MemcacheResult::Error => {
                         DECR_EX.increment();

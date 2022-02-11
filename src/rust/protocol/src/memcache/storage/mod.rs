@@ -12,6 +12,7 @@ pub enum MemcacheStorageError {
     NotFound,
     NotStored,
     NotSupported,
+    NotNumeric,
 }
 
 /// Defines operations that arbitrary storage must be able to handle to be used

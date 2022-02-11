@@ -9,7 +9,7 @@
 
 use super::header::ValueType;
 use crate::item::*;
-use crate::Value;
+use crate::{Value, SegError};
 
 /// The raw byte-level representation of an item
 #[repr(C)]
@@ -201,6 +201,36 @@ impl RawItem {
     /// Checks if the item is deleted
     pub(crate) fn deleted(&self) -> bool {
         self.header().is_deleted()
+    }
+
+    pub(crate) fn increment(&self, rhs: u64) -> Result<u64, SegError> {
+        match self.value() {
+            Value::U64(value) => unsafe {
+                let value = value.wrapping_add(rhs);
+                std::ptr::copy_nonoverlapping(
+                    value.to_be_bytes().as_ptr(),
+                    self.data.add(self.value_offset()),
+                    core::mem::size_of::<u64>(),
+                );
+                Ok(value)
+            },
+            _ => Err(SegError::NotNumeric),
+        }
+    }
+
+    pub(crate) fn decrement(&self, rhs: u64) -> Result<u64, SegError> {
+        match self.value() {
+            Value::U64(value) => unsafe {
+                let value = value.saturating_sub(rhs);
+                std::ptr::copy_nonoverlapping(
+                    value.to_be_bytes().as_ptr(),
+                    self.data.add(self.value_offset()),
+                    core::mem::size_of::<u64>(),
+                );
+                Ok(value)
+            },
+            _ => Err(SegError::NotNumeric),
+        }
     }
 }
 

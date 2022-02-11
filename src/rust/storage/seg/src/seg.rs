@@ -240,6 +240,22 @@ impl Seg {
         }
     }
 
+    pub fn increment(&mut self, key: &[u8], rhs: u64) -> Result<u64, SegError> {
+        if let Some(mut item) = self.get(key) {
+            item.increment(rhs).map_err(|_| SegError::NotNumeric)
+        } else {
+            Err(SegError::NotFound)
+        }
+    }
+
+    pub fn decrement(&mut self, key: &[u8], rhs: u64) -> Result<u64, SegError> {
+        if let Some(mut item) = self.get(key) {
+            item.decrement(rhs).map_err(|_| SegError::NotNumeric)
+        } else {
+            Err(SegError::NotFound)
+        }
+    }
+
     /// Remove the item with the given key, returns a bool indicating if it was
     /// removed.
     /// ```

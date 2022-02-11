@@ -23,4 +23,6 @@ pub enum SegError<'a> {
     NotFound,
     #[error("data corruption detected")]
     DataCorrupted,
+    #[error("item is not numeric")]
+    NotNumeric,
 }
