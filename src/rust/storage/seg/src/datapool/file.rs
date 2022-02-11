@@ -20,30 +20,45 @@ pub struct File {
 }
 
 impl File {
-    /// Create a new `File` datapool at the given path and with the specified
+    /// If there is a file at the given path, open the `File`.
+    /// Otherwise, create a new `File` datapool at the given path and with the specified
     /// size (in bytes). Returns an error if could not
-    /// be created, couldn't be extended to the requested size, or couldn't be
+    /// be created, size of file isn't as expected (opening),
+    /// couldn't be extended to the requested size (creating), or couldn't be
     /// mmap'd
     pub fn create<T: AsRef<Path>>(
         path: T,
         size: usize,
         prefault: bool,
     ) -> Result<Self, std::io::Error> {
+        let metadata = std::fs::metadata(&path);
+        let file_exists = metadata.is_ok();
         let file = OpenOptions::new()
             .create(true)
             .read(true)
             .write(true)
             .open(path)?;
-        file.set_len(size as u64)?;
-        let mmap = unsafe { MmapOptions::new().populate().map_mut(&file)? };
-        if prefault {
-            let mut offset = 0;
-            while offset < size {
-                mmap[offset];
-                offset += PAGE_SIZE;
-            }
+               
+        // if file exists, check that the size it is expected to have
+        // matches its actual size
+        if file_exists {
+            assert_eq!(metadata?.len() as usize, size);
+        } else {
+            file.set_len(size as u64)?;
         }
-        Ok(Self { mmap, size })
+
+        let mut mmap = unsafe { MmapOptions::new().populate().map_mut(&file)? };
+
+        if !file_exists && prefault {
+                let mut offset = 0;
+                while offset < size {
+                    mmap[offset] = 0;
+                    offset += PAGE_SIZE;
+                }
+                mmap.flush()?;
+            }
+
+        Ok(Self { mmap, size})
     }
 }
 
@@ -59,4 +74,5 @@ impl Datapool for File {
     fn flush(&self) -> Result<(), std::io::Error> {
         self.mmap.flush()
     }
+
 }

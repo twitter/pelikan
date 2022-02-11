@@ -406,6 +406,12 @@ impl Segments {
         self.data_file_backed
     }
 
+    /// Returns if `data` is file backed
+    #[cfg(test)]
+    pub fn data_file_backed(&self) -> bool {
+        self.data_file_backed
+    }
+
     /// Returns the number of free segments
     #[cfg(test)]
     pub fn free(&self) -> usize {
@@ -944,8 +950,6 @@ impl Segments {
             && self.cap == s.cap
             && self.free_q == s.free_q
             && self.flush_at == s.flush_at
-        // TODO: uncomment line below once `evict` is restored
-        // && self.evict == s.evict
     }
 
     #[cfg(feature = "debug")]
