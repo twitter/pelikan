@@ -504,7 +504,6 @@ fn new_cache_file_backed() {
     assert!(!cache.ttl_buckets.buckets_copied_back);
     // the `HashTable` should not have been restored
     assert!(!cache.hashtable.table_copied_back);
-
 }
 
 // Check that a new, not file backed cache is not file backed

@@ -409,7 +409,8 @@ impl HashTable {
             gracefully_shutdown = true;
 
             // TODO: check if this flushes the CPU caches
-            pool.flush().expect("failed to flush `HashTable` to storage");
+            pool.flush()
+                .expect("failed to flush `HashTable` to storage");
         }
         gracefully_shutdown
     }

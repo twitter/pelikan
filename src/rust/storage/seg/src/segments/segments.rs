@@ -399,7 +399,8 @@ impl Segments {
             fields_data[offset..end].copy_from_slice(bytes);
 
             // TODO: check if this flushes fields_data from CPU caches
-            pool.flush().expect("failed to flush `Segments` fields' to storage");
+            pool.flush()
+                .expect("failed to flush `Segments` fields' to storage");
 
             gracefully_shutdown = true;
         }
