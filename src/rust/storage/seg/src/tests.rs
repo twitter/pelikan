@@ -424,7 +424,12 @@ fn clear() {
 
 // ------------- Set up / Helper Functions for below tests ------------
 
+// path to tmp directory used for temp files
+const TMP_DIR: &str = "target/debug/tmp";
+
 const SEGMENTS: usize = 64;
+
+//fn tmp_dir()
 
 // Returns a `Seg` instance.
 // Cache is restored only if `restore` and `segments_fields_path`, `ttl_buckets_path`. `hashtable_path` are not `None`.
@@ -474,9 +479,6 @@ fn demolish_cache(
 }
 
 // ------------------- Set Paths Correctly Tests --------------------------
-
-// path to tmp directory used for temp files
-const TMP_DIR: &str = "target/debug/tmp";
 
 // Check that a file backed, new cache is file backed and the `Seg`
 // and thus the `Segments` fields', `HashTable` and `TTLBuckets`

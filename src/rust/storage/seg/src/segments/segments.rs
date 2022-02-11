@@ -406,12 +406,6 @@ impl Segments {
         self.data_file_backed
     }
 
-    /// Returns if `data` is file backed
-    #[cfg(test)]
-    pub fn data_file_backed(&self) -> bool {
-        self.data_file_backed
-    }
-
     /// Returns the number of free segments
     #[cfg(test)]
     pub fn free(&self) -> usize {
