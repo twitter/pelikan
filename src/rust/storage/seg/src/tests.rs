@@ -483,7 +483,7 @@ const TMP_DIR: &str = "target/debug/tmp";
 // are new (and not restored)
 #[test]
 fn new_cache_file_backed() {
-    // Create a temporary directory
+    // Create parent directory for temporary test files
     let dir = TempDir::new_in(TMP_DIR).unwrap();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
