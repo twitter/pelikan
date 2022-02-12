@@ -43,15 +43,35 @@ impl Seg {
 
         // build the datastructure from the config
         let data = ::seg::Seg::builder()
+            .restore(config.restore())
             .hash_power(config.hash_power())
             .overflow_factor(config.overflow_factor())
             .heap_size(config.heap_size())
             .segment_size(config.segment_size())
             .eviction(eviction)
             .datapool_path(config.datapool_path())
+            .segments_fields_path(config.segments_fields_path())
+            .ttl_buckets_path(config.ttl_buckets_path())
+            .hashtable_path(config.hashtable_path())
             .build();
 
         Self { data }
+    }
+
+    /// Demolish (gracefully shutdown) the cache if
+    /// configured to do so
+    pub fn demolish<T: SegConfig>(self, config: &T) {
+        let config = config.seg();
+
+        if config.graceful_shutdown() {
+            ::seg::Seg::demolisher()
+                .heap_size(config.heap_size())
+                .overflow_factor(config.overflow_factor())
+                .segments_fields_path(config.segments_fields_path())
+                .ttl_buckets_path(config.ttl_buckets_path())
+                .hashtable_path(config.hashtable_path())
+                .demolish(self.data);
+        };
     }
 }
 

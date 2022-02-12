@@ -8,6 +8,10 @@ use serde::{Deserialize, Serialize};
 
 const MB: usize = 1024 * 1024;
 
+// restore and graceful shutdown options
+const RESTORE: bool = false;
+const GRACEFUL_SHUTDOWN: bool = false;
+
 // defaults for hashtable
 const HASH_POWER: u8 = 16;
 const OVERFLOW_FACTOR: f64 = 1.0;
@@ -24,8 +28,17 @@ const COMPACT_TARGET: usize = 2;
 const MERGE_TARGET: usize = 4;
 const MERGE_MAX: usize = 8;
 
-// datapool
+// datapool (`Segments.data`)
 const DATAPOOL_PATH: Option<&str> = None;
+
+// `Segments` fields
+const SEGMENT_FIELDS_PATH: Option<&str> = None;
+
+// ttl buckets
+const TTL_BUCKETS_PATH: Option<&str> = None;
+
+// hashtable
+const HASHTABLE_PATH: Option<&str> = None;
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Eviction {
@@ -39,6 +52,14 @@ pub enum Eviction {
 }
 
 // helper functions for default values
+fn restore() -> bool {
+    RESTORE
+}
+
+fn graceful_shutdown() -> bool {
+    GRACEFUL_SHUTDOWN
+}
+
 fn hash_power() -> u8 {
     HASH_POWER
 }
@@ -75,9 +96,25 @@ fn datapool_path() -> Option<String> {
     DATAPOOL_PATH.map(|v| v.to_string())
 }
 
+fn segments_fields_path() -> Option<String> {
+    SEGMENT_FIELDS_PATH.map(|v| v.to_string())
+}
+
+fn ttl_buckets_path() -> Option<String> {
+    TTL_BUCKETS_PATH.map(|v| v.to_string())
+}
+
+fn hashtable_path() -> Option<String> {
+    HASHTABLE_PATH.map(|v| v.to_string())
+}
+
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Seg {
+    #[serde(default = "restore")]
+    restore: bool,
+    #[serde(default = "graceful_shutdown")]
+    graceful_shutdown: bool,
     #[serde(default = "hash_power")]
     hash_power: u8,
     #[serde(default = "overflow_factor")]
@@ -96,11 +133,19 @@ pub struct Seg {
     compact_target: usize,
     #[serde(default = "datapool_path")]
     datapool_path: Option<String>,
+    #[serde(default = "segments_fields_path")]
+    segments_fields_path: Option<String>,
+    #[serde(default = "ttl_buckets_path")]
+    ttl_buckets_path: Option<String>,
+    #[serde(default = "hashtable_path")]
+    hashtable_path: Option<String>,
 }
 
 impl Default for Seg {
     fn default() -> Self {
         Self {
+            restore: restore(),
+            graceful_shutdown: graceful_shutdown(),
             hash_power: hash_power(),
             overflow_factor: overflow_factor(),
             heap_size: heap_size(),
@@ -110,12 +155,21 @@ impl Default for Seg {
             merge_max: merge_max(),
             compact_target: compact_target(),
             datapool_path: datapool_path(),
+            segments_fields_path: segments_fields_path(),
+            ttl_buckets_path: ttl_buckets_path(),
+            hashtable_path: hashtable_path(),
         }
     }
 }
 
 // implementation
 impl Seg {
+    pub fn restore(&self) -> bool {
+        self.restore
+    }
+    pub fn graceful_shutdown(&self) -> bool {
+        self.graceful_shutdown
+    }
     pub fn hash_power(&self) -> u8 {
         self.hash_power
     }
@@ -150,6 +204,24 @@ impl Seg {
 
     pub fn datapool_path(&self) -> Option<PathBuf> {
         self.datapool_path.as_ref().map(|v| Path::new(v).to_owned())
+    }
+
+    pub fn segments_fields_path(&self) -> Option<PathBuf> {
+        self.segments_fields_path
+            .as_ref()
+            .map(|v| Path::new(v).to_owned())
+    }
+
+    pub fn ttl_buckets_path(&self) -> Option<PathBuf> {
+        self.ttl_buckets_path
+            .as_ref()
+            .map(|v| Path::new(v).to_owned())
+    }
+
+    pub fn hashtable_path(&self) -> Option<PathBuf> {
+        self.hashtable_path
+            .as_ref()
+            .map(|v| Path::new(v).to_owned())
     }
 }
 

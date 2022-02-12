@@ -10,6 +10,7 @@ use crate::segments::*;
 
 use core::num::NonZeroU32;
 use metrics::{static_metrics, Counter, Gauge};
+use std::path::PathBuf;
 
 static_metrics! {
     static EVICT_TIME: Gauge;
@@ -41,12 +42,17 @@ pub(crate) struct Segments {
     flush_at: Instant,
     /// Eviction configuration and state
     evict: Box<Eviction>,
+    /// Is `data` file backed?
+    data_file_backed: bool,
+    ///  Are `headers` copied back from a file?
+    pub(crate) fields_copied_back: bool,
 }
 
 impl Segments {
     /// Private function which allocates and initializes the `Segments` by
     /// taking ownership of the builder
-    pub(super) fn from_builder(builder: SegmentsBuilder) -> Self {
+    /// A new `Segments` is created
+    pub(super) fn from_builder_new(builder: SegmentsBuilder) -> Self {
         let segment_size = builder.segment_size;
         let segments = builder.heap_size / (builder.segment_size as usize);
 
@@ -74,9 +80,11 @@ impl Segments {
         let mut headers = headers.into_boxed_slice();
 
         let heap_size = segments * segment_size as usize;
+        let mut data_file_backed = false;
 
         // TODO(bmartin): we always prefault, this should be configurable
         let mut data: Box<dyn Datapool> = if let Some(file) = builder.datapool_path {
+            data_file_backed = true;
             let pool = File::create(file, heap_size, true)
                 .expect("failed to allocate file backed storage");
             Box::new(pool)
@@ -111,13 +119,290 @@ impl Segments {
             data,
             flush_at: Instant::recent(),
             evict: Box::new(Eviction::new(segments, evict_policy)),
+            data_file_backed,
+            fields_copied_back: false,
         }
+    }
+
+    /// Private function which allocates and initializes the `Segments` by
+    /// taking ownership of the builder.
+    /// `Segments` is restored if the paths are specified, otherwise a new
+    /// `Segments` is created.
+    pub(super) fn from_builder_restore(builder: SegmentsBuilder) -> Self {
+        // this is here to avoid `builder` being moved when it might be needed
+        // for the else statement
+        let segments_fields_path = builder.segments_fields_path.clone();
+
+        // If there are specified paths to restore the `Segments` with,
+        // copy `Segments` back.
+        // Otherwise create a new `Segments`.
+        if let Some(fields_file) = segments_fields_path {
+            // ----- Recover `data` ------
+            let data: Box<dyn Datapool>;
+            // TODO: like with the HashTable fields, we assume that the configuration
+            // options for `Segments` hasn't changed upon recovery. We need a way to
+            // detect the change in fields as well as decided how to
+            // deal with such changes.
+            let cfg_segment_size = builder.segment_size;
+            let cfg_segments = builder.heap_size / (builder.segment_size as usize);
+
+            debug!(
+                "heap size: {} seg size: {} segments: {}",
+                builder.heap_size, cfg_segment_size, cfg_segments
+            );
+
+            assert!(
+                cfg_segments < (1 << 24), // we use just 24 bits to store the seg id
+                "heap size requires too many segments, reduce heap size or increase segment size"
+            );
+
+            let heap_size = cfg_segments * cfg_segment_size as usize;
+
+            // TODO(bmartin): we always prefault, this should be configurable
+            // `Segments.data` must be file backed for a recovery
+            if let Some(data_file) = builder.datapool_path {
+                let pool = File::create(data_file, heap_size, true)
+                    .expect("failed to allocate file backed storage");
+                data = Box::new(pool)
+            } else {
+                return Segments::from_builder_new(builder);
+            }
+
+            // ----- Recover other fields ------
+
+            let header_size: usize = ::std::mem::size_of::<SegmentHeader>();
+            let headers_size: usize = cfg_segments * header_size as usize;
+            let i32_size = ::std::mem::size_of::<i32>();
+            let u32_size = ::std::mem::size_of::<u32>();
+            let free_q_size = ::std::mem::size_of::<Option<NonZeroU32>>();
+            let flush_at_size = ::std::mem::size_of::<Instant>();
+            let fields_size = headers_size
+                            + i32_size     // `segment_size`
+                            + u32_size * 2 // `free` and `cap`
+                            + free_q_size
+                            + flush_at_size;
+
+            // Mmap file
+            let pool = File::create(fields_file, fields_size, true)
+                .expect("failed to allocate file backed storage");
+            let fields_data = Box::new(pool.as_slice());
+
+            // create blank bytes to copy data into
+            let mut bytes = vec![0; fields_size];
+            // retrieve bytes from mmapped file
+            bytes.copy_from_slice(&fields_data[0..fields_size]);
+
+            // ----- Retrieve `headers` -----
+            let mut headers = Vec::with_capacity(0);
+            headers.reserve_exact(cfg_segments);
+
+            // retrieve each `SegmentHeader` from the raw bytes
+            for id in 0..cfg_segments {
+                let begin = header_size as usize * id;
+                let finish = begin + header_size as usize;
+
+                // cast bytes to `SegmentHeader`
+                let header = unsafe { *(bytes[begin..finish].as_mut_ptr() as *mut SegmentHeader) };
+                headers.push(header);
+            }
+
+            // ----- Retrieve `segment_size` -----
+            let mut offset = headers_size;
+            let mut end = offset + i32_size;
+
+            let segment_size = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut i32) };
+            // TODO: compare `cfg_segment_size` and `segment_size`
+
+            // ----- Retrieve `free` -----
+            offset += i32_size;
+            end += u32_size;
+
+            let free = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut u32) };
+
+            // ----- Retrieve `cap` -----
+            offset += u32_size;
+            end += u32_size;
+
+            let cap = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut u32) };
+
+            // ----- Retrieve `free_q` -----
+            offset += u32_size;
+            end += free_q_size;
+
+            let free_q = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut Option<NonZeroU32>) };
+
+            // ----- Retrieve `flush_at` -----
+            offset += free_q_size;
+            end += flush_at_size;
+
+            let flush_at = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut Instant) };
+
+            // ----- Re-initialise `evict` -----
+
+            let evict_policy = builder.evict_policy;
+            let evict = Eviction::new(cfg_segments, evict_policy);
+
+            SEGMENT_CURRENT.set(cap as _);
+            SEGMENT_FREE.set(free as _);
+
+            Self {
+                headers: headers.into_boxed_slice(),
+                data,
+                segment_size,
+                free,
+                cap,
+                free_q,
+                flush_at,
+                evict: Box::new(evict),
+                data_file_backed: true,
+                fields_copied_back: true,
+            }
+        } else {
+            Segments::from_builder_new(builder)
+        }
+    }
+
+    /// Demolishes the segments by flushing the `Segments.data` to PMEM
+    /// (if filed backed) and storing the other `Segments` fields' to
+    /// PMEM (if a path is specified)
+    pub fn demolish(&self, segments_fields_path: Option<PathBuf>, heap_size: usize) -> bool {
+        let mut gracefully_shutdown = false;
+
+        // if a path is specified, copy all the `Segments` fields'
+        // to the file specified by `segments_fields_path`
+        if let Some(file) = segments_fields_path {
+            let segments = heap_size / (self.segment_size as usize);
+            let header_size: usize = ::std::mem::size_of::<SegmentHeader>();
+            let headers_size: usize = segments * header_size as usize;
+            let i32_size = ::std::mem::size_of::<i32>();
+            let u32_size = ::std::mem::size_of::<u32>();
+            let free_q_size = ::std::mem::size_of::<Option<NonZeroU32>>();
+            let flush_at_size = ::std::mem::size_of::<Instant>();
+            let fields_size = headers_size
+                            + i32_size     // `segment_size`
+                            + u32_size * 2 // `free` and `cap`
+                            + free_q_size
+                            + flush_at_size;
+
+            // mmap file
+            let mut pool = File::create(file, fields_size, true)
+                .expect("failed to allocate file backed storage");
+            let fields_data = Box::new(pool.as_mut_slice());
+
+            // ----- Store `headers` -----
+
+            // for every `SegmentHeader`
+            for id in 0..segments {
+                let begin = header_size as usize * id;
+                let finish = begin + header_size as usize;
+
+                // cast `SegmentHeader` to byte pointer
+                let byte_ptr = (&self.headers[id] as *const SegmentHeader) as *const u8;
+
+                // get corresponding bytes from byte pointer
+                let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, header_size) };
+
+                // store `SegmentHeader` back to mmapped file
+                fields_data[begin..finish].copy_from_slice(bytes);
+            }
+
+            // ----- Store `segment_size` -----
+            let mut offset = headers_size;
+            let mut end = offset + i32_size;
+
+            // cast `segment_size` to byte pointer
+            let byte_ptr = (&self.segment_size as *const i32) as *const u8;
+
+            // get corresponding bytes from byte pointer
+            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, i32_size) };
+
+            // store `segment_size` back to mmapped file
+            fields_data[offset..end].copy_from_slice(bytes);
+
+            // ----- Store `free` -----
+            offset += i32_size;
+            end += u32_size;
+
+            // cast `free` to byte pointer
+            let byte_ptr = (&self.free as *const u32) as *const u8;
+
+            // get corresponding bytes from byte pointer
+            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, u32_size) };
+
+            // store `free` back to mmapped file
+            fields_data[offset..end].copy_from_slice(bytes);
+
+            // ----- Store `cap` -----
+            offset += u32_size;
+            end += u32_size;
+
+            // cast `cap` to byte pointer
+            let byte_ptr = (&self.cap as *const u32) as *const u8;
+
+            // get corresponding bytes from byte pointer
+            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, u32_size) };
+
+            // store `cap` back to mmapped file
+            fields_data[offset..end].copy_from_slice(bytes);
+
+            // ----- Store `free_q` -----
+            offset += u32_size;
+            end += free_q_size;
+
+            // cast `free_q` to byte pointer
+            let byte_ptr = (&self.free_q as *const Option<NonZeroU32>) as *const u8;
+
+            // get corresponding bytes from byte pointer
+            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, free_q_size) };
+
+            // store `free_q` back to mmapped file
+            fields_data[offset..end].copy_from_slice(bytes);
+
+            // ----- Store `flush_at` -----
+            offset += free_q_size;
+            end += flush_at_size;
+
+            // cast `flush_at` to byte pointer
+            let byte_ptr = (&self.flush_at as *const Instant) as *const u8;
+
+            // get corresponding bytes from byte pointer
+            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, flush_at_size) };
+
+            // store `flush_at` back to mmapped file
+            fields_data[offset..end].copy_from_slice(bytes);
+
+            // TODO: check if this flushes fields_data from CPU caches
+            pool.flush()
+                .expect("failed to flush `Segments` fields' to storage");
+
+            gracefully_shutdown = true;
+        }
+
+        // if `Segments.data` is file backed, flush it to PMEM
+        if self.data_file_backed {
+            self.data
+                .flush()
+                .expect("failed to flush Segments.data to storage");
+        } else {
+            // This else case is not expected to be reached as this function
+            // is only called during a graceful shutdown, so it is expected that the
+            // data is file backed
+            gracefully_shutdown = false;
+        }
+
+        gracefully_shutdown
     }
 
     /// Return the size of each segment in bytes
     #[inline]
     pub fn segment_size(&self) -> i32 {
         self.segment_size
+    }
+
+    /// Returns if `data` is file backed
+    #[cfg(test)]
+    pub fn data_file_backed(&self) -> bool {
+        self.data_file_backed
     }
 
     /// Returns the number of free segments
@@ -571,7 +856,7 @@ impl Segments {
                 // reduces CPU load under heavy rewrite/delete workloads at the
                 // cost of letting more dead items remain in the segements,
                 // reducing the hitrate
-                // if self.headers[seg_id as usize].merge_at() + CoarseDuration::from_secs(30) > CoarseInstant::recent() {
+                // if self.headers[seg_id as usize].merge_at() + CoarseDuration::from_secs(30) > Instant::recent() {
                 //     return Ok(());
                 // }
 
@@ -622,6 +907,58 @@ impl Segments {
         for id in 0..self.cap {
             println!("segment header: {:?}", self.headers[id as usize]);
         }
+    }
+
+    // Used in testing to clone a `Segments` to compare with
+    #[cfg(test)]
+    pub(crate) fn clone(&self) -> Segments {
+        // clone `data`
+        let heap_size = self.segment_size as usize * self.cap as usize;
+        let mut data = vec![0; heap_size];
+        data.clone_from_slice(self.data.as_slice());
+        let segment_data = Memory::memory_from_data(data.into_boxed_slice());
+
+        // Return a `Segments` where everything is cloned
+        Self {
+            headers: self.headers.clone(),
+            data: Box::new(segment_data), // fill in `data` field with something
+            segment_size: self.segment_size,
+            free: self.free,
+            cap: self.cap,
+            free_q: self.free_q.clone(),
+            flush_at: self.flush_at,
+            evict: self.evict.clone(),
+            data_file_backed: self.data_file_backed,
+            fields_copied_back: self.fields_copied_back,
+        }
+    }
+
+    #[cfg(test)]
+    // Checks if `Segments.headers` are equivalent
+    pub(crate) fn equivalent_headers(&self, headers: Box<[SegmentHeader]>) -> bool {
+        let total_buckets = self.headers.len();
+
+        // ensure number of `SegmentHeader`s is the same
+        let mut equivalent = total_buckets == headers.len();
+
+        // Compare each `SegmentHeader`
+        for id in 0..total_buckets {
+            equivalent = equivalent && self.headers[id] == headers[id];
+        }
+
+        equivalent
+    }
+
+    // Checks if `Segments` are equivalent
+    #[cfg(test)]
+    pub(crate) fn equivalent_segments(&self, s: Segments) -> bool {
+        self.equivalent_headers(s.headers.clone())
+            && self.data.as_slice() == s.data.as_slice()
+            && self.segment_size == s.segment_size
+            && self.free == s.free
+            && self.cap == s.cap
+            && self.free_q == s.free_q
+            && self.flush_at == s.flush_at
     }
 
     #[cfg(feature = "debug")]
@@ -924,6 +1261,6 @@ impl Segments {
 
 impl Default for Segments {
     fn default() -> Self {
-        Self::from_builder(Default::default())
+        Self::from_builder_new(Default::default())
     }
 }

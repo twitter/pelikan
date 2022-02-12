@@ -35,7 +35,7 @@ use crate::*;
 // TODO(bmartin): this should be parameterized.
 const SEG_MATURE_TIME: Duration = Duration::from_secs(20);
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub struct SegmentHeader {
     /// The id for this segment

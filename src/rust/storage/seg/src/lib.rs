@@ -36,6 +36,7 @@ use std::convert::TryInto;
 // submodules
 mod builder;
 mod datapool;
+mod demolisher;
 mod error;
 mod eviction;
 mod hashtable;
@@ -52,6 +53,7 @@ mod tests;
 // publicly exported items from submodules
 pub use crate::seg::Seg;
 pub use builder::Builder;
+pub use demolisher::Demolisher;
 pub use error::SegError;
 pub use eviction::Policy;
 pub use item::Item;

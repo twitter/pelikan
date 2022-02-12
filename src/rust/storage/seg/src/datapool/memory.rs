@@ -8,6 +8,7 @@
 use crate::datapool::Datapool;
 
 /// A contiguous allocation of bytes in main memory
+#[derive(Clone)] // for testing
 pub struct Memory {
     data: Box<[u8]>,
 }
@@ -33,6 +34,12 @@ impl Memory {
         let data = data.into_boxed_slice();
 
         Self { data }
+    }
+
+    // Used only in Segments::clone() in order to clone `Segments.data`
+    #[cfg(test)]
+    pub fn memory_from_data(data: Box<[u8]>) -> Memory {
+        Memory { data }
     }
 }
 

@@ -26,6 +26,8 @@ pub struct Seg {
     pub(crate) hashtable: HashTable,
     pub(crate) segments: Segments,
     pub(crate) ttl_buckets: TtlBuckets,
+    // Used for testing: are the above structures restored?
+    pub(crate) _restored: bool,
 }
 
 impl Seg {
@@ -46,6 +48,32 @@ impl Seg {
     /// ```
     pub fn builder() -> Builder {
         Builder::default()
+    }
+
+    // Returns a new `Demolisher` which is used to configure the graceful
+    // deconstruction of a `Seg` instance.
+    //
+    // Example code:
+    // ```
+    // let segment_size = 4096;
+    // let segments = 64;
+    // let heap_size = segments * segment_size as usize;
+    // let datapool_path : Option<PathBuf> = Some(PathBuf::from(<path>));
+    // let segments_fields_path: Option<PathBuf> = Some(PathBuf::from(<path>));
+    // let ttl_buckets_path : Option<PathBuf> = Some(PathBuf::from(<path>));
+    // let hashtable_path: Option<PathBuf> = Some(PathBuf::from(<path>));
+    //
+    // // demolish cache by triggering graceful shutdown
+    //     Seg::demolisher()
+    //         .heap_size(heap_size)
+    //         .datapool_path(datapool_path)
+    //         .segments_fields_path(segments_fields_path)
+    //         .ttl_buckets_path(ttl_buckets_path)
+    //         .hashtable_path(hashtable_path)
+    //         .demolish(cache)
+    // ```
+    pub fn demolisher() -> Demolisher {
+        Demolisher::default()
     }
 
     /// Gets a count of items in the `Seg` instance. This is an expensive
@@ -132,6 +160,8 @@ impl Seg {
         let mut retries = RESERVE_RETRIES;
         let reserved;
         loop {
+            // ccc: check tail segment of TTL bucket for free space.
+            // ccc: If full, try to get a new segment from free q and make this the tail
             match self
                 .ttl_buckets
                 .get_mut_bucket(ttl)
@@ -146,6 +176,11 @@ impl Seg {
                     return Err(SegError::ItemOversized { size, key });
                 }
                 Err(TtlBucketsError::NoFreeSegments) => {
+                    if retries == RESERVE_RETRIES {
+                        // first attempt to acquire a free segment, increment
+                        // the stats
+                        SEGMENT_REQUEST.increment();
+                    }
                     if self
                         .segments
                         .evict(&mut self.ttl_buckets, &mut self.hashtable)
@@ -305,5 +340,27 @@ impl Seg {
         } else {
             Err(SegError::DataCorrupted)
         }
+    }
+
+    // Used in testing to clone a `Seg` to compare with
+    #[cfg(test)]
+    pub(crate) fn clone(&self) -> Seg {
+        let segments = self.segments.clone();
+        let ttl_buckets = self.ttl_buckets.clone();
+        let hashtable = self.hashtable.clone();
+        Seg {
+            segments,
+            ttl_buckets,
+            hashtable,
+            _restored: false, // this field doesn't matter as it won't be compared
+        }
+    }
+
+    // Used in testing to compare `Seg`s
+    #[cfg(test)]
+    pub(crate) fn equivalent_seg(&self, s: Seg) -> bool {
+        self.segments.equivalent_segments(s.segments)
+            && self.ttl_buckets.equivalent_ttlbuckets(s.ttl_buckets)
+            && self.hashtable.equivalent_hashtables(s.hashtable)
     }
 }

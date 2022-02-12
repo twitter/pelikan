@@ -21,6 +21,7 @@ pub use policy::Policy;
 
 /// The `Eviction` struct is used to rank and return segments for eviction. It
 /// implements eviction strategies corresponding to the `Policy`.
+#[derive(Clone, PartialEq)]
 pub struct Eviction {
     policy: Policy,
     last_update_time: Instant,

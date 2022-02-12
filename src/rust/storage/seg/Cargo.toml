@@ -35,6 +35,7 @@ rand_chacha = { version = "0.3.0" }
 rand_xoshiro = { version = "0.6.0" }
 storage-types = { path = "../types" }
 thiserror = "1.0.24"
+tempfile = "3"
 
 [dev-dependencies]
 criterion = "0.3.4"
