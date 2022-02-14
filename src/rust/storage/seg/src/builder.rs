@@ -191,7 +191,7 @@ impl Builder {
     /// ```
     pub fn build(self) -> Seg {
         // Build `Segments`.
-        // If `restore` and a valid path is given,
+        // If `restore` and valid paths are given,
         // it will be copied back
         let segments = self.segments_builder.build();
         if segments.fields_copied_back && self.restore {

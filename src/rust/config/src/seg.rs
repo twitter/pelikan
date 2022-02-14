@@ -164,9 +164,19 @@ impl Default for Seg {
 
 // implementation
 impl Seg {
+    // Determines if the `Seg` will be restored.
+    // The restoration will be successful if `datapool_path`, `segments_fields_path`
+    // `ttl_buckets_path` and `hashtable_path` are valid paths.
+    // Otherwise, the `Seg` will be created as new.
     pub fn restore(&self) -> bool {
         self.restore
     }
+
+    // Determines if the `Seg` will be gracefully shutdown.
+    // The graceful shutdown will be successful if the cache is file backed 
+    // and `segments_fields_path`, `ttl_buckets_path` and `hashtable_path` are
+    // valid paths to save the relevant `Seg` fields to.
+    // Otherwise, the relevant `Seg` fields will not be saved.
     pub fn graceful_shutdown(&self) -> bool {
         self.graceful_shutdown
     }
