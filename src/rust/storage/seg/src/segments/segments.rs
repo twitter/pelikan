@@ -303,68 +303,46 @@ impl Segments {
             }
 
             // ----- Store `segment_size` -----
-            let mut end = offset + i32_size;
 
             // cast `segment_size` to byte pointer
             let byte_ptr = (&self.segment_size as *const i32) as *const u8;
 
-            // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, i32_size) };
-
             // store `segment_size` back to mmapped file
-            fields_data[offset..end].copy_from_slice(bytes);
+            offset = store_bytes_and_update_offset(byte_ptr, offset, i32_size, fields_data);
 
             // ----- Store `free` -----
-            offset += i32_size;
-            end += u32_size;
 
             // cast `free` to byte pointer
             let byte_ptr = (&self.free as *const u32) as *const u8;
 
-            // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, u32_size) };
-
             // store `free` back to mmapped file
-            fields_data[offset..end].copy_from_slice(bytes);
+            offset = store_bytes_and_update_offset(byte_ptr, offset, u32_size, fields_data);
 
             // ----- Store `cap` -----
-            offset += u32_size;
-            end += u32_size;
 
             // cast `cap` to byte pointer
             let byte_ptr = (&self.cap as *const u32) as *const u8;
 
-            // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, u32_size) };
-
             // store `cap` back to mmapped file
-            fields_data[offset..end].copy_from_slice(bytes);
+            offset = store_bytes_and_update_offset(byte_ptr, offset, u32_size, fields_data);
 
             // ----- Store `free_q` -----
-            offset += u32_size;
-            end += free_q_size;
 
             // cast `free_q` to byte pointer
             let byte_ptr = (&self.free_q as *const Option<NonZeroU32>) as *const u8;
 
-            // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, free_q_size) };
-
             // store `free_q` back to mmapped file
-            fields_data[offset..end].copy_from_slice(bytes);
+            offset = store_bytes_and_update_offset(byte_ptr, offset, free_q_size, fields_data);
 
             // ----- Store `flush_at` -----
-            offset += free_q_size;
-            end += flush_at_size;
 
             // cast `flush_at` to byte pointer
             let byte_ptr = (&self.flush_at as *const Instant) as *const u8;
 
-            // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, flush_at_size) };
-
             // store `flush_at` back to mmapped file
-            fields_data[offset..end].copy_from_slice(bytes);
+            store_bytes_and_update_offset(byte_ptr, offset, flush_at_size, fields_data);
+
+            // -----------------------------
 
             // TODO: check if this flushes fields_data from CPU caches
             pool.flush()
