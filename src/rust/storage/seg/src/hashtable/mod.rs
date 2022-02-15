@@ -281,77 +281,57 @@ impl HashTable {
                 .expect("failed to allocate file backed storage");
             let file_data = pool.as_mut_slice();
 
-            // --------------------- Store `power` -----------------
             let mut offset = 0;
-            let mut end = u64_size;
+            // --------------------- Store `power` -----------------
 
             // cast `power` to byte pointer
             let byte_ptr = (&self.power as *const u64) as *const u8;
 
-            // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, u64_size) };
-
             // store `power` back to mmapped file
-            file_data[offset..end].copy_from_slice(bytes);
+            store(byte_ptr, offset, u64_size, file_data);
 
-            // --------------------- Store `mask` -----------------
             offset += u64_size;
-            end += u64_size;
+            // --------------------- Store `mask` -----------------
 
             // cast `mask` to byte pointer
             let byte_ptr = (&self.mask as *const u64) as *const u8;
 
-            // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, u64_size) };
-
             // store `mask` back to mmapped file
-            file_data[offset..end].copy_from_slice(bytes);
+            store(byte_ptr, offset, u64_size, file_data);
 
-            // --------------------- Store `data` -----------------
             offset += u64_size;
-            end += buckets_size;
+            // --------------------- Store `data` -----------------
 
             // for every `HashBucket`
             for id in 0..total_buckets {
-                let begin = offset + (bucket_size as usize * id);
-                let finish = begin + bucket_size as usize;
                 
                 // cast `HashBucket` to byte pointer
                 let byte_ptr = (&self.data[id] as *const HashBucket) as *const u8;
 
-                // get corresponding bytes from byte pointer
-                let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, bucket_size) };
-
                 // store `HashBucket` back to mmapped file
-                file_data[begin..finish].copy_from_slice(bytes);
+                store(byte_ptr, offset, bucket_size, file_data);
+
+                offset = offset + bucket_size;
             }
 
             // --------------------- Store `started` -----------------
-            offset += buckets_size;
-            end += started_size;
 
             // cast `started` to byte pointer
             let byte_ptr = (&self.started as *const Instant) as *const u8;
 
-            // get corresponding bytes from byte pointer
-            // let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, started_size) };
-
             // store `started` back to mmapped file
-            //file_data[offset..end].copy_from_slice(bytes);
             store(byte_ptr, offset, started_size, file_data);
 
-            // --------------------- Store `next_to_chain` -----------------
             offset += started_size;
-            end += u64_size;
+            // --------------------- Store `next_to_chain` -----------------
 
             // cast `next_to_chain` to byte pointer
             let byte_ptr = (&self.next_to_chain as *const u64) as *const u8;
 
-            // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, u64_size) };
-
             // store `next_to_chain` back to mmapped file
-            file_data[offset..end].copy_from_slice(bytes);
+            store(byte_ptr, offset, u64_size, file_data);
+
+            // -------------------------------------------------------------
 
             gracefully_shutdown = true;
 
@@ -965,12 +945,6 @@ fn hash_builder() -> RandomState {
         0x4feb29c1fbbd59d0,
     )
 }
-
-// /// Copies `bytes` to the `offset` of `data`
-// fn store(bytes: &[u8], offset: usize, size: usize, data: &mut [u8]) {
-//     let end = offset + size;
-//     data[offset..end].copy_from_slice(bytes);
-// }
 
 /// Copies bytes at `byte_ptr` to the `offset` of `data`
 fn store(byte_ptr: *const u8, offset: usize, size: usize, data: &mut [u8]) {
