@@ -299,9 +299,7 @@ impl Segments {
                 let byte_ptr = (&self.headers[id] as *const SegmentHeader) as *const u8;
 
                 // store `SegmentHeader` back to mmapped file
-                store_bytes_and_update_offset(byte_ptr, offset, header_size, fields_data);
-
-                offset += header_size;
+                offset = store_bytes_and_update_offset(byte_ptr, offset, header_size, fields_data);
             }
 
             // ----- Store `segment_size` -----
@@ -1263,7 +1261,8 @@ impl Default for Segments {
 }
 
 /// Copies `size` bytes at `byte_ptr` to the `offset` of `data`
-fn store_bytes_and_update_offset(byte_ptr: *const u8, offset: usize, size: usize, data: &mut [u8]) {
+/// Returns the next `offset`, that is, the next byte of `data` to be copied into
+fn store_bytes_and_update_offset(byte_ptr: *const u8, offset: usize, size: usize, data: &mut [u8]) -> usize {
     // get corresponding bytes from byte pointer
     let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, size) };
 
@@ -1271,4 +1270,7 @@ fn store_bytes_and_update_offset(byte_ptr: *const u8, offset: usize, size: usize
 
     // store `bytes` to `data`
     data[offset..end].copy_from_slice(bytes);
+
+    // next `offset`
+    end
 }

@@ -165,17 +165,13 @@ impl HashTable {
             // I.e. config specifies same `power` as `HashTable` we are
             // restoring from
             // TODO: Detect a change of `power` and adjust `HashTable` accordingly
-
-            let slots = 1_u64 << cfg_power;
-            let buckets = slots / 8;
-            let total_buckets = (buckets as f64 * (1.0 + overflow_factor)).ceil() as usize;
+            let total_buckets = total_buckets(cfg_power.into(), overflow_factor);
             let bucket_size = ::std::mem::size_of::<HashBucket>();
-            // size from all `HashBucket`s in `data`
-            let buckets_size = total_buckets * bucket_size;
             let u64_size = ::std::mem::size_of::<u64>();
             let started_size = ::std::mem::size_of::<Instant>();
+            // Size of all components of `HashTable` that are being restored
             let hashtable_size = u64_size * 3 // `power`, `mask`, `next_to_chain`
-                               + buckets_size // `data`
+                               + total_buckets * bucket_size // `data`
                                + started_size;
 
             // Mmap file
@@ -192,48 +188,43 @@ impl HashTable {
 
             let hash_builder = hash_builder();
 
-            // ----- Retrieve `power` ---------
-
             let mut offset = 0;
+            // ----- Retrieve `power` ---------
             let mut end = u64_size;
 
             let power = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut u64) };
             // TODO: compare `cfg_power` and `power`
 
-            // ----- Retrieve `mask` ---------
-
             offset += u64_size;
+            // ----- Retrieve `mask` ---------
             end += u64_size;
 
             let mask = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut u64) };
 
-            // ----- Retrieve `data` ---------
             offset += u64_size;
-            end += buckets_size;
+            // ----- Retrieve `data` ---------
 
             let mut data = Vec::with_capacity(0);
             data.reserve_exact(total_buckets as usize);
 
             // Get each `HashBucket` from the raw bytes
-            for id in 0..total_buckets {
-                let begin = offset + (bucket_size as usize * id);
-                let finish = begin + bucket_size as usize;
+            for _ in 0..total_buckets {
+                end += bucket_size;
 
                 // cast bytes to `HashBucket`
-                let bucket = unsafe { *(bytes[begin..finish].as_mut_ptr() as *mut HashBucket) };
+                let bucket = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut HashBucket) };
                 data.push(bucket);
+
+                offset += bucket_size;
             }
 
             // ----- Retrieve `started` ---------
-
-            offset += buckets_size;
             end += started_size;
 
             let started = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut Instant) };
 
-            // ----- Retrieve `next_to_chain` ---------
-
             offset += started_size;
+            // ----- Retrieve `next_to_chain` ---------
             end += u64_size;
 
             let next_to_chain = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut u64) };
@@ -263,17 +254,13 @@ impl HashTable {
         // if a path is specified, copy all the `HashBucket`s
         // to the file specified by `hashtable_path`
         if let Some(file) = hashtable_path {
-            let slots = 1_u64 << self.power;
-            let buckets = slots / 8;
-            let total_buckets = (buckets as f64 * (1.0 + overflow_factor)).ceil() as usize;
+            let total_buckets = total_buckets(self.power, overflow_factor);
             let bucket_size = ::std::mem::size_of::<HashBucket>();
-            // size from all `HashBucket`s in `data`
-            let buckets_size = total_buckets * bucket_size;
             let u64_size = ::std::mem::size_of::<u64>();
             let started_size = ::std::mem::size_of::<Instant>();
-            // needed
+            // Size of all components of `HashTable` that are being saved
             let hashtable_size = u64_size * 3 // `power`, `mask`, `next_to_chain`
-                               + buckets_size // `data`
+                               + total_buckets * bucket_size // `data`
                                + started_size;
 
             // Mmap file
@@ -926,6 +913,13 @@ impl HashTable {
             && self.started == h.started
             && self.next_to_chain == h.next_to_chain
     }
+}
+
+/// Internal function used to calculate the total number of buckets
+fn total_buckets(power: u64, overflow_factor: f64) -> usize {
+    let slots = 1_u64 << power;
+    let buckets = slots / 8;
+    (buckets as f64 * (1.0 + overflow_factor)).ceil() as usize
 }
 
 /// Internal function used to generate a new `hash_builder`
