@@ -35,9 +35,9 @@ impl Default for Builder {
 impl Builder {
     /// Specify to `Builder` and `SegmentsBuilder` whether the cache will be restored.
     /// Otherwise, the cache will be created and treated as new.
-    pub fn restore(mut self, will_restore: bool) -> Self {
-        self.restore = will_restore;
-        self.segments_builder = self.segments_builder.restore(will_restore);
+    pub fn restore(mut self, restore: bool) -> Self {
+        self.restore = restore;
+        self.segments_builder = self.segments_builder.restore(restore);
         self
     }
 
