@@ -288,7 +288,7 @@ impl HashTable {
             let byte_ptr = (&self.power as *const u64) as *const u8;
 
             // store `power` back to mmapped file
-            offset = store_and_update_offset(byte_ptr, offset, u64_size, file_data);
+            offset = store_bytes_and_update_offset(byte_ptr, offset, u64_size, file_data);
 
             // --------------------- Store `mask` -----------------
 
@@ -296,7 +296,7 @@ impl HashTable {
             let byte_ptr = (&self.mask as *const u64) as *const u8;
 
             // store `mask` back to mmapped file
-            offset = store_and_update_offset(byte_ptr, offset, u64_size, file_data);
+            offset = store_bytes_and_update_offset(byte_ptr, offset, u64_size, file_data);
             // --------------------- Store `data` -----------------
 
             // for every `HashBucket`
@@ -306,7 +306,7 @@ impl HashTable {
                 let byte_ptr = (&self.data[id] as *const HashBucket) as *const u8;
 
                 // store `HashBucket` back to mmapped file
-                offset = store_and_update_offset(byte_ptr, offset, bucket_size, file_data);
+                offset = store_bytes_and_update_offset(byte_ptr, offset, bucket_size, file_data);
             }
 
             // --------------------- Store `started` -----------------
@@ -315,14 +315,14 @@ impl HashTable {
             let byte_ptr = (&self.started as *const Instant) as *const u8;
 
             // store `started` back to mmapped file
-            offset = store_and_update_offset(byte_ptr, offset, started_size, file_data);
+            offset = store_bytes_and_update_offset(byte_ptr, offset, started_size, file_data);
             // --------------------- Store `next_to_chain` -----------------
 
             // cast `next_to_chain` to byte pointer
             let byte_ptr = (&self.next_to_chain as *const u64) as *const u8;
 
             // store `next_to_chain` back to mmapped file
-            store_and_update_offset(byte_ptr, offset, u64_size, file_data);
+            store_bytes_and_update_offset(byte_ptr, offset, u64_size, file_data);
             // -------------------------------------------------------------
 
             gracefully_shutdown = true;
@@ -940,7 +940,7 @@ fn hash_builder() -> RandomState {
 
 /// Copies `size` bytes at `byte_ptr` to the `offset` of `data`
 /// Returns the next `offset`, that is, the next byte of `data` to be copied into
-fn store_and_update_offset(byte_ptr: *const u8, offset: usize, size: usize, data: &mut [u8]) -> usize {
+fn store_bytes_and_update_offset(byte_ptr: *const u8, offset: usize, size: usize, data: &mut [u8]) -> usize {
     // get corresponding bytes from byte pointer
     let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, size) };
 
