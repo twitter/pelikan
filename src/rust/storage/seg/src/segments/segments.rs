@@ -302,7 +302,7 @@ impl Segments {
                 let byte_ptr = (&self.headers[id] as *const SegmentHeader) as *const u8;
 
                 // store `SegmentHeader` back to mmapped file
-                offset = store_bytes_and_update_offset(byte_ptr, offset, header_size, fields_data);
+                offset = store::store_bytes_and_update_offset(byte_ptr, offset, header_size, fields_data);
             }
 
             // ----- Store `segment_size` -----
@@ -311,7 +311,7 @@ impl Segments {
             let byte_ptr = (&self.segment_size as *const i32) as *const u8;
 
             // store `segment_size` back to mmapped file
-            offset = store_bytes_and_update_offset(byte_ptr, offset, i32_size, fields_data);
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, i32_size, fields_data);
 
             // ----- Store `free` -----
 
@@ -319,7 +319,7 @@ impl Segments {
             let byte_ptr = (&self.free as *const u32) as *const u8;
 
             // store `free` back to mmapped file
-            offset = store_bytes_and_update_offset(byte_ptr, offset, u32_size, fields_data);
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, u32_size, fields_data);
 
             // ----- Store `cap` -----
 
@@ -327,7 +327,7 @@ impl Segments {
             let byte_ptr = (&self.cap as *const u32) as *const u8;
 
             // store `cap` back to mmapped file
-            offset = store_bytes_and_update_offset(byte_ptr, offset, u32_size, fields_data);
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, u32_size, fields_data);
 
             // ----- Store `free_q` -----
 
@@ -335,7 +335,7 @@ impl Segments {
             let byte_ptr = (&self.free_q as *const Option<NonZeroU32>) as *const u8;
 
             // store `free_q` back to mmapped file
-            offset = store_bytes_and_update_offset(byte_ptr, offset, free_q_size, fields_data);
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, free_q_size, fields_data);
 
             // ----- Store `flush_at` -----
 
@@ -343,7 +343,7 @@ impl Segments {
             let byte_ptr = (&self.flush_at as *const Instant) as *const u8;
 
             // store `flush_at` back to mmapped file
-            store_bytes_and_update_offset(byte_ptr, offset, flush_at_size, fields_data);
+            store::store_bytes_and_update_offset(byte_ptr, offset, flush_at_size, fields_data);
 
             // -----------------------------
 
@@ -1239,19 +1239,4 @@ impl Default for Segments {
     fn default() -> Self {
         Self::from_builder_new(Default::default())
     }
-}
-
-/// Copies `size` bytes at `byte_ptr` to the `offset` of `data`
-/// Returns the next `offset`, that is, the next byte of `data` to be copied into
-fn store_bytes_and_update_offset(byte_ptr: *const u8, offset: usize, size: usize, data: &mut [u8]) -> usize {
-    // get corresponding bytes from byte pointer
-    let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, size) };
-
-    let end = offset + size;
-
-    // store `bytes` to `data`
-    data[offset..end].copy_from_slice(bytes);
-
-    // next `offset`
-    end
 }

@@ -42,6 +42,7 @@ mod eviction;
 mod hashtable;
 mod item;
 mod rand;
+mod store;
 mod seg;
 mod segments;
 mod ttl_buckets;
