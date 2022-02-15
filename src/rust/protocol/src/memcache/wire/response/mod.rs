@@ -202,6 +202,7 @@ impl Compose for MemcacheResponse {
                     MemcacheResult::Error => {
                         INCR_EX.increment();
                     }
+                    MemcacheResult::Count { .. } => {}
                     _ => {
                         error!("didn't expect: {:?} for {:?}", self.result, self.request);
                         unreachable!()
@@ -217,6 +218,7 @@ impl Compose for MemcacheResponse {
                     MemcacheResult::Error => {
                         DECR_EX.increment();
                     }
+                    MemcacheResult::Count { .. } => {}
                     _ => {
                         error!("didn't expect: {:?} for {:?}", self.result, self.request);
                         unreachable!()

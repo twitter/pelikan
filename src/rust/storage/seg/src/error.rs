@@ -6,15 +6,15 @@
 
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Debug, PartialEq, Eq, Copy, Clone)]
 /// Possible errors returned by the top-level API
-pub enum SegError<'a> {
+pub enum SegError {
     #[error("hashtable insert exception")]
     HashTableInsertEx,
     #[error("eviction exception")]
     EvictionEx,
-    #[error("item oversized ({size:?} bytes) for key: {key:?}")]
-    ItemOversized { size: usize, key: &'a [u8] },
+    #[error("item oversized ({size:?} bytes)")]
+    ItemOversized { size: usize },
     #[error("no free segments")]
     NoFreeSegments,
     #[error("item exists")]
@@ -23,4 +23,6 @@ pub enum SegError<'a> {
     NotFound,
     #[error("data corruption detected")]
     DataCorrupted,
+    #[error("item is not numeric")]
+    NotNumeric,
 }

@@ -513,7 +513,7 @@ impl HashTable {
         key: &'a [u8],
         cas: u32,
         segments: &mut Segments,
-    ) -> Result<(), SegError<'a>> {
+    ) -> Result<(), SegError> {
         let hash = self.hash(key);
         let tag = tag_from_hash(hash);
         let bucket_id = hash & self.mask;
