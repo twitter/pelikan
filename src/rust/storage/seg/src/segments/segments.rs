@@ -50,36 +50,33 @@ pub(crate) struct Segments {
 
 impl Segments {
     /// Private function which allocates and initializes the `Segments` by
-    /// taking ownership of the builder
-    /// A new `Segments` is created
-    pub(super) fn from_builder_new(builder: SegmentsBuilder) -> Self {
-        let segment_size = builder.segment_size;
-        let segments = builder.heap_size / (builder.segment_size as usize);
+    /// taking ownership of the builder.
+    /// `Segments` is restored if the paths are specified, otherwise a new
+    /// `Segments` is created.
+    pub(super) fn from_builder(builder: SegmentsBuilder) -> Self {
+        let cfg_segment_size = builder.segment_size;
+        let cfg_segments = builder.heap_size / (builder.segment_size as usize);
 
         debug!(
             "heap size: {} seg size: {} segments: {}",
-            builder.heap_size, segment_size, segments
+            builder.heap_size, cfg_segment_size, cfg_segments
         );
 
         assert!(
-            segments < (1 << 24), // we use just 24 bits to store the seg id
+            cfg_segments < (1 << 24), // we use just 24 bits to store the seg id
             "heap size requires too many segments, reduce heap size or increase segment size"
         );
 
+        // initialise `evict`
         let evict_policy = builder.evict_policy;
+        let evict = Eviction::new(cfg_segments, evict_policy);
 
         debug!("eviction policy: {:?}", evict_policy);
 
         let mut headers = Vec::with_capacity(0);
-        headers.reserve_exact(segments);
-        for id in 0..segments {
-            // safety: we start iterating from 1 and seg id is constrained to < 2^24
-            let header = SegmentHeader::new(unsafe { NonZeroU32::new_unchecked(id as u32 + 1) });
-            headers.push(header);
-        }
-        let mut headers = headers.into_boxed_slice();
+        headers.reserve_exact(cfg_segments);
 
-        let heap_size = segments * segment_size as usize;
+        let heap_size = cfg_segments * cfg_segment_size as usize;
         let mut data_file_backed = false;
 
         // TODO(bmartin): we always prefault, this should be configurable
@@ -92,83 +89,18 @@ impl Segments {
             Box::new(Memory::create(heap_size, true))
         };
 
-        for idx in 0..segments {
-            let begin = segment_size as usize * idx;
-            let end = begin + segment_size as usize;
-
-            let mut segment =
-                Segment::from_raw_parts(&mut headers[idx], &mut data.as_mut_slice()[begin..end]);
-            segment.init();
-
-            let id = idx as u32 + 1; // we index segments from 1
-            segment.set_prev_seg(NonZeroU32::new(id - 1));
-            if id < segments as u32 {
-                segment.set_next_seg(NonZeroU32::new(id + 1));
-            }
-        }
-
-        SEGMENT_CURRENT.set(segments as _);
-        SEGMENT_FREE.set(segments as _);
-
-        Self {
-            headers,
-            segment_size,
-            cap: segments as u32,
-            free: segments as u32,
-            free_q: NonZeroU32::new(1),
-            data,
-            flush_at: Instant::recent(),
-            evict: Box::new(Eviction::new(segments, evict_policy)),
-            data_file_backed,
-            fields_copied_back: false,
-        }
-    }
-
-    /// Private function which allocates and initializes the `Segments` by
-    /// taking ownership of the builder.
-    /// `Segments` is restored if the paths are specified, otherwise a new
-    /// `Segments` is created.
-    pub(super) fn from_builder_restore(builder: SegmentsBuilder) -> Self {
-        // this is here to avoid `builder` being moved when it might be needed
-        // for the else statement
-        let segments_fields_path = builder.segments_fields_path.clone();
-
-        // If there are specified paths to restore the `Segments` with,
-        // copy `Segments` back.
+        // If `builder.restore` and 
+        // there are specified paths to restore the `Segments` with and
+        // `Segments.data` is file backed, restore relevant 
+        // `Segments` fields. 
         // Otherwise create a new `Segments`.
-        if let Some(fields_file) = segments_fields_path {
-            // ----- Recover `data` ------
-            let data: Box<dyn Datapool>;
+        if builder.restore &&
+           data_file_backed && 
+           builder.segments_fields_path.is_some(){
             // TODO: like with the HashTable fields, we assume that the configuration
             // options for `Segments` hasn't changed upon recovery. We need a way to
             // detect the change in fields as well as decided how to
             // deal with such changes.
-            let cfg_segment_size = builder.segment_size;
-            let cfg_segments = builder.heap_size / (builder.segment_size as usize);
-
-            debug!(
-                "heap size: {} seg size: {} segments: {}",
-                builder.heap_size, cfg_segment_size, cfg_segments
-            );
-
-            assert!(
-                cfg_segments < (1 << 24), // we use just 24 bits to store the seg id
-                "heap size requires too many segments, reduce heap size or increase segment size"
-            );
-
-            let heap_size = cfg_segments * cfg_segment_size as usize;
-
-            // TODO(bmartin): we always prefault, this should be configurable
-            // `Segments.data` must be file backed for a recovery
-            if let Some(data_file) = builder.datapool_path {
-                let pool = File::create(data_file, heap_size, true)
-                    .expect("failed to allocate file backed storage");
-                data = Box::new(pool)
-            } else {
-                return Segments::from_builder_new(builder);
-            }
-
-            // ----- Recover other fields ------
 
             let header_size: usize = ::std::mem::size_of::<SegmentHeader>();
             let i32_size = ::std::mem::size_of::<i32>();
@@ -183,7 +115,7 @@ impl Segments {
                             + flush_at_size;
 
             // Mmap file
-            let pool = File::create(fields_file, fields_size, true)
+            let pool = File::create(builder.segments_fields_path.unwrap(), fields_size, true)
                 .expect("failed to allocate file backed storage");
             let fields_data = Box::new(pool.as_slice());
 
@@ -196,8 +128,6 @@ impl Segments {
             let mut offset = 0;
             let mut end = 0;
             // ----- Retrieve `headers` -----
-            let mut headers = Vec::with_capacity(0);
-            headers.reserve_exact(cfg_segments);
 
             // retrieve each `SegmentHeader` from the raw bytes
             for _ in 0..cfg_segments {
@@ -240,11 +170,6 @@ impl Segments {
 
             let flush_at = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut Instant) };
 
-            // ----- Re-initialise `evict` -----
-
-            let evict_policy = builder.evict_policy;
-            let evict = Eviction::new(cfg_segments, evict_policy);
-
             SEGMENT_CURRENT.set(cap as _);
             SEGMENT_FREE.set(free as _);
 
@@ -261,7 +186,42 @@ impl Segments {
                 fields_copied_back: true,
             }
         } else {
-            Segments::from_builder_new(builder)
+            for id in 0..cfg_segments {
+                // safety: we start iterating from 1 and seg id is constrained to < 2^24
+                let header = SegmentHeader::new(unsafe { NonZeroU32::new_unchecked(id as u32 + 1) });
+                headers.push(header);
+            }
+    
+            for idx in 0..cfg_segments {
+                let begin = cfg_segment_size as usize * idx;
+                let end = begin + cfg_segment_size as usize;
+    
+                let mut segment =
+                    Segment::from_raw_parts(&mut headers[idx], &mut data.as_mut_slice()[begin..end]);
+                segment.init();
+    
+                let id = idx as u32 + 1; // we index cfg_segments from 1
+                segment.set_prev_seg(NonZeroU32::new(id - 1));
+                if id < cfg_segments as u32 {
+                    segment.set_next_seg(NonZeroU32::new(id + 1));
+                }
+            }
+    
+            SEGMENT_CURRENT.set(cfg_segments as _);
+            SEGMENT_FREE.set(cfg_segments as _);
+    
+            Self {
+                headers: headers.into_boxed_slice(),
+                segment_size: cfg_segment_size,
+                cap: cfg_segments as u32,
+                free: cfg_segments as u32,
+                free_q: NonZeroU32::new(1),
+                data,
+                flush_at: Instant::recent(),
+                evict: Box::new(evict),
+                data_file_backed,
+                fields_copied_back: false,
+            }
         }
     }
 
@@ -1237,6 +1197,6 @@ impl Segments {
 
 impl Default for Segments {
     fn default() -> Self {
-        Self::from_builder_new(Default::default())
+        Self::from_builder(Default::default())
     }
 }

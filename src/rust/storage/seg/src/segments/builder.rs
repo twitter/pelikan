@@ -92,10 +92,6 @@ impl<'a> SegmentsBuilder {
 
     /// Construct the [`Segments`] from the builder
     pub fn build(self) -> Segments {
-        if self.restore {
-            Segments::from_builder_restore(self)
-        } else {
-            Segments::from_builder_new(self)
-        }
+        Segments::from_builder(self)
     }
 }
