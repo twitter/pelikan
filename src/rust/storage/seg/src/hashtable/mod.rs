@@ -271,6 +271,7 @@ impl HashTable {
             let buckets_size = total_buckets * bucket_size;
             let u64_size = ::std::mem::size_of::<u64>();
             let started_size = ::std::mem::size_of::<Instant>();
+            // needed
             let hashtable_size = u64_size * 3 // `power`, `mask`, `next_to_chain`
                                + buckets_size // `data`
                                + started_size;
@@ -278,7 +279,7 @@ impl HashTable {
             // Mmap file
             let mut pool = File::create(file, hashtable_size, true)
                 .expect("failed to allocate file backed storage");
-            let file_data = Box::new(pool.as_mut_slice());
+            let file_data = pool.as_mut_slice();
 
             // --------------------- Store `power` -----------------
             let mut offset = 0;
@@ -314,7 +315,7 @@ impl HashTable {
             for id in 0..total_buckets {
                 let begin = offset + (bucket_size as usize * id);
                 let finish = begin + bucket_size as usize;
-
+                
                 // cast `HashBucket` to byte pointer
                 let byte_ptr = (&self.data[id] as *const HashBucket) as *const u8;
 
@@ -336,7 +337,8 @@ impl HashTable {
             let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, started_size) };
 
             // store `started` back to mmapped file
-            file_data[offset..end].copy_from_slice(bytes);
+            //file_data[offset..end].copy_from_slice(bytes);
+            store(bytes, offset, started_size, file_data);
 
             // --------------------- Store `next_to_chain` -----------------
             offset += started_size;
@@ -962,4 +964,10 @@ fn hash_builder() -> RandomState {
         0xeed2797b9571bc75,
         0x4feb29c1fbbd59d0,
     )
+}
+
+/// Copies `bytes` to the `offset` of `data`
+fn store(bytes: &[u8], offset: usize, size: usize, data: &mut [u8]) {
+    let end = offset + size;
+    data[offset..end].copy_from_slice(bytes);
 }
