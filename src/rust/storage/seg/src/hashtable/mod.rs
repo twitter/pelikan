@@ -366,7 +366,6 @@ impl HashTable {
         let tag = tag_from_hash(hash);
         let bucket_id = hash & self.mask;
 
-        // ccc: get bucket corresponding to the key
         let mut bucket = &mut self.data[bucket_id as usize];
         let chain_len = chain_len(bucket.data[0]);
         let mut chain_idx = 0;
@@ -377,7 +376,6 @@ impl HashTable {
         if curr_ts != get_ts(bucket.data[0]) {
             bucket.data[0] = (bucket.data[0] & !TS_MASK) | (curr_ts << TS_BIT_SHIFT);
 
-            // ccc: Mask every "item info" in this bucket to remove the freq smoothing
             loop {
                 let n_item_slot = if chain_idx == chain_len {
                     N_BUCKET_SLOT
@@ -404,24 +402,20 @@ impl HashTable {
             bucket = &mut self.data[bucket_id as usize];
         }
 
-        // ccc: look at every HashBucket in this chain
         loop {
             let n_item_slot = if chain_idx == chain_len {
-                N_BUCKET_SLOT // ccc: the last HashBucket in this chain has 8 items
+                N_BUCKET_SLOT
             } else {
-                N_BUCKET_SLOT - 1 // ccc: every other has 7 items (or 6 in the case of HashBucket 0)
+                N_BUCKET_SLOT - 1 
             };
 
-            // ccc: for every slot of "item info" in this HashBucket
             for i in 0..n_item_slot {
-                // ccc: ignore the "bucket info" slot (in HashBucket 0)
                 if chain_idx == 0 && i == 0 {
                     continue;
                 }
 
                 let current_info = bucket.data[i];
 
-                // ccc: check if the tags match
                 if get_tag(current_info) == tag {
                     let current_item = segments.get_item(current_info).unwrap();
                     if current_item.key() != key {

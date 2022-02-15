@@ -160,8 +160,6 @@ impl Seg {
         let mut retries = RESERVE_RETRIES;
         let reserved;
         loop {
-            // ccc: check tail segment of TTL bucket for free space.
-            // ccc: If full, try to get a new segment from free q and make this the tail
             match self
                 .ttl_buckets
                 .get_mut_bucket(ttl)
