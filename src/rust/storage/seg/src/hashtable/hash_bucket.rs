@@ -72,7 +72,7 @@ pub(crate) const CLEAR_FREQ_SMOOTH_MASK: u64 = 0xFFF7_FFFF_FFFF_FFFF;
 /// Mask to get the lower 16 bits from a timestamp
 pub(crate) const PROC_TS_MASK: u64 = 0x0000_0000_0000_FFFF;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct HashBucket {
     pub(super) data: [u64; N_BUCKET_SLOT],
 }
