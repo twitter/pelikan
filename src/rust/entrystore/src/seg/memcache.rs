@@ -132,25 +132,25 @@ impl MemcacheStorage for Seg {
 
     fn incr(&mut self, key: &[u8], value: u64) -> Result<u64, MemcacheStorageError> {
         match self.data.wrapping_add(key, value) {
-            Err(SegError::NotFound) => Err(MemcacheStorageError::NotFound),
-            Err(SegError::NotNumeric) => Err(MemcacheStorageError::Error),
-            Err(_) => Err(MemcacheStorageError::ServerError),
             Ok(item) => match item.value() {
                 Value::U64(v) => Ok(v),
                 _ => Err(MemcacheStorageError::ServerError),
             },
+            Err(SegError::NotFound) => Err(MemcacheStorageError::NotFound),
+            Err(SegError::NotNumeric) => Err(MemcacheStorageError::Error),
+            Err(_) => Err(MemcacheStorageError::ServerError),
         }
     }
 
     fn decr(&mut self, key: &[u8], value: u64) -> Result<u64, MemcacheStorageError> {
         match self.data.saturating_sub(key, value) {
-            Err(SegError::NotFound) => Err(MemcacheStorageError::NotFound),
-            Err(SegError::NotNumeric) => Err(MemcacheStorageError::Error),
-            Err(_) => Err(MemcacheStorageError::ServerError),
             Ok(item) => match item.value() {
                 Value::U64(v) => Ok(v),
                 _ => Err(MemcacheStorageError::ServerError),
             },
+            Err(SegError::NotFound) => Err(MemcacheStorageError::NotFound),
+            Err(SegError::NotNumeric) => Err(MemcacheStorageError::Error),
+            Err(_) => Err(MemcacheStorageError::ServerError),
         }
     }
 
