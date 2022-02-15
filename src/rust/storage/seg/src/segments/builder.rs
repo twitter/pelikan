@@ -37,8 +37,8 @@ impl<'a> SegmentsBuilder {
     /// Specify whether the `Segments` fields' will be restored
     /// from the segments_fields_path.
     /// Otherwise, the cache will be created and treated as new.
-    pub fn restore(mut self, will_restore: bool) -> Self {
-        self.restore = will_restore;
+    pub fn restore(mut self, restore: bool) -> Self {
+        self.restore = restore;
         self
     }
 
