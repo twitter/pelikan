@@ -287,27 +287,24 @@ impl Segments {
             // mmap file
             let mut pool = File::create(file, fields_size, true)
                 .expect("failed to allocate file backed storage");
-            let fields_data = Box::new(pool.as_mut_slice());
+            let fields_data = pool.as_mut_slice();
 
+            let mut offset = 0;
             // ----- Store `headers` -----
 
             // for every `SegmentHeader`
             for id in 0..segments {
-                let begin = header_size as usize * id;
-                let finish = begin + header_size as usize;
 
                 // cast `SegmentHeader` to byte pointer
                 let byte_ptr = (&self.headers[id] as *const SegmentHeader) as *const u8;
 
-                // get corresponding bytes from byte pointer
-                let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, header_size) };
-
                 // store `SegmentHeader` back to mmapped file
-                fields_data[begin..finish].copy_from_slice(bytes);
+                store_and_update_offset(byte_ptr, offset, header_size, fields_data);
+
+                offset += header_size;
             }
 
             // ----- Store `segment_size` -----
-            let mut offset = headers_size;
             let mut end = offset + i32_size;
 
             // cast `segment_size` to byte pointer
@@ -1263,4 +1260,15 @@ impl Default for Segments {
     fn default() -> Self {
         Self::from_builder_new(Default::default())
     }
+}
+
+/// Copies `size` bytes at `byte_ptr` to the `offset` of `data`
+fn store_and_update_offset(byte_ptr: *const u8, offset: usize, size: usize, data: &mut [u8]) {
+    // get corresponding bytes from byte pointer
+    let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, size) };
+
+    let end = offset + size;
+
+    // store `bytes` to `data`
+    data[offset..end].copy_from_slice(bytes);
 }
