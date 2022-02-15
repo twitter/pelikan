@@ -144,12 +144,7 @@ impl HashTable {
             slots, buckets, total_buckets,
         );
 
-        let hash_builder = RandomState::with_seeds(
-            0xbb8c484891ec6c86,
-            0x0522a25ae9c769f9,
-            0xeed2797b9571bc75,
-            0x4feb29c1fbbd59d0,
-        );
+        let hash_builder = hash_builder();
 
         Self {
             hash_builder: Box::new(hash_builder),
@@ -195,12 +190,7 @@ impl HashTable {
 
             // ----- Re-initialise `hash_builder` -----
 
-            let hash_builder = RandomState::with_seeds(
-                0xbb8c484891ec6c86,
-                0x0522a25ae9c769f9,
-                0xeed2797b9571bc75,
-                0x4feb29c1fbbd59d0,
-            );
+            let hash_builder = hash_builder();
 
             // ----- Retrieve `power` ---------
 
@@ -933,6 +923,17 @@ impl HashTable {
         }
 
         evicted
+    }
+
+
+    /// Internal function used to generate a new `hash_builder`
+    fn hash_builder() -> RandomState {
+        RandomState::with_seeds(
+            0xbb8c484891ec6c86,
+            0x0522a25ae9c769f9,
+            0xeed2797b9571bc75,
+            0x4feb29c1fbbd59d0,
+        )
     }
 
     /// Internal function used to calculate a hash value for a key
