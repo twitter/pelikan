@@ -334,11 +334,11 @@ impl HashTable {
             let byte_ptr = (&self.started as *const Instant) as *const u8;
 
             // get corresponding bytes from byte pointer
-            let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, started_size) };
+            // let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, started_size) };
 
             // store `started` back to mmapped file
             //file_data[offset..end].copy_from_slice(bytes);
-            store(bytes, offset, started_size, file_data);
+            store(byte_ptr, offset, started_size, file_data);
 
             // --------------------- Store `next_to_chain` -----------------
             offset += started_size;
@@ -966,8 +966,19 @@ fn hash_builder() -> RandomState {
     )
 }
 
-/// Copies `bytes` to the `offset` of `data`
-fn store(bytes: &[u8], offset: usize, size: usize, data: &mut [u8]) {
+// /// Copies `bytes` to the `offset` of `data`
+// fn store(bytes: &[u8], offset: usize, size: usize, data: &mut [u8]) {
+//     let end = offset + size;
+//     data[offset..end].copy_from_slice(bytes);
+// }
+
+/// Copies bytes at `byte_ptr` to the `offset` of `data`
+fn store(byte_ptr: *const u8, offset: usize, size: usize, data: &mut [u8]) {
+    // get corresponding bytes from byte pointer
+    let bytes = unsafe { ::std::slice::from_raw_parts(byte_ptr, size) };
+
     let end = offset + size;
+
+    // store `bytes` to `data`
     data[offset..end].copy_from_slice(bytes);
 }
