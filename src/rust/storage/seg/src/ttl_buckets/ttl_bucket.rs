@@ -34,7 +34,7 @@ use core::num::NonZeroU32;
 /// in an ordered fashion. The first segment to expire will be the head of the
 /// segment chain. This allows us to efficiently scan across the [`TtlBuckets`]
 /// and expire segments in an eager fashion.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(C)]
 pub struct TtlBucket {
     head: Option<NonZeroU32>,
