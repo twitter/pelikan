@@ -8,7 +8,7 @@
 use crate::datapool::Datapool;
 
 /// A contiguous allocation of bytes in main memory
-#[derive(Clone)] // for testing
+#[derive(Clone)]
 pub struct Memory {
     data: Box<[u8]>,
 }
