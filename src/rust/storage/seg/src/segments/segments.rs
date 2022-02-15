@@ -171,12 +171,12 @@ impl Segments {
             // ----- Recover other fields ------
 
             let header_size: usize = ::std::mem::size_of::<SegmentHeader>();
-            let headers_size: usize = cfg_segments * header_size as usize;
             let i32_size = ::std::mem::size_of::<i32>();
             let u32_size = ::std::mem::size_of::<u32>();
             let free_q_size = ::std::mem::size_of::<Option<NonZeroU32>>();
             let flush_at_size = ::std::mem::size_of::<Instant>();
-            let fields_size = headers_size
+            // Size of all components of `Segments` that are being restored
+            let fields_size = cfg_segments * header_size  // `headers`
                             + i32_size     // `segment_size`
                             + u32_size * 2 // `free` and `cap`
                             + free_q_size
@@ -192,47 +192,50 @@ impl Segments {
             // retrieve bytes from mmapped file
             bytes.copy_from_slice(&fields_data[0..fields_size]);
 
+            
+            let mut offset = 0;
+            let mut end = 0;
             // ----- Retrieve `headers` -----
             let mut headers = Vec::with_capacity(0);
             headers.reserve_exact(cfg_segments);
 
             // retrieve each `SegmentHeader` from the raw bytes
-            for id in 0..cfg_segments {
-                let begin = header_size as usize * id;
-                let finish = begin + header_size as usize;
+            for _ in 0..cfg_segments {
+                end += header_size;
 
                 // cast bytes to `SegmentHeader`
-                let header = unsafe { *(bytes[begin..finish].as_mut_ptr() as *mut SegmentHeader) };
+                let header = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut SegmentHeader) };
                 headers.push(header);
+
+                offset += header_size;
             }
 
             // ----- Retrieve `segment_size` -----
-            let mut offset = headers_size;
-            let mut end = offset + i32_size;
+            end += i32_size;
 
             let segment_size = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut i32) };
             // TODO: compare `cfg_segment_size` and `segment_size`
 
-            // ----- Retrieve `free` -----
             offset += i32_size;
+            // ----- Retrieve `free` -----
             end += u32_size;
 
             let free = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut u32) };
 
-            // ----- Retrieve `cap` -----
             offset += u32_size;
+            // ----- Retrieve `cap` -----
             end += u32_size;
 
             let cap = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut u32) };
 
-            // ----- Retrieve `free_q` -----
             offset += u32_size;
+            // ----- Retrieve `free_q` -----
             end += free_q_size;
 
             let free_q = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut Option<NonZeroU32>) };
 
-            // ----- Retrieve `flush_at` -----
             offset += free_q_size;
+            // ----- Retrieve `flush_at` -----
             end += flush_at_size;
 
             let flush_at = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut Instant) };
@@ -273,12 +276,12 @@ impl Segments {
         if let Some(file) = segments_fields_path {
             let segments = heap_size / (self.segment_size as usize);
             let header_size: usize = ::std::mem::size_of::<SegmentHeader>();
-            let headers_size: usize = segments * header_size as usize;
             let i32_size = ::std::mem::size_of::<i32>();
             let u32_size = ::std::mem::size_of::<u32>();
             let free_q_size = ::std::mem::size_of::<Option<NonZeroU32>>();
             let flush_at_size = ::std::mem::size_of::<Instant>();
-            let fields_size = headers_size
+            // Size of all components of `Segments` that are being restored
+            let fields_size = segments * header_size // `headers`
                             + i32_size     // `segment_size`
                             + u32_size * 2 // `free` and `cap`
                             + free_q_size
