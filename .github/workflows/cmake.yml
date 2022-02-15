@@ -25,9 +25,11 @@ jobs:
           cmake -B _build -S . \
             -DCMAKE_BUILD_TYPE=${{ matrix.profile }} \
             -DBUILD_AND_INSTALL_CHECK=yes
+
       - name: Build
         run: |
           cmake --build _build
+
       - name: Test
         run: |
           cmake --build _build --target test
