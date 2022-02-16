@@ -359,6 +359,6 @@ impl Seg {
     pub(crate) fn equivalent_seg(&self, s: Seg) -> bool {
         self.segments.equivalent_segments(s.segments)
             && self.ttl_buckets.equivalent_ttlbuckets(s.ttl_buckets)
-            && self.hashtable.equivalent_hashtables(s.hashtable)
+            && self.hashtable == s.hashtable
     }
 }

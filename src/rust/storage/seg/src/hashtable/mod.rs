@@ -887,31 +887,29 @@ impl HashTable {
         hasher.write(key);
         hasher.finish()
     }
+}
 
-    #[cfg(test)]
-    // Checks if `HashTable.data` are equivalent
-    pub(crate) fn equivalent_hashbuckets(&self, buckets: Box<[HashBucket]>) -> bool {
+#[cfg(test)]
+impl PartialEq for HashTable {
+    // Checks if `HashTable` are equivalent
+    fn eq(&self, other: &Self) -> bool {
+        // ---- Check if `HashTable.data` are equivalent ---
         let total_buckets = self.data.len();
 
         // ensure number of `HashBucket`s is the same
-        let mut equivalent = total_buckets == buckets.len();
+        let mut buckets_equivalent = total_buckets == other.data.len();
 
         // Compare each `HashBucket`
         for id in 0..total_buckets {
-            equivalent = equivalent && self.data[id] == buckets[id];
+            buckets_equivalent = buckets_equivalent && self.data[id] == other.data[id];
         }
 
-        equivalent
-    }
-
-    #[cfg(test)]
-    // Checks if `HashTable` are equivalent
-    pub(crate) fn equivalent_hashtables(&self, h: HashTable) -> bool {
-        self.power == h.power
-            && self.mask == h.mask
-            && self.equivalent_hashbuckets(h.data.clone())
-            && self.started == h.started
-            && self.next_to_chain == h.next_to_chain
+        // ---- Check if the other fields are equivalent ---
+        buckets_equivalent 
+            && self.power == other.power
+            && self.mask == other.mask
+            && self.started == other.started
+            && self.next_to_chain == other.next_to_chain
     }
 }
 
