@@ -31,33 +31,46 @@ impl File {
         size: usize,
         prefault: bool,
     ) -> Result<Self, std::io::Error> {
-        let metadata = std::fs::metadata(&path);
-        let file_exists = metadata.is_ok();
-        let file = OpenOptions::new()
-            .create(true)
-            .read(true)
-            .write(true)
-            .open(path)?;
 
-        // if file exists, check that the size it is expected to have
-        // matches its actual size
-        if file_exists {
-            assert_eq!(metadata?.len() as usize, size);
-        } else {
-            file.set_len(size as u64)?;
-        }
-
-        let mut mmap = unsafe { MmapOptions::new().populate().map_mut(&file)? };
-
-        if !file_exists && prefault {
-            let mut offset = 0;
-            while offset < size {
-                mmap[offset] = 0;
-                offset += PAGE_SIZE;
+        // check if the file exists and is the right size
+        let exists = if let Ok(current_size) = std::fs::metadata(&path).map(|m| m.len()) {
+            if current_size != size as u64 {
+                return Err(std::io::Error::new(std::io::ErrorKind::Other, "existing file has wrong size"));
             }
-            mmap.flush()?;
-        }
-
+            true
+        } else {
+            false
+        };
+    
+        let mmap = if exists {
+            let f = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(path)?;
+    
+            unsafe { MmapOptions::new().populate().map_mut(&f)? }
+        } else {
+            let f = OpenOptions::new()
+                .create_new(true)
+                .read(true)
+                .write(true)
+                .open(path)?;
+            f.set_len(size as u64)?;
+    
+            let mut mmap = unsafe { MmapOptions::new().populate().map_mut(&f)? };
+    
+            if prefault {
+                let mut offset = 0;
+                while offset < size {
+                    mmap[offset] = 0;
+                    offset += PAGE_SIZE;
+                }
+                mmap.flush()?;
+            }
+            
+            mmap
+        };
+    
         Ok(Self { mmap, size })
     }
 }
