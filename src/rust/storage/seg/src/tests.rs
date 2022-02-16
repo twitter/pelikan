@@ -26,7 +26,7 @@ fn sizes() {
     assert_eq!(std::mem::size_of::<HashTable>(), 72); // increased to accommodate fields added for testing
 
     assert_eq!(std::mem::size_of::<crate::ttl_buckets::TtlBucket>(), 64);
-    assert_eq!(std::mem::size_of::<TtlBuckets>(), 24);
+    assert_eq!(std::mem::size_of::<TtlBuckets>(), 48); 
 }
 
 #[test]
@@ -712,6 +712,12 @@ fn new_file_backed_cache_changed_and_restored() {
     // Get a copy of the cache to be compared later
     let old_cache = cache.clone();
 
+    // // force cache to go out of scope and thus `cache.segments`,
+    // // `cache.hashtable` and `cache.ttl_buckets` will be dropped (demolished)
+    // {
+    //     let _x = cache;
+    // }
+
     // gracefully shutdown cache
     assert!(demolish_cache(
         cache,
@@ -746,6 +752,7 @@ fn new_file_backed_cache_changed_and_restored() {
 
     // the restored cache should be equivalent to the old cache
     assert!(new_cache.equivalent_seg(old_cache));
+
 }
 
 // Creates a new cache, gracefully shutsdown cache and restore cache
