@@ -44,7 +44,7 @@ const TTL_BOUNDARY_3: i32 = 1 << (TTL_BUCKET_INTERVAL_N_BIT_3 + N_BUCKET_PER_STE
 
 const MAX_N_TTL_BUCKET: usize = N_BUCKET_PER_STEP * 4;
 const MAX_TTL_BUCKET_IDX: usize = MAX_N_TTL_BUCKET - 1;
-#[derive(Clone)]
+#[cfg_attr(test, derive(Clone))]
 pub struct TtlBuckets {
     pub(crate) buckets: Box<[TtlBucket]>,
     pub(crate) last_expired: Instant,

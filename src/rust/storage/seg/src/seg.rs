@@ -22,6 +22,7 @@ static_metrics! {
 /// segment-structured design that stores data in fixed-size segments, grouping
 /// objects with nearby expiration time into the same segment, and lifting most
 /// per-object metadata into the shared segment header.
+#[cfg_attr(test, derive(Clone))]
 pub struct Seg {
     pub(crate) hashtable: HashTable,
     pub(crate) segments: Segments,
@@ -338,19 +339,6 @@ impl Seg {
         }
     }
 
-    // Used in testing to clone a `Seg` to compare with
-    #[cfg(test)]
-    pub(crate) fn clone(&self) -> Seg {
-        let segments = self.segments.clone();
-        let ttl_buckets = self.ttl_buckets.clone();
-        let hashtable = self.hashtable.clone();
-        Seg {
-            segments,
-            ttl_buckets,
-            hashtable,
-        }
-    }
-
     // Indicated if `Seg` has been restored
     #[cfg(test)]
     pub(crate) fn restored(&self) -> bool {
@@ -369,3 +357,16 @@ impl PartialEq for Seg {
         && self.hashtable == other.hashtable
     }
 }
+
+    // // Used in testing to clone a `Seg` to compare with
+    // #[cfg(test)]
+    // pub(crate) fn clone(&self) -> Seg {
+    //     let segments = self.segments.clone();
+    //     let ttl_buckets = self.ttl_buckets.clone();
+    //     let hashtable = self.hashtable.clone();
+    //     Seg {
+    //         segments,
+    //         ttl_buckets,
+    //         hashtable,
+    //     }
+    // }

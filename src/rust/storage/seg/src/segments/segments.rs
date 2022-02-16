@@ -191,6 +191,8 @@ impl Segments {
                 let header = SegmentHeader::new(unsafe { NonZeroU32::new_unchecked(id as u32 + 1) });
                 headers.push(header);
             }
+
+            let mut headers = headers.into_boxed_slice();
     
             for idx in 0..cfg_segments {
                 let begin = cfg_segment_size as usize * idx;
@@ -211,7 +213,7 @@ impl Segments {
             SEGMENT_FREE.set(cfg_segments as _);
     
             Self {
-                headers: headers.into_boxed_slice(),
+                headers,
                 segment_size: cfg_segment_size,
                 cap: cfg_segments as u32,
                 free: cfg_segments as u32,
@@ -845,30 +847,6 @@ impl Segments {
         }
     }
 
-    // Used in testing to clone a `Segments` to compare with
-    #[cfg(test)]
-    pub(crate) fn clone(&self) -> Segments {
-        // clone `data`
-        let heap_size = self.segment_size as usize * self.cap as usize;
-        let mut data = vec![0; heap_size];
-        data.clone_from_slice(self.data.as_slice());
-        let segment_data = Memory::memory_from_data(data.into_boxed_slice());
-
-        // Return a `Segments` where everything is cloned
-        Self {
-            headers: self.headers.clone(),
-            data: Box::new(segment_data), // fill in `data` field with something
-            segment_size: self.segment_size,
-            free: self.free,
-            cap: self.cap,
-            free_q: self.free_q.clone(),
-            flush_at: self.flush_at,
-            evict: self.evict.clone(),
-            data_file_backed: self.data_file_backed,
-            fields_copied_back: self.fields_copied_back,
-        }
-    }
-
     #[cfg(feature = "debug")]
     pub(crate) fn check_integrity(&mut self) -> bool {
         let mut integrity = true;
@@ -1196,5 +1174,31 @@ impl PartialEq for Segments {
             && self.cap == other.cap
             && self.free_q == other.free_q
             && self.flush_at == other.flush_at
+    }
+}
+
+#[cfg(test)]
+impl Clone for Segments {
+    // Used in testing to clone a `Segments` to compare with
+    fn clone(&self) -> Self {
+        // clone `data`
+        let heap_size = self.segment_size as usize * self.cap as usize;
+        let mut data = vec![0; heap_size];
+        data.clone_from_slice(self.data.as_slice());
+        let segment_data = Memory::memory_from_data(data.into_boxed_slice());
+
+        // Return a `Segments` where everything is cloned
+        Self {
+            headers: self.headers.clone(),
+            data: Box::new(segment_data), 
+            segment_size: self.segment_size,
+            free: self.free,
+            cap: self.cap,
+            free_q: self.free_q.clone(),
+            flush_at: self.flush_at,
+            evict: self.evict.clone(),
+            data_file_backed: self.data_file_backed,
+            fields_copied_back: self.fields_copied_back,
+        }
     }
 }

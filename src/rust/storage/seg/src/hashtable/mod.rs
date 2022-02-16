@@ -100,7 +100,7 @@ static_metrics! {
 
 /// Main structure for performing item lookup. Contains a contiguous allocation
 /// of [`HashBucket`]s which are used to store item info and metadata.
-#[derive(Clone)]
+#[cfg_attr(test, derive(Clone))]
 #[repr(C)]
 pub(crate) struct HashTable {
     hash_builder: Box<RandomState>,
