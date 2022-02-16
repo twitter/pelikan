@@ -869,34 +869,6 @@ impl Segments {
         }
     }
 
-    #[cfg(test)]
-    // Checks if `Segments.headers` are equivalent
-    pub(crate) fn equivalent_headers(&self, headers: Box<[SegmentHeader]>) -> bool {
-        let total_buckets = self.headers.len();
-
-        // ensure number of `SegmentHeader`s is the same
-        let mut equivalent = total_buckets == headers.len();
-
-        // Compare each `SegmentHeader`
-        for id in 0..total_buckets {
-            equivalent = equivalent && self.headers[id] == headers[id];
-        }
-
-        equivalent
-    }
-
-    // Checks if `Segments` are equivalent
-    #[cfg(test)]
-    pub(crate) fn equivalent_segments(&self, s: Segments) -> bool {
-        self.equivalent_headers(s.headers.clone())
-            && self.data.as_slice() == s.data.as_slice()
-            && self.segment_size == s.segment_size
-            && self.free == s.free
-            && self.cap == s.cap
-            && self.free_q == s.free_q
-            && self.flush_at == s.flush_at
-    }
-
     #[cfg(feature = "debug")]
     pub(crate) fn check_integrity(&mut self) -> bool {
         let mut integrity = true;
@@ -1198,5 +1170,31 @@ impl Segments {
 impl Default for Segments {
     fn default() -> Self {
         Self::from_builder(Default::default())
+    }
+}
+
+#[cfg(test)]
+impl PartialEq for Segments {
+    // Checks if `Segments` are equivalent
+    fn eq(&self, other: &Self) -> bool {
+        // ---- Check if `Segments.headers` are equivalent ----
+        let total_buckets = self.headers.len();
+
+        // ensure number of `SegmentHeader`s is the same
+        let mut headers_equivalent = total_buckets == other.headers.len();
+
+        // Compare each `SegmentHeader`
+        for id in 0..total_buckets {
+            headers_equivalent = headers_equivalent && self.headers[id] == other.headers[id];
+        }
+
+        // ---- Check if the other fields are equivalent ---
+        headers_equivalent
+            && self.data.as_slice() == other.data.as_slice()
+            && self.segment_size == other.segment_size
+            && self.free == other.free
+            && self.cap == other.cap
+            && self.free_q == other.free_q
+            && self.flush_at == other.flush_at
     }
 }

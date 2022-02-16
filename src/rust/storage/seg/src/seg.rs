@@ -353,12 +353,14 @@ impl Seg {
             _restored: false, // this field doesn't matter as it won't be compared
         }
     }
+}
 
-    // Used in testing to compare `Seg`s
-    #[cfg(test)]
-    pub(crate) fn equivalent_seg(&self, s: Seg) -> bool {
-        self.segments.equivalent_segments(s.segments)
-            && self.ttl_buckets.equivalent_ttlbuckets(s.ttl_buckets)
-            && self.hashtable == s.hashtable
+// Used in testing to compare `Seg`s
+#[cfg(test)]
+impl PartialEq for Seg {
+    fn eq(&self, other: &Self) -> bool {
+        self.segments == other.segments
+        && self.ttl_buckets == other.ttl_buckets
+        && self.hashtable == other.hashtable
     }
 }

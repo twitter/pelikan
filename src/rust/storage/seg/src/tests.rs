@@ -751,7 +751,7 @@ fn new_file_backed_cache_changed_and_restored() {
     assert_eq!(new_cache.segments.free(), SEGMENTS - 1);
 
     // the restored cache should be equivalent to the old cache
-    assert!(new_cache.equivalent_seg(old_cache));
+    assert!(new_cache == old_cache);
 
 }
 
@@ -808,7 +808,7 @@ fn new_file_backed_cache_not_changed_and_restored() {
     assert!(new_cache._restored);
 
     // the restored cache should be equivalent to the old cache
-    assert!(new_cache.equivalent_seg(old_cache));
+    assert!(new_cache == old_cache);
 }
 
 // Creates a new cache, stores an item, gracefully shutsdown cache and spawn new cache
@@ -874,7 +874,7 @@ fn new_cache_changed_and_not_restored() {
     assert!(new_cache.get(b"latte").is_none());
 
     // the restored cache should not be equivalent to the old cache
-    assert!(!new_cache.equivalent_seg(old_cache));
+    assert!(new_cache != old_cache);
 }
 
 // Creates a new cache, stores an item, gracefully shutsdown cache and restore cache
@@ -955,7 +955,7 @@ fn new_cache_changed_and_restoration_fails() {
     assert!(new_cache.get(b"latte").is_none());
 
     // the restored cache should not be equivalent to the old cache
-    assert!(!new_cache.equivalent_seg(old_cache));
+    assert!(new_cache != old_cache);
 }
 
 // Create a new cache, fill it with items.
@@ -1054,7 +1054,7 @@ fn full_cache_recovery_long() {
     assert!(new_cache._restored);
 
     // the restored cache should be equivalent to the old cache
-    assert!(new_cache.equivalent_seg(old_cache));
+    assert!(new_cache == old_cache);
 
     // check that the number of active items in the restored cache
     // equals the number of active keys in the original cache
