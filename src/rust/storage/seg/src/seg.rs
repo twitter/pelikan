@@ -26,8 +26,6 @@ pub struct Seg {
     pub(crate) hashtable: HashTable,
     pub(crate) segments: Segments,
     pub(crate) ttl_buckets: TtlBuckets,
-    // Used for testing: are the above structures restored?
-    pub(crate) _restored: bool,
 }
 
 impl Seg {
@@ -350,8 +348,15 @@ impl Seg {
             segments,
             ttl_buckets,
             hashtable,
-            _restored: false, // this field doesn't matter as it won't be compared
         }
+    }
+
+    // Indicated if `Seg` has been restored
+    #[cfg(test)]
+    pub(crate) fn restored(&self) -> bool {
+        self.segments.fields_copied_back
+        && self.ttl_buckets.buckets_copied_back
+        && self.hashtable.table_copied_back
     }
 }
 

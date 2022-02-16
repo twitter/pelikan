@@ -506,7 +506,7 @@ fn new_cache_file_backed() {
     assert!(cache.segments.data_file_backed());
     // -- Check entire `Seg` --
     // the `Seg` should not be restored
-    assert!(!cache._restored);
+    assert!(!cache.restored());
     // -- Check `Seg` fields/components --
     // the `Segments` fields' should not have been restored
     assert!(!cache.segments.fields_copied_back);
@@ -527,7 +527,7 @@ fn new_cache_not_file_backed() {
     // the `Segments.data` should not be filed backed
     assert!(!cache.segments.data_file_backed());
     // the `Seg` should not be restored
-    assert!(!cache._restored);
+    assert!(!cache.restored());
     // the `Segments` fields' should not have been restored
     assert!(!cache.segments.fields_copied_back);
     // the `TtlBuckets` should not have been restored
@@ -563,7 +563,7 @@ fn restored_cache_file_backed() {
     // the `Segments.data` should be filed backed
     assert!(cache.segments.data_file_backed());
     // the `Seg` should be restored
-    assert!(cache._restored);
+    assert!(cache.restored());
     // the `Segments` fields' should have been restored
     assert!(cache.segments.fields_copied_back);
     // the `TtlBuckets` should have been restored
@@ -593,7 +593,7 @@ fn restored_cache_no_paths_set() {
     // the `Segments.data` should not be filed backed
     assert!(!cache.segments.data_file_backed());
     // the `Seg` should not be restored
-    assert!(!cache._restored);
+    assert!(!cache.restored());
     // the `Segments` fields' should not have been restored
     assert!(!cache.segments.fields_copied_back);
     // the `TtlBuckets` should not have been restored
@@ -693,7 +693,7 @@ fn new_file_backed_cache_changed_and_restored() {
     let mut restore = false;
     let mut cache = make_cache(restore, datapool_path, None, None, None);
 
-    assert!(!cache._restored);
+    assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), SEGMENTS);
 
@@ -744,7 +744,7 @@ fn new_file_backed_cache_changed_and_restored() {
         hashtable_path,
     );
 
-    assert!(new_cache._restored);
+    assert!(new_cache.restored());
     // "latte" should be in restored cache
     assert!(new_cache.get(b"latte").is_some());
     assert_eq!(new_cache.items(), 1);
@@ -774,7 +774,7 @@ fn new_file_backed_cache_not_changed_and_restored() {
     let mut restore = false;
     let cache = make_cache(restore, datapool_path, None, None, None);
 
-    assert!(!cache._restored);
+    assert!(!cache.restored());
 
     // Get a copy of the cache to be compared later
     let old_cache = cache.clone();
@@ -805,7 +805,7 @@ fn new_file_backed_cache_not_changed_and_restored() {
         hashtable_path,
     );
 
-    assert!(new_cache._restored);
+    assert!(new_cache.restored());
 
     // the restored cache should be equivalent to the old cache
     assert!(new_cache == old_cache);
@@ -830,7 +830,7 @@ fn new_cache_changed_and_not_restored() {
     let mut restore = false;
     let mut cache = make_cache(restore, datapool_path, None, None, None);
 
-    assert!(!cache._restored);
+    assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), SEGMENTS);
 
@@ -866,7 +866,7 @@ fn new_cache_changed_and_not_restored() {
     restore = false;
     let mut new_cache = make_cache(restore, datapool_path, None, None, None);
 
-    assert!(!new_cache._restored);
+    assert!(!new_cache.restored());
     assert_eq!(new_cache.items(), 0);
     assert_eq!(new_cache.segments.free(), SEGMENTS);
 
@@ -899,7 +899,7 @@ fn new_cache_changed_and_restoration_fails() {
     let mut restore = false;
     let mut cache = make_cache(restore, datapool_path, None, None, None);
 
-    assert!(!cache._restored);
+    assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), SEGMENTS);
 
@@ -945,7 +945,7 @@ fn new_cache_changed_and_restoration_fails() {
     );
 
     // Cache is restored as all paths exist
-    assert!(new_cache._restored);
+    assert!(new_cache.restored());
     // `Segments` data should be the same as old cache since `segments_fields_path` is the same
     assert_eq!(new_cache.items(), 1);
     assert_eq!(new_cache.segments.free(), SEGMENTS - 1);
@@ -985,7 +985,7 @@ fn full_cache_recovery_long() {
     let mut restore = false;
     let mut cache = make_cache(restore, datapool_path, None, None, None);
 
-    assert!(!cache._restored);
+    assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), SEGMENTS);
 
@@ -1051,7 +1051,7 @@ fn full_cache_recovery_long() {
         hashtable_path,
     );
 
-    assert!(new_cache._restored);
+    assert!(new_cache.restored());
 
     // the restored cache should be equivalent to the old cache
     assert!(new_cache == old_cache);

@@ -206,7 +206,6 @@ impl Builder {
                     hashtable,
                     segments,
                     ttl_buckets,
-                    _restored: true,
                 };
             }
         }
@@ -218,7 +217,6 @@ impl Builder {
             hashtable,
             segments,
             ttl_buckets,
-            _restored: false,
         }
     }
 }
