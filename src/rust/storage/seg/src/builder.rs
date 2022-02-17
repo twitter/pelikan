@@ -177,6 +177,8 @@ impl Builder {
     /// Consumes the builder and returns a fully-allocated `Seg` instance.
     /// If `restore` and valid paths to the structures are given, `Seg` will
     /// be restored. Otherwise, create a new `Seg` instance.
+    /// If valid paths are given, the files at these paths will be used to copy
+    /// the structures to upon graceful shutdown.
     ///
     /// ```
     /// use seg::{Policy, Seg};
@@ -190,15 +192,21 @@ impl Builder {
     ///     .eviction(Policy::Random).build();
     /// ```
     pub fn build(self) -> Seg {
-        // Build `Segments`.
-        // If `restore` and valid paths are given,
-        // it will be copied back
+        // Build `Segments`. If there is a path for the datapool set, the
+        // `Segments.data` will be file backed. If `restore` and there is a path
+        // for the `Segments` fields, restore the other relevant `Segments`
+        // fields.
         let segments = self.segments_builder.build();
+
+        // If `Segments` successfully restored and `restore`
         if segments.fields_copied_back && self.restore {
             // Attempt to restore `HashTable` and `TtlBuckets`
-            let hashtable =
-                HashTable::restore(self.hashtable_path, self.hash_power, self.overflow_factor);
-            let ttl_buckets = TtlBuckets::restore(self.ttl_buckets_path);
+            let hashtable = HashTable::restore(
+                self.hashtable_path.clone(),
+                self.hash_power,
+                self.overflow_factor,
+            );
+            let ttl_buckets = TtlBuckets::restore(self.ttl_buckets_path.clone());
 
             // If successful, return a restored segcache
             if hashtable.table_copied_back && ttl_buckets.buckets_copied_back {
@@ -210,9 +218,18 @@ impl Builder {
             }
         }
 
+        // TODO: Should paths be checked here to see if any are None (or not
+        // valid)? Then we could take an "All or Nothing" approach. That is, if
+        // one of the paths is not valid, then all structures are created
+        // as new AND no paths are set for graceful shutdown. Otherwise, if
+        // `restore`, we restore from these paths, else, we set these paths.
+        // Currently, I am not doing this as due to the Segments having a
+        // separate builder + different control flow, it is too awkward to
+        // implement.
+
         // If not `restore` or restoration failed, create a new cache
-        let hashtable = HashTable::new(self.hash_power, self.overflow_factor);
-        let ttl_buckets = TtlBuckets::new();
+        let hashtable = HashTable::new(self.hashtable_path, self.hash_power, self.overflow_factor);
+        let ttl_buckets = TtlBuckets::new(self.ttl_buckets_path);
         Seg {
             hashtable,
             segments,

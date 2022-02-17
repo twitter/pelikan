@@ -790,26 +790,23 @@ fn new_file_backed_cache_changed_and_restored() {
     // Get a copy of the cache to be compared later
     let old_cache = cache.clone();
 
-    // DELETE
-    let graceful_shutdown = true;
-    if graceful_shutdown {
-        assert!(cache.flush().is_ok());
-    }
-
     // Create tempfile for `Segments` fields'
-    let segments_fields_path: Option<PathBuf> = Some(dir.path().join("segments_fields"));
-    // Create tempfile for `TtlBuckets`
-    let ttl_buckets_path: Option<PathBuf> = Some(dir.path().join("ttl_buckets"));
-    // Create tempfile for `HashTable`
-    let hashtable_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
+    // let segments_fields_path: Option<PathBuf> = Some(dir.path().join("segments_fields"));
+    // // Create tempfile for `TtlBuckets`
+    // let ttl_buckets_path: Option<PathBuf> = Some(dir.path().join("ttl_buckets"));
+    // // Create tempfile for `HashTable`
+    // let hashtable_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
 
     // gracefully shutdown cache
-    assert!(demolish_cache(
-        cache,
-        segments_fields_path,
-        ttl_buckets_path,
-        hashtable_path
-    ));
+    // assert!(demolish_cache(
+    //     cache,
+    //     segments_fields_path,
+    //     ttl_buckets_path,
+    //     hashtable_path
+    // ));
+
+    // Flush cache
+    assert!(cache.flush().is_ok());
 
     // Create same tempfiles (they have been moved since first created)
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));

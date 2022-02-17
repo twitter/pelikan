@@ -348,7 +348,7 @@ impl Segments {
     /// and storing the other `Segments` fields' to a file (if a path is
     /// specified)
     pub fn flush(&self) -> std::io::Result<()> {
-        // if `Segments.data` is file backed, flush it to PMEM
+        // if `Segments.data` is file backed, flush it to file
         if self.data_file_backed {
             self.data.flush()?;
         }
@@ -439,7 +439,8 @@ impl Segments {
         } else {
             Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                "Segments not gracefully shutdown",
+                "Path to store Segments to is None, cannot gracefully
+                shutdown cache",
             ))
         }
     }

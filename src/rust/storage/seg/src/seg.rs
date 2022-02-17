@@ -76,7 +76,10 @@ impl Seg {
     }
 
     pub fn flush(&self) -> std::io::Result<()> {
-        self.segments.flush()
+        self.segments.flush()?;
+        self.hashtable.flush()?;
+        self.ttl_buckets.flush()?;
+        Ok(())
     }
 
     /// Gets a count of items in the `Seg` instance. This is an expensive

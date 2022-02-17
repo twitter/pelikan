@@ -112,13 +112,17 @@ pub(crate) struct HashTable {
     next_to_chain: u64,
     /// Is `HashTable` copied back from a file?
     pub(crate) table_copied_back: bool,
+    /// Path to save relevant fields upon graceful shutdown
+    hashtable_path: Option<PathBuf>,
+    /// Used in graceful shutdown
+    overflow_factor: f64,
 }
 
 impl HashTable {
     /// Creates a new hashtable with a specified power and overflow factor. The
     /// hashtable will have the capacity to store up to
     /// `7 * 2^(power - 3) * (1 + overflow_factor)` items.
-    pub fn new(power: u8, overflow_factor: f64) -> HashTable {
+    pub fn new(hashtable_path: Option<PathBuf>, power: u8, overflow_factor: f64) -> HashTable {
         if overflow_factor < 0.0 {
             fatal!("hashtable overflow factor must be >= 0.0");
         }
@@ -155,12 +159,14 @@ impl HashTable {
             started: Instant::recent(),
             next_to_chain: buckets as u64,
             table_copied_back: false,
+            hashtable_path,
+            overflow_factor,
         }
     }
 
     pub fn restore(hashtable_path: Option<PathBuf>, cfg_power: u8, overflow_factor: f64) -> Self {
         // if there is a path to restore from, restore the `HashTable`
-        if let Some(file) = hashtable_path {
+        if let Some(file) = &hashtable_path {
             // restore() assumes no changes in `power`.
             // I.e. config specifies same `power` as `HashTable` we are
             // restoring from
@@ -238,11 +244,13 @@ impl HashTable {
                 started,
                 next_to_chain,
                 table_copied_back: true,
+                hashtable_path,
+                overflow_factor,
             }
         }
         // otherwise, create a new `HashTable`
         else {
-            HashTable::new(cfg_power, overflow_factor)
+            HashTable::new(hashtable_path, cfg_power, overflow_factor)
         }
     }
 
@@ -320,6 +328,82 @@ impl HashTable {
                 .expect("failed to flush `HashTable` to storage");
         }
         gracefully_shutdown
+    }
+
+    /// Flushes the `HashTable` by storing it to a file (if a path is specified)
+    pub fn flush(&self) -> std::io::Result<()> {
+        // if a path is specified, copy all the `HashBucket`s to the file
+        // specified by `hashtable_path`
+        if let Some(file) = &self.hashtable_path {
+            let total_buckets = total_buckets(self.power, self.overflow_factor);
+            let bucket_size = ::std::mem::size_of::<HashBucket>();
+            let u64_size = ::std::mem::size_of::<u64>();
+            let started_size = ::std::mem::size_of::<Instant>();
+            // Size of all components of `HashTable` that are being saved
+            let hashtable_size = u64_size * 3 // `power`, `mask`, `next_to_chain`
+                               + total_buckets * bucket_size // `data`
+                               + started_size;
+
+            // Mmap file
+            let mut pool = File::create(file, hashtable_size, true)
+                .expect("failed to allocate file backed storage");
+            let file_data = pool.as_mut_slice();
+
+            let mut offset = 0;
+            // --------------------- Store `power` -----------------
+
+            // cast `power` to byte pointer
+            let byte_ptr = (&self.power as *const u64) as *const u8;
+
+            // store `power` back to mmapped file
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, u64_size, file_data);
+
+            // --------------------- Store `mask` -----------------
+
+            // cast `mask` to byte pointer
+            let byte_ptr = (&self.mask as *const u64) as *const u8;
+
+            // store `mask` back to mmapped file
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, u64_size, file_data);
+            // --------------------- Store `data` -----------------
+
+            // for every `HashBucket`
+            for id in 0..total_buckets {
+                // cast `HashBucket` to byte pointer
+                let byte_ptr = (&self.data[id] as *const HashBucket) as *const u8;
+
+                // store `HashBucket` back to mmapped file
+                offset =
+                    store::store_bytes_and_update_offset(byte_ptr, offset, bucket_size, file_data);
+            }
+
+            // --------------------- Store `started` -----------------
+
+            // cast `started` to byte pointer
+            let byte_ptr = (&self.started as *const Instant) as *const u8;
+
+            // store `started` back to mmapped file
+            offset =
+                store::store_bytes_and_update_offset(byte_ptr, offset, started_size, file_data);
+            // --------------------- Store `next_to_chain` -----------------
+
+            // cast `next_to_chain` to byte pointer
+            let byte_ptr = (&self.next_to_chain as *const u64) as *const u8;
+
+            // store `next_to_chain` back to mmapped file
+            store::store_bytes_and_update_offset(byte_ptr, offset, u64_size, file_data);
+            // -------------------------------------------------------------
+
+            // TODO: check if this flushes the CPU caches
+            pool.flush()?;
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Path to store HashTable to is None, cannot gracefully
+                shutdown cache",
+            ))
+        }
     }
 
     /// Lookup an item by key and return it

@@ -50,14 +50,14 @@ pub struct TtlBuckets {
     pub(crate) last_expired: Instant,
     /// Are `TtlBuckets` copied back from a file?
     pub(crate) buckets_copied_back: bool,
-    /// Path to store `TtlBuckets` upon graceful shutdown
+    /// Path to store relevant upon graceful shutdown
     pub(crate) ttl_buckets_path: Option<PathBuf>,
 }
 
 impl TtlBuckets {
     /// Create a new set of `TtlBuckets` which cover the full range of TTLs. See
     /// the module-level documentation for how the range of TTLs are stored.
-    pub fn new() -> Self {
+    pub fn new(ttl_buckets_path: Option<PathBuf>) -> Self {
         // TODO: add path as argument
         let intervals = [
             TTL_BUCKET_INTERVAL_1,
@@ -84,7 +84,7 @@ impl TtlBuckets {
             buckets,
             last_expired,
             buckets_copied_back: false,
-            ttl_buckets_path: None, //TODO: replace with given path
+            ttl_buckets_path,
         }
     }
 
@@ -92,19 +92,15 @@ impl TtlBuckets {
     // to restore from is valid. Otherwise return a new `TtlBuckets`
     pub fn restore(ttl_buckets_path: Option<PathBuf>) -> Self {
         // if there is a path to restore from, restore the `TtlBuckets`
-        if ttl_buckets_path.is_some() {
+        if let Some(file) = &ttl_buckets_path {
             let bucket_size = ::std::mem::size_of::<TtlBucket>();
             let last_expired_size = ::std::mem::size_of::<Instant>();
             let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets` 
                                         + last_expired_size;
 
             // Mmap file
-            let pool = File::create(
-                ttl_buckets_path.as_ref().unwrap(),
-                ttl_buckets_struct_size,
-                true,
-            )
-            .expect("failed to allocate file backed storage");
+            let pool = File::create(file, ttl_buckets_struct_size, true)
+                .expect("failed to allocate file backed storage");
             let data = Box::new(pool.as_slice());
 
             // create blank bytes to copy data into
@@ -146,9 +142,7 @@ impl TtlBuckets {
         }
         // otherwise, create a new `TtlBuckets`
         else {
-            // TODO: uncomment this line when implementing Drop trait
-            //TtlBuckets::new(ttl_buckets_path: Option<PathBuf>)
-            TtlBuckets::new()
+            TtlBuckets::new(ttl_buckets_path)
         }
     }
 
@@ -202,6 +196,56 @@ impl TtlBuckets {
         }
 
         gracefully_shutdown
+    }
+
+    /// Flushes the `TtlBuckets` by storing it to a file (if a path is specified)
+    pub fn flush(&self) -> std::io::Result<()> {
+        // if a path is specified, copy all the `TtlBucket`s to the file
+        // specified by `ttl_buckets_path`
+        if let Some(file) = &self.ttl_buckets_path {
+            let bucket_size = ::std::mem::size_of::<TtlBucket>();
+            let last_expired_size = ::std::mem::size_of::<Instant>();
+            let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets` 
+                                        + last_expired_size;
+
+            // Mmap file
+            let mut pool = File::create(file, ttl_buckets_struct_size, true)
+                .expect("failed to allocate file backed storage");
+            let data = pool.as_mut_slice();
+
+            let mut offset = 0;
+            // --------------------- Store `last_expired` -----------------
+
+            // cast `last_expired` to byte pointer
+            let byte_ptr = (&self.last_expired as *const Instant) as *const u8;
+
+            // store `last_expired` back to mmapped file
+            offset =
+                store::store_bytes_and_update_offset(byte_ptr, offset, last_expired_size, data);
+
+            // --------------------- Store `buckets` -----------------
+
+            // for every `TtlBucket`
+            for id in 0..MAX_N_TTL_BUCKET {
+                // cast `TtlBucket` to byte pointer
+                let byte_ptr = (&self.buckets[id] as *const TtlBucket) as *const u8;
+
+                // store `TtlBucket` back to mmapped file
+                offset = store::store_bytes_and_update_offset(byte_ptr, offset, bucket_size, data);
+            }
+
+            // --------------------------------------------------
+
+            // TODO: check if this flushes the CPU caches
+            pool.flush()?;
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Path to store TtlBuckets to is None, cannot gracefully
+                shutdown cache",
+            ))
+        }
     }
 
     pub(crate) fn get_bucket_index(&self, ttl: Duration) -> usize {
@@ -270,7 +314,7 @@ impl TtlBuckets {
 
 impl Default for TtlBuckets {
     fn default() -> Self {
-        Self::new()
+        Self::new(None)
     }
 }
 
