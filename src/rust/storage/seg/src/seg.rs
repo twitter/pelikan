@@ -346,7 +346,6 @@ impl Seg {
             && self.ttl_buckets.buckets_copied_back
             && self.hashtable.table_copied_back
     }
-}
 
     /// Perform a wrapping addition on the value stored at the supplied key.
     /// Returns an error if the key is invalid, the item is not found, or the
