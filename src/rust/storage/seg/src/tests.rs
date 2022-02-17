@@ -399,6 +399,79 @@ fn clear() {
     assert!(cache.get(b"coffee").is_none());
 }
 
+#[test]
+fn wrapping_add() {
+    let ttl = Duration::ZERO;
+    let segment_size = 4096;
+    let segments = 64;
+    let heap_size = segments * segment_size as usize;
+
+    let mut cache = Seg::builder()
+        .segment_size(segment_size)
+        .heap_size(heap_size)
+        .build();
+    assert_eq!(cache.items(), 0);
+    assert_eq!(cache.segments.free(), 64);
+    assert!(cache.insert(b"coffee", 0, None, ttl).is_ok());
+    assert_eq!(cache.segments.free(), 63);
+    assert_eq!(cache.items(), 1);
+    assert!(cache.get(b"coffee").is_some());
+
+    let item = cache.get(b"coffee").unwrap();
+    assert_eq!(item.value(), 0, "item is: {:?}", item);
+    cache
+        .wrapping_add(b"coffee", 1)
+        .expect("failed to increment");
+    assert_eq!(item.value(), 1, "item is: {:?}", item);
+    cache
+        .wrapping_add(b"coffee", u64::MAX - 1)
+        .expect("failed to increment");
+    assert_eq!(item.value(), u64::MAX, "item is: {:?}", item);
+    cache
+        .wrapping_add(b"coffee", 1)
+        .expect("failed to increment");
+    assert_eq!(item.value(), 0, "item is: {:?}", item);
+    cache
+        .wrapping_add(b"coffee", 2)
+        .expect("failed to increment");
+    assert_eq!(item.value(), 2, "item is: {:?}", item);
+}
+
+#[test]
+fn saturating_sub() {
+    let ttl = Duration::ZERO;
+    let segment_size = 4096;
+    let segments = 64;
+    let heap_size = segments * segment_size as usize;
+
+    let mut cache = Seg::builder()
+        .segment_size(segment_size)
+        .heap_size(heap_size)
+        .build();
+    assert_eq!(cache.items(), 0);
+    assert_eq!(cache.segments.free(), 64);
+    assert!(cache.insert(b"coffee", 3, None, ttl).is_ok());
+    assert_eq!(cache.segments.free(), 63);
+    assert_eq!(cache.items(), 1);
+    assert!(cache.get(b"coffee").is_some());
+
+    let item = cache.get(b"coffee").unwrap();
+    assert_eq!(item.value(), 3, "item is: {:?}", item);
+    cache
+        .saturating_sub(b"coffee", 2)
+        .expect("failed to increment");
+    assert_eq!(item.value(), 1, "item is: {:?}", item);
+    cache
+        .saturating_sub(b"coffee", 1)
+        .expect("failed to increment");
+    assert_eq!(item.value(), 0, "item is: {:?}", item);
+    cache
+        .saturating_sub(b"coffee", 1)
+        .expect("failed to increment");
+    assert_eq!(item.value(), 0, "item is: {:?}", item);
+}
+
+
 // ----------- TESTS FOR RECOVERY -------------
 // Configuration Options:
 //
@@ -1064,75 +1137,3 @@ fn full_cache_recovery_long() {
     while let Some(key) = unique_active_keys.pop() {
         assert!(new_cache.get(&key).is_some());
     }
-
-#[test]
-fn wrapping_add() {
-    let ttl = Duration::ZERO;
-    let segment_size = 4096;
-    let segments = 64;
-    let heap_size = segments * segment_size as usize;
-
-    let mut cache = Seg::builder()
-        .segment_size(segment_size)
-        .heap_size(heap_size)
-        .build();
-    assert_eq!(cache.items(), 0);
-    assert_eq!(cache.segments.free(), 64);
-    assert!(cache.insert(b"coffee", 0, None, ttl).is_ok());
-    assert_eq!(cache.segments.free(), 63);
-    assert_eq!(cache.items(), 1);
-    assert!(cache.get(b"coffee").is_some());
-
-    let item = cache.get(b"coffee").unwrap();
-    assert_eq!(item.value(), 0, "item is: {:?}", item);
-    cache
-        .wrapping_add(b"coffee", 1)
-        .expect("failed to increment");
-    assert_eq!(item.value(), 1, "item is: {:?}", item);
-    cache
-        .wrapping_add(b"coffee", u64::MAX - 1)
-        .expect("failed to increment");
-    assert_eq!(item.value(), u64::MAX, "item is: {:?}", item);
-    cache
-        .wrapping_add(b"coffee", 1)
-        .expect("failed to increment");
-    assert_eq!(item.value(), 0, "item is: {:?}", item);
-    cache
-        .wrapping_add(b"coffee", 2)
-        .expect("failed to increment");
-    assert_eq!(item.value(), 2, "item is: {:?}", item);
-}
-
-#[test]
-fn saturating_sub() {
-    let ttl = Duration::ZERO;
-    let segment_size = 4096;
-    let segments = 64;
-    let heap_size = segments * segment_size as usize;
-
-    let mut cache = Seg::builder()
-        .segment_size(segment_size)
-        .heap_size(heap_size)
-        .build();
-    assert_eq!(cache.items(), 0);
-    assert_eq!(cache.segments.free(), 64);
-    assert!(cache.insert(b"coffee", 3, None, ttl).is_ok());
-    assert_eq!(cache.segments.free(), 63);
-    assert_eq!(cache.items(), 1);
-    assert!(cache.get(b"coffee").is_some());
-
-    let item = cache.get(b"coffee").unwrap();
-    assert_eq!(item.value(), 3, "item is: {:?}", item);
-    cache
-        .saturating_sub(b"coffee", 2)
-        .expect("failed to increment");
-    assert_eq!(item.value(), 1, "item is: {:?}", item);
-    cache
-        .saturating_sub(b"coffee", 1)
-        .expect("failed to increment");
-    assert_eq!(item.value(), 0, "item is: {:?}", item);
-    cache
-        .saturating_sub(b"coffee", 1)
-        .expect("failed to increment");
-    assert_eq!(item.value(), 0, "item is: {:?}", item);
-}
