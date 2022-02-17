@@ -20,12 +20,12 @@ pub struct File {
 }
 
 impl File {
-    /// Create a new `File` datapool at the given path. If a file already exists 
-    /// at the given path, check it is the right size and open it. Otherwise 
-    /// open a new file at the given path and with the specified size 
-    /// (in bytes). Returns an error if could not be created, size of file is 
-    // not the right size (opening), couldn't be extended to the requested size 
-    /// (creating), or couldn't be mmap'd.
+    /// Create a new `File` datapool at the given path and with the specified 
+    /// size (in bytes). If a file already exists at the given path, check it is
+    /// the right size and open it. Otherwise, open a new file at the given path 
+    ///and with the specified size. Returns an error if could not be created, 
+    /// size of file is not the right size (opening), couldn't be extended to 
+    /// the requested size (creating), or couldn't be mmap'd.
     pub fn create<T: AsRef<Path>>(
         path: T,
         size: usize,
