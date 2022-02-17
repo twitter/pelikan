@@ -100,7 +100,7 @@ static_metrics! {
 
 /// Main structure for performing item lookup. Contains a contiguous allocation
 /// of [`HashBucket`]s which are used to store item info and metadata.
-#[cfg_attr(test, derive(Clone))]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct HashTable {
     hash_builder: Box<RandomState>,
@@ -890,7 +890,6 @@ impl HashTable {
     }
 }
 
-#[cfg(test)]
 impl PartialEq for HashTable {
     // Checks if `HashTable` are equivalent
     fn eq(&self, other: &Self) -> bool {

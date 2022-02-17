@@ -22,7 +22,7 @@ static_metrics! {
 /// segment-structured design that stores data in fixed-size segments, grouping
 /// objects with nearby expiration time into the same segment, and lifting most
 /// per-object metadata into the shared segment header.
-#[cfg_attr(test, derive(Clone))]
+#[derive(Clone, PartialEq)]
 pub struct Seg {
     pub(crate) hashtable: HashTable,
     pub(crate) segments: Segments,
@@ -345,16 +345,6 @@ impl Seg {
         self.segments.fields_copied_back
             && self.ttl_buckets.buckets_copied_back
             && self.hashtable.table_copied_back
-    }
-}
-
-// Used in testing to compare `Seg`s
-#[cfg(test)]
-impl PartialEq for Seg {
-    fn eq(&self, other: &Self) -> bool {
-        self.segments == other.segments
-            && self.ttl_buckets == other.ttl_buckets
-            && self.hashtable == other.hashtable
     }
 }
 

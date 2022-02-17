@@ -1156,7 +1156,6 @@ impl Default for Segments {
     }
 }
 
-#[cfg(test)]
 impl PartialEq for Segments {
     // Checks if `Segments` are equivalent
     fn eq(&self, other: &Self) -> bool {
@@ -1170,7 +1169,6 @@ impl PartialEq for Segments {
     }
 }
 
-#[cfg(test)]
 impl Clone for Segments {
     // Used in testing to clone a `Segments` to compare with
     fn clone(&self) -> Self {
@@ -1178,7 +1176,8 @@ impl Clone for Segments {
         let heap_size = self.segment_size as usize * self.cap as usize;
         let mut data = vec![0; heap_size];
         data.clone_from_slice(self.data.as_slice());
-        let segment_data = Memory::memory_from_data(data.into_boxed_slice());
+        let segment_data = Memory::from(data.into_boxed_slice());
+        //let segment_data = Memory::memory_from_data(data.into_boxed_slice());
 
         // Return a `Segments` where everything is cloned
         Self {

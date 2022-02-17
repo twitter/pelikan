@@ -56,3 +56,10 @@ impl Datapool for Memory {
         Ok(())
     }
 }
+
+
+impl From<Box<[u8]>> for Memory {
+    fn from(data: Box<[u8]>) -> Memory {
+        Memory { data }
+    }
+}
