@@ -26,7 +26,7 @@ fn sizes() {
     assert_eq!(std::mem::size_of::<HashTable>(), 72); // increased to accommodate fields added for testing
 
     assert_eq!(std::mem::size_of::<crate::ttl_buckets::TtlBucket>(), 64);
-    assert_eq!(std::mem::size_of::<TtlBuckets>(), 48); 
+    assert_eq!(std::mem::size_of::<TtlBuckets>(), 48);
 }
 
 #[test]
@@ -752,7 +752,6 @@ fn new_file_backed_cache_changed_and_restored() {
 
     // the restored cache should be equivalent to the old cache
     assert!(new_cache == old_cache);
-
 }
 
 // Creates a new cache, gracefully shutsdown cache and restore cache

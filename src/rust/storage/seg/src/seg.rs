@@ -343,8 +343,8 @@ impl Seg {
     #[cfg(test)]
     pub(crate) fn restored(&self) -> bool {
         self.segments.fields_copied_back
-        && self.ttl_buckets.buckets_copied_back
-        && self.hashtable.table_copied_back
+            && self.ttl_buckets.buckets_copied_back
+            && self.hashtable.table_copied_back
     }
 }
 
@@ -353,20 +353,20 @@ impl Seg {
 impl PartialEq for Seg {
     fn eq(&self, other: &Self) -> bool {
         self.segments == other.segments
-        && self.ttl_buckets == other.ttl_buckets
-        && self.hashtable == other.hashtable
+            && self.ttl_buckets == other.ttl_buckets
+            && self.hashtable == other.hashtable
     }
 }
 
-    // // Used in testing to clone a `Seg` to compare with
-    // #[cfg(test)]
-    // pub(crate) fn clone(&self) -> Seg {
-    //     let segments = self.segments.clone();
-    //     let ttl_buckets = self.ttl_buckets.clone();
-    //     let hashtable = self.hashtable.clone();
-    //     Seg {
-    //         segments,
-    //         ttl_buckets,
-    //         hashtable,
-    //     }
-    // }
+// // Used in testing to clone a `Seg` to compare with
+// #[cfg(test)]
+// pub(crate) fn clone(&self) -> Seg {
+//     let segments = self.segments.clone();
+//     let ttl_buckets = self.ttl_buckets.clone();
+//     let hashtable = self.hashtable.clone();
+//     Seg {
+//         segments,
+//         ttl_buckets,
+//         hashtable,
+//     }
+// }

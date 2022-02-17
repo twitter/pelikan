@@ -42,9 +42,9 @@ mod eviction;
 mod hashtable;
 mod item;
 mod rand;
-mod store;
 mod seg;
 mod segments;
+mod store;
 mod ttl_buckets;
 
 // tests

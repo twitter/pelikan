@@ -57,7 +57,8 @@ pub struct TtlBuckets {
 impl TtlBuckets {
     /// Create a new set of `TtlBuckets` which cover the full range of TTLs. See
     /// the module-level documentation for how the range of TTLs are stored.
-    pub fn new() -> Self {    // TODO: add path as argument
+    pub fn new() -> Self {
+        // TODO: add path as argument
         let intervals = [
             TTL_BUCKET_INTERVAL_1,
             TTL_BUCKET_INTERVAL_2,
@@ -97,10 +98,13 @@ impl TtlBuckets {
             let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets` 
                                         + last_expired_size;
 
-            
             // Mmap file
-            let pool = File::create(ttl_buckets_path.as_ref().unwrap(), ttl_buckets_struct_size, true)
-                .expect("failed to allocate file backed storage");
+            let pool = File::create(
+                ttl_buckets_path.as_ref().unwrap(),
+                ttl_buckets_struct_size,
+                true,
+            )
+            .expect("failed to allocate file backed storage");
             let data = Box::new(pool.as_slice());
 
             // create blank bytes to copy data into
@@ -174,13 +178,13 @@ impl TtlBuckets {
             let byte_ptr = (&self.last_expired as *const Instant) as *const u8;
 
             // store `last_expired` back to mmapped file
-            offset = store::store_bytes_and_update_offset(byte_ptr, offset, last_expired_size, data);
+            offset =
+                store::store_bytes_and_update_offset(byte_ptr, offset, last_expired_size, data);
 
             // --------------------- Store `buckets` -----------------
 
             // for every `TtlBucket`
             for id in 0..MAX_N_TTL_BUCKET {
-
                 // cast `TtlBucket` to byte pointer
                 let byte_ptr = (&self.buckets[id] as *const TtlBucket) as *const u8;
 
@@ -262,7 +266,6 @@ impl TtlBuckets {
         CLEAR_TIME.add(duration.as_nanos() as _);
         cleared
     }
-
 }
 
 impl Default for TtlBuckets {
@@ -279,7 +282,7 @@ impl PartialEq for TtlBuckets {
     }
 }
 
-// // TODO: use self.path, figure out how to indicate there was a graceful shutdown, 
+// // TODO: use self.path, figure out how to indicate there was a graceful shutdown,
 // // implement the same for Segments and HashTable
 // // Add description
 // impl Drop for TtlBuckets {
@@ -293,7 +296,7 @@ impl PartialEq for TtlBuckets {
 //     if let Some(file) = ttl_buckets_path {
 //         let bucket_size = ::std::mem::size_of::<TtlBucket>();
 //         let last_expired_size = ::std::mem::size_of::<Instant>();
-//         let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets` 
+//         let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets`
 //                                     + last_expired_size;
 
 //         // Mmap file

@@ -173,7 +173,7 @@ impl Seg {
     }
 
     // Determines if the `Seg` will be gracefully shutdown.
-    // The graceful shutdown will be successful if the cache is file backed 
+    // The graceful shutdown will be successful if the cache is file backed
     // and `segments_fields_path`, `ttl_buckets_path` and `hashtable_path` are
     // valid paths to save the relevant `Seg` fields to.
     // Otherwise, the relevant `Seg` fields will not be saved.

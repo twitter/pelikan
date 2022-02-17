@@ -89,14 +89,12 @@ impl Segments {
             Box::new(Memory::create(heap_size, true))
         };
 
-        // If `builder.restore` and 
+        // If `builder.restore` and
         // there are specified paths to restore the `Segments` with and
-        // `Segments.data` is file backed, restore relevant 
-        // `Segments` fields. 
+        // `Segments.data` is file backed, restore relevant
+        // `Segments` fields.
         // Otherwise create a new `Segments`.
-        if builder.restore &&
-           data_file_backed && 
-           builder.segments_fields_path.is_some(){
+        if builder.restore && data_file_backed && builder.segments_fields_path.is_some() {
             // TODO: like with the HashTable fields, we assume that the configuration
             // options for `Segments` hasn't changed upon recovery. We need a way to
             // detect the change in fields as well as decided how to
@@ -124,7 +122,6 @@ impl Segments {
             // retrieve bytes from mmapped file
             bytes.copy_from_slice(&fields_data[0..fields_size]);
 
-            
             let mut offset = 0;
             let mut end = 0;
             // ----- Retrieve `headers` -----
@@ -188,30 +185,33 @@ impl Segments {
         } else {
             for id in 0..cfg_segments {
                 // safety: we start iterating from 1 and seg id is constrained to < 2^24
-                let header = SegmentHeader::new(unsafe { NonZeroU32::new_unchecked(id as u32 + 1) });
+                let header =
+                    SegmentHeader::new(unsafe { NonZeroU32::new_unchecked(id as u32 + 1) });
                 headers.push(header);
             }
 
             let mut headers = headers.into_boxed_slice();
-    
+
             for idx in 0..cfg_segments {
                 let begin = cfg_segment_size as usize * idx;
                 let end = begin + cfg_segment_size as usize;
-    
-                let mut segment =
-                    Segment::from_raw_parts(&mut headers[idx], &mut data.as_mut_slice()[begin..end]);
+
+                let mut segment = Segment::from_raw_parts(
+                    &mut headers[idx],
+                    &mut data.as_mut_slice()[begin..end],
+                );
                 segment.init();
-    
+
                 let id = idx as u32 + 1; // we index cfg_segments from 1
                 segment.set_prev_seg(NonZeroU32::new(id - 1));
                 if id < cfg_segments as u32 {
                     segment.set_next_seg(NonZeroU32::new(id + 1));
                 }
             }
-    
+
             SEGMENT_CURRENT.set(cfg_segments as _);
             SEGMENT_FREE.set(cfg_segments as _);
-    
+
             Self {
                 headers,
                 segment_size: cfg_segment_size,
@@ -259,12 +259,16 @@ impl Segments {
 
             // for every `SegmentHeader`
             for id in 0..segments {
-
                 // cast `SegmentHeader` to byte pointer
                 let byte_ptr = (&self.headers[id] as *const SegmentHeader) as *const u8;
 
                 // store `SegmentHeader` back to mmapped file
-                offset = store::store_bytes_and_update_offset(byte_ptr, offset, header_size, fields_data);
+                offset = store::store_bytes_and_update_offset(
+                    byte_ptr,
+                    offset,
+                    header_size,
+                    fields_data,
+                );
             }
 
             // ----- Store `segment_size` -----
@@ -297,7 +301,8 @@ impl Segments {
             let byte_ptr = (&self.free_q as *const Option<NonZeroU32>) as *const u8;
 
             // store `free_q` back to mmapped file
-            offset = store::store_bytes_and_update_offset(byte_ptr, offset, free_q_size, fields_data);
+            offset =
+                store::store_bytes_and_update_offset(byte_ptr, offset, free_q_size, fields_data);
 
             // ----- Store `flush_at` -----
 
@@ -1178,7 +1183,7 @@ impl Clone for Segments {
         // Return a `Segments` where everything is cloned
         Self {
             headers: self.headers.clone(),
-            data: Box::new(segment_data), 
+            data: Box::new(segment_data),
             segment_size: self.segment_size,
             free: self.free,
             cap: self.cap,

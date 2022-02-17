@@ -288,12 +288,12 @@ impl HashTable {
 
             // for every `HashBucket`
             for id in 0..total_buckets {
-                
                 // cast `HashBucket` to byte pointer
                 let byte_ptr = (&self.data[id] as *const HashBucket) as *const u8;
 
                 // store `HashBucket` back to mmapped file
-                offset = store::store_bytes_and_update_offset(byte_ptr, offset, bucket_size, file_data);
+                offset =
+                    store::store_bytes_and_update_offset(byte_ptr, offset, bucket_size, file_data);
             }
 
             // --------------------- Store `started` -----------------
@@ -302,7 +302,8 @@ impl HashTable {
             let byte_ptr = (&self.started as *const Instant) as *const u8;
 
             // store `started` back to mmapped file
-            offset = store::store_bytes_and_update_offset(byte_ptr, offset, started_size, file_data);
+            offset =
+                store::store_bytes_and_update_offset(byte_ptr, offset, started_size, file_data);
             // --------------------- Store `next_to_chain` -----------------
 
             // cast `next_to_chain` to byte pointer
@@ -367,7 +368,7 @@ impl HashTable {
             let n_item_slot = if chain_idx == chain_len {
                 N_BUCKET_SLOT
             } else {
-                N_BUCKET_SLOT - 1 
+                N_BUCKET_SLOT - 1
             };
 
             for i in 0..n_item_slot {
@@ -917,4 +918,3 @@ fn hash_builder() -> RandomState {
         0x4feb29c1fbbd59d0,
     )
 }
-
