@@ -71,7 +71,7 @@ impl Segcache {
     /// fully terminated. This is more likely to be used for running integration
     /// tests or other automated testing.
     pub fn shutdown(self) {
-        // TODO: demolish cache
+        // TODO: flush the cache
         self.process.shutdown()
     }
 }
