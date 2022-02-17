@@ -182,6 +182,7 @@ where
                     Ok(count) => MemcacheResult::Count(count),
                     Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
                     Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
+                    Err(MemcacheStorageError::Error) => MemcacheResult::Error,
                     _ => {
                         unreachable!()
                     }
@@ -200,6 +201,7 @@ where
                     Ok(count) => MemcacheResult::Count(count),
                     Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
                     Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
+                    Err(MemcacheStorageError::Error) => MemcacheResult::Error,
                     _ => {
                         unreachable!()
                     }

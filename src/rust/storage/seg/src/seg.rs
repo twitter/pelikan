@@ -117,7 +117,7 @@ impl Seg {
         value: T,
         optional: Option<&[u8]>,
         ttl: std::time::Duration,
-    ) -> Result<(), SegError<'a>> {
+    ) -> Result<(), SegError> {
         let value: Value = value.into();
 
         // default optional data is empty
@@ -143,7 +143,7 @@ impl Seg {
                     break;
                 }
                 Err(TtlBucketsError::ItemOversized { size }) => {
-                    return Err(SegError::ItemOversized { size, key });
+                    return Err(SegError::ItemOversized { size });
                 }
                 Err(TtlBucketsError::NoFreeSegments) => {
                     if self
@@ -233,7 +233,7 @@ impl Seg {
         optional: Option<&[u8]>,
         ttl: std::time::Duration,
         cas: u32,
-    ) -> Result<(), SegError<'a>> {
+    ) -> Result<(), SegError> {
         match self.hashtable.try_update_cas(key, cas, &mut self.segments) {
             Ok(()) => self.insert(key, value, optional, ttl),
             Err(e) => Err(e),
@@ -305,5 +305,29 @@ impl Seg {
         } else {
             Err(SegError::DataCorrupted)
         }
+    }
+
+    /// Perform a wrapping addition on the value stored at the supplied key.
+    /// Returns an error if the key is invalid, the item is not found, or the
+    /// stored value is not a numeric type.
+    pub fn wrapping_add(&mut self, key: &[u8], rhs: u64) -> Result<Item, SegError> {
+        let mut item = self
+            .hashtable
+            .get(key, &mut self.segments)
+            .ok_or(SegError::NotFound)?;
+        item.wrapping_add(rhs)?;
+        Ok(item)
+    }
+
+    /// Perform a saturating subtraction on the value stored at the supplied
+    /// key. Returns an error if the key is invalid, the item is not found, or
+    /// the stored value is not a numeric type.
+    pub fn saturating_sub(&mut self, key: &[u8], rhs: u64) -> Result<Item, SegError> {
+        let mut item = self
+            .hashtable
+            .get(key, &mut self.segments)
+            .ok_or(SegError::NotFound)?;
+        item.saturating_sub(rhs)?;
+        Ok(item)
     }
 }
