@@ -893,11 +893,19 @@ impl HashTable {
 impl PartialEq for HashTable {
     // Checks if `HashTable` are equivalent
     fn eq(&self, other: &Self) -> bool {
-        self.data == other.data
-            && self.power == other.power
-            && self.mask == other.mask
-            && self.started == other.started
-            && self.next_to_chain == other.next_to_chain
+
+        let a = self.data == other.data;
+        let b = self.power == other.power;
+        let c = self.mask == other.mask;
+        let d = self.started == other.started;
+        let e = self.next_to_chain == other.next_to_chain;
+        println!("HashTable: {}, {}, {}, {}, {}",a,b,c,d,e);
+        a && b && c && d && e
+        //self.data == other.data
+            // && self.power == other.power
+            // && self.mask == other.mask
+            // && self.started == other.started
+            // && self.next_to_chain == other.next_to_chain
     }
 }
 

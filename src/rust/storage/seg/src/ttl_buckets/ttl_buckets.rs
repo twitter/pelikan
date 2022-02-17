@@ -277,7 +277,11 @@ impl Default for TtlBuckets {
 impl PartialEq for TtlBuckets {
     // Checks if `TtlBuckets` are equivalent
     fn eq(&self, other: &Self) -> bool {
-        self.buckets == other.buckets && self.last_expired == other.last_expired
+        let a = self.buckets == other.buckets;
+        let b = self.last_expired == other.last_expired;
+        println!("TTL: {}, {}",a,b);
+        a && b
+        //self.buckets == other.buckets && self.last_expired == other.last_expired
     }
 }
 

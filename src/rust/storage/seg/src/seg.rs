@@ -347,16 +347,3 @@ impl Seg {
             && self.hashtable.table_copied_back
     }
 }
-
-// // Used in testing to clone a `Seg` to compare with
-// #[cfg(test)]
-// pub(crate) fn clone(&self) -> Seg {
-//     let segments = self.segments.clone();
-//     let ttl_buckets = self.ttl_buckets.clone();
-//     let hashtable = self.hashtable.clone();
-//     Seg {
-//         segments,
-//         ttl_buckets,
-//         hashtable,
-//     }
-// }

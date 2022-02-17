@@ -1159,13 +1159,23 @@ impl Default for Segments {
 impl PartialEq for Segments {
     // Checks if `Segments` are equivalent
     fn eq(&self, other: &Self) -> bool {
-        self.headers == other.headers
-            && self.data.as_slice() == other.data.as_slice()
-            && self.segment_size == other.segment_size
-            && self.free == other.free
-            && self.cap == other.cap
-            && self.free_q == other.free_q
-            && self.flush_at == other.flush_at
+
+        let a = self.headers == other.headers;
+        let b = self.data.as_slice() == other.data.as_slice();
+        let c = self.segment_size == other.segment_size;
+        let d = self.free == other.free;
+        let e = self.cap == other.cap;
+        let f = self.free_q == other.free_q;
+        let g = self.flush_at == other.flush_at;
+        println!("Segments: {}, {}, {}, {}, {}, {}, {}",a,b,c,d,e,f,g);
+        a && b && c && d && e && f && g
+        //self.headers == other.headers
+            // && self.data.as_slice() == other.data.as_slice()
+            // && self.segment_size == other.segment_size
+            // && self.free == other.free
+            // && self.cap == other.cap
+            // && self.free_q == other.free_q
+            // && self.flush_at == other.flush_at
     }
 }
 
