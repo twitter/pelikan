@@ -146,58 +146,6 @@ impl TtlBuckets {
         }
     }
 
-    /// TODO: Move this to drop()
-    /// Demolishes the `TtlBuckets` by storing them to
-    /// PMEM (if a path is specified)
-    pub fn demolish(&self, ttl_buckets_path: Option<PathBuf>) -> bool {
-        let mut gracefully_shutdown = false;
-
-        // if a path is specified, copy all the `TtlBucket`s
-        // to the file specified by `ttl_buckets_path`
-        if let Some(file) = ttl_buckets_path {
-            let bucket_size = ::std::mem::size_of::<TtlBucket>();
-            let last_expired_size = ::std::mem::size_of::<Instant>();
-            let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets` 
-                                        + last_expired_size;
-
-            // Mmap file
-            let mut pool = File::create(file, ttl_buckets_struct_size, true)
-                .expect("failed to allocate file backed storage");
-            let data = pool.as_mut_slice();
-
-            let mut offset = 0;
-            // --------------------- Store `last_expired` -----------------
-
-            // cast `last_expired` to byte pointer
-            let byte_ptr = (&self.last_expired as *const Instant) as *const u8;
-
-            // store `last_expired` back to mmapped file
-            offset =
-                store::store_bytes_and_update_offset(byte_ptr, offset, last_expired_size, data);
-
-            // --------------------- Store `buckets` -----------------
-
-            // for every `TtlBucket`
-            for id in 0..MAX_N_TTL_BUCKET {
-                // cast `TtlBucket` to byte pointer
-                let byte_ptr = (&self.buckets[id] as *const TtlBucket) as *const u8;
-
-                // store `TtlBucket` back to mmapped file
-                offset = store::store_bytes_and_update_offset(byte_ptr, offset, bucket_size, data);
-            }
-
-            // --------------------------------------------------
-
-            gracefully_shutdown = true;
-
-            // TODO: check if this flushes the CPU caches
-            pool.flush()
-                .expect("failed to flush `TtlBuckets` to storage");
-        }
-
-        gracefully_shutdown
-    }
-
     /// Flushes the `TtlBuckets` by storing it to a file (if a path is specified)
     pub fn flush(&self) -> std::io::Result<()> {
         // if a path is specified, copy all the `TtlBucket`s to the file

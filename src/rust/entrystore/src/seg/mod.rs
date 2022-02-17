@@ -65,14 +65,6 @@ impl Seg {
         if config.graceful_shutdown() {
             // TODO: check if successfully shutdown and record result
             self.data.flush();
-
-            // ::seg::Seg::demolisher()
-            //     .heap_size(config.heap_size())
-            //     .overflow_factor(config.overflow_factor())
-            //     .segments_fields_path(config.segments_fields_path())
-            //     .ttl_buckets_path(config.ttl_buckets_path())
-            //     .hashtable_path(config.hashtable_path())
-            //     .demolish(self.data);
         };
     }
 }

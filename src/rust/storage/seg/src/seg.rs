@@ -49,32 +49,9 @@ impl Seg {
         Builder::default()
     }
 
-    // Returns a new `Demolisher` which is used to configure the graceful
-    // deconstruction of a `Seg` instance.
-    //
-    // Example code:
-    // ```
-    // let segment_size = 4096;
-    // let segments = 64;
-    // let heap_size = segments * segment_size as usize;
-    // let datapool_path : Option<PathBuf> = Some(PathBuf::from(<path>));
-    // let segments_fields_path: Option<PathBuf> = Some(PathBuf::from(<path>));
-    // let ttl_buckets_path : Option<PathBuf> = Some(PathBuf::from(<path>));
-    // let hashtable_path: Option<PathBuf> = Some(PathBuf::from(<path>));
-    //
-    // // demolish cache by triggering graceful shutdown
-    //     Seg::demolisher()
-    //         .heap_size(heap_size)
-    //         .datapool_path(datapool_path)
-    //         .segments_fields_path(segments_fields_path)
-    //         .ttl_buckets_path(ttl_buckets_path)
-    //         .hashtable_path(hashtable_path)
-    //         .demolish(cache)
-    // ```
-    pub fn demolisher() -> Demolisher {
-        Demolisher::default()
-    }
-
+    /// Flushes cache by storing all the relevant fields of `Segments`,
+    /// `HashTable` and `TtlBuckets` to files at the paths stored in the
+    /// respective structs.
     pub fn flush(&self) -> std::io::Result<()> {
         self.segments.flush()?;
         self.hashtable.flush()?;

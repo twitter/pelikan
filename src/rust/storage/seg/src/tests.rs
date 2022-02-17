@@ -19,11 +19,11 @@ fn sizes() {
     #[cfg(not(feature = "magic"))]
     assert_eq!(ITEM_HDR_SIZE, 5);
 
-    assert_eq!(std::mem::size_of::<Segments>(), 64);
+    assert_eq!(std::mem::size_of::<Segments>(), 88);
     assert_eq!(std::mem::size_of::<SegmentHeader>(), 64);
 
     assert_eq!(std::mem::size_of::<HashBucket>(), 64);
-    assert_eq!(std::mem::size_of::<HashTable>(), 72); // increased to accommodate fields added for testing
+    assert_eq!(std::mem::size_of::<HashTable>(), 104); // increased to accommodate fields added for testing
 
     assert_eq!(std::mem::size_of::<crate::ttl_buckets::TtlBucket>(), 64);
     assert_eq!(std::mem::size_of::<TtlBuckets>(), 48);
@@ -478,22 +478,21 @@ fn saturating_sub() {
 // ---- Cache is created new in main memory.
 // New cache, file backed
 // ---- Cache is created new and is file backed.
-// ---- In other words, PMEM is used as an extension of DRAM.
-// ---- Note: Since the same `datapool_path` is used by the `builder` and
-// ---- `demolisher`, the cache cannot be gracefully shutdown by the `demolisher`
-// ---- if it wasn't file backed by the `builder`. That is, if there is no path
-// ---- used to file back the cache, there is no path to copy the cache data to on shutdown
+// ---- In other words, file is used as an extension of DRAM.
+// ---- Note: The cache cannot be gracefully shutdown by if it isn't file backed.
+// ---- That is, if there is no path used to file back the cache, there is no
+// ---- path to copy the cache data to on shutdown
 // Not gracefully shutdown
 // ---- Nothing is saved on shutdown.
 // Gracefully shutdown
-// ---- `Segments.data` is flushed to PMEM it is file backed
-// ---- Rest of `Seg` instance saved on shutdown if the paths are valid
-// ---- That is, all of `Seg.hashtable`, `Seg.ttl_buckets` and
-// ---- the relevant `Seg.Segments` fields are saved
+// ---- `Segments.data` is flushed if it is file backed
+// ---- Rest of `Seg` instance saved on shutdown if the paths are valid.
+// ---- That is, all of `Seg.hashtable`, `Seg.ttl_buckets` and the relevant
+// ---- `Seg.Segments` fields are saved
 // Restored cache
 // ---- `Segments.data` must be file backed
 // ---- Rest of `Seg` copied back from the files they were saved to and
-// ---- If any of the file paths are not valid, then the cache is created new (TODO)
+// ---- If any of the file paths are not valid, then the cache is created new
 
 // ------------- Set up / Helper Functions for below tests ------------
 
@@ -511,10 +510,10 @@ fn tmp_dir() -> TempDir {
     TempDir::new_in(TMP_DIR).unwrap()
 }
 
-// Returns a `Seg` instance.
-// Cache is restored only if `restore` and `segments_fields_path`, `ttl_buckets_path`. `hashtable_path` are not `None`.
-// Otherwise, new `Seg` instance is returned.
-// Cache is file backed if `datapool_path` is not `None`.
+// Returns a `Seg` instance. Cache is restored only if `restore` and
+// `segments_fields_path`, `ttl_buckets_path`. `hashtable_path` are not `None`.
+// Otherwise, new `Seg` instance is returned. Cache is file backed if
+// `datapool_path` is not `None`.
 fn make_cache(
     restore: bool,
     datapool_path: Option<PathBuf>,
@@ -535,27 +534,6 @@ fn make_cache(
         .ttl_buckets_path(ttl_buckets_path) // set path
         .hashtable_path(hashtable_path) // set path
         .build()
-}
-
-// Demolish the cache by attempting to save the `Segments`,
-// `TtlBuckets` and `HashTable` to the paths specified
-// If successful, return True. Else, return False.
-fn demolish_cache(
-    cache: Seg,
-    segments_fields_path: Option<PathBuf>,
-    ttl_buckets_path: Option<PathBuf>,
-    hashtable_path: Option<PathBuf>,
-) -> bool {
-    let segment_size = 4096;
-    let segments = SEGMENTS;
-    let heap_size = segments * segment_size as usize;
-
-    Seg::demolisher()
-        .heap_size(heap_size)
-        .segments_fields_path(segments_fields_path)
-        .ttl_buckets_path(ttl_buckets_path)
-        .hashtable_path(hashtable_path)
-        .demolish(cache)
 }
 
 // ------------------- Set Paths Correctly Tests --------------------------
@@ -650,17 +628,8 @@ fn restored_cache_file_backed() {
 // being file backed and none of the other structures being restored
 #[test]
 fn restored_cache_no_paths_set() {
-    let segment_size = 4096;
-    let segments = 64;
-    let heap_size = segments * segment_size as usize;
-    let datapool_path: Option<PathBuf> = None;
-
-    let cache = Seg::builder()
-        .restore(true)
-        .segment_size(segment_size as i32)
-        .heap_size(heap_size)
-        .datapool_path(datapool_path) // set no path
-        .build();
+    let restore = true;
+    let cache = make_cache(restore, None, None, None, None);
 
     // the `Segments.data` should not be filed backed
     assert!(!cache.segments.data_file_backed());
@@ -682,18 +651,6 @@ fn cache_gracefully_shutdown() {
     let dir = tmp_dir();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
-    let segment_size = 4096;
-    let segments = SEGMENTS;
-    let heap_size = segments * segment_size as usize;
-
-    // create new, file backed cache
-    let cache = Seg::builder()
-        .restore(false)
-        .segment_size(segment_size as i32)
-        .heap_size(heap_size)
-        .datapool_path(datapool_path) // set path
-        .build();
-
     // Create tempfile for `Segments` fields'
     let segments_fields_path: Option<PathBuf> = Some(dir.path().join("segments_fields"));
     // Create tempfile for `TtlBuckets`
@@ -701,12 +658,18 @@ fn cache_gracefully_shutdown() {
     // Create tempfile for `HashTable`
     let hashtable_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
 
-    assert!(Seg::demolisher()
-        .heap_size(heap_size)
-        .segments_fields_path(segments_fields_path)
-        .ttl_buckets_path(ttl_buckets_path)
-        .hashtable_path(hashtable_path)
-        .demolish(cache));
+    // create new, file backed cache
+    let restore = false;
+    let cache = make_cache(
+        restore,
+        datapool_path,
+        segments_fields_path,
+        ttl_buckets_path,
+        hashtable_path,
+    );
+
+    // Flush cache
+    assert!(cache.flush().is_ok());
 }
 
 // Check that if paths are not specified, then the cache is not gracefully
@@ -717,31 +680,23 @@ fn cache_not_gracefully_shutdown() {
     let dir = tmp_dir();
     // Create tempfile for datapool
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
-    let segment_size = 4096;
-    let segments = SEGMENTS;
-    let heap_size = segments * segment_size as usize;
-
-    // create new, file backed cache
-    let cache = Seg::builder()
-        .restore(false)
-        .segment_size(segment_size as i32)
-        .heap_size(heap_size)
-        .datapool_path(datapool_path) // set path
-        .build();
-
     // Create tempfile for `Segments` fields'
     let segments_fields_path: Option<PathBuf> = Some(dir.path().join("segments_fields"));
     // Create tempfile for `TtlBuckets`
     let ttl_buckets_path: Option<PathBuf> = Some(dir.path().join("ttl_buckets"));
-    // Do not set a HashTable path
-    let hashtable_path: Option<PathBuf> = None;
 
-    assert!(!Seg::demolisher()
-        .heap_size(heap_size)
-        .segments_fields_path(segments_fields_path)
-        .ttl_buckets_path(ttl_buckets_path)
-        .hashtable_path(hashtable_path)
-        .demolish(cache));
+    // create new, file backed cache
+    let restore = false;
+    let cache = make_cache(
+        restore,
+        datapool_path,
+        segments_fields_path,
+        ttl_buckets_path,
+        None, // Don't set a `HashTable` path
+    );
+
+    // Flushing cache should fail
+    assert!(cache.flush().is_err());
 }
 
 // --------------------- Data copied back Tests----------------------------
@@ -789,21 +744,6 @@ fn new_file_backed_cache_changed_and_restored() {
 
     // Get a copy of the cache to be compared later
     let old_cache = cache.clone();
-
-    // Create tempfile for `Segments` fields'
-    // let segments_fields_path: Option<PathBuf> = Some(dir.path().join("segments_fields"));
-    // // Create tempfile for `TtlBuckets`
-    // let ttl_buckets_path: Option<PathBuf> = Some(dir.path().join("ttl_buckets"));
-    // // Create tempfile for `HashTable`
-    // let hashtable_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
-
-    // gracefully shutdown cache
-    // assert!(demolish_cache(
-    //     cache,
-    //     segments_fields_path,
-    //     ttl_buckets_path,
-    //     hashtable_path
-    // ));
 
     // Flush cache
     assert!(cache.flush().is_ok());
@@ -853,20 +793,21 @@ fn new_file_backed_cache_not_changed_and_restored() {
 
     // create new, file backed cache
     let mut restore = false;
-    let cache = make_cache(restore, datapool_path, None, None, None);
+    let cache = make_cache(
+        restore,
+        datapool_path,
+        segments_fields_path,
+        ttl_buckets_path,
+        hashtable_path,
+    );
 
     assert!(!cache.restored());
 
     // Get a copy of the cache to be compared later
     let old_cache = cache.clone();
 
-    // gracefully shutdown cache
-    assert!(demolish_cache(
-        cache,
-        segments_fields_path,
-        ttl_buckets_path,
-        hashtable_path
-    ));
+    // Flush cache
+    assert!(cache.flush().is_ok());
 
     // Create same tempfiles (they have been moved since first created)
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
@@ -909,7 +850,13 @@ fn new_cache_changed_and_not_restored() {
 
     // create new, file backed cache
     let mut restore = false;
-    let mut cache = make_cache(restore, datapool_path, None, None, None);
+    let mut cache = make_cache(
+        restore,
+        datapool_path,
+        segments_fields_path,
+        ttl_buckets_path,
+        hashtable_path,
+    );
 
     assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
@@ -930,13 +877,8 @@ fn new_cache_changed_and_not_restored() {
     // Get a copy of the cache to be compared later
     let old_cache = cache.clone();
 
-    // gracefully shutdown cache
-    assert!(demolish_cache(
-        cache,
-        segments_fields_path,
-        ttl_buckets_path,
-        hashtable_path
-    ));
+    // Flush cache
+    assert!(cache.flush().is_ok());
 
     // Create same tempfile (it has been moved since first created)
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
@@ -978,7 +920,13 @@ fn new_cache_changed_and_restoration_fails() {
 
     // create new, file backed cache
     let mut restore = false;
-    let mut cache = make_cache(restore, datapool_path, None, None, None);
+    let mut cache = make_cache(
+        restore,
+        datapool_path,
+        segments_fields_path,
+        ttl_buckets_path,
+        hashtable_path,
+    );
 
     assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
@@ -999,15 +947,11 @@ fn new_cache_changed_and_restoration_fails() {
     // Get a copy of the cache to be compared later
     let old_cache = cache.clone();
 
-    // gracefully shutdown cache
-    assert!(demolish_cache(
-        cache,
-        segments_fields_path,
-        ttl_buckets_path,
-        hashtable_path
-    ));
+    // Flush cache
+    assert!(cache.flush().is_ok());
 
-    // Create same tempfiles (they have been moved since first created) for `datapool`, `segments_fields`, `ttl_buckets`
+    // Create same tempfiles (they have been moved since first created) for
+    // `datapool`, `segments_fields`, `ttl_buckets`
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
     let segments_fields_path: Option<PathBuf> = Some(dir.path().join("segments_fields"));
     let ttl_buckets_path: Option<PathBuf> = Some(dir.path().join("ttl_buckets"));
@@ -1027,7 +971,8 @@ fn new_cache_changed_and_restoration_fails() {
 
     // Cache is restored as all paths exist
     assert!(new_cache.restored());
-    // `Segments` data should be the same as old cache since `segments_fields_path` is the same
+    // `Segments` data should be the same as old cache since
+    // `segments_fields_path` is the same
     assert_eq!(new_cache.items(), 1);
     assert_eq!(new_cache.segments.free(), SEGMENTS - 1);
 
@@ -1064,7 +1009,13 @@ fn full_cache_recovery_long() {
 
     // create new, file backed cache
     let mut restore = false;
-    let mut cache = make_cache(restore, datapool_path, None, None, None);
+    let mut cache = make_cache(
+        restore,
+        datapool_path,
+        segments_fields_path,
+        ttl_buckets_path,
+        hashtable_path,
+    );
 
     assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
@@ -1106,13 +1057,8 @@ fn full_cache_recovery_long() {
     // Get a copy of the cache to be compared later
     let old_cache = cache.clone();
 
-    // gracefully shutdown cache
-    assert!(demolish_cache(
-        cache,
-        segments_fields_path,
-        ttl_buckets_path,
-        hashtable_path
-    ));
+    // Flush cache
+    assert!(cache.flush().is_ok());
 
     // Create same tempfiles (they have been moved since first created)
     let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));

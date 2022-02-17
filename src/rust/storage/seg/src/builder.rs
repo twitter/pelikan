@@ -176,9 +176,9 @@ impl Builder {
 
     /// Consumes the builder and returns a fully-allocated `Seg` instance.
     /// If `restore` and valid paths to the structures are given, `Seg` will
-    /// be restored. Otherwise, create a new `Seg` instance.
-    /// If valid paths are given, the files at these paths will be used to copy
-    /// the structures to upon graceful shutdown.
+    /// be restored. Otherwise, create a new `Seg` instance. If valid paths are
+    /// given, the files at these paths will be used to copy the structures to
+    /// upon graceful shutdown.
     ///
     /// ```
     /// use seg::{Policy, Seg};

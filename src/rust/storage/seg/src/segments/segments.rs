@@ -235,115 +235,6 @@ impl Segments {
         }
     }
 
-    /// Demolishes the segments by flushing the `Segments.data` to PMEM
-    /// (if filed backed) and storing the other `Segments` fields' to
-    /// PMEM (if a path is specified)
-    pub fn demolish(&self, segments_fields_path: Option<PathBuf>, heap_size: usize) -> bool {
-        let mut gracefully_shutdown = false;
-
-        // if a path is specified, copy all the `Segments` fields'
-        // to the file specified by `segments_fields_path`
-        if let Some(file) = segments_fields_path {
-            let segments = heap_size / (self.segment_size as usize);
-            let header_size: usize = ::std::mem::size_of::<SegmentHeader>();
-            let i32_size = ::std::mem::size_of::<i32>();
-            let u32_size = ::std::mem::size_of::<u32>();
-            let free_q_size = ::std::mem::size_of::<Option<NonZeroU32>>();
-            let flush_at_size = ::std::mem::size_of::<Instant>();
-            // Size of all components of `Segments` that are being restored
-            let fields_size = segments * header_size // `headers`
-                            + i32_size     // `segment_size`
-                            + u32_size * 2 // `free` and `cap`
-                            + free_q_size
-                            + flush_at_size;
-
-            // mmap file
-            let mut pool = File::create(file, fields_size, true)
-                .expect("failed to allocate file backed storage");
-            let fields_data = pool.as_mut_slice();
-
-            let mut offset = 0;
-            // ----- Store `headers` -----
-
-            // for every `SegmentHeader`
-            for id in 0..segments {
-                // cast `SegmentHeader` to byte pointer
-                let byte_ptr = (&self.headers[id] as *const SegmentHeader) as *const u8;
-
-                // store `SegmentHeader` back to mmapped file
-                offset = store::store_bytes_and_update_offset(
-                    byte_ptr,
-                    offset,
-                    header_size,
-                    fields_data,
-                );
-            }
-
-            // ----- Store `segment_size` -----
-
-            // cast `segment_size` to byte pointer
-            let byte_ptr = (&self.segment_size as *const i32) as *const u8;
-
-            // store `segment_size` back to mmapped file
-            offset = store::store_bytes_and_update_offset(byte_ptr, offset, i32_size, fields_data);
-
-            // ----- Store `free` -----
-
-            // cast `free` to byte pointer
-            let byte_ptr = (&self.free as *const u32) as *const u8;
-
-            // store `free` back to mmapped file
-            offset = store::store_bytes_and_update_offset(byte_ptr, offset, u32_size, fields_data);
-
-            // ----- Store `cap` -----
-
-            // cast `cap` to byte pointer
-            let byte_ptr = (&self.cap as *const u32) as *const u8;
-
-            // store `cap` back to mmapped file
-            offset = store::store_bytes_and_update_offset(byte_ptr, offset, u32_size, fields_data);
-
-            // ----- Store `free_q` -----
-
-            // cast `free_q` to byte pointer
-            let byte_ptr = (&self.free_q as *const Option<NonZeroU32>) as *const u8;
-
-            // store `free_q` back to mmapped file
-            offset =
-                store::store_bytes_and_update_offset(byte_ptr, offset, free_q_size, fields_data);
-
-            // ----- Store `flush_at` -----
-
-            // cast `flush_at` to byte pointer
-            let byte_ptr = (&self.flush_at as *const Instant) as *const u8;
-
-            // store `flush_at` back to mmapped file
-            store::store_bytes_and_update_offset(byte_ptr, offset, flush_at_size, fields_data);
-
-            // -----------------------------
-
-            // TODO: check if this flushes fields_data from CPU caches
-            pool.flush()
-                .expect("failed to flush `Segments` fields' to storage");
-
-            gracefully_shutdown = true;
-        }
-
-        // if `Segments.data` is file backed, flush it to PMEM
-        if self.data_file_backed {
-            self.data
-                .flush()
-                .expect("failed to flush Segments.data to storage");
-        } else {
-            // This else case is not expected to be reached as this function
-            // is only called during a graceful shutdown, so it is expected that the
-            // data is file backed
-            gracefully_shutdown = false;
-        }
-
-        gracefully_shutdown
-    }
-
     /// Flushes the `Segments` by flushing the `Segments.data` (if filed backed)
     /// and storing the other `Segments` fields' to a file (if a path is
     /// specified)
@@ -1295,7 +1186,7 @@ impl Clone for Segments {
             segment_size: self.segment_size,
             free: self.free,
             cap: self.cap,
-            free_q: self.free_q.clone(),
+            free_q: self.free_q,
             flush_at: self.flush_at,
             evict: self.evict.clone(),                   // not relevant
             data_file_backed: self.data_file_backed,     // not relevant
