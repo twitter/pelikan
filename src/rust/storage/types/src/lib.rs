@@ -99,6 +99,15 @@ impl<'a> PartialEq<[u8]> for Value<'a> {
     }
 }
 
+impl<'a> PartialEq<u64> for Value<'a> {
+    fn eq(&self, rhs: &u64) -> bool {
+        match self {
+            Value::Bytes(_) => false,
+            Value::U64(v) => *v == *rhs,
+        }
+    }
+}
+
 impl<'a> core::fmt::Debug for Value<'a> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         match &self {

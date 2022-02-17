@@ -111,6 +111,42 @@ pub fn tests() {
         )],
     );
 
+    // test increment
+    test("incr (key: 9)", &[("incr 9 1\r\n", Some("NOT_FOUND\r\n"))]);
+    test(
+        "set value (key: 9)",
+        &[("set 9 0 0 1\r\n0\r\n", Some("STORED\r\n"))],
+    );
+    test("incr (key: 9)", &[("incr 9 1\r\n", Some("1\r\n"))]);
+    test("incr (key: 9)", &[("incr 9 2\r\n", Some("3\r\n"))]);
+    test(
+        "incr (key: 9)",
+        &[(&format!("incr 9 {}\r\n", u64::MAX), Some("2\r\n"))],
+    );
+    test(
+        "set value (key: 9)",
+        &[("set 9 0 0 1\r\na\r\n", Some("STORED\r\n"))],
+    );
+    test("incr (key: 9)", &[("incr 9 1\r\n", Some("ERROR\r\n"))]);
+
+    // test decrement
+    test(
+        "decr (key: 10)",
+        &[("decr 10 1\r\n", Some("NOT_FOUND\r\n"))],
+    );
+    test(
+        "set value (key: 10)",
+        &[("set 10 0 0 2\r\n10\r\n", Some("STORED\r\n"))],
+    );
+    test("decr (key: 10)", &[("decr 10 1\r\n", Some("9\r\n"))]);
+    test("decr (key: 10)", &[("decr 10 2\r\n", Some("7\r\n"))]);
+    test("decr (key: 10)", &[("decr 10 8\r\n", Some("0\r\n"))]);
+    test(
+        "set value (key: 10)",
+        &[("set 10 0 0 1\r\na\r\n", Some("STORED\r\n"))],
+    );
+    test("decr (key: 10)", &[("decr 10 1\r\n", Some("ERROR\r\n"))]);
+
     // test unsupported commands
     test(
         "append (key: 7)",
@@ -120,8 +156,6 @@ pub fn tests() {
         "prepend (key: 8)",
         &[("prepend 8 0 0 1\r\n0\r\n", Some("ERROR\r\n"))],
     );
-    test("incr (key: 9)", &[("incr 9 1\r\n", Some("ERROR\r\n"))]);
-    test("decr (key: 9)", &[("decr 9 1\r\n", Some("ERROR\r\n"))]);
 
     std::thread::sleep(Duration::from_millis(500));
 }
