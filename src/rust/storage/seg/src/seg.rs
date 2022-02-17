@@ -75,8 +75,8 @@ impl Seg {
         Demolisher::default()
     }
 
-    pub fn flush(&self) {
-
+    pub fn flush(&self) -> std::io::Result<()> {
+        self.segments.flush()
     }
 
     /// Gets a count of items in the `Seg` instance. This is an expensive

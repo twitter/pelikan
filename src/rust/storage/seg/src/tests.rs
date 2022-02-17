@@ -471,7 +471,6 @@ fn saturating_sub() {
     assert_eq!(item.value(), 0, "item is: {:?}", item);
 }
 
-
 // ----------- TESTS FOR RECOVERY -------------
 // Configuration Options:
 //
@@ -587,12 +586,6 @@ fn new_cache_file_backed() {
     assert!(!cache.ttl_buckets.buckets_copied_back);
     // the `HashTable` should not have been restored
     assert!(!cache.hashtable.table_copied_back);
-
-    // DELETE
-    let graceful_shutdown = true;
-    if graceful_shutdown {
-        cache.flush()
-    }
 }
 
 // Check that a new, not file backed cache is not file backed
@@ -770,7 +763,13 @@ fn new_file_backed_cache_changed_and_restored() {
 
     // create new, file backed cache
     let mut restore = false;
-    let mut cache = make_cache(restore, datapool_path, None, None, None);
+    let mut cache = make_cache(
+        restore,
+        datapool_path,
+        segments_fields_path,
+        ttl_buckets_path,
+        hashtable_path,
+    );
 
     assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
@@ -791,11 +790,18 @@ fn new_file_backed_cache_changed_and_restored() {
     // Get a copy of the cache to be compared later
     let old_cache = cache.clone();
 
-    // // force cache to go out of scope and thus `cache.segments`,
-    // // `cache.hashtable` and `cache.ttl_buckets` will be dropped (demolished)
-    // {
-    //     let _x = cache;
-    // }
+    // DELETE
+    let graceful_shutdown = true;
+    if graceful_shutdown {
+        assert!(cache.flush().is_ok());
+    }
+
+    // Create tempfile for `Segments` fields'
+    let segments_fields_path: Option<PathBuf> = Some(dir.path().join("segments_fields"));
+    // Create tempfile for `TtlBuckets`
+    let ttl_buckets_path: Option<PathBuf> = Some(dir.path().join("ttl_buckets"));
+    // Create tempfile for `HashTable`
+    let hashtable_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
 
     // gracefully shutdown cache
     assert!(demolish_cache(

@@ -46,6 +46,8 @@ pub(crate) struct Segments {
     data_file_backed: bool,
     ///  Are `headers` copied back from a file?
     pub(crate) fields_copied_back: bool,
+    /// Path to save relevant fields upon graceful shutdown
+    segments_fields_path: Option<PathBuf>,
 }
 
 impl Segments {
@@ -113,8 +115,12 @@ impl Segments {
                             + flush_at_size;
 
             // Mmap file
-            let pool = File::create(builder.segments_fields_path.unwrap(), fields_size, true)
-                .expect("failed to allocate file backed storage");
+            let pool = File::create(
+                builder.segments_fields_path.as_ref().unwrap(),
+                fields_size,
+                true,
+            )
+            .expect("failed to allocate file backed storage");
             let fields_data = Box::new(pool.as_slice());
 
             // create blank bytes to copy data into
@@ -181,6 +187,7 @@ impl Segments {
                 evict: Box::new(evict),
                 data_file_backed: true,
                 fields_copied_back: true,
+                segments_fields_path: builder.segments_fields_path,
             }
         } else {
             for id in 0..cfg_segments {
@@ -223,6 +230,7 @@ impl Segments {
                 evict: Box::new(evict),
                 data_file_backed,
                 fields_copied_back: false,
+                segments_fields_path: builder.segments_fields_path,
             }
         }
     }
@@ -334,6 +342,106 @@ impl Segments {
         }
 
         gracefully_shutdown
+    }
+
+    /// Flushes the `Segments` by flushing the `Segments.data` (if filed backed)
+    /// and storing the other `Segments` fields' to a file (if a path is
+    /// specified)
+    pub fn flush(&self) -> std::io::Result<()> {
+        // if `Segments.data` is file backed, flush it to PMEM
+        if self.data_file_backed {
+            self.data.flush()?;
+        }
+
+        // if a path is specified, copy all the `Segments` fields' to the file
+        // specified by `segments_fields_path`
+        if let Some(file) = &self.segments_fields_path {
+            let header_size: usize = ::std::mem::size_of::<SegmentHeader>();
+            let i32_size = ::std::mem::size_of::<i32>();
+            let u32_size = ::std::mem::size_of::<u32>();
+            let free_q_size = ::std::mem::size_of::<Option<NonZeroU32>>();
+            let flush_at_size = ::std::mem::size_of::<Instant>();
+            // Size of all components of `Segments` that are being restored
+            let fields_size = (self.cap as usize) * header_size // `headers`
+                            + i32_size     // `segment_size`
+                            + u32_size * 2 // `free` and `cap`
+                            + free_q_size
+                            + flush_at_size;
+
+            // mmap file
+            let mut pool = File::create(file, fields_size, true)
+                .expect("failed to allocate file backed storage");
+            let fields_data = pool.as_mut_slice();
+
+            let mut offset = 0;
+            // ----- Store `headers` -----
+
+            // for every `SegmentHeader`
+            for id in 0..(self.cap as usize) {
+                // cast `SegmentHeader` to byte pointer
+                let byte_ptr = (&self.headers[id] as *const SegmentHeader) as *const u8;
+
+                // store `SegmentHeader` back to mmapped file
+                offset = store::store_bytes_and_update_offset(
+                    byte_ptr,
+                    offset,
+                    header_size,
+                    fields_data,
+                );
+            }
+
+            // ----- Store `segment_size` -----
+
+            // cast `segment_size` to byte pointer
+            let byte_ptr = (&self.segment_size as *const i32) as *const u8;
+
+            // store `segment_size` back to mmapped file
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, i32_size, fields_data);
+
+            // ----- Store `free` -----
+
+            // cast `free` to byte pointer
+            let byte_ptr = (&self.free as *const u32) as *const u8;
+
+            // store `free` back to mmapped file
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, u32_size, fields_data);
+
+            // ----- Store `cap` -----
+
+            // cast `cap` to byte pointer
+            let byte_ptr = (&self.cap as *const u32) as *const u8;
+
+            // store `cap` back to mmapped file
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, u32_size, fields_data);
+
+            // ----- Store `free_q` -----
+
+            // cast `free_q` to byte pointer
+            let byte_ptr = (&self.free_q as *const Option<NonZeroU32>) as *const u8;
+
+            // store `free_q` back to mmapped file
+            offset =
+                store::store_bytes_and_update_offset(byte_ptr, offset, free_q_size, fields_data);
+
+            // ----- Store `flush_at` -----
+
+            // cast `flush_at` to byte pointer
+            let byte_ptr = (&self.flush_at as *const Instant) as *const u8;
+
+            // store `flush_at` back to mmapped file
+            store::store_bytes_and_update_offset(byte_ptr, offset, flush_at_size, fields_data);
+
+            // -----------------------------
+
+            // TODO: check if this flushes fields_data from CPU caches
+            pool.flush()?;
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Segments not gracefully shutdown",
+            ))
+        }
     }
 
     /// Return the size of each segment in bytes
@@ -1170,7 +1278,7 @@ impl PartialEq for Segments {
 }
 
 impl Clone for Segments {
-    // Used in testing to clone a `Segments` to compare with
+    // Used in testing to clone a `Segments` to compare equivalency with
     fn clone(&self) -> Self {
         // clone `data`
         let heap_size = self.segment_size as usize * self.cap as usize;
@@ -1179,7 +1287,7 @@ impl Clone for Segments {
         let segment_data = Memory::from(data.into_boxed_slice());
         //let segment_data = Memory::memory_from_data(data.into_boxed_slice());
 
-        // Return a `Segments` where everything is cloned
+        // Return a `Segments` where everything relevant is cloned
         Self {
             headers: self.headers.clone(),
             data: Box::new(segment_data),
@@ -1188,9 +1296,10 @@ impl Clone for Segments {
             cap: self.cap,
             free_q: self.free_q.clone(),
             flush_at: self.flush_at,
-            evict: self.evict.clone(),
-            data_file_backed: self.data_file_backed,
-            fields_copied_back: self.fields_copied_back,
+            evict: self.evict.clone(),                   // not relevant
+            data_file_backed: self.data_file_backed,     // not relevant
+            fields_copied_back: self.fields_copied_back, // not relevant
+            segments_fields_path: None,                  // not relevant
         }
     }
 }

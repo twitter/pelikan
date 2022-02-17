@@ -63,7 +63,9 @@ impl Seg {
         let config = config.seg();
 
         if config.graceful_shutdown() {
-            self.data.flush()
+            // TODO: check if successfully shutdown and record result
+            self.data.flush();
+
             // ::seg::Seg::demolisher()
             //     .heap_size(config.heap_size())
             //     .overflow_factor(config.overflow_factor())
