@@ -75,6 +75,10 @@ impl Seg {
         Demolisher::default()
     }
 
+    pub fn flush(&self) {
+
+    }
+
     /// Gets a count of items in the `Seg` instance. This is an expensive
     /// operation and is only enabled for tests and builds with the `debug`
     /// feature enabled.

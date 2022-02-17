@@ -58,19 +58,19 @@ impl Seg {
         Self { data }
     }
 
-    /// Demolish (gracefully shutdown) the cache if
-    /// configured to do so
-    pub fn demolish<T: SegConfig>(self, config: &T) {
+    /// Flush (gracefully shutdown) the `Seg` cache if configured to do so
+    pub fn flush<T: SegConfig>(self, config: &T) {
         let config = config.seg();
 
         if config.graceful_shutdown() {
-            ::seg::Seg::demolisher()
-                .heap_size(config.heap_size())
-                .overflow_factor(config.overflow_factor())
-                .segments_fields_path(config.segments_fields_path())
-                .ttl_buckets_path(config.ttl_buckets_path())
-                .hashtable_path(config.hashtable_path())
-                .demolish(self.data);
+            self.data.flush()
+            // ::seg::Seg::demolisher()
+            //     .heap_size(config.heap_size())
+            //     .overflow_factor(config.overflow_factor())
+            //     .segments_fields_path(config.segments_fields_path())
+            //     .ttl_buckets_path(config.ttl_buckets_path())
+            //     .hashtable_path(config.hashtable_path())
+            //     .demolish(self.data);
         };
     }
 }
