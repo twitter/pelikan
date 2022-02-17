@@ -35,12 +35,6 @@ impl Memory {
 
         Self { data }
     }
-
-    // Used only in Segments::clone() in order to clone `Segments.data`
-    #[cfg(test)]
-    pub fn memory_from_data(data: Box<[u8]>) -> Memory {
-        Memory { data }
-    }
 }
 
 impl Datapool for Memory {
@@ -57,7 +51,7 @@ impl Datapool for Memory {
     }
 }
 
-
+// Used only in Segments::clone() in order to clone `Segments.data`
 impl From<Box<[u8]>> for Memory {
     fn from(data: Box<[u8]>) -> Memory {
         Memory { data }
