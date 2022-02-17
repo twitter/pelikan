@@ -52,9 +52,8 @@ pub(crate) struct Segments {
 
 impl Segments {
     /// Private function which allocates and initializes the `Segments` by
-    /// taking ownership of the builder.
-    /// `Segments` is restored if the paths are specified, otherwise a new
-    /// `Segments` is created.
+    /// taking ownership of the builder. `Segments` is restored if the paths are
+    /// specified, otherwise a new `Segments` is created.
     pub(super) fn from_builder(builder: SegmentsBuilder) -> Self {
         let cfg_segment_size = builder.segment_size;
         let cfg_segments = builder.heap_size / (builder.segment_size as usize);
