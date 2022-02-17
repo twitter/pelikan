@@ -275,19 +275,7 @@ impl Default for TtlBuckets {
 impl PartialEq for TtlBuckets {
     // Checks if `TtlBuckets` are equivalent
     fn eq(&self, other: &Self) -> bool {
-        // ---- Check if `TtlBuckets.buckets` are equivalent ----
-        let total_buckets = self.buckets.len();
-
-        // ensure number of `TtlBucket`s is the same
-        let mut buckets_equivalent = total_buckets == other.buckets.len();
-
-        // Compare each `TtlBucket`
-        for id in 0..total_buckets {
-            buckets_equivalent = buckets_equivalent && self.buckets[id] == other.buckets[id];
-        }
-
-        // ---- Check if the other fields are equivalent ---
-        buckets_equivalent && self.last_expired == other.last_expired
+        self.buckets == other.buckets && self.last_expired == other.last_expired
     }
 }
 

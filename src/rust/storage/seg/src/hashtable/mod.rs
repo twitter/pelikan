@@ -893,19 +893,7 @@ impl HashTable {
 impl PartialEq for HashTable {
     // Checks if `HashTable` are equivalent
     fn eq(&self, other: &Self) -> bool {
-        // ---- Check if `HashTable.data` are equivalent ---
-        let total_buckets = self.data.len();
-
-        // ensure number of `HashBucket`s is the same
-        let mut buckets_equivalent = total_buckets == other.data.len();
-
-        // Compare each `HashBucket`
-        for id in 0..total_buckets {
-            buckets_equivalent = buckets_equivalent && self.data[id] == other.data[id];
-        }
-
-        // ---- Check if the other fields are equivalent ---
-        buckets_equivalent 
+        self.data == other.data
             && self.power == other.power
             && self.mask == other.mask
             && self.started == other.started

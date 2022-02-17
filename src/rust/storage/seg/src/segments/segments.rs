@@ -1155,19 +1155,7 @@ impl Default for Segments {
 impl PartialEq for Segments {
     // Checks if `Segments` are equivalent
     fn eq(&self, other: &Self) -> bool {
-        // ---- Check if `Segments.headers` are equivalent ----
-        let total_buckets = self.headers.len();
-
-        // ensure number of `SegmentHeader`s is the same
-        let mut headers_equivalent = total_buckets == other.headers.len();
-
-        // Compare each `SegmentHeader`
-        for id in 0..total_buckets {
-            headers_equivalent = headers_equivalent && self.headers[id] == other.headers[id];
-        }
-
-        // ---- Check if the other fields are equivalent ---
-        headers_equivalent
+        self.headers == other.headers
             && self.data.as_slice() == other.data.as_slice()
             && self.segment_size == other.segment_size
             && self.free == other.free
