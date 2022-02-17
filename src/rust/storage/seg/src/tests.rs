@@ -1137,3 +1137,4 @@ fn full_cache_recovery_long() {
     while let Some(key) = unique_active_keys.pop() {
         assert!(new_cache.get(&key).is_some());
     }
+}
