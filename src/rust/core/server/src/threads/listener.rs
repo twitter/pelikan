@@ -29,21 +29,16 @@ static_metrics! {
     static SERVER_EVENT_TOTAL: Counter;
 }
 
-/// A `Server` is used to bind to a given socket address and accept new
-/// sessions. Fully negotiated sessions are then moved into a `Worker` thread
-/// over a queue.
-pub struct Listener {
+pub struct ListenerBuilder {
     addr: SocketAddr,
+    max_buffer_size: usize,
     nevent: usize,
     poll: Poll,
-    session_queue: QueuePairs<Session, ()>,
     ssl_context: Option<SslContext>,
-    signal_queue: QueuePairs<Signal, Signal>,
     timeout: Duration,
-    max_buffer_size: usize,
 }
 
-impl Listener {
+impl ListenerBuilder {
     /// Creates a new `Listener` from a `ServerConfig` and an optional
     /// `SslContext`.
     pub fn new<T: ServerConfig>(
@@ -67,21 +62,50 @@ impl Listener {
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
 
-        let signal_queue = QueuePairs::new(Some(poll.waker()));
-        let session_queue = QueuePairs::new(Some(poll.waker()));
-
         Ok(Self {
             addr,
             nevent,
             poll,
-            session_queue,
             ssl_context,
-            signal_queue,
             timeout,
             max_buffer_size,
         })
     }
 
+    pub fn waker(&self) -> Arc<Waker> {
+        self.poll.waker()
+    }
+
+    pub fn build(
+        self,
+        signal_queue: Queues<(), Signal>,
+        session_queue: Queues<Session, ()>,
+    ) -> Listener {
+        Listener {
+            addr: self.addr,
+            max_buffer_size: self.max_buffer_size,
+            nevent: self.nevent,
+            poll: self.poll,
+            ssl_context: self.ssl_context,
+            timeout: self.timeout,
+            signal_queue,
+            session_queue,
+        }
+    }
+}
+
+pub struct Listener {
+    addr: SocketAddr,
+    max_buffer_size: usize,
+    nevent: usize,
+    poll: Poll,
+    ssl_context: Option<SslContext>,
+    timeout: Duration,
+    signal_queue: Queues<(), Signal>,
+    session_queue: Queues<Session, ()>,
+}
+
+impl Listener {
     /// Call accept one time
     // TODO(bmartin): splitting accept and negotiation into separate threads
     // would allow us to handle TLS handshake with multiple threads and avoid
@@ -124,7 +148,7 @@ impl Listener {
         let session =
             Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE, self.max_buffer_size);
         trace!("accepted new session: {:?}", session);
-        if self.session_queue.send_rr(session).is_err() {
+        if self.session_queue.try_send_any(session).is_err() {
             error!("error sending session to worker");
             TCP_ACCEPT_EX.increment();
         }
@@ -148,7 +172,7 @@ impl Listener {
         let session =
             Session::plain_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE, self.max_buffer_size);
         trace!("accepted new session: {:?}", session);
-        if self.session_queue.send_rr(session).is_err() {
+        if self.session_queue.try_send_any(session).is_err() {
             error!("error sending session to worker");
             TCP_ACCEPT_EX.increment();
         }
@@ -181,7 +205,7 @@ impl Listener {
             if session.do_handshake().is_ok() {
                 trace!("handshake complete for session: {:?}", session);
                 if let Ok(session) = self.poll.remove_session(token) {
-                    if self.session_queue.send_rr(session).is_err() {
+                    if self.session_queue.try_send_any(session).is_err() {
                         error!("error sending session to worker");
                         TCP_ACCEPT_EX.increment();
                     }
@@ -216,10 +240,10 @@ impl Listener {
                     LISTENER_TOKEN => {
                         self.do_accept();
                     }
-                    WAKER_TOKEN =>
-                    {
+                    WAKER_TOKEN => {
                         #[allow(clippy::never_loop)]
-                        while let Ok(signal) = self.signal_queue.recv_from(0) {
+                        while let Ok(signal) = self.signal_queue.try_recv().map(|v| v.into_inner())
+                        {
                             match signal {
                                 Signal::Shutdown => {
                                     return;
@@ -232,24 +256,9 @@ impl Listener {
                     }
                 }
             }
+
+            let _ = self.session_queue.wake();
         }
-    }
-
-    /// Returns a copy of the `Waker` for this thread which can be used to
-    /// signal that there are pending messages on a queue.
-    pub fn waker(&self) -> Arc<Waker> {
-        self.poll.waker()
-    }
-
-    /// Register a `Worker`'s `Session` queue with this thread. Established
-    /// sessions will be sent to a worker over its `QueuePair`.
-    pub fn add_session_queue(&mut self, queue: QueuePair<Session, ()>) {
-        self.session_queue.add_pair(queue);
-    }
-
-    /// Get a `QueuePair` for sending `Signal`s to this thread.
-    pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
-        self.signal_queue.new_pair(128, None)
     }
 }
 

@@ -7,13 +7,9 @@
 //! the requests to the storage worker. Responses from the storage worker are
 //! then serialized onto the session buffer.
 
-use super::EventLoop;
 use super::*;
 use crate::poll::Poll;
-use crate::threads::worker::StorageWorker;
-use crate::threads::worker::TokenWrapper;
 use common::signal::Signal;
-use common::time::Instant;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -21,7 +17,7 @@ use entrystore::EntryStore;
 use mio::event::Event;
 use mio::{Events, Token, Waker};
 use protocol::{Compose, Execute, Parse, ParseError};
-use queues::{QueuePair, QueuePairs, SendError};
+use queues::TrackedItem;
 use session::Session;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
@@ -31,65 +27,90 @@ use std::sync::Arc;
 // the request. A stat to prove that this is sufficient would be good.
 const QUEUE_RETRIES: usize = 3;
 
-const WAKER_TOKEN: usize = usize::MAX;
+const WAKER_TOKEN: Token = Token(usize::MAX);
 
-/// A `MultiWorker` handles events on `Session`s and routes storage requests to
-/// the `Storage` thread.
-pub struct MultiWorker<Storage, Parser, Request, Response>
-where
-    Parser: Parse<Request>,
-    Response: protocol::Compose,
-{
-    signal_queue: QueuePairs<Signal, Signal>,
-    poll: Poll,
+/// A builder for the request/response worker which communicates to the storage
+/// thread over a queue.
+pub struct MultiWorkerBuilder<Storage, Parser, Request, Response> {
     nevent: usize,
-    timeout: Duration,
-    session_queue: QueuePairs<(), Session>,
-    storage_queue: QueuePair<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
-    wake_storage: bool,
-    _storage: PhantomData<Storage>,
     parser: Parser,
+    poll: Poll,
+    timeout: Duration,
+    _storage: PhantomData<Storage>,
+    _request: PhantomData<Request>,
+    _response: PhantomData<Response>,
 }
 
-impl<Storage, Parser, Request, Response> MultiWorker<Storage, Parser, Request, Response>
-where
-    Parser: Parse<Request> + Send,
-    Request: Send,
-    Response: Compose + Send,
-    Storage: Execute<Request, Response> + EntryStore + Send,
-{
-    /// Create a new `Worker` which will get new `Session`s from the MPSC queue
-    pub fn new<T: WorkerConfig>(
-        config: &T,
-        storage: &mut StorageWorker<Storage, Request, Response>,
-        parser: Parser,
-    ) -> Result<Self, std::io::Error> {
+impl<Storage, Parser, Request, Response> MultiWorkerBuilder<Storage, Parser, Request, Response> {
+    /// Create a new builder from the provided config and parser.
+    pub fn new<T: WorkerConfig>(config: &T, parser: Parser) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
 
-        let storage_queue = storage.add_queue(poll.waker());
-
-        let session_queue = QueuePairs::new(Some(poll.waker()));
-        let signal_queue = QueuePairs::new(Some(poll.waker()));
-
         Ok(Self {
             poll,
             nevent: config.worker().nevent(),
             timeout: Duration::from_millis(config.worker().timeout() as u64),
-            signal_queue,
-            session_queue,
-            storage_queue,
-            wake_storage: false,
+            _request: PhantomData,
+            _response: PhantomData,
             _storage: PhantomData,
             parser,
         })
     }
 
-    /// Run the `Worker` in a loop, handling new session events
+    /// Get the waker that is registered to the epoll instance.
+    pub(crate) fn waker(&self) -> Arc<Waker> {
+        self.poll.waker()
+    }
+
+    /// Converts the builder into a `MultiWorker` by providing the queues that
+    /// are necessary for communication between components.
+    pub fn build(
+        self,
+        signal_queue: Queues<(), Signal>,
+        session_queue: Queues<(), Session>,
+        storage_queue: Queues<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
+    ) -> MultiWorker<Storage, Parser, Request, Response> {
+        MultiWorker {
+            nevent: self.nevent,
+            parser: self.parser,
+            poll: self.poll,
+            timeout: self.timeout,
+            signal_queue,
+            _storage: PhantomData,
+            storage_queue,
+            session_queue,
+        }
+    }
+}
+
+/// Represents a finalized request/response worker which is ready to be run.
+pub struct MultiWorker<Storage, Parser, Request, Response> {
+    nevent: usize,
+    parser: Parser,
+    poll: Poll,
+    timeout: Duration,
+    session_queue: Queues<(), Session>,
+    signal_queue: Queues<(), Signal>,
+    _storage: PhantomData<Storage>,
+    storage_queue: Queues<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
+}
+
+impl<Storage, Parser, Request, Response> MultiWorker<Storage, Parser, Request, Response>
+where
+    Parser: Parse<Request>,
+    Response: Compose,
+    Storage: Execute<Request, Response> + EntryStore,
+{
+    /// Run the worker in a loop, handling new events.
     pub fn run(&mut self) {
+        // these are buffers which are re-used in each loop iteration to receive
+        // events and queue messages
         let mut events = Events::with_capacity(self.nevent);
+        let mut responses = Vec::with_capacity(1024);
+        let mut sessions = Vec::with_capacity(1024);
 
         loop {
             WORKER_EVENT_LOOP.increment();
@@ -106,13 +127,14 @@ where
             // process all events
             for event in events.iter() {
                 match event.token() {
-                    Token(WAKER_TOKEN) => {
-                        self.handle_new_sessions();
-                        self.handle_storage_queue();
+                    WAKER_TOKEN => {
+                        self.handle_new_sessions(&mut sessions);
+                        self.handle_storage_queue(&mut responses);
 
                         #[allow(clippy::never_loop)]
                         // check if we received any signals from the admin thread
-                        while let Ok(signal) = self.signal_queue.recv_from(0) {
+                        while let Ok(signal) = self.signal_queue.try_recv().map(|v| v.into_inner())
+                        {
                             match signal {
                                 Signal::Shutdown => {
                                     // if we received a shutdown, we can return
@@ -122,17 +144,14 @@ where
                             }
                         }
                     }
-                    Token(_) => {
+                    _ => {
                         self.handle_event(event);
                     }
                 }
             }
 
-            // if we sent any messages to the storage thread, we need to wake it
-            if self.wake_storage && self.storage_queue.wake().is_ok() {
-                trace!("sent wake to storage");
-                self.wake_storage = false;
-            }
+            // wakes the storage thread if necessary
+            let _ = self.storage_queue.wake();
         }
     }
 
@@ -156,7 +175,9 @@ where
         if event.is_readable() {
             WORKER_EVENT_READ.increment();
             if let Ok(session) = self.poll.get_mut_session(token) {
-                session.set_timestamp(Instant::<Nanoseconds<u64>>::recent());
+                session.set_timestamp(
+                    common::time::Instant::<common::time::Nanoseconds<u64>>::recent(),
+                );
             }
             let _ = self.do_read(token);
         }
@@ -190,7 +211,7 @@ where
                 let mut message = TokenWrapper::new(request, token);
 
                 for retry in 0..QUEUE_RETRIES {
-                    if let Err(SendError::Full(m)) = self.storage_queue.try_send(message) {
+                    if let Err(m) = self.storage_queue.try_send_to(0, message) {
                         if (retry + 1) == QUEUE_RETRIES {
                             error!("queue full trying to send message to storage thread");
                             let _ = self.poll.close_session(token);
@@ -223,10 +244,15 @@ where
         }
     }
 
-    fn handle_storage_queue(&mut self) {
+    fn handle_storage_queue(
+        &mut self,
+        responses: &mut Vec<TrackedItem<TokenWrapper<Option<Response>>>>,
+    ) {
         trace!("handling event for storage queue");
         // process all storage queue responses
-        while let Ok(message) = self.storage_queue.try_recv() {
+        self.storage_queue.try_recv_all(responses);
+
+        for message in responses.drain(..).map(|v| v.into_inner()) {
             let token = message.token();
             let mut reregister = false;
             if let Ok(session) = self.poll.get_mut_session(token) {
@@ -244,19 +270,20 @@ where
                         }
                     }
                 }
-
                 if session.read_pending() > 0 && self.handle_session_read(token).is_ok() {
-                    self.wake_storage = true;
+                    let _ = self.storage_queue.wake();
                 }
             }
             if reregister {
                 self.poll.reregister(token);
             }
         }
+        let _ = self.storage_queue.wake();
     }
 
-    fn handle_new_sessions(&mut self) {
-        while let Ok(session) = self.session_queue.recv_from(0) {
+    fn handle_new_sessions(&mut self, sessions: &mut Vec<TrackedItem<Session>>) {
+        self.session_queue.try_recv_all(sessions);
+        for session in sessions.drain(..).map(|v| v.into_inner()) {
             let pending = session.read_pending();
             trace!(
                 "new session: {:?} with {} bytes pending in read buffer",
@@ -274,28 +301,17 @@ where
             }
         }
     }
-
-    pub fn session_sender(&mut self, waker: Arc<Waker>) -> QueuePair<Session, ()> {
-        self.session_queue.new_pair(65536, Some(waker))
-    }
-
-    pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
-        self.signal_queue.new_pair(128, None)
-    }
 }
 
 impl<Storage, Parser, Request, Response> EventLoop
     for MultiWorker<Storage, Parser, Request, Response>
 where
-    Parser: Parse<Request> + Send,
-    Request: Send,
-    Response: Compose + Send,
-    Storage: Execute<Request, Response> + EntryStore + Send,
+    Parser: Parse<Request>,
+    Response: Compose,
+    Storage: Execute<Request, Response> + EntryStore,
 {
     fn handle_data(&mut self, token: Token) -> Result<(), std::io::Error> {
-        if self.handle_session_read(token).is_ok() {
-            self.wake_storage = true;
-        }
+        let _ = self.handle_session_read(token);
         Ok(())
     }
 
