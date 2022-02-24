@@ -4,6 +4,7 @@
 
 //! A builder for configuring a new [`Seg`] instance.
 
+use crate::datapool::*;
 use crate::*;
 use std::path::Path;
 use std::path::PathBuf;
@@ -201,18 +202,29 @@ impl Builder {
         // If `Segments` successfully restored and `restore`
         if segments.fields_copied_back && self.restore {
             // Check if file exists and with what size
-            // TODO: implement a non-messy way to calculate expected file size
-            if let Ok(file_size) = std::fs::metadata(self.hashtable_path.as_ref().unwrap()).map(|m| m.len()) {
+            if let Ok(file_size) =
+                std::fs::metadata(self.hashtable_path.as_ref().unwrap()).map(|m| m.len())
+            {
+                // TODO: implement a non-messy way to calculate expected file size, rather than just taking actual size
                 let file_size = file_size as usize;
+
+                // Mmap file
+                let pool = File::create(self.hashtable_path.clone().unwrap(), file_size, true)
+                    .expect("failed to allocate file backed storage");
+                let file_data = pool.as_slice();
 
                 // Attempt to restore `HashTable` and `TtlBuckets`
                 let hashtable = HashTable::restore(
+                    file_data,
                     self.hashtable_path.clone(),
                     file_size,
                     self.hash_power,
                     self.overflow_factor,
                 );
-                let ttl_buckets = TtlBuckets::restore(self.ttl_buckets_path.clone());
+
+                let offset = hashtable.recover_size();
+                let ttl_buckets =
+                    TtlBuckets::restore(file_data, self.hashtable_path.clone(), file_size, offset);
 
                 // If successful, return a restored segcache
                 if hashtable.table_copied_back && ttl_buckets.buckets_copied_back {
@@ -220,6 +232,7 @@ impl Builder {
                         hashtable,
                         segments,
                         ttl_buckets,
+                        hashtable_path: self.hashtable_path,
                     };
                 }
             }
@@ -235,12 +248,24 @@ impl Builder {
         // implement.
 
         // If not `restore` or restoration failed, create a new cache
-        let hashtable = HashTable::new(self.hashtable_path, self.hash_power, self.overflow_factor);
-        let ttl_buckets = TtlBuckets::new(self.ttl_buckets_path);
+        let hashtable = HashTable::new(
+            self.hashtable_path.clone(),
+            self.hash_power,
+            self.overflow_factor,
+        );
+        let offset = hashtable.recover_size();
+        let ttl_buckets = TtlBuckets::new(self.hashtable_path.clone(), offset);
+        // Set offsets
+        // let hashtable_size = hashtable.recover_size();
+        // let ttl_buckets_size = ttl_buckets.recover_size();
+        // let file_size = hashtable_size + ttl_buckets_size;
+        // hashtable = hashtable.set_file_size(file_size);
+
         Seg {
             hashtable,
             segments,
             ttl_buckets,
+            hashtable_path: self.hashtable_path,
         }
     }
 }

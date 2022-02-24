@@ -52,12 +52,14 @@ pub struct TtlBuckets {
     pub(crate) buckets_copied_back: bool,
     /// Path to store relevant upon graceful shutdown
     pub(crate) ttl_buckets_path: Option<PathBuf>,
+    /// Offset into recovery file where `TtlBuckets` will be stored upon graceful shutdown
+    pub(crate) offset_into_file: usize,
 }
 
 impl TtlBuckets {
     /// Create a new set of `TtlBuckets` which cover the full range of TTLs. See
     /// the module-level documentation for how the range of TTLs are stored.
-    pub fn new(ttl_buckets_path: Option<PathBuf>) -> Self {
+    pub fn new(ttl_buckets_path: Option<PathBuf>, offset_into_file: usize) -> Self {
         // TODO: add path as argument
         let intervals = [
             TTL_BUCKET_INTERVAL_1,
@@ -85,115 +87,128 @@ impl TtlBuckets {
             last_expired,
             buckets_copied_back: false,
             ttl_buckets_path,
+            offset_into_file,
         }
     }
 
     // Returns a restored `TtlBuckets` if file path
     // to restore from is valid. Otherwise return a new `TtlBuckets`
-    pub fn restore(ttl_buckets_path: Option<PathBuf>) -> Self {
+    pub fn restore(
+        file_data: &[u8],
+        ttl_buckets_path: Option<PathBuf>,
+        file_size: usize,
+        offset_into_file: usize,
+    ) -> Self {
         // if there is a path to restore from, restore the `TtlBuckets`
-        if let Some(file) = &ttl_buckets_path {
-            let bucket_size = ::std::mem::size_of::<TtlBucket>();
-            let last_expired_size = ::std::mem::size_of::<Instant>();
-            let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets` 
+        // if let Some(file) = &ttl_buckets_path {
+        let bucket_size = ::std::mem::size_of::<TtlBucket>();
+        let last_expired_size = ::std::mem::size_of::<Instant>();
+        let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets` 
                                         + last_expired_size;
 
-            // Mmap file
-            let pool = File::create(file, ttl_buckets_struct_size, true)
-                .expect("failed to allocate file backed storage");
-            let data = Box::new(pool.as_slice());
+        // // Mmap file
+        // let pool = File::create(file, file_size, true)
+        //     .expect("failed to allocate file backed storage");
+        // let data = Box::new(pool.as_slice());
 
-            // create blank bytes to copy data into
-            let mut bytes = vec![0; ttl_buckets_struct_size];
-            // retrieve bytes from mmapped file
-            bytes.copy_from_slice(&data[0..ttl_buckets_struct_size]);
+        // create blank bytes to copy data into
+        let mut bytes = vec![0; ttl_buckets_struct_size];
+        // retrieve bytes from mmapped file
+        bytes.copy_from_slice(
+            &file_data[offset_into_file..(offset_into_file + ttl_buckets_struct_size)],
+        );
 
-            let mut offset = 0;
-            // ----- Retrieve `last_expired` -----
-            let mut end = last_expired_size;
-            let last_expired =
-                unsafe { *(bytes[offset..last_expired_size].as_mut_ptr() as *mut Instant) };
+        let mut offset = 0;
+        // ----- Retrieve `last_expired` -----
+        let mut end = last_expired_size;
+        let last_expired =
+            unsafe { *(bytes[offset..last_expired_size].as_mut_ptr() as *mut Instant) };
 
-            offset += last_expired_size;
-            // ----- Retrieve `buckets` -----
+        offset += last_expired_size;
+        // ----- Retrieve `buckets` -----
 
-            let mut buckets = Vec::with_capacity(0);
-            buckets.reserve_exact(MAX_N_TTL_BUCKET);
+        let mut buckets = Vec::with_capacity(0);
+        buckets.reserve_exact(MAX_N_TTL_BUCKET);
 
-            // Get each `TtlBucket` from the raw bytes
-            for _ in 0..MAX_N_TTL_BUCKET {
-                end += bucket_size;
+        // Get each `TtlBucket` from the raw bytes
+        for _ in 0..MAX_N_TTL_BUCKET {
+            end += bucket_size;
 
-                // cast bytes to `TtlBucket`
-                let bucket = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut TtlBucket) };
-                buckets.push(bucket);
+            // cast bytes to `TtlBucket`
+            let bucket = unsafe { *(bytes[offset..end].as_mut_ptr() as *mut TtlBucket) };
+            buckets.push(bucket);
 
-                offset += bucket_size;
-            }
-
-            let buckets = buckets.into_boxed_slice();
-
-            Self {
-                buckets,
-                last_expired,
-                buckets_copied_back: true,
-                ttl_buckets_path,
-            }
+            offset += bucket_size;
         }
-        // otherwise, create a new `TtlBuckets`
-        else {
-            TtlBuckets::new(ttl_buckets_path)
+
+        let buckets = buckets.into_boxed_slice();
+
+        Self {
+            buckets,
+            last_expired,
+            buckets_copied_back: true,
+            ttl_buckets_path,
+            offset_into_file,
         }
+        // }
+        // // otherwise, create a new `TtlBuckets`
+        // else {
+        //     TtlBuckets::new(ttl_buckets_path, offset_into_file)
+        // }
     }
 
     /// Flushes the `TtlBuckets` by storing it to a file (if a path is specified)
-    pub fn flush(&self) -> std::io::Result<()> {
+    pub fn flush(&self, file_data: &mut [u8]) -> std::io::Result<()> {
         // if a path is specified, copy all the `TtlBucket`s to the file
         // specified by `ttl_buckets_path`
-        if let Some(file) = &self.ttl_buckets_path {
-            let bucket_size = ::std::mem::size_of::<TtlBucket>();
-            let last_expired_size = ::std::mem::size_of::<Instant>();
-            let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets` 
+        // if let Some(file) = &self.ttl_buckets_path {
+        let bucket_size = ::std::mem::size_of::<TtlBucket>();
+        let last_expired_size = ::std::mem::size_of::<Instant>();
+        let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets` 
                                         + last_expired_size;
 
-            // Mmap file
-            let mut pool = File::create(file, ttl_buckets_struct_size, true)
-                .expect("failed to allocate file backed storage");
-            let data = pool.as_mut_slice();
+        // let file_size = std::fs::metadata(self.ttl_buckets_path.as_ref().unwrap())
+        //     .expect("Failed to retrieve the datapool metadata")
+        //     .len() as usize;
 
-            let mut offset = 0;
-            // --------------------- Store `last_expired` -----------------
+        // Mmap file
+        // let mut pool = File::create(file, file_size, true)
+        //     .expect("failed to allocate file backed storage");
+        // let data = pool.as_mut_slice();
 
-            // cast `last_expired` to byte pointer
-            let byte_ptr = (&self.last_expired as *const Instant) as *const u8;
+        let mut offset = self.offset_into_file;
+        // --------------------- Store `last_expired` -----------------
 
-            // store `last_expired` back to mmapped file
-            offset =
-                store::store_bytes_and_update_offset(byte_ptr, offset, last_expired_size, data);
+        // cast `last_expired` to byte pointer
+        let byte_ptr = (&self.last_expired as *const Instant) as *const u8;
 
-            // --------------------- Store `buckets` -----------------
+        // store `last_expired` back to mmapped file
+        offset =
+            store::store_bytes_and_update_offset(byte_ptr, offset, last_expired_size, file_data);
 
-            // for every `TtlBucket`
-            for id in 0..MAX_N_TTL_BUCKET {
-                // cast `TtlBucket` to byte pointer
-                let byte_ptr = (&self.buckets[id] as *const TtlBucket) as *const u8;
+        // --------------------- Store `buckets` -----------------
 
-                // store `TtlBucket` back to mmapped file
-                offset = store::store_bytes_and_update_offset(byte_ptr, offset, bucket_size, data);
-            }
+        // for every `TtlBucket`
+        for id in 0..MAX_N_TTL_BUCKET {
+            // cast `TtlBucket` to byte pointer
+            let byte_ptr = (&self.buckets[id] as *const TtlBucket) as *const u8;
 
-            // --------------------------------------------------
-
-            // TODO: check if this flushes the CPU caches
-            pool.flush()?;
-            Ok(())
-        } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Path to store TtlBuckets to is None, cannot gracefully
-                shutdown cache",
-            ))
+            // store `TtlBucket` back to mmapped file
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, bucket_size, file_data);
         }
+
+        // --------------------------------------------------
+
+        // TODO: check if this flushes the CPU caches
+        // pool.flush()?;
+        Ok(())
+        // } else {
+        //     Err(std::io::Error::new(
+        //         std::io::ErrorKind::Other,
+        //         "Path to store TtlBuckets to is None, cannot gracefully
+        //         shutdown cache",
+        //     ))
+        // }
     }
 
     pub(crate) fn get_bucket_index(&self, ttl: Duration) -> usize {
@@ -258,11 +273,21 @@ impl TtlBuckets {
         CLEAR_TIME.add(duration.as_nanos() as _);
         cleared
     }
+
+    /// TODO: this code is repeated in restore() and flush(), can it be reduced?
+    /// Function used by `Builder` to calculate the number of bytes of the `TtlBuckets`
+    /// that are stored/restored
+    pub fn recover_size(&self) -> usize {
+        let bucket_size = ::std::mem::size_of::<TtlBucket>();
+        let last_expired_size = ::std::mem::size_of::<Instant>();
+        MAX_N_TTL_BUCKET * bucket_size // `buckets` 
+        + last_expired_size
+    }
 }
 
 impl Default for TtlBuckets {
     fn default() -> Self {
-        Self::new(None)
+        Self::new(None, 0)
     }
 }
 

@@ -7,7 +7,7 @@ use crate::*;
 
 #[test]
 fn bucket_index() {
-    let ttl_buckets = TtlBuckets::new(None);
+    let ttl_buckets = TtlBuckets::new(None, 0);
 
     // Zero TTL and max duration both go into the same TtlBucket
     assert_eq!(ttl_buckets.get_bucket_index(Duration::from_secs(0)), 1023);

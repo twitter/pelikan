@@ -23,10 +23,10 @@ fn sizes() {
     assert_eq!(std::mem::size_of::<SegmentHeader>(), 64);
 
     assert_eq!(std::mem::size_of::<HashBucket>(), 64);
-    assert_eq!(std::mem::size_of::<HashTable>(), 104); // increased to accommodate fields added for testing
+    assert_eq!(std::mem::size_of::<HashTable>(), 104); 
 
     assert_eq!(std::mem::size_of::<crate::ttl_buckets::TtlBucket>(), 64);
-    assert_eq!(std::mem::size_of::<TtlBuckets>(), 48);
+    assert_eq!(std::mem::size_of::<TtlBuckets>(), 56);
 }
 
 #[test]

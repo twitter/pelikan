@@ -4,9 +4,11 @@
 
 //! Core datastructure
 
+use crate::datapool::*;
 use crate::Value;
 use crate::*;
 use std::cmp::min;
+use std::path::PathBuf;
 
 use metrics::{static_metrics, Counter};
 
@@ -27,6 +29,8 @@ pub struct Seg {
     pub(crate) hashtable: HashTable,
     pub(crate) segments: Segments,
     pub(crate) ttl_buckets: TtlBuckets,
+    // Path to datapool
+    pub(crate) hashtable_path: Option<PathBuf>,
 }
 
 impl Seg {
@@ -53,10 +57,34 @@ impl Seg {
     /// `HashTable` and `TtlBuckets` to files at the paths stored in the
     /// respective structs.
     pub fn flush(&self) -> std::io::Result<()> {
-        self.segments.flush()?;
-        self.hashtable.flush()?;
-        self.ttl_buckets.flush()?;
-        Ok(())
+        // // Check if file exists and with what size
+        // if let Ok(file_size) =
+        //     std::fs::metadata(self.hashtable_path.as_ref().unwrap()).map(|m| m.len())
+        // {
+        
+        if let Some(file) = &self.hashtable_path {
+
+            let file_size = self.hashtable.recover_size() + self.ttl_buckets.recover_size();
+
+            // Mmap file
+            let mut pool = File::create(file, file_size, true)
+                .expect("failed to allocate file backed storage");
+            let file_data = pool.as_mut_slice();
+
+            self.segments.flush()?;
+            self.hashtable.flush(file_data)?;
+            self.ttl_buckets.flush(file_data)?;
+
+            // TODO: check if this flushes the CPU caches
+            pool.flush()?;
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Path to datapool to is None, cannot gracefully
+                shutdown cache",
+            ))
+        }
     }
 
     /// Gets a count of items in the `Seg` instance. This is an expensive
