@@ -54,13 +54,8 @@ impl Seg {
     }
 
     /// Flushes cache by storing all the relevant fields of `Segments`,
-    /// `HashTable` and `TtlBuckets` to files at the paths stored in the
-    /// respective structs.
+    /// `HashTable` and `TtlBuckets` to the datapool file
     pub fn flush(&self) -> std::io::Result<()> {
-        // // Check if file exists and with what size
-        // if let Ok(file_size) =
-        //     std::fs::metadata(self.hashtable_path.as_ref().unwrap()).map(|m| m.len())
-        // {
         
         if let Some(file) = &self.hashtable_path {
 
@@ -72,9 +67,9 @@ impl Seg {
             let file_data = pool.as_mut_slice();
 
             self.segments.flush()?;
-            self.hashtable.flush(file_data)?;
+            self.hashtable.flush(file_data);
             let offset = self.hashtable.recover_size();
-            self.ttl_buckets.flush(&mut file_data[offset..])?;
+            self.ttl_buckets.flush(&mut file_data[offset..]);
 
             // TODO: check if this flushes the CPU caches
             pool.flush()?;
