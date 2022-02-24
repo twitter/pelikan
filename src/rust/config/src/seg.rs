@@ -31,12 +31,6 @@ const MERGE_MAX: usize = 8;
 // datapool (`Segments.data`)
 const DATAPOOL_PATH: Option<&str> = None;
 
-// `Segments` fields
-const SEGMENT_FIELDS_PATH: Option<&str> = None;
-
-// ttl buckets
-const TTL_BUCKETS_PATH: Option<&str> = None;
-
 // hashtable
 const HASHTABLE_PATH: Option<&str> = None;
 
@@ -96,15 +90,8 @@ fn datapool_path() -> Option<String> {
     DATAPOOL_PATH.map(|v| v.to_string())
 }
 
-fn segments_fields_path() -> Option<String> {
-    SEGMENT_FIELDS_PATH.map(|v| v.to_string())
-}
 
-fn ttl_buckets_path() -> Option<String> {
-    TTL_BUCKETS_PATH.map(|v| v.to_string())
-}
-
-fn hashtable_path() -> Option<String> {
+fn metadata_path() -> Option<String> {
     HASHTABLE_PATH.map(|v| v.to_string())
 }
 
@@ -133,12 +120,8 @@ pub struct Seg {
     compact_target: usize,
     #[serde(default = "datapool_path")]
     datapool_path: Option<String>,
-    #[serde(default = "segments_fields_path")]
-    segments_fields_path: Option<String>,
-    #[serde(default = "ttl_buckets_path")]
-    ttl_buckets_path: Option<String>,
-    #[serde(default = "hashtable_path")]
-    hashtable_path: Option<String>,
+    #[serde(default = "metadata_path")]
+    metadata_path: Option<String>,
 }
 
 impl Default for Seg {
@@ -155,27 +138,24 @@ impl Default for Seg {
             merge_max: merge_max(),
             compact_target: compact_target(),
             datapool_path: datapool_path(),
-            segments_fields_path: segments_fields_path(),
-            ttl_buckets_path: ttl_buckets_path(),
-            hashtable_path: hashtable_path(),
+            metadata_path: metadata_path(),
         }
     }
 }
 
 // implementation
 impl Seg {
-    // Determines if the `Seg` will be restored.
-    // The restoration will be successful if `datapool_path`, `segments_fields_path`
-    // `ttl_buckets_path` and `hashtable_path` are valid paths.
-    // Otherwise, the `Seg` will be created as new.
+    // Determines if the `Seg` will be restored. The restoration will be 
+    // successful if `datapool_path` and `metadata_path` are valid paths. 
+    // Otherwise, the `Seg` will be created as 
+    //new.
     pub fn restore(&self) -> bool {
         self.restore
     }
 
-    // Determines if the `Seg` will be gracefully shutdown.
-    // The graceful shutdown will be successful if the cache is file backed
-    // and `segments_fields_path`, `ttl_buckets_path` and `hashtable_path` are
-    // valid paths to save the relevant `Seg` fields to.
+    // Determines if the `Seg` will be gracefully shutdown. The graceful 
+    // shutdown will be successful if the cache is file backed and 
+    // metadata_path` is a valid path to save the relevant `Seg` fields to.
     // Otherwise, the relevant `Seg` fields will not be saved.
     pub fn graceful_shutdown(&self) -> bool {
         self.graceful_shutdown
@@ -216,20 +196,8 @@ impl Seg {
         self.datapool_path.as_ref().map(|v| Path::new(v).to_owned())
     }
 
-    pub fn segments_fields_path(&self) -> Option<PathBuf> {
-        self.segments_fields_path
-            .as_ref()
-            .map(|v| Path::new(v).to_owned())
-    }
-
-    pub fn ttl_buckets_path(&self) -> Option<PathBuf> {
-        self.ttl_buckets_path
-            .as_ref()
-            .map(|v| Path::new(v).to_owned())
-    }
-
-    pub fn hashtable_path(&self) -> Option<PathBuf> {
-        self.hashtable_path
+    pub fn metadata_path(&self) -> Option<PathBuf> {
+        self.metadata_path
             .as_ref()
             .map(|v| Path::new(v).to_owned())
     }

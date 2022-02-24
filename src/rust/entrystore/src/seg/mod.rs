@@ -50,9 +50,7 @@ impl Seg {
             .segment_size(config.segment_size())
             .eviction(eviction)
             .datapool_path(config.datapool_path())
-            .segments_fields_path(config.segments_fields_path())
-            .ttl_buckets_path(config.ttl_buckets_path())
-            .hashtable_path(config.hashtable_path())
+            .metadata_path(config.metadata_path())
             .build();
 
         Self { data }

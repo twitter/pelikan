@@ -21,9 +21,7 @@
 //! more detail.
 
 use super::{CLEAR_TIME, EXPIRE_TIME};
-use crate::datapool::*;
 use crate::*;
-use std::path::PathBuf;
 
 const N_BUCKET_PER_STEP_N_BIT: usize = 8;
 const N_BUCKET_PER_STEP: usize = 1 << N_BUCKET_PER_STEP_N_BIT;
@@ -49,7 +47,7 @@ pub struct TtlBuckets {
     pub(crate) buckets: Box<[TtlBucket]>,
     pub(crate) last_expired: Instant,
     /// Are `TtlBuckets` copied back from a file?
-    pub(crate) buckets_copied_back: bool,
+    pub(crate) _buckets_copied_back: bool,
 }
 
 impl TtlBuckets {
@@ -81,14 +79,12 @@ impl TtlBuckets {
         Self {
             buckets,
             last_expired,
-            buckets_copied_back: false,
+            _buckets_copied_back: false,
         }
     }
 
-    // Returns a restored `TtlBuckets` using recovery data (`file_data`)
-    pub fn restore(
-        file_data: &[u8]
-    ) -> Self {
+    // Returns a restored `TtlBuckets` using recovery data (`metadata`)
+    pub fn restore(metadata: &[u8]) -> Self {
         let bucket_size = ::std::mem::size_of::<TtlBucket>();
         let last_expired_size = ::std::mem::size_of::<Instant>();
         let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets` 
@@ -97,9 +93,7 @@ impl TtlBuckets {
         // create blank bytes to copy data into
         let mut bytes = vec![0; ttl_buckets_struct_size];
         // retrieve bytes from mmapped file
-        bytes.copy_from_slice(
-            &file_data[0..ttl_buckets_struct_size],
-        );
+        bytes.copy_from_slice(&metadata[0..ttl_buckets_struct_size]);
 
         let mut offset = 0;
         // ----- Retrieve `last_expired` -----
@@ -129,16 +123,14 @@ impl TtlBuckets {
         Self {
             buckets,
             last_expired,
-            buckets_copied_back: true,
+            _buckets_copied_back: true,
         }
     }
 
-    /// Flushes the `TtlBuckets` by copying it to `file_data`
-    pub fn flush(&self, file_data: &mut [u8]){
+    /// Flushes the `TtlBuckets` by copying it to `metadata`
+    pub fn flush(&self, metadata: &mut [u8]) {
         let bucket_size = ::std::mem::size_of::<TtlBucket>();
         let last_expired_size = ::std::mem::size_of::<Instant>();
-        let ttl_buckets_struct_size = MAX_N_TTL_BUCKET * bucket_size // `buckets` 
-                                        + last_expired_size;
 
         let mut offset = 0;
         // --------------------- Store `last_expired` -----------------
@@ -148,7 +140,7 @@ impl TtlBuckets {
 
         // store `last_expired` back to mmapped file
         offset =
-            store::store_bytes_and_update_offset(byte_ptr, offset, last_expired_size, file_data);
+            store::store_bytes_and_update_offset(byte_ptr, offset, last_expired_size, metadata);
 
         // --------------------- Store `buckets` -----------------
 
@@ -158,7 +150,7 @@ impl TtlBuckets {
             let byte_ptr = (&self.buckets[id] as *const TtlBucket) as *const u8;
 
             // store `TtlBucket` back to mmapped file
-            offset = store::store_bytes_and_update_offset(byte_ptr, offset, bucket_size, file_data);
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, bucket_size, metadata);
         }
 
         // --------------------------------------------------

@@ -11,13 +11,13 @@ use crate::segments::*;
 use std::path::{Path, PathBuf};
 
 /// The `SegmentsBuilder` allows for the configuration of the segment storage.
+#[derive(Clone)]
 pub(crate) struct SegmentsBuilder {
     pub(super) restore: bool,
     pub(super) heap_size: usize,
     pub(super) segment_size: i32,
     pub(super) evict_policy: Policy,
     pub(super) datapool_path: Option<PathBuf>,
-    pub(super) segments_fields_path: Option<PathBuf>,
 }
 
 impl Default for SegmentsBuilder {
@@ -28,15 +28,14 @@ impl Default for SegmentsBuilder {
             heap_size: 64 * 1024 * 1024,
             evict_policy: Policy::Random,
             datapool_path: None,
-            segments_fields_path: None,
         }
     }
 }
 
 impl<'a> SegmentsBuilder {
     /// Specify whether the `Segments` fields' will be restored
-    /// from the segments_fields_path.
-    /// Otherwise, the cache will be created and treated as new.
+    /// from the `metadata`. Otherwise, the cache will be created and treated as 
+    // new.
     pub fn restore(mut self, restore: bool) -> Self {
         self.restore = restore;
         self
@@ -82,16 +81,8 @@ impl<'a> SegmentsBuilder {
         self
     }
 
-    /// Specify a backing file to be used for the `Segment` fields' storage. If provided,
-    /// a file will be created at the corresponding path and used for segment header
-    /// storage.
-    pub fn segments_fields_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
-        self.segments_fields_path = path.map(|p| p.as_ref().to_owned());
-        self
-    }
-
     /// Construct the [`Segments`] from the builder
-    pub fn build(self) -> Segments {
-        Segments::from_builder(self)
+    pub fn build(self, option_metadata: Option<&mut [u8]>) -> Segments {
+        Segments::from_builder(self, option_metadata)
     }
 }

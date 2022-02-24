@@ -73,12 +73,10 @@ const N_BUCKET_SLOT: usize = 8;
 /// Maximum number of buckets in a chain. Must be <= 255.
 const MAX_CHAIN_LEN: u64 = 16;
 
-use crate::datapool::*;
 use crate::*;
 use ahash::RandomState;
 use core::num::NonZeroU32;
 use metrics::{static_metrics, Counter};
-use std::path::PathBuf;
 
 mod hash_bucket;
 
@@ -111,7 +109,7 @@ pub(crate) struct HashTable {
     started: Instant,
     next_to_chain: u64,
     /// Is `HashTable` copied back from a file?
-    pub(crate) table_copied_back: bool,
+    pub(crate) _table_copied_back: bool,
     /// Used in graceful shutdown
     overflow_factor: f64,
 }
@@ -156,17 +154,13 @@ impl HashTable {
             rng: Box::new(rng()),
             started: Instant::recent(),
             next_to_chain: buckets as u64,
-            table_copied_back: false,
+            _table_copied_back: false,
             overflow_factor,
         }
     }
 
-    // Returns a restored `HashTable` using recovery data (`file_data`)
-    pub fn restore(
-        file_data: &[u8],
-        cfg_power: u8,
-        overflow_factor: f64,
-    ) -> Self {
+    // Returns a restored `HashTable` using recovery data (`metadata`)
+    pub fn restore(metadata: &[u8], cfg_power: u8, overflow_factor: f64) -> Self {
         // restore() assumes no changes in `power`.
         // I.e. config specifies same `power` as `HashTable` we are
         // restoring from
@@ -183,7 +177,7 @@ impl HashTable {
         // create blank bytes to copy data into
         let mut bytes = vec![0; hashtable_size];
         // retrieve bytes from mmapped file
-        bytes.copy_from_slice(&file_data[0..hashtable_size]);
+        bytes.copy_from_slice(&metadata[0..hashtable_size]);
 
         // ----- Re-initialise `hash_builder` -----
 
@@ -238,21 +232,17 @@ impl HashTable {
             rng: Box::new(rng()),
             started,
             next_to_chain,
-            table_copied_back: true,
+            _table_copied_back: true,
             overflow_factor,
         }
     }
 
-    /// Flushes the `HashTable` by copying it to `file_data`
-    pub fn flush(&self, file_data: &mut [u8]){
+    /// Flushes the `HashTable` by copying it to `metadata`
+    pub fn flush(&self, metadata: &mut [u8]) {
         let total_buckets = total_buckets(self.power, self.overflow_factor);
         let bucket_size = ::std::mem::size_of::<HashBucket>();
         let u64_size = ::std::mem::size_of::<u64>();
         let started_size = ::std::mem::size_of::<Instant>();
-        // Size of all components of `HashTable` that are being saved
-        let hashtable_size = u64_size * 3 // `power`, `mask`, `next_to_chain`
-                               + total_buckets * bucket_size // `data`
-                               + started_size;
 
         let mut offset = 0;
         // --------------------- Store `power` -----------------
@@ -261,7 +251,7 @@ impl HashTable {
         let byte_ptr = (&self.power as *const u64) as *const u8;
 
         // store `power` back to mmapped file
-        offset = store::store_bytes_and_update_offset(byte_ptr, offset, u64_size, file_data);
+        offset = store::store_bytes_and_update_offset(byte_ptr, offset, u64_size, metadata);
 
         // --------------------- Store `mask` -----------------
 
@@ -269,7 +259,7 @@ impl HashTable {
         let byte_ptr = (&self.mask as *const u64) as *const u8;
 
         // store `mask` back to mmapped file
-        offset = store::store_bytes_and_update_offset(byte_ptr, offset, u64_size, file_data);
+        offset = store::store_bytes_and_update_offset(byte_ptr, offset, u64_size, metadata);
         // --------------------- Store `data` -----------------
 
         // for every `HashBucket`
@@ -278,7 +268,7 @@ impl HashTable {
             let byte_ptr = (&self.data[id] as *const HashBucket) as *const u8;
 
             // store `HashBucket` back to mmapped file
-            offset = store::store_bytes_and_update_offset(byte_ptr, offset, bucket_size, file_data);
+            offset = store::store_bytes_and_update_offset(byte_ptr, offset, bucket_size, metadata);
         }
 
         // --------------------- Store `started` -----------------
@@ -287,14 +277,14 @@ impl HashTable {
         let byte_ptr = (&self.started as *const Instant) as *const u8;
 
         // store `started` back to mmapped file
-        offset = store::store_bytes_and_update_offset(byte_ptr, offset, started_size, file_data);
+        offset = store::store_bytes_and_update_offset(byte_ptr, offset, started_size, metadata);
         // --------------------- Store `next_to_chain` -----------------
 
         // cast `next_to_chain` to byte pointer
         let byte_ptr = (&self.next_to_chain as *const u64) as *const u8;
 
         // store `next_to_chain` back to mmapped file
-        store::store_bytes_and_update_offset(byte_ptr, offset, u64_size, file_data);
+        store::store_bytes_and_update_offset(byte_ptr, offset, u64_size, metadata);
         // -------------------------------------------------------------
     }
 
@@ -869,18 +859,6 @@ impl HashTable {
     /// Function used by `Builder` to calculate the number of bytes of the `HashTable`
     /// that are stored/restored
     pub fn recover_size(&self) -> usize {
-        let total_buckets = total_buckets(self.power, self.overflow_factor);
-        let bucket_size = ::std::mem::size_of::<HashBucket>();
-        let u64_size = ::std::mem::size_of::<u64>();
-        let started_size = ::std::mem::size_of::<Instant>();
-        // Size of all components of `HashTable` that are being restored
-        u64_size * 3 // `power`, `mask`, `next_to_chain`
-        + total_buckets * bucket_size // `data`
-        + started_size
-    }
-
-    /// Function used by `Builder` to set the `file_size`
-    pub fn set_file_size(&self) -> usize {
         let total_buckets = total_buckets(self.power, self.overflow_factor);
         let bucket_size = ::std::mem::size_of::<HashBucket>();
         let u64_size = ::std::mem::size_of::<u64>();

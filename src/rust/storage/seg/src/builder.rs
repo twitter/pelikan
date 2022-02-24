@@ -15,8 +15,7 @@ pub struct Builder {
     hash_power: u8,
     overflow_factor: f64,
     segments_builder: SegmentsBuilder,
-    ttl_buckets_path: Option<PathBuf>,
-    hashtable_path: Option<PathBuf>,
+    metadata_path: Option<PathBuf>,
 }
 
 // Defines the default parameters
@@ -27,8 +26,7 @@ impl Default for Builder {
             hash_power: 16,
             overflow_factor: 0.0,
             segments_builder: SegmentsBuilder::default(),
-            ttl_buckets_path: None,
-            hashtable_path: None,
+            metadata_path: None,
         }
     }
 }
@@ -157,29 +155,18 @@ impl Builder {
         self
     }
 
-    /// Specify a backing file to be used for `Segments` fields' storage.
-    pub fn segments_fields_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
-        self.segments_builder = self.segments_builder.segments_fields_path(path);
-        self
-    }
-
-    /// Specify a backing file to be used for `TtlBuckets` storage.
-    pub fn ttl_buckets_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
-        self.ttl_buckets_path = path.map(|p| p.as_ref().to_owned());
-        self
-    }
-
-    /// Specify a backing file to be used for `HashTable` storage.
-    pub fn hashtable_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
-        self.hashtable_path = path.map(|p| p.as_ref().to_owned());
+    /// Specify a backing file to be used for metadata storage.
+    pub fn metadata_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
+        self.metadata_path = path.map(|p| p.as_ref().to_owned());
         self
     }
 
     /// Consumes the builder and returns a fully-allocated `Seg` instance.
-    /// If `restore` and valid paths to the structures are given, `Seg` will
-    /// be restored. Otherwise, create a new `Seg` instance. If valid paths are
-    /// given, the files at these paths will be used to copy the structures to
-    /// upon graceful shutdown.
+    /// If `restore`, the cache `Segments.data` is file backed by an existing
+    /// file and a valid file for the `metadata` is given, `Seg` will be 
+    /// restored. Otherwise, create a new `Seg` instance. The path for the 
+    /// `metadata` file will be saved with the `Seg` instance to be used to save 
+    // the structures to upon graceful shutdown.
     ///
     /// ```
     /// use seg::{Policy, Seg};
@@ -193,76 +180,54 @@ impl Builder {
     ///     .eviction(Policy::Random).build();
     /// ```
     pub fn build(self) -> Seg {
-        // Build `Segments`. If there is a path for the datapool set, the
-        // `Segments.data` will be file backed. If `restore` and there is a path
-        // for the `Segments` fields, restore the other relevant `Segments`
-        // fields.
-        let segments = self.segments_builder.build();
 
-        // If `Segments` successfully restored and `restore`
-        if segments.fields_copied_back && self.restore {
-            // Check if file exists and with what size
+        // If `restore` and there is a path for the metadata file to
+        // restore from, restore the cache
+        if self.restore && self.metadata_path.is_some() {
+            // Check if the metadata file exists and with what size
             if let Ok(file_size) =
-                std::fs::metadata(self.hashtable_path.as_ref().unwrap()).map(|m| m.len())
+                std::fs::metadata(self.metadata_path.as_ref().unwrap()).map(|m| m.len())
             {
                 // TODO: implement a non-messy way to calculate expected file size, rather than just taking actual size
                 let file_size = file_size as usize;
 
                 // Mmap file
-                let pool = File::create(self.hashtable_path.clone().unwrap(), file_size, true)
+                let mut pool = File::create(self.metadata_path.clone().unwrap(), file_size, true)
                     .expect("failed to allocate file backed storage");
-                let file_data = pool.as_slice();
+                let metadata = pool.as_mut_slice();
 
-                // Attempt to restore `HashTable` and `TtlBuckets`
-                let hashtable = HashTable::restore(
-                    file_data,
-                    self.hash_power,
-                    self.overflow_factor,
-                );
+                let hashtable = HashTable::restore(metadata, self.hash_power, self.overflow_factor);
 
-                let offset = hashtable.recover_size();
-                let ttl_buckets =
-                    TtlBuckets::restore(&file_data[offset..]);
+                let mut offset = hashtable.recover_size();
+                let ttl_buckets = TtlBuckets::restore(&metadata[offset..]);
 
-                // If successful, return a restored segcache
-                if hashtable.table_copied_back && ttl_buckets.buckets_copied_back {
+                offset += ttl_buckets.recover_size();
+
+                let segments = self.segments_builder.clone().build(Some(&mut metadata[offset..]));
+
+                // Check that `Segments` was copied back, it will fail if the 
+                // file for the file backed `Segments.data` did not exist
+                if segments.fields_copied_back {
                     return Seg {
                         hashtable,
                         segments,
                         ttl_buckets,
-                        hashtable_path: self.hashtable_path,
+                        metadata_path: self.metadata_path,
                     };
                 }
             }
         }
 
-        // TODO: Should paths be checked here to see if any are None (or not
-        // valid)? Then we could take an "All or Nothing" approach. That is, if
-        // one of the paths is not valid, then all structures are created
-        // as new AND no paths are set for graceful shutdown. Otherwise, if
-        // `restore`, we restore from these paths, else, we set these paths.
-        // Currently, I am not doing this as due to the Segments having a
-        // separate builder + different control flow, it is too awkward to
-        // implement.
-
-        // If not `restore` or restoration failed, create a new cache
-        let hashtable = HashTable::new(
-            self.hash_power,
-            self.overflow_factor,
-        );
-        let offset = hashtable.recover_size();
+        // Otherwise, create a new cache
+        let segments = self.segments_builder.build(None);
+        let hashtable = HashTable::new(self.hash_power, self.overflow_factor);
         let ttl_buckets = TtlBuckets::new();
-        // Set offsets
-        // let hashtable_size = hashtable.recover_size();
-        // let ttl_buckets_size = ttl_buckets.recover_size();
-        // let file_size = hashtable_size + ttl_buckets_size;
-        // hashtable = hashtable.set_file_size(file_size);
 
         Seg {
             hashtable,
             segments,
             ttl_buckets,
-            hashtable_path: self.hashtable_path,  // TODO: change this to final path
+            metadata_path: self.metadata_path, 
         }
     }
 }

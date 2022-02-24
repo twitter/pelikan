@@ -29,8 +29,8 @@ pub struct Seg {
     pub(crate) hashtable: HashTable,
     pub(crate) segments: Segments,
     pub(crate) ttl_buckets: TtlBuckets,
-    // Path to datapool
-    pub(crate) hashtable_path: Option<PathBuf>,
+    // Path to metadata datapool
+    pub(crate) metadata_path: Option<PathBuf>,
 }
 
 impl Seg {
@@ -54,22 +54,24 @@ impl Seg {
     }
 
     /// Flushes cache by storing all the relevant fields of `Segments`,
-    /// `HashTable` and `TtlBuckets` to the datapool file
+    /// `HashTable` and `TtlBuckets` to the `metadata` file (if it exists) and
+    // flushing `Segments.data` (if it is file backed)
     pub fn flush(&self) -> std::io::Result<()> {
-        
-        if let Some(file) = &self.hashtable_path {
-
-            let file_size = self.hashtable.recover_size() + self.ttl_buckets.recover_size();
+        if let Some(file) = &self.metadata_path {
+            let file_size = self.hashtable.recover_size()
+                + self.ttl_buckets.recover_size()
+                + self.segments.recover_size();
 
             // Mmap file
             let mut pool = File::create(file, file_size, true)
                 .expect("failed to allocate file backed storage");
-            let file_data = pool.as_mut_slice();
+            let metadata = pool.as_mut_slice();
 
-            self.segments.flush()?;
-            self.hashtable.flush(file_data);
-            let offset = self.hashtable.recover_size();
-            self.ttl_buckets.flush(&mut file_data[offset..]);
+            self.hashtable.flush(metadata);
+            let mut offset = self.hashtable.recover_size();
+            self.ttl_buckets.flush(&mut metadata[offset..]);
+            offset += self.ttl_buckets.recover_size();
+            self.segments.flush(&mut metadata[offset..])?;
 
             // TODO: check if this flushes the CPU caches
             pool.flush()?;
@@ -351,8 +353,8 @@ impl Seg {
     #[cfg(test)]
     pub(crate) fn restored(&self) -> bool {
         self.segments.fields_copied_back
-            && self.ttl_buckets.buckets_copied_back
-            && self.hashtable.table_copied_back
+            && self.ttl_buckets._buckets_copied_back
+            && self.hashtable._table_copied_back
     }
 
     /// Perform a wrapping addition on the value stored at the supplied key.
