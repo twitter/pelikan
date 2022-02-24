@@ -163,9 +163,9 @@ impl Builder {
 
     /// Consumes the builder and returns a fully-allocated `Seg` instance.
     /// If `restore`, the cache `Segments.data` is file backed by an existing
-    /// file and a valid file for the `metadata` is given, `Seg` will be 
-    /// restored. Otherwise, create a new `Seg` instance. The path for the 
-    /// `metadata` file will be saved with the `Seg` instance to be used to save 
+    /// file and a valid file for the `metadata` is given, `Seg` will be
+    /// restored. Otherwise, create a new `Seg` instance. The path for the
+    /// `metadata` file will be saved with the `Seg` instance to be used to save
     // the structures to upon graceful shutdown.
     ///
     /// ```
@@ -180,7 +180,6 @@ impl Builder {
     ///     .eviction(Policy::Random).build();
     /// ```
     pub fn build(self) -> Seg {
-
         // If `restore` and there is a path for the metadata file to
         // restore from, restore the cache
         if self.restore && self.metadata_path.is_some() {
@@ -203,9 +202,12 @@ impl Builder {
 
                 offset += ttl_buckets.recover_size();
 
-                let segments = self.segments_builder.clone().build(Some(&mut metadata[offset..]));
+                let segments = self
+                    .segments_builder
+                    .clone()
+                    .build(Some(&mut metadata[offset..]));
 
-                // Check that `Segments` was copied back, it will fail if the 
+                // Check that `Segments` was copied back, it will fail if the
                 // file for the file backed `Segments.data` did not exist
                 if segments.fields_copied_back {
                     return Seg {
@@ -227,7 +229,7 @@ impl Builder {
             hashtable,
             segments,
             ttl_buckets,
-            metadata_path: self.metadata_path, 
+            metadata_path: self.metadata_path,
         }
     }
 }

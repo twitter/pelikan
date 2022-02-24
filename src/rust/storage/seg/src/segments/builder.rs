@@ -34,7 +34,7 @@ impl Default for SegmentsBuilder {
 
 impl<'a> SegmentsBuilder {
     /// Specify whether the `Segments` fields' will be restored
-    /// from the `metadata`. Otherwise, the cache will be created and treated as 
+    /// from the `metadata`. Otherwise, the cache will be created and treated as
     // new.
     pub fn restore(mut self, restore: bool) -> Self {
         self.restore = restore;

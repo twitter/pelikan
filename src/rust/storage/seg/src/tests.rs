@@ -511,7 +511,7 @@ fn tmp_dir() -> TempDir {
 }
 
 // Returns a `Seg` instance. Cache is restored only if `restore` and
-// `metadata_path` and `datapool_path` are not `None`. Otherwise, new `Seg` 
+// `metadata_path` and `datapool_path` are not `None`. Otherwise, new `Seg`
 // instance is returned. Cache is file backed if `datapool_path` is not `None`.
 fn make_cache(
     restore: bool,
@@ -552,7 +552,7 @@ fn new_cache_file_backed() {
     assert!(!cache.restored());
 }
 
-// Check that a new, not file backed cache is not file backed and the `Seg` is 
+// Check that a new, not file backed cache is not file backed and the `Seg` is
 // new (and not restored)
 #[test]
 fn new_cache_not_file_backed() {
@@ -566,8 +566,8 @@ fn new_cache_not_file_backed() {
     assert!(!cache.restored());
 }
 
-// Edge Case: Check that an attempt to restore a cache without specifing any 
-// paths will lead to `Segments.data` not being file backed and 
+// Edge Case: Check that an attempt to restore a cache without specifing any
+// paths will lead to `Segments.data` not being file backed and
 // no of the other structures being restored
 #[test]
 fn restored_cache_no_paths_set() {
@@ -593,11 +593,7 @@ fn cache_gracefully_shutdown() {
 
     // create new, file backed cache
     let restore = false;
-    let cache = make_cache(
-        restore,
-        datapool_path,
-        metadata_path,
-    );
+    let cache = make_cache(restore, datapool_path, metadata_path);
 
     // Flush cache
     assert!(cache.flush().is_ok());
@@ -626,7 +622,7 @@ fn cache_not_gracefully_shutdown() {
 
 // --------------------- Data copied back Tests----------------------------
 
-// Creates a new cache, stores an item, gracefully shutsdown cache and restore 
+// Creates a new cache, stores an item, gracefully shutsdown cache and restore
 // cache. Check item is still there and caches are equivalent
 #[test]
 fn new_file_backed_cache_changed_and_restored() {
@@ -639,11 +635,7 @@ fn new_file_backed_cache_changed_and_restored() {
 
     // create new, file backed cache
     let mut restore = false;
-    let mut cache = make_cache(
-        restore,
-        datapool_path,
-        metadata_path,
-    );
+    let mut cache = make_cache(restore, datapool_path, metadata_path);
 
     assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
@@ -675,11 +667,7 @@ fn new_file_backed_cache_changed_and_restored() {
     // This cache is file backed by same file as the above cache
     // saved `Segments.data` to and the `Seg` is restored
     restore = true;
-    let mut new_cache = make_cache(
-        restore,
-        datapool_path,
-        metadata_path,
-    );
+    let mut new_cache = make_cache(restore, datapool_path, metadata_path);
 
     assert!(new_cache.restored());
     // "latte" should be in restored cache
@@ -691,7 +679,7 @@ fn new_file_backed_cache_changed_and_restored() {
     assert!(new_cache == old_cache);
 }
 
-// Creates a new cache, gracefully shutsdown cache and restore cache. Check 
+// Creates a new cache, gracefully shutsdown cache and restore cache. Check
 // caches are equivalent
 #[test]
 fn new_file_backed_cache_not_changed_and_restored() {
@@ -704,11 +692,7 @@ fn new_file_backed_cache_not_changed_and_restored() {
 
     // create new, file backed cache
     let mut restore = false;
-    let cache = make_cache(
-        restore,
-        datapool_path,
-        metadata_path,
-    );
+    let cache = make_cache(restore, datapool_path, metadata_path);
 
     assert!(!cache.restored());
 
@@ -726,11 +710,7 @@ fn new_file_backed_cache_not_changed_and_restored() {
     // This cache is file backed by same file as the above cache
     // saved `Segments.data` to and the `Seg` is restored
     restore = true;
-    let new_cache = make_cache(
-        restore,
-        datapool_path,
-        metadata_path,
-    );
+    let new_cache = make_cache(restore, datapool_path, metadata_path);
 
     assert!(new_cache.restored());
 
@@ -738,7 +718,7 @@ fn new_file_backed_cache_not_changed_and_restored() {
     assert!(new_cache == old_cache);
 }
 
-// Creates a new cache, stores an item, gracefully shutsdown cache and spawn new 
+// Creates a new cache, stores an item, gracefully shutsdown cache and spawn new
 // cache. Check item is not in new cache and caches are not equivalent
 #[test]
 fn new_cache_changed_and_not_restored() {
@@ -751,11 +731,7 @@ fn new_cache_changed_and_not_restored() {
 
     // create new, file backed cache
     let mut restore = false;
-    let mut cache = make_cache(
-        restore,
-        datapool_path,
-        metadata_path,
-    );
+    let mut cache = make_cache(restore, datapool_path, metadata_path);
 
     assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
@@ -800,7 +776,7 @@ fn new_cache_changed_and_not_restored() {
 }
 
 // Create a new cache, fill it with items. Gracefully shutdown this cache.
-// Restore cache and check that every key from the original cache exists in the 
+// Restore cache and check that every key from the original cache exists in the
 // restored cache. Check caches are equivalent
 #[test]
 fn full_cache_recovery_long() {
@@ -818,11 +794,7 @@ fn full_cache_recovery_long() {
 
     // create new, file backed cache
     let mut restore = false;
-    let mut cache = make_cache(
-        restore,
-        datapool_path,
-        metadata_path,
-    );
+    let mut cache = make_cache(restore, datapool_path, metadata_path);
 
     assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
@@ -875,11 +847,7 @@ fn full_cache_recovery_long() {
     // This new cache is file backed by same file as the above cache
     // saved `Segments.data` to and the `Seg` is restored
     restore = true;
-    let mut new_cache = make_cache(
-        restore,
-        datapool_path,
-        metadata_path,
-    );
+    let mut new_cache = make_cache(restore, datapool_path, metadata_path);
 
     assert!(new_cache.restored());
 

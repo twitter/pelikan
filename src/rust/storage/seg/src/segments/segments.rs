@@ -93,7 +93,7 @@ impl Segments {
         };
 
         // If `builder.restore` `Segments.data` is file backed with an existing
-        // file and metadata` to restore the `Segments` with, restore relevant 
+        // file and metadata` to restore the `Segments` with, restore relevant
         // `Segments` fields. Otherwise create a new `Segments`.
         if builder.restore && data_on_existing_file {
             if let Some(metadata) = option_metadata {

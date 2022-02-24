@@ -90,7 +90,6 @@ fn datapool_path() -> Option<String> {
     DATAPOOL_PATH.map(|v| v.to_string())
 }
 
-
 fn metadata_path() -> Option<String> {
     HASHTABLE_PATH.map(|v| v.to_string())
 }
@@ -145,16 +144,16 @@ impl Default for Seg {
 
 // implementation
 impl Seg {
-    // Determines if the `Seg` will be restored. The restoration will be 
-    // successful if `datapool_path` and `metadata_path` are valid paths. 
-    // Otherwise, the `Seg` will be created as 
+    // Determines if the `Seg` will be restored. The restoration will be
+    // successful if `datapool_path` and `metadata_path` are valid paths.
+    // Otherwise, the `Seg` will be created as
     //new.
     pub fn restore(&self) -> bool {
         self.restore
     }
 
-    // Determines if the `Seg` will be gracefully shutdown. The graceful 
-    // shutdown will be successful if the cache is file backed and 
+    // Determines if the `Seg` will be gracefully shutdown. The graceful
+    // shutdown will be successful if the cache is file backed and
     // metadata_path` is a valid path to save the relevant `Seg` fields to.
     // Otherwise, the relevant `Seg` fields will not be saved.
     pub fn graceful_shutdown(&self) -> bool {
@@ -197,9 +196,7 @@ impl Seg {
     }
 
     pub fn metadata_path(&self) -> Option<PathBuf> {
-        self.metadata_path
-            .as_ref()
-            .map(|v| Path::new(v).to_owned())
+        self.metadata_path.as_ref().map(|v| Path::new(v).to_owned())
     }
 }
 
