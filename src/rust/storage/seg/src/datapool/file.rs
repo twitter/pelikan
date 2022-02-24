@@ -31,18 +31,21 @@ impl File {
         size: usize,
         prefault: bool,
     ) -> Result<Self, std::io::Error> {
+        // TODO: uncomment below code once there is a better way to determine expected `size` of the existing file
         // check if the file exists and is the right size
-        let exists = if let Ok(current_size) = std::fs::metadata(&path).map(|m| m.len()) {
-            if current_size != size as u64 {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "existing file has wrong size",
-                ));
-            }
-            true
-        } else {
-            false
-        };
+        // let exists = if let Ok(current_size) = std::fs::metadata(&path).map(|m| m.len()) {
+        //     if current_size != size as u64 {
+        //         return Err(std::io::Error::new(
+        //             std::io::ErrorKind::Other,
+        //             "existing file has wrong size",
+        //         ));
+        //     }
+        //     true
+        // } else {
+        //     false
+        // };
+
+        let exists = std::fs::metadata(&path).is_ok();
 
         let mmap = if exists {
             let f = OpenOptions::new().read(true).write(true).open(path)?;

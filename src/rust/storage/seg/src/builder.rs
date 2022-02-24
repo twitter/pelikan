@@ -213,7 +213,6 @@ impl Builder {
                     self.overflow_factor,
                 );
                 let ttl_buckets = TtlBuckets::restore(self.ttl_buckets_path.clone());
-                println!("hash {}, ttl {}", hashtable.table_copied_back, ttl_buckets.buckets_copied_back); //DELETE
 
                 // If successful, return a restored segcache
                 if hashtable.table_copied_back && ttl_buckets.buckets_copied_back {
