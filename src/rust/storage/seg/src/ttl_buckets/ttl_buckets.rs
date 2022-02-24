@@ -50,16 +50,12 @@ pub struct TtlBuckets {
     pub(crate) last_expired: Instant,
     /// Are `TtlBuckets` copied back from a file?
     pub(crate) buckets_copied_back: bool,
-    /// Path to store relevant upon graceful shutdown
-    pub(crate) ttl_buckets_path: Option<PathBuf>,
-    /// Offset into recovery file where `TtlBuckets` will be stored upon graceful shutdown
-    pub(crate) offset_into_file: usize,
 }
 
 impl TtlBuckets {
     /// Create a new set of `TtlBuckets` which cover the full range of TTLs. See
     /// the module-level documentation for how the range of TTLs are stored.
-    pub fn new(ttl_buckets_path: Option<PathBuf>, offset_into_file: usize) -> Self {
+    pub fn new() -> Self {
         // TODO: add path as argument
         let intervals = [
             TTL_BUCKET_INTERVAL_1,
@@ -86,18 +82,13 @@ impl TtlBuckets {
             buckets,
             last_expired,
             buckets_copied_back: false,
-            ttl_buckets_path,
-            offset_into_file,
         }
     }
 
     // Returns a restored `TtlBuckets` if file path
     // to restore from is valid. Otherwise return a new `TtlBuckets`
     pub fn restore(
-        file_data: &[u8],
-        ttl_buckets_path: Option<PathBuf>,
-        file_size: usize,
-        offset_into_file: usize,
+        file_data: &[u8]
     ) -> Self {
         // if there is a path to restore from, restore the `TtlBuckets`
         // if let Some(file) = &ttl_buckets_path {
@@ -115,7 +106,7 @@ impl TtlBuckets {
         let mut bytes = vec![0; ttl_buckets_struct_size];
         // retrieve bytes from mmapped file
         bytes.copy_from_slice(
-            &file_data[offset_into_file..(offset_into_file + ttl_buckets_struct_size)],
+            &file_data[0..ttl_buckets_struct_size],
         );
 
         let mut offset = 0;
@@ -147,8 +138,6 @@ impl TtlBuckets {
             buckets,
             last_expired,
             buckets_copied_back: true,
-            ttl_buckets_path,
-            offset_into_file,
         }
         // }
         // // otherwise, create a new `TtlBuckets`
@@ -176,7 +165,7 @@ impl TtlBuckets {
         //     .expect("failed to allocate file backed storage");
         // let data = pool.as_mut_slice();
 
-        let mut offset = self.offset_into_file;
+        let mut offset = 0;
         // --------------------- Store `last_expired` -----------------
 
         // cast `last_expired` to byte pointer
@@ -287,7 +276,7 @@ impl TtlBuckets {
 
 impl Default for TtlBuckets {
     fn default() -> Self {
-        Self::new(None, 0)
+        Self::new()
     }
 }
 

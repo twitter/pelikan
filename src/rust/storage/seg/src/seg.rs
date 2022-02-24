@@ -73,7 +73,8 @@ impl Seg {
 
             self.segments.flush()?;
             self.hashtable.flush(file_data)?;
-            self.ttl_buckets.flush(file_data)?;
+            let offset = self.hashtable.recover_size();
+            self.ttl_buckets.flush(&mut file_data[offset..])?;
 
             // TODO: check if this flushes the CPU caches
             pool.flush()?;

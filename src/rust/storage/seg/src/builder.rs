@@ -216,15 +216,13 @@ impl Builder {
                 // Attempt to restore `HashTable` and `TtlBuckets`
                 let hashtable = HashTable::restore(
                     file_data,
-                    self.hashtable_path.clone(),
-                    file_size,
                     self.hash_power,
                     self.overflow_factor,
                 );
 
                 let offset = hashtable.recover_size();
                 let ttl_buckets =
-                    TtlBuckets::restore(file_data, self.hashtable_path.clone(), file_size, offset);
+                    TtlBuckets::restore(&file_data[offset..]);
 
                 // If successful, return a restored segcache
                 if hashtable.table_copied_back && ttl_buckets.buckets_copied_back {
@@ -249,12 +247,11 @@ impl Builder {
 
         // If not `restore` or restoration failed, create a new cache
         let hashtable = HashTable::new(
-            self.hashtable_path.clone(),
             self.hash_power,
             self.overflow_factor,
         );
         let offset = hashtable.recover_size();
-        let ttl_buckets = TtlBuckets::new(self.hashtable_path.clone(), offset);
+        let ttl_buckets = TtlBuckets::new();
         // Set offsets
         // let hashtable_size = hashtable.recover_size();
         // let ttl_buckets_size = ttl_buckets.recover_size();
@@ -265,7 +262,7 @@ impl Builder {
             hashtable,
             segments,
             ttl_buckets,
-            hashtable_path: self.hashtable_path,
+            hashtable_path: self.hashtable_path,  // TODO: change this to final path
         }
     }
 }

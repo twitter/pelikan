@@ -112,8 +112,6 @@ pub(crate) struct HashTable {
     next_to_chain: u64,
     /// Is `HashTable` copied back from a file?
     pub(crate) table_copied_back: bool,
-    /// Path to save relevant fields upon graceful shutdown
-    hashtable_path: Option<PathBuf>,
     /// Used in graceful shutdown
     overflow_factor: f64,
 }
@@ -122,7 +120,7 @@ impl HashTable {
     /// Creates a new hashtable with a specified power and overflow factor. The
     /// hashtable will have the capacity to store up to
     /// `7 * 2^(power - 3) * (1 + overflow_factor)` items.
-    pub fn new(hashtable_path: Option<PathBuf>, power: u8, overflow_factor: f64) -> HashTable {
+    pub fn new(power: u8, overflow_factor: f64) -> HashTable {
         if overflow_factor < 0.0 {
             fatal!("hashtable overflow factor must be >= 0.0");
         }
@@ -159,15 +157,12 @@ impl HashTable {
             started: Instant::recent(),
             next_to_chain: buckets as u64,
             table_copied_back: false,
-            hashtable_path,
             overflow_factor,
         }
     }
 
     pub fn restore(
         file_data: &[u8],
-        hashtable_path: Option<PathBuf>,
-        file_size: usize,
         cfg_power: u8,
         overflow_factor: f64,
     ) -> Self {
@@ -250,7 +245,6 @@ impl HashTable {
             started,
             next_to_chain,
             table_copied_back: true,
-            hashtable_path,
             overflow_factor,
         }
         // }
