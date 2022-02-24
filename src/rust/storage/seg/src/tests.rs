@@ -586,42 +586,6 @@ fn new_cache_not_file_backed() {
     assert!(!cache.hashtable.table_copied_back);
 }
 
-// Check that a restored cache is file backed and the `Seg` is restored
-#[test]
-fn restored_cache_file_backed() {
-    // Create a temporary directory
-    let dir = tmp_dir();
-    // Create tempfile for datapool
-    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
-    // Create tempfile for `Segments` fields'
-    let segments_fields_path: Option<PathBuf> = Some(dir.path().join("segments_fields"));
-    // Create tempfile for `TtlBuckets`
-    let ttl_buckets_path: Option<PathBuf> = Some(dir.path().join("ttl_buckets"));
-    // Create tempfile for `HashTable`
-    let hashtable_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
-
-    // restore, file backed cache
-    let restore = true;
-    let cache = make_cache(
-        restore,
-        datapool_path,
-        segments_fields_path,
-        ttl_buckets_path,
-        hashtable_path,
-    );
-
-    // the `Segments.data` should be filed backed
-    assert!(cache.segments.data_file_backed());
-    // the `Seg` should be restored
-    assert!(cache.restored());
-    // the `Segments` fields' should have been restored
-    assert!(cache.segments.fields_copied_back);
-    // the `TtlBuckets` should have been restored
-    assert!(cache.ttl_buckets.buckets_copied_back);
-    // the `HashTable` should have been restored
-    assert!(cache.hashtable.table_copied_back);
-}
-
 // Edge Case: Check that an attempt to restore a cache without specifing
 // any paths for the `Segments.data`, `Segments` fields',
 // `HashTable` and `TTLBuckets` will lead to `Segments.data` not
@@ -894,90 +858,6 @@ fn new_cache_changed_and_not_restored() {
     assert_eq!(new_cache.segments.free(), SEGMENTS);
 
     // "latte" should not be in new cache
-    assert!(new_cache.get(b"latte").is_none());
-
-    // the restored cache should not be equivalent to the old cache
-    assert!(new_cache != old_cache);
-}
-
-// Creates a new cache, stores an item, gracefully shutsdown cache and restore cache
-// with an incorrect path to the `HashTable`.
-// The restoration should "succeed" and the # items recorded should be the same in the restored cache
-// as the `segments_fields_path` is the same but an attempt to get item from new cache should fail
-// as the `hashtable_path` is different and caches should not equivalent
-#[test]
-fn new_cache_changed_and_restoration_fails() {
-    // Create a temporary directory
-    let dir = tmp_dir();
-    // Create tempfile for datapool
-    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
-    // Create tempfile for `Segments` fields'
-    let segments_fields_path: Option<PathBuf> = Some(dir.path().join("segments_fields"));
-    // Create tempfile for `TtlBuckets`
-    let ttl_buckets_path: Option<PathBuf> = Some(dir.path().join("ttl_buckets"));
-    // Create tempfile for `HashTable`
-    let hashtable_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
-
-    // create new, file backed cache
-    let mut restore = false;
-    let mut cache = make_cache(
-        restore,
-        datapool_path,
-        segments_fields_path,
-        ttl_buckets_path,
-        hashtable_path,
-    );
-
-    assert!(!cache.restored());
-    assert_eq!(cache.items(), 0);
-    assert_eq!(cache.segments.free(), SEGMENTS);
-
-    // "latte" should not be in a new, empty cache
-    assert!(cache.get(b"latte").is_none());
-    // insert "latte" into cache
-    assert!(cache
-        .insert(b"latte", b"", None, Duration::from_secs(5))
-        .is_ok());
-    // "latte" should now be in cache
-    assert!(cache.get(b"latte").is_some());
-
-    assert_eq!(cache.items(), 1);
-    assert_eq!(cache.segments.free(), SEGMENTS - 1);
-
-    // Get a copy of the cache to be compared later
-    let old_cache = cache.clone();
-
-    // Flush cache
-    assert!(cache.flush().is_ok());
-
-    // Create same tempfiles (they have been moved since first created) for
-    // `datapool`, `segments_fields`, `ttl_buckets`
-    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
-    let segments_fields_path: Option<PathBuf> = Some(dir.path().join("segments_fields"));
-    let ttl_buckets_path: Option<PathBuf> = Some(dir.path().join("ttl_buckets"));
-
-    // Create different tempfile for `hashtable`
-    let hashtable_path: Option<PathBuf> = Some(dir.path().join("hashtable_diff"));
-
-    // Restore cache
-    restore = true;
-    let mut new_cache = make_cache(
-        restore,
-        datapool_path,
-        segments_fields_path,
-        ttl_buckets_path,
-        hashtable_path,
-    );
-
-    // Cache is restored as all paths exist
-    assert!(new_cache.restored());
-    // `Segments` data should be the same as old cache since
-    // `segments_fields_path` is the same
-    assert_eq!(new_cache.items(), 1);
-    assert_eq!(new_cache.segments.free(), SEGMENTS - 1);
-
-    // "latte" should not be in new cache as `HashTable` restored from
-    // incorrect path does not have this information
     assert!(new_cache.get(b"latte").is_none());
 
     // the restored cache should not be equivalent to the old cache

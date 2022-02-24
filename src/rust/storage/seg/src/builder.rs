@@ -200,21 +200,29 @@ impl Builder {
 
         // If `Segments` successfully restored and `restore`
         if segments.fields_copied_back && self.restore {
-            // Attempt to restore `HashTable` and `TtlBuckets`
-            let hashtable = HashTable::restore(
-                self.hashtable_path.clone(),
-                self.hash_power,
-                self.overflow_factor,
-            );
-            let ttl_buckets = TtlBuckets::restore(self.ttl_buckets_path.clone());
+            // Check if file exists and with what size
+            // TODO: implement a non-messy way to calculate expected file size
+            if let Ok(file_size) = std::fs::metadata(self.hashtable_path.as_ref().unwrap()).map(|m| m.len()) {
+                let file_size = file_size as usize;
 
-            // If successful, return a restored segcache
-            if hashtable.table_copied_back && ttl_buckets.buckets_copied_back {
-                return Seg {
-                    hashtable,
-                    segments,
-                    ttl_buckets,
-                };
+                // Attempt to restore `HashTable` and `TtlBuckets`
+                let hashtable = HashTable::restore(
+                    self.hashtable_path.clone(),
+                    file_size,
+                    self.hash_power,
+                    self.overflow_factor,
+                );
+                let ttl_buckets = TtlBuckets::restore(self.ttl_buckets_path.clone());
+                println!("hash {}, ttl {}", hashtable.table_copied_back, ttl_buckets.buckets_copied_back); //DELETE
+
+                // If successful, return a restored segcache
+                if hashtable.table_copied_back && ttl_buckets.buckets_copied_back {
+                    return Seg {
+                        hashtable,
+                        segments,
+                        ttl_buckets,
+                    };
+                }
             }
         }
 

@@ -164,7 +164,7 @@ impl HashTable {
         }
     }
 
-    pub fn restore(hashtable_path: Option<PathBuf>, cfg_power: u8, overflow_factor: f64) -> Self {
+    pub fn restore(hashtable_path: Option<PathBuf>, file_size: usize, cfg_power: u8, overflow_factor: f64) -> Self {
         // if there is a path to restore from, restore the `HashTable`
         if let Some(file) = &hashtable_path {
             // restore() assumes no changes in `power`.
@@ -181,7 +181,7 @@ impl HashTable {
                                + started_size;
 
             // Mmap file
-            let pool = File::create(file, hashtable_size, true)
+            let pool = File::create(file, file_size, true)
                 .expect("failed to allocate file backed storage");
             let file_data = Box::new(pool.as_slice());
 
