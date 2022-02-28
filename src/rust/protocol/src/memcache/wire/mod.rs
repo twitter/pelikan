@@ -16,14 +16,14 @@ use crate::*;
 use metrics::{static_metrics, Counter, Heatmap, Relaxed};
 
 static_metrics! {
-    static GET: Counter;
-    static GET_EX: Counter;
-    static GET_CARDINALITY: Relaxed<Heatmap> = Relaxed::new(||
+    pub static GET: Counter;
+    pub static GET_EX: Counter;
+    pub static GET_CARDINALITY: Relaxed<Heatmap> = Relaxed::new(||
         Heatmap::new(request::MAX_BATCH_SIZE as _, 3, PreciseDuration::from_secs(60), PreciseDuration::from_secs(1))
     );
-    static GET_KEY: Counter;
-    static GET_KEY_HIT: Counter;
-    static GET_KEY_MISS: Counter;
+    pub static GET_KEY: Counter;
+    pub static GET_KEY_HIT: Counter;
+    pub static GET_KEY_MISS: Counter;
 
     static GETS: Counter;
     static GETS_EX: Counter;
@@ -31,10 +31,10 @@ static_metrics! {
     static GETS_KEY_HIT: Counter;
     static GETS_KEY_MISS: Counter;
 
-    static SET: Counter;
-    static SET_EX: Counter;
-    static SET_STORED: Counter;
-    static SET_NOT_STORED: Counter;
+    pub static SET: Counter;
+    pub static SET_EX: Counter;
+    pub static SET_STORED: Counter;
+    pub static SET_NOT_STORED: Counter;
 
     static ADD: Counter;
     static ADD_EX: Counter;

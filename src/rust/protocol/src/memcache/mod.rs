@@ -10,7 +10,7 @@ mod wire;
 
 pub use entry::MemcacheEntry;
 pub use storage::{MemcacheStorage, MemcacheStorageError};
-pub use wire::{MemcacheRequest, MemcacheRequestParser, MemcacheResponse};
+pub use wire::*;
 
 use common::time::Nanoseconds;
 use common::time::Seconds;

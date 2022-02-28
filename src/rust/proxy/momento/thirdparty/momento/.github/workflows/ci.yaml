@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_rust:
+    runs-on: ubuntu-latest
+    env:
+      TEST_AUTH_TOKEN: ${{ secrets.ALPHA_TEST_AUTH_TOKEN }}
+      TEST_CACHE_NAME: dummy
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build
+        run: cargo build --verbose
+      - name: Cargo Check
+        run: cargo check
+      - name: Rustfmt
+        run: cargo fmt -- --check
+      - name: Unit Tests
+        run: cargo test --lib
+      - name: Doc Tests
+        run: cargo test --doc
+      - name: Integration Tests
+        run: cargo test --tests

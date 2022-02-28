@@ -8,6 +8,7 @@ members = [
     "src/rust/metrics",
     "src/rust/macros",
     "src/rust/protocol",
+    "src/rust/proxy/momento",
     "src/rust/queues",
     "src/rust/server/pingserver",
     "src/rust/server/segcache",

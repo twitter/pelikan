@@ -44,7 +44,7 @@ software designed for large-scale deployment.
 The framework approach allows us to develop new features and protocols quickly.
 
 ## Products
-Currently Pelikan yields three main products, all of which are backends/servers.
+Currently Pelikan yields the following products:
 - `pelikan_twemcache`: a Twemcache replacement
 - `pelikan_slimcache`: a Memcached-like server with ultra-low memory overhead-
   compared to Memcached/Redis, the per-key overhead is reduced by up to 90%
@@ -58,6 +58,9 @@ Currently Pelikan yields three main products, all of which are backends/servers.
   implementation.
 - **[Experimental]**`pelikan_pingserver_rs`: a Rust implementation of
   `pelikan_pingserver` which includes TLS support.
+- [`momento_proxy`](docs/products/momento_proxy.md): a proxy which allows
+  existing applications to use Momento instead of a Memcache-compatible cache
+  backend.
 
 ## Features
 - runtime separation of control and data plane
