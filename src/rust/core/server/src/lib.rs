@@ -115,5 +115,6 @@ pub const DEFAULT_BUFFER_SIZE: usize = 16 * 1024; // 16KB
 const ADMIN_MAX_BUFFER_SIZE: usize = 2 * 1024 * 1024; // 1MB
 
 const THREAD_PREFIX: &str = "pelikan";
+const QUEUE_CAPACITY: usize = 1024;
 
 metrics::test_no_duplicates!();

@@ -88,7 +88,13 @@ impl<T, U> Queues<T, U> {
     ///
     /// To construct this type, you must pass the `mio::Waker`s registered for
     /// each `mio::Poll` instance for side `a` and side `b`. This is required so
-    /// that the queues can be used within the event loops.
+    /// that the queues can be used within the event loops and wakeups for the
+    /// receivers can be issued by the senders.
+    ///
+    /// Since bounded queues are used internally, the capacity is the maximum
+    /// number of pending items each receiver can have. For example, if side A
+    /// has 4 queues, and a capacity of 1024*4 => 4096 items of type U may be
+    /// pending.
     ///
     /// NOTE: the return vectors maintain the ordering of the wakers that were
     /// provided. Care must be taken to ensure that the corresponding queues are
@@ -96,6 +102,7 @@ impl<T, U> Queues<T, U> {
     pub fn new<A: AsRef<[Arc<Waker>]>, B: AsRef<[Arc<Waker>]>>(
         a_wakers: A,
         b_wakers: B,
+        capacity: usize,
     ) -> (Vec<Queues<T, U>>, Vec<Queues<U, T>>) {
         let mut a_wakers = a_wakers.as_ref().to_vec();
         let mut b_wakers = b_wakers.as_ref().to_vec();
@@ -110,7 +117,7 @@ impl<T, U> Queues<T, U> {
         let mut b_rx = Vec::<Receiver<TrackedItem<T>>>::with_capacity(b_wakers.len());
 
         for waker in b_wakers.drain(..) {
-            let (s, r) = bounded(1024);
+            let (s, r) = bounded(capacity);
             let s = WakingSender {
                 inner: s,
                 waker,
@@ -130,7 +137,7 @@ impl<T, U> Queues<T, U> {
         let mut a_rx = Vec::<Receiver<TrackedItem<U>>>::with_capacity(a_wakers.len());
 
         for waker in a_wakers.drain(..) {
-            let (s, r) = bounded(1024);
+            let (s, r) = bounded(capacity);
             let s = WakingSender {
                 inner: s,
                 waker,
@@ -275,7 +282,7 @@ mod tests {
         let waker =
             Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).expect("failed to create waker"));
 
-        let (mut a, mut b) = Queues::<usize, String>::new(vec![waker.clone()], vec![waker]);
+        let (mut a, mut b) = Queues::<usize, String>::new(vec![waker.clone()], vec![waker], 1024);
         let mut a = a.remove(0);
         let mut b = b.remove(0);
 

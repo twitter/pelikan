@@ -6,6 +6,7 @@
 //! be spawned and provides a `Process` type which is used as a control handle
 //! to shutdown or wait on the threads.
 
+use crate::{QUEUE_CAPACITY, THREAD_PREFIX};
 use crate::threads::*;
 use common::signal::Signal;
 use config::*;
@@ -13,8 +14,6 @@ use crossbeam_channel::{bounded, Sender};
 use logger::Drain;
 use queues::Queues;
 use std::thread::JoinHandle;
-
-const THREAD_PREFIX: &str = "pelikan";
 
 use entrystore::EntryStore;
 use protocol::{Compose, Execute, Parse};
@@ -97,15 +96,15 @@ where
         thread_wakers.extend_from_slice(&self.workers.wakers());
 
         // channel for the parent `Process` to send `Signal`s to the admin thread
-        let (signal_tx, signal_rx) = bounded(1024);
+        let (signal_tx, signal_rx) = bounded(QUEUE_CAPACITY);
 
         // queues for the `Admin` to send `Signal`s to all sibling threads
         let (mut signal_queue_tx, mut signal_queue_rx) =
-            Queues::new(vec![self.admin.waker()], thread_wakers);
+            Queues::new(vec![self.admin.waker()], thread_wakers, QUEUE_CAPACITY);
 
         // queues for the `Listener` to send `Session`s to the worker threads
         let (mut session_queue_tx, session_queue_rx) =
-            Queues::new(vec![self.listener.waker()], self.workers.worker_wakers());
+            Queues::new(vec![self.listener.waker()], self.workers.worker_wakers(), QUEUE_CAPACITY);
 
         let mut admin = self.admin.build(signal_queue_tx.remove(0), signal_rx);
         let mut listener = self

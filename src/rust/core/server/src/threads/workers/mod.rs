@@ -10,7 +10,7 @@ mod single;
 mod storage;
 
 pub use self::storage::{StorageWorker, StorageWorkerBuilder};
-use crate::THREAD_PREFIX;
+use crate::{QUEUE_CAPACITY, THREAD_PREFIX};
 use common::signal::Signal;
 use config::WorkerConfig;
 use entrystore::EntryStore;
@@ -195,7 +195,7 @@ where
                 let storage_wakers = vec![storage.waker()];
                 let worker_wakers: Vec<Arc<Waker>> = workers.iter().map(|v| v.waker()).collect();
                 let (mut response_queues, mut request_queues) =
-                    Queues::new(worker_wakers, storage_wakers);
+                    Queues::new(worker_wakers, storage_wakers, QUEUE_CAPACITY);
 
                 let s = storage.build(signal_queues.remove(0), request_queues.remove(0));
 
