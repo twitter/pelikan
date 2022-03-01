@@ -25,7 +25,7 @@ pub struct Queues<T, U> {
     distr: Uniform<usize>,
 }
 
-pub struct WakingSender<T> {
+struct WakingSender<T> {
     inner: Sender<T>,
     waker: Arc<Waker>,
     needs_wake: bool,
@@ -69,76 +69,110 @@ impl<T> WakingSender<T> {
     }
 }
 
+
+/// The `Queues` type allows sending items of one type, and receiving items of
+/// another type. This allows for bi-directional communication between threads
+/// where a transformation of the messages from one type to another may be
+/// performed.
+///
+/// For instance, this can allow for sending requests from one set of threads to
+/// be processed by another set of threads. The responses can then be sent back
+/// to the original thread which dispatched the request.
+///
+/// This type allows directed one-to-one communication, undirected one-to-any
+/// communication, or broadcast one-to-all communication.
 impl<T, U> Queues<T, U> {
-    pub fn new(
-        senders: Vec<Arc<Waker>>,
-        receivers: Vec<Arc<Waker>>,
+    /// Construct the queues for communicating between both sides. Side `a`
+    /// sends items of type `T` to side `b`. Side `b` sends items of type `U` to
+    /// side `a`.
+    ///
+    /// To construct this type, you must pass the `mio::Waker`s registered for
+    /// each `mio::Poll` instance for side `a` and side `b`. This is required so
+    /// that the queues can be used within the event loops.
+    ///
+    /// NOTE: the return vectors maintain the ordering of the wakers that were
+    /// provided. Care must be taken to ensure that the corresponding queues are
+    /// given to the event loop with the corresponding waker.
+    pub fn new<A: AsRef<[Arc<Waker>]>, B: AsRef<[Arc<Waker>]>>(
+        a_wakers: A,
+        b_wakers: B,
     ) -> (Vec<Queues<T, U>>, Vec<Queues<U, T>>) {
-        let mut senders = senders;
-        let mut receivers = receivers;
+        let mut a_wakers = a_wakers.as_ref().to_vec();
+        let mut b_wakers = b_wakers.as_ref().to_vec();
 
-        // T messages are sent to the receivers
-        let mut send_tx = Vec::<WakingSender<TrackedItem<T>>>::with_capacity(receivers.len());
-        let mut recv_tx = Vec::<Receiver<TrackedItem<T>>>::with_capacity(receivers.len());
+        // T messages are sent to side b, so we have a `WakingSender` for each
+        // side b queue.
 
-        for waker in receivers.drain(..) {
+        // these will be used in side a to transmit
+        let mut a_tx = Vec::<WakingSender<TrackedItem<T>>>::with_capacity(b_wakers.len());
+
+        // these will be used in side b to receive
+        let mut b_rx = Vec::<Receiver<TrackedItem<T>>>::with_capacity(b_wakers.len());
+
+        for waker in b_wakers.drain(..) {
             let (s, r) = bounded(1024);
             let s = WakingSender {
                 inner: s,
                 waker,
                 needs_wake: false,
             };
-            send_tx.push(s);
-            recv_tx.push(r);
+            a_tx.push(s);
+            b_rx.push(r);
         }
 
-        // U messages sent are sent to the senders
-        let mut send_rx = Vec::<WakingSender<TrackedItem<U>>>::with_capacity(senders.len());
-        let mut recv_rx = Vec::<Receiver<TrackedItem<U>>>::with_capacity(senders.len());
+        // T messages are sent to side b, so we have a `WakingSender` for each
+        // side a queue.
 
-        for waker in senders.drain(..) {
+        // these will be used in side b to transmit
+        let mut b_tx = Vec::<WakingSender<TrackedItem<U>>>::with_capacity(a_wakers.len());
+
+        // these will be used in side a to receive
+        let mut a_rx = Vec::<Receiver<TrackedItem<U>>>::with_capacity(a_wakers.len());
+
+        for waker in a_wakers.drain(..) {
             let (s, r) = bounded(1024);
             let s = WakingSender {
                 inner: s,
                 waker,
                 needs_wake: false,
             };
-            send_rx.push(s);
-            recv_rx.push(r);
+            b_tx.push(s);
+            a_rx.push(r);
         }
 
-        let mut s = Vec::new();
-        let mut r = Vec::new();
+        let mut a = Vec::new();
+        let mut b = Vec::new();
 
-        for (id, receiver) in recv_rx.drain(..).enumerate() {
-            s.push(Queues {
-                senders: send_tx.clone(),
+        for (id, receiver) in a_rx.drain(..).enumerate() {
+            a.push(Queues {
+                senders: a_tx.clone(),
                 receiver,
                 rng: ChaCha20Rng::from_entropy(),
-                distr: Uniform::new(0, send_tx.len()),
+                distr: Uniform::new(0, a_tx.len()),
                 id,
             })
         }
 
-        for (id, receiver) in recv_tx.drain(..).enumerate() {
-            r.push(Queues {
-                senders: send_rx.clone(),
+        for (id, receiver) in b_rx.drain(..).enumerate() {
+            b.push(Queues {
+                senders: b_tx.clone(),
                 receiver,
                 rng: ChaCha20Rng::from_entropy(),
-                distr: Uniform::new(0, send_rx.len()),
+                distr: Uniform::new(0, b_tx.len()),
                 id,
             })
         }
 
-        (s, r)
+        (a, b)
     }
 
-    /// Try to receive a single item from the queue
+    /// Try to receive a single item from the queue. Returns a `TrackedItem<T>`
+    /// which allows the receiver to know which sender sent the item.
     pub fn try_recv(&self) -> Result<TrackedItem<U>, TryRecvError> {
         self.receiver.try_recv()
     }
 
-    /// Try to receive all pending items from the queue
+    /// Try to receive all pending items from the queue.
     pub fn try_recv_all(&self, buf: &mut Vec<TrackedItem<U>>) {
         let pending = self.receiver.len();
         for _ in 0..pending {
@@ -180,6 +214,8 @@ impl<T, U> Queues<T, U> {
             .map_err(|e| e.into_inner())
     }
 
+    /// Wake any remote receivers which have been sent items since the last time
+    /// this was called.
     pub fn wake(&mut self) -> Result<(), std::io::Error> {
         let mut result = Ok(());
         for sender in self.senders.iter_mut() {
@@ -192,6 +228,8 @@ impl<T, U> Queues<T, U> {
 }
 
 impl<T: Clone, U> Queues<T, U> {
+    /// Allows broadcast communication of the item to all receivers on the other
+    /// side.
     pub fn try_send_all(&mut self, item: T) -> Result<(), T> {
         let mut result = Ok(());
         for sender in self.senders.iter_mut() {
