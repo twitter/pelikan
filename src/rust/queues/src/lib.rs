@@ -69,7 +69,6 @@ impl<T> WakingSender<T> {
     }
 }
 
-
 /// The `Queues` type allows sending items of one type, and receiving items of
 /// another type. This allows for bi-directional communication between threads
 /// where a transformation of the messages from one type to another may be
