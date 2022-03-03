@@ -34,6 +34,7 @@ pub enum MemcacheRequest {
     Decr { key: Key, value: u64, noreply: bool },
     Cas { entry: MemcacheEntry, noreply: bool },
     FlushAll,
+    Stop,
 }
 
 impl MemcacheRequest {
@@ -101,6 +102,8 @@ impl MemcacheRequest {
             Self::Decr { .. } => MemcacheCommand::Decr,
             Self::Cas { .. } => MemcacheCommand::Cas,
             Self::FlushAll => MemcacheCommand::FlushAll,
+            Self::Stop => MemcacheCommand::Stop,
+
         }
     }
 }

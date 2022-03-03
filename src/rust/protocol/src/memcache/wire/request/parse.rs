@@ -66,6 +66,7 @@ impl Parse<MemcacheRequest> for MemcacheRequestParser {
                 Err(ParseError::Invalid)
             }
             MemcacheCommand::FlushAll => parse_flush_all(buffer),
+            MemcacheCommand::Stop => parse_stop(buffer),
         }
     }
 }
@@ -634,6 +635,25 @@ fn parse_flush_all(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError
 
     Ok(ParseOk {
         message: MemcacheRequest::FlushAll,
+        consumed,
+    })
+}
+
+#[allow(clippy::unnecessary_unwrap)]
+fn parse_stop(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
+    let mut parse_state = ParseState::new(buffer);
+
+    // this was already checked for when determining the command
+    let (whitespace, _cmd_end) = parse_state.next_sequence().unwrap();
+
+    if whitespace != Sequence::Crlf && whitespace != Sequence::SpaceCrlf {
+        return Err(ParseError::Invalid);
+    }
+
+    let consumed = parse_state.position();
+
+    Ok(ParseOk {
+        message: MemcacheRequest::Stop,
         consumed,
     })
 }

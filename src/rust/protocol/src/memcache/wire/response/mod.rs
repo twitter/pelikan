@@ -34,6 +34,7 @@ pub enum MemcacheResult {
     Stored,
     Error,
     Count(u64),
+    Stopped,
 }
 
 impl Debug for MemcacheResult {
@@ -47,6 +48,7 @@ impl Debug for MemcacheResult {
             Self::Stored => "Stored",
             Self::Error => "Error",
             Self::Count(_) => "Count",
+            Self::Stopped => "Stopped",
         };
         write!(f, "MemcacheResult::{}", name)
     }
@@ -67,6 +69,7 @@ impl MemcacheResult {
             Self::Stored => b"STORED\r\n",
             Self::Error => b"ERROR\r\n",
             Self::Count(_) => b"",
+            Self::Stopped => b"Stopped\n",
         }
     }
 
@@ -86,6 +89,7 @@ impl MemcacheResult {
             Self::Deleted => 7,
             Self::NotFound => 8,
             Self::NotStored => 9,
+            Self::Stopped => 10,  // TODO: check this is the correct code
             // CLIENT_ERROR
             // SERVER_ERROR
             _ => usize::MAX,
@@ -245,6 +249,8 @@ impl Compose for MemcacheResponse {
                 CAS.increment();
             }
             MemcacheRequest::FlushAll => {}
+            // TODO: if needed, add to this statement
+            MemcacheRequest::Stop => {}
         }
         if let MemcacheResult::Values { ref entries, cas } = self.result {
             let mut hits = 0;
