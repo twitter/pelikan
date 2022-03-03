@@ -47,7 +47,7 @@ metadata_path = "/mnt/pmem1.0/cassy/metadata"
 # state whether cache will be restored
 restore = false
 # state whether cache will be flushed upon shutdown
-gracefully_shutdown = true
+graceful_shutdown = true
 
 [time]
 time_type = "Memcache"
