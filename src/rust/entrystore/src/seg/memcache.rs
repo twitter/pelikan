@@ -181,8 +181,7 @@ impl MemcacheStorage for Seg {
     fn stop(&mut self) -> Result<(), MemcacheStorageError> {
         if self.data.flush().is_ok() {
             Ok(())
-        }
-        else {
+        } else {
             Err(MemcacheStorageError::ServerError)
         }
     }

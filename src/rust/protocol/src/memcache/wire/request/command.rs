@@ -69,7 +69,7 @@ impl std::fmt::Display for MemcacheCommand {
             Self::Decr => "decr",
             Self::Quit => "quit",
             Self::FlushAll => "flush_all",
-            Self::Stop => "stop"
+            Self::Stop => "stop",
         };
         write!(f, "{}", name)
     }

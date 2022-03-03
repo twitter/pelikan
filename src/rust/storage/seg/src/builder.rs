@@ -16,6 +16,7 @@ pub struct Builder {
     overflow_factor: f64,
     segments_builder: SegmentsBuilder,
     metadata_path: Option<PathBuf>,
+    graceful_shutdown: bool,
 }
 
 // Defines the default parameters
@@ -27,6 +28,7 @@ impl Default for Builder {
             overflow_factor: 0.0,
             segments_builder: SegmentsBuilder::default(),
             metadata_path: None,
+            graceful_shutdown: false,
         }
     }
 }
@@ -161,6 +163,14 @@ impl Builder {
         self
     }
 
+    /// Specify whether the cache will be gracefully shutdown. If `true`, then
+    /// when the cache is flushed, the relevant parts will be stored to the file
+    /// with path `metadata_path`
+    pub fn graceful_shutdown(mut self, graceful_shutdown: bool) -> Self {
+        self.graceful_shutdown = graceful_shutdown;
+        self
+    }
+
     /// Consumes the builder and returns a fully-allocated `Seg` instance.
     /// If `restore`, the cache `Segments.data` is file backed by an existing
     /// file and a valid file for the `metadata` is given, `Seg` will be
@@ -215,6 +225,7 @@ impl Builder {
                         segments,
                         ttl_buckets,
                         metadata_path: self.metadata_path,
+                        graceful_shutdown: self.graceful_shutdown,
                     };
                 }
             }
@@ -230,6 +241,7 @@ impl Builder {
             segments,
             ttl_buckets,
             metadata_path: self.metadata_path,
+            graceful_shutdown: self.graceful_shutdown,
         }
     }
 }

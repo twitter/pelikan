@@ -200,7 +200,6 @@ where
     fn handle_data(&mut self, token: Token) -> Result<(), std::io::Error> {
         if let Ok(session) = self.poll.get_mut_session(token) {
             loop {
-
                 if session.write_capacity() == 0 {
                     // if the write buffer is over-full, skip processing
                     break;

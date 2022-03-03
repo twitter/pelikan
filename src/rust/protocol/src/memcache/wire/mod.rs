@@ -229,16 +229,13 @@ where
             MemcacheRequest::FlushAll => {
                 return None;
             }
-            MemcacheRequest::Stop => {
-                let response = match self.stop() {
-                    Ok(_) => MemcacheResult::Stopped,
-                    Err(MemcacheStorageError::ServerError) => MemcacheResult::Error,
-                    _ => {
-                        unreachable!()
-                    }
-                };
-                response
-            }
+            MemcacheRequest::Stop => match self.stop() {
+                Ok(_) => MemcacheResult::Stopped,
+                Err(MemcacheStorageError::ServerError) => MemcacheResult::Error,
+                _ => {
+                    unreachable!()
+                }
+            },
         };
 
         Some(MemcacheResponse { request, result })

@@ -24,13 +24,15 @@ static_metrics! {
 /// segment-structured design that stores data in fixed-size segments, grouping
 /// objects with nearby expiration time into the same segment, and lifting most
 /// per-object metadata into the shared segment header.
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct Seg {
     pub(crate) hashtable: HashTable,
     pub(crate) segments: Segments,
     pub(crate) ttl_buckets: TtlBuckets,
     // Path to metadata datapool
     pub(crate) metadata_path: Option<PathBuf>,
+    // Will the cache be gracefully shutdown?
+    pub(crate) graceful_shutdown: bool,
 }
 
 impl Seg {
@@ -53,36 +55,38 @@ impl Seg {
         Builder::default()
     }
 
-    /// Flushes cache by storing all the relevant fields of `Segments`,
-    /// `HashTable` and `TtlBuckets` to the `metadata` file (if it exists) and
-    // flushing `Segments.data` (if it is file backed)
+    /// If `graceful_shutdown`, flushe cache by storing all the relevant fields
+    /// of `Segments`, `HashTable` and `TtlBuckets` to the `metadata` file
+    /// (if it exists) and flushing `Segments.data` (if it is file backed)
     pub fn flush(&self) -> std::io::Result<()> {
-        if let Some(file) = &self.metadata_path {
-            let file_size = self.hashtable.recover_size()
-                + self.ttl_buckets.recover_size()
-                + self.segments.recover_size();
+        if self.graceful_shutdown {
+            if let Some(file) = &self.metadata_path {
+                let file_size = self.hashtable.recover_size()
+                    + self.ttl_buckets.recover_size()
+                    + self.segments.recover_size();
 
-            // Mmap file
-            let mut pool = File::create(file, file_size, true)
-                .expect("failed to allocate file backed storage");
-            let metadata = pool.as_mut_slice();
+                // Mmap file
+                let mut pool = File::create(file, file_size, true)
+                    .expect("failed to allocate file backed storage");
+                let metadata = pool.as_mut_slice();
 
-            self.hashtable.flush(metadata);
-            let mut offset = self.hashtable.recover_size();
-            self.ttl_buckets.flush(&mut metadata[offset..]);
-            offset += self.ttl_buckets.recover_size();
-            self.segments.flush(&mut metadata[offset..])?;
+                self.hashtable.flush(metadata);
+                let mut offset = self.hashtable.recover_size();
+                self.ttl_buckets.flush(&mut metadata[offset..]);
+                offset += self.ttl_buckets.recover_size();
+                self.segments.flush(&mut metadata[offset..])?;
 
-            // TODO: check if this flushes the CPU caches
-            pool.flush()?;
-            Ok(())
-        } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Path to datapool to is None, cannot gracefully
-                shutdown cache",
-            ))
+                // TODO: check if this flushes the CPU caches
+                pool.flush()?;
+                return Ok(());
+            }
         }
+
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Path to datapool to is None, cannot gracefully
+                shutdown cache",
+        ))
     }
 
     /// Gets a count of items in the `Seg` instance. This is an expensive
@@ -379,5 +383,14 @@ impl Seg {
             .ok_or(SegError::NotFound)?;
         item.saturating_sub(rhs)?;
         Ok(item)
+    }
+}
+
+impl PartialEq for Seg {
+    // Checks if `Segments` are equivalent
+    fn eq(&self, other: &Self) -> bool {
+        self.segments == other.segments
+            && self.hashtable == other.hashtable
+            && self.ttl_buckets == other.ttl_buckets
     }
 }

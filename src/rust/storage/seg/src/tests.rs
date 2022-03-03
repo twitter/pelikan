@@ -517,6 +517,7 @@ fn make_cache(
     restore: bool,
     datapool_path: Option<PathBuf>,
     metadata_path: Option<PathBuf>,
+    graceful_shutdown: bool,
 ) -> Seg {
     let segment_size = 4096;
     let segments = SEGMENTS;
@@ -528,6 +529,7 @@ fn make_cache(
         .heap_size(heap_size)
         .datapool_path(datapool_path) // set path
         .metadata_path(metadata_path) // set path
+        .graceful_shutdown(graceful_shutdown)
         .build()
 }
 
@@ -544,7 +546,8 @@ fn new_cache_file_backed() {
 
     // create new, file backed cache
     let restore = false;
-    let cache = make_cache(restore, datapool_path, None);
+    let graceful_shutdown = false;
+    let cache = make_cache(restore, datapool_path, None, graceful_shutdown);
 
     // the `Segments.data` should be filed backed
     assert!(cache.segments.data_file_backed());
@@ -558,7 +561,8 @@ fn new_cache_file_backed() {
 fn new_cache_not_file_backed() {
     // create new, not file backed cache
     let restore = false;
-    let cache = make_cache(restore, None, None);
+    let graceful_shutdown = false;
+    let cache = make_cache(restore, None, None, graceful_shutdown);
 
     // the `Segments.data` should not be filed backed
     assert!(!cache.segments.data_file_backed());
@@ -572,7 +576,8 @@ fn new_cache_not_file_backed() {
 #[test]
 fn restored_cache_no_paths_set() {
     let restore = true;
-    let cache = make_cache(restore, None, None);
+    let graceful_shutdown = false;
+    let cache = make_cache(restore, None, None, graceful_shutdown);
 
     // the `Segments.data` should not be filed backed
     assert!(!cache.segments.data_file_backed());
@@ -593,7 +598,8 @@ fn cache_gracefully_shutdown() {
 
     // create new, file backed cache
     let restore = false;
-    let cache = make_cache(restore, datapool_path, metadata_path);
+    let graceful_shutdown = true;
+    let cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
 
     // Flush cache
     assert!(cache.flush().is_ok());
@@ -610,10 +616,12 @@ fn cache_not_gracefully_shutdown() {
 
     // create new, file backed cache
     let restore = false;
+    let graceful_shutdown = true;
     let cache = make_cache(
         restore,
         datapool_path,
         None, // Don't set a `HashTable` path
+        graceful_shutdown,
     );
 
     // Flushing cache should fail
@@ -635,7 +643,8 @@ fn new_file_backed_cache_changed_and_restored() {
 
     // create new, file backed cache
     let mut restore = false;
-    let mut cache = make_cache(restore, datapool_path, metadata_path);
+    let mut graceful_shutdown = true;
+    let mut cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
 
     assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
@@ -667,7 +676,8 @@ fn new_file_backed_cache_changed_and_restored() {
     // This cache is file backed by same file as the above cache
     // saved `Segments.data` to and the `Seg` is restored
     restore = true;
-    let mut new_cache = make_cache(restore, datapool_path, metadata_path);
+    graceful_shutdown = false;
+    let mut new_cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
 
     assert!(new_cache.restored());
     // "latte" should be in restored cache
@@ -692,7 +702,9 @@ fn new_file_backed_cache_not_changed_and_restored() {
 
     // create new, file backed cache
     let mut restore = false;
-    let cache = make_cache(restore, datapool_path, metadata_path);
+    let mut graceful_shutdown = true;
+
+    let cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
 
     assert!(!cache.restored());
 
@@ -710,7 +722,8 @@ fn new_file_backed_cache_not_changed_and_restored() {
     // This cache is file backed by same file as the above cache
     // saved `Segments.data` to and the `Seg` is restored
     restore = true;
-    let new_cache = make_cache(restore, datapool_path, metadata_path);
+    graceful_shutdown = false;
+    let new_cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
 
     assert!(new_cache.restored());
 
@@ -731,7 +744,8 @@ fn new_cache_changed_and_not_restored() {
 
     // create new, file backed cache
     let mut restore = false;
-    let mut cache = make_cache(restore, datapool_path, metadata_path);
+    let graceful_shutdown = true;
+    let mut cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
 
     assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
@@ -762,7 +776,7 @@ fn new_cache_changed_and_not_restored() {
     // This new cache is file backed by same file as the above cache
     // saved `Segments.data` to but this cache is treated as new
     restore = false;
-    let mut new_cache = make_cache(restore, datapool_path, None);
+    let mut new_cache = make_cache(restore, datapool_path, None, graceful_shutdown);
 
     assert!(!new_cache.restored());
     assert_eq!(new_cache.items(), 0);
@@ -794,7 +808,8 @@ fn full_cache_recovery_long() {
 
     // create new, file backed cache
     let mut restore = false;
-    let mut cache = make_cache(restore, datapool_path, metadata_path);
+    let mut graceful_shutdown = true;
+    let mut cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
 
     assert!(!cache.restored());
     assert_eq!(cache.items(), 0);
@@ -847,7 +862,8 @@ fn full_cache_recovery_long() {
     // This new cache is file backed by same file as the above cache
     // saved `Segments.data` to and the `Seg` is restored
     restore = true;
-    let mut new_cache = make_cache(restore, datapool_path, metadata_path);
+    graceful_shutdown = false;
+    let mut new_cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
 
     assert!(new_cache.restored());
 

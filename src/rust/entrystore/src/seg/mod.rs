@@ -51,6 +51,9 @@ impl Seg {
             .eviction(eviction)
             .datapool_path(config.datapool_path())
             .metadata_path(config.metadata_path())
+            // TODO: perhaps there is a better way to indicate a graceful shutdown
+            // upon shutdown
+            .graceful_shutdown(config.graceful_shutdown())
             .build();
 
         Self { data }

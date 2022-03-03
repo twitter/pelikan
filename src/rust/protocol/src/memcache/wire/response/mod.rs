@@ -89,7 +89,7 @@ impl MemcacheResult {
             Self::Deleted => 7,
             Self::NotFound => 8,
             Self::NotStored => 9,
-            Self::Stopped => 10,  // TODO: check this is the correct code
+            Self::Stopped => 10, // TODO: check this is the correct code
             // CLIENT_ERROR
             // SERVER_ERROR
             _ => usize::MAX,

@@ -103,7 +103,6 @@ impl MemcacheRequest {
             Self::Cas { .. } => MemcacheCommand::Cas,
             Self::FlushAll => MemcacheCommand::FlushAll,
             Self::Stop => MemcacheCommand::Stop,
-
         }
     }
 }
