@@ -177,4 +177,8 @@ impl MemcacheStorage for Seg {
             Err(_) => Err(MemcacheStorageError::NotStored),
         }
     }
+
+    fn quit(&mut self) -> Result<(), MemcacheStorageError> {
+        Ok(())
+    }
 }
