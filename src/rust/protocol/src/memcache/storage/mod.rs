@@ -54,8 +54,4 @@ pub trait MemcacheStorage {
     /// Compare and store on the CAS value, replacing the stored item if the CAS
     /// value matches the provided value.
     fn cas(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError>;
-
-    /// Triggers a shutdown of the cache which closes connections to the cache 
-    /// server.
-    fn quit(&mut self) -> Result<(), MemcacheStorageError>;
 }
