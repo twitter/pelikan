@@ -434,6 +434,7 @@ impl EventLoop for Admin {
 
                         match request {
                             AdminRequest::FlushAll => {}
+                            AdminRequest::Stop => {}
                             AdminRequest::Stats => {
                                 Self::handle_stats_request(session);
                             }
