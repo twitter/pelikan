@@ -446,6 +446,10 @@ impl EventLoop for Admin {
                                         break;
                                     }
                                 }
+
+                                let _ = session.write(b"OK\r\n" );
+                                session.finalize_response();
+                                ADMIN_RESPONSE_COMPOSE.increment();
                             }
                             AdminRequest::Stats => {
                                 Self::handle_stats_request(session);
