@@ -216,14 +216,13 @@ impl Listener {
                     LISTENER_TOKEN => {
                         self.do_accept();
                     }
-                    WAKER_TOKEN =>
-                    {
-                        #[allow(clippy::never_loop)]
+                    WAKER_TOKEN => {
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
                             match signal {
                                 Signal::Shutdown => {
                                     return;
                                 }
+                                Signal::Stop => {}
                             }
                         }
                     }

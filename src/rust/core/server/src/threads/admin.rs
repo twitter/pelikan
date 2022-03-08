@@ -7,6 +7,7 @@
 
 use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
+use crate::QUEUE_RETRIES;
 use crate::TCP_ACCEPT_EX;
 use common::signal::Signal;
 use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
@@ -324,7 +325,6 @@ impl Admin {
                         self.do_accept();
                     }
                     WAKER_TOKEN => {
-                        #[allow(clippy::never_loop)]
                         // check if we have received signals from any sibling
                         // thread
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
@@ -341,6 +341,7 @@ impl Admin {
                                     let _ = self.log_drain.flush();
                                     return;
                                 }
+                                Signal::Stop => {}
                             }
                         }
                     }
@@ -434,7 +435,23 @@ impl EventLoop for Admin {
 
                         match request {
                             AdminRequest::FlushAll => {}
-                            AdminRequest::Stop => {}
+                            AdminRequest::Stop => {
+                                for _ in 0..QUEUE_RETRIES {
+                                    if self.signal_queue.broadcast(Signal::Stop).is_ok() {
+                                        warn!("sending stop signal");
+                                        break;
+                                    }
+                                }
+                                for _ in 0..QUEUE_RETRIES {
+                                    if self.signal_queue.wake_all().is_ok() {
+                                        break;
+                                    }
+                                }
+
+                                let _ = session.write(b"OK\r\n");
+                                session.finalize_response();
+                                ADMIN_RESPONSE_COMPOSE.increment();
+                            }
                             AdminRequest::Stats => {
                                 Self::handle_stats_request(session);
                             }

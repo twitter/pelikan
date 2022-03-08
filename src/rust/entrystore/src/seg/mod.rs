@@ -56,20 +56,16 @@ impl Seg {
 
         Self { data }
     }
-
-    /// Flush (gracefully shutdown) the `Seg` cache if configured to do so
-    pub fn flush<T: SegConfig>(self, config: &T) {
-        let config = config.seg();
-
-        if config.graceful_shutdown() {
-            // TODO: check if successfully shutdown and record result
-            self.data.flush();
-        };
-    }
 }
 
 impl EntryStore for Seg {
     fn expire(&mut self) {
         self.data.expire();
+    }
+
+    /// Flush (gracefully shutdown) the `Seg` cache
+    fn flush(&mut self) {
+        // TODO: check if successfully shutdown and record result
+        self.data.flush();
     }
 }
