@@ -447,7 +447,7 @@ impl EventLoop for Admin {
                                     }
                                 }
 
-                                let _ = session.write(b"OK\r\n" );
+                                let _ = session.write(b"OK\r\n");
                                 session.finalize_response();
                                 ADMIN_RESPONSE_COMPOSE.increment();
                             }
