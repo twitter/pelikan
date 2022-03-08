@@ -7,6 +7,7 @@
 
 use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
+use crate::QUEUE_RETRIES;
 use crate::TCP_ACCEPT_EX;
 use common::signal::Signal;
 use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
@@ -324,11 +325,11 @@ impl Admin {
                         self.do_accept();
                     }
                     WAKER_TOKEN => {
-                        #[allow(clippy::never_loop)]
                         // check if we have received signals from any sibling
                         // thread
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
                             match signal {
+                                Signal::FlushAll => {}
                                 Signal::Shutdown => {
                                     // if a shutdown is received from any
                                     // thread, we will broadcast it to all
@@ -433,7 +434,19 @@ impl EventLoop for Admin {
                         session.consume(consumed);
 
                         match request {
-                            AdminRequest::FlushAll => {}
+                            AdminRequest::FlushAll => {
+                                for _ in 0..QUEUE_RETRIES {
+                                    if self.signal_queue.broadcast(Signal::FlushAll).is_ok() {
+                                        warn!("sending flush_all signal");
+                                        break;
+                                    }
+                                }
+                                for _ in 0..QUEUE_RETRIES {
+                                    if self.signal_queue.wake_all().is_ok() {
+                                        break;
+                                    }
+                                }
+                            }
                             AdminRequest::Stats => {
                                 Self::handle_stats_request(session);
                             }

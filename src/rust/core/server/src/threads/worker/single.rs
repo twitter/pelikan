@@ -97,10 +97,13 @@ where
                     WAKER_TOKEN => {
                         self.handle_new_sessions();
 
-                        #[allow(clippy::never_loop)]
                         // check if we received any signals from the admin thread
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
                             match signal {
+                                Signal::FlushAll => {
+                                    warn!("received flush_all");
+                                    self.storage.clear();
+                                }
                                 Signal::Shutdown => {
                                     // if we received a shutdown, we can return
                                     // and stop processing events

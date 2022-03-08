@@ -4,5 +4,6 @@
 
 #[derive(Clone)]
 pub enum Signal {
+    FlushAll,
     Shutdown,
 }
