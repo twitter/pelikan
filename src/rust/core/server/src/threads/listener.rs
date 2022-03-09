@@ -222,7 +222,9 @@ impl Listener {
                                 Signal::Shutdown => {
                                     return;
                                 }
-                                Signal::Stop => {}
+                                Signal::Stop => {
+                                    return;
+                                }
                             }
                         }
                     }

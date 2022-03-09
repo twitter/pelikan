@@ -141,7 +141,6 @@ where
                     }
                 }
 
-                #[allow(clippy::never_loop)]
                 // check if we received any signals from the admin thread
                 while let Ok(s) = self.signal_queue.recv_from(0) {
                     match s {

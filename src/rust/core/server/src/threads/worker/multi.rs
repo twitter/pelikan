@@ -114,7 +114,9 @@ where
                                     // and stop processing events
                                     return;
                                 }
-                                Signal::Stop => {}
+                                Signal::Stop => {
+                                    return;
+                                }
                             }
                         }
                     }

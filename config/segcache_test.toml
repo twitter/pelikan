@@ -22,7 +22,7 @@ timeout = 100
 # epoll max events returned
 nevent = 1024
 # number of worker threads
-threads = 4
+threads = 1
 
 # storage configuration
 [seg]

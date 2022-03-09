@@ -341,7 +341,15 @@ impl Admin {
                                     let _ = self.log_drain.flush();
                                     return;
                                 }
-                                Signal::Stop => {}
+                                Signal::Stop => {
+                                    info!("stopping");
+                                    let _ = self.signal_queue.broadcast(Signal::Stop);
+                                    if self.signal_queue.wake_all().is_err() {
+                                        fatal!("error waking threads for stop");
+                                    }
+                                    let _ = self.log_drain.flush();
+                                    return;
+                                }
                             }
                         }
                     }
@@ -442,6 +450,8 @@ impl EventLoop for Admin {
                                         break;
                                     }
                                 }
+
+            
                                 for _ in 0..QUEUE_RETRIES {
                                     if self.signal_queue.wake_all().is_ok() {
                                         break;
