@@ -142,6 +142,7 @@ where
                 }
 
                 // check if we received any signals from the admin thread
+                #[allow(clippy::never_loop)]
                 while let Ok(s) = self.signal_queue.recv_from(0) {
                     match s {
                         Signal::Shutdown => {

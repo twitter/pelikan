@@ -56,7 +56,7 @@ time_type = "Memcache"
 
 [debug]
 # choose from: error, warn, info, debug, trace
-log_level = "trace"
+log_level = "warn"
 # optionally, log to the file below instead of standard out
 # log_file = "segcache.log"
 # backup file name for use with log rotation

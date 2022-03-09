@@ -327,7 +327,8 @@ impl Admin {
                     WAKER_TOKEN => {
                         // check if we have received signals from any sibling
                         // thread
-                        while let Ok(signal) = self.signal_queue.recv_from(0) {
+                        #[allow(clippy::never_loop)]
+                        while let Ok(signal) = self.signal_queue.recv_from(1) {
                             match signal {
                                 Signal::Shutdown => {
                                     // if a shutdown is received from any
@@ -342,11 +343,7 @@ impl Admin {
                                     return;
                                 }
                                 Signal::Stop => {
-                                    info!("stopping");
-                                    let _ = self.signal_queue.broadcast(Signal::Stop);
-                                    if self.signal_queue.wake_all().is_err() {
-                                        fatal!("error waking threads for stop");
-                                    }
+                                    warn!("received stop");
                                     let _ = self.log_drain.flush();
                                     return;
                                 }
@@ -444,14 +441,16 @@ impl EventLoop for Admin {
                         match request {
                             AdminRequest::FlushAll => {}
                             AdminRequest::Stop => {
+                                let admin_queue = self.signal_queue.new_pair(128, None);
+                                self.signal_queue.add_pair(admin_queue);
+
                                 for _ in 0..QUEUE_RETRIES {
+                                    // Send Stop to all other threads
                                     if self.signal_queue.broadcast(Signal::Stop).is_ok() {
-                                        warn!("sending stop signal");
+                                        warn!("sending stop signal to all threads");
                                         break;
                                     }
                                 }
-
-            
                                 for _ in 0..QUEUE_RETRIES {
                                     if self.signal_queue.wake_all().is_ok() {
                                         break;
