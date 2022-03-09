@@ -328,7 +328,7 @@ impl Admin {
                         // check if we have received signals from any sibling
                         // thread
                         #[allow(clippy::never_loop)]
-                        while let Ok(signal) = self.signal_queue.recv_from(1) {
+                        while let Ok(signal) = self.signal_queue.recv_from(0) {
                             match signal {
                                 Signal::Shutdown => {
                                     // if a shutdown is received from any
