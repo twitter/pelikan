@@ -7,7 +7,7 @@ use crate::THREAD_PREFIX;
 use common::signal::Signal;
 use entrystore::EntryStore;
 use mio::Waker;
-use protocol::{Compose, Execute, Parse};
+use protocol_common::{Compose, Execute, Parse};
 use queues::QueuePair;
 use session::Session;
 use std::sync::Arc;

@@ -13,7 +13,7 @@ use mio::Events;
 use mio::Poll;
 use mio::Token;
 use mio::Waker;
-use protocol::{Compose, Execute};
+use protocol_common::{Compose, Execute};
 use queues::{QueueError, QueuePair, QueuePairs};
 use std::sync::Arc;
 

@@ -9,7 +9,7 @@
 use config::*;
 use entrystore::Seg;
 use logger::*;
-use protocol::memcache::{MemcacheRequest, MemcacheRequestParser, MemcacheResponse};
+use protocol_memcache::{MemcacheRequest, MemcacheRequestParser, MemcacheResponse};
 use server::{Process, ProcessBuilder};
 
 type Parser = MemcacheRequestParser;

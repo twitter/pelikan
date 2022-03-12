@@ -11,7 +11,7 @@ use config::TlsConfig;
 use config::WorkerConfig;
 use entrystore::EntryStore;
 use logger::*;
-use protocol::{Compose, Execute, Parse};
+use protocol_common::{Compose, Execute, Parse};
 use queues::QueuePairs;
 use std::io::Error;
 

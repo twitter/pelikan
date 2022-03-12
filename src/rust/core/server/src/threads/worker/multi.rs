@@ -20,7 +20,7 @@ use core::time::Duration;
 use entrystore::EntryStore;
 use mio::event::Event;
 use mio::{Events, Token, Waker};
-use protocol::{Compose, Execute, Parse, ParseError};
+use protocol_common::{Compose, Execute, Parse, ParseError};
 use queues::{QueuePair, QueuePairs, SendError};
 use session::Session;
 use std::io::{BufRead, Write};
@@ -38,7 +38,7 @@ const WAKER_TOKEN: usize = usize::MAX;
 pub struct MultiWorker<Storage, Parser, Request, Response>
 where
     Parser: Parse<Request>,
-    Response: protocol::Compose,
+    Response: Compose,
 {
     signal_queue: QueuePairs<Signal, Signal>,
     poll: Poll,

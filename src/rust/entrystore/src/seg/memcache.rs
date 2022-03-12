@@ -7,9 +7,162 @@
 
 use super::*;
 
-use protocol::memcache::{MemcacheEntry, MemcacheStorage, MemcacheStorageError};
+use protocol_memcache::*;
 
 use std::time::Duration;
+
+impl<'a> Execute<MemcacheRequest, MemcacheResponse> for Seg {
+    fn execute(&mut self, request: MemcacheRequest) -> Option<MemcacheResponse> {
+        let result = match request {
+            MemcacheRequest::Get { ref keys } => MemcacheResult::Values {
+                entries: self.get(keys),
+                cas: false,
+            },
+            MemcacheRequest::Gets { ref keys } => MemcacheResult::Values {
+                entries: self.get(keys),
+                cas: true,
+            },
+            MemcacheRequest::Set { ref entry, noreply } => {
+                let response = match self.set(entry) {
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::Add { ref entry, noreply } => {
+                let response = match self.add(entry) {
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::Replace { ref entry, noreply } => {
+                let response = match self.replace(entry) {
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::Append { ref entry, noreply } => {
+                let response = match self.append(entry) {
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
+                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::Prepend { ref entry, noreply } => {
+                let response = match self.prepend(entry) {
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
+                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::Delete { ref key, noreply } => {
+                let response = match self.delete(key) {
+                    Ok(_) => MemcacheResult::Deleted,
+                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::Incr {
+                ref key,
+                value,
+                noreply,
+            } => {
+                let response = match self.incr(key, value) {
+                    Ok(count) => MemcacheResult::Count(count),
+                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
+                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
+                    Err(MemcacheStorageError::Error) => MemcacheResult::Error,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::Decr {
+                ref key,
+                value,
+                noreply,
+            } => {
+                let response = match self.decr(key, value) {
+                    Ok(count) => MemcacheResult::Count(count),
+                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
+                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
+                    Err(MemcacheStorageError::Error) => MemcacheResult::Error,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::Cas { ref entry, noreply } => {
+                let response = match self.cas(entry) {
+                    Ok(_) => MemcacheResult::Stored,
+                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
+                    Err(MemcacheStorageError::Exists) => MemcacheResult::Exists,
+                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
+                    _ => {
+                        unreachable!()
+                    }
+                };
+                if noreply {
+                    return None;
+                }
+                response
+            }
+            MemcacheRequest::FlushAll => {
+                return None;
+            }
+        };
+
+        Some(MemcacheResponse { request, result })
+    }
+}
 
 impl MemcacheStorage for Seg {
     fn get(&mut self, keys: &[Box<[u8]>]) -> Box<[MemcacheEntry]> {

@@ -20,7 +20,7 @@ use mio::event::Event;
 use mio::Events;
 use mio::Token;
 use mio::Waker;
-use protocol::{Compose, Execute, Parse, ParseError};
+use protocol_common::{Compose, Execute, Parse, ParseError};
 use queues::QueuePair;
 use queues::QueuePairs;
 use session::Session;

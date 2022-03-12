@@ -370,7 +370,8 @@ version = "0.0.1"
 dependencies = [
  "common",
  "config",
- "protocol",
+ "protocol-memcache",
+ "protocol-ping",
  "seg",
 ]
 
@@ -806,7 +807,7 @@ dependencies = [
  "entrystore",
  "logger",
  "metrics",
- "protocol",
+ "protocol-ping",
  "server",
 ]
 
@@ -864,14 +865,56 @@ dependencies = [
 ]
 
 [[package]]
-name = "protocol"
-version = "0.1.1"
+name = "protocol-admin"
+version = "0.0.1"
 dependencies = [
  "common",
  "config",
  "criterion",
  "logger",
  "metrics",
+ "protocol-common",
+ "session",
+ "storage-types",
+]
+
+[[package]]
+name = "protocol-common"
+version = "0.0.1"
+dependencies = [
+ "common",
+ "config",
+ "criterion",
+ "logger",
+ "metrics",
+ "session",
+ "storage-types",
+]
+
+[[package]]
+name = "protocol-memcache"
+version = "0.0.1"
+dependencies = [
+ "common",
+ "config",
+ "criterion",
+ "logger",
+ "metrics",
+ "protocol-common",
+ "session",
+ "storage-types",
+]
+
+[[package]]
+name = "protocol-ping"
+version = "0.0.1"
+dependencies = [
+ "common",
+ "config",
+ "criterion",
+ "logger",
+ "metrics",
+ "protocol-common",
  "session",
  "storage-types",
 ]
@@ -1144,7 +1187,7 @@ dependencies = [
  "entrystore",
  "logger",
  "metrics",
- "protocol",
+ "protocol-memcache",
  "server",
 ]
 
@@ -1211,7 +1254,8 @@ dependencies = [
  "logger",
  "metrics",
  "mio",
- "protocol",
+ "protocol-admin",
+ "protocol-common",
  "queues",
  "rand",
  "rtrb",
