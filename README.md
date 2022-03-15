@@ -77,6 +77,7 @@ Currently Pelikan yields three main products, all of which are backends/servers.
 ## Build
 ```sh
 git clone https://github.com/twitter/pelikan.git
+cd pelikan
 mkdir _build && cd _build
 cmake ..
 make -j
