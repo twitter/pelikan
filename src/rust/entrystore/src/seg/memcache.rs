@@ -177,12 +177,4 @@ impl MemcacheStorage for Seg {
             Err(_) => Err(MemcacheStorageError::NotStored),
         }
     }
-
-    fn stop(&mut self) -> Result<(), MemcacheStorageError> {
-        if self.data.flush().is_ok() {
-            Ok(())
-        } else {
-            Err(MemcacheStorageError::ServerError)
-        }
-    }
 }
