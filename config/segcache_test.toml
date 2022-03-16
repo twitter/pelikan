@@ -41,10 +41,10 @@ merge_max = 8
 # use merge based eviction
 eviction = "Merge"
 # optionally, set a file path to back the data datapool
-#datapool_path = "/home/users/u6632448/file_for_data"
+datapool_path = "/home/users/u6632448/file_for_data"
 #datapool_path = "/mnt/pmem1.0/cassy/data"
 # set a file path to back the metadata datapool
-#metadata_path = "/home/users/u6632448/file_for_metadata"
+metadata_path = "/home/users/u6632448/file_for_metadata"
 #metadata_path = "/mnt/pmem1.0/cassy/metadata"
 # state whether cache will be restored
 restore = false
