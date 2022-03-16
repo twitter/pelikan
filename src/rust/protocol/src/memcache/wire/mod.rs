@@ -231,7 +231,7 @@ where
             }
             MemcacheRequest::Stop => {
                 return None;
-            },
+            }
         };
 
         Some(MemcacheResponse { request, result })
