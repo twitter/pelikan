@@ -21,4 +21,7 @@ pub trait EntryStore {
     /// implementation is a no-op. Types which can efficiently implement eager
     /// expiration should implement their own handling logic for this function.
     fn expire(&mut self) {}
+
+    /// Flush all values from the entry store to persistent storage.
+    fn flush(&mut self);
 }

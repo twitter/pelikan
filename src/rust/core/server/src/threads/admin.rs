@@ -7,6 +7,7 @@
 
 use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
+use crate::QUEUE_RETRIES;
 use crate::TCP_ACCEPT_EX;
 use common::signal::Signal;
 use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
@@ -324,9 +325,9 @@ impl Admin {
                         self.do_accept();
                     }
                     WAKER_TOKEN => {
-                        #[allow(clippy::never_loop)]
                         // check if we have received signals from any sibling
                         // thread
+                        #[allow(clippy::never_loop)]
                         while let Ok(signal) = self.signal_queue.recv_from(0) {
                             match signal {
                                 Signal::Shutdown => {
@@ -338,6 +339,11 @@ impl Admin {
                                     if self.signal_queue.wake_all().is_err() {
                                         fatal!("error waking threads for shutdown");
                                     }
+                                    let _ = self.log_drain.flush();
+                                    return;
+                                }
+                                Signal::Stop => {
+                                    warn!("received stop");
                                     let _ = self.log_drain.flush();
                                     return;
                                 }
@@ -434,6 +440,27 @@ impl EventLoop for Admin {
 
                         match request {
                             AdminRequest::FlushAll => {}
+                            AdminRequest::Stop => {
+                                let admin_queue = self.signal_queue.new_pair(128, None);
+                                self.signal_queue.add_pair(admin_queue);
+
+                                for _ in 0..QUEUE_RETRIES {
+                                    // Send Stop to all other threads
+                                    if self.signal_queue.broadcast(Signal::Stop).is_ok() {
+                                        warn!("sending stop signal to all threads");
+                                        break;
+                                    }
+                                }
+                                for _ in 0..QUEUE_RETRIES {
+                                    if self.signal_queue.wake_all().is_ok() {
+                                        break;
+                                    }
+                                }
+
+                                let _ = session.write(b"OK\r\n");
+                                session.finalize_response();
+                                ADMIN_RESPONSE_COMPOSE.increment();
+                            }
                             AdminRequest::Stats => {
                                 Self::handle_stats_request(session);
                             }

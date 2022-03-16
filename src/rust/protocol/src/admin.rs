@@ -18,6 +18,7 @@ pub enum AdminRequest {
     Stats,
     Version,
     Quit,
+    Stop,
 }
 
 #[derive(Default, Copy, Clone)]
@@ -60,6 +61,10 @@ impl Parse<AdminRequest> for AdminRequestParser {
                     }),
                     b"version" => Ok(ParseOk {
                         message: AdminRequest::Version,
+                        consumed: command_end + CRLF.len(),
+                    }),
+                    b"stop" => Ok(ParseOk {
+                        message: AdminRequest::Stop,
                         consumed: command_end + CRLF.len(),
                     }),
                     _ => Err(ParseError::UnknownCommand),

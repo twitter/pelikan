@@ -21,29 +21,58 @@ pub struct File {
 
 impl File {
     /// Create a new `File` datapool at the given path and with the specified
-    /// size (in bytes). Returns an error if the file already exists, could not
-    /// be created, couldn't be extended to the requested size, or couldn't be
-    /// mmap'd
+    /// size (in bytes). If a file already exists at the given path, check it is
+    /// the right size and open it. Otherwise, open a new file at the given path
+    ///and with the specified size. Returns an error if could not be created,
+    /// size of file is not the right size (opening), couldn't be extended to
+    /// the requested size (creating), or couldn't be mmap'd.
     pub fn create<T: AsRef<Path>>(
         path: T,
         size: usize,
         prefault: bool,
     ) -> Result<Self, std::io::Error> {
-        let file = OpenOptions::new()
-            .create_new(true)
-            .read(true)
-            .write(true)
-            .open(path)?;
-        file.set_len(size as u64)?;
-        let mut mmap = unsafe { MmapOptions::new().populate().map_mut(&file)? };
-        if prefault {
-            let mut offset = 0;
-            while offset < size {
-                mmap[offset] = 0;
-                offset += PAGE_SIZE;
+        // TODO: uncomment below code once there is a better way to determine expected `size` of the existing file
+        // check if the file exists and is the right size
+        // let exists = if let Ok(current_size) = std::fs::metadata(&path).map(|m| m.len()) {
+        //     if current_size != size as u64 {
+        //         return Err(std::io::Error::new(
+        //             std::io::ErrorKind::Other,
+        //             "existing file has wrong size",
+        //         ));
+        //     }
+        //     true
+        // } else {
+        //     false
+        // };
+
+        let exists = std::fs::metadata(&path).is_ok();
+
+        let mmap = if exists {
+            let f = OpenOptions::new().read(true).write(true).open(path)?;
+
+            unsafe { MmapOptions::new().populate().map_mut(&f)? }
+        } else {
+            let f = OpenOptions::new()
+                .create_new(true)
+                .read(true)
+                .write(true)
+                .open(path)?;
+            f.set_len(size as u64)?;
+
+            let mut mmap = unsafe { MmapOptions::new().populate().map_mut(&f)? };
+
+            if prefault {
+                let mut offset = 0;
+                while offset < size {
+                    mmap[offset] = 0;
+                    offset += PAGE_SIZE;
+                }
+                mmap.flush()?;
             }
-            mmap.flush()?;
-        }
+
+            mmap
+        };
+
         Ok(Self { mmap, size })
     }
 }

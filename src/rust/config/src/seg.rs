@@ -8,6 +8,10 @@ use serde::{Deserialize, Serialize};
 
 const MB: usize = 1024 * 1024;
 
+// restore and graceful shutdown options
+const RESTORE: bool = false;
+const GRACEFUL_SHUTDOWN: bool = false;
+
 // defaults for hashtable
 const HASH_POWER: u8 = 16;
 const OVERFLOW_FACTOR: f64 = 1.0;
@@ -24,8 +28,11 @@ const COMPACT_TARGET: usize = 2;
 const MERGE_TARGET: usize = 4;
 const MERGE_MAX: usize = 8;
 
-// datapool
+// datapool (`Segments.data`)
 const DATAPOOL_PATH: Option<&str> = None;
+
+// hashtable
+const HASHTABLE_PATH: Option<&str> = None;
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Eviction {
@@ -39,6 +46,14 @@ pub enum Eviction {
 }
 
 // helper functions for default values
+fn restore() -> bool {
+    RESTORE
+}
+
+fn graceful_shutdown() -> bool {
+    GRACEFUL_SHUTDOWN
+}
+
 fn hash_power() -> u8 {
     HASH_POWER
 }
@@ -75,9 +90,17 @@ fn datapool_path() -> Option<String> {
     DATAPOOL_PATH.map(|v| v.to_string())
 }
 
+fn metadata_path() -> Option<String> {
+    HASHTABLE_PATH.map(|v| v.to_string())
+}
+
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Seg {
+    #[serde(default = "restore")]
+    restore: bool,
+    #[serde(default = "graceful_shutdown")]
+    graceful_shutdown: bool,
     #[serde(default = "hash_power")]
     hash_power: u8,
     #[serde(default = "overflow_factor")]
@@ -96,11 +119,15 @@ pub struct Seg {
     compact_target: usize,
     #[serde(default = "datapool_path")]
     datapool_path: Option<String>,
+    #[serde(default = "metadata_path")]
+    metadata_path: Option<String>,
 }
 
 impl Default for Seg {
     fn default() -> Self {
         Self {
+            restore: restore(),
+            graceful_shutdown: graceful_shutdown(),
             hash_power: hash_power(),
             overflow_factor: overflow_factor(),
             heap_size: heap_size(),
@@ -110,12 +137,28 @@ impl Default for Seg {
             merge_max: merge_max(),
             compact_target: compact_target(),
             datapool_path: datapool_path(),
+            metadata_path: metadata_path(),
         }
     }
 }
 
 // implementation
 impl Seg {
+    // Determines if the `Seg` will be restored. The restoration will be
+    // successful if `datapool_path` and `metadata_path` are valid paths.
+    // Otherwise, the `Seg` will be created as
+    //new.
+    pub fn restore(&self) -> bool {
+        self.restore
+    }
+
+    // Determines if the `Seg` will be gracefully shutdown. The graceful
+    // shutdown will be successful if the cache is file backed and
+    // metadata_path` is a valid path to save the relevant `Seg` fields to.
+    // Otherwise, the relevant `Seg` fields will not be saved.
+    pub fn graceful_shutdown(&self) -> bool {
+        self.graceful_shutdown
+    }
     pub fn hash_power(&self) -> u8 {
         self.hash_power
     }
@@ -150,6 +193,10 @@ impl Seg {
 
     pub fn datapool_path(&self) -> Option<PathBuf> {
         self.datapool_path.as_ref().map(|v| Path::new(v).to_owned())
+    }
+
+    pub fn metadata_path(&self) -> Option<PathBuf> {
+        self.metadata_path.as_ref().map(|v| Path::new(v).to_owned())
     }
 }
 

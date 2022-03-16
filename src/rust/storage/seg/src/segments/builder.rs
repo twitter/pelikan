@@ -11,7 +11,9 @@ use crate::segments::*;
 use std::path::{Path, PathBuf};
 
 /// The `SegmentsBuilder` allows for the configuration of the segment storage.
+#[derive(Clone)]
 pub(crate) struct SegmentsBuilder {
+    pub(super) restore: bool,
     pub(super) heap_size: usize,
     pub(super) segment_size: i32,
     pub(super) evict_policy: Policy,
@@ -21,6 +23,7 @@ pub(crate) struct SegmentsBuilder {
 impl Default for SegmentsBuilder {
     fn default() -> Self {
         Self {
+            restore: false,
             segment_size: 1024 * 1024,
             heap_size: 64 * 1024 * 1024,
             evict_policy: Policy::Random,
@@ -30,6 +33,14 @@ impl Default for SegmentsBuilder {
 }
 
 impl<'a> SegmentsBuilder {
+    /// Specify whether the `Segments` fields' will be restored
+    /// from the `metadata`. Otherwise, the cache will be created and treated as
+    // new.
+    pub fn restore(mut self, restore: bool) -> Self {
+        self.restore = restore;
+        self
+    }
+
     /// Set the segment size in bytes.
     ///
     /// # Panics
@@ -62,7 +73,7 @@ impl<'a> SegmentsBuilder {
         self
     }
 
-    /// Specify a backing file to be used for the segment storage. If provided,
+    /// Specify a backing file to be used for the `Segments.data` storage. If provided,
     /// a file will be created at the corresponding path and used for segment
     /// storage.
     pub fn datapool_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
@@ -71,7 +82,7 @@ impl<'a> SegmentsBuilder {
     }
 
     /// Construct the [`Segments`] from the builder
-    pub fn build(self) -> Segments {
-        Segments::from_builder(self)
+    pub fn build(self, option_metadata: Option<&mut [u8]>) -> Segments {
+        Segments::from_builder(self, option_metadata)
     }
 }

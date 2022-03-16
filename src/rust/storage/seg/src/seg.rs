@@ -4,9 +4,11 @@
 
 //! Core datastructure
 
+use crate::datapool::*;
 use crate::Value;
 use crate::*;
 use std::cmp::min;
+use std::path::PathBuf;
 
 use metrics::{static_metrics, Counter};
 
@@ -22,10 +24,15 @@ static_metrics! {
 /// segment-structured design that stores data in fixed-size segments, grouping
 /// objects with nearby expiration time into the same segment, and lifting most
 /// per-object metadata into the shared segment header.
+#[derive(Clone)]
 pub struct Seg {
     pub(crate) hashtable: HashTable,
     pub(crate) segments: Segments,
     pub(crate) ttl_buckets: TtlBuckets,
+    // Path to metadata datapool
+    pub(crate) metadata_path: Option<PathBuf>,
+    // Will the cache be gracefully shutdown?
+    pub(crate) graceful_shutdown: bool,
 }
 
 impl Seg {
@@ -46,6 +53,40 @@ impl Seg {
     /// ```
     pub fn builder() -> Builder {
         Builder::default()
+    }
+
+    /// If `graceful_shutdown`, flushe cache by storing all the relevant fields
+    /// of `Segments`, `HashTable` and `TtlBuckets` to the `metadata` file
+    /// (if it exists) and flushing `Segments.data` (if it is file backed)
+    pub fn flush(&self) -> std::io::Result<()> {
+        if self.graceful_shutdown {
+            if let Some(file) = &self.metadata_path {
+                let file_size = self.hashtable.recover_size()
+                    + self.ttl_buckets.recover_size()
+                    + self.segments.recover_size();
+
+                // Mmap file
+                let mut pool = File::create(file, file_size, true)
+                    .expect("failed to allocate file backed storage");
+                let metadata = pool.as_mut_slice();
+
+                self.hashtable.flush(metadata);
+                let mut offset = self.hashtable.recover_size();
+                self.ttl_buckets.flush(&mut metadata[offset..]);
+                offset += self.ttl_buckets.recover_size();
+                self.segments.flush(&mut metadata[offset..])?;
+
+                // TODO: check if this flushes the CPU caches
+                pool.flush()?;
+                return Ok(());
+            }
+        }
+
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Path to datapool to is None, cannot gracefully
+                shutdown cache",
+        ))
     }
 
     /// Gets a count of items in the `Seg` instance. This is an expensive
@@ -146,6 +187,11 @@ impl Seg {
                     return Err(SegError::ItemOversized { size });
                 }
                 Err(TtlBucketsError::NoFreeSegments) => {
+                    if retries == RESERVE_RETRIES {
+                        // first attempt to acquire a free segment, increment
+                        // the stats
+                        SEGMENT_REQUEST.increment();
+                    }
                     if self
                         .segments
                         .evict(&mut self.ttl_buckets, &mut self.hashtable)
@@ -307,6 +353,14 @@ impl Seg {
         }
     }
 
+    // Indicated if `Seg` has been restored
+    #[cfg(test)]
+    pub(crate) fn restored(&self) -> bool {
+        self.segments.fields_copied_back
+            && self.ttl_buckets._buckets_copied_back
+            && self.hashtable._table_copied_back
+    }
+
     /// Perform a wrapping addition on the value stored at the supplied key.
     /// Returns an error if the key is invalid, the item is not found, or the
     /// stored value is not a numeric type.
@@ -329,5 +383,14 @@ impl Seg {
             .ok_or(SegError::NotFound)?;
         item.saturating_sub(rhs)?;
         Ok(item)
+    }
+}
+
+impl PartialEq for Seg {
+    // Checks if `Segments` are equivalent
+    fn eq(&self, other: &Self) -> bool {
+        self.segments == other.segments
+            && self.hashtable == other.hashtable
+            && self.ttl_buckets == other.ttl_buckets
     }
 }

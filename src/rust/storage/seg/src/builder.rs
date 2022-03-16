@@ -4,28 +4,44 @@
 
 //! A builder for configuring a new [`Seg`] instance.
 
+use crate::datapool::*;
 use crate::*;
 use std::path::Path;
+use std::path::PathBuf;
 
 /// A builder that is used to construct a new [`Seg`] instance.
 pub struct Builder {
+    restore: bool,
     hash_power: u8,
     overflow_factor: f64,
     segments_builder: SegmentsBuilder,
+    metadata_path: Option<PathBuf>,
+    graceful_shutdown: bool,
 }
 
 // Defines the default parameters
 impl Default for Builder {
     fn default() -> Self {
         Self {
+            restore: false,
             hash_power: 16,
             overflow_factor: 0.0,
             segments_builder: SegmentsBuilder::default(),
+            metadata_path: None,
+            graceful_shutdown: false,
         }
     }
 }
 
 impl Builder {
+    /// Specify to `Builder` and `SegmentsBuilder` whether the cache will be restored.
+    /// Otherwise, the cache will be created and treated as new.
+    pub fn restore(mut self, restore: bool) -> Self {
+        self.restore = restore;
+        self.segments_builder = self.segments_builder.restore(restore);
+        self
+    }
+
     /// Specify the hash power, which limits the size of the hashtable to 2^N
     /// entries. 1/8th of these are used for metadata storage, meaning that the
     /// total number of items which can be held in the cache is limited to
@@ -135,17 +151,32 @@ impl Builder {
         self
     }
 
-    /// Specify a backing file to be used for segment storage.
-    ///
-    /// # Panics
-    ///
-    /// This will panic if the file already exists
+    /// Specify a backing file to be used for `Segments.data` storage.
     pub fn datapool_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
         self.segments_builder = self.segments_builder.datapool_path(path);
         self
     }
 
+    /// Specify a backing file to be used for metadata storage.
+    pub fn metadata_path<T: AsRef<Path>>(mut self, path: Option<T>) -> Self {
+        self.metadata_path = path.map(|p| p.as_ref().to_owned());
+        self
+    }
+
+    /// Specify whether the cache will be gracefully shutdown. If `true`, then
+    /// when the cache is flushed, the relevant parts will be stored to the file
+    /// with path `metadata_path`
+    pub fn graceful_shutdown(mut self, graceful_shutdown: bool) -> Self {
+        self.graceful_shutdown = graceful_shutdown;
+        self
+    }
+
     /// Consumes the builder and returns a fully-allocated `Seg` instance.
+    /// If `restore`, the cache `Segments.data` is file backed by an existing
+    /// file and a valid file for the `metadata` is given, `Seg` will be
+    /// restored. Otherwise, create a new `Seg` instance. The path for the
+    /// `metadata` file will be saved with the `Seg` instance to be used to save
+    // the structures to upon graceful shutdown.
     ///
     /// ```
     /// use seg::{Policy, Seg};
@@ -159,14 +190,58 @@ impl Builder {
     ///     .eviction(Policy::Random).build();
     /// ```
     pub fn build(self) -> Seg {
+        // If `restore` and there is a path for the metadata file to
+        // restore from, restore the cache
+        if self.restore && self.metadata_path.is_some() {
+            // Check if the metadata file exists and with what size
+            if let Ok(file_size) =
+                std::fs::metadata(self.metadata_path.as_ref().unwrap()).map(|m| m.len())
+            {
+                // TODO: implement a non-messy way to calculate expected file size, rather than just taking actual size
+                let file_size = file_size as usize;
+
+                // Mmap file
+                let mut pool = File::create(self.metadata_path.clone().unwrap(), file_size, true)
+                    .expect("failed to allocate file backed storage");
+                let metadata = pool.as_mut_slice();
+
+                let hashtable = HashTable::restore(metadata, self.hash_power, self.overflow_factor);
+
+                let mut offset = hashtable.recover_size();
+                let ttl_buckets = TtlBuckets::restore(&metadata[offset..]);
+
+                offset += ttl_buckets.recover_size();
+
+                let segments = self
+                    .segments_builder
+                    .clone()
+                    .build(Some(&mut metadata[offset..]));
+
+                // Check that `Segments` was copied back, it will fail if the
+                // file for the file backed `Segments.data` did not exist
+                if segments.fields_copied_back {
+                    return Seg {
+                        hashtable,
+                        segments,
+                        ttl_buckets,
+                        metadata_path: self.metadata_path,
+                        graceful_shutdown: self.graceful_shutdown,
+                    };
+                }
+            }
+        }
+
+        // Otherwise, create a new cache
+        let segments = self.segments_builder.build(None);
         let hashtable = HashTable::new(self.hash_power, self.overflow_factor);
-        let segments = self.segments_builder.build();
-        let ttl_buckets = TtlBuckets::default();
+        let ttl_buckets = TtlBuckets::new();
 
         Seg {
             hashtable,
             segments,
             ttl_buckets,
+            metadata_path: self.metadata_path,
+            graceful_shutdown: self.graceful_shutdown,
         }
     }
 }

@@ -6,8 +6,10 @@ use super::*;
 use crate::hashtable::HashBucket;
 use crate::item::ITEM_HDR_SIZE;
 use core::num::NonZeroU32;
-
+use std::collections::HashSet;
+use std::path::PathBuf;
 use std::time::Duration;
+use tempfile::TempDir;
 
 #[test]
 fn sizes() {
@@ -21,7 +23,7 @@ fn sizes() {
     assert_eq!(std::mem::size_of::<SegmentHeader>(), 64);
 
     assert_eq!(std::mem::size_of::<HashBucket>(), 64);
-    assert_eq!(std::mem::size_of::<HashTable>(), 64);
+    assert_eq!(std::mem::size_of::<HashTable>(), 80);
 
     assert_eq!(std::mem::size_of::<crate::ttl_buckets::TtlBucket>(), 64);
     assert_eq!(std::mem::size_of::<TtlBuckets>(), 24);
@@ -467,4 +469,414 @@ fn saturating_sub() {
         .saturating_sub(b"coffee", 1)
         .expect("failed to increment");
     assert_eq!(item.value(), 0, "item is: {:?}", item);
+}
+
+// ----------- TESTS FOR RECOVERY -------------
+// Configuration Options:
+//
+// New cache, not file backed
+// ---- Cache is created new in main memory.
+// New cache, file backed
+// ---- Cache is created new and is file backed.
+// ---- In other words, file is used as an extension of DRAM.
+// ---- Note: The cache cannot be gracefully shutdown by if it isn't file backed.
+// ---- That is, if there is no path used to file back the cache, there is no
+// ---- path to copy the cache data to on shutdown
+// Not gracefully shutdown
+// ---- Nothing is saved on shutdown.
+// Gracefully shutdown
+// ---- `Segments.data` is flushed if it is file backed
+// ---- Rest of `Seg` instance saved on shutdown if the `metadata_path` is valid.
+// ---- That is, all of `Seg.hashtable`, `Seg.ttl_buckets` and the relevant
+// ---- `Seg.Segments` fields are saved
+// Restored cache
+// ---- `Segments.data` must be file backed
+// ---- Rest of `Seg` copied back from the files they were saved to and
+// ---- If any of the file paths are not valid, then the cache is created new
+
+// ------------- Set up / Helper Functions for below tests ------------
+
+// path to tmp directory used for temp files
+const TMP_DIR: &str = "target/debug/tmp";
+
+const SEGMENTS: usize = 64;
+
+// Creates a temporary directory for temporary test files
+fn tmp_dir() -> TempDir {
+    // Create parent directory for the temporary directory
+    std::fs::create_dir_all(TMP_DIR).expect("failed to create parent tmp directory");
+
+    // Create the temporary directory
+    TempDir::new_in(TMP_DIR).unwrap()
+}
+
+// Returns a `Seg` instance. Cache is restored only if `restore` and
+// `metadata_path` and `datapool_path` are not `None`. Otherwise, new `Seg`
+// instance is returned. Cache is file backed if `datapool_path` is not `None`.
+fn make_cache(
+    restore: bool,
+    datapool_path: Option<PathBuf>,
+    metadata_path: Option<PathBuf>,
+    graceful_shutdown: bool,
+) -> Seg {
+    let segment_size = 4096;
+    let segments = SEGMENTS;
+    let heap_size = segments * segment_size as usize;
+
+    Seg::builder()
+        .restore(restore)
+        .segment_size(segment_size as i32)
+        .heap_size(heap_size)
+        .datapool_path(datapool_path) // set path
+        .metadata_path(metadata_path) // set path
+        .graceful_shutdown(graceful_shutdown)
+        .build()
+}
+
+// ------------------- Set Paths Correctly Tests --------------------------
+
+// Check that a file backed, new cache is file backed and the `Seg` and thus the
+// `Segments` fields', `HashTable` and `TTLBuckets` are new (and not restored)
+#[test]
+fn new_cache_file_backed() {
+    // Create parent directory for temporary test files
+    let dir = tmp_dir();
+    // Create tempfile for datapool
+    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
+
+    // create new, file backed cache
+    let restore = false;
+    let graceful_shutdown = false;
+    let cache = make_cache(restore, datapool_path, None, graceful_shutdown);
+
+    // the `Segments.data` should be filed backed
+    assert!(cache.segments.data_file_backed());
+    // the `Seg` should not be restored
+    assert!(!cache.restored());
+}
+
+// Check that a new, not file backed cache is not file backed and the `Seg` is
+// new (and not restored)
+#[test]
+fn new_cache_not_file_backed() {
+    // create new, not file backed cache
+    let restore = false;
+    let graceful_shutdown = false;
+    let cache = make_cache(restore, None, None, graceful_shutdown);
+
+    // the `Segments.data` should not be filed backed
+    assert!(!cache.segments.data_file_backed());
+    // the `Seg` should not be restored
+    assert!(!cache.restored());
+}
+
+// Edge Case: Check that an attempt to restore a cache without specifing any
+// paths will lead to `Segments.data` not being file backed and
+// no of the other structures being restored
+#[test]
+fn restored_cache_no_paths_set() {
+    let restore = true;
+    let graceful_shutdown = false;
+    let cache = make_cache(restore, None, None, graceful_shutdown);
+
+    // the `Segments.data` should not be filed backed
+    assert!(!cache.segments.data_file_backed());
+    // the `Seg` should not be restored
+    assert!(!cache.restored());
+}
+
+// Check that if paths are specified, then the cache is gracefully
+// shutdown
+#[test]
+fn cache_gracefully_shutdown() {
+    // Create a temporary directory
+    let dir = tmp_dir();
+    // Create tempfile for datapool
+    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
+    // Create tempfile for `HashTable`
+    let metadata_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
+
+    // create new, file backed cache
+    let restore = false;
+    let graceful_shutdown = true;
+    let cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
+
+    // Flush cache
+    assert!(cache.flush().is_ok());
+}
+
+// Check that if paths are not specified, then the cache is not gracefully
+// shutdown
+#[test]
+fn cache_not_gracefully_shutdown() {
+    // Create a temporary directory
+    let dir = tmp_dir();
+    // Create tempfile for datapool
+    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
+
+    // create new, file backed cache
+    let restore = false;
+    let graceful_shutdown = true;
+    let cache = make_cache(
+        restore,
+        datapool_path,
+        None, // Don't set a `HashTable` path
+        graceful_shutdown,
+    );
+
+    // Flushing cache should fail
+    assert!(cache.flush().is_err());
+}
+
+// --------------------- Data copied back Tests----------------------------
+
+// Creates a new cache, stores an item, gracefully shutsdown cache and restore
+// cache. Check item is still there and caches are equivalent
+#[test]
+fn new_file_backed_cache_changed_and_restored() {
+    // Create a temporary directory
+    let dir = tmp_dir();
+    // Create tempfile for datapool
+    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
+    // Create tempfile for `HashTable`
+    let metadata_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
+
+    // create new, file backed cache
+    let mut restore = false;
+    let mut graceful_shutdown = true;
+    let mut cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
+
+    assert!(!cache.restored());
+    assert_eq!(cache.items(), 0);
+    assert_eq!(cache.segments.free(), SEGMENTS);
+
+    // "latte" should not be in a new, empty cache
+    assert!(cache.get(b"latte").is_none());
+    // insert "latte" into cache
+    assert!(cache
+        .insert(b"latte", b"", None, Duration::from_secs(5))
+        .is_ok());
+    // "latte" should now be in cache
+    assert!(cache.get(b"latte").is_some());
+
+    assert_eq!(cache.items(), 1);
+    assert_eq!(cache.segments.free(), SEGMENTS - 1);
+
+    // Get a copy of the cache to be compared later
+    let old_cache = cache.clone();
+
+    // Flush cache
+    assert!(cache.flush().is_ok());
+
+    // Create same tempfiles (they have been moved since first created)
+    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
+    let metadata_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
+
+    // restore cache
+    // This cache is file backed by same file as the above cache
+    // saved `Segments.data` to and the `Seg` is restored
+    restore = true;
+    graceful_shutdown = false;
+    let mut new_cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
+
+    assert!(new_cache.restored());
+    // "latte" should be in restored cache
+    assert!(new_cache.get(b"latte").is_some());
+    assert_eq!(new_cache.items(), 1);
+    assert_eq!(new_cache.segments.free(), SEGMENTS - 1);
+
+    // the restored cache should be equivalent to the old cache
+    assert!(new_cache == old_cache);
+}
+
+// Creates a new cache, gracefully shutsdown cache and restore cache. Check
+// caches are equivalent
+#[test]
+fn new_file_backed_cache_not_changed_and_restored() {
+    // Create a temporary directory
+    let dir = tmp_dir();
+    // Create tempfile for datapool
+    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
+    // Create tempfile for `HashTable`
+    let metadata_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
+
+    // create new, file backed cache
+    let mut restore = false;
+    let mut graceful_shutdown = true;
+
+    let cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
+
+    assert!(!cache.restored());
+
+    // Get a copy of the cache to be compared later
+    let old_cache = cache.clone();
+
+    // Flush cache
+    assert!(cache.flush().is_ok());
+
+    // Create same tempfiles (they have been moved since first created)
+    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
+    let metadata_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
+
+    // restore cache
+    // This cache is file backed by same file as the above cache
+    // saved `Segments.data` to and the `Seg` is restored
+    restore = true;
+    graceful_shutdown = false;
+    let new_cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
+
+    assert!(new_cache.restored());
+
+    // the restored cache should be equivalent to the old cache
+    assert!(new_cache == old_cache);
+}
+
+// Creates a new cache, stores an item, gracefully shutsdown cache and spawn new
+// cache. Check item is not in new cache and caches are not equivalent
+#[test]
+fn new_cache_changed_and_not_restored() {
+    // Create a temporary directory
+    let dir = tmp_dir();
+    // Create tempfile for datapool
+    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
+    // Create tempfile for `HashTable`
+    let metadata_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
+
+    // create new, file backed cache
+    let mut restore = false;
+    let graceful_shutdown = true;
+    let mut cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
+
+    assert!(!cache.restored());
+    assert_eq!(cache.items(), 0);
+    assert_eq!(cache.segments.free(), SEGMENTS);
+
+    // "latte" should not be in a new, empty cache
+    assert!(cache.get(b"latte").is_none());
+    // insert "latte" into cache
+    assert!(cache
+        .insert(b"latte", b"", None, Duration::from_secs(5))
+        .is_ok());
+    // "latte" should now be in cache
+    assert!(cache.get(b"latte").is_some());
+
+    assert_eq!(cache.items(), 1);
+    assert_eq!(cache.segments.free(), SEGMENTS - 1);
+
+    // Get a copy of the cache to be compared later
+    let old_cache = cache.clone();
+
+    // Flush cache
+    assert!(cache.flush().is_ok());
+
+    // Create same tempfile (it has been moved since first created)
+    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
+
+    // create new, file backed cache.
+    // This new cache is file backed by same file as the above cache
+    // saved `Segments.data` to but this cache is treated as new
+    restore = false;
+    let mut new_cache = make_cache(restore, datapool_path, None, graceful_shutdown);
+
+    assert!(!new_cache.restored());
+    assert_eq!(new_cache.items(), 0);
+    assert_eq!(new_cache.segments.free(), SEGMENTS);
+
+    // "latte" should not be in new cache
+    assert!(new_cache.get(b"latte").is_none());
+
+    // the restored cache should not be equivalent to the old cache
+    assert!(new_cache != old_cache);
+}
+
+// Create a new cache, fill it with items. Gracefully shutdown this cache.
+// Restore cache and check that every key from the original cache exists in the
+// restored cache. Check caches are equivalent
+#[test]
+fn full_cache_recovery_long() {
+    // Create a temporary directory
+    let dir = tmp_dir();
+    // Create tempfile for datapool
+    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
+    // Create tempfile for `HashTable`
+    let metadata_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
+
+    let ttl = Duration::ZERO;
+    let value_size = 512;
+    let key_size = 1;
+    let iters = 1_000_000;
+
+    // create new, file backed cache
+    let mut restore = false;
+    let mut graceful_shutdown = true;
+    let mut cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
+
+    assert!(!cache.restored());
+    assert_eq!(cache.items(), 0);
+    assert_eq!(cache.segments.free(), SEGMENTS);
+
+    let mut rng = rand::rng();
+
+    let mut key = vec![0; key_size];
+    let mut value = vec![0; value_size];
+
+    // record all of the unique keys
+    let mut unique_keys = HashSet::new();
+
+    // fill cache
+    for _ in 0..iters {
+        rng.fill_bytes(&mut key);
+        rng.fill_bytes(&mut value);
+
+        let save_key = key.clone();
+        unique_keys.insert(save_key);
+
+        assert!(cache.insert(&key, &value, None, ttl).is_ok());
+    }
+
+    // record all active keys in cache
+    // (this could be less than # unique keys if eviction has occurred)
+    let mut unique_active_keys = Vec::new();
+    for key in &unique_keys {
+        // if this key exists, save it!
+        if cache.get(&key).is_some() {
+            unique_active_keys.push(key);
+        }
+    }
+
+    // check that the number of active items in the cache equals the number
+    // of active keys
+    assert_eq!(cache.items(), unique_active_keys.len());
+
+    // Get a copy of the cache to be compared later
+    let old_cache = cache.clone();
+
+    // Flush cache
+    assert!(cache.flush().is_ok());
+
+    // Create same tempfiles (they have been moved since first created)
+    let datapool_path: Option<PathBuf> = Some(dir.path().join("datapool"));
+    let metadata_path: Option<PathBuf> = Some(dir.path().join("hashtable"));
+
+    // restore cache
+    // This new cache is file backed by same file as the above cache
+    // saved `Segments.data` to and the `Seg` is restored
+    restore = true;
+    graceful_shutdown = false;
+    let mut new_cache = make_cache(restore, datapool_path, metadata_path, graceful_shutdown);
+
+    assert!(new_cache.restored());
+
+    // the restored cache should be equivalent to the old cache
+    assert!(new_cache == old_cache);
+
+    // check that the number of active items in the restored cache
+    // equals the number of active keys in the original cache
+    assert_eq!(new_cache.items(), unique_active_keys.len());
+
+    // check that every active key from the original cache is in
+    // the restored cache
+    while let Some(key) = unique_active_keys.pop() {
+        assert!(new_cache.get(&key).is_some());
+    }
 }

@@ -245,6 +245,8 @@ impl Compose for MemcacheResponse {
                 CAS.increment();
             }
             MemcacheRequest::FlushAll => {}
+            // TODO: if needed, add to this statement
+            MemcacheRequest::Stop => {}
         }
         if let MemcacheResult::Values { ref entries, cas } = self.result {
             let mut hits = 0;

@@ -22,4 +22,5 @@ impl Noop {
 
 impl EntryStore for Noop {
     fn expire(&mut self) {}
+    fn flush(&mut self) {}
 }

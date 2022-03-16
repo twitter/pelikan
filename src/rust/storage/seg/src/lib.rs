@@ -43,6 +43,7 @@ mod item;
 mod rand;
 mod seg;
 mod segments;
+mod store;
 mod ttl_buckets;
 
 // tests

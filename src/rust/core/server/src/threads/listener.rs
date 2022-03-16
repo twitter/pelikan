@@ -224,6 +224,10 @@ impl Listener {
                                 Signal::Shutdown => {
                                     return;
                                 }
+                                Signal::Stop => {
+                                    warn!("received stop");
+                                    return;
+                                }
                             }
                         }
                     }

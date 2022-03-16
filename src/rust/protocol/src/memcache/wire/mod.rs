@@ -229,6 +229,9 @@ where
             MemcacheRequest::FlushAll => {
                 return None;
             }
+            MemcacheRequest::Stop => {
+                return None;
+            }
         };
 
         Some(MemcacheResponse { request, result })
