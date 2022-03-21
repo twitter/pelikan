@@ -49,7 +49,6 @@ fn get() {
     } else {
         panic!("invalid parse result");
     }
-    
 }
 
 #[test]
@@ -110,7 +109,7 @@ fn set() {
                 assert!(!noreply);
             } else {
                 panic!("invalid parse result");
-            }   
+            }
         }
     }
 
@@ -140,7 +139,7 @@ fn append() {
             let buffer = format!("append {} 0 0 {}\r\n{}\r\n", key, value.len(), value);
             println!("request: {}", buffer);
             let request = parser.parse(buffer.as_bytes()).expect("parse failure");
-             assert_eq!(request.consumed(), buffer.len());
+            assert_eq!(request.consumed(), buffer.len());
             if let MemcacheRequest::Append { entry, noreply } = request.into_inner() {
                 assert_eq!(entry.key(), key.as_bytes());
                 assert_eq!(entry.value(), Some((*value).into()));
@@ -489,7 +488,7 @@ fn trailing_whitespace() {
         assert!(!noreply);
     } else {
         panic!("invalid parse result");
-    }  
+    }
 
     // cas + noreply
     let buffer = b"cas 0 0 0 1 0 noreply \r\n1\r\n";
@@ -558,7 +557,6 @@ fn pipelined() {
     } else {
         panic!("invalid parse result");
     }
-    
 
     let request = parser.parse(b"get t\x0d\x0a ").expect("parse failure");
     assert_eq!(request.consumed(), 7);
@@ -568,5 +566,4 @@ fn pipelined() {
     } else {
         panic!("invalid parse result");
     }
-    
 }
