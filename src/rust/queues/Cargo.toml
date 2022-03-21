@@ -12,6 +12,6 @@ license = "Apache-2.0"
 
 [dependencies]
 crossbeam-channel = "0.5.2"
-mio = { version = "0.7.7", features = ["os-poll", "tcp"] }
+mio = { version = "0.8.0", features = ["os-poll", "net"] }
 rand = "0.8.5"
 rand_chacha = "0.3.1"

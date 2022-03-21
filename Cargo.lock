@@ -679,9 +679,9 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "0.7.13"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c2bdb6314ec10835cd3293dd268473a835c02b7b352e788be788b3c6ca6bb16"
+checksum = "ba272f85fa0b41fc91872be579b3bbe0f56b792aa361a380eb669469f68dafb2"
 dependencies = [
  "libc",
  "log",
