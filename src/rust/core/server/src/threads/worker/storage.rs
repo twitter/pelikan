@@ -4,6 +4,7 @@
 
 use super::*;
 use crate::threads::worker::TokenWrapper;
+use crate::QUEUE_RETRIES;
 use common::signal::Signal;
 use common::time::Instant;
 use config::WorkerConfig;
@@ -16,11 +17,6 @@ use mio::Waker;
 use protocol::{Compose, Execute};
 use queues::{QueueError, QueuePair, QueuePairs};
 use std::sync::Arc;
-
-// TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
-// full, and a single wakeup should drain at least one message and make room for
-// the response. A stat to prove that this is sufficient would be good.
-const QUEUE_RETRIES: usize = 3;
 
 const WAKER_TOKEN: usize = usize::MAX;
 
@@ -145,10 +141,13 @@ where
                     }
                 }
 
-                #[allow(clippy::never_loop)]
                 // check if we received any signals from the admin thread
                 while let Ok(s) = self.signal_queue.recv_from(0) {
                     match s {
+                        Signal::FlushAll => {
+                            warn!("received flush_all");
+                            self.storage.clear();
+                        }
                         Signal::Shutdown => {
                             // if we received a shutdown, we can return and stop
                             // processing events
