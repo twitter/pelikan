@@ -2,8 +2,13 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::poll::Poll;
+//! The admin thread, which handles admin requests to return stats, get version
+//! info, etc.
+
+use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use crate::threads::EventLoop;
+use crate::QUEUE_RETRIES;
+use crate::TCP_ACCEPT_EX;
 use crate::*;
 use common::signal::Signal;
 use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
@@ -59,9 +64,6 @@ static_metrics! {
 const KB: u64 = 1024; // one kilobyte in bytes
 const S: u64 = 1_000_000_000; // one second in nanoseconds
 const US: u64 = 1_000; // one microsecond in nanoseconds
-
-pub const LISTENER_TOKEN: Token = Token(usize::MAX - 1);
-pub const WAKER_TOKEN: Token = Token(usize::MAX);
 
 pub static PERCENTILES: &[(&str, f64)] = &[
     ("p25", 25.0),
@@ -361,7 +363,23 @@ impl Admin {
                     WAKER_TOKEN => {
                         // check if we have received signals from any sibling
                         // thread
-                        error!("unexpected token: WAKER");
+                        while let Ok(signal) = self.signal_queue_rx.try_recv() {
+                            match signal {
+                                Signal::FlushAll => {}
+                                Signal::Shutdown => {
+                                    // if a shutdown is received from any
+                                    // thread, we will broadcast it to all
+                                    // sibling threads and stop our event loop
+                                    info!("shutting down");
+                                    let _ = self.signal_queue_tx.try_send_all(Signal::Shutdown);
+                                    if self.signal_queue_tx.wake().is_err() {
+                                        fatal!("error waking threads for shutdown");
+                                    }
+                                    let _ = self.log_drain.flush();
+                                    return;
+                                }
+                            }
+                        }
                     }
                     _ => {
                         self.handle_session_event(event);
@@ -369,9 +387,9 @@ impl Admin {
                 }
             }
 
-            #[allow(clippy::never_loop)]
             while let Ok(signal) = self.signal_queue_rx.try_recv() {
                 match signal {
+                    Signal::FlushAll => {}
                     Signal::Shutdown => {
                         // if a shutdown is received from any
                         // thread, we will broadcast it to all
@@ -458,7 +476,23 @@ impl EventLoop for Admin {
                         session.consume(consumed);
 
                         match request {
-                            AdminRequest::FlushAll => {}
+                            AdminRequest::FlushAll => {
+                                for _ in 0..QUEUE_RETRIES {
+                                    if self.signal_queue_tx.try_send_all(Signal::FlushAll).is_ok() {
+                                        warn!("sending flush_all signal");
+                                        break;
+                                    }
+                                }
+                                for _ in 0..QUEUE_RETRIES {
+                                    if self.signal_queue_tx.wake().is_ok() {
+                                        break;
+                                    }
+                                }
+
+                                let _ = session.write(b"OK\r\n");
+                                session.finalize_response();
+                                ADMIN_RESPONSE_COMPOSE.increment();
+                            }
                             AdminRequest::Stats => {
                                 Self::handle_stats_request(session);
                             }

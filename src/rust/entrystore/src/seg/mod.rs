@@ -59,4 +59,8 @@ impl EntryStore for Seg {
     fn expire(&mut self) {
         self.data.expire();
     }
+
+    fn clear(&mut self) {
+        self.data.clear();
+    }
 }

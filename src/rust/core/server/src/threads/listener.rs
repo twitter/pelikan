@@ -241,10 +241,10 @@ impl Listener {
                         self.do_accept();
                     }
                     WAKER_TOKEN => {
-                        #[allow(clippy::never_loop)]
                         while let Ok(signal) = self.signal_queue.try_recv().map(|v| v.into_inner())
                         {
                             match signal {
+                                Signal::FlushAll => {}
                                 Signal::Shutdown => {
                                     return;
                                 }

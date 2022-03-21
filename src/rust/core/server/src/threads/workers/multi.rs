@@ -9,6 +9,7 @@
 
 use super::*;
 use crate::poll::Poll;
+use crate::QUEUE_RETRIES;
 use common::signal::Signal;
 use config::WorkerConfig;
 use core::marker::PhantomData;
@@ -21,11 +22,6 @@ use queues::TrackedItem;
 use session::Session;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
-
-// TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
-// full, and a single wakeup should drain at least one message and make room for
-// the request. A stat to prove that this is sufficient would be good.
-const QUEUE_RETRIES: usize = 3;
 
 const WAKER_TOKEN: Token = Token(usize::MAX);
 
@@ -131,11 +127,11 @@ where
                         self.handle_new_sessions(&mut sessions);
                         self.handle_storage_queue(&mut responses);
 
-                        #[allow(clippy::never_loop)]
                         // check if we received any signals from the admin thread
                         while let Ok(signal) = self.signal_queue.try_recv().map(|v| v.into_inner())
                         {
                             match signal {
+                                Signal::FlushAll => {}
                                 Signal::Shutdown => {
                                     // if we received a shutdown, we can return
                                     // and stop processing events

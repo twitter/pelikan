@@ -138,6 +138,10 @@ where
                 // check if we received any signals from the admin thread
                 while let Ok(s) = self.signal_queue.try_recv().map(|v| v.into_inner()) {
                     match s {
+                        Signal::FlushAll => {
+                            warn!("received flush_all");
+                            self.storage.clear();
+                        }
                         Signal::Shutdown => {
                             // if we received a shutdown, we can return and stop
                             // processing events
