@@ -4,20 +4,15 @@
 
 use super::*;
 use crate::poll::Poll;
+use crate::QUEUE_RETRIES;
 use common::signal::Signal;
 use config::WorkerConfig;
 use core::time::Duration;
 use entrystore::EntryStore;
-use mio::Events;
-use mio::Waker;
+use mio::{Events, Waker};
 use protocol::Execute;
 use std::marker::PhantomData;
 use std::sync::Arc;
-
-// TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
-// full, and a single wakeup should drain at least one message and make room for
-// the response. A stat to prove that this is sufficient would be good.
-const QUEUE_RETRIES: usize = 3;
 
 /// A builder type for a storage worker which owns the storage and executes
 /// requests from a queue and returns responses back to the worker threads.
@@ -134,7 +129,6 @@ where
 
                 let _ = self.storage_queue.wake();
 
-                #[allow(clippy::never_loop)]
                 // check if we received any signals from the admin thread
                 while let Ok(s) = self.signal_queue.try_recv().map(|v| v.into_inner()) {
                     match s {
