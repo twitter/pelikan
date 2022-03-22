@@ -24,6 +24,7 @@ use std::io::{BufRead, Write};
 use std::sync::Arc;
 
 const WAKER_TOKEN: Token = Token(usize::MAX);
+const STORAGE_THREAD_ID: usize = 0;
 
 /// A builder for the request/response worker which communicates to the storage
 /// thread over a queue.
@@ -105,8 +106,8 @@ where
         // these are buffers which are re-used in each loop iteration to receive
         // events and queue messages
         let mut events = Events::with_capacity(self.nevent);
-        let mut responses = Vec::with_capacity(1024);
-        let mut sessions = Vec::with_capacity(1024);
+        let mut responses = Vec::with_capacity(QUEUE_CAPACITY);
+        let mut sessions = Vec::with_capacity(QUEUE_CAPACITY);
 
         loop {
             WORKER_EVENT_LOOP.increment();
@@ -207,7 +208,7 @@ where
                 let mut message = TokenWrapper::new(request, token);
 
                 for retry in 0..QUEUE_RETRIES {
-                    if let Err(m) = self.storage_queue.try_send_to(0, message) {
+                    if let Err(m) = self.storage_queue.try_send_to(STORAGE_THREAD_ID, message) {
                         if (retry + 1) == QUEUE_RETRIES {
                             error!("queue full trying to send message to storage thread");
                             let _ = self.poll.close_session(token);

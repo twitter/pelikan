@@ -197,6 +197,11 @@ where
                 let (mut response_queues, mut request_queues) =
                     Queues::new(worker_wakers, storage_wakers, QUEUE_CAPACITY);
 
+                // The storage thread precedes the worker threads in the set of
+                // wakers, so its queue pairs are the first element of the
+                // `signal_queues` and `request_queues`. We remove these and
+                // build the storage so we can loop through the remaining queue
+                // pairs to launch the workers.
                 let s = storage.build(signal_queues.remove(0), request_queues.remove(0));
 
                 let mut w = Vec::new();
