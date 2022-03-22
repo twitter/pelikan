@@ -11,7 +11,6 @@ use super::EventLoop;
 use super::*;
 use crate::poll::{Poll, WAKER_TOKEN};
 use common::signal::Signal;
-use common::time::Instant;
 use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -21,32 +20,24 @@ use mio::Events;
 use mio::Token;
 use mio::Waker;
 use protocol::{Compose, Execute, Parse, ParseError};
-use queues::QueuePair;
-use queues::QueuePairs;
 use session::Session;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
 
-/// A `Worker` handles events on `Session`s
-pub struct SingleWorker<Storage, Parser, Request, Response> {
-    storage: Storage,
-    poll: Poll,
+/// A builder type for a single-threaded worker which owns the storage.
+pub struct SingleWorkerBuilder<Storage, Parser, Request, Response> {
     nevent: usize,
+    parser: Parser,
+    poll: Poll,
     timeout: Duration,
-    session_queue: QueuePairs<(), Session>,
-    signal_queue: QueuePairs<Signal, Signal>,
+    storage: Storage,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
-    parser: Parser,
 }
 
-impl<Storage, Parser, Request, Response> SingleWorker<Storage, Parser, Request, Response>
-where
-    Parser: Parse<Request>,
-    Response: Compose,
-    Storage: Execute<Request, Response> + EntryStore,
-{
-    /// Create a new `Worker` which will get new `Session`s from the MPSC queue
+impl<Storage, Parser, Request, Response> SingleWorkerBuilder<Storage, Parser, Request, Response> {
+    /// Create a new builder for a single-threaded worker from the provided
+    /// config, storage, and parser
     pub fn new<T: WorkerConfig>(
         config: &T,
         storage: Storage,
@@ -57,23 +48,63 @@ where
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
 
-        let session_queue = QueuePairs::new(Some(poll.waker()));
-        let signal_queue = QueuePairs::new(Some(poll.waker()));
-
         Ok(Self {
             poll,
             nevent: config.worker().nevent(),
             timeout: Duration::from_millis(config.worker().timeout() as u64),
             storage,
-            signal_queue,
-            session_queue,
             _request: PhantomData,
             _response: PhantomData,
             parser,
         })
     }
 
-    /// Run the `Worker` in a loop, handling new session events
+    /// Returns the waker for this worker.
+    pub(crate) fn waker(&self) -> Arc<Waker> {
+        self.poll.waker()
+    }
+
+    /// Finalize the builder and return a `SingleWorker` by providing the queues
+    /// that are required to communicate with other threads.
+    pub fn build(
+        self,
+        signal_queue: Queues<(), Signal>,
+        session_queue: Queues<(), Session>,
+    ) -> SingleWorker<Storage, Parser, Request, Response> {
+        SingleWorker {
+            nevent: self.nevent,
+            parser: self.parser,
+            poll: self.poll,
+            timeout: self.timeout,
+            storage: self.storage,
+            session_queue,
+            signal_queue,
+            _request: PhantomData,
+            _response: PhantomData,
+        }
+    }
+}
+
+/// A finalized single-threaded worker which is ready to be run.
+pub struct SingleWorker<Storage, Parser, Request, Response> {
+    nevent: usize,
+    parser: Parser,
+    poll: Poll,
+    timeout: Duration,
+    storage: Storage,
+    session_queue: Queues<(), Session>,
+    signal_queue: Queues<(), Signal>,
+    _request: PhantomData<Request>,
+    _response: PhantomData<Response>,
+}
+
+impl<Storage, Parser, Request, Response> SingleWorker<Storage, Parser, Request, Response>
+where
+    Parser: Parse<Request>,
+    Response: Compose,
+    Storage: Execute<Request, Response> + EntryStore,
+{
+    /// Run the worker in a loop, handling new events.
     pub fn run(&mut self) {
         let mut events = Events::with_capacity(self.nevent);
 
@@ -98,8 +129,8 @@ where
                         self.handle_new_sessions();
 
                         // check if we received any signals from the admin thread
-                        while let Ok(signal) = self.signal_queue.recv_from(0) {
-                            match signal {
+                        while let Ok(signal) = self.signal_queue.try_recv() {
+                            match signal.into_inner() {
                                 Signal::FlushAll => {
                                     warn!("received flush_all");
                                     self.storage.clear();
@@ -121,7 +152,7 @@ where
     }
 
     fn handle_new_sessions(&mut self) {
-        while let Ok(session) = self.session_queue.recv_from(0) {
+        while let Ok(session) = self.session_queue.try_recv().map(|v| v.into_inner()) {
             let pending = session.read_pending();
             trace!(
                 "new session: {:?} with {} bytes pending in read buffer",
@@ -161,7 +192,9 @@ where
         if event.is_readable() {
             WORKER_EVENT_READ.increment();
             if let Ok(session) = self.poll.get_mut_session(token) {
-                session.set_timestamp(Instant::<Nanoseconds<u64>>::recent());
+                session.set_timestamp(
+                    common::time::Instant::<common::time::Nanoseconds<u64>>::recent(),
+                );
             }
             let _ = self.do_read(token);
         }
@@ -182,14 +215,6 @@ where
                 );
             }
         }
-    }
-
-    pub fn session_sender(&mut self, waker: Arc<Waker>) -> QueuePair<Session, ()> {
-        self.session_queue.new_pair(65536, Some(waker))
-    }
-
-    pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
-        self.signal_queue.new_pair(128, None)
     }
 }
 
