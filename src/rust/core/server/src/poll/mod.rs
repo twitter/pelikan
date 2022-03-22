@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! This module provides common functionality for threads which are based on an
+//! event loop.
+
 use mio::event::Source;
 use mio::net::TcpListener;
 use mio::Events;

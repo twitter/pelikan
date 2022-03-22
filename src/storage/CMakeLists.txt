@@ -1,6 +1,3 @@
-if(TARGET_CDB)
-    add_subdirectory(cdb)
-endif()
 add_subdirectory(cuckoo)
 add_subdirectory(slab)
 add_subdirectory(seg)

@@ -61,14 +61,9 @@ option(HAVE_STATS "stats enabled by default" ON)
 option(HAVE_TEST "test built by default" ON)
 option(HAVE_DEBUG_MM "debugging oriented memory management disabled by default" OFF)
 option(HAVE_COVERAGE "code coverage" OFF)
-option(HAVE_RUST "rust bindings not built by default" OFF)
 option(HAVE_ITT_INSTRUMENTATION "instrument code with ITT API" OFF)
 
 option(FORCE_CHECK_BUILD "Force building check with ci/install-check.sh" OFF)
-
-if(HAVE_RUST)
-    option(RUST_VERBOSE_BUILD "pass -vv to cargo compilation" OFF)
-endif()
 
 option(TARGET_PINGSERVER "build pingserver binary" ON)
 option(TARGET_RDS "build rich data server binary" ON)
@@ -76,9 +71,7 @@ option(TARGET_SLIMRDS "build slim rich data server binary" ON)
 option(TARGET_SLIMCACHE "build slimcache binary" ON)
 option(TARGET_TWEMCACHE "build twemcache binary" ON)
 option(TARGET_SEGCACHE "build TTL-driven segment-structured cache binary" ON)
-option(TARGET_CDB "build cdb binary (implies HAVE_RUST)" OFF)
 option(TARGET_RESPCLI "build resp-cli binary" ON)
-option(TARGET_HTTP "build experimental twemcache-http server (implies HAVE_RUST)" OFF)
 
 option(USE_PMEM "build persistent memory features" OFF)
 
@@ -238,18 +231,6 @@ endif(HAVE_ITT_INSTRUMENTATION)
 
 find_package(Threads)
 
-if(TARGET_CDB)
-    set(HAVE_RUST on)
-endif(TARGET_CDB)
-
-if(TARGET_HTTP)
-    set(HAVE_RUST on)
-endif()
-
-if(HAVE_RUST)
-    include(cmake/CMakeCargo.cmake)
-endif(HAVE_RUST)
-
 #set(CMAKE_INCLUDE_CURRENT_DIR)
 include_directories(${include_directories}
     "${PROJECT_BINARY_DIR}"
@@ -289,7 +270,6 @@ message(STATUS "USE_EVENT_FD: " ${USE_EVENT_FD})
 message(STATUS "=======================================")
 
 message(STATUS "======Status of optional features======")
-message(STATUS "HAVE_RUST: " ${HAVE_RUST})
 message(STATUS "HAVE_ASSERT_LOG: " ${HAVE_ASSERT_LOG})
 message(STATUS "HAVE_ASSERT_PANIC: " ${HAVE_ASSERT_PANIC})
 message(STATUS "HAVE_LOGGING: " ${HAVE_LOGGING})
@@ -313,21 +293,3 @@ endif()
 # Note: to uninstall targets, run:
 #  xargs rm < install_manifest.txt
 # vim:ts=4:sw=4:et
-
-if(HAVE_RUST)
-    # Create a .cargo file which sets the target directory
-    make_directory(.cargo)
-    file(WRITE .cargo/config "[build]\ntarget-dir=\"${CMAKE_BINARY_DIR}/target\"\n")
-
-    set_directory_properties(
-        PROPERTIES
-        ADDITIONAL_CLEAN_FILES "${CMAKE_BINARY_DIR}/target"
-    )
-
-    # Add a rust-docs target
-    add_custom_target(
-        rust-doc
-        COMMAND ${CMAKE_COMMAND} -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}" "CARGO_TARGET_DIR=${CMAKE_BINARY_DIR}/target" cargo doc
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-endif()

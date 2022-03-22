@@ -5,25 +5,26 @@
 //! The admin thread, which handles admin requests to return stats, get version
 //! info, etc.
 
-use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
+use crate::threads::EventLoop;
+use crate::QUEUE_RETRIES;
 use crate::TCP_ACCEPT_EX;
+use crate::*;
 use common::signal::Signal;
 use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
-use config::AdminConfig;
-use logger::*;
+use config::*;
+use core::time::Duration;
+use crossbeam_channel::Receiver;
+use logger::Drain;
 use metrics::{static_metrics, Counter, Gauge, Heatmap};
 use mio::event::Event;
-use mio::Events;
-use mio::Token;
+use mio::{Events, Token, Waker};
 use protocol_admin::*;
-use queues::QueuePair;
-use queues::QueuePairs;
-use session::*;
-use std::io::{BufRead, Write};
-use std::io::{Error, ErrorKind};
+use queues::Queues;
+use session::{Session, TcpStream};
+use std::io::{BufRead, Error, ErrorKind, Write};
 use std::net::SocketAddr;
-use std::time::Duration;
+use std::sync::Arc;
 
 static_metrics! {
     static ADMIN_REQUEST_PARSE: Counter;
@@ -56,28 +57,6 @@ const KB: u64 = 1024; // one kilobyte in bytes
 const S: u64 = 1_000_000_000; // one second in nanoseconds
 const US: u64 = 1_000; // one microsecond in nanoseconds
 
-/// A `Admin` is used to bind to a given socket address and handle out-of-band
-/// admin requests.
-pub struct Admin {
-    addr: SocketAddr,
-    timeout: Duration,
-    nevent: usize,
-    poll: Poll,
-    ssl_context: Option<SslContext>,
-    /// The admin thread can receive `Signal`s from other threads, and send
-    /// `Signal`s to any other thread. This gives it control of the entire
-    /// process through signaling.
-    signal_queue: QueuePairs<Signal, Signal>,
-    parser: AdminRequestParser,
-    log_drain: Box<dyn Drain>,
-}
-
-impl Drop for Admin {
-    fn drop(&mut self) {
-        let _ = self.log_drain.flush();
-    }
-}
-
 pub static PERCENTILES: &[(&str, f64)] = &[
     ("p25", 25.0),
     ("p50", 50.0),
@@ -88,7 +67,17 @@ pub static PERCENTILES: &[(&str, f64)] = &[
     ("p9999", 99.99),
 ];
 
-impl Admin {
+pub struct AdminBuilder {
+    addr: SocketAddr,
+    nevent: usize,
+    poll: Poll,
+    timeout: Duration,
+    ssl_context: Option<SslContext>,
+    parser: AdminRequestParser,
+    log_drain: Box<dyn Drain>,
+}
+
+impl AdminBuilder {
     /// Creates a new `Admin` event loop.
     pub fn new<T: AdminConfig>(
         config: &T,
@@ -122,18 +111,19 @@ impl Admin {
 
         let nevent = config.nevent();
 
-        let signal_queue = QueuePairs::new(Some(poll.waker()));
-
         Ok(Self {
             addr,
             timeout,
             nevent,
             poll,
             ssl_context,
-            signal_queue,
             parser: AdminRequestParser::new(),
             log_drain,
         })
+    }
+
+    pub fn waker(&self) -> Arc<Waker> {
+        self.poll.waker()
     }
 
     /// Triggers a flush of the log
@@ -141,6 +131,46 @@ impl Admin {
         self.log_drain.flush()
     }
 
+    pub fn build(
+        self,
+        signal_queue_tx: Queues<Signal, ()>,
+        signal_queue_rx: Receiver<Signal>,
+    ) -> Admin {
+        Admin {
+            addr: self.addr,
+            nevent: self.nevent,
+            poll: self.poll,
+            timeout: self.timeout,
+            ssl_context: self.ssl_context,
+            parser: self.parser,
+            log_drain: self.log_drain,
+            signal_queue_tx,
+            signal_queue_rx,
+        }
+    }
+}
+
+pub struct Admin {
+    addr: SocketAddr,
+    nevent: usize,
+    poll: Poll,
+    timeout: Duration,
+    ssl_context: Option<SslContext>,
+    parser: AdminRequestParser,
+    log_drain: Box<dyn Drain>,
+    /// used to send signals to all sibling threads
+    signal_queue_tx: Queues<Signal, ()>,
+    /// used to receive signals from the parent thread
+    signal_queue_rx: Receiver<Signal>,
+}
+
+impl Drop for Admin {
+    fn drop(&mut self) {
+        let _ = self.log_drain.flush();
+    }
+}
+
+impl Admin {
     /// Adds a new fully established TLS session
     fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
         let session = Session::tls_with_capacity(
@@ -323,18 +353,18 @@ impl Admin {
                         self.do_accept();
                     }
                     WAKER_TOKEN => {
-                        #[allow(clippy::never_loop)]
                         // check if we have received signals from any sibling
                         // thread
-                        while let Ok(signal) = self.signal_queue.recv_from(0) {
+                        while let Ok(signal) = self.signal_queue_rx.try_recv() {
                             match signal {
+                                Signal::FlushAll => {}
                                 Signal::Shutdown => {
                                     // if a shutdown is received from any
                                     // thread, we will broadcast it to all
                                     // sibling threads and stop our event loop
                                     info!("shutting down");
-                                    let _ = self.signal_queue.broadcast(Signal::Shutdown);
-                                    if self.signal_queue.wake_all().is_err() {
+                                    let _ = self.signal_queue_tx.try_send_all(Signal::Shutdown);
+                                    if self.signal_queue_tx.wake().is_err() {
                                         fatal!("error waking threads for shutdown");
                                     }
                                     let _ = self.log_drain.flush();
@@ -349,22 +379,28 @@ impl Admin {
                 }
             }
 
+            while let Ok(signal) = self.signal_queue_rx.try_recv() {
+                match signal {
+                    Signal::FlushAll => {}
+                    Signal::Shutdown => {
+                        // if a shutdown is received from any
+                        // thread, we will broadcast it to all
+                        // sibling threads and stop our event loop
+                        info!("shutting down");
+                        let _ = self.signal_queue_tx.try_send_all(Signal::Shutdown);
+                        if self.signal_queue_tx.wake().is_err() {
+                            fatal!("error waking threads for shutdown");
+                        }
+                        let _ = self.log_drain.flush();
+                        return;
+                    }
+                }
+            }
+
             self.get_rusage();
 
             let _ = self.log_drain.flush();
         }
-    }
-
-    /// Returns a `QueuePair` which can be used to send signals to, or receive
-    /// signals from, the admin thread.
-    pub fn signal_queue(&mut self) -> QueuePair<Signal, Signal> {
-        self.signal_queue.new_pair(128, None)
-    }
-
-    /// Register a new queue pair with the admin thread so it can send and
-    /// receive signals over the provided pair.
-    pub fn add_signal_queue(&mut self, queue_pair: QueuePair<Signal, Signal>) {
-        self.signal_queue.add_pair(queue_pair)
     }
 
     // TODO(bmartin): move this into a common module, should be shared with
@@ -432,7 +468,23 @@ impl EventLoop for Admin {
                         session.consume(consumed);
 
                         match request {
-                            AdminRequest::FlushAll => {}
+                            AdminRequest::FlushAll => {
+                                for _ in 0..QUEUE_RETRIES {
+                                    if self.signal_queue_tx.try_send_all(Signal::FlushAll).is_ok() {
+                                        warn!("sending flush_all signal");
+                                        break;
+                                    }
+                                }
+                                for _ in 0..QUEUE_RETRIES {
+                                    if self.signal_queue_tx.wake().is_ok() {
+                                        break;
+                                    }
+                                }
+
+                                let _ = session.write(b"OK\r\n");
+                                session.finalize_response();
+                                ADMIN_RESPONSE_COMPOSE.increment();
+                            }
                             AdminRequest::Stats => {
                                 Self::handle_stats_request(session);
                             }
