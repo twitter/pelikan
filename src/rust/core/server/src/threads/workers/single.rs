@@ -19,7 +19,7 @@ use mio::event::Event;
 use mio::Events;
 use mio::Token;
 use mio::Waker;
-use protocol::{Compose, Execute, Parse, ParseError};
+use protocol_common::{Compose, Execute, Parse, ParseError};
 use session::Session;
 use std::io::{BufRead, Write};
 use std::sync::Arc;

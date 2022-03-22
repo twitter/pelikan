@@ -21,7 +21,8 @@ libc = "0.2.83"
 logger = { path = "../../logger" }
 metrics = { path = "../../metrics" }
 mio = { version = "0.8.0", features = ["os-poll", "net"] }
-protocol = { path = "../../protocol" }
+protocol-admin = { path = "../../protocol/admin" }
+protocol-common = { path = "../../protocol/common" }
 queues = { path = "../../queues" }
 rand = "0.8.0"
 rtrb = "0.1.3"

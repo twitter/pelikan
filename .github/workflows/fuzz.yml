@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-18.04 ]
-        target: [ admin, memcache ]
+        target: [ protocol/admin, protocol/memcache, protocol/ping ]
     name: fuzz-${{ matrix.os }}-${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -35,6 +35,8 @@ jobs:
 
       - name: fuzz ${{ matrix.target }}
         run: |
-          cd src/rust/protocol
-          cargo +nightly fuzz run ${{ matrix.target }} --jobs ${{ env.FUZZ_JOBS }} -- \
-            -max_total_time=${{ env.FUZZ_TIME }}
+          cd src/rust/${{ matrix.target }}
+          for FUZZ_TARGET in `cargo +nightly fuzz list`; do
+            cargo +nightly fuzz run ${FUZZ_TARGET} --jobs ${{ env.FUZZ_JOBS }} -- \
+              -max_total_time=${{ env.FUZZ_TIME }};
+          done

@@ -12,7 +12,7 @@
 use config::*;
 use entrystore::Noop;
 use logger::*;
-use protocol::ping::{PingRequest, PingRequestParser, PingResponse};
+use protocol_ping::{PingRequest, PingRequestParser, PingResponse};
 use server::{Process, ProcessBuilder};
 
 type Parser = PingRequestParser;

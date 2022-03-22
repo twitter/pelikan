@@ -1,0 +1,26 @@
+[package]
+name = "protocol-ping"
+version = "0.0.1"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+edition = "2018"
+description = "protocols used in Pelikan servers"
+homepage = "https://pelikan.io"
+repository = "https://github.com/twitter/pelikan"
+license = "Apache-2.0"
+
+[[bench]]
+name = "ping"
+path = "benches/ping.rs"
+harness = false
+
+[dependencies]
+common = { path = "../../common" }
+config = { path = "../../config" }
+logger = { path = "../../logger" }
+metrics = { path = "../../metrics" }
+protocol-common = { path = "../../protocol/common" }
+session = { path = "../../session" }
+storage-types = { path = "../../storage/types" }
+
+[dev-dependencies]
+criterion = "0.3.4"

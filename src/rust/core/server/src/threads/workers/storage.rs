@@ -10,7 +10,7 @@ use config::WorkerConfig;
 use core::time::Duration;
 use entrystore::EntryStore;
 use mio::{Events, Waker};
-use protocol::Execute;
+use protocol_common::Execute;
 use std::marker::PhantomData;
 use std::sync::Arc;
 

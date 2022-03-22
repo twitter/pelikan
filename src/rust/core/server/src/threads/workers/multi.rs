@@ -17,7 +17,7 @@ use core::time::Duration;
 use entrystore::EntryStore;
 use mio::event::Event;
 use mio::{Events, Token, Waker};
-use protocol::{Compose, Execute, Parse, ParseError};
+use protocol_common::{Compose, Execute, Parse, ParseError};
 use queues::TrackedItem;
 use session::Session;
 use std::io::{BufRead, Write};

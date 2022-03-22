@@ -6,6 +6,16 @@
 
 use super::*;
 
-use protocol::ping::PingStorage;
+use protocol_ping::*;
 
 impl PingStorage for Noop {}
+
+impl Execute<PingRequest, PingResponse> for Noop {
+    fn execute(&mut self, request: PingRequest) -> Option<PingResponse> {
+        let response = match request {
+            PingRequest::Ping => PingResponse::Pong,
+        };
+
+        Some(response)
+    }
+}

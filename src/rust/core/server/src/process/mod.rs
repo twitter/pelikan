@@ -16,7 +16,7 @@ use queues::Queues;
 use std::thread::JoinHandle;
 
 use entrystore::EntryStore;
-use protocol::{Compose, Execute, Parse};
+use protocol_common::{Compose, Execute, Parse};
 
 /// A builder for Pelikan server processes.
 pub struct ProcessBuilder<Storage, Parser, Request, Response>
