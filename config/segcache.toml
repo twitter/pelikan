@@ -77,10 +77,10 @@ sample = 100
 
 [tls]
 # certificate chain used to validate client certificate
-# certificate_chain = "server.chain"
+# certificate_chain = "client.chain"
 # server certificate
 # certificate = "server.crt"
 # server private key
 # private_key = "server.key"
 # ca certificate file used as the root of trust
-# ca_file = "root_ca.crt"
+# ca_file = "ca.crt"
