@@ -8,8 +8,8 @@
 use super::super::*;
 use crate::*;
 
-use core::slice::Windows;
 use core::convert::TryFrom;
+use core::slice::Windows;
 
 #[derive(Default, Copy, Clone)]
 pub struct Parser {}
