@@ -6,10 +6,11 @@
 //! into a request object.
 
 use super::super::*;
+use crate::ping::wire::response::keyword::Keyword;
 use crate::*;
 
 use core::slice::Windows;
-use core::convert::TryFrom;
+use std::convert::TryFrom;
 
 #[derive(Default, Copy, Clone)]
 pub struct Parser {}
@@ -20,10 +21,10 @@ impl Parser {
     }
 }
 
-impl Parse<Request> for Parser {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Request>, ParseError> {
+impl Parse<Response> for Parser {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Response>, ParseError> {
         match parse_keyword(buffer)? {
-            Keyword::Ping => parse_ping(buffer),
+            Keyword::Pong => parse_pong(buffer),
         }
     }
 }
@@ -70,7 +71,7 @@ fn parse_keyword(buffer: &[u8]) -> Result<Keyword, ParseError> {
 }
 
 #[allow(clippy::unnecessary_wraps)]
-fn parse_ping(buffer: &[u8]) -> Result<ParseOk<Request>, ParseError> {
+fn parse_pong(buffer: &[u8]) -> Result<ParseOk<Response>, ParseError> {
     let mut parse_state = ParseState::new(buffer);
 
     // this was already checked for when determining the command
@@ -78,10 +79,10 @@ fn parse_ping(buffer: &[u8]) -> Result<ParseOk<Request>, ParseError> {
 
     let consumed = line_end + CRLF.len();
 
-    let message = Request::Ping;
+    let message = Response::Pong;
 
-    #[cfg(feature = "server")]
-    PING.increment();
+    #[cfg(feature = "client")]
+    PONG.increment();
 
     Ok(ParseOk::new(message, consumed))
 }

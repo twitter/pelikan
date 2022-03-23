@@ -7,21 +7,21 @@
 use crate::ParseError;
 use core::convert::TryFrom;
 
-/// Ping protocol commands
-pub enum PingCommand {
+/// Ping request keywords
+pub enum Keyword {
     Ping,
 }
 
-impl TryFrom<&[u8]> for PingCommand {
+impl TryFrom<&[u8]> for Keyword {
     type Error = ParseError;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        let cmd = match value {
+        let keyword = match value {
             b"ping" | b"PING" => Self::Ping,
             _ => {
-                return Err(ParseError::UnknownCommand);
+                return Err(ParseError::Unknown);
             }
         };
-        Ok(cmd)
+        Ok(keyword)
     }
 }

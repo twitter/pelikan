@@ -44,7 +44,7 @@ impl TryFrom<&[u8]> for MemcacheCommand {
             b"quit" => MemcacheCommand::Quit,
             b"flush_all" => MemcacheCommand::FlushAll,
             _ => {
-                return Err(ParseError::UnknownCommand);
+                return Err(ParseError::Unknown);
             }
         };
         Ok(cmd)

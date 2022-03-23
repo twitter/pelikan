@@ -22,7 +22,7 @@ pub trait Execute<Request, Response> {
 pub enum ParseError {
     Invalid,
     Incomplete,
-    UnknownCommand,
+    Unknown,
 }
 
 #[derive(Debug, PartialEq)]

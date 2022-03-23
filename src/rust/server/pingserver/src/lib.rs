@@ -12,12 +12,10 @@
 use config::*;
 use entrystore::Noop;
 use logger::*;
-use protocol_ping::{PingRequest, PingRequestParser, PingResponse};
+use protocol_ping::{Request, RequestParser, Response};
 use server::{Process, ProcessBuilder};
 
-type Parser = PingRequestParser;
-type Request = PingRequest;
-type Response = PingResponse;
+type Parser = RequestParser;
 type Storage = Noop;
 
 /// This structure represents a running `Pingserver` process.
