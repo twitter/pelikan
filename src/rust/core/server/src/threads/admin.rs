@@ -441,8 +441,6 @@ impl EventLoop for Admin {
                         match request {
                             AdminRequest::FlushAll => {}
                             AdminRequest::Stop => {
-                                let admin_queue = self.signal_queue.new_pair(128, None);
-                                self.signal_queue.add_pair(admin_queue);
 
                                 for _ in 0..QUEUE_RETRIES {
                                     // Send Stop to all other threads
