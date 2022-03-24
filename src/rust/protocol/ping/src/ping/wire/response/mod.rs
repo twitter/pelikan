@@ -5,26 +5,16 @@
 //! Implements the serialization of `Ping` protocol responses into the wire
 //! representation.
 
-use crate::Compose;
-use session::Session;
-use std::io::Write;
+mod compose;
+mod keyword;
+mod parse;
+
+#[cfg(test)]
+mod test;
+
+pub use parse::Parser as ResponseParser;
 
 /// A collection of all possible `Ping` responses
-pub enum PingResponse {
+pub enum Response {
     Pong,
-}
-
-// TODO(bmartin): consider a different trait bound here when reworking buffers.
-// We ignore the unused result warnings here because we know we're using a
-// buffer with infallible writes (growable buffer). This is *not* guaranteed by
-// the current trait bound.
-#[allow(unused_must_use)]
-impl Compose for PingResponse {
-    fn compose(self, dst: &mut Session) {
-        match self {
-            Self::Pong => {
-                dst.write_all(b"PONG\r\n");
-            }
-        }
-    }
 }

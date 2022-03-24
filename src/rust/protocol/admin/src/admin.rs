@@ -42,7 +42,7 @@ impl Parse<AdminRequest> for AdminRequestParser {
                 // remove the need for ignoring this lint.
                 #[allow(clippy::match_single_binding)]
                 match command_verb {
-                    _ => Err(ParseError::UnknownCommand),
+                    _ => Err(ParseError::Unknown),
                 }
             } else {
                 match &buffer[0..command_end] {
@@ -56,7 +56,7 @@ impl Parse<AdminRequest> for AdminRequestParser {
                         AdminRequest::Version,
                         command_end + CRLF.len(),
                     )),
-                    _ => Err(ParseError::UnknownCommand),
+                    _ => Err(ParseError::Unknown),
                 }
             }
         } else {

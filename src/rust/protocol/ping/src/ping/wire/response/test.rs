@@ -4,22 +4,22 @@
 
 //! Tests for the `Ping` protocol implementation.
 
-use crate::RequestParser;
+use crate::ping::ResponseParser;
 use crate::*;
 
 #[test]
 fn ping() {
-    let parser = RequestParser::new();
+    let parser = ResponseParser::new();
 
-    assert!(parser.parse(b"ping\r\n").is_ok());
-    assert!(parser.parse(b"PING\r\n").is_ok());
+    assert!(parser.parse(b"pong\r\n").is_ok());
+    assert!(parser.parse(b"PONG\r\n").is_ok());
 }
 
 #[test]
 fn incomplete() {
-    let parser = RequestParser::new();
+    let parser = ResponseParser::new();
 
-    if let Err(e) = parser.parse(b"ping") {
+    if let Err(e) = parser.parse(b"pong") {
         if e != ParseError::Incomplete {
             panic!("invalid parse result");
         }
@@ -30,14 +30,14 @@ fn incomplete() {
 
 #[test]
 fn trailing_whitespace() {
-    let parser = RequestParser::new();
+    let parser = ResponseParser::new();
 
-    assert!(parser.parse(b"ping \r\n").is_ok())
+    assert!(parser.parse(b"pong \r\n").is_ok())
 }
 
 #[test]
 fn unknown() {
-    let parser = RequestParser::new();
+    let parser = ResponseParser::new();
 
     for request in &["unknown\r\n"] {
         if let Err(e) = parser.parse(request.as_bytes()) {
@@ -52,7 +52,7 @@ fn unknown() {
 
 #[test]
 fn pipelined() {
-    let parser = RequestParser::new();
+    let parser = ResponseParser::new();
 
-    assert!(parser.parse(b"ping\r\nping\r\n").is_ok());
+    assert!(parser.parse(b"pong\r\npong\r\n").is_ok());
 }

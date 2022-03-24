@@ -10,10 +10,10 @@ use protocol_ping::*;
 
 impl PingStorage for Noop {}
 
-impl Execute<PingRequest, PingResponse> for Noop {
-    fn execute(&mut self, request: PingRequest) -> Option<PingResponse> {
+impl Execute<Request, Response> for Noop {
+    fn execute(&mut self, request: Request) -> Option<Response> {
         let response = match request {
-            PingRequest::Ping => PingResponse::Pong,
+            Request::Ping => Response::Pong,
         };
 
         Some(response)

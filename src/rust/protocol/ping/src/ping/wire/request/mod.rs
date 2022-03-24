@@ -4,17 +4,19 @@
 
 //! Implements all request parsing and validation for the `Ping` protocol.
 
-mod command;
+mod compose;
+mod keyword;
 mod parse;
 
 #[cfg(test)]
 mod test;
 
-pub use command::PingCommand;
-pub use parse::PingRequestParser;
+pub use keyword::Keyword;
+
+pub use parse::Parser as RequestParser;
 
 #[derive(Debug)]
 /// A collection of all possible `Ping` request types.
-pub enum PingRequest {
+pub enum Request {
     Ping,
 }

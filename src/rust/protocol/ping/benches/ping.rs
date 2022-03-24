@@ -14,7 +14,7 @@ const BUFFER_SIZE: usize = 16 * KB;
 const DURATION: u64 = 30; // seconds
 
 fn ping(c: &mut Criterion) {
-    let parser = PingRequestParser::new();
+    let parser = RequestParser::new();
 
     let mut group = c.benchmark_group("ping");
     group.measurement_time(Duration::from_secs(DURATION));

@@ -10,7 +10,7 @@ use libfuzzer_sys::fuzz_target;
 
 use protocol_ping::*;
 
-const PARSER: PingRequestParser = PingRequestParser {};
+const PARSER: RequestParser = RequestParser {};
 
 fuzz_target!(|data: &[u8]| {
     let _ = PARSER.parse(data);
