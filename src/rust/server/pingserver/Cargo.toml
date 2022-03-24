@@ -38,7 +38,7 @@ config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
 metrics = { path = "../../metrics" }
-protocol-ping = { path = "../../protocol/ping" }
+protocol-ping = { path = "../../protocol/ping", features = ["server"] }
 server = { path = "../../core/server" }
 
 [dev-dependencies]
