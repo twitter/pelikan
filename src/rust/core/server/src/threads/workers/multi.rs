@@ -129,7 +129,7 @@ where
                         self.handle_storage_queue(&mut responses);
 
                         // check if we received any signals from the admin thread
-                        while let Ok(signal) = self.signal_queue.try_recv().map(|v| v.into_inner())
+                        while let Some(signal) = self.signal_queue.try_recv().map(|v| v.into_inner())
                         {
                             match signal {
                                 Signal::FlushAll => {}

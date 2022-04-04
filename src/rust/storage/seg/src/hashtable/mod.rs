@@ -150,13 +150,13 @@ impl HashTable {
             mask,
             data: data.into_boxed_slice(),
             rng: Box::new(rng()),
-            started: Instant::recent(),
+            started: Instant::now(),
             next_to_chain: buckets as u64,
         }
     }
 
     /// Lookup an item by key and return it
-    pub fn get(&mut self, key: &[u8], segments: &mut Segments) -> Option<Item> {
+    pub fn get(&mut self, key: &[u8], time: Instant, segments: &mut Segments) -> Option<Item> {
         let hash = self.hash(key);
         let tag = tag_from_hash(hash);
         let bucket_id = hash & self.mask;
@@ -165,11 +165,9 @@ impl HashTable {
         let chain_len = chain_len(bucket.data[0]);
         let mut chain_idx = 0;
 
-        trace!("hash: {} mask: {} bucket: {}", hash, self.mask, bucket_id);
-
-        let curr_ts = (Instant::recent() - self.started).as_secs() as u64 & PROC_TS_MASK;
-        if curr_ts != get_ts(bucket.data[0]) {
-            bucket.data[0] = (bucket.data[0] & !TS_MASK) | (curr_ts << TS_BIT_SHIFT);
+        let curr_ts = (time - self.started).as_secs() & PROC_TS_MASK;
+        if curr_ts != get_ts(bucket.data[0]) as u32 {
+            bucket.data[0] = (bucket.data[0] & !TS_MASK) | (curr_ts as u64);
 
             loop {
                 let n_item_slot = if chain_idx == chain_len {
@@ -262,8 +260,6 @@ impl HashTable {
         let mut bucket = &mut self.data[bucket_id as usize];
         let chain_len = chain_len(bucket.data[0]);
         let mut chain_idx = 0;
-
-        trace!("hash: {} mask: {} bucket: {}", hash, self.mask, bucket_id);
 
         loop {
             let n_item_slot = if chain_idx == chain_len {
@@ -488,11 +484,11 @@ impl HashTable {
             insert_item_info = 0;
             self.data[bucket_id].data[N_BUCKET_SLOT - 1] = next_id as u64;
 
-            self.data[(hash & self.mask) as usize].data[0] += 0x0001_0000_0000_0000;
+            self.data[(hash & self.mask) as usize].data[0] += 0x0000_0000_0001_0000;
         }
 
         if insert_item_info == 0 {
-            self.data[(hash & self.mask) as usize].data[0] += 1;
+            self.data[(hash & self.mask) as usize].data[0] += 1 << 32;
             Ok(())
         } else {
             HASH_INSERT_EX.increment();
@@ -521,8 +517,6 @@ impl HashTable {
         let mut bucket = &mut self.data[bucket_id as usize];
         let chain_len = chain_len(bucket.data[0]);
         let mut chain_idx = 0;
-
-        trace!("hash: {} mask: {} bucket: {}", hash, self.mask, bucket_id);
 
         loop {
             let n_item_slot = if chain_idx == chain_len {
@@ -557,7 +551,7 @@ impl HashTable {
 
                         if cas == get_cas(bucket.data[0]) {
                             // TODO(bmartin): what is expected on overflow of the cas bits?
-                            self.data[(hash & self.mask) as usize].data[0] += 1;
+                            self.data[(hash & self.mask) as usize].data[0] += 1 << 32;
                             return Ok(());
                         } else {
                             return Err(SegError::Exists);
