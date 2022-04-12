@@ -2,12 +2,15 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+//! This module contains all the threads that make-up a server as well as their
+//! builders.
+
 mod admin;
 mod listener;
 mod traits;
-mod worker;
+mod workers;
 
-pub use admin::{Admin, PERCENTILES};
-pub use listener::Listener;
+pub use admin::{Admin, AdminBuilder, PERCENTILES};
+pub use listener::{Listener, ListenerBuilder};
 pub use traits::EventLoop;
-pub use worker::{MultiWorker, SingleWorker, StorageWorker};
+pub use workers::{Workers, WorkersBuilder};

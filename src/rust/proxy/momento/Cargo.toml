@@ -15,8 +15,9 @@ config = { path = "../../config" }
 libc = "0.2.83"
 logger = { path = "../../logger" }
 metrics = { path = "../../metrics" }
-momento = { git = "https://github.com/momentohq/client-sdk-rust", commit = "97c379d" }
-protocol = { path = "../../protocol" }
+momento = { git = "https://github.com/momentohq/client-sdk-rust", rev = "97c379d" }
+protocol-admin = { path = "../../protocol/admin" }
+protocol-memcache = { path = "../../protocol/memcache" }
 session = { path = "../../session" }
 storage-types = { path = "../../storage/types" }
 tokio = { version = "1.17.0", features = ["full"] }

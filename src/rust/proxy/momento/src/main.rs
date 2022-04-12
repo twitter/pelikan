@@ -1,10 +1,10 @@
 #[macro_use]
 extern crate logger;
 
-use core::num::NonZeroU64;
 use backtrace::Backtrace;
 use clap::{App, Arg};
 use config::*;
+use core::num::NonZeroU64;
 use core::num::NonZeroUsize;
 use core::time::Duration;
 use logger::configure_logging;
@@ -13,9 +13,8 @@ use momento::response::cache_get_response::*;
 use momento::response::cache_set_response::*;
 use momento::response::error::*;
 use momento::simple_cache_client::*;
-use protocol::admin::*;
-use protocol::memcache::*;
-use protocol::{Parse, ParseError};
+use protocol_admin::*;
+use protocol_memcache::*;
 use session::*;
 use std::borrow::{Borrow, BorrowMut};
 use std::io::{Error, ErrorKind};
@@ -76,7 +75,17 @@ static_metrics! {
     static BACKEND_EX_RATE_LIMITED: Counter;
     static BACKEND_EX_TIMEOUT: Counter;
 
+    static GET: Counter;
+    static GET_EX: Counter;
+    static GET_KEY: Counter;
     static GET_KEY_EX: Counter;
+    static GET_KEY_HIT: Counter;
+    static GET_KEY_MISS: Counter;
+
+    static SET: Counter;
+    static SET_EX: Counter;
+    static SET_NOT_STORED: Counter;
+    static SET_STORED: Counter;
 
     static RU_UTIME: Counter;
     static RU_STIME: Counter;
@@ -486,7 +495,7 @@ async fn handle_admin_client(mut socket: tokio::net::TcpStream) {
                 let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
                 break;
             }
-            Err(ParseError::UnknownCommand) => {
+            Err(ParseError::Unknown) => {
                 // unknown command
                 let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
                 break;
@@ -644,12 +653,7 @@ async fn set(
 
         match timeout(
             Duration::from_millis(200),
-            client.set(
-                &cache_name,
-                key,
-                &value,
-                ttl,
-            ),
+            client.set(&cache_name, key, &value, ttl),
         )
         .await
         {
@@ -835,7 +839,7 @@ async fn handle_proxy_client(
                 let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
                 break;
             }
-            Err(ParseError::UnknownCommand) => {
+            Err(ParseError::Unknown) => {
                 // unknown command
                 let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
                 break;

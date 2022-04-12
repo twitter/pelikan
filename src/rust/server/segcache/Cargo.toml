@@ -43,7 +43,7 @@ config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
 metrics = { path = "../../metrics" }
-protocol = { path = "../../protocol" }
+protocol-memcache = { path = "../../protocol/memcache" }
 server = { path = "../../core/server" }
 
 [dev-dependencies]

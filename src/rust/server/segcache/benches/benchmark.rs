@@ -39,6 +39,8 @@ fn get_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("request");
     group.throughput(Throughput::Elements(1));
 
+    let mut key_id = 0;
+
     // benchmark for a few key lengths
     for klen in [1, 16, 64, 255].iter() {
         // benchmark getting empty value
@@ -49,9 +51,7 @@ fn get_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 assert!(stream.write_all(msg.as_bytes()).is_ok());
                 if let Ok(bytes) = stream.read(&mut buffer) {
-                    if &buffer[0..bytes] != b"END\r\n" {
-                        panic!("invalid response");
-                    }
+                    assert_eq!(&buffer[0..bytes], b"END\r\n", "invalid response");
                 } else {
                     panic!("read error");
                 }
@@ -59,15 +59,13 @@ fn get_benchmark(c: &mut Criterion) {
         });
 
         // benchmark across a few value lengths
-        for (key, vlen) in [1, 64, 1024, 4096].iter().enumerate() {
-            let key = format!("{:01$}", key, klen);
-            let value = format!("{:01$}", 0, vlen);
+        for vlen in [1, 64, 1024, 4096].iter() {
+            let key = format!("{:01$}", key_id, klen);
+            let value = format!("{:A>1$}", 0, vlen);
             let msg = format!("set {} 0 0 {}\r\n{}\r\n", key, vlen, value);
             assert!(stream.write_all(msg.as_bytes()).is_ok());
             if let Ok(bytes) = stream.read(&mut buffer) {
-                if &buffer[0..bytes] != b"STORED\r\n" {
-                    panic!("invalid response: {:?}", &buffer[0..bytes]);
-                }
+                assert_eq!(&buffer[0..bytes], b"STORED\r\n", "invalid response");
             } else {
                 panic!("read error");
             }
@@ -79,14 +77,14 @@ fn get_benchmark(c: &mut Criterion) {
                 b.iter(|| {
                     assert!(stream.write_all(msg.as_bytes()).is_ok());
                     if let Ok(bytes) = stream.read(&mut buffer) {
-                        if &buffer[0..bytes] != response.as_bytes() {
-                            panic!("invalid response");
-                        }
+                        assert_eq!(&buffer[0..bytes], response.as_bytes(), "invalid response");
                     } else {
                         panic!("read error");
                     }
                 })
             });
+
+            key_id += 1;
         }
     }
 

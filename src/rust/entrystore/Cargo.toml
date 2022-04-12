@@ -14,5 +14,6 @@ debug = ["seg/debug"]
 [dependencies]
 common = { path = "../common" }
 config = { path = "../config" }
-protocol = { path = "../protocol" }
+protocol-memcache = { path = "../protocol/memcache" }
+protocol-ping = { path = "../protocol/ping" }
 seg = { path = "../storage/seg" }
