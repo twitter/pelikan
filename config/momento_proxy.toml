@@ -4,6 +4,10 @@ host = "0.0.0.0"
 # port listening on
 port = "9999"
 
+[proxy]
+# restrict the number of threads to use, defaults to number of CPUs
+# threads = 1
+
 # One or more caches must be specified. Each listens on its own port and directs
 # requests to a specific Momento cache.
 
