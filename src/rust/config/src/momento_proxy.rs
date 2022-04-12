@@ -1,5 +1,5 @@
 use crate::{Admin, AdminConfig, Debug, DebugConfig, Klog, KlogConfig};
-use core::num::NonZeroU32;
+use core::num::NonZeroU64;
 use std::net::AddrParseError;
 use std::net::SocketAddr;
 
@@ -27,7 +27,7 @@ pub struct Cache {
     host: String,
     port: String,
     cache_name: String,
-    default_ttl: NonZeroU32,
+    default_ttl: NonZeroU64,
 }
 
 // implementation
@@ -53,7 +53,7 @@ impl Cache {
     }
 
     /// The default TTL (in seconds) for
-    pub fn default_ttl(&self) -> NonZeroU32 {
+    pub fn default_ttl(&self) -> NonZeroU64 {
         self.default_ttl
     }
 }

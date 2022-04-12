@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate logger;
 
+use core::num::NonZeroU64;
 use backtrace::Backtrace;
 use clap::{App, Arg};
 use config::*;
@@ -50,7 +51,7 @@ pub const MAX_REQUEST_SIZE: usize = 100 * MB;
 // The Momento cache client requires providing a default TTL. For the current
 // implementation of the proxy, we don't actually let the client use the default,
 // we always specify a TTL for each `set`.
-const DEFAULT_TTL_SECONDS: u32 = u32::MAX / 1000;
+const DEFAULT_TTL_SECONDS: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(3600) };
 
 // we interpret TTLs the same way memcached would
 pub const TIME_TYPE: TimeType = TimeType::Memcache;
@@ -151,9 +152,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // validate config parameters
     for cache in config.caches() {
         let name = cache.cache_name();
-        let ttl = u32::from(cache.default_ttl());
-        let limit = u32::MAX / 1000;
-        if ttl > limit {
+        let ttl = cache.default_ttl();
+        let limit = u64::MAX / 1000;
+        if ttl.get() > limit {
             error!("default ttl of {ttl} for cache `{name}` is greater than {limit}");
             let _ = log_drain.flush();
             std::process::exit(1);
@@ -247,7 +248,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         tokio::spawn(async move {
             let client_builder = client_builder
-                .default_ttl_seconds(u32::from(ttl))
+                .default_ttl_seconds(ttl)
                 .expect("bad default ttl");
 
             info!(
@@ -635,13 +636,19 @@ async fn set(
 
         BACKEND_REQUEST.increment();
 
+        let ttl = if let Some(ttl) = entry.ttl {
+            NonZeroU64::new(ttl.as_secs() as u64)
+        } else {
+            None
+        };
+
         match timeout(
             Duration::from_millis(200),
             client.set(
                 &cache_name,
                 key,
                 &value,
-                entry.ttl.map(|v| v.as_secs() as u32),
+                ttl,
             ),
         )
         .await
