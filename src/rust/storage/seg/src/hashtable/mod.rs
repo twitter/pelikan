@@ -488,7 +488,7 @@ impl HashTable {
         }
 
         if insert_item_info == 0 {
-            self.data[(hash & self.mask) as usize].data[0] += 1 << 32;
+            self.data[(hash & self.mask) as usize].data[0] += 1 << CAS_BIT_SHIFT;
             Ok(())
         } else {
             HASH_INSERT_EX.increment();
@@ -551,7 +551,7 @@ impl HashTable {
 
                         if cas == get_cas(bucket.data[0]) {
                             // TODO(bmartin): what is expected on overflow of the cas bits?
-                            self.data[(hash & self.mask) as usize].data[0] += 1 << 32;
+                            self.data[bucket_id as usize].data[0] += 1 << CAS_BIT_SHIFT;
                             return Ok(());
                         } else {
                             return Err(SegError::Exists);
