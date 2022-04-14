@@ -5,6 +5,7 @@
 //! The admin thread, which handles admin requests to return stats, get version
 //! info, etc.
 
+use tiny_http::{Method, Request, Response};
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use crate::threads::EventLoop;
 use crate::QUEUE_RETRIES;
@@ -75,6 +76,7 @@ pub struct AdminBuilder {
     ssl_context: Option<SslContext>,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
+    http_server: Option<tiny_http::Server>,
 }
 
 impl AdminBuilder {
@@ -111,6 +113,24 @@ impl AdminBuilder {
 
         let nevent = config.nevent();
 
+        let http_server = if config.http_enabled() {
+            let addr = config.http_socket_addr().map_err(|e| {
+                error!("{}", e);
+                error!("bad admin http listen address");
+                let _ = log_drain.flush();
+                Error::new(ErrorKind::Other, "bad listen address")
+            })?;
+            let server = tiny_http::Server::http(addr).map_err(|e| {
+                error!("{}", e);
+                error!("could not start admin http server");
+                let _ = log_drain.flush();
+                Error::new(ErrorKind::Other, "failed to create http server")
+            })?;
+            Some(server)
+        } else {
+            None
+        };
+
         Ok(Self {
             addr,
             timeout,
@@ -119,6 +139,7 @@ impl AdminBuilder {
             ssl_context,
             parser: AdminRequestParser::new(),
             log_drain,
+            http_server,
         })
     }
 
@@ -144,6 +165,7 @@ impl AdminBuilder {
             ssl_context: self.ssl_context,
             parser: self.parser,
             log_drain: self.log_drain,
+            http_server: self.http_server,
             signal_queue_tx,
             signal_queue_rx,
         }
@@ -158,6 +180,8 @@ pub struct Admin {
     ssl_context: Option<SslContext>,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
+    /// optional http server
+    http_server: Option<tiny_http::Server>,
     /// used to send signals to all sibling threads
     signal_queue_tx: Queues<Signal, ()>,
     /// used to receive signals from the parent thread
@@ -329,6 +353,131 @@ impl Admin {
         };
     }
 
+    fn human_stats(&self) -> String {
+        let mut data = Vec::new();
+
+        for metric in &metrics::common::metrics::metrics() {
+            let any = match metric.as_any() {
+                    Some(any) => any,
+                    None => {
+                        continue;
+                    }
+                };
+
+            if let Some(counter) = any.downcast_ref::<Counter>() {
+                data.push(format!("{}: {}", metric.name(), counter.value()));
+            } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
+                data.push(format!("{}: {}", metric.name(), gauge.value()));
+            } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
+                for (label, value) in PERCENTILES {
+                    let percentile = heatmap.percentile(*value).unwrap_or(0);
+                    data.push(format!("{}_{}: {}", metric.name(), label, percentile));
+                }
+            }
+        }
+
+        data.sort();
+        data.join("\n")
+    }
+
+    fn json_stats(&self) -> String {
+        let head = "{".to_owned();
+
+        let mut data = Vec::new();
+
+        for metric in &metrics::common::metrics::metrics() {
+            let any = match metric.as_any() {
+                    Some(any) => any,
+                    None => {
+                        continue;
+                    }
+                };
+
+            if let Some(counter) = any.downcast_ref::<Counter>() {
+                data.push(format!("\"{}\": {}", metric.name(), counter.value()));
+            } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
+                data.push(format!("\"{}\": {}", metric.name(), gauge.value()));
+            } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
+                for (label, value) in PERCENTILES {
+                    let percentile = heatmap.percentile(*value).unwrap_or(0);
+                    data.push(format!("\"{}_{}\": {}", metric.name(), label, percentile));
+                }
+            }
+        }
+
+        data.sort();
+        let body = data.join(",");
+        let mut content = head;
+        content += &body;
+        content += "}";
+        content
+    }
+
+    fn prometheus_stats(&self) -> String {
+        let mut data = Vec::new();
+
+        for metric in &metrics::common::metrics::metrics() {
+            let any = match metric.as_any() {
+                Some(any) => any,
+                None => {
+                    continue;
+                }
+            };
+
+            if let Some(counter) = any.downcast_ref::<Counter>() {
+                data.push(format!("# TYPE {} counter\n{} {}", metric.name(), metric.name(), counter.value()));
+            } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
+                data.push(format!("# TYPE {} gauge\n{} {}", metric.name(), metric.name(), gauge.value()));
+            } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
+                for (label, value) in PERCENTILES {
+                    let percentile = heatmap.percentile(*value).unwrap_or(0);
+                    data.push(format!("# TYPE {} gauge\n{}{{percentile=\"{}\"}} {}", metric.name(), metric.name(), label, percentile));
+                }
+            }
+        }
+        data.sort();
+        let mut content = data.join("\n");
+        content += "\n";
+        let parts: Vec<&str> = content.split('/').collect();
+        parts.join("_")   
+    }
+
+    /// Handle a HTTP request
+    fn handle_http_request(&self, request: Request) {
+        let url = request.url();
+        let parts: Vec<&str> = url.split('?').collect();
+        let url = parts[0];
+        match url {
+            "/metrics" => match request.method() {
+                Method::Get => {
+                    let _ = request.respond(Response::from_string(self.prometheus_stats()));
+                }
+                _ => {
+                    let _ = request.respond(Response::empty(400));
+                }
+            }
+            "/metrics.json" | "/vars.json" | "/admin/metrics.json" => match request.method() {
+                Method::Get => {
+                    let _ = request.respond(Response::from_string(self.json_stats()));
+                }
+                _ => {
+                    let _ = request.respond(Response::empty(400));
+                }
+            }
+            "/vars" => match request.method() {
+                Method::Get => {
+                    let _ = request.respond(Response::from_string(self.human_stats()));
+                }
+                _ => {
+                    let _ = request.respond(Response::empty(400));
+                }
+            }
+            _ => {
+                let _ = request.respond(Response::empty(404));
+            }
+        }
+    }
+
     /// Runs the `Admin` in a loop, accepting new sessions for the admin
     /// listener and handling events on existing sessions.
     pub fn run(&mut self) {
@@ -379,6 +528,14 @@ impl Admin {
                 }
             }
 
+            // handle all http requests if the http server is enabled
+            if let Some(ref server) = self.http_server {
+                while let Ok(Some(request)) = server.try_recv() {
+                    self.handle_http_request(request);
+                }
+            }
+
+            // handle all signals
             while let Ok(signal) = self.signal_queue_rx.try_recv() {
                 match signal {
                     Signal::FlushAll => {}
@@ -397,8 +554,10 @@ impl Admin {
                 }
             }
 
+            // get updated usage
             self.get_rusage();
 
+            // flush pending log entries to log destinations
             let _ = self.log_drain.flush();
         }
     }
