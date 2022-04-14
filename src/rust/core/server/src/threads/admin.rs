@@ -5,7 +5,6 @@
 //! The admin thread, which handles admin requests to return stats, get version
 //! info, etc.
 
-use tiny_http::{Method, Request, Response};
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use crate::threads::EventLoop;
 use crate::QUEUE_RETRIES;
@@ -26,6 +25,7 @@ use session::{Session, TcpStream};
 use std::io::{BufRead, Error, ErrorKind, Write};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tiny_http::{Method, Request, Response};
 
 static_metrics! {
     static ADMIN_REQUEST_PARSE: Counter;
@@ -358,11 +358,11 @@ impl Admin {
 
         for metric in &metrics::common::metrics::metrics() {
             let any = match metric.as_any() {
-                    Some(any) => any,
-                    None => {
-                        continue;
-                    }
-                };
+                Some(any) => any,
+                None => {
+                    continue;
+                }
+            };
 
             if let Some(counter) = any.downcast_ref::<Counter>() {
                 data.push(format!("{}: {}", metric.name(), counter.value()));
@@ -387,11 +387,11 @@ impl Admin {
 
         for metric in &metrics::common::metrics::metrics() {
             let any = match metric.as_any() {
-                    Some(any) => any,
-                    None => {
-                        continue;
-                    }
-                };
+                Some(any) => any,
+                None => {
+                    continue;
+                }
+            };
 
             if let Some(counter) = any.downcast_ref::<Counter>() {
                 data.push(format!("\"{}\": {}", metric.name(), counter.value()));
@@ -425,13 +425,29 @@ impl Admin {
             };
 
             if let Some(counter) = any.downcast_ref::<Counter>() {
-                data.push(format!("# TYPE {} counter\n{} {}", metric.name(), metric.name(), counter.value()));
+                data.push(format!(
+                    "# TYPE {} counter\n{} {}",
+                    metric.name(),
+                    metric.name(),
+                    counter.value()
+                ));
             } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
-                data.push(format!("# TYPE {} gauge\n{} {}", metric.name(), metric.name(), gauge.value()));
+                data.push(format!(
+                    "# TYPE {} gauge\n{} {}",
+                    metric.name(),
+                    metric.name(),
+                    gauge.value()
+                ));
             } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
                 for (label, value) in PERCENTILES {
                     let percentile = heatmap.percentile(*value).unwrap_or(0);
-                    data.push(format!("# TYPE {} gauge\n{}{{percentile=\"{}\"}} {}", metric.name(), metric.name(), label, percentile));
+                    data.push(format!(
+                        "# TYPE {} gauge\n{}{{percentile=\"{}\"}} {}",
+                        metric.name(),
+                        metric.name(),
+                        label,
+                        percentile
+                    ));
                 }
             }
         }
@@ -439,7 +455,7 @@ impl Admin {
         let mut content = data.join("\n");
         content += "\n";
         let parts: Vec<&str> = content.split('/').collect();
-        parts.join("_")   
+        parts.join("_")
     }
 
     /// Handle a HTTP request
@@ -455,7 +471,7 @@ impl Admin {
                 _ => {
                     let _ = request.respond(Response::empty(400));
                 }
-            }
+            },
             "/metrics.json" | "/vars.json" | "/admin/metrics.json" => match request.method() {
                 Method::Get => {
                     let _ = request.respond(Response::from_string(self.json_stats()));
@@ -463,7 +479,7 @@ impl Admin {
                 _ => {
                     let _ = request.respond(Response::empty(400));
                 }
-            }
+            },
             "/vars" => match request.method() {
                 Method::Get => {
                     let _ = request.respond(Response::from_string(self.human_stats()));
@@ -471,7 +487,7 @@ impl Admin {
                 _ => {
                     let _ = request.respond(Response::empty(400));
                 }
-            }
+            },
             _ => {
                 let _ = request.respond(Response::empty(404));
             }
