@@ -109,7 +109,7 @@ impl Segments {
             free: segments as u32,
             free_q: NonZeroU32::new(1),
             data,
-            flush_at: Instant::recent(),
+            flush_at: Instant::now(),
             evict: Box::new(Eviction::new(segments, evict_policy)),
         }
     }

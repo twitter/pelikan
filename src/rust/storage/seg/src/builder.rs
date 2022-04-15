@@ -167,6 +167,7 @@ impl Builder {
             hashtable,
             segments,
             ttl_buckets,
+            time: Instant::recent(),
         }
     }
 }
