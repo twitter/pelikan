@@ -19,6 +19,13 @@ const ADMIN_TW_CAP: usize = 1000;
 const ADMIN_TW_NTICK: usize = 100;
 const ADMIN_USE_TLS: bool = false;
 
+// TODO(bmartin): we will eventually migrate to HTTP by default and make the
+// legacy admin port as optional. At that time, we should consider consolidating
+// the host and port parameters into a single listen address parameter. By using
+// Option<> types, we can also eliminate the use of a separate bool to enable
+// the legacy admin port, the presence or absence of a listen address being
+// enough to determine the desired behavior.
+
 // helper functions for default values
 fn host() -> String {
     ADMIN_HOST.to_string()

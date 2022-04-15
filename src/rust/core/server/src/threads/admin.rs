@@ -270,6 +270,25 @@ impl Admin {
         }
     }
 
+    /// This is a handler for the stats commands on the legacy admin port. It
+    /// responses using the Memcached `stats` command response format, each stat
+    /// appears on its own line with a CR+LF used as end of line symbol. The
+    /// stats appear in sorted order.
+    ///
+    /// ```
+    /// STAT get 0
+    /// STAT get_cardinality_p25 0
+    /// STAT get_cardinality_p50 0
+    /// STAT get_cardinality_p75 0
+    /// STAT get_cardinality_p90 0
+    /// STAT get_cardinality_p99 0
+    /// STAT get_cardinality_p999 0
+    /// STAT get_cardinality_p9999 0
+    /// STAT get_ex 0
+    /// STAT get_key 0
+    /// STAT get_key_hit 0
+    /// STAT get_key_miss 0
+    /// ```
     fn handle_stats_request(session: &mut Session) {
         ADMIN_REQUEST_PARSE.increment();
         let mut data = Vec::new();
@@ -353,6 +372,23 @@ impl Admin {
         };
     }
 
+    /// A "human-readable" exposition format which outputs one stat per line,
+    /// with a LF used as the end of line symbol.
+    ///
+    /// ```
+    /// get: 0
+    /// get_cardinality_p25: 0
+    /// get_cardinality_p50: 0
+    /// get_cardinality_p75: 0
+    /// get_cardinality_p90: 0
+    /// get_cardinality_p9999: 0
+    /// get_cardinality_p999: 0
+    /// get_cardinality_p99: 0
+    /// get_ex: 0
+    /// get_key: 0
+    /// get_key_hit: 0
+    /// get_key_miss: 0
+    /// ```
     fn human_stats(&self) -> String {
         let mut data = Vec::new();
 
@@ -377,9 +413,18 @@ impl Admin {
         }
 
         data.sort();
-        data.join("\n")
+        data.join("\n") + "\n"
     }
 
+    /// JSON stats output which follows the conventions found in Finagle and
+    /// TwitterServer libraries. Percentiles are appended to the metric name,
+    /// eg: `request_latency_p999` for the 99.9th percentile. For more details
+    /// about the Finagle / TwitterServer format see:
+    /// https://twitter.github.io/twitter-server/Features.html#metrics
+    ///
+    /// ```
+    /// {"get": 0,"get_cardinality_p25": 0,"get_cardinality_p50": 0, ... }
+    /// ```
     fn json_stats(&self) -> String {
         let head = "{".to_owned();
 
@@ -413,6 +458,36 @@ impl Admin {
         content
     }
 
+    /// Prometheus / OpenTelemetry compatible stats output. Each stat is
+    /// annotated with a type. Percentiles use the label 'percentile' to
+    /// indicate which percentile corresponds to the value:
+    ///
+    /// ```
+    /// # TYPE get counter
+    /// get 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p25"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p50"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p75"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p90"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p99"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p999"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p9999"} 0
+    /// # TYPE get_ex counter
+    /// get_ex 0
+    /// # TYPE get_key counter
+    /// get_key 0
+    /// # TYPE get_key_hit counter
+    /// get_key_hit 0
+    /// # TYPE get_key_miss counter
+    /// get_key_miss 0
+    /// ```
     fn prometheus_stats(&self) -> String {
         let mut data = Vec::new();
 
@@ -464,6 +539,8 @@ impl Admin {
         let parts: Vec<&str> = url.split('?').collect();
         let url = parts[0];
         match url {
+            // Prometheus/OpenTelemetry expect the `/metrics` URI will return
+            // stats in the Prometheus format
             "/metrics" => match request.method() {
                 Method::Get => {
                     let _ = request.respond(Response::from_string(self.prometheus_stats()));
@@ -472,6 +549,8 @@ impl Admin {
                     let _ = request.respond(Response::empty(400));
                 }
             },
+            // we export Finagle/TwitterServer format stats on a few endpoints
+            // for maximum compatibility with various internal conventions
             "/metrics.json" | "/vars.json" | "/admin/metrics.json" => match request.method() {
                 Method::Get => {
                     let _ = request.respond(Response::from_string(self.json_stats()));
@@ -480,6 +559,8 @@ impl Admin {
                     let _ = request.respond(Response::empty(400));
                 }
             },
+            // human-readable stats are exported on the `/vars` endpoint based
+            // on internal conventions
             "/vars" => match request.method() {
                 Method::Get => {
                     let _ = request.respond(Response::from_string(self.human_stats()));
