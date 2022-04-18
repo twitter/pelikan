@@ -6,8 +6,10 @@ use clap::{App, Arg};
 use config::*;
 use core::num::NonZeroU64;
 use core::num::NonZeroUsize;
+use core::sync::atomic::{AtomicUsize, Ordering};
 use core::time::Duration;
 use logger::configure_logging;
+use logger::Drain;
 use metrics::*;
 use momento::response::cache_get_response::*;
 use momento::response::cache_set_response::*;
@@ -21,6 +23,7 @@ use std::io::{Error, ErrorKind};
 use storage_types::OwnedValue;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
+use tokio::runtime::Builder;
 use tokio::time::timeout;
 
 pub const KB: usize = 1024;
@@ -110,8 +113,7 @@ static_metrics! {
     static RU_NIVCSW: Counter;
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // custom panic hook to terminate whole process after unwinding
     std::panic::set_hook(Box::new(|s| {
         error!("{}", s);
@@ -184,6 +186,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // initialize metrics
     metrics::init();
 
+    let mut runtime = Builder::new_multi_thread();
+
+    runtime.thread_name_fn(|| {
+        static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
+        let id = ATOMIC_ID.fetch_add(1, Ordering::SeqCst);
+        format!("pelikan_wrk_{}", id)
+    });
+
+    if let Some(threads) = config.threads() {
+        runtime.worker_threads(threads);
+    }
+
+    let runtime = runtime
+        .enable_all()
+        .build()
+        .expect("failed to launch tokio runtime");
+
+    runtime.block_on(async move { spawn(config, log_drain).await })
+}
+
+async fn spawn(
+    config: MomentoProxyConfig,
+    mut log_drain: Box<dyn Drain>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let admin_addr = config
         .admin()
         .socket_addr()

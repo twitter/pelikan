@@ -14,11 +14,18 @@ pub struct MomentoProxyConfig {
     #[serde(default)]
     admin: Admin,
     #[serde(default)]
+    proxy: Proxy,
+    #[serde(default)]
     cache: Vec<Cache>,
     #[serde(default)]
     debug: Debug,
     #[serde(default)]
     klog: Klog,
+}
+
+#[derive(Default, Clone, Copy, Serialize, Deserialize, Debug)]
+pub struct Proxy {
+    threads: Option<usize>,
 }
 
 // definitions
@@ -79,6 +86,10 @@ impl MomentoProxyConfig {
     pub fn caches(&self) -> &[Cache] {
         &self.cache
     }
+
+    pub fn threads(&self) -> Option<usize> {
+        self.proxy.threads
+    }
 }
 
 impl AdminConfig for MomentoProxyConfig {
@@ -104,6 +115,7 @@ impl Default for MomentoProxyConfig {
     fn default() -> Self {
         Self {
             admin: Default::default(),
+            proxy: Default::default(),
             cache: Default::default(),
             debug: Default::default(),
             klog: Default::default(),

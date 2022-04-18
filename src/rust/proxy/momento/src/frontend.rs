@@ -1,5 +1,5 @@
-use crate::*;
 use crate::commands::*;
+use crate::*;
 
 pub(crate) async fn handle_proxy_client(
     mut socket: tokio::net::TcpStream,
