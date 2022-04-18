@@ -1,0 +1,8 @@
+[Unit]
+Description=a proxy to access Momento cache(s) over memcache protocol
+
+[Service]
+ExecStart=/usr/bin/momento_proxy /etc/momento_proxy/config.toml
+
+[Install]
+WantedBy=multi-user.target

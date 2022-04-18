@@ -1,9 +1,9 @@
 [package]
 name = "momento_proxy"
-authors = ["Brian Martin <brian@thermitesolutions.com>"]
+authors = ["Brian Martin <brayniac@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
-description = "a proxy to access Momento cache over memcache protocol"
+description = "a proxy to access Momento cache(s) over memcache protocol"
 homepage = "https://pelikan.io"
 repository = "https://github.com/twitter/pelikan"
 license = "Apache-2.0"
@@ -21,3 +21,17 @@ protocol-memcache = { path = "../../protocol/memcache" }
 session = { path = "../../session" }
 storage-types = { path = "../../storage/types" }
 tokio = { version = "1.17.0", features = ["full"] }
+
+[package.metadata.deb]
+maintainer = "Brian Martin <brayniac@gmail.com>"
+copyright = "2022, Twitter, Inc."
+license-file = ["../../../../LICENSE", "0"]
+depends = "$auto"
+section = "web"
+priority = "optional"
+assets = [
+	["target/release/momento_proxy", "usr/bin/momento_proxy", "755"],
+	["../../../../config/momento_proxy.toml", "etc/momento_proxy/config.toml.example", "644"],	
+]
+maintainer-scripts = "debian/"
+systemd-units = { enable = false }
