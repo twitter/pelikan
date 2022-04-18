@@ -88,6 +88,11 @@ where
         }
     }
 
+    pub fn version(mut self, version: &str) -> Self {
+        self.admin.version(version);
+        self
+    }
+
     /// Convert the `ProcessBuilder` to a running `Process` by spawning the
     /// threads for each component. Returns a `Process` which serves as a
     /// control handle for the threads.

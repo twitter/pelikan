@@ -27,6 +27,14 @@ fn main() {
 
     test("ping", &[("PING\r\n", Some("PONG\r\n"))]);
 
+    admin_test(
+        "version",
+        &[(
+            "version\r\n",
+            Some(&format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION"))),
+        )],
+    );
+
     // shutdown server and join
     info!("shutdown...");
     let _ = server.shutdown();
@@ -86,6 +94,72 @@ fn test(name: &str, data: &[(&str, Option<&str>)]) {
             }
         } else {
             error!("expected no response");
+            panic!("status: failed\n");
+        }
+
+        if data.len() > 1 {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+    info!("status: passed\n");
+}
+
+// opens a new connection to the admin port, sends a request, and checks the response.
+fn admin_test(name: &str, data: &[(&str, Option<&str>)]) {
+    info!("testing: {}", name);
+    debug!("connecting to server");
+    let mut stream = TcpStream::connect("127.0.0.1:9999").expect("failed to connect");
+    stream
+        .set_read_timeout(Some(Duration::from_millis(250)))
+        .expect("failed to set read timeout");
+    stream
+        .set_write_timeout(Some(Duration::from_millis(250)))
+        .expect("failed to set write timeout");
+
+    debug!("sending request");
+    for (request, response) in data {
+        match stream.write(request.as_bytes()) {
+            Ok(bytes) => {
+                if bytes == request.len() {
+                    debug!("full request sent");
+                } else {
+                    error!("incomplete write");
+                    panic!("status: failed\n");
+                }
+            }
+            Err(_) => {
+                error!("error sending request");
+                panic!("status: failed\n");
+            }
+        }
+
+        std::thread::sleep(Duration::from_millis(10));
+        let mut buf = vec![0; 4096];
+
+        if let Some(response) = response {
+            if stream.read(&mut buf).is_err() {
+                std::thread::sleep(Duration::from_millis(500));
+                panic!("error reading response");
+            } else if response.as_bytes() != &buf[0..response.len()] {
+                error!("expected: {:?}", response.as_bytes());
+                error!("received: {:?}", &buf[0..response.len()]);
+                std::thread::sleep(Duration::from_millis(500));
+                panic!("status: failed\n");
+            } else {
+                debug!("correct response");
+            }
+            assert_eq!(response.as_bytes(), &buf[0..response.len()]);
+        } else if let Err(e) = stream.read(&mut buf) {
+            if e.kind() == std::io::ErrorKind::WouldBlock {
+                debug!("got no response");
+            } else {
+                error!("error reading response");
+                std::thread::sleep(Duration::from_millis(500));
+                panic!("status: failed\n");
+            }
+        } else {
+            error!("expected no response");
+            std::thread::sleep(Duration::from_millis(500));
             panic!("status: failed\n");
         }
 
