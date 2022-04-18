@@ -1,12 +1,17 @@
 # Momento Proxy
 
-This product is a simple proxy which can allow existing applications which use Memcached set/get operations for caching to use [Momento](https://momentohq.com) cache offering without any code changes.
+This product is a simple proxy which can allow existing applications which use
+Memcached set/get operations for caching to use [Momento](https://momentohq.com)
+cache offering without any code changes.
 
 ## Features
 
-* **Transparent**: allows existing applications which use Memcached to switch to Momento without code changes.
-* **Stats**: get insight into runtime by using the Memcached `stats` command on the admin port.
-* **Command Log**: enables logging of commands for audit and offline workload analysis.
+* **Transparent**: allows existing applications which use Memcached to switch to
+  Momento without code changes.
+* **Stats**: get insight into runtime by using the Memcached `stats` command on
+  the admin port.
+* **Command Log**: enables logging of commands for audit and offline workload
+  analysis.
 
 ## Limitations
 
@@ -45,3 +50,9 @@ After completing the build and configuration, you are ready to run the Momento
 proxy.
 
 ```cargo run --release --bin momento_proxy -- path/to/config.toml```
+
+Your application can now connect to the proxy on the configured port(s) to send
+requests to the corresponding Momento cache(s).
+
+The resulting binary will be `target/release/momento_proxy` and it can be copied
+to a standard system path (eg: `/usr/local/bin`).
