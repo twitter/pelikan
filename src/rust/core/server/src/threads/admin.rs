@@ -25,6 +25,7 @@ use session::{Session, TcpStream};
 use std::io::{BufRead, Error, ErrorKind, Write};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tiny_http::{Method, Request, Response};
 
 static_metrics! {
     static ADMIN_REQUEST_PARSE: Counter;
@@ -75,6 +76,7 @@ pub struct AdminBuilder {
     ssl_context: Option<SslContext>,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
+    http_server: Option<tiny_http::Server>,
 }
 
 impl AdminBuilder {
@@ -111,6 +113,24 @@ impl AdminBuilder {
 
         let nevent = config.nevent();
 
+        let http_server = if config.http_enabled() {
+            let addr = config.http_socket_addr().map_err(|e| {
+                error!("{}", e);
+                error!("bad admin http listen address");
+                let _ = log_drain.flush();
+                Error::new(ErrorKind::Other, "bad listen address")
+            })?;
+            let server = tiny_http::Server::http(addr).map_err(|e| {
+                error!("{}", e);
+                error!("could not start admin http server");
+                let _ = log_drain.flush();
+                Error::new(ErrorKind::Other, "failed to create http server")
+            })?;
+            Some(server)
+        } else {
+            None
+        };
+
         Ok(Self {
             addr,
             timeout,
@@ -119,6 +139,7 @@ impl AdminBuilder {
             ssl_context,
             parser: AdminRequestParser::new(),
             log_drain,
+            http_server,
         })
     }
 
@@ -144,6 +165,7 @@ impl AdminBuilder {
             ssl_context: self.ssl_context,
             parser: self.parser,
             log_drain: self.log_drain,
+            http_server: self.http_server,
             signal_queue_tx,
             signal_queue_rx,
         }
@@ -158,6 +180,8 @@ pub struct Admin {
     ssl_context: Option<SslContext>,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
+    /// optional http server
+    http_server: Option<tiny_http::Server>,
     /// used to send signals to all sibling threads
     signal_queue_tx: Queues<Signal, ()>,
     /// used to receive signals from the parent thread
@@ -246,6 +270,25 @@ impl Admin {
         }
     }
 
+    /// This is a handler for the stats commands on the legacy admin port. It
+    /// responses using the Memcached `stats` command response format, each stat
+    /// appears on its own line with a CR+LF used as end of line symbol. The
+    /// stats appear in sorted order.
+    ///
+    /// ```text
+    /// STAT get 0
+    /// STAT get_cardinality_p25 0
+    /// STAT get_cardinality_p50 0
+    /// STAT get_cardinality_p75 0
+    /// STAT get_cardinality_p90 0
+    /// STAT get_cardinality_p99 0
+    /// STAT get_cardinality_p999 0
+    /// STAT get_cardinality_p9999 0
+    /// STAT get_ex 0
+    /// STAT get_key 0
+    /// STAT get_key_hit 0
+    /// STAT get_key_miss 0
+    /// ```
     fn handle_stats_request(session: &mut Session) {
         ADMIN_REQUEST_PARSE.increment();
         let mut data = Vec::new();
@@ -329,6 +372,209 @@ impl Admin {
         };
     }
 
+    /// A "human-readable" exposition format which outputs one stat per line,
+    /// with a LF used as the end of line symbol.
+    ///
+    /// ```text
+    /// get: 0
+    /// get_cardinality_p25: 0
+    /// get_cardinality_p50: 0
+    /// get_cardinality_p75: 0
+    /// get_cardinality_p90: 0
+    /// get_cardinality_p9999: 0
+    /// get_cardinality_p999: 0
+    /// get_cardinality_p99: 0
+    /// get_ex: 0
+    /// get_key: 0
+    /// get_key_hit: 0
+    /// get_key_miss: 0
+    /// ```
+    fn human_stats(&self) -> String {
+        let mut data = Vec::new();
+
+        for metric in &metrics::common::metrics::metrics() {
+            let any = match metric.as_any() {
+                Some(any) => any,
+                None => {
+                    continue;
+                }
+            };
+
+            if let Some(counter) = any.downcast_ref::<Counter>() {
+                data.push(format!("{}: {}", metric.name(), counter.value()));
+            } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
+                data.push(format!("{}: {}", metric.name(), gauge.value()));
+            } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
+                for (label, value) in PERCENTILES {
+                    let percentile = heatmap.percentile(*value).unwrap_or(0);
+                    data.push(format!("{}_{}: {}", metric.name(), label, percentile));
+                }
+            }
+        }
+
+        data.sort();
+        data.join("\n") + "\n"
+    }
+
+    /// JSON stats output which follows the conventions found in Finagle and
+    /// TwitterServer libraries. Percentiles are appended to the metric name,
+    /// eg: `request_latency_p999` for the 99.9th percentile. For more details
+    /// about the Finagle / TwitterServer format see:
+    /// https://twitter.github.io/twitter-server/Features.html#metrics
+    ///
+    /// ```text
+    /// {"get": 0,"get_cardinality_p25": 0,"get_cardinality_p50": 0, ... }
+    /// ```
+    fn json_stats(&self) -> String {
+        let head = "{".to_owned();
+
+        let mut data = Vec::new();
+
+        for metric in &metrics::common::metrics::metrics() {
+            let any = match metric.as_any() {
+                Some(any) => any,
+                None => {
+                    continue;
+                }
+            };
+
+            if let Some(counter) = any.downcast_ref::<Counter>() {
+                data.push(format!("\"{}\": {}", metric.name(), counter.value()));
+            } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
+                data.push(format!("\"{}\": {}", metric.name(), gauge.value()));
+            } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
+                for (label, value) in PERCENTILES {
+                    let percentile = heatmap.percentile(*value).unwrap_or(0);
+                    data.push(format!("\"{}_{}\": {}", metric.name(), label, percentile));
+                }
+            }
+        }
+
+        data.sort();
+        let body = data.join(",");
+        let mut content = head;
+        content += &body;
+        content += "}";
+        content
+    }
+
+    /// Prometheus / OpenTelemetry compatible stats output. Each stat is
+    /// annotated with a type. Percentiles use the label 'percentile' to
+    /// indicate which percentile corresponds to the value:
+    ///
+    /// ```text
+    /// # TYPE get counter
+    /// get 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p25"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p50"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p75"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p90"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p99"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p999"} 0
+    /// # TYPE get_cardinality gauge
+    /// get_cardinality{percentile="p9999"} 0
+    /// # TYPE get_ex counter
+    /// get_ex 0
+    /// # TYPE get_key counter
+    /// get_key 0
+    /// # TYPE get_key_hit counter
+    /// get_key_hit 0
+    /// # TYPE get_key_miss counter
+    /// get_key_miss 0
+    /// ```
+    fn prometheus_stats(&self) -> String {
+        let mut data = Vec::new();
+
+        for metric in &metrics::common::metrics::metrics() {
+            let any = match metric.as_any() {
+                Some(any) => any,
+                None => {
+                    continue;
+                }
+            };
+
+            if let Some(counter) = any.downcast_ref::<Counter>() {
+                data.push(format!(
+                    "# TYPE {} counter\n{} {}",
+                    metric.name(),
+                    metric.name(),
+                    counter.value()
+                ));
+            } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
+                data.push(format!(
+                    "# TYPE {} gauge\n{} {}",
+                    metric.name(),
+                    metric.name(),
+                    gauge.value()
+                ));
+            } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
+                for (label, value) in PERCENTILES {
+                    let percentile = heatmap.percentile(*value).unwrap_or(0);
+                    data.push(format!(
+                        "# TYPE {} gauge\n{}{{percentile=\"{}\"}} {}",
+                        metric.name(),
+                        metric.name(),
+                        label,
+                        percentile
+                    ));
+                }
+            }
+        }
+        data.sort();
+        let mut content = data.join("\n");
+        content += "\n";
+        let parts: Vec<&str> = content.split('/').collect();
+        parts.join("_")
+    }
+
+    /// Handle a HTTP request
+    fn handle_http_request(&self, request: Request) {
+        let url = request.url();
+        let parts: Vec<&str> = url.split('?').collect();
+        let url = parts[0];
+        match url {
+            // Prometheus/OpenTelemetry expect the `/metrics` URI will return
+            // stats in the Prometheus format
+            "/metrics" => match request.method() {
+                Method::Get => {
+                    let _ = request.respond(Response::from_string(self.prometheus_stats()));
+                }
+                _ => {
+                    let _ = request.respond(Response::empty(400));
+                }
+            },
+            // we export Finagle/TwitterServer format stats on a few endpoints
+            // for maximum compatibility with various internal conventions
+            "/metrics.json" | "/vars.json" | "/admin/metrics.json" => match request.method() {
+                Method::Get => {
+                    let _ = request.respond(Response::from_string(self.json_stats()));
+                }
+                _ => {
+                    let _ = request.respond(Response::empty(400));
+                }
+            },
+            // human-readable stats are exported on the `/vars` endpoint based
+            // on internal conventions
+            "/vars" => match request.method() {
+                Method::Get => {
+                    let _ = request.respond(Response::from_string(self.human_stats()));
+                }
+                _ => {
+                    let _ = request.respond(Response::empty(400));
+                }
+            },
+            _ => {
+                let _ = request.respond(Response::empty(404));
+            }
+        }
+    }
+
     /// Runs the `Admin` in a loop, accepting new sessions for the admin
     /// listener and handling events on existing sessions.
     pub fn run(&mut self) {
@@ -379,6 +625,14 @@ impl Admin {
                 }
             }
 
+            // handle all http requests if the http server is enabled
+            if let Some(ref server) = self.http_server {
+                while let Ok(Some(request)) = server.try_recv() {
+                    self.handle_http_request(request);
+                }
+            }
+
+            // handle all signals
             while let Ok(signal) = self.signal_queue_rx.try_recv() {
                 match signal {
                     Signal::FlushAll => {}
@@ -397,8 +651,10 @@ impl Admin {
                 }
             }
 
+            // get updated usage
             self.get_rusage();
 
+            // flush pending log entries to log destinations
             let _ = self.log_drain.flush();
         }
     }
