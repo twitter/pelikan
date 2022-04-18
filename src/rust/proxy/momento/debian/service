@@ -2,6 +2,7 @@
 Description=a proxy to access Momento cache(s) over memcache protocol
 
 [Service]
+EnvironmentFile=/etc/momento_proxy/environment
 ExecStart=/usr/bin/momento_proxy /etc/momento_proxy/config.toml
 
 [Install]
