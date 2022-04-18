@@ -275,7 +275,7 @@ impl Admin {
     /// appears on its own line with a CR+LF used as end of line symbol. The
     /// stats appear in sorted order.
     ///
-    /// ```
+    /// ```text
     /// STAT get 0
     /// STAT get_cardinality_p25 0
     /// STAT get_cardinality_p50 0
@@ -375,7 +375,7 @@ impl Admin {
     /// A "human-readable" exposition format which outputs one stat per line,
     /// with a LF used as the end of line symbol.
     ///
-    /// ```
+    /// ```text
     /// get: 0
     /// get_cardinality_p25: 0
     /// get_cardinality_p50: 0
@@ -422,7 +422,7 @@ impl Admin {
     /// about the Finagle / TwitterServer format see:
     /// https://twitter.github.io/twitter-server/Features.html#metrics
     ///
-    /// ```
+    /// ```text
     /// {"get": 0,"get_cardinality_p25": 0,"get_cardinality_p50": 0, ... }
     /// ```
     fn json_stats(&self) -> String {
@@ -462,7 +462,7 @@ impl Admin {
     /// annotated with a type. Percentiles use the label 'percentile' to
     /// indicate which percentile corresponds to the value:
     ///
-    /// ```
+    /// ```text
     /// # TYPE get counter
     /// get 0
     /// # TYPE get_cardinality gauge
