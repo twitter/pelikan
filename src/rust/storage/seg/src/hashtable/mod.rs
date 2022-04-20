@@ -410,6 +410,47 @@ impl HashTable {
         }
     }
 
+    pub(crate) fn is_item_at(&self, key: &[u8], seg: NonZeroU32, offset: u64) -> bool {
+        let hash = self.hash(key);
+        let tag = tag_from_hash(hash);
+        let bucket_id = hash & self.mask;
+
+        let mut bucket = &self.data[bucket_id as usize];
+        let chain_len = chain_len(bucket.data[0]);
+        let mut chain_idx = 0;
+
+        loop {
+            let n_item_slot = if chain_idx == chain_len {
+                N_BUCKET_SLOT
+            } else {
+                N_BUCKET_SLOT - 1
+            };
+
+            for i in 0..n_item_slot {
+                if chain_idx == 0 && i == 0 {
+                    continue;
+                }
+                let current_info = bucket.data[i];
+
+                if get_tag(current_info) == tag {
+                    if get_seg_id(current_info) == Some(seg) && get_offset(current_info) == offset {
+                        return true;
+                    } else {
+                        HASH_TAG_COLLISION.increment();
+                    }
+                }
+            }
+
+            if chain_idx == chain_len {
+                break;
+            }
+            bucket = &self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
+            chain_idx += 1;
+        }
+
+        false
+    }
+
     /// Inserts a new item into the hashtable. This may fail if the hashtable is
     /// full.
     #[allow(clippy::result_unit_err)]
@@ -460,7 +501,7 @@ impl HashTable {
                     // update existing key
                     self.data[bucket_id].data[i] = insert_item_info;
                     ITEM_REPLACE.increment();
-                    let _ = segments.remove_item(current_item_info, true, ttl_buckets, self);
+                    let _ = segments.remove_item(current_item_info, ttl_buckets, self);
                     insert_item_info = 0;
                 }
             }
@@ -604,8 +645,7 @@ impl HashTable {
                         continue;
                     } else {
                         HASH_REMOVE.increment();
-                        let _ =
-                            segments.remove_item(current_item_info, !deleted, ttl_buckets, self);
+                        let _ = segments.remove_item(current_item_info, ttl_buckets, self);
                         self.data[bucket_id].data[i] = 0;
                         deleted = true;
                     }
@@ -657,7 +697,6 @@ impl HashTable {
         let evict_item_info = build_item_info(tag, segment.id(), offset as u64);
 
         let mut evicted = false;
-        let mut outdated = true;
         let mut first_match = true;
 
         loop {
@@ -683,9 +722,8 @@ impl HashTable {
 
                 if first_match {
                     if evict_item_info == current_item_info {
-                        segment.remove_item(current_item_info, false);
+                        segment.remove_item(current_item_info);
                         bucket.data[i] = 0;
-                        outdated = false;
                         evicted = true;
                     }
                     first_match = false;
@@ -694,7 +732,7 @@ impl HashTable {
                     if !evicted && current_item_info == evict_item_info {
                         evicted = true;
                     }
-                    segment.remove_item(bucket.data[i], !outdated);
+                    segment.remove_item(bucket.data[i]);
                     bucket.data[i] = 0;
                 }
             }

@@ -121,7 +121,6 @@ impl RawItem {
         match value {
             Value::Bytes(value) => unsafe {
                 self.set_magic();
-                (*self.header_mut()).set_deleted(false);
                 (*self.header_mut()).set_type(None);
                 (*self.header_mut()).set_olen(optional.len() as u8);
                 std::ptr::copy_nonoverlapping(
@@ -144,7 +143,6 @@ impl RawItem {
             },
             Value::U64(value) => unsafe {
                 self.set_magic();
-                (*self.header_mut()).set_deleted(false);
                 (*self.header_mut()).set_type(Some(ValueType::U64));
                 (*self.header_mut()).set_olen(optional.len() as u8);
                 std::ptr::copy_nonoverlapping(
@@ -192,16 +190,6 @@ impl RawItem {
             >> 3)
             + 1)
             << 3
-    }
-
-    /// Sets the tombstone
-    pub(crate) fn tombstone(&mut self) {
-        unsafe { (*self.header_mut()).set_deleted(true) }
-    }
-
-    /// Checks if the item is deleted
-    pub(crate) fn deleted(&self) -> bool {
-        self.header().is_deleted()
     }
 
     pub(crate) fn wrapping_add(&mut self, rhs: u64) -> Result<(), SegError> {

@@ -185,10 +185,10 @@ impl Seg {
             )
             .is_err()
         {
+            // this just needs to alter the segment header and update stats
             let _ = self.segments.remove_at(
                 reserved.seg(),
                 reserved.offset(),
-                false,
                 &mut self.ttl_buckets,
                 &mut self.hashtable,
             );
@@ -303,7 +303,7 @@ impl Seg {
     /// *NOTE*: this operation is relatively expensive
     #[cfg(feature = "debug")]
     pub fn check_integrity(&mut self) -> Result<(), SegError> {
-        if self.segments.check_integrity() {
+        if self.segments.check_integrity(&self.hashtable) {
             Ok(())
         } else {
             Err(SegError::DataCorrupted)

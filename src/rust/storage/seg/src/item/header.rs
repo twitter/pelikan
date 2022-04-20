@@ -19,7 +19,7 @@
 //! Flags:
 //! ```text
 //! ┌──────────────┬──────────────┬──────────────────────────────┐
-//! │    TYPED?    │   DELETED?   │             OLEN             │
+//! │    TYPED?    │   PADDING    │             OLEN             │
 //! │              │              │                              │
 //! │    1 bit     │    1 bit     │            6 bit             │
 //! │              │              │                              │
@@ -50,7 +50,6 @@ const KLEN_MASK: u32 = 0x000000FF;
 /// A mask used to get the bits containing the item value length from the item
 /// header's length field
 const VLEN_MASK: u32 = 0xFFFFFF00;
-
 /// The number of bits to shift the length field masked with the value length
 /// mask to get the actual value length
 const VLEN_SHIFT: u32 = 8;
@@ -64,9 +63,6 @@ const TYPE_SHIFT: u32 = 24;
 /// A mask to get the optional data length in bytes from the item header's flags
 /// field
 const OLEN_MASK: u8 = 0b00111111;
-/// A mask to get the bit indicating the item has been deleted from the item
-/// header's flags field
-const DEL_MASK: u8 = 0b01000000;
 /// A mask to get the bit indicating the item value should be treated as a
 /// typed value from the item header's flags field
 const TYPED_MASK: u8 = 0b10000000;
@@ -191,12 +187,6 @@ impl ItemHeader {
         }
     }
 
-    /// Is the item deleted?
-    #[inline]
-    pub fn is_deleted(&self) -> bool {
-        self.flags & DEL_MASK != 0
-    }
-
     /// Set the key length by changing just the low byte
     #[inline]
     pub fn set_klen(&mut self, len: u8) {
@@ -210,16 +200,6 @@ impl ItemHeader {
         if !self.is_typed() {
             debug_assert!(len <= (u32::MAX >> VLEN_SHIFT));
             self.len = (self.len & !VLEN_MASK) | (len << VLEN_SHIFT);
-        }
-    }
-
-    /// Mark the item as deleted
-    #[inline]
-    pub fn set_deleted(&mut self, deleted: bool) {
-        if deleted {
-            self.flags |= DEL_MASK
-        } else {
-            self.flags &= !DEL_MASK
         }
     }
 
@@ -248,7 +228,6 @@ impl std::fmt::Debug for ItemHeader {
             .field("klen", &self.klen())
             .field("vlen", &self.vlen())
             .field("type", &self.value_type())
-            .field("deleted", &self.is_deleted())
             .field("olen", &self.olen())
             .finish()
     }
@@ -263,7 +242,6 @@ impl std::fmt::Debug for ItemHeader {
             .field("klen", &self.klen())
             .field("vlen", &self.vlen())
             .field("typed", &self.is_typed())
-            .field("deleted", &self.is_deleted())
             .field("olen", &self.olen())
             .finish()
     }
