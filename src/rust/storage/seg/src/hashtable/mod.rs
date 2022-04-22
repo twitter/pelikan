@@ -163,13 +163,12 @@ impl HashTable {
 
         let mut bucket = &mut self.data[bucket_id as usize];
         let chain_len = chain_len(bucket.data[0]);
-        let mut chain_idx = 0;
 
         let curr_ts = (time - self.started).as_secs() & PROC_TS_MASK;
         if curr_ts != get_ts(bucket.data[0]) as u32 {
             bucket.data[0] = (bucket.data[0] & !TS_MASK) | (curr_ts as u64);
 
-            loop {
+            for chain_idx in 0..=chain_len {
                 let n_item_slot = if chain_idx == chain_len {
                     N_BUCKET_SLOT
                 } else {
@@ -187,15 +186,13 @@ impl HashTable {
                     break;
                 }
                 bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
-                chain_idx += 1;
             }
 
             // reset to start of chain
-            chain_idx = 0;
             bucket = &mut self.data[bucket_id as usize];
         }
 
-        loop {
+        for chain_idx in 0..=chain_len {
             let n_item_slot = if chain_idx == chain_len {
                 N_BUCKET_SLOT
             } else {
@@ -243,7 +240,6 @@ impl HashTable {
                 break;
             }
             bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
-            chain_idx += 1;
         }
 
         None
@@ -259,9 +255,8 @@ impl HashTable {
 
         let mut bucket = &mut self.data[bucket_id as usize];
         let chain_len = chain_len(bucket.data[0]);
-        let mut chain_idx = 0;
 
-        loop {
+        for chain_idx in 0..=chain_len {
             let n_item_slot = if chain_idx == chain_len {
                 N_BUCKET_SLOT
             } else {
@@ -295,7 +290,6 @@ impl HashTable {
                 break;
             }
             bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
-            chain_idx += 1;
         }
 
         None
@@ -309,9 +303,8 @@ impl HashTable {
 
         let mut bucket = &mut self.data[bucket_id as usize];
         let chain_len = chain_len(bucket.data[0]);
-        let mut chain_idx = 0;
 
-        loop {
+        for chain_idx in 0..=chain_len {
             let n_item_slot = if chain_idx == chain_len {
                 N_BUCKET_SLOT
             } else {
@@ -339,7 +332,6 @@ impl HashTable {
                 break;
             }
             bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
-            chain_idx += 1;
         }
 
         None
@@ -361,11 +353,10 @@ impl HashTable {
 
         let mut bucket = &mut self.data[bucket_id as usize];
         let chain_len = chain_len(bucket.data[0]);
-        let mut chain_idx = 0;
 
         let mut updated = false;
 
-        loop {
+        for chain_idx in 0..=chain_len {
             let n_item_slot = if chain_idx == chain_len {
                 N_BUCKET_SLOT
             } else {
@@ -399,7 +390,6 @@ impl HashTable {
                 break;
             }
             bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
-            chain_idx += 1;
         }
 
         if updated {
@@ -408,6 +398,45 @@ impl HashTable {
         } else {
             Err(())
         }
+    }
+
+    pub(crate) fn is_item_at(&self, key: &[u8], seg: NonZeroU32, offset: u64) -> bool {
+        let hash = self.hash(key);
+        let tag = tag_from_hash(hash);
+        let bucket_id = hash & self.mask;
+
+        let mut bucket = &self.data[bucket_id as usize];
+        let chain_len = chain_len(bucket.data[0]);
+
+        for chain_idx in 0..=chain_len {
+            let n_item_slot = if chain_idx == chain_len {
+                N_BUCKET_SLOT
+            } else {
+                N_BUCKET_SLOT - 1
+            };
+
+            for i in 0..n_item_slot {
+                if chain_idx == 0 && i == 0 {
+                    continue;
+                }
+                let current_info = bucket.data[i];
+
+                if get_tag(current_info) == tag {
+                    if get_seg_id(current_info) == Some(seg) && get_offset(current_info) == offset {
+                        return true;
+                    } else {
+                        HASH_TAG_COLLISION.increment();
+                    }
+                }
+            }
+
+            if chain_idx == chain_len {
+                break;
+            }
+            bucket = &self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
+        }
+
+        false
     }
 
     /// Inserts a new item into the hashtable. This may fail if the hashtable is
@@ -427,14 +456,13 @@ impl HashTable {
         let tag = tag_from_hash(hash);
         let mut bucket_id = (hash & self.mask) as usize;
         let chain_len = chain_len(self.data[bucket_id].data[0]);
-        let mut chain_idx = 0;
 
         // check the item magic
         item.check_magic();
 
         let mut insert_item_info = build_item_info(tag, seg, offset);
 
-        loop {
+        for chain_idx in 0..=chain_len {
             let n_item_slot = if chain_idx == chain_len {
                 N_BUCKET_SLOT
             } else {
@@ -460,7 +488,7 @@ impl HashTable {
                     // update existing key
                     self.data[bucket_id].data[i] = insert_item_info;
                     ITEM_REPLACE.increment();
-                    let _ = segments.remove_item(current_item_info, true, ttl_buckets, self);
+                    let _ = segments.remove_item(current_item_info, ttl_buckets, self);
                     insert_item_info = 0;
                 }
             }
@@ -469,7 +497,6 @@ impl HashTable {
                 break;
             }
             bucket_id = self.data[bucket_id].data[N_BUCKET_SLOT - 1] as usize;
-            chain_idx += 1;
         }
 
         if insert_item_info != 0
@@ -516,9 +543,8 @@ impl HashTable {
 
         let mut bucket = &mut self.data[bucket_id as usize];
         let chain_len = chain_len(bucket.data[0]);
-        let mut chain_idx = 0;
 
-        loop {
+        for chain_idx in 0..=chain_len {
             let n_item_slot = if chain_idx == chain_len {
                 N_BUCKET_SLOT
             } else {
@@ -564,7 +590,6 @@ impl HashTable {
                 break;
             }
             bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
-            chain_idx += 1;
         }
 
         Err(SegError::NotFound)
@@ -581,11 +606,10 @@ impl HashTable {
         let tag = tag_from_hash(hash);
         let mut bucket_id = (hash & self.mask) as usize;
         let chain_len = chain_len(self.data[bucket_id].data[0]);
-        let mut chain_idx = 0;
 
         let mut deleted = false;
 
-        loop {
+        for chain_idx in 0..=chain_len {
             let n_item_slot = if chain_idx == chain_len {
                 N_BUCKET_SLOT
             } else {
@@ -604,8 +628,7 @@ impl HashTable {
                         continue;
                     } else {
                         HASH_REMOVE.increment();
-                        let _ =
-                            segments.remove_item(current_item_info, !deleted, ttl_buckets, self);
+                        let _ = segments.remove_item(current_item_info, ttl_buckets, self);
                         self.data[bucket_id].data[i] = 0;
                         deleted = true;
                     }
@@ -616,7 +639,6 @@ impl HashTable {
                 break;
             }
             bucket_id = self.data[bucket_id].data[N_BUCKET_SLOT - 1] as usize;
-            chain_idx += 1;
         }
 
         if deleted {
@@ -652,15 +674,13 @@ impl HashTable {
 
         let mut bucket = &mut self.data[bucket_id as usize];
         let chain_len = chain_len(bucket.data[0]);
-        let mut chain_idx = 0;
 
         let evict_item_info = build_item_info(tag, segment.id(), offset as u64);
 
         let mut evicted = false;
-        let mut outdated = true;
         let mut first_match = true;
 
-        loop {
+        for chain_idx in 0..=chain_len {
             let n_item_slot = if chain_idx == chain_len {
                 N_BUCKET_SLOT
             } else {
@@ -683,9 +703,8 @@ impl HashTable {
 
                 if first_match {
                     if evict_item_info == current_item_info {
-                        segment.remove_item(current_item_info, false);
+                        segment.remove_item(current_item_info);
                         bucket.data[i] = 0;
-                        outdated = false;
                         evicted = true;
                     }
                     first_match = false;
@@ -694,7 +713,7 @@ impl HashTable {
                     if !evicted && current_item_info == evict_item_info {
                         evicted = true;
                     }
-                    segment.remove_item(bucket.data[i], !outdated);
+                    segment.remove_item(bucket.data[i]);
                     bucket.data[i] = 0;
                 }
             }
@@ -702,7 +721,6 @@ impl HashTable {
                 break;
             }
             bucket = &mut self.data[bucket.data[N_BUCKET_SLOT - 1] as usize];
-            chain_idx += 1;
         }
 
         evicted
