@@ -77,6 +77,7 @@ pub struct AdminBuilder {
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
     http_server: Option<tiny_http::Server>,
+    version: String,
 }
 
 impl AdminBuilder {
@@ -140,6 +141,7 @@ impl AdminBuilder {
             parser: AdminRequestParser::new(),
             log_drain,
             http_server,
+            version: "unknown".to_string(),
         })
     }
 
@@ -150,6 +152,11 @@ impl AdminBuilder {
     /// Triggers a flush of the log
     pub fn log_flush(&mut self) -> Result<(), std::io::Error> {
         self.log_drain.flush()
+    }
+
+    /// Set the reported version number
+    pub fn version(&mut self, version: &str) {
+        self.version = version.to_string();
     }
 
     pub fn build(
@@ -168,6 +175,7 @@ impl AdminBuilder {
             http_server: self.http_server,
             signal_queue_tx,
             signal_queue_rx,
+            version: self.version,
         }
     }
 }
@@ -186,6 +194,8 @@ pub struct Admin {
     signal_queue_tx: Queues<Signal, ()>,
     /// used to receive signals from the parent thread
     signal_queue_rx: Receiver<Signal>,
+    /// version number to report
+    version: String,
 }
 
 impl Drop for Admin {
@@ -326,8 +336,8 @@ impl Admin {
         ADMIN_RESPONSE_COMPOSE.increment();
     }
 
-    fn handle_version_request(session: &mut Session) {
-        let _ = session.write(format!("VERSION {}\r\n", env!("CARGO_PKG_VERSION")).as_bytes());
+    fn handle_version_request(session: &mut Session, version: &str) {
+        let _ = session.write(format!("VERSION {}\r\n", version).as_bytes());
         session.finalize_response();
         ADMIN_RESPONSE_COMPOSE.increment();
     }
@@ -749,7 +759,7 @@ impl EventLoop for Admin {
                                 return Ok(());
                             }
                             AdminRequest::Version => {
-                                Self::handle_version_request(session);
+                                Self::handle_version_request(session, &self.version);
                             }
                         }
                     }
