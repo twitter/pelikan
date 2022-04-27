@@ -5,12 +5,12 @@
 #[macro_use]
 extern crate logger;
 
-use pingproxy::Pingproxy;
+use backtrace::Backtrace;
 use clap::App;
 use clap::Arg;
-use metrics::*;
-use backtrace::Backtrace;
 use config::PingproxyConfig;
+use metrics::*;
+use pingproxy::Pingproxy;
 
 use proxy::PERCENTILES;
 

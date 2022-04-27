@@ -2,10 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use common::signal::Signal;
 use crate::*;
+use common::signal::Signal;
 use common::time::Instant;
+use config::proxy::FrontendConfig;
 use core::marker::PhantomData;
+use core::time::Duration;
 use mio::Waker;
 use poll::*;
 use protocol_common::*;
@@ -24,15 +26,21 @@ pub const QUEUE_RETRIES: usize = 3;
 pub struct FrontendWorkerBuilder<Parser, Request, Response> {
     poll: Poll,
     parser: Parser,
+    nevent: usize,
+    timeout: Duration,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
 }
 
 impl<Parser, Request, Response> FrontendWorkerBuilder<Parser, Request, Response> {
-    pub fn new(parser: Parser) -> Result<Self> {
+    pub fn new<T: FrontendConfig>(config: &T, parser: Parser) -> Result<Self> {
+        let config = config.frontend();
+
         Ok(Self {
             poll: Poll::new()?,
             parser,
+            nevent: config.nevent(),
+            timeout: Duration::from_millis(config.timeout() as u64),
             _request: PhantomData,
             _response: PhantomData,
         })
@@ -51,6 +59,8 @@ impl<Parser, Request, Response> FrontendWorkerBuilder<Parser, Request, Response>
         FrontendWorker {
             poll: self.poll,
             parser: self.parser,
+            nevent: self.nevent,
+            timeout: self.timeout,
             signal_queue,
             connection_queues,
             data_queues,
@@ -61,6 +71,8 @@ impl<Parser, Request, Response> FrontendWorkerBuilder<Parser, Request, Response>
 pub struct FrontendWorker<Parser, Request, Response> {
     poll: Poll,
     parser: Parser,
+    nevent: usize,
+    timeout: Duration,
     signal_queue: Queues<(), Signal>,
     connection_queues: Queues<(), Session>,
     data_queues: Queues<TokenWrapper<Request>, TokenWrapper<Response>>,
@@ -73,13 +85,11 @@ where
 {
     #[allow(clippy::match_single_binding)]
     pub fn run(mut self) {
-        let mut events = Events::with_capacity(1024);
-        let mut sessions = Vec::with_capacity(1024);
-        let mut responses = Vec::with_capacity(1024);
+        let mut events = Events::with_capacity(self.nevent);
+        let mut sessions = Vec::with_capacity(self.nevent);
+        let mut responses = Vec::with_capacity(self.nevent);
         loop {
-            let _ = self
-                .poll
-                .poll(&mut events, core::time::Duration::from_millis(100));
+            let _ = self.poll.poll(&mut events, self.timeout);
             for event in &events {
                 match event.token() {
                     WAKER_TOKEN => {

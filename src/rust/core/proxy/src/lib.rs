@@ -8,15 +8,15 @@
 #[macro_use]
 extern crate logger;
 
+use metrics::{static_metrics, Counter};
 use mio::event::Event;
+use mio::net::{TcpListener, TcpStream};
+use mio::{Events, Interest, Token};
 use mpmc::Queue;
+use poll::Poll;
 use slab::Slab;
 use std::collections::VecDeque;
 use std::io::*;
-use poll::Poll;
-use metrics::{static_metrics, Counter};
-use mio::{Events, Token, Interest};
-use mio::net::{TcpListener, TcpStream};
 use std::net::SocketAddr;
 
 mod admin;

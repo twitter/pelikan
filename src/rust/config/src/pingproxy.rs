@@ -175,7 +175,7 @@ impl Default for PingproxyConfig {
             listener: Default::default(),
             frontend: Default::default(),
             backend: Default::default(),
-            
+
             time: Default::default(),
 
             buf: Default::default(),

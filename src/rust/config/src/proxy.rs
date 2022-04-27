@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use zookeeper::{ZooKeeper, Watcher, WatchedEvent};
+use zookeeper::{WatchedEvent, Watcher, ZooKeeper};
 
 use core::time::Duration;
 use std::net::{AddrParseError, SocketAddr, ToSocketAddrs};
@@ -16,7 +16,6 @@ const NEVENT_MAX: usize = 1024;
 const FRONTEND_THREADS: usize = 1;
 const BACKEND_THREADS: usize = 1;
 const BACKEND_POOLSIZE: usize = 1;
-
 
 // helper functions
 fn address() -> String {
@@ -42,7 +41,6 @@ fn backend_threads() -> usize {
 fn backend_poolsize() -> usize {
     BACKEND_POOLSIZE
 }
-
 
 // definitions
 #[derive(Serialize, Deserialize, Debug)]
@@ -81,7 +79,6 @@ pub struct Backend {
     zk_endpoint: Option<String>,
 }
 
-
 // implementation
 impl Listener {
     /// Return the result of parsing the host and port
@@ -101,18 +98,41 @@ impl Listener {
 }
 
 impl Frontend {
+    /// Number of frontend threads to launch
     pub fn threads(&self) -> usize {
         self.threads
+    }
+
+    /// The poll timeout in milliseconds
+    pub fn timeout(&self) -> usize {
+        self.timeout
+    }
+
+    /// Maximum events to accept in one poll
+    pub fn nevent(&self) -> usize {
+        self.nevent
     }
 }
 
 impl Backend {
+    /// Number of backend threads to launch
     pub fn threads(&self) -> usize {
         self.threads
     }
 
+    /// Number of connections to each server endpoint from each backend thread
     pub fn poolsize(&self) -> usize {
         self.poolsize
+    }
+
+    /// The poll timeout in milliseconds
+    pub fn timeout(&self) -> usize {
+        self.timeout
+    }
+
+    /// Maximum events to accept in one poll
+    pub fn nevent(&self) -> usize {
+        self.nevent
     }
 
     pub fn socket_addrs(&self) -> Result<Vec<SocketAddr>, std::io::Error> {
@@ -124,9 +144,11 @@ impl Backend {
                         if let Some(addr) = addrs.next() {
                             endpoints.push(addr)
                         } else {
-                            return Err(std::io::Error::new(std::io::ErrorKind::Other, "failed to resolve endpoint address"));
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                "failed to resolve endpoint address",
+                            ));
                         }
-                        
                     }
                     Err(e) => {
                         return Err(e);
@@ -134,21 +156,34 @@ impl Backend {
                 }
             }
             Ok(endpoints)
-        } else if let (Some(server), Some(path), endpoint) = (self.zk_server.as_ref(), self.zk_path.as_ref(), self.zk_endpoint.as_ref()) {
+        } else if let (Some(server), Some(path), endpoint) = (
+            self.zk_server.as_ref(),
+            self.zk_path.as_ref(),
+            self.zk_endpoint.as_ref(),
+        ) {
             let mut ret = Vec::new();
-            if let Ok(server) = ZooKeeper::connect(
-                &server,
-                Duration::from_secs(15),
-                ExitWatcher,
-            ) {
+            if let Ok(server) = ZooKeeper::connect(&server, Duration::from_secs(15), ExitWatcher) {
                 if let Ok(children) = server.get_children(&path, true) {
                     for child in children {
                         let data = server
                             .get_data(&format!("{}/{}", path, child), true)
-                            .map(|v| std::str::from_utf8(&v.0).map_err(|_| {
-                                return std::io::Error::new(std::io::ErrorKind::Other, "bad data in zknode");
-                            }).unwrap().to_owned())
-                            .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "failed to get zknodes"))?;
+                            .map(|v| {
+                                std::str::from_utf8(&v.0)
+                                    .map_err(|_| {
+                                        return std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            "bad data in zknode",
+                                        );
+                                    })
+                                    .unwrap()
+                                    .to_owned()
+                            })
+                            .map_err(|_| {
+                                std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    "failed to get zknodes",
+                                )
+                            })?;
 
                         let entry: JsonValue = serde_json::from_str(&data).unwrap();
                         let endpoint = if let Some(endpoint) = endpoint {
@@ -169,20 +204,28 @@ impl Backend {
                         }
                     }
                     if ret.is_empty() {
-                        Err(std::io::Error::new(std::io::ErrorKind::Other, "no endpoints found via zookeeper"))
+                        Err(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            "no endpoints found via zookeeper",
+                        ))
                     } else {
                         Ok(ret)
                     }
                 } else {
-                    Err(std::io::Error::new(std::io::ErrorKind::Other, "bad data in zknode"))
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "bad data in zknode",
+                    ))
                 }
             } else {
                 error!("failed to connect to zookeeper");
                 panic!();
             }
-            
         } else {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "no endpoints provided"))
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "no endpoints provided",
+            ))
             // Vec::new()
         }
     }
@@ -230,7 +273,6 @@ impl Default for Backend {
         }
     }
 }
-
 
 // trait definitions
 pub trait ListenerConfig {

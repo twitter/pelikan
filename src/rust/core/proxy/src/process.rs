@@ -2,24 +2,24 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use config::proxy::{ListenerConfig, FrontendConfig, BackendConfig};
-use config::ServerConfig;
-use std::thread::JoinHandle;
-use common::signal::Signal;
-use crossbeam_channel::Sender;
-use crossbeam_channel::bounded;
-use logger::Drain;
-use config::AdminConfig;
-use crate::admin::AdminBuilder;
 use crate::admin::Admin;
+use crate::admin::AdminBuilder;
 use crate::backend::BackendWorkerBuilder;
 use crate::frontend::FrontendWorkerBuilder;
 use crate::listener::ListenerBuilder;
 use crate::*;
+use common::signal::Signal;
+use config::proxy::{BackendConfig, FrontendConfig, ListenerConfig};
+use config::AdminConfig;
+use config::ServerConfig;
+use crossbeam_channel::bounded;
+use crossbeam_channel::Sender;
+use logger::Drain;
 use mio::Waker;
 use protocol_common::*;
 use queues::Queues;
 use std::sync::Arc;
+use std::thread::JoinHandle;
 
 pub const FRONTEND_THREADS: usize = 1;
 pub const BACKEND_THREADS: usize = 1;
@@ -41,29 +41,32 @@ where
     ResponseParser: 'static + Clone + Send + Parse<Response>,
     Response: 'static + Send + Compose,
 {
-    pub fn new<T: AdminConfig + ListenerConfig + BackendConfig + FrontendConfig>(config: T, request_parser: RequestParser, response_parser: ResponseParser, log_drain: Box<dyn Drain>) -> Result<Self> {
+    pub fn new<T: AdminConfig + ListenerConfig + BackendConfig + FrontendConfig>(
+        config: T,
+        request_parser: RequestParser,
+        response_parser: ResponseParser,
+        log_drain: Box<dyn Drain>,
+    ) -> Result<Self> {
         let admin_builder = AdminBuilder::new(&config, log_drain).unwrap_or_else(|e| {
             error!("failed to initialize admin: {}", e);
             std::process::exit(1);
         });
         let admin_waker = admin_builder.waker();
 
-        let listener_builder = ListenerBuilder::new(config.listener().socket_addr().expect("bad listen address"))?;
+        let listener_builder =
+            ListenerBuilder::new(config.listener().socket_addr().expect("bad listen address"))?;
         let listener_waker = listener_builder.waker();
 
         let mut frontend_builders = Vec::new();
         for _ in 0..config.frontend().threads() {
-            frontend_builders.push(FrontendWorkerBuilder::new(request_parser.clone())?);
+            frontend_builders.push(FrontendWorkerBuilder::new(&config, request_parser.clone())?);
         }
         let frontend_wakers: Vec<Arc<Waker>> =
             frontend_builders.iter().map(|v| v.waker()).collect();
 
         let mut backend_builders = Vec::new();
         for _ in 0..config.backend().threads() {
-            backend_builders.push(BackendWorkerBuilder::new(
-                &config,
-                response_parser.clone(),
-            )?);
+            backend_builders.push(BackendWorkerBuilder::new(&config, response_parser.clone())?);
         }
         let backend_wakers: Vec<Arc<Waker>> = backend_builders.iter().map(|v| v.waker()).collect();
 

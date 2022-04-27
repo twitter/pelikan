@@ -2,9 +2,11 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use common::signal::Signal;
 use crate::*;
+use common::signal::Signal;
+use config::proxy::BackendConfig;
 use core::marker::PhantomData;
+use core::time::Duration;
 use mio::Waker;
 use poll::*;
 use protocol_common::*;
@@ -12,7 +14,11 @@ use queues::Queues;
 use queues::TrackedItem;
 use session::Session;
 use std::sync::Arc;
-use config::proxy::BackendConfig;
+
+const KB: usize = 1024;
+
+const SESSION_BUFFER_MIN: usize = 16 * KB;
+const SESSION_BUFFER_MAX: usize = 1024 * KB;
 
 static_metrics! {
     static BACKEND_EVENT_ERROR: Counter;
@@ -26,6 +32,8 @@ pub struct BackendWorkerBuilder<Parser, Request, Response> {
     poll: Poll,
     parser: Parser,
     free_queue: VecDeque<Token>,
+    nevent: usize,
+    timeout: Duration,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
 }
@@ -36,9 +44,11 @@ impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> 
 
         let mut poll = Poll::new()?;
 
-        let mut free_queue = VecDeque::with_capacity(1024);
+        let server_endpoints = config.socket_addrs()?;
 
-        for addr in config.socket_addrs()? {
+        let mut free_queue = VecDeque::with_capacity(server_endpoints.len() * config.poolsize());
+
+        for addr in server_endpoints {
             for _ in 0..config.poolsize() {
                 let connection = std::net::TcpStream::connect(addr).expect("failed to connect");
                 connection
@@ -47,8 +57,8 @@ impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> 
                 let connection = TcpStream::from_std(connection);
                 let session = Session::plain_with_capacity(
                     session::TcpStream::try_from(connection).expect("failed to convert"),
-                    16 * 1024,
-                    1024 * 1024,
+                    SESSION_BUFFER_MIN,
+                    SESSION_BUFFER_MAX,
                 );
                 if let Ok(token) = poll.add_session(session) {
                     println!("new backend connection with token: {}", token.0);
@@ -61,6 +71,8 @@ impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> 
             poll,
             free_queue,
             parser,
+            nevent: config.nevent(),
+            timeout: Duration::from_millis(config.timeout() as u64),
             _request: PhantomData,
             _response: PhantomData,
         })
@@ -80,6 +92,8 @@ impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> 
             signal_queue,
             queues,
             parser: self.parser,
+            nevent: self.nevent,
+            timeout: self.timeout,
         }
     }
 }
@@ -90,6 +104,8 @@ pub struct BackendWorker<Parser, Request, Response> {
     free_queue: VecDeque<Token>,
     signal_queue: Queues<(), Signal>,
     parser: Parser,
+    nevent: usize,
+    timeout: Duration,
 }
 
 impl<Parser, Request, Response> BackendWorker<Parser, Request, Response>
@@ -99,12 +115,10 @@ where
 {
     #[allow(clippy::match_single_binding)]
     pub fn run(mut self) {
-        let mut events = Events::with_capacity(1024);
-        let mut requests = Vec::with_capacity(1024);
+        let mut events = Events::with_capacity(self.nevent);
+        let mut requests = Vec::with_capacity(self.nevent);
         loop {
-            let _ = self
-                .poll
-                .poll(&mut events, core::time::Duration::from_millis(1));
+            let _ = self.poll.poll(&mut events, self.timeout);
             for event in &events {
                 match event.token() {
                     WAKER_TOKEN => {

@@ -5,7 +5,7 @@
 use config::PingproxyConfig;
 use logger::configure_logging;
 use protocol_ping::*;
-use proxy::{ProcessBuilder, Process};
+use proxy::{Process, ProcessBuilder};
 
 #[allow(dead_code)]
 pub struct Pingproxy {
@@ -21,7 +21,6 @@ impl Default for Pingproxy {
 impl Pingproxy {
     /// Creates a new `Pingproxy` process from the given `PingproxyConfig`.
     pub fn new(config: PingproxyConfig) -> Self {
-
         // initialize logging
         let log_drain = configure_logging(&config);
 
@@ -33,7 +32,9 @@ impl Pingproxy {
         let response_parser = ResponseParser::new();
 
         // initialize process
-        let process_builder = ProcessBuilder::new(config, request_parser, response_parser, log_drain).expect("failed to launch");
+        let process_builder =
+            ProcessBuilder::new(config, request_parser, response_parser, log_drain)
+                .expect("failed to launch");
         let process = process_builder.spawn();
 
         Self { process }
