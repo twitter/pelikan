@@ -130,7 +130,7 @@ where
                 let _ = self.storage_queue.wake();
 
                 // check if we received any signals from the admin thread
-                while let Ok(s) = self.signal_queue.try_recv().map(|v| v.into_inner()) {
+                while let Some(s) = self.signal_queue.try_recv().map(|v| v.into_inner()) {
                     match s {
                         Signal::FlushAll => {
                             warn!("received flush_all");

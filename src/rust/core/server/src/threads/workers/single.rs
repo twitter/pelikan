@@ -129,7 +129,7 @@ where
                         self.handle_new_sessions();
 
                         // check if we received any signals from the admin thread
-                        while let Ok(signal) = self.signal_queue.try_recv() {
+                        while let Some(signal) = self.signal_queue.try_recv() {
                             match signal.into_inner() {
                                 Signal::FlushAll => {
                                     warn!("received flush_all");
@@ -152,7 +152,7 @@ where
     }
 
     fn handle_new_sessions(&mut self) {
-        while let Ok(session) = self.session_queue.try_recv().map(|v| v.into_inner()) {
+        while let Some(session) = self.session_queue.try_recv().map(|v| v.into_inner()) {
             let pending = session.read_pending();
             trace!(
                 "new session: {:?} with {} bytes pending in read buffer",

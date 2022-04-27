@@ -109,7 +109,7 @@ impl Segments {
             free: segments as u32,
             free_q: NonZeroU32::new(1),
             data,
-            flush_at: Instant::recent(),
+            flush_at: Instant::now(),
             evict: Box::new(Eviction::new(segments, evict_policy)),
         }
     }
@@ -502,37 +502,33 @@ impl Segments {
         }
     }
 
-    /// Remove a single item from a segment based on the item_info, optionally
-    /// setting tombstone
+    /// Remove a single item from a segment based on the item_info
     pub(crate) fn remove_item(
         &mut self,
         item_info: u64,
-        tombstone: bool,
         ttl_buckets: &mut TtlBuckets,
         hashtable: &mut HashTable,
     ) -> Result<(), SegmentsError> {
         if let Some(seg_id) = get_seg_id(item_info) {
             let offset = get_offset(item_info) as usize;
-            self.remove_at(seg_id, offset, tombstone, ttl_buckets, hashtable)
+            self.remove_at(seg_id, offset, ttl_buckets, hashtable)
         } else {
             Err(SegmentsError::BadSegmentId)
         }
     }
 
     /// Remove a single item from a segment based on the segment id and offset.
-    /// Optionally, sets the item tombstone.
     pub(crate) fn remove_at(
         &mut self,
         seg_id: NonZeroU32,
         offset: usize,
-        tombstone: bool,
         ttl_buckets: &mut TtlBuckets,
         hashtable: &mut HashTable,
     ) -> Result<(), SegmentsError> {
         // remove the item
         {
             let mut segment = self.get_mut(seg_id)?;
-            segment.remove_item_at(offset, tombstone);
+            segment.remove_item_at(offset);
 
             // regardless of eviction policy, we can evict the segment if its now
             // empty and would be evictable. if we evict, we must return early
@@ -625,13 +621,13 @@ impl Segments {
     }
 
     #[cfg(feature = "debug")]
-    pub(crate) fn check_integrity(&mut self) -> bool {
+    pub(crate) fn check_integrity(&mut self, hashtable: &HashTable) -> bool {
         let mut integrity = true;
         for id in 0..self.cap {
             if !self
                 .get_mut(NonZeroU32::new(id + 1).unwrap())
                 .unwrap()
-                .check_integrity()
+                .check_integrity(hashtable)
             {
                 integrity = false;
             }

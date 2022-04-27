@@ -48,7 +48,8 @@ impl Pingserver {
             max_buffer_size,
             parser,
             log_drain,
-        );
+        )
+        .version(env!("CARGO_PKG_VERSION"));
 
         // spawn threads
         let process = process_builder.spawn();

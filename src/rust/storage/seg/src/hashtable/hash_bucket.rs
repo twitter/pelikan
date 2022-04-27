@@ -7,13 +7,13 @@
 //!
 //! Bucket Info:
 //! ```text
-//! ┌──────┬──────┬──────────────┬──────────────────────────────┐
-//! │ ---- │CHAIN │  TIMESTAMP   │             CAS              │
-//! │      │ LEN  │              │                              │
-//! │8 bit │8 bit │    16 bit    │            32 bit            │
-//! │      │      │              │                              │
-//! │0    7│8   15│16          31│32                          63│
-//! └──────┴──────┴──────────────┴──────────────────────────────┘
+//! ┌──────────────────────────────┬──────┬──────┬──────────────┐
+//! │             CAS              │ ---- │CHAIN │  TIMESTAMP   │
+//! │                              │      │ LEN  │              │
+//! │            32 bit            │8 bit │8 bit │    16 bit    │
+//! │                              │      │ LEN  │              │
+//! │0                           31│32  39|40  47|48          63|
+//! └──────────────────────────────┴──────┴──────┴──────────────┘
 //! ```
 //!
 //! Item Info:
@@ -30,18 +30,18 @@
 use super::*;
 
 /// A mask to get the bits containing the chain length from the bucket info
-pub(crate) const BUCKET_CHAIN_LEN_MASK: u64 = 0x00FF_0000_0000_0000;
+pub(crate) const BUCKET_CHAIN_LEN_MASK: u64 = 0x0000_0000_00FF_0000;
 /// A mask to get the bits containing the timestamp from the bucket info
-pub(crate) const TS_MASK: u64 = 0x0000_FFFF_0000_0000;
+pub(crate) const TS_MASK: u64 = 0x0000_0000_0000_FFFF;
 /// A mask to get the bits containing the CAS value from the bucket info
-pub(crate) const CAS_MASK: u64 = 0x0000_0000_FFFF_FFFF;
+pub(crate) const CAS_MASK: u64 = 0xFFFF_FFFF_0000_0000;
 
 /// Number of bits to shift the bucket info masked with the chain length mask
 /// to get the actual chain length
-pub(crate) const BUCKET_CHAIN_LEN_BIT_SHIFT: u64 = 48;
-/// Number of bits to shift the bucket info masked with the timestamp mask to
-/// get the timestamp
-pub(crate) const TS_BIT_SHIFT: u64 = 32;
+pub(crate) const BUCKET_CHAIN_LEN_BIT_SHIFT: u64 = 16;
+/// Number of bits to shift the bucket info masked with the cas mask to get the
+/// cas value
+pub(crate) const CAS_BIT_SHIFT: u64 = 32;
 
 // item info
 
@@ -70,7 +70,7 @@ pub(crate) const OFFSET_UNIT_IN_BIT: u64 = 3;
 pub(crate) const CLEAR_FREQ_SMOOTH_MASK: u64 = 0xFFF7_FFFF_FFFF_FFFF;
 
 /// Mask to get the lower 16 bits from a timestamp
-pub(crate) const PROC_TS_MASK: u64 = 0x0000_0000_0000_FFFF;
+pub(crate) const PROC_TS_MASK: u32 = 0x0000_FFFF;
 
 #[derive(Copy, Clone)]
 pub(crate) struct HashBucket {
@@ -112,13 +112,13 @@ pub const fn get_freq(item_info: u64) -> u64 {
 /// Get the CAS value from the bucket info
 #[inline]
 pub const fn get_cas(bucket_info: u64) -> u32 {
-    (bucket_info & CAS_MASK) as u32
+    ((bucket_info & CAS_MASK) >> CAS_BIT_SHIFT) as u32
 }
 
 /// Get the timestamp from the bucket info
 #[inline]
 pub const fn get_ts(bucket_info: u64) -> u64 {
-    (bucket_info & TS_MASK) >> TS_BIT_SHIFT
+    bucket_info & TS_MASK
 }
 
 /// Get the tag from the item info

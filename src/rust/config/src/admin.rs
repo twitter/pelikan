@@ -9,12 +9,22 @@ use serde::{Deserialize, Serialize};
 // constants to define default values
 const ADMIN_HOST: &str = "127.0.0.1";
 const ADMIN_PORT: &str = "9999";
+const ADMIN_HTTP_ENABLED: bool = false;
+const ADMIN_HTTP_HOST: &str = "127.0.0.1";
+const ADMIN_HTTP_PORT: &str = "9998";
 const ADMIN_TIMEOUT: usize = 100;
 const ADMIN_NEVENT: usize = 1024;
 const ADMIN_TW_TICK: usize = 10;
 const ADMIN_TW_CAP: usize = 1000;
 const ADMIN_TW_NTICK: usize = 100;
 const ADMIN_USE_TLS: bool = false;
+
+// TODO(bmartin): we will eventually migrate to HTTP by default and make the
+// legacy admin port as optional. At that time, we should consider consolidating
+// the host and port parameters into a single listen address parameter. By using
+// Option<> types, we can also eliminate the use of a separate bool to enable
+// the legacy admin port, the presence or absence of a listen address being
+// enough to determine the desired behavior.
 
 // helper functions for default values
 fn host() -> String {
@@ -23,6 +33,18 @@ fn host() -> String {
 
 fn port() -> String {
     ADMIN_PORT.to_string()
+}
+
+fn http_enabled() -> bool {
+    ADMIN_HTTP_ENABLED
+}
+
+fn http_host() -> String {
+    ADMIN_HTTP_HOST.to_string()
+}
+
+fn http_port() -> String {
+    ADMIN_HTTP_PORT.to_string()
 }
 
 fn timeout() -> usize {
@@ -56,6 +78,12 @@ pub struct Admin {
     host: String,
     #[serde(default = "port")]
     port: String,
+    #[serde(default = "http_enabled")]
+    http_enabled: bool,
+    #[serde(default = "http_host")]
+    http_host: String,
+    #[serde(default = "http_port")]
+    http_port: String,
     #[serde(default = "timeout")]
     timeout: usize,
     #[serde(default = "nevent")]
@@ -78,6 +106,14 @@ impl Admin {
 
     pub fn port(&self) -> String {
         self.port.clone()
+    }
+
+    pub fn http_enabled(&self) -> bool {
+        self.http_enabled
+    }
+
+    pub fn http_socket_addr(&self) -> Result<SocketAddr, AddrParseError> {
+        format!("{}:{}", self.http_host, self.http_port).parse()
     }
 
     pub fn timeout(&self) -> usize {
@@ -117,6 +153,9 @@ impl Default for Admin {
         Self {
             host: host(),
             port: port(),
+            http_enabled: http_enabled(),
+            http_host: http_host(),
+            http_port: http_port(),
             timeout: timeout(),
             nevent: nevent(),
             tw_tick: tw_tick(),

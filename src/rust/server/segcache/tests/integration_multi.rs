@@ -29,6 +29,8 @@ fn main() {
 
     tests();
 
+    admin_tests();
+
     // shutdown server and join
     info!("shutdown...");
     let _ = server.shutdown();

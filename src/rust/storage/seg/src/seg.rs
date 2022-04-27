@@ -26,6 +26,7 @@ pub struct Seg {
     pub(crate) hashtable: HashTable,
     pub(crate) segments: Segments,
     pub(crate) ttl_buckets: TtlBuckets,
+    pub(crate) time: Instant,
 }
 
 impl Seg {
@@ -78,7 +79,7 @@ impl Seg {
     /// assert_eq!(item.value(), b"strong");
     /// ```
     pub fn get(&mut self, key: &[u8]) -> Option<Item> {
-        self.hashtable.get(key, &mut self.segments)
+        self.hashtable.get(key, self.time, &mut self.segments)
     }
 
     /// Get the item in the `Seg` with the provided key without
@@ -184,10 +185,10 @@ impl Seg {
             )
             .is_err()
         {
+            // this just needs to alter the segment header and update stats
             let _ = self.segments.remove_at(
                 reserved.seg(),
                 reserved.offset(),
-                false,
                 &mut self.ttl_buckets,
                 &mut self.hashtable,
             );
@@ -286,12 +287,14 @@ impl Seg {
     /// ```
     pub fn expire(&mut self) -> usize {
         common::time::refresh_clock();
+        self.time = Instant::recent();
         self.ttl_buckets
             .expire(&mut self.hashtable, &mut self.segments)
     }
 
     pub fn clear(&mut self) -> usize {
         common::time::refresh_clock();
+        self.time = Instant::recent();
         self.ttl_buckets
             .clear(&mut self.hashtable, &mut self.segments)
     }
@@ -300,7 +303,7 @@ impl Seg {
     /// *NOTE*: this operation is relatively expensive
     #[cfg(feature = "debug")]
     pub fn check_integrity(&mut self) -> Result<(), SegError> {
-        if self.segments.check_integrity() {
+        if self.segments.check_integrity(&self.hashtable) {
             Ok(())
         } else {
             Err(SegError::DataCorrupted)
@@ -313,7 +316,7 @@ impl Seg {
     pub fn wrapping_add(&mut self, key: &[u8], rhs: u64) -> Result<Item, SegError> {
         let mut item = self
             .hashtable
-            .get(key, &mut self.segments)
+            .get(key, self.time, &mut self.segments)
             .ok_or(SegError::NotFound)?;
         item.wrapping_add(rhs)?;
         Ok(item)
@@ -325,7 +328,7 @@ impl Seg {
     pub fn saturating_sub(&mut self, key: &[u8], rhs: u64) -> Result<Item, SegError> {
         let mut item = self
             .hashtable
-            .get(key, &mut self.segments)
+            .get(key, self.time, &mut self.segments)
             .ok_or(SegError::NotFound)?;
         item.saturating_sub(rhs)?;
         Ok(item)
