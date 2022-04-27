@@ -58,9 +58,8 @@ Currently Pelikan yields the following products:
   implementation.
 - **[Experimental]**`pelikan_pingserver_rs`: a Rust implementation of
   `pelikan_pingserver` which includes TLS support.
-- [`momento_proxy`][momento_proxy-url]: a proxy which allows
-  existing applications to use Momento instead of a Memcache-compatible cache
-  backend.
+- [`momento_proxy`][momento_proxy-url]: a proxy which allows existing 
+  applications to use Momento instead of a Memcache-compatible cache backend.
 
 ## Features
 - runtime separation of control and data plane
@@ -80,6 +79,7 @@ Currently Pelikan yields the following products:
 ## Build
 ```sh
 git clone https://github.com/twitter/pelikan.git
+cd pelikan
 mkdir _build && cd _build
 cmake ..
 make -j

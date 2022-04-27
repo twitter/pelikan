@@ -6,7 +6,7 @@
 
 pub use mio::Waker;
 
-use crossbeam_channel::*;
+use crossbeam_queue::*;
 use rand::distributions::Uniform;
 use rand::Rng as RandRng;
 use rand::SeedableRng;
@@ -19,14 +19,14 @@ use std::sync::Arc;
 /// so that a response can be sent back to the corresponding receiver.
 pub struct Queues<T, U> {
     senders: Vec<WakingSender<TrackedItem<T>>>,
-    receiver: Receiver<TrackedItem<U>>,
+    receiver: Arc<ArrayQueue<TrackedItem<U>>>,
     id: usize,
     rng: ChaCha20Rng,
     distr: Uniform<usize>,
 }
 
 struct WakingSender<T> {
-    inner: Sender<T>,
+    inner: Arc<ArrayQueue<T>>,
     waker: Arc<Waker>,
     needs_wake: bool,
 }
@@ -49,7 +49,7 @@ impl<T> std::fmt::Debug for WakingSender<T> {
 
 impl<T> WakingSender<T> {
     pub fn try_send(&mut self, item: T) -> Result<(), T> {
-        let result = self.inner.try_send(item).map_err(|e| e.into_inner());
+        let result = self.inner.push(item);
         if result.is_ok() {
             self.needs_wake = true;
         }
@@ -113,17 +113,17 @@ impl<T, U> Queues<T, U> {
         let mut a_tx = Vec::<WakingSender<TrackedItem<T>>>::with_capacity(b_wakers.len());
 
         // these will be used in side b to receive
-        let mut b_rx = Vec::<Receiver<TrackedItem<T>>>::with_capacity(b_wakers.len());
+        let mut b_rx = Vec::<Arc<ArrayQueue<TrackedItem<T>>>>::with_capacity(b_wakers.len());
 
         for waker in b_wakers.drain(..) {
-            let (s, r) = bounded(capacity);
+            let q = Arc::new(ArrayQueue::new(capacity));
             let s = WakingSender {
-                inner: s,
+                inner: q.clone(),
                 waker,
                 needs_wake: false,
             };
             a_tx.push(s);
-            b_rx.push(r);
+            b_rx.push(q);
         }
 
         // T messages are sent to side b, so we have a `WakingSender` for each
@@ -133,17 +133,17 @@ impl<T, U> Queues<T, U> {
         let mut b_tx = Vec::<WakingSender<TrackedItem<U>>>::with_capacity(a_wakers.len());
 
         // these will be used in side a to receive
-        let mut a_rx = Vec::<Receiver<TrackedItem<U>>>::with_capacity(a_wakers.len());
+        let mut a_rx = Vec::<Arc<ArrayQueue<TrackedItem<U>>>>::with_capacity(a_wakers.len());
 
         for waker in a_wakers.drain(..) {
-            let (s, r) = bounded(capacity);
+            let q = Arc::new(ArrayQueue::new(capacity));
             let s = WakingSender {
-                inner: s,
+                inner: q.clone(),
                 waker,
                 needs_wake: false,
             };
             b_tx.push(s);
-            a_rx.push(r);
+            a_rx.push(q);
         }
 
         let mut a = Vec::new();
@@ -174,15 +174,15 @@ impl<T, U> Queues<T, U> {
 
     /// Try to receive a single item from the queue. Returns a `TrackedItem<T>`
     /// which allows the receiver to know which sender sent the item.
-    pub fn try_recv(&self) -> Result<TrackedItem<U>, TryRecvError> {
-        self.receiver.try_recv()
+    pub fn try_recv(&self) -> Option<TrackedItem<U>> {
+        self.receiver.pop()
     }
 
     /// Try to receive all pending items from the queue.
     pub fn try_recv_all(&self, buf: &mut Vec<TrackedItem<U>>) {
         let pending = self.receiver.len();
         for _ in 0..pending {
-            if let Ok(item) = self.receiver.try_recv() {
+            if let Some(item) = self.receiver.pop() {
                 buf.push(item);
             }
         }
@@ -286,78 +286,78 @@ mod tests {
         let mut b = b.remove(0);
 
         // queues are empty
-        assert!(a.try_recv().is_err());
-        assert!(b.try_recv().is_err());
+        assert!(a.try_recv().is_none());
+        assert!(b.try_recv().is_none());
 
         // send a usize from A -> B using a targeted send
         a.try_send_to(0, 1).expect("failed to send");
-        assert!(a.try_recv().is_err());
+        assert!(a.try_recv().is_none());
         assert_eq!(
             b.try_recv().map(|v| (v.sender(), v.into_inner())),
-            Ok((0, 1))
+            Some((0, 1))
         );
 
         // queues are empty
-        assert!(a.try_recv().is_err());
-        assert!(b.try_recv().is_err());
+        assert!(a.try_recv().is_none());
+        assert!(b.try_recv().is_none());
 
         // send a usize from A -> B using a non-targeted (any) send
         a.try_send_any(2).expect("failed to send");
-        assert!(a.try_recv().is_err());
+        assert!(a.try_recv().is_none());
         assert_eq!(
             b.try_recv().map(|v| (v.sender(), v.into_inner())),
-            Ok((0, 2))
+            Some((0, 2))
         );
 
         // queues are empty
-        assert!(a.try_recv().is_err());
-        assert!(b.try_recv().is_err());
+        assert!(a.try_recv().is_none());
+        assert!(b.try_recv().is_none());
 
         // send a usize from A -> B using a broadcast send
         a.try_send_all(3).expect("failed to send");
-        assert!(a.try_recv().is_err());
+        assert!(a.try_recv().is_none());
         assert_eq!(
             b.try_recv().map(|v| (v.sender(), v.into_inner())),
-            Ok((0, 3))
+            Some((0, 3))
         );
 
         // queues are empty
-        assert!(a.try_recv().is_err());
-        assert!(b.try_recv().is_err());
+        assert!(a.try_recv().is_none());
+        assert!(b.try_recv().is_none());
 
         // send a String from B -> A using a targeted send
         b.try_send_to(0, "apple".to_string())
             .expect("failed to send");
-        assert!(b.try_recv().is_err());
+        assert!(b.try_recv().is_none());
         assert_eq!(
             a.try_recv().map(|v| (v.sender(), v.into_inner())),
-            Ok((0, "apple".to_string()))
+            Some((0, "apple".to_string()))
         );
 
         // queues are empty
-        assert!(a.try_recv().is_err());
-        assert!(b.try_recv().is_err());
+        assert!(a.try_recv().is_none());
+        assert!(b.try_recv().is_none());
 
         // send a usize from A -> B using a non-targeted (any) send
         b.try_send_any("banana".to_string())
             .expect("failed to send");
-        assert!(b.try_recv().is_err());
+        assert!(b.try_recv().is_none());
         assert_eq!(
             a.try_recv().map(|v| (v.sender(), v.into_inner())),
-            Ok((0, "banana".to_string()))
+            Some((0, "banana".to_string()))
         );
 
         // queues are empty
-        assert!(a.try_recv().is_err());
-        assert!(b.try_recv().is_err());
+        assert!(a.try_recv().is_none());
+        assert!(b.try_recv().is_none());
 
         // send a usize from A -> B using a broadcast send
         b.try_send_all("orange".to_string())
             .expect("failed to send");
-        assert!(b.try_recv().is_err());
+        assert!(b.try_recv().is_none());
         assert_eq!(
             a.try_recv().map(|v| (v.sender(), v.into_inner())),
-            Ok((0, "orange".to_string()))
+            Some((0, "orange".to_string()))
         );
     }
 }
