@@ -336,8 +336,7 @@ async fn spawn(
                 addr
             );
             let tcp_listener =
-                TcpListener::from_std(tcp_listener)
-                .expect("could not convert to tokio listener");
+                TcpListener::from_std(tcp_listener).expect("could not convert to tokio listener");
             listener::listener(tcp_listener, client_builder, cache.cache_name()).await;
         });
     }

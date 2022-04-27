@@ -198,7 +198,7 @@ fn parse_get(buffer: &[u8]) -> Result<ParseOk<MemcacheRequest>, ParseError> {
                     } else {
                         #[cfg(feature = "stats")]
                         GET_CARDINALITY.increment(PreciseInstant::now(), keys.len() as _, 1);
-                        
+
                         let message = MemcacheRequest::Get {
                             keys: keys.into_boxed_slice(),
                         };
