@@ -95,7 +95,7 @@ impl<'a> Segment<'a> {
     /// This function may panic if the segment is corrupted or has been
     /// constructed from invalid bytes.
     #[cfg(feature = "debug")]
-    pub fn check_integrity(&mut self) -> bool {
+    pub(crate) fn check_integrity(&mut self, hashtable: &HashTable) -> bool {
         self.check_magic();
 
         let mut integrity = true;
@@ -114,7 +114,9 @@ impl<'a> Segment<'a> {
             if item.klen() == 0 {
                 break;
             }
-            if !item.deleted() {
+
+            let deleted = !hashtable.is_item_at(item.key(), self.id(), offset as u64);
+            if !deleted {
                 count += 1;
             }
             offset += item.size();
@@ -293,18 +295,14 @@ impl<'a> Segment<'a> {
 
     /// Remove an item based on its item info
     // TODO(bmartin): tombstone is currently always set
-    pub(crate) fn remove_item(&mut self, item_info: u64, tombstone: bool) {
+    pub(crate) fn remove_item(&mut self, item_info: u64) {
         let offset = get_offset(item_info) as usize;
-        self.remove_item_at(offset, tombstone)
+        self.remove_item_at(offset)
     }
 
     /// Remove an item based on its offset into the segment
-    // TODO(bmartin): tombstone is currently always set
-    pub(crate) fn remove_item_at(&mut self, offset: usize, _tombstone: bool) {
-        let mut item = self.get_item_at(offset).unwrap();
-        if item.deleted() {
-            return;
-        }
+    pub(crate) fn remove_item_at(&mut self, offset: usize) {
+        let item = self.get_item_at(offset).unwrap();
 
         let item_size = item.size() as i64;
 
@@ -317,7 +315,6 @@ impl<'a> Segment<'a> {
         self.decr_item(item_size as i32);
         assert!(self.live_bytes() >= 0);
         assert!(self.live_items() >= 0);
-        item.tombstone();
 
         self.check_magic();
     }
@@ -359,7 +356,8 @@ impl<'a> Segment<'a> {
             let item_size = item.size();
 
             // don't copy deleted items
-            if item.deleted() {
+            let deleted = !hashtable.is_item_at(item.key(), self.id(), read_offset as u64);
+            if deleted {
                 items_pruned += 1;
                 bytes_pruned += item.size();
                 // move read offset forward, leave write offset trailing
@@ -447,7 +445,8 @@ impl<'a> Segment<'a> {
             let write_offset = target.write_offset() as usize;
 
             // skip deleted items and ones that won't fit in the target segment
-            if item.deleted() || write_offset + item_size >= target.data.len() {
+            let deleted = !hashtable.is_item_at(item.key(), self.id(), read_offset as u64);
+            if deleted || write_offset + item_size >= target.data.len() {
                 read_offset += item_size;
                 continue;
             }
@@ -470,7 +469,7 @@ impl<'a> Segment<'a> {
                 unsafe {
                     std::ptr::copy_nonoverlapping(src, dst, item_size);
                 }
-                self.remove_item_at(read_offset, true);
+                self.remove_item_at(read_offset);
                 target.header.incr_live_items();
                 target.header.incr_live_bytes(item_size as i32);
                 target.set_write_offset(write_offset as i32 + item_size as i32);
@@ -532,7 +531,8 @@ impl<'a> Segment<'a> {
 
             let item_size = item.size();
 
-            if item.deleted() {
+            let deleted = !hashtable.is_item_at(item.key(), self.id(), offset as u64);
+            if deleted {
                 // do we need to evict again here? Why is that done in the C code?
                 offset += item_size;
                 continue;
@@ -572,7 +572,7 @@ impl<'a> Segment<'a> {
                     // warn and remove the item even if it wasn't in the
                     // hashtable
                     warn!("unlinked item was present in segment");
-                    self.remove_item_at(offset, true);
+                    self.remove_item_at(offset);
                 }
                 n_dropped += item_size;
                 offset += item_size;
@@ -625,7 +625,8 @@ impl<'a> Segment<'a> {
             items += 1;
             bytes += item.size();
 
-            if !item.deleted() {
+            let deleted = !hashtable.is_item_at(item.key(), self.id(), offset as u64);
+            if !deleted {
                 trace!("evicting from hashtable");
                 let removed = if expire {
                     hashtable.expire(item.key(), offset.try_into().unwrap(), self)
@@ -637,7 +638,7 @@ impl<'a> Segment<'a> {
                     // warn and remove the item even if it wasn't in the
                     // hashtable
                     warn!("unlinked item was present in segment");
-                    self.remove_item_at(offset, true);
+                    self.remove_item_at(offset);
                 }
             }
 

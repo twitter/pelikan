@@ -40,7 +40,7 @@ impl Eviction {
 
         Self {
             policy,
-            last_update_time: Instant::recent(),
+            last_update_time: Instant::now(),
             ranked_segs,
             index: 0,
             rng: Box::new(rng()),

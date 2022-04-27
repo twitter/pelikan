@@ -79,6 +79,7 @@ Currently Pelikan yields the following products:
 ## Build
 ```sh
 git clone https://github.com/twitter/pelikan.git
+cd pelikan
 mkdir _build && cd _build
 cmake ..
 make -j
