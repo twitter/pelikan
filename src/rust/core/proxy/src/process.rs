@@ -53,8 +53,7 @@ where
         });
         let admin_waker = admin_builder.waker();
 
-        let listener_builder =
-            ListenerBuilder::new(config.listener().socket_addr().expect("bad listen address"))?;
+        let listener_builder = ListenerBuilder::new(&config)?;
         let listener_waker = listener_builder.waker();
 
         let mut frontend_builders = Vec::new();
