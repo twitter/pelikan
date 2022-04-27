@@ -55,6 +55,12 @@ fn main() {
                 .help("Server configuration file")
                 .index(1),
         )
+        .arg(
+            Arg::with_name("print-config")
+                .help("List all options in config")
+                .long("config")
+                .short("c"),
+        )
         .get_matches();
 
     // output stats descriptions and exit if the `stats` option was provided
@@ -104,6 +110,11 @@ fn main() {
     } else {
         Default::default()
     };
+
+    if matches.is_present("print-config") {
+        config.print();
+        std::process::exit(0);
+    }
 
     // launch segcache
     Segcache::new(config).wait()
