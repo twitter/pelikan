@@ -139,13 +139,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             The supported commands are limited to: get/set",
         )
-        // .arg(
-        //     Arg::with_name("stats")
-        //         .short("s")
-        //         .long("stats")
-        //         .help("List all metrics in stats")
-        //         .takes_value(false),
-        // )
+        .arg(
+            Arg::with_name("stats")
+                .short("s")
+                .long("stats")
+                .help("List all metrics in stats")
+                .takes_value(false),
+        )
         .arg(
             Arg::with_name("CONFIG")
                 .help("Server configuration file")
@@ -189,6 +189,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // initialize metrics
     metrics::init();
+
+    // output stats descriptions and exit if the `stats` option was provided
+    if matches.is_present("stats") {
+        println!("{:<31} {:<15} DESCRIPTION", "NAME", "TYPE");
+
+        let mut metrics = Vec::new();
+
+        for metric in &metrics::common::metrics::metrics() {
+            let any = match metric.as_any() {
+                Some(any) => any,
+                None => {
+                    continue;
+                }
+            };
+
+            if any.downcast_ref::<Counter>().is_some() {
+                metrics.push(format!("{:<31} counter", metric.name()));
+            } else if any.downcast_ref::<Gauge>().is_some() {
+                metrics.push(format!("{:<31} gauge", metric.name()));
+            } else if any.downcast_ref::<Heatmap>().is_some() {
+                for (label, _) in PERCENTILES {
+                    let name = format!("{}_{}", metric.name(), label);
+                    metrics.push(format!("{:<31} percentile", name));
+                }
+            } else {
+                continue;
+            }
+        }
+
+        metrics.sort();
+        for metric in metrics {
+            println!("{}", metric);
+        }
+        std::process::exit(0);
+    }
 
     let mut runtime = Builder::new_multi_thread();
 
