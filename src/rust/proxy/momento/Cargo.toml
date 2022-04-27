@@ -15,7 +15,7 @@ config = { path = "../../config" }
 libc = "0.2.83"
 logger = { path = "../../logger" }
 metrics = { path = "../../metrics" }
-momento = { git = "https://github.com/momentohq/client-sdk-rust", rev = "97c379d" }
+momento = "0.3.1"
 protocol-admin = { path = "../../protocol/admin" }
 protocol-memcache = { path = "../../protocol/memcache" }
 session = { path = "../../session" }
