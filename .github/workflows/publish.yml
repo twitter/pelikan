@@ -1,0 +1,35 @@
+name: Publish Docker Image to DockerHub
+
+on:
+  push:
+    branches: ["momento"]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_USER: ${{secrets.DOCKER_USER}}
+      DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set release
+        id: semrel
+        uses: go-semantic-release/action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          allow-initial-development-versions: true
+          force-bump-patch-version: true
+
+      - name: Docker login
+        run: |
+          docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+      - name: Build Docker image for momento-proxy with specific version tag
+        run: docker build --tag $DOCKER_USER/momento-proxy:${{ steps.semrel.outputs.version }} .
+      - name: Build Docker image for momento-proxy with latest tag
+        run: docker build --tag $DOCKER_USER/momento-proxy:latest .
+      - name: Docker push image with specific version
+        run: docker push $DOCKER_USER/momento-proxy:${{ steps.semrel.outputs.version }}
+      - name: Docker push image with latest version
+        run: docker push $DOCKER_USER/momento-proxy
