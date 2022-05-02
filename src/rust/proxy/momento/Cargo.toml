@@ -21,17 +21,3 @@ protocol-memcache = { path = "../../protocol/memcache" }
 session = { path = "../../session" }
 storage-types = { path = "../../storage/types" }
 tokio = { version = "1.17.0", features = ["full"] }
-
-[package.metadata.deb]
-maintainer = "Brian Martin <brayniac@gmail.com>"
-copyright = "2022, Twitter, Inc."
-license-file = ["../../../../LICENSE", "0"]
-depends = "$auto"
-section = "web"
-priority = "optional"
-assets = [
-	["target/release/momento_proxy", "usr/bin/momento_proxy", "755"],
-	["../../../../config/momento_proxy.toml", "etc/momento_proxy/config.toml.example", "644"],	
-]
-maintainer-scripts = "debian/"
-systemd-units = { enable = false }
