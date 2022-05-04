@@ -210,9 +210,9 @@ pub(crate) struct HashTable {
     power: u64,
     mask: u64,
     data: Box<[HashBucket]>,
-    rng: Box<Random>,
     started: Instant,
     next_to_chain: u64,
+    _pad: [u8; 8]
 }
 
 impl HashTable {
@@ -255,9 +255,9 @@ impl HashTable {
             power: power.into(),
             mask,
             data: data.into_boxed_slice(),
-            rng: Box::new(rng()),
             started: Instant::now(),
             next_to_chain: buckets as u64,
+            _pad: [0; 8],
         }
     }
 
@@ -280,8 +280,6 @@ impl HashTable {
             }
         }
 
-        let rand: u64 = self.rng.gen();
-
         let iter = IterMut::new(self, hash);
 
         for item_info in iter {
@@ -293,6 +291,7 @@ impl HashTable {
                     // update item frequency
                     let mut freq = get_freq(*item_info);
                     if freq < 127 {
+                        let rand = thread_rng().gen::<u64>();
                         if freq <= 16 || rand % freq == 0 {
                             freq = ((freq + 1) | 0x80) << FREQ_BIT_SHIFT;
                         } else {
@@ -521,8 +520,6 @@ impl HashTable {
         let tag = tag_from_hash(hash);
         let bucket_id = hash & self.mask;
 
-        let rand: u64 = self.rng.gen();
-
         let iter = IterMut::new(self, hash);
 
         for item_info in iter {
@@ -534,6 +531,7 @@ impl HashTable {
                     // update item frequency
                     let mut freq = get_freq(*item_info);
                     if freq < 127 {
+                        let rand = thread_rng().gen::<u64>();
                         if freq <= 16 || rand % freq == 0 {
                             freq = ((freq + 1) | 0x80) << FREQ_BIT_SHIFT;
                         } else {
