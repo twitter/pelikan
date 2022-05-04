@@ -303,7 +303,7 @@ impl Seg {
     /// *NOTE*: this operation is relatively expensive
     #[cfg(feature = "debug")]
     pub fn check_integrity(&mut self) -> Result<(), SegError> {
-        if self.segments.check_integrity(&self.hashtable) {
+        if self.segments.check_integrity(&mut self.hashtable) {
             Ok(())
         } else {
             Err(SegError::DataCorrupted)

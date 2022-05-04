@@ -95,7 +95,7 @@ impl<'a> Segment<'a> {
     /// This function may panic if the segment is corrupted or has been
     /// constructed from invalid bytes.
     #[cfg(feature = "debug")]
-    pub(crate) fn check_integrity(&mut self, hashtable: &HashTable) -> bool {
+    pub(crate) fn check_integrity(&mut self, hashtable: &mut HashTable) -> bool {
         self.check_magic();
 
         let mut integrity = true;
