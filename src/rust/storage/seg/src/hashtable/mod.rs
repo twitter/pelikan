@@ -212,7 +212,7 @@ pub(crate) struct HashTable {
     data: Box<[HashBucket]>,
     started: Instant,
     next_to_chain: u64,
-    _pad: [u8; 8]
+    _pad: [u8; 8],
 }
 
 impl HashTable {

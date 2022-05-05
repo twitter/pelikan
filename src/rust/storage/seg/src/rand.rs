@@ -4,17 +4,15 @@
 
 //! Random number generator initialization
 
-
-
 pub use inner::*;
 
 pub use rand::Rng as RandRng;
 pub use rand::RngCore as RandRngCore;
 
-use std::rc::Rc;
 use core::cell::UnsafeCell;
-use rand::RngCore;
 use rand::Error;
+use rand::RngCore;
+use std::rc::Rc;
 
 pub struct ThreadRng {
     // Rc is explicitly !Send and !Sync
@@ -66,7 +64,6 @@ impl RngCore for ThreadRng {
         rng.try_fill_bytes(dest)
     }
 }
-
 
 #[cfg(test)]
 mod inner {
