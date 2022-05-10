@@ -27,10 +27,9 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .version_short("v")
         .long_about(
-            "One of the unified cache backends implemented in Rust. It \
-            uses segment-based storage to cache key/val pairs. It speaks the \
-            memcached ASCII protocol and supports some ASCII memcached \
-            commands.",
+            "A Pelikan proxy server which speaks the ASCII `ping` protocol. It \
+            accepts connections on the listening port, routing requests to the \
+            backend servers and responses back to clients.",
         )
         .arg(
             Arg::with_name("stats")
