@@ -230,18 +230,18 @@ where
                 let response = response.into_inner();
                 session.consume(consumed);
 
-                let sender = s.sender.take().unwrap();
+                let fe_worker = s.sender.take().unwrap();
                 let client_token = s.token.take().unwrap();
 
                 let mut message = TokenWrapper::new(response, client_token);
 
                 for retry in 0..QUEUE_RETRIES {
-                    if let Err(m) = self.queues.try_send_to(sender, message) {
+                    if let Err(m) = self.queues.try_send_to(fe_worker, message) {
                         if (retry + 1) == QUEUE_RETRIES {
-                            error!("queue full trying to send response to worker");
+                            error!("queue full trying to send response to frontend");
                             let _ = self.poll.close_session(token);
                         }
-                        // try to wake worker thread
+                        // try to wake frontend thread
                         let _ = self.queues.wake();
                         message = m;
                     } else {

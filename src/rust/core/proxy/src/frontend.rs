@@ -189,10 +189,10 @@ where
                 for retry in 0..QUEUE_RETRIES {
                     if let Err(m) = self.data_queues.try_send_any(message) {
                         if (retry + 1) == QUEUE_RETRIES {
-                            warn!("queue full trying to send message to storage thread");
+                            warn!("queue full trying to send message to backend thread");
                             let _ = self.poll.close_session(token);
                         }
-                        // try to wake storage thread
+                        // try to wake backend thread
                         let _ = self.data_queues.wake();
                         message = m;
                     } else {
