@@ -1,4 +1,4 @@
-// Copyright 2020 Twitter, Inc.
+// Copyright 2022 Twitter, Inc.
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
@@ -10,7 +10,7 @@ use core::time::Duration;
 use std::net::{AddrParseError, SocketAddr, ToSocketAddrs};
 
 // constants to define default values
-const LISTEN_ADDRESS: &str = "0.0.0.0:12321";
+const LISTEN_ADDRESS: &str = "0.0.0.0:12322";
 const TIMEOUT_MS: usize = 100;
 const NEVENT_MAX: usize = 1024;
 const FRONTEND_THREADS: usize = 1;
