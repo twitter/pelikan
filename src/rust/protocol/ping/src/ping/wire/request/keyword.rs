@@ -7,7 +7,7 @@
 use crate::ParseError;
 use core::convert::TryFrom;
 
-/// Ping response keywords
+/// Ping request keywords
 pub enum Keyword {
     Ping,
 }
