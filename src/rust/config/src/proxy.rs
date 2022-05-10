@@ -135,6 +135,11 @@ impl Backend {
         self.nevent
     }
 
+    // TODO(bmartin): the handling of ZK service discovery is based on how
+    // Aurora serversets work and needs to be factored out into some more
+    // general way of handling service discovery. We may want to allow for
+    // sending topology information to the admin port so that a sidecar can be
+    // used to handle service discovery.
     pub fn socket_addrs(&self) -> Result<Vec<SocketAddr>, std::io::Error> {
         if !self.endpoints.is_empty() {
             let mut endpoints = Vec::new();
