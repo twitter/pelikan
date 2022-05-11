@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::datapool::*;
+use datapool::*;
 use crate::eviction::*;
 use crate::item::*;
 use crate::seg::{SEGMENT_REQUEST, SEGMENT_REQUEST_SUCCESS};
@@ -46,7 +46,7 @@ pub(crate) struct Segments {
 impl Segments {
     /// Private function which allocates and initializes the `Segments` by
     /// taking ownership of the builder
-    pub(super) fn from_builder(builder: SegmentsBuilder) -> Self {
+    pub(super) fn from_builder(builder: SegmentsBuilder) -> Result<Self, std::io::Error> {
         let segment_size = builder.segment_size;
         let segments = builder.heap_size / (builder.segment_size as usize);
 
@@ -75,13 +75,14 @@ impl Segments {
 
         let heap_size = segments * segment_size as usize;
 
-        // TODO(bmartin): we always prefault, this should be configurable
+        // TODO(bmartin): we will need to make additional changes before we
+        // allow restoring state from an existing datapool file, for now this
+        // retains the previous behavior and always creates a new file to mmap
+        // if a datapool path is provided.
         let mut data: Box<dyn Datapool> = if let Some(file) = builder.datapool_path {
-            let pool = File::create(file, heap_size, true)
-                .expect("failed to allocate file backed storage");
-            Box::new(pool)
+            Box::new(MmapFile::create(file, heap_size, crate::VERSION)?)
         } else {
-            Box::new(Memory::create(heap_size, true))
+            Box::new(Memory::create(heap_size)?)
         };
 
         for idx in 0..segments {
@@ -102,7 +103,7 @@ impl Segments {
         SEGMENT_CURRENT.set(segments as _);
         SEGMENT_FREE.set(segments as _);
 
-        Self {
+        Ok(Self {
             headers,
             segment_size,
             cap: segments as u32,
@@ -111,7 +112,7 @@ impl Segments {
             data,
             flush_at: Instant::now(),
             evict: Box::new(Eviction::new(segments, evict_policy)),
-        }
+        })
     }
 
     /// Return the size of each segment in bytes
@@ -915,11 +916,5 @@ impl Segments {
         }
 
         Ok(next_id)
-    }
-}
-
-impl Default for Segments {
-    fn default() -> Self {
-        Self::from_builder(Default::default())
     }
 }

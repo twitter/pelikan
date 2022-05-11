@@ -27,6 +27,7 @@ default = []
 [dependencies]
 ahash = "0.7.2"
 common = { path = "../../common" }
+datapool = { path = "../datapool" }
 logger = { path = "../../logger" }
 memmap2 = "0.2.2"
 metrics = { path = "../../metrics" }

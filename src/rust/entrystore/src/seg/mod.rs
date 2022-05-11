@@ -23,7 +23,7 @@ pub struct Seg {
 impl Seg {
     /// Create `Seg` storage based on the config and the `TimeType` which is
     /// used to interpret various expiry time formats.
-    pub fn new<T: SegConfig>(config: &T) -> Self {
+    pub fn new<T: SegConfig>(config: &T) -> Result<Self, std::io::Error> {
         let config = config.seg();
 
         // build up the eviction policy from the config
@@ -49,9 +49,9 @@ impl Seg {
             .segment_size(config.segment_size())
             .eviction(eviction)
             .datapool_path(config.datapool_path())
-            .build();
+            .build()?;
 
-        Self { data }
+        Ok(Self { data })
     }
 }
 

@@ -117,5 +117,10 @@ fn main() {
     }
 
     // launch segcache
-    Segcache::new(config).wait()
+    match Segcache::new(config) {
+        Ok(segcache) => segcache.wait(),
+        Err(e) => {
+            error!("error launching segcache: {}", e);
+        }
+    }
 }

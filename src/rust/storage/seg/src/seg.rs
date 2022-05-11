@@ -43,7 +43,7 @@ impl Seg {
     ///     .heap_size(64 * MB)
     ///     .segment_size(1 * MB as i32)
     ///     .hash_power(16)
-    ///     .eviction(Policy::Random).build();
+    ///     .eviction(Policy::Random).build().expect("failed to create cache");
     /// ```
     pub fn builder() -> Builder {
         Builder::default()
@@ -56,7 +56,7 @@ impl Seg {
     /// ```
     /// use seg::{Policy, Seg};
     ///
-    /// let mut cache = Seg::builder().build();
+    /// let mut cache = Seg::builder().build().expect("failed to create cache");
     /// assert_eq!(cache.items(), 0);
     /// ```
     #[cfg(any(test, feature = "debug"))]
@@ -71,7 +71,7 @@ impl Seg {
     /// use seg::{Policy, Seg};
     /// use std::time::Duration;
     ///
-    /// let mut cache = Seg::builder().build();
+    /// let mut cache = Seg::builder().build().expect("failed to create cache");
     /// assert!(cache.get(b"coffee").is_none());
     ///
     /// cache.insert(b"coffee", b"strong", None, Duration::ZERO);
@@ -88,7 +88,7 @@ impl Seg {
     /// ```
     /// use seg::{Policy, Seg};
     ///
-    /// let mut cache = Seg::builder().build();
+    /// let mut cache = Seg::builder().build().expect("failed to create cache");
     /// assert!(cache.get_no_freq_incr(b"coffee").is_none());
     /// ```
     pub fn get_no_freq_incr(&mut self, key: &[u8]) -> Option<Item> {
@@ -101,7 +101,7 @@ impl Seg {
     /// use seg::{Policy, Seg};
     /// use std::time::Duration;
     ///
-    /// let mut cache = Seg::builder().build();
+    /// let mut cache = Seg::builder().build().expect("failed to create cache");
     /// assert!(cache.get(b"drink").is_none());
     ///
     /// cache.insert(b"drink", b"coffee", None, Duration::ZERO);
@@ -205,7 +205,7 @@ impl Seg {
     /// use seg::{Policy, Seg, SegError};
     /// use std::time::Duration;
     ///
-    /// let mut cache = Seg::builder().build();
+    /// let mut cache = Seg::builder().build().expect("failed to create cache");
     ///
     /// // If the item is not in the cache, CAS will fail as 'NotFound'
     /// assert_eq!(
@@ -247,7 +247,7 @@ impl Seg {
     /// use seg::{Policy, Seg, SegError};
     /// use std::time::Duration;
     ///
-    /// let mut cache = Seg::builder().build();
+    /// let mut cache = Seg::builder().build().expect("failed to create cache");
     ///
     /// // If the item is not in the cache, delete will return false
     /// assert_eq!(cache.delete(b"coffee"), false);
@@ -270,7 +270,7 @@ impl Seg {
     /// use seg::{Policy, Seg, SegError};
     /// use std::time::Duration;
     ///
-    /// let mut cache = Seg::builder().build();
+    /// let mut cache = Seg::builder().build().expect("failed to create cache");
     ///
     /// // Insert an item with a short ttl
     /// cache.insert(b"coffee", b"strong", None, Duration::from_secs(5));

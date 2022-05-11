@@ -158,16 +158,16 @@ impl Builder {
     ///     .hash_power(16)
     ///     .eviction(Policy::Random).build();
     /// ```
-    pub fn build(self) -> Seg {
+    pub fn build(self) -> Result<Seg, std::io::Error> {
         let hashtable = HashTable::new(self.hash_power, self.overflow_factor);
-        let segments = self.segments_builder.build();
+        let segments = self.segments_builder.build()?;
         let ttl_buckets = TtlBuckets::default();
 
-        Seg {
+        Ok(Seg {
             hashtable,
             segments,
             ttl_buckets,
             time: Instant::recent(),
-        }
+        })
     }
 }

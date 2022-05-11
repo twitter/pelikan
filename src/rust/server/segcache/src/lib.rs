@@ -25,7 +25,7 @@ pub struct Segcache {
 
 impl Segcache {
     /// Creates a new `Segcache` process from the given `SegcacheConfig`.
-    pub fn new(config: SegcacheConfig) -> Self {
+    pub fn new(config: SegcacheConfig) -> Result<Self, std::io::Error> {
         // initialize logging
         let log_drain = configure_logging(&config);
 
@@ -33,7 +33,7 @@ impl Segcache {
         metrics::init();
 
         // initialize storage
-        let storage = Storage::new(&config);
+        let storage = Storage::new(&config)?;
 
         let max_buffer_size = std::cmp::max(
             server::DEFAULT_BUFFER_SIZE,
@@ -59,7 +59,7 @@ impl Segcache {
         // spawn threads
         let process = process_builder.spawn();
 
-        Self { process }
+        Ok(Self { process })
     }
 
     /// Wait for all threads to complete. Blocks until the process has fully
