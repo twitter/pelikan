@@ -26,24 +26,36 @@ use std::thread::JoinHandle;
 
 use super::EventLoop;
 
+use common::metrics::metric;
 use common::time::{Duration, Nanoseconds};
-use metrics::{static_metrics, Counter, Heatmap, Relaxed};
+use metrics::{Counter, Heatmap, Relaxed};
 use mio::Token;
 
-static_metrics! {
-    static WORKER_EVENT_LOOP: Counter;
-    static WORKER_EVENT_TOTAL: Counter;
-    static WORKER_EVENT_ERROR: Counter;
-    static WORKER_EVENT_WRITE: Counter;
-    static WORKER_EVENT_READ: Counter;
+#[metric(name="worker_event_loop", crate=common::metrics)]
+static WORKER_EVENT_LOOP: Counter = Counter::new();
+#[metric(name="worker_event_total", crate=common::metrics)]
+static WORKER_EVENT_TOTAL: Counter = Counter::new();
+#[metric(name="worker_event_error", crate=common::metrics)]
+static WORKER_EVENT_ERROR: Counter = Counter::new();
+#[metric(name="worker_event_write", crate=common::metrics)]
+static WORKER_EVENT_WRITE: Counter = Counter::new();
+#[metric(name="worker_event_read", crate=common::metrics)]
+static WORKER_EVENT_READ: Counter = Counter::new();
 
-    static STORAGE_EVENT_LOOP: Counter;
-    static STORAGE_QUEUE_DEPTH: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(1_000_000, 3, Duration::<Nanoseconds<u64>>::from_secs(60), Duration::<Nanoseconds<u64>>::from_secs(1))
-    );
+#[metric(name="storage_event_loop", crate=common::metrics)]
+static STORAGE_EVENT_LOOP: Counter = Counter::new();
+#[metric(name="storage_queue_depth", crate=common::metrics)]
+static STORAGE_QUEUE_DEPTH: Relaxed<Heatmap> = Relaxed::new(|| {
+    Heatmap::new(
+        1_000_000,
+        3,
+        Duration::<Nanoseconds<u64>>::from_secs(60),
+        Duration::<Nanoseconds<u64>>::from_secs(1),
+    )
+});
 
-    static PROCESS_REQ: Counter;
-}
+#[metric(name="process_req", crate=common::metrics)]
+static PROCESS_REQ: Counter = Counter::new();
 
 pub struct TokenWrapper<T> {
     inner: T,

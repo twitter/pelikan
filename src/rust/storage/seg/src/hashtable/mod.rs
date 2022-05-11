@@ -75,26 +75,35 @@ const MAX_CHAIN_LEN: u64 = 16;
 
 use crate::*;
 use ahash::RandomState;
+use common::metrics::metric;
 use core::num::NonZeroU32;
-use metrics::{static_metrics, Counter};
+use metrics::Counter;
 
 mod hash_bucket;
 
 pub(crate) use hash_bucket::*;
 
-static_metrics! {
-    static HASH_TAG_COLLISION: Counter;
-    static HASH_INSERT: Counter;
-    static HASH_INSERT_EX: Counter;
-    static HASH_REMOVE: Counter;
-    static HASH_LOOKUP: Counter;
+#[metric(name="hash_tag_collision", crate=common::metrics)]
+static HASH_TAG_COLLISION: Counter = Counter::new();
+#[metric(name="hash_insert", crate=common::metrics)]
+static HASH_INSERT: Counter = Counter::new();
+#[metric(name="hash_insert_ex", crate=common::metrics)]
+static HASH_INSERT_EX: Counter = Counter::new();
+#[metric(name="hash_remove", crate=common::metrics)]
+static HASH_REMOVE: Counter = Counter::new();
+#[metric(name="hash_lookup", crate=common::metrics)]
+static HASH_LOOKUP: Counter = Counter::new();
 
-    static ITEM_RELINK: Counter;
-    static ITEM_REPLACE: Counter;
-    static ITEM_DELETE: Counter;
-    static ITEM_EVICT: Counter;
-    static ITEM_EXPIRE: Counter;
-}
+#[metric(name="item_relink", crate=common::metrics)]
+static ITEM_RELINK: Counter = Counter::new();
+#[metric(name="item_replace", crate=common::metrics)]
+static ITEM_REPLACE: Counter = Counter::new();
+#[metric(name="item_delete", crate=common::metrics)]
+static ITEM_DELETE: Counter = Counter::new();
+#[metric(name="item_evict", crate=common::metrics)]
+static ITEM_EVICT: Counter = Counter::new();
+#[metric(name="item_expire", crate=common::metrics)]
+static ITEM_EXPIRE: Counter = Counter::new();
 
 /// Main structure for performing item lookup. Contains a contiguous allocation
 /// of [`HashBucket`]s which are used to store item info and metadata.

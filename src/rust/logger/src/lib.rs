@@ -52,29 +52,42 @@ pub use sampling::*;
 pub use single::*;
 pub use traits::*;
 
+use common::metrics::metric;
 use common::time::DateTime;
 use config::{DebugConfig, KlogConfig};
-use metrics::{static_metrics, Counter, Gauge};
+use metrics::{Counter, Gauge};
 use mpmc::Queue;
 
 pub(crate) type LogBuffer = Vec<u8>;
 
-static_metrics! {
-    static LOG_CREATE: Counter;
-    static LOG_CREATE_EX: Counter;
-    static LOG_DESTROY: Counter;
-    static LOG_CURR: Gauge;
-    static LOG_OPEN: Counter;
-    static LOG_OPEN_EX: Counter;
-    static LOG_WRITE: Counter;
-    static LOG_WRITE_BYTE: Counter;
-    static LOG_WRITE_EX: Counter;
-    static LOG_SKIP: Counter;
-    static LOG_DROP: Counter;
-    static LOG_DROP_BYTE: Counter;
-    static LOG_FLUSH: Counter;
-    static LOG_FLUSH_EX: Counter;
-}
+#[metric(name="log_create", crate=common::metrics)]
+static LOG_CREATE: Counter = Counter::new();
+#[metric(name="log_create_ex", crate=common::metrics)]
+static LOG_CREATE_EX: Counter = Counter::new();
+#[metric(name="log_destroy", crate=common::metrics)]
+static LOG_DESTROY: Counter = Counter::new();
+#[metric(name="log_curr", crate=common::metrics)]
+static LOG_CURR: Gauge = Gauge::new();
+#[metric(name="log_open", crate=common::metrics)]
+static LOG_OPEN: Counter = Counter::new();
+#[metric(name="log_open_ex", crate=common::metrics)]
+static LOG_OPEN_EX: Counter = Counter::new();
+#[metric(name="log_write", crate=common::metrics)]
+static LOG_WRITE: Counter = Counter::new();
+#[metric(name="log_write_byte", crate=common::metrics)]
+static LOG_WRITE_BYTE: Counter = Counter::new();
+#[metric(name="log_write_ex", crate=common::metrics)]
+static LOG_WRITE_EX: Counter = Counter::new();
+#[metric(name="log_skip", crate=common::metrics)]
+static LOG_SKIP: Counter = Counter::new();
+#[metric(name="log_drop", crate=common::metrics)]
+static LOG_DROP: Counter = Counter::new();
+#[metric(name="log_drop_byte", crate=common::metrics)]
+static LOG_DROP_BYTE: Counter = Counter::new();
+#[metric(name="log_flush", crate=common::metrics)]
+static LOG_FLUSH: Counter = Counter::new();
+#[metric(name="log_flush_ex", crate=common::metrics)]
+static LOG_FLUSH_EX: Counter = Counter::new();
 
 /// A type which implements an asynchronous logging backend.
 pub struct AsyncLog {

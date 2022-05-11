@@ -12,65 +12,115 @@ pub use response::*;
 
 use super::*;
 
-use metrics::{static_metrics, Counter, Heatmap, Relaxed};
+use common::metrics::metric;
+use metrics::{Counter, Heatmap, Relaxed};
 
-static_metrics! {
-    static GET: Counter;
-    static GET_EX: Counter;
-    static GET_CARDINALITY: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(request::MAX_BATCH_SIZE as _, 3, PreciseDuration::from_secs(60), PreciseDuration::from_secs(1))
-    );
-    static GET_KEY: Counter;
-    static GET_KEY_HIT: Counter;
-    static GET_KEY_MISS: Counter;
+#[metric(name="get", crate=common::metrics)]
+static GET: Counter = Counter::new();
+#[metric(name="get_ex", crate=common::metrics)]
+static GET_EX: Counter = Counter::new();
+#[metric(name="get_cardinality", crate=common::metrics)]
+static GET_CARDINALITY: Relaxed<Heatmap> = Relaxed::new(|| {
+    Heatmap::new(
+        request::MAX_BATCH_SIZE as _,
+        3,
+        PreciseDuration::from_secs(60),
+        PreciseDuration::from_secs(1),
+    )
+});
+#[metric(name="get_key", crate=common::metrics)]
+static GET_KEY: Counter = Counter::new();
+#[metric(name="get_key_hit", crate=common::metrics)]
+static GET_KEY_HIT: Counter = Counter::new();
+#[metric(name="get_key_miss", crate=common::metrics)]
+static GET_KEY_MISS: Counter = Counter::new();
 
-    static GETS: Counter;
-    static GETS_EX: Counter;
-    static GETS_KEY: Counter;
-    static GETS_KEY_HIT: Counter;
-    static GETS_KEY_MISS: Counter;
+#[metric(name="gets", crate=common::metrics)]
+static GETS: Counter = Counter::new();
+#[metric(name="gets_ex", crate=common::metrics)]
+static GETS_EX: Counter = Counter::new();
+#[metric(name="gets_key", crate=common::metrics)]
+static GETS_KEY: Counter = Counter::new();
+#[metric(name="gets_key_hit", crate=common::metrics)]
+static GETS_KEY_HIT: Counter = Counter::new();
+#[metric(name="gets_key_miss", crate=common::metrics)]
+static GETS_KEY_MISS: Counter = Counter::new();
 
-    static SET: Counter;
-    static SET_EX: Counter;
-    static SET_STORED: Counter;
-    static SET_NOT_STORED: Counter;
+#[metric(name="set", crate=common::metrics)]
+static SET: Counter = Counter::new();
+#[metric(name="set_ex", crate=common::metrics)]
+static SET_EX: Counter = Counter::new();
+#[metric(name="set_stored", crate=common::metrics)]
+static SET_STORED: Counter = Counter::new();
+#[metric(name="set_not_stored", crate=common::metrics)]
+static SET_NOT_STORED: Counter = Counter::new();
 
-    static ADD: Counter;
-    static ADD_EX: Counter;
-    static ADD_STORED: Counter;
-    static ADD_NOT_STORED: Counter;
+#[metric(name="add", crate=common::metrics)]
+static ADD: Counter = Counter::new();
+#[metric(name="add_ex", crate=common::metrics)]
+static ADD_EX: Counter = Counter::new();
+#[metric(name="add_stored", crate=common::metrics)]
+static ADD_STORED: Counter = Counter::new();
+#[metric(name="add_not_stored", crate=common::metrics)]
+static ADD_NOT_STORED: Counter = Counter::new();
 
-    static REPLACE: Counter;
-    static REPLACE_EX: Counter;
-    static REPLACE_STORED: Counter;
-    static REPLACE_NOT_STORED: Counter;
+#[metric(name="replace", crate=common::metrics)]
+static REPLACE: Counter = Counter::new();
+#[metric(name="replace_ex", crate=common::metrics)]
+static REPLACE_EX: Counter = Counter::new();
+#[metric(name="replace_stored", crate=common::metrics)]
+static REPLACE_STORED: Counter = Counter::new();
+#[metric(name="replace_not_stored", crate=common::metrics)]
+static REPLACE_NOT_STORED: Counter = Counter::new();
 
-    static APPEND: Counter;
-    static APPEND_EX: Counter;
-    static APPEND_STORED: Counter;
-    static APPEND_NOT_STORED: Counter;
+#[metric(name="append", crate=common::metrics)]
+static APPEND: Counter = Counter::new();
+#[metric(name="append_ex", crate=common::metrics)]
+static APPEND_EX: Counter = Counter::new();
+#[metric(name="append_stored", crate=common::metrics)]
+static APPEND_STORED: Counter = Counter::new();
+#[metric(name="append_not_stored", crate=common::metrics)]
+static APPEND_NOT_STORED: Counter = Counter::new();
 
-    static PREPEND: Counter;
-    static PREPEND_EX: Counter;
-    static PREPEND_STORED: Counter;
-    static PREPEND_NOT_STORED: Counter;
+#[metric(name="prepend", crate=common::metrics)]
+static PREPEND: Counter = Counter::new();
+#[metric(name="prepend_ex", crate=common::metrics)]
+static PREPEND_EX: Counter = Counter::new();
+#[metric(name="prepend_stored", crate=common::metrics)]
+static PREPEND_STORED: Counter = Counter::new();
+#[metric(name="prepend_not_stored", crate=common::metrics)]
+static PREPEND_NOT_STORED: Counter = Counter::new();
 
-    static DELETE: Counter;
-    static DELETE_EX: Counter;
-    static DELETE_DELETED: Counter;
-    static DELETE_NOT_FOUND: Counter;
+#[metric(name="delete", crate=common::metrics)]
+static DELETE: Counter = Counter::new();
+#[metric(name="delete_ex", crate=common::metrics)]
+static DELETE_EX: Counter = Counter::new();
+#[metric(name="delete_deleted", crate=common::metrics)]
+static DELETE_DELETED: Counter = Counter::new();
+#[metric(name="delete_not_found", crate=common::metrics)]
+static DELETE_NOT_FOUND: Counter = Counter::new();
 
-    static INCR: Counter;
-    static INCR_EX: Counter;
-    static INCR_NOT_FOUND: Counter;
+#[metric(name="incr", crate=common::metrics)]
+static INCR: Counter = Counter::new();
+#[metric(name="incr_ex", crate=common::metrics)]
+static INCR_EX: Counter = Counter::new();
+#[metric(name="incr_not_found", crate=common::metrics)]
+static INCR_NOT_FOUND: Counter = Counter::new();
 
-    static DECR: Counter;
-    static DECR_EX: Counter;
-    static DECR_NOT_FOUND: Counter;
+#[metric(name="decr", crate=common::metrics)]
+static DECR: Counter = Counter::new();
+#[metric(name="decr_ex", crate=common::metrics)]
+static DECR_EX: Counter = Counter::new();
+#[metric(name="decr_not_found", crate=common::metrics)]
+static DECR_NOT_FOUND: Counter = Counter::new();
 
-    static CAS: Counter;
-    static CAS_EX: Counter;
-    static CAS_EXISTS: Counter;
-    static CAS_NOT_FOUND: Counter;
-    static CAS_STORED: Counter;
-}
+#[metric(name="cas", crate=common::metrics)]
+static CAS: Counter = Counter::new();
+#[metric(name="cas_ex", crate=common::metrics)]
+static CAS_EX: Counter = Counter::new();
+#[metric(name="cas_exists", crate=common::metrics)]
+static CAS_EXISTS: Counter = Counter::new();
+#[metric(name="cas_not_found", crate=common::metrics)]
+static CAS_NOT_FOUND: Counter = Counter::new();
+#[metric(name="cas_stored", crate=common::metrics)]
+static CAS_STORED: Counter = Counter::new();

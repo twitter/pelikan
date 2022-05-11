@@ -24,12 +24,15 @@ pub use error::TtlBucketsError;
 pub use ttl_bucket::TtlBucket;
 pub use ttl_buckets::TtlBuckets;
 
+use common::metrics::metric;
 use metrics::Counter;
 
-metrics::static_metrics! {
-    static SEGMENT_CLEAR: Counter;
-    static SEGMENT_EXPIRE: Counter;
+#[metric(name="segment_clear", crate=common::metrics)]
+static SEGMENT_CLEAR: Counter = Counter::new();
+#[metric(name="segment_expire", crate=common::metrics)]
+static SEGMENT_EXPIRE: Counter = Counter::new();
 
-    static CLEAR_TIME: Counter;
-    static EXPIRE_TIME: Counter;
-}
+#[metric(name="clear_time", crate=common::metrics)]
+static CLEAR_TIME: Counter = Counter::new();
+#[metric(name="expire_time", crate=common::metrics)]
+static EXPIRE_TIME: Counter = Counter::new();

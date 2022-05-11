@@ -18,9 +18,10 @@ use std::cmp::Ordering;
 use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
+use common::metrics::metric;
 use common::ssl::{MidHandshakeSslStream, SslStream};
 use common::time::Nanoseconds;
-use metrics::{static_metrics, Counter, Gauge, Heatmap, Relaxed};
+use metrics::{Counter, Gauge, Heatmap, Relaxed};
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
 
@@ -32,31 +33,48 @@ type Duration = common::time::Duration<Nanoseconds<u64>>;
 
 pub use tcp_stream::TcpStream;
 
-static_metrics! {
-    static SESSION_BUFFER_BYTE: Gauge;
+#[metric(name="session_buffer_byte", crate=common::metrics)]
+static SESSION_BUFFER_BYTE: Gauge = Gauge::new();
 
-    static TCP_ACCEPT: Counter;
-    static TCP_CLOSE: Counter;
-    static TCP_CONN_CURR: Gauge;
-    static TCP_RECV_BYTE: Counter;
-    static TCP_SEND_BYTE: Counter;
-    static TCP_SEND_PARTIAL: Counter;
+#[metric(name="tcp_accept", crate=common::metrics)]
+static TCP_ACCEPT: Counter = Counter::new();
+#[metric(name="tcp_close", crate=common::metrics)]
+static TCP_CLOSE: Counter = Counter::new();
+#[metric(name="tcp_conn_curr", crate=common::metrics)]
+static TCP_CONN_CURR: Gauge = Gauge::new();
+#[metric(name="tcp_recv_byte", crate=common::metrics)]
+static TCP_RECV_BYTE: Counter = Counter::new();
+#[metric(name="tcp_send_byte", crate=common::metrics)]
+static TCP_SEND_BYTE: Counter = Counter::new();
+#[metric(name="tcp_send_partial", crate=common::metrics)]
+static TCP_SEND_PARTIAL: Counter = Counter::new();
 
-    static SESSION_RECV: Counter;
-    static SESSION_RECV_EX: Counter;
-    static SESSION_RECV_BYTE: Counter;
-    static SESSION_SEND: Counter;
-    static SESSION_SEND_EX: Counter;
-    static SESSION_SEND_BYTE: Counter;
+#[metric(name="session_recv", crate=common::metrics)]
+static SESSION_RECV: Counter = Counter::new();
+#[metric(name="session_recv_ex", crate=common::metrics)]
+static SESSION_RECV_EX: Counter = Counter::new();
+#[metric(name="session_recv_byte", crate=common::metrics)]
+static SESSION_RECV_BYTE: Counter = Counter::new();
+#[metric(name="session_send", crate=common::metrics)]
+static SESSION_SEND: Counter = Counter::new();
+#[metric(name="session_send_ex", crate=common::metrics)]
+static SESSION_SEND_EX: Counter = Counter::new();
+#[metric(name="session_send_byte", crate=common::metrics)]
+static SESSION_SEND_BYTE: Counter = Counter::new();
 
-    static REQUEST_LATENCY: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(1_000_000_000, 3, Duration::from_secs(60), Duration::from_secs(1))
-    );
+#[metric(name="request_latency", crate=common::metrics)]
+static REQUEST_LATENCY: Relaxed<Heatmap> = Relaxed::new(|| {
+    Heatmap::new(
+        1_000_000_000,
+        3,
+        Duration::from_secs(60),
+        Duration::from_secs(1),
+    )
+});
 
-    static PIPELINE_DEPTH: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(100_000, 3, Duration::from_secs(60), Duration::from_secs(1))
-    );
-}
+#[metric(name="pipeline_depth", crate=common::metrics)]
+static PIPELINE_DEPTH: Relaxed<Heatmap> =
+    Relaxed::new(|| Heatmap::new(100_000, 3, Duration::from_secs(60), Duration::from_secs(1)));
 
 // TODO(bmartin): implement connect/reconnect so we can use this in clients too.
 /// The core `Session` type which represents a TCP stream (with or without TLS),

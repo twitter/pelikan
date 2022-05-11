@@ -10,15 +10,14 @@ mod response;
 pub use request::*;
 pub use response::*;
 
+use common::metrics::metric;
 #[allow(unused_imports)]
-use metrics::{static_metrics, Counter};
+use metrics::Counter;
 
 #[cfg(feature = "server")]
-static_metrics! {
-    static PING: Counter;
-}
+#[metric(name="ping", crate=common::metrics)]
+static PING: Counter = Counter::new();
 
 #[cfg(feature = "client")]
-static_metrics! {
-    static PONG: Counter;
-}
+#[metric(name="pong", crate=common::metrics)]
+static PONG: Counter = Counter::new();

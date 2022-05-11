@@ -8,18 +8,24 @@ use crate::item::*;
 use crate::seg::{SEGMENT_REQUEST, SEGMENT_REQUEST_SUCCESS};
 use crate::segments::*;
 
+use common::metrics::metric;
 use core::num::NonZeroU32;
-use metrics::{static_metrics, Counter, Gauge};
+use metrics::{Counter, Gauge};
 
-static_metrics! {
-    static EVICT_TIME: Gauge;
-    static SEGMENT_EVICT: Counter;
-    static SEGMENT_EVICT_EX: Counter;
-    static SEGMENT_RETURN: Counter;
-    static SEGMENT_FREE: Gauge;
-    static SEGMENT_MERGE: Counter;
-    static SEGMENT_CURRENT: Gauge;
-}
+#[metric(name="evict_time", crate=common::metrics)]
+static EVICT_TIME: Gauge = Gauge::new();
+#[metric(name="segment_evict", crate=common::metrics)]
+static SEGMENT_EVICT: Counter = Counter::new();
+#[metric(name="segment_evict_ex", crate=common::metrics)]
+static SEGMENT_EVICT_EX: Counter = Counter::new();
+#[metric(name="segment_return", crate=common::metrics)]
+static SEGMENT_RETURN: Counter = Counter::new();
+#[metric(name="segment_free", crate=common::metrics)]
+static SEGMENT_FREE: Gauge = Gauge::new();
+#[metric(name="segment_merge", crate=common::metrics)]
+static SEGMENT_MERGE: Counter = Counter::new();
+#[metric(name="segment_current", crate=common::metrics)]
+static SEGMENT_CURRENT: Gauge = Gauge::new();
 
 /// `Segments` contain all items within the cache. This struct is a collection
 /// of individual `Segment`s which are represented by a `SegmentHeader` and a

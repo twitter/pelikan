@@ -16,7 +16,7 @@ use config::*;
 use core::time::Duration;
 use crossbeam_channel::Receiver;
 use logger::Drain;
-use metrics::{static_metrics, Counter, Gauge, Heatmap};
+use metrics::{Counter, Gauge, Heatmap};
 use mio::event::Event;
 use mio::{Events, Token, Waker};
 use protocol_admin::*;
@@ -27,32 +27,53 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tiny_http::{Method, Request, Response};
 
-static_metrics! {
-    static ADMIN_REQUEST_PARSE: Counter;
-    static ADMIN_RESPONSE_COMPOSE: Counter;
-    static ADMIN_EVENT_ERROR: Counter;
-    static ADMIN_EVENT_WRITE: Counter;
-    static ADMIN_EVENT_READ: Counter;
-    static ADMIN_EVENT_LOOP: Counter;
-    static ADMIN_EVENT_TOTAL: Counter;
+#[metric(name="admin_request_parse", crate=common::metrics)]
+static ADMIN_REQUEST_PARSE: Counter = Counter::new();
+#[metric(name="admin_response_compose", crate=common::metrics)]
+static ADMIN_RESPONSE_COMPOSE: Counter = Counter::new();
+#[metric(name="admin_event_error", crate=common::metrics)]
+static ADMIN_EVENT_ERROR: Counter = Counter::new();
+#[metric(name="admin_event_write", crate=common::metrics)]
+static ADMIN_EVENT_WRITE: Counter = Counter::new();
+#[metric(name="admin_event_read", crate=common::metrics)]
+static ADMIN_EVENT_READ: Counter = Counter::new();
+#[metric(name="admin_event_loop", crate=common::metrics)]
+static ADMIN_EVENT_LOOP: Counter = Counter::new();
+#[metric(name="admin_event_total", crate=common::metrics)]
+static ADMIN_EVENT_TOTAL: Counter = Counter::new();
 
-    static RU_UTIME: Counter;
-    static RU_STIME: Counter;
-    static RU_MAXRSS: Gauge;
-    static RU_IXRSS: Gauge;
-    static RU_IDRSS: Gauge;
-    static RU_ISRSS: Gauge;
-    static RU_MINFLT: Counter;
-    static RU_MAJFLT: Counter;
-    static RU_NSWAP: Counter;
-    static RU_INBLOCK: Counter;
-    static RU_OUBLOCK: Counter;
-    static RU_MSGSND: Counter;
-    static RU_MSGRCV: Counter;
-    static RU_NSIGNALS: Counter;
-    static RU_NVCSW: Counter;
-    static RU_NIVCSW: Counter;
-}
+#[metric(name="ru_utime", crate=common::metrics)]
+static RU_UTIME: Counter = Counter::new();
+#[metric(name="ru_stime", crate=common::metrics)]
+static RU_STIME: Counter = Counter::new();
+#[metric(name="ru_maxrss", crate=common::metrics)]
+static RU_MAXRSS: Gauge = Gauge::new();
+#[metric(name="ru_ixrss", crate=common::metrics)]
+static RU_IXRSS: Gauge = Gauge::new();
+#[metric(name="ru_idrss", crate=common::metrics)]
+static RU_IDRSS: Gauge = Gauge::new();
+#[metric(name="ru_isrss", crate=common::metrics)]
+static RU_ISRSS: Gauge = Gauge::new();
+#[metric(name="ru_minflt", crate=common::metrics)]
+static RU_MINFLT: Counter = Counter::new();
+#[metric(name="ru_majflt", crate=common::metrics)]
+static RU_MAJFLT: Counter = Counter::new();
+#[metric(name="ru_nswap", crate=common::metrics)]
+static RU_NSWAP: Counter = Counter::new();
+#[metric(name="ru_inblock", crate=common::metrics)]
+static RU_INBLOCK: Counter = Counter::new();
+#[metric(name="ru_oublock", crate=common::metrics)]
+static RU_OUBLOCK: Counter = Counter::new();
+#[metric(name="ru_msgsnd", crate=common::metrics)]
+static RU_MSGSND: Counter = Counter::new();
+#[metric(name="ru_msgrcv", crate=common::metrics)]
+static RU_MSGRCV: Counter = Counter::new();
+#[metric(name="ru_nsignals", crate=common::metrics)]
+static RU_NSIGNALS: Counter = Counter::new();
+#[metric(name="ru_nvcsw", crate=common::metrics)]
+static RU_NVCSW: Counter = Counter::new();
+#[metric(name="ru_nivcsw", crate=common::metrics)]
+static RU_NIVCSW: Counter = Counter::new();
 
 const KB: u64 = 1024; // one kilobyte in bytes
 const S: u64 = 1_000_000_000; // one second in nanoseconds

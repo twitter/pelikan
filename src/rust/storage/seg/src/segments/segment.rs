@@ -4,16 +4,20 @@
 
 use super::{SegmentHeader, SegmentsError};
 use crate::*;
+use common::metrics::metric;
 use core::num::NonZeroU32;
-use metrics::{static_metrics, Counter, Gauge};
+use metrics::{Counter, Gauge};
 
-static_metrics! {
-    static ITEM_CURRENT: Gauge;
-    static ITEM_CURRENT_BYTES: Gauge;
-    static ITEM_DEAD: Gauge;
-    static ITEM_DEAD_BYTES: Gauge;
-    static ITEM_COMPACTED: Counter;
-}
+#[metric(name="item_current", crate=common::metrics)]
+static ITEM_CURRENT: Gauge = Gauge::new();
+#[metric(name="item_current_bytes", crate=common::metrics)]
+static ITEM_CURRENT_BYTES: Gauge = Gauge::new();
+#[metric(name="item_dead", crate=common::metrics)]
+static ITEM_DEAD: Gauge = Gauge::new();
+#[metric(name="item_dead_bytes", crate=common::metrics)]
+static ITEM_DEAD_BYTES: Gauge = Gauge::new();
+#[metric(name="item_compacted", crate=common::metrics)]
+static ITEM_COMPACTED: Counter = Counter::new();
 
 pub const SEG_MAGIC: u64 = 0xBADC0FFEEBADCAFE;
 

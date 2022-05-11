@@ -98,11 +98,11 @@ mod threads;
 pub use process::{Process, ProcessBuilder};
 pub use threads::PERCENTILES;
 
-use metrics::{static_metrics, Counter};
+use common::metrics::metric;
+use metrics::Counter;
 
-static_metrics! {
-    static TCP_ACCEPT_EX: Counter;
-}
+#[metric(name="tcp_accept_ex", description="TCP Accept exceptions", crate=common::metrics)]
+static TCP_ACCEPT_EX: Counter = Counter::new();
 
 // The default buffer size is matched to the upper-bound on TLS fragment size as
 // per RFC 5246 https://datatracker.ietf.org/doc/html/rfc5246#section-6.2.1
