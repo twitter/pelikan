@@ -1,0 +1,71 @@
+[admin]
+host = "0.0.0.0"
+port = "9997"
+http_enabled = true
+http_host = "0.0.0.0"
+http_port = "9996"
+
+[listener]
+# listener socket address
+address = "0.0.0.0:12322"
+# epoll timeout in milliseconds
+timeout = 100
+# epoll max events returned
+nevent = 1024
+
+[frontend]
+# number of frontend threads
+threads = 1
+# epoll timeout in milliseconds
+timeout = 100
+# epoll max events returned
+nevent = 1024
+
+
+[backend]
+# number of frontend threads
+threads = 1
+# epoll timeout in milliseconds
+timeout = 100
+# epoll max events returned
+nevent = 1024
+# provide one or more endpoints as socket addresses
+endpoints = [
+	"127.0.0.1:12321",
+]
+
+# to discover endpoints using zookeeper, provide the following
+
+# the zookeeper server address
+# zk_server = "zookeeper.example.com"
+
+# the path to the service zknodes
+# zk_path = "/service/path/name"
+
+# the node endpoint to use
+# zk_endpoint = "serviceEndpoint"
+
+
+[debug]
+# choose from: error, warn, info, debug, trace
+log_level = "info"
+# optionally, log to the file below instead of standard out
+# log_file = "pingproxy.log"
+# backup file name for use with log rotation
+log_backup = "pingproxy.log.old"
+# trigger log rotation when the file grows beyond this size (in bytes). Set this
+# option to '0' to disable log rotation.
+log_max_size = 1073741824
+
+
+[klog]
+# optionally, log commands to the file below
+# file = "pingproxy.cmd"
+# backup file name for use with log rotation
+backup = "pingproxy.cmd.old"
+# trigger log rotation when the file grows beyond this size (in bytes). Set this
+# option to '0' to disable log rotation.
+max_size = 1073741824
+# specify the sampling ratio, 1 in N commands will be logged. Setting to '0'
+# will disable command logging.
+sample = 100

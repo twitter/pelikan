@@ -16,12 +16,12 @@ impl TryFrom<&[u8]> for Keyword {
     type Error = ParseError;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        let cmd = match value {
+        let keyword = match value {
             b"pong" | b"PONG" => Self::Pong,
             _ => {
                 return Err(ParseError::Unknown);
             }
         };
-        Ok(cmd)
+        Ok(keyword)
     }
 }
