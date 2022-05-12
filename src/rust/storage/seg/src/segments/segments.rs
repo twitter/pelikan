@@ -621,7 +621,7 @@ impl Segments {
     }
 
     #[cfg(feature = "debug")]
-    pub(crate) fn check_integrity(&mut self, hashtable: &HashTable) -> bool {
+    pub(crate) fn check_integrity(&mut self, hashtable: &mut HashTable) -> bool {
         let mut integrity = true;
         for id in 0..self.cap {
             if !self

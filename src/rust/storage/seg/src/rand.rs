@@ -9,6 +9,62 @@ pub use inner::*;
 pub use rand::Rng as RandRng;
 pub use rand::RngCore as RandRngCore;
 
+use core::cell::UnsafeCell;
+use rand::Error;
+use rand::RngCore;
+use std::rc::Rc;
+
+pub struct ThreadRng {
+    // Rc is explicitly !Send and !Sync
+    rng: Rc<UnsafeCell<Random>>,
+}
+
+thread_local!(
+    // We require Rc<..> to avoid premature freeing when thread_rng is used
+    // within thread-local destructors. See #968.
+    static THREAD_RNG_KEY: Rc<UnsafeCell<Random>> = {
+        let rng = rng();
+        Rc::new(UnsafeCell::new(rng))
+    }
+);
+
+pub fn thread_rng() -> ThreadRng {
+    let rng = THREAD_RNG_KEY.with(|t| t.clone());
+    ThreadRng { rng }
+}
+
+impl RngCore for ThreadRng {
+    #[inline(always)]
+    fn next_u32(&mut self) -> u32 {
+        // SAFETY: We must make sure to stop using `rng` before anyone else
+        // creates another mutable reference
+        let rng = unsafe { &mut *self.rng.get() };
+        rng.next_u32()
+    }
+
+    #[inline(always)]
+    fn next_u64(&mut self) -> u64 {
+        // SAFETY: We must make sure to stop using `rng` before anyone else
+        // creates another mutable reference
+        let rng = unsafe { &mut *self.rng.get() };
+        rng.next_u64()
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        // SAFETY: We must make sure to stop using `rng` before anyone else
+        // creates another mutable reference
+        let rng = unsafe { &mut *self.rng.get() };
+        rng.fill_bytes(dest)
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+        // SAFETY: We must make sure to stop using `rng` before anyone else
+        // creates another mutable reference
+        let rng = unsafe { &mut *self.rng.get() };
+        rng.try_fill_bytes(dest)
+    }
+}
+
 #[cfg(test)]
 mod inner {
     use rand::SeedableRng;
