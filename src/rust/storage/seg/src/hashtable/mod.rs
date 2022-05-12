@@ -541,7 +541,6 @@ impl HashTable {
                     }
 
                     if cas == get_cas(self.data[bucket_id as usize].data[0]) {
-                        // TODO(bmartin): what is expected on overflow of the cas bits?
                         self.data[bucket_id as usize].data[0] += 1 << CAS_BIT_SHIFT;
                         return Ok(());
                     } else {
