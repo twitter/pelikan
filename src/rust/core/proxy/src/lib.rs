@@ -8,7 +8,7 @@
 #[macro_use]
 extern crate logger;
 
-use metrics::{static_metrics, Counter};
+use common::metrics::{static_metrics, Counter};
 use mio::event::Event;
 use mio::net::{TcpListener, TcpStream};
 use mio::{Events, Interest, Token};

@@ -10,13 +10,13 @@ use crate::threads::EventLoop;
 use crate::QUEUE_RETRIES;
 use crate::TCP_ACCEPT_EX;
 use crate::*;
+use common::metrics::{static_metrics, Counter, Gauge, Heatmap};
 use common::signal::Signal;
 use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use config::*;
 use core::time::Duration;
 use crossbeam_channel::Receiver;
 use logger::Drain;
-use metrics::{static_metrics, Counter, Gauge, Heatmap};
 use mio::event::Event;
 use mio::{Events, Token, Waker};
 use protocol_admin::*;
@@ -302,7 +302,7 @@ impl Admin {
     fn handle_stats_request(session: &mut Session) {
         ADMIN_REQUEST_PARSE.increment();
         let mut data = Vec::new();
-        for metric in &metrics::common::metrics::metrics() {
+        for metric in &common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {
@@ -402,7 +402,7 @@ impl Admin {
     fn human_stats(&self) -> String {
         let mut data = Vec::new();
 
-        for metric in &metrics::common::metrics::metrics() {
+        for metric in &common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {
@@ -440,7 +440,7 @@ impl Admin {
 
         let mut data = Vec::new();
 
-        for metric in &metrics::common::metrics::metrics() {
+        for metric in &common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {
@@ -501,7 +501,7 @@ impl Admin {
     fn prometheus_stats(&self) -> String {
         let mut data = Vec::new();
 
-        for metric in &metrics::common::metrics::metrics() {
+        for metric in &common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {

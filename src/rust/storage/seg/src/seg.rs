@@ -8,7 +8,7 @@ use crate::Value;
 use crate::*;
 use std::cmp::min;
 
-use metrics::{static_metrics, Counter};
+use common::metrics::{static_metrics, Counter};
 
 const RESERVE_RETRIES: usize = 3;
 

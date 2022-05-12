@@ -8,10 +8,10 @@
 use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use crate::TCP_ACCEPT_EX;
+use common::metrics::{static_metrics, Counter};
 use common::signal::Signal;
 use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use config::ServerConfig;
-use metrics::{static_metrics, Counter};
 use mio::event::Event;
 use mio::Events;
 use mio::Token;

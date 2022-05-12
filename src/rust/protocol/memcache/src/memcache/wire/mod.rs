@@ -12,18 +12,27 @@ pub use response::*;
 
 use super::*;
 
-use metrics::{static_metrics, Counter, Heatmap, Relaxed};
+use common::metrics::{static_metrics, Counter, Heatmap, Relaxed};
+use common::{counter, heatmap};
+
+counter!(GET, "total number of get requests");
+heatmap!(
+    GET_CARDINALITY,
+    request::MAX_BATCH_SIZE,
+    "distribution of key cardinality for get requests"
+);
+counter!(GET_EX, "number of get requests resulting in an exception");
+counter!(GET_KEY, "total number of keys fetched in get requests");
+counter!(
+    GET_KEY_HIT,
+    "number of keys fetched in get requests that resulted in a cache hit"
+);
+counter!(
+    GET_KEY_MISS,
+    "number of keys fetched in get requests that resulted in a cache miss"
+);
 
 static_metrics! {
-    static GET: Counter;
-    static GET_EX: Counter;
-    static GET_CARDINALITY: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(request::MAX_BATCH_SIZE as _, 3, PreciseDuration::from_secs(60), PreciseDuration::from_secs(1))
-    );
-    static GET_KEY: Counter;
-    static GET_KEY_HIT: Counter;
-    static GET_KEY_MISS: Counter;
-
     static GETS: Counter;
     static GETS_EX: Counter;
     static GETS_KEY: Counter;

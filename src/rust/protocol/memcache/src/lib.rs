@@ -18,4 +18,4 @@ mod memcache;
 
 pub use memcache::*;
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();
