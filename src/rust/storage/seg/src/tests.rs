@@ -32,7 +32,8 @@ fn init() {
     let mut cache = Seg::builder()
         .segment_size(4096)
         .heap_size(4096 * 64)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
     assert_eq!(cache.items(), 0);
 }
 
@@ -45,7 +46,8 @@ fn get_free_seg() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 64);
     let seg = cache.segments.pop_free();
@@ -63,7 +65,8 @@ fn get() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 64);
     assert!(cache.get(b"coffee").is_none());
@@ -86,7 +89,8 @@ fn cas() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 64);
     assert!(cache.get(b"coffee").is_none());
@@ -113,7 +117,8 @@ fn overwrite() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 64);
     assert!(cache.get(b"drink").is_none());
@@ -159,7 +164,8 @@ fn delete() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 64);
     assert!(cache.get(b"drink").is_none());
@@ -189,7 +195,8 @@ fn collisions_2() {
         .segment_size(segment_size)
         .heap_size(heap_size)
         .hash_power(3)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 2);
 
@@ -216,7 +223,8 @@ fn collisions() {
         .segment_size(segment_size)
         .heap_size(heap_size)
         .hash_power(3)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 64);
 
@@ -253,7 +261,8 @@ fn full_cache_long() {
         .segment_size(segment_size)
         .heap_size(heap_size)
         .hash_power(16)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
 
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), segments);
@@ -291,7 +300,8 @@ fn full_cache_long_2() {
         .segment_size(segment_size)
         .heap_size(heap_size)
         .hash_power(16)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
 
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), segments);
@@ -326,7 +336,8 @@ fn expiration() {
         .segment_size(segment_size)
         .heap_size(heap_size)
         .hash_power(16)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
 
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), segments);
@@ -379,7 +390,8 @@ fn clear() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), segments);
     assert!(cache.get(b"coffee").is_none());
@@ -407,7 +419,8 @@ fn wrapping_add() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 64);
     assert!(cache.insert(b"coffee", 0, None, ttl).is_ok());
@@ -445,7 +458,8 @@ fn saturating_sub() {
     let mut cache = Seg::builder()
         .segment_size(segment_size)
         .heap_size(heap_size)
-        .build().expect("failed to create cache");
+        .build()
+        .expect("failed to create cache");
     assert_eq!(cache.items(), 0);
     assert_eq!(cache.segments.free(), 64);
     assert!(cache.insert(b"coffee", 3, None, ttl).is_ok());

@@ -3,8 +3,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use blake3::Hash;
-use rustcommon_time::{Instant, Seconds, Nanoseconds, UnixInstant};
 use core::ops::Range;
+use rustcommon_time::{Instant, Nanoseconds, Seconds, UnixInstant};
 use std::fs::{File, OpenOptions};
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::Path;
@@ -108,9 +108,7 @@ impl Header {
     }
 
     fn as_bytes(&self) -> &[u8] {
-        unsafe {
-            std::slice::from_raw_parts((&*self as *const Header) as *const u8, HEADER_SIZE)
-        }
+        unsafe { std::slice::from_raw_parts((&*self as *const Header) as *const u8, HEADER_SIZE) }
     }
 
     fn checksum(&self) -> &[u8; 32] {
@@ -136,7 +134,10 @@ impl Header {
 
     fn check_version(&self) -> Result<(), std::io::Error> {
         if self.version != VERSION {
-            Err(Error::new(ErrorKind::Other, "file has incompatible version"))
+            Err(Error::new(
+                ErrorKind::Other,
+                "file has incompatible version",
+            ))
         } else {
             Ok(())
         }
@@ -174,7 +175,11 @@ impl MmapFile {
     /// specified size (in bytes). Returns an error if the file does not exist,
     /// does not match the expected size, could not be mmap'd, or is otherwise
     /// determined to be corrupt.
-    pub fn open<T: AsRef<Path>>(path: T, data_size: usize, user_version: u64) -> Result<Self, std::io::Error> {
+    pub fn open<T: AsRef<Path>>(
+        path: T,
+        data_size: usize,
+        user_version: u64,
+    ) -> Result<Self, std::io::Error> {
         // we need the data size to be a whole number of pages
         let pages = ((HEADER_SIZE + data_size) as f64 / PAGE_SIZE as f64).ceil() as usize;
 
@@ -238,14 +243,22 @@ impl MmapFile {
         }
 
         // return the loaded datapool
-        Ok(Self { mmap, data, user_version })
+        Ok(Self {
+            mmap,
+            data,
+            user_version,
+        })
     }
 
     /// Create a new `File` datapool at the given path and with the specified
     /// size (in bytes). Returns an error if the file already exists, could not
     /// be created, couldn't be extended to the requested size, or couldn't be
     /// mmap'd.
-    pub fn create<T: AsRef<Path>>(path: T, data_size: usize, user_version: u64) -> Result<Self, std::io::Error> {
+    pub fn create<T: AsRef<Path>>(
+        path: T,
+        data_size: usize,
+        user_version: u64,
+    ) -> Result<Self, std::io::Error> {
         // we need the data size to be a whole number of pages
         let pages = ((HEADER_SIZE + data_size) as f64 / PAGE_SIZE as f64).ceil() as usize;
 
@@ -279,7 +292,11 @@ impl MmapFile {
         }
         mmap.flush()?;
 
-        Ok(Self { mmap, data, user_version })
+        Ok(Self {
+            mmap,
+            data,
+            user_version,
+        })
     }
 
     pub fn header(&self) -> &Header {
@@ -385,7 +402,11 @@ pub struct FileBackedMemory {
 }
 
 impl FileBackedMemory {
-    pub fn open<T: AsRef<Path>>(path: T, data_size: usize, user_version: u64) -> Result<Self, std::io::Error> {
+    pub fn open<T: AsRef<Path>>(
+        path: T,
+        data_size: usize,
+        user_version: u64,
+    ) -> Result<Self, std::io::Error> {
         // we need the data size to be a whole number of pages for direct io
         let pages = ((HEADER_SIZE + data_size) as f64 / PAGE_SIZE as f64).ceil() as usize;
 
@@ -504,7 +525,11 @@ impl FileBackedMemory {
         })
     }
 
-    pub fn create<T: AsRef<Path>>(path: T, data_size: usize, user_version: u64) -> Result<Self, std::io::Error> {
+    pub fn create<T: AsRef<Path>>(
+        path: T,
+        data_size: usize,
+        user_version: u64,
+    ) -> Result<Self, std::io::Error> {
         // we need the data size to be a whole number of pages for direct io
         let pages = ((HEADER_SIZE + data_size) as f64 / PAGE_SIZE as f64).ceil() as usize;
 
@@ -672,7 +697,8 @@ mod tests {
 
         // create a datapool, write some content to it, and close it
         {
-            let mut datapool = MmapFile::create(&path, 2 * PAGE_SIZE, 0).expect("failed to create pool");
+            let mut datapool =
+                MmapFile::create(&path, 2 * PAGE_SIZE, 0).expect("failed to create pool");
             assert_eq!(datapool.len(), 2 * PAGE_SIZE);
             datapool.flush().expect("failed to flush");
 
@@ -684,7 +710,8 @@ mod tests {
 
         // open the datapool and check the content, then update it
         {
-            let mut datapool = MmapFile::open(&path, 2 * PAGE_SIZE, 0).expect("failed to create pool");
+            let mut datapool =
+                MmapFile::open(&path, 2 * PAGE_SIZE, 0).expect("failed to create pool");
             assert_eq!(datapool.len(), 2 * PAGE_SIZE);
             assert_eq!(datapool.as_slice()[0..4], magic_a[0..4]);
             assert_eq!(datapool.as_slice()[4..8], [0; 4]);
@@ -732,7 +759,8 @@ mod tests {
 
         // open the datapool and check the content, then update it
         {
-            let mut datapool = FileBackedMemory::open(&path, 2 * PAGE_SIZE, 0).expect("failed to open pool");
+            let mut datapool =
+                FileBackedMemory::open(&path, 2 * PAGE_SIZE, 0).expect("failed to open pool");
             assert_eq!(datapool.len(), 2 * PAGE_SIZE);
             assert_eq!(datapool.as_slice()[0..4], magic_a[0..4]);
             assert_eq!(datapool.as_slice()[4..8], [0; 4]);
@@ -745,7 +773,8 @@ mod tests {
 
         // open the datapool again, and check that it has the new data
         {
-            let datapool = FileBackedMemory::open(&path, 2 * PAGE_SIZE, 0).expect("failed to create pool");
+            let datapool =
+                FileBackedMemory::open(&path, 2 * PAGE_SIZE, 0).expect("failed to create pool");
             assert_eq!(datapool.len(), 2 * PAGE_SIZE);
             assert_eq!(datapool.as_slice()[0..8], magic_b[0..8]);
         }
