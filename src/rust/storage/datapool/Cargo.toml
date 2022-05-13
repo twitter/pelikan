@@ -2,8 +2,11 @@
 name = "datapool"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Brian Martin <bmartin@twitter.com>"]
+description = "abstractions for byte storage pools"
+homepage = "https://pelikan.io"
+repository = "https://github.com/twitter/pelikan"
+license = "Apache-2.0"
 
 [dependencies]
 blake3 = "1.3.1"
