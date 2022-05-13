@@ -277,16 +277,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "common-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "config"
 version = "0.1.0"
 dependencies = [

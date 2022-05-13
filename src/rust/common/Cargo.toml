@@ -12,7 +12,6 @@ license = "Apache-2.0"
 
 [dependencies]
 boring = "2.0.0"
-# common-derive = { path = "derive" }
 serde = { version = "1.0.117", features = ["derive"] }
 macros = { path = "../macros" }
 
