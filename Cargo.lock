@@ -289,7 +289,7 @@ version = "0.1.0"
 dependencies = [
  "boring",
  "rustcommon-metrics-v2",
- "rustcommon-time 0.0.11 (git+https://github.com/twitter/rustcommon?rev=c8aeeb605b3bdc42c2c309ac8c096f17fed5380d)",
+ "rustcommon-time",
  "serde",
 ]
 
@@ -436,9 +436,9 @@ name = "datapool"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "common",
  "libc",
- "memmap2",
- "rustcommon-time 0.0.11 (git+https://github.com/twitter/rustcommon)",
+ "memmap2 0.5.3",
  "tempfile",
 ]
 
@@ -687,9 +687,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.101"
+version = "0.2.125"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cb00336871be5ed2c8ed44b60ae9959dc5b9f08539422ed43f09e34ecaeba21"
+checksum = "5916d2ae698f6de9bfb891ad7a8d65c09d232dc58cc4ac433c7da3b2fd84bc2b"
 
 [[package]]
 name = "libloading"
@@ -786,6 +786,15 @@ name = "memmap2"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "723e3ebdcdc5c023db1df315364573789f8857c11b631a2fdfad7c00f5c046b4"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "memmap2"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "057a3db23999c867821a7a59feb06a578fcb03685e983dff90daf9e7d24ac08f"
 dependencies = [
  "libc",
 ]
@@ -1235,7 +1244,7 @@ source = "git+https://github.com/twitter/rustcommon?rev=c8aeeb605b3bdc42c2c309ac
 dependencies = [
  "rustcommon-atomics",
  "rustcommon-histogram",
- "rustcommon-time 0.0.11 (git+https://github.com/twitter/rustcommon?rev=c8aeeb605b3bdc42c2c309ac8c096f17fed5380d)",
+ "rustcommon-time",
  "thiserror",
 ]
 
@@ -1270,25 +1279,13 @@ dependencies = [
  "rustcommon-atomics",
  "rustcommon-heatmap",
  "rustcommon-metrics-derive",
- "rustcommon-time 0.0.11 (git+https://github.com/twitter/rustcommon?rev=c8aeeb605b3bdc42c2c309ac8c096f17fed5380d)",
+ "rustcommon-time",
 ]
 
 [[package]]
 name = "rustcommon-time"
 version = "0.0.11"
 source = "git+https://github.com/twitter/rustcommon?rev=c8aeeb605b3bdc42c2c309ac8c096f17fed5380d#c8aeeb605b3bdc42c2c309ac8c096f17fed5380d"
-dependencies = [
- "lazy_static",
- "libc",
- "mach",
- "time",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "rustcommon-time"
-version = "0.0.11"
-source = "git+https://github.com/twitter/rustcommon#5bf3c0ebc16c6aedd5d47778b49214c2709a9abc"
 dependencies = [
  "lazy_static",
  "libc",
@@ -1327,7 +1324,7 @@ dependencies = [
  "criterion",
  "datapool",
  "logger",
- "memmap2",
+ "memmap2 0.2.3",
  "metrics",
  "rand",
  "rand_chacha",

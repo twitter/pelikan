@@ -3,8 +3,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use blake3::Hash;
+use common::time::{Instant, Nanoseconds, Seconds, UnixInstant};
 use core::ops::Range;
-use rustcommon_time::{Instant, Nanoseconds, Seconds, UnixInstant};
 use std::fs::{File, OpenOptions};
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::Path;
