@@ -7,17 +7,17 @@ pub use macros::to_lowercase;
 macro_rules! counter {
     ($name:ident) => {
         #[$crate::metrics::metric(
-                                                    name = $crate::metrics::to_lowercase!($name),
-                                                    crate = $crate::metrics
-                                                )]
+            name = $crate::metrics::to_lowercase!($name),
+            crate = $crate::metrics
+        )]
         pub static $name: Counter = Counter::new();
     };
     ($name:ident, $description:tt) => {
         #[$crate::metrics::metric(
-                                                    name = $crate::metrics::to_lowercase!($name),
-                                                    description = $description,
-                                                    crate = $crate::metrics
-                                                )]
+            name = $crate::metrics::to_lowercase!($name),
+            description = $description,
+            crate = $crate::metrics
+        )]
         pub static $name: Counter = Counter::new();
     };
 }
@@ -26,17 +26,17 @@ macro_rules! counter {
 macro_rules! gauge {
     ($name:ident) => {
         #[$crate::metrics::metric(
-                                                    name = $crate::metrics::to_lowercase!($name),
-                                                    crate = $crate::metrics
-                                                )]
+            name = $crate::metrics::to_lowercase!($name),
+            crate = $crate::metrics
+        )]
         pub static $name: Gauge = Gauge::new();
     };
     ($name:ident, $description:tt) => {
         #[$crate::metrics::metric(
-                                                    name = $crate::metrics::to_lowercase!($name),
-                                                    description = $description,
-                                                    crate = $crate::metrics
-                                                )]
+            name = $crate::metrics::to_lowercase!($name),
+            description = $description,
+            crate = $crate::metrics
+        )]
         pub static $name: Gauge = Gauge::new();
     };
 }
@@ -45,9 +45,9 @@ macro_rules! gauge {
 macro_rules! heatmap {
     ($name:ident, $max:expr) => {
         #[$crate::metrics::metric(
-                                                    name = $crate::metrics::to_lowercase!($name),
-                                                    crate = $crate::metrics
-                                                )]
+            name = $crate::metrics::to_lowercase!($name),
+            crate = $crate::metrics
+        )]
         pub static $name: Relaxed<Heatmap> = Relaxed::new(|| {
             Heatmap::new(
                 $max as _,
@@ -59,10 +59,10 @@ macro_rules! heatmap {
     };
     ($name:ident, $max:expr, $description:tt) => {
         #[$crate::metrics::metric(
-                                                    name = $crate::metrics::to_lowercase!($name),
-                                                    description = $description,
-                                                    crate = $crate::metrics
-                                                )]
+            name = $crate::metrics::to_lowercase!($name),
+            description = $description,
+            crate = $crate::metrics
+        )]
         pub static $name: Relaxed<Heatmap> = Relaxed::new(|| {
             Heatmap::new(
                 $max as _,
