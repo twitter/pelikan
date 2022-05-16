@@ -12,6 +12,7 @@ use common::signal::Signal;
 use config::proxy::{BackendConfig, FrontendConfig, ListenerConfig};
 use config::AdminConfig;
 use config::ServerConfig;
+use config::TlsConfig;
 use crossbeam_channel::bounded;
 use crossbeam_channel::Sender;
 use logger::Drain;
@@ -41,12 +42,15 @@ where
     ResponseParser: 'static + Clone + Send + Parse<Response>,
     Response: 'static + Send + Compose,
 {
-    pub fn new<T: AdminConfig + ListenerConfig + BackendConfig + FrontendConfig>(
+    pub fn new<T: AdminConfig + ListenerConfig + BackendConfig + FrontendConfig + TlsConfig>(
         config: T,
         request_parser: RequestParser,
         response_parser: ResponseParser,
         log_drain: Box<dyn Drain>,
     ) -> Result<Self> {
+        // initialize the clock
+        common::time::refresh_clock();
+
         let admin_builder = AdminBuilder::new(&config, log_drain).unwrap_or_else(|e| {
             error!("failed to initialize admin: {}", e);
             std::process::exit(1);

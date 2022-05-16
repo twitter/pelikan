@@ -5,14 +5,11 @@
 //! This module provides common functionality for threads which are based on an
 //! event loop.
 
+use crate::TCP_ACCEPT_EX;
+use common::ssl::*;
 use mio::event::Source;
-use mio::net::TcpListener;
-use mio::Events;
-use mio::Interest;
-use mio::Token;
-use mio::Waker;
-use session::Session;
-use session::TcpStream;
+use mio::{Events, Interest, Token, Waker};
+use session::{Session, TcpStream};
 use slab::Slab;
 use std::convert::TryFrom;
 use std::net::SocketAddr;
@@ -21,6 +18,32 @@ use std::time::Duration;
 
 pub const LISTENER_TOKEN: Token = Token(usize::MAX - 1);
 pub const WAKER_TOKEN: Token = Token(usize::MAX);
+
+const KB: usize = 1024;
+
+const SESSION_BUFFER_MIN: usize = 16 * KB;
+const SESSION_BUFFER_MAX: usize = 1024 * KB;
+
+struct TcpListener {
+    inner: mio::net::TcpListener,
+    ssl_context: Option<SslContext>,
+}
+
+impl TcpListener {
+    pub fn bind(addr: SocketAddr, tls_config: &dyn TlsConfig) -> Result<Self, std::io::Error> {
+        let listener = mio::net::TcpListener::bind(addr).map_err(|e| {
+            error!("{}", e);
+            std::io::Error::new(std::io::ErrorKind::Other, "failed to start tcp listener")
+        })?;
+
+        let ssl_context = common::ssl::ssl_context(tls_config)?;
+
+        Ok(Self {
+            inner: listener,
+            ssl_context,
+        })
+    }
+}
 
 pub struct Poll {
     listener: Option<TcpListener>,
@@ -56,8 +79,12 @@ impl Poll {
     }
 
     /// Bind and begin listening on the provided address.
-    pub fn bind(&mut self, addr: SocketAddr) -> Result<(), std::io::Error> {
-        let mut listener = TcpListener::bind(addr).map_err(|e| {
+    pub fn bind(
+        &mut self,
+        addr: SocketAddr,
+        tls_config: &dyn TlsConfig,
+    ) -> Result<(), std::io::Error> {
+        let mut listener = TcpListener::bind(addr, tls_config).map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "failed to start tcp listener")
         })?;
@@ -65,7 +92,7 @@ impl Poll {
         // register listener to event loop
         self.poll
             .registry()
-            .register(&mut listener, LISTENER_TOKEN, Interest::READABLE)
+            .register(&mut listener.inner, LISTENER_TOKEN, Interest::READABLE)
             .map_err(|e| {
                 error!("{}", e);
                 std::io::Error::new(
@@ -88,15 +115,45 @@ impl Poll {
         self.poll.poll(events, Some(timeout))
     }
 
-    pub fn accept(&mut self) -> Result<(TcpStream, SocketAddr), std::io::Error> {
+    pub fn accept(&mut self) -> Result<Token, std::io::Error> {
         if let Some(ref mut listener) = self.listener {
-            let (stream, addr) = listener.accept()?;
+            let (stream, _addr) = listener.inner.accept()?;
 
             // disable Nagle's algorithm
             let _ = stream.set_nodelay(true);
 
             let stream = TcpStream::try_from(stream)?;
-            Ok((stream, addr))
+
+            let session = if let Some(ssl_context) = &listener.ssl_context {
+                match Ssl::new(ssl_context).map(|v| v.accept(stream)) {
+                    // handle case where we have a fully-negotiated
+                    // TLS stream on accept()
+                    Ok(Ok(stream)) => {
+                        Session::tls_with_capacity(stream, SESSION_BUFFER_MIN, SESSION_BUFFER_MAX)
+                    }
+                    // handle case where further negotiation is
+                    // needed
+                    Ok(Err(HandshakeError::WouldBlock(stream))) => {
+                        Session::handshaking_with_capacity(stream, SESSION_BUFFER_MIN, SESSION_BUFFER_MAX)
+                    }
+                    // some other error has occurred and we drop the
+                    // stream
+                    Ok(Err(e)) => {
+                        error!("accept failed: {}", e);
+                        TCP_ACCEPT_EX.increment();
+                        return Err(std::io::Error::new(std::io::ErrorKind::Other, "accept failed"));
+                    }
+                    Err(e) => {
+                        error!("accept failed: {}", e);
+                        TCP_ACCEPT_EX.increment();
+                        return Err(std::io::Error::new(std::io::ErrorKind::Other, "accept failed"));
+                    }
+                }
+            } else {
+                Session::plain_with_capacity(stream, SESSION_BUFFER_MIN, SESSION_BUFFER_MAX)
+            };
+
+            self.add_session(session)
         } else {
             Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -161,12 +218,14 @@ impl Poll {
             LISTENER_TOKEN => {
                 if let Some(ref mut listener) = self.listener {
                     if listener
+                        .inner
                         .reregister(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE)
                         .is_err()
                     {
                         warn!("reregister of listener failed, attempting to recover");
-                        let _ = listener.deregister(self.poll.registry());
+                        let _ = listener.inner.deregister(self.poll.registry());
                         if listener
+                            .inner
                             .register(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE)
                             .is_err()
                         {
