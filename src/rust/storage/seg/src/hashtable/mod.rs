@@ -75,9 +75,9 @@ const MAX_CHAIN_LEN: u64 = 16;
 
 use crate::*;
 use ahash::RandomState;
+use common::metrics::{static_metrics, Counter};
 use core::marker::PhantomData;
 use core::num::NonZeroU32;
-use metrics::{static_metrics, Counter};
 
 mod hash_bucket;
 

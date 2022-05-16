@@ -271,8 +271,8 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "boring",
- "rustcommon-metrics-v2",
- "rustcommon-time",
+ "macros",
+ "rustcommon-metrics",
  "serde",
 ]
 
@@ -706,7 +706,6 @@ dependencies = [
  "common",
  "config",
  "log",
- "metrics",
  "mpmc",
 ]
 
@@ -756,16 +755,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59accc507f1338036a0477ef61afdae33cde60840f4dfe481319ce3ad116ddf9"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "metrics"
-version = "0.1.0"
-dependencies = [
- "common",
- "macros",
- "strum",
- "strum_macros",
 ]
 
 [[package]]
@@ -962,9 +951,9 @@ version = "0.0.1"
 dependencies = [
  "backtrace",
  "clap",
+ "common",
  "config",
  "logger",
- "metrics",
  "protocol-ping",
  "proxy",
 ]
@@ -975,11 +964,11 @@ version = "0.1.0"
 dependencies = [
  "backtrace",
  "clap",
+ "common",
  "config",
  "criterion",
  "entrystore",
  "logger",
- "metrics",
  "protocol-ping",
  "server",
 ]
@@ -1045,7 +1034,6 @@ dependencies = [
  "config",
  "criterion",
  "logger",
- "metrics",
  "protocol-common",
  "session",
  "storage-types",
@@ -1059,7 +1047,6 @@ dependencies = [
  "config",
  "criterion",
  "logger",
- "metrics",
  "session",
  "storage-types",
 ]
@@ -1072,7 +1059,6 @@ dependencies = [
  "config",
  "criterion",
  "logger",
- "metrics",
  "protocol-common",
  "session",
  "storage-types",
@@ -1086,7 +1072,6 @@ dependencies = [
  "config",
  "criterion",
  "logger",
- "metrics",
  "protocol-common",
  "session",
  "storage-types",
@@ -1101,7 +1086,6 @@ dependencies = [
  "crossbeam-channel",
  "libc",
  "logger",
- "metrics",
  "mio 0.8.0",
  "mpmc",
  "protocol-admin",
@@ -1260,7 +1244,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-atomics"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon?rev=c8aeeb605b3bdc42c2c309ac8c096f17fed5380d#c8aeeb605b3bdc42c2c309ac8c096f17fed5380d"
+source = "git+https://github.com/twitter/rustcommon?rev=5bf3c0e#5bf3c0ebc16c6aedd5d47778b49214c2709a9abc"
 dependencies = [
  "serde",
 ]
@@ -1268,7 +1252,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-heatmap"
 version = "0.1.1"
-source = "git+https://github.com/twitter/rustcommon?rev=c8aeeb605b3bdc42c2c309ac8c096f17fed5380d#c8aeeb605b3bdc42c2c309ac8c096f17fed5380d"
+source = "git+https://github.com/twitter/rustcommon?rev=5bf3c0e#5bf3c0ebc16c6aedd5d47778b49214c2709a9abc"
 dependencies = [
  "rustcommon-atomics",
  "rustcommon-histogram",
@@ -1279,27 +1263,16 @@ dependencies = [
 [[package]]
 name = "rustcommon-histogram"
 version = "1.0.0"
-source = "git+https://github.com/twitter/rustcommon?rev=c8aeeb605b3bdc42c2c309ac8c096f17fed5380d#c8aeeb605b3bdc42c2c309ac8c096f17fed5380d"
+source = "git+https://github.com/twitter/rustcommon?rev=5bf3c0e#5bf3c0ebc16c6aedd5d47778b49214c2709a9abc"
 dependencies = [
  "rustcommon-atomics",
  "thiserror",
 ]
 
 [[package]]
-name = "rustcommon-metrics-derive"
+name = "rustcommon-metrics"
 version = "0.1.0"
-source = "git+https://github.com/twitter/rustcommon?rev=c8aeeb605b3bdc42c2c309ac8c096f17fed5380d#c8aeeb605b3bdc42c2c309ac8c096f17fed5380d"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "rustcommon-metrics-v2"
-version = "0.1.0"
-source = "git+https://github.com/twitter/rustcommon?rev=c8aeeb605b3bdc42c2c309ac8c096f17fed5380d#c8aeeb605b3bdc42c2c309ac8c096f17fed5380d"
+source = "git+https://github.com/twitter/rustcommon?rev=5bf3c0e#5bf3c0ebc16c6aedd5d47778b49214c2709a9abc"
 dependencies = [
  "linkme",
  "once_cell",
@@ -1311,9 +1284,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustcommon-metrics-derive"
+version = "0.1.0"
+source = "git+https://github.com/twitter/rustcommon?rev=5bf3c0e#5bf3c0ebc16c6aedd5d47778b49214c2709a9abc"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "rustcommon-time"
 version = "0.0.11"
-source = "git+https://github.com/twitter/rustcommon?rev=c8aeeb605b3bdc42c2c309ac8c096f17fed5380d#c8aeeb605b3bdc42c2c309ac8c096f17fed5380d"
+source = "git+https://github.com/twitter/rustcommon?rev=5bf3c0e#5bf3c0ebc16c6aedd5d47778b49214c2709a9abc"
 dependencies = [
  "lazy_static",
  "libc",
@@ -1352,7 +1336,6 @@ dependencies = [
  "criterion",
  "logger",
  "memmap2",
- "metrics",
  "rand",
  "rand_chacha",
  "rand_xoshiro",
@@ -1366,11 +1349,11 @@ version = "0.1.0"
 dependencies = [
  "backtrace",
  "clap",
+ "common",
  "config",
  "criterion",
  "entrystore",
  "logger",
- "metrics",
  "protocol-memcache",
  "server",
 ]
@@ -1436,7 +1419,6 @@ dependencies = [
  "entrystore",
  "libc",
  "logger",
- "metrics",
  "mio 0.8.0",
  "protocol-admin",
  "protocol-common",
@@ -1461,7 +1443,6 @@ dependencies = [
  "common",
  "config",
  "logger",
- "metrics",
  "mio 0.8.0",
  "rand",
  "rtrb",

@@ -4,8 +4,8 @@
 
 use super::{SegmentHeader, SegmentsError};
 use crate::*;
+use common::metrics::{static_metrics, Counter, Gauge};
 use core::num::NonZeroU32;
-use metrics::{static_metrics, Counter, Gauge};
 
 static_metrics! {
     static ITEM_CURRENT: Gauge;

@@ -18,9 +18,9 @@ use std::cmp::Ordering;
 use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
+use common::metrics::{static_metrics, Counter, Gauge, Heatmap, Relaxed};
 use common::ssl::{MidHandshakeSslStream, SslStream};
 use common::time::Nanoseconds;
-use metrics::{static_metrics, Counter, Gauge, Heatmap, Relaxed};
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
 
@@ -485,4 +485,4 @@ impl Write for Session {
     }
 }
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();

@@ -22,8 +22,8 @@ doc = false
 [dependencies]
 backtrace = "0.3.56"
 clap = "2.33.3"
+common = { path = "../../common" }
 config = { path = "../../config" }
 logger = { path = "../../logger" }
-metrics = { path = "../../metrics" }
 proxy = { path = "../../core/proxy" }
 protocol-ping = { path = "../../protocol/ping", features = ["client", "server"] }

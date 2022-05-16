@@ -25,7 +25,7 @@ impl Pingproxy {
         let log_drain = configure_logging(&config);
 
         // initialize metrics
-        metrics::init();
+        common::metrics::init();
 
         // initialize parsers
         let request_parser = RequestParser::new();
@@ -54,4 +54,4 @@ impl Pingproxy {
     }
 }
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();
