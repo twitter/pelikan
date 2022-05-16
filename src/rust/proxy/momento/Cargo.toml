@@ -1,0 +1,23 @@
+[package]
+name = "momento_proxy"
+authors = ["Brian Martin <brayniac@gmail.com>"]
+version = "0.1.0"
+edition = "2021"
+description = "a proxy to access Momento cache(s) over memcache protocol"
+homepage = "https://pelikan.io"
+repository = "https://github.com/twitter/pelikan"
+license = "Apache-2.0"
+
+[dependencies]
+backtrace = "0.3.56"
+clap = "2.33.3"
+common = { path = "../../common" }
+config = { path = "../../config" }
+libc = "0.2.83"
+logger = { path = "../../logger" }
+momento = "0.3.1"
+protocol-admin = { path = "../../protocol/admin" }
+protocol-memcache = { path = "../../protocol/memcache" }
+session = { path = "../../session" }
+storage-types = { path = "../../storage/types" }
+tokio = { version = "1.17.0", features = ["full"] }

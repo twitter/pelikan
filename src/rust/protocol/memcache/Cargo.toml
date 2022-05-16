@@ -23,3 +23,7 @@ storage-types = { path = "../../storage/types" }
 
 [dev-dependencies]
 criterion = "0.3.4"
+
+[features]
+default = ["stats"]
+stats = []

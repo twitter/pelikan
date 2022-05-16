@@ -11,6 +11,7 @@ members = [
     "src/rust/protocol/common",
     "src/rust/protocol/memcache",
     "src/rust/protocol/ping",
+    "src/rust/proxy/momento",
     "src/rust/proxy/ping",
     "src/rust/queues",
     "src/rust/server/pingserver",

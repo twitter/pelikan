@@ -5,7 +5,9 @@
 //! Implements the serialization of `Memcache` protocol responses into the wire
 //! representation.
 
+#[cfg(feature = "stats")]
 use super::*;
+
 use crate::memcache::wire::MemcacheCommand;
 use crate::memcache::MemcacheEntry;
 use crate::memcache::MemcacheRequest;
@@ -100,6 +102,7 @@ impl MemcacheResult {
 #[allow(unused_must_use)]
 impl Compose for MemcacheResponse {
     fn compose(self, dst: &mut Session) {
+        #[cfg(feature = "stats")]
         match self.request {
             MemcacheRequest::Get { .. } => {
                 GET.increment();
@@ -247,7 +250,9 @@ impl Compose for MemcacheResponse {
             MemcacheRequest::FlushAll => {}
         }
         if let MemcacheResult::Values { ref entries, cas } = self.result {
+            #[allow(unused_variables)]
             let mut hits = 0;
+            #[allow(unused_variables)]
             let total = entries.len();
 
             for entry in entries.iter() {
@@ -301,6 +306,7 @@ impl Compose for MemcacheResponse {
                 };
                 klog_get(&self.request.command(), entry.key(), response_len);
             }
+            #[cfg(feature = "stats")]
             if self.request.command() == MemcacheCommand::Get {
                 GET_KEY.add(total as _);
                 GET_KEY_HIT.add(hits as _);

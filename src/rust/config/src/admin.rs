@@ -72,7 +72,7 @@ fn use_tls() -> bool {
 }
 
 // definitions
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Admin {
     #[serde(default = "host")]
     host: String,
