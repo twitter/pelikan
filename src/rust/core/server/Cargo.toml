@@ -19,7 +19,6 @@ config = { path = "../../config" }
 crossbeam-channel = "0.5.0"
 libc = "0.2.83"
 logger = { path = "../../logger" }
-metrics = { path = "../../metrics" }
 mio = { version = "0.8.0", features = ["os-poll", "net"] }
 protocol-admin = { path = "../../protocol/admin" }
 protocol-common = { path = "../../protocol/common" }

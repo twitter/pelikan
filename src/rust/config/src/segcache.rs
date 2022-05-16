@@ -93,6 +93,17 @@ impl SegcacheConfig {
     pub fn dlog_interval(&self) -> usize {
         self.dlog_interval
     }
+
+    /// Prints the configuration
+    pub fn print(&self) {
+        let config_toml = self.render_config();
+        println!("Segcache configuration:\n\n{}", config_toml);
+    }
+
+    /// Renders the configuration as a printable string
+    fn render_config(&self) -> String {
+        toml::to_string_pretty(&self).expect("wasn't able to TOML-render config for printing")
+    }
 }
 
 impl AdminConfig for SegcacheConfig {
@@ -185,6 +196,30 @@ impl Default for SegcacheConfig {
             sockio: Default::default(),
             tcp: Default::default(),
             tls: Default::default(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::SegcacheConfig;
+
+    #[test]
+    fn it_should_render_the_config_with_some_expected_keys() {
+        let config: SegcacheConfig = Default::default();
+        let rendered_config = config.render_config();
+        let expected_keys = vec![
+            "hash_power",
+            "overflow_factor",
+            "heap_size",
+            "segment_size",
+            "eviction",
+            "merge_target",
+            "merge_max",
+            "compact_target",
+        ];
+        for key in expected_keys {
+            assert!(rendered_config.contains(key));
         }
     }
 }

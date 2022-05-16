@@ -8,8 +8,8 @@ use crate::item::*;
 use crate::seg::{SEGMENT_REQUEST, SEGMENT_REQUEST_SUCCESS};
 use crate::segments::*;
 
+use common::metrics::{static_metrics, Counter, Gauge};
 use core::num::NonZeroU32;
-use metrics::{static_metrics, Counter, Gauge};
 
 static_metrics! {
     static EVICT_TIME: Gauge;
@@ -621,7 +621,7 @@ impl Segments {
     }
 
     #[cfg(feature = "debug")]
-    pub(crate) fn check_integrity(&mut self, hashtable: &HashTable) -> bool {
+    pub(crate) fn check_integrity(&mut self, hashtable: &mut HashTable) -> bool {
         let mut integrity = true;
         for id in 0..self.cap {
             if !self

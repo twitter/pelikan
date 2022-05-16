@@ -98,7 +98,7 @@ mod threads;
 pub use process::{Process, ProcessBuilder};
 pub use threads::PERCENTILES;
 
-use metrics::{static_metrics, Counter};
+use common::metrics::{static_metrics, Counter};
 
 static_metrics! {
     static TCP_ACCEPT_EX: Counter;
@@ -122,4 +122,4 @@ const QUEUE_RETRIES: usize = 3;
 const THREAD_PREFIX: &str = "pelikan";
 const QUEUE_CAPACITY: usize = 1024;
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();

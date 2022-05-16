@@ -13,8 +13,8 @@ extern crate logger;
 
 use backtrace::Backtrace;
 use clap::{App, Arg};
+use common::metrics::*;
 use config::PingserverConfig;
-use metrics::*;
 use pelikan_pingserver_rs::Pingserver;
 use server::PERCENTILES;
 
@@ -61,7 +61,7 @@ fn main() {
 
         let mut metrics = Vec::new();
 
-        for metric in &metrics::common::metrics::metrics() {
+        for metric in &common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {

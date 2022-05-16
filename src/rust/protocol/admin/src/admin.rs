@@ -8,6 +8,7 @@
 // listener in the future.
 
 use crate::*;
+use common::bytes::SliceExtension;
 
 // TODO(bmartin): see TODO for protocol::data::Request, this is cleaner here
 // since the variants are simple, but better to take the same approach in both
@@ -32,12 +33,16 @@ impl AdminRequestParser {
 impl Parse<AdminRequest> for AdminRequestParser {
     fn parse(&self, buffer: &[u8]) -> Result<ParseOk<AdminRequest>, ParseError> {
         // check if we got a CRLF
-        let mut double_byte_windows = buffer.windows(CRLF.len());
-        if let Some(command_end) = double_byte_windows.position(|w| w == CRLF.as_bytes()) {
+        if let Some(command_end) = buffer
+            .windows(CRLF.len())
+            .position(|w| w == CRLF.as_bytes())
+        {
+            let trimmed_buffer = &buffer[0..command_end].trim();
+
             // single-byte windowing to find spaces
-            let mut single_byte_windows = buffer.windows(1);
+            let mut single_byte_windows = trimmed_buffer.windows(1);
             if let Some(command_verb_end) = single_byte_windows.position(|w| w == b" ") {
-                let command_verb = &buffer[0..command_verb_end];
+                let command_verb = &trimmed_buffer[0..command_verb_end];
                 // TODO(bmartin): 'stats slab' will go here eventually which will
                 // remove the need for ignoring this lint.
                 #[allow(clippy::match_single_binding)]
@@ -45,7 +50,7 @@ impl Parse<AdminRequest> for AdminRequestParser {
                     _ => Err(ParseError::Unknown),
                 }
             } else {
-                match &buffer[0..command_end] {
+                match &trimmed_buffer[0..] {
                     b"flush_all" => Ok(ParseOk::new(
                         AdminRequest::FlushAll,
                         command_end + CRLF.len(),
@@ -113,5 +118,31 @@ mod tests {
         let parsed = parser.parse(b"version\r\n");
         assert!(parsed.is_ok());
         assert_eq!(parsed.unwrap().into_inner(), AdminRequest::Version);
+    }
+
+    #[test]
+    fn parse_commands_with_whitespace_leading_or_trailing() {
+        let parser = AdminRequestParser::new();
+
+        let parsed = parser.parse(b"version  \r\n");
+        assert!(parsed.is_ok());
+        assert_eq!(parsed.unwrap().into_inner(), AdminRequest::Version);
+
+        let parsed = parser.parse(b"  version\r\n");
+        assert!(parsed.is_ok());
+        assert_eq!(parsed.unwrap().into_inner(), AdminRequest::Version);
+
+        let parsed = parser.parse(b"  quit  \r\n");
+        assert!(parsed.is_ok());
+        assert_eq!(parsed.unwrap().into_inner(), AdminRequest::Quit);
+    }
+
+    #[test]
+    fn parse_ignores_after_crlf() {
+        let parser = AdminRequestParser::new();
+
+        let parsed = parser.parse(b"flush_all\r\nstats");
+        assert!(parsed.is_ok());
+        assert_eq!(parsed.unwrap().into_inner(), AdminRequest::FlushAll);
     }
 }

@@ -26,8 +26,8 @@ use std::thread::JoinHandle;
 
 use super::EventLoop;
 
+use common::metrics::{static_metrics, Counter, Heatmap, Relaxed};
 use common::time::{Duration, Nanoseconds};
-use metrics::{static_metrics, Counter, Heatmap, Relaxed};
 use mio::Token;
 
 static_metrics! {

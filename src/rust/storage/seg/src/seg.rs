@@ -8,7 +8,7 @@ use crate::Value;
 use crate::*;
 use std::cmp::min;
 
-use metrics::{static_metrics, Counter};
+use common::metrics::{static_metrics, Counter};
 
 const RESERVE_RETRIES: usize = 3;
 
@@ -303,7 +303,7 @@ impl Seg {
     /// *NOTE*: this operation is relatively expensive
     #[cfg(feature = "debug")]
     pub fn check_integrity(&mut self) -> Result<(), SegError> {
-        if self.segments.check_integrity(&self.hashtable) {
+        if self.segments.check_integrity(&mut self.hashtable) {
             Ok(())
         } else {
             Err(SegError::DataCorrupted)

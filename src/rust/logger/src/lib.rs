@@ -52,9 +52,9 @@ pub use sampling::*;
 pub use single::*;
 pub use traits::*;
 
+use common::metrics::{static_metrics, Counter, Gauge};
 use common::time::DateTime;
 use config::{DebugConfig, KlogConfig};
-use metrics::{static_metrics, Counter, Gauge};
 use mpmc::Queue;
 
 pub(crate) type LogBuffer = Vec<u8>;
@@ -172,4 +172,4 @@ pub fn configure_logging<T: DebugConfig + KlogConfig>(config: &T) -> Box<dyn Dra
         .start()
 }
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();

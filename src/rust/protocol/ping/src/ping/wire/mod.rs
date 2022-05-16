@@ -11,7 +11,7 @@ pub use request::*;
 pub use response::*;
 
 #[allow(unused_imports)]
-use metrics::{static_metrics, Counter};
+use common::metrics::{static_metrics, Counter};
 
 #[cfg(feature = "server")]
 static_metrics! {

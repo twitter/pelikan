@@ -30,7 +30,7 @@ impl Segcache {
         let log_drain = configure_logging(&config);
 
         // initialize metrics
-        metrics::init();
+        common::metrics::init();
 
         // initialize storage
         let storage = Storage::new(&config);
@@ -76,4 +76,4 @@ impl Segcache {
     }
 }
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();

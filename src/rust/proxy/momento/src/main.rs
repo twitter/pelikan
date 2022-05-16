@@ -14,7 +14,7 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use core::time::Duration;
 use logger::configure_logging;
 use logger::Drain;
-use metrics::*;
+use common::metrics::*;
 use momento::response::cache_get_response::*;
 use momento::response::cache_set_response::*;
 use momento::response::error::*;
@@ -188,7 +188,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // initialize metrics
-    metrics::init();
+    common::metrics::init();
 
     // output stats descriptions and exit if the `stats` option was provided
     if matches.is_present("stats") {
@@ -196,7 +196,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut metrics = Vec::new();
 
-        for metric in &metrics::common::metrics::metrics() {
+        for metric in &common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {

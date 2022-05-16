@@ -17,8 +17,8 @@ extern crate logger;
 
 use backtrace::Backtrace;
 use clap::{App, Arg};
+use common::metrics::*;
 use config::SegcacheConfig;
-use metrics::*;
 use pelikan_segcache_rs::Segcache;
 use server::PERCENTILES;
 
@@ -55,6 +55,12 @@ fn main() {
                 .help("Server configuration file")
                 .index(1),
         )
+        .arg(
+            Arg::with_name("print-config")
+                .help("List all options in config")
+                .long("config")
+                .short("c"),
+        )
         .get_matches();
 
     // output stats descriptions and exit if the `stats` option was provided
@@ -63,7 +69,7 @@ fn main() {
 
         let mut metrics = Vec::new();
 
-        for metric in &metrics::common::metrics::metrics() {
+        for metric in &common::metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {
@@ -104,6 +110,11 @@ fn main() {
     } else {
         Default::default()
     };
+
+    if matches.is_present("print-config") {
+        config.print();
+        std::process::exit(0);
+    }
 
     // launch segcache
     Segcache::new(config).wait()
