@@ -7,6 +7,7 @@ extern crate logger;
 
 use backtrace::Backtrace;
 use clap::{App, Arg};
+use common::metrics::*;
 use config::*;
 use core::num::NonZeroU64;
 use core::num::NonZeroUsize;
@@ -14,7 +15,6 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use core::time::Duration;
 use logger::configure_logging;
 use logger::Drain;
-use common::metrics::*;
 use momento::response::cache_get_response::*;
 use momento::response::cache_set_response::*;
 use momento::response::error::*;
