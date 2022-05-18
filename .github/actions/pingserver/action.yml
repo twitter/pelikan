@@ -1,0 +1,36 @@
+name: 'Configure and run pingserver'
+description: 'Configures and runs the pingserver'
+inputs:
+  tls:
+    description: 'Enable TLS'
+    required: false
+    default: false
+runs:
+  using: "composite"
+  steps:
+    - name: Configure
+      run: |
+        echo "[admin]" >> server.toml
+        echo "port = \"9997\"" >> server.toml
+        echo "[backend]" >> server.toml
+        echo "endpoints = [\"127.0.0.1:12321\"]" >> server.toml
+      shell: bash
+    - name: Configure TLS
+      run: |
+          if ${{ inputs.tls }}; then
+          step ca certificate --san=127.0.0.1 --ca-url=127.0.0.1:443 --provisioner-password-file=${HOME}/.step/password 127.0.0.1 server.crt server.key
+          echo "[tls]" >> server.toml
+          echo "certificate_chain = \"root.crt\"" >> server.toml
+          echo "certificate = \"server.crt\"" >> server.toml
+          echo "private_key = \"server.key\"" >> server.toml
+          fi
+      shell: bash
+    - name: Build pingserver
+      run: |
+        cd pelikan && cargo build --release --bin pelikan_pingserver_rs
+      shell: bash
+    - name: Run pingserver
+      run: |
+        ./pelikan/target/release/pelikan_pingserver_rs server.toml &
+        sleep 10
+      shell: bash

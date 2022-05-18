@@ -1,0 +1,18 @@
+name: 'Configure and Run Smallstep CA'
+description: 'Configure and Run Smallstep CA'
+runs:
+  using: "composite"
+  steps:
+    - name: Configure and run
+      run: |
+          curl -O -L https://dl.step.sm/gh-release/cli/docs-ca-install/v0.19.0/step-cli_0.19.0_amd64.deb
+          sudo dpkg -i step-cli_0.19.0_amd64.deb
+          curl -O -L https://dl.step.sm/gh-release/certificates/docs-ca-install/v0.19.0/step-ca_0.19.0_amd64.deb
+          sudo dpkg -i step-ca_0.19.0_amd64.deb
+          mkdir ${HOME}/.step
+          echo password > ${HOME}/.step/password
+          step ca init --deployment-type=standalone --name=127.0.0.1 --dns=127.0.0.1 --address=127.0.0.1:443 --provisioner=ci@github.com --password-file=${HOME}/.step/password
+          sudo step-ca --password-file=${HOME}/.step/password ${HOME}/.step/config/ca.json &
+          sleep 10
+          step ca root --ca-url=127.0.0.1:443 root.crt
+      shell: bash

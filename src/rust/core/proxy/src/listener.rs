@@ -23,7 +23,6 @@ static_metrics! {
     static LISTENER_EVENT_WRITE: Counter;
 }
 
-
 pub struct ListenerBuilder {
     addr: SocketAddr,
     nevent: usize,
@@ -104,7 +103,11 @@ impl Listener {
             if session.session.do_handshake().is_ok() {
                 trace!("handshake complete for session: {:?}", session.session);
                 if let Ok(session) = self.poll.remove_session(token) {
-                    if self.connection_queues.try_send_any(session.session).is_err() {
+                    if self
+                        .connection_queues
+                        .try_send_any(session.session)
+                        .is_err()
+                    {
                         error!("error sending session to worker");
                         TCP_ACCEPT_EX.increment();
                     }
@@ -120,17 +123,25 @@ impl Listener {
 
     pub fn do_accept(&mut self) {
         if let Ok(token) = self.poll.accept() {
-            match self.poll.get_mut_session(token).map(|v| v.session.is_handshaking()) {
+            match self
+                .poll
+                .get_mut_session(token)
+                .map(|v| v.session.is_handshaking())
+            {
                 Ok(false) => {
                     if let Ok(session) = self.poll.remove_session(token) {
-                        if self.connection_queues.try_send_any(session.session).is_err() {
+                        if self
+                            .connection_queues
+                            .try_send_any(session.session)
+                            .is_err()
+                        {
                             warn!("rejecting connection, client connection queue is too full");
                         } else {
                             trace!("sending new connection to worker threads");
                         }
                     }
                 }
-                Ok(true) => {},
+                Ok(true) => {}
                 Err(e) => {
                     warn!("error checking if new session is handshaking: {}", e);
                 }
@@ -149,7 +160,7 @@ impl Listener {
             for event in &events {
                 match event.token() {
                     LISTENER_TOKEN => {
-                       self.do_accept();
+                        self.do_accept();
                     }
                     WAKER_TOKEN => {}
                     _ => {

@@ -134,19 +134,29 @@ impl Poll {
                     // handle case where further negotiation is
                     // needed
                     Ok(Err(HandshakeError::WouldBlock(stream))) => {
-                        Session::handshaking_with_capacity(stream, SESSION_BUFFER_MIN, SESSION_BUFFER_MAX)
+                        Session::handshaking_with_capacity(
+                            stream,
+                            SESSION_BUFFER_MIN,
+                            SESSION_BUFFER_MAX,
+                        )
                     }
                     // some other error has occurred and we drop the
                     // stream
                     Ok(Err(e)) => {
                         error!("accept failed: {}", e);
                         TCP_ACCEPT_EX.increment();
-                        return Err(std::io::Error::new(std::io::ErrorKind::Other, "accept failed"));
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            "accept failed",
+                        ));
                     }
                     Err(e) => {
                         error!("accept failed: {}", e);
                         TCP_ACCEPT_EX.increment();
-                        return Err(std::io::Error::new(std::io::ErrorKind::Other, "accept failed"));
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            "accept failed",
+                        ));
                     }
                 }
             } else {

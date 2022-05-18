@@ -245,7 +245,7 @@ impl Admin {
 
     /// Repeatedly call accept on the listener
     fn do_accept(&mut self) {
-        while self.poll.accept().is_ok() { }
+        while self.poll.accept().is_ok() {}
     }
 
     /// This is a handler for the stats commands on the legacy admin port. It
