@@ -21,8 +21,8 @@ runs:
       run: echo "$BASE_CONFIG" >> server.toml
       env:
         BASE_CONFIG: |
-        [admin]
-        port = "9999"
+          [admin]
+          port = "9999"
       shell: bash
     - name: Generate TLS Key/Cert
       run: |
