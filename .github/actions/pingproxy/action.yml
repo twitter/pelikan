@@ -1,17 +1,5 @@
 name: 'Configure and run pingproxy'
 description: 'Configures and runs the pingproxy'
-env:
-  BASE_CONFIG: |
-    [admin]
-    port = "9996"
-
-    [backend]
-    endpoints = ["127.0.0.1:12321"]
-  TLS_CONFIG: |
-    [tls]
-    certificate_chain = "root.crt"
-    certificate = "proxy.crt"
-    private_key = "proxy.key"
 inputs:
   tls:
     description: 'Enable TLS'
@@ -21,7 +9,14 @@ runs:
   using: "composite"
   steps:
     - name: Configure
-      run: echo ${{ env.BASE_CONFIG }} >> proxy.toml
+      run: echo "$BASE_CONFIG" >> proxy.toml
+      env:
+        BASE_CONFIG: |
+          [admin]
+          port = "9997"
+
+          [backend]
+          endpoints = ["127.0.0.1:12321"]
       shell: bash
     - name: Generate TLS Key/Cert
       run: |
@@ -30,7 +25,13 @@ runs:
         fi
       shell: bash
     - name: Configure TLS
-      run: if ${{ inputs.tls }}; then echo ${{ env.TLS_CONFIG }} >> proxy.toml; fi
+      run: if ${{ inputs.tls }}; then echo "$TLS_CONFIG" >> proxy.toml; fi
+      env:
+        TLS_CONFIG: |
+          [tls]
+          certificate_chain = "root.crt"
+          certificate = "proxy.crt"
+          private_key = "proxy.key"
       shell: bash
     - name: Build pingproxy
       run: |

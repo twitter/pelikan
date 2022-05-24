@@ -9,18 +9,6 @@ inputs:
     description: 'Name of the protocol'
     required: true
     default: 'memcache'
-  threads:
-    description: 'Number of client threads'
-    required: false
-    default: 1
-  poolsize:
-    description: 'Number of connections per client'
-    required: false
-    default: 20
-  ratelimit:
-    description: 'Request ratelimit (qps)'
-    required: false
-    default: 10000
   tls:
     description: 'Enable TLS connections to endpoint'
     required: false
@@ -42,38 +30,61 @@ runs:
       run: cd rpc-perf && cargo build --release
       shell: bash
     - name: Configure
-      run: |
-        echo "[general]" >> client.toml
-        echo "protocol = \"${{ inputs.protocol }}\"" >> client.toml
-        echo "threads = ${{ inputs.threads }}" >> client.toml
-        echo "[target]" >> client.toml
-        echo "endpoints = [ \"127.0.0.1:${{ inputs.port }}\" ]" >> client.toml
-        echo "[connection]" >> client.toml
-        echo "poolsize = ${{ inputs.poolsize }}" >> client.toml
-        echo "[request]" >> client.toml
-        echo "ratelimit = ${{ inputs.ratelimit }}" >> client.toml
+      run: echo "$BASE_CONFIG" >> client.toml
+      env:
+        BASE_CONFIG: |
+          [general]
+          protocol = "${{ inputs.protocol }}"
+          threads = 1
+
+          [target]
+          endpoints = ["127.0.0.1:${{ inputs.port }}"]
+
+          [connection]
+          poolsize = 20
+
+          [request]
+          ratelimit = 1000
       shell: bash
-    - name: Configure workload
+    - name: Generate TLS Key/Cert
       run: |
-        echo "[[keyspace]]" >> client.toml
-        if [ ${{ inputs.protocol }} == "memcache" ]; then
-        echo "commands = [ { verb = \"get\", weight = 8 }, { verb = \"set\", weight = 2 } ]" >> client.toml
-        echo "length = 3" >> client.toml
-        echo "values = [ { length = 16 } ]" >> client.toml
-        elif [ ${{ inputs.protocol }} == "ping" ]; then
-        echo "commands = [ { verb = \"ping\", weight = 1 } ]" >> client.toml
+        if ${{ inputs.tls }}; then
+          step ca certificate --san=127.0.0.1 --ca-url=127.0.0.1:443 --provisioner-password-file=${HOME}/.step/password localhost client.crt client.key
         fi
       shell: bash
-    - name: Configure TLS
+    - name: Configure Workload
       run: |
-          if ${{ inputs.tls }}; then
-          step ca certificate --san=127.0.0.1 --ca-url=127.0.0.1:443 --provisioner-password-file=${HOME}/.step/password localhost client.crt client.key
-          echo "[tls]" >> client.toml
-          echo "verify = false" >> client.toml
-          echo "certificate_chain = \"root.crt\"" >> client.toml
-          echo "certificate = \"client.crt\"" >> client.toml
-          echo "private_key = \"client.key\"" >> client.toml
-          fi
+        if [ ${{ inputs.protocol }} == "memcache" ]; then
+        echo "$MEMCACHE_WORKLOAD" >> client.toml
+        elif [ ${{ inputs.protocol }} == "ping" ]; then
+        echo "$PING_WORKLOAD" >> client.toml
+        fi
+      env:
+          MEMCACHE_WORKLOAD: |
+            [[keyspace]]
+            commands = [
+              { verb = "get", weight = 8 },
+              { verb = "set", weight = 2 }
+            ]
+            length = 3
+            values = [
+              { length = 16 }
+            ]
+          PING_WORKLOAD: |
+            [[keyspace]]
+            commands = [
+              { verb = "ping", weight = 1 },
+            ]
+      shell: bash
+    - name: Configure TLS
+      run: if ${{ inputs.tls }}; then echo "$TLS_CONFIG" >> client.toml; fi
+      env:
+        TLS_CONFIG: |
+          [tls]
+          verify = false
+          certificate_chain = "root.crt"
+          certificate = "client.crt"
+          private_key = "client.key"
       shell: bash
     - name: Run rpc-perf
       run: rpc-perf/target/release/rpc-perf client.toml

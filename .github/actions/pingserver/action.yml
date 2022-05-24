@@ -1,5 +1,14 @@
 name: 'Configure and run pingserver'
 description: 'Configures and runs the pingserver'
+env:
+  BASE_CONFIG: |
+    [admin]
+    port = "9999"
+  TLS_CONFIG: |
+    [tls]
+    certificate_chain = "root.crt"
+    certificate = "server.crt"
+    private_key = "server.key"
 inputs:
   tls:
     description: 'Enable TLS'
@@ -9,21 +18,26 @@ runs:
   using: "composite"
   steps:
     - name: Configure
+      run: echo "$BASE_CONFIG" >> server.toml
+      env:
+        BASE_CONFIG: |
+        [admin]
+        port = "9999"
+      shell: bash
+    - name: Generate TLS Key/Cert
       run: |
-        echo "[admin]" >> server.toml
-        echo "port = \"9997\"" >> server.toml
-        echo "[backend]" >> server.toml
-        echo "endpoints = [\"127.0.0.1:12321\"]" >> server.toml
+        if ${{ inputs.tls }}; then
+          step ca certificate --san=127.0.0.1 --ca-url=127.0.0.1:443 --provisioner-password-file=${HOME}/.step/password localhost server.crt server.key
+        fi
       shell: bash
     - name: Configure TLS
-      run: |
-          if ${{ inputs.tls }}; then
-          step ca certificate --san=127.0.0.1 --ca-url=127.0.0.1:443 --provisioner-password-file=${HOME}/.step/password 127.0.0.1 server.crt server.key
-          echo "[tls]" >> server.toml
-          echo "certificate_chain = \"root.crt\"" >> server.toml
-          echo "certificate = \"server.crt\"" >> server.toml
-          echo "private_key = \"server.key\"" >> server.toml
-          fi
+      run: if ${{ inputs.tls }}; then echo "$TLS_CONFIG" >> server.toml; fi
+      env:
+        TLS_CONFIG: |
+          [tls]
+          certificate_chain = "root.crt"
+          certificate = "server.crt"
+          private_key = "server.key"
       shell: bash
     - name: Build pingserver
       run: |
