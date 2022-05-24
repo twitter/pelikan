@@ -30,7 +30,7 @@ impl Pingserver {
         let log_drain = configure_logging(&config);
 
         // initialize metrics
-        metrics::init();
+        common::metrics::init();
 
         // initialize storage
         let storage = Storage::new();
@@ -71,4 +71,4 @@ impl Pingserver {
     }
 }
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();

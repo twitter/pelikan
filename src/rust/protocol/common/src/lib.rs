@@ -49,4 +49,4 @@ pub trait Parse<T> {
     fn parse(&self, buffer: &[u8]) -> Result<ParseOk<T>, ParseError>;
 }
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();

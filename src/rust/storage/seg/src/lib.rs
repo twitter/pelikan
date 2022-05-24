@@ -73,4 +73,4 @@ pub(crate) use item::*;
 pub(crate) use segments::*;
 pub(crate) use ttl_buckets::*;
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();

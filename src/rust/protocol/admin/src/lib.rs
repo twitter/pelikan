@@ -8,4 +8,4 @@ mod admin;
 
 pub use admin::*;
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();

@@ -10,7 +10,7 @@ extern crate logger;
 
 mod common;
 
-use common::*;
+use crate::common::*;
 
 use config::{SegcacheConfig, WorkerConfig};
 use pelikan_segcache_rs::Segcache;

@@ -12,7 +12,6 @@ license = "Apache-2.0"
 common = { path = "../../common" }
 config = { path = "../../config" }
 logger = { path = "../../logger" }
-metrics = { path = "../../metrics" }
 protocol-common = { path = "../../protocol/common" }
 session = { path = "../../session" }
 storage-types = { path = "../../storage/types" }

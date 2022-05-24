@@ -29,15 +29,14 @@ path = "benches/benchmark.rs"
 harness = false
 
 [features]
-# debug = ["segcache/debug"]
 
 [dependencies]
 backtrace = "0.3.56"
 clap = "2.33.3"
+common = { path = "../../common" }
 config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
-metrics = { path = "../../metrics" }
 protocol-ping = { path = "../../protocol/ping", features = ["server"] }
 server = { path = "../../core/server" }
 

@@ -17,10 +17,13 @@ harness = false
 common = { path = "../../common" }
 config = { path = "../../config" }
 logger = { path = "../../logger" }
-metrics = { path = "../../metrics" }
 protocol-common = { path = "../../protocol/common" }
 session = { path = "../../session" }
 storage-types = { path = "../../storage/types" }
 
 [dev-dependencies]
 criterion = "0.3.4"
+
+[features]
+default = ["stats"]
+stats = []

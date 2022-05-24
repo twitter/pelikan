@@ -24,9 +24,9 @@ pub use error::TtlBucketsError;
 pub use ttl_bucket::TtlBucket;
 pub use ttl_buckets::TtlBuckets;
 
-use metrics::Counter;
+use common::metrics::{static_metrics, Counter};
 
-metrics::static_metrics! {
+static_metrics! {
     static SEGMENT_CLEAR: Counter;
     static SEGMENT_EXPIRE: Counter;
 

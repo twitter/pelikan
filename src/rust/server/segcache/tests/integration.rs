@@ -10,7 +10,7 @@ mod common;
 #[macro_use]
 extern crate logger;
 
-use common::*;
+use crate::common::*;
 
 use config::SegcacheConfig;
 use pelikan_segcache_rs::Segcache;

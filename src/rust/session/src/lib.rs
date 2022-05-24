@@ -18,13 +18,13 @@ use std::cmp::Ordering;
 use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
+use common::metrics::{static_metrics, Counter, Gauge, Heatmap, Relaxed};
 use common::ssl::{MidHandshakeSslStream, SslStream};
 use common::time::Nanoseconds;
-use metrics::{static_metrics, Counter, Gauge, Heatmap, Relaxed};
 use mio::event::Source;
 use mio::{Interest, Poll, Token};
 
-use buffer::Buffer;
+pub use buffer::Buffer;
 use stream::Stream;
 
 type Instant = common::time::Instant<Nanoseconds<u64>>;
@@ -33,27 +33,27 @@ type Duration = common::time::Duration<Nanoseconds<u64>>;
 pub use tcp_stream::TcpStream;
 
 static_metrics! {
-    static SESSION_BUFFER_BYTE: Gauge;
+    pub static SESSION_BUFFER_BYTE: Gauge;
 
-    static TCP_ACCEPT: Counter;
-    static TCP_CLOSE: Counter;
-    static TCP_CONN_CURR: Gauge;
-    static TCP_RECV_BYTE: Counter;
-    static TCP_SEND_BYTE: Counter;
-    static TCP_SEND_PARTIAL: Counter;
+    pub static TCP_ACCEPT: Counter;
+    pub static TCP_CLOSE: Counter;
+    pub static TCP_CONN_CURR: Gauge;
+    pub static TCP_RECV_BYTE: Counter;
+    pub static TCP_SEND_BYTE: Counter;
+    pub static TCP_SEND_PARTIAL: Counter;
 
-    static SESSION_RECV: Counter;
-    static SESSION_RECV_EX: Counter;
-    static SESSION_RECV_BYTE: Counter;
-    static SESSION_SEND: Counter;
-    static SESSION_SEND_EX: Counter;
-    static SESSION_SEND_BYTE: Counter;
+    pub static SESSION_RECV: Counter;
+    pub static SESSION_RECV_EX: Counter;
+    pub static SESSION_RECV_BYTE: Counter;
+    pub static SESSION_SEND: Counter;
+    pub static SESSION_SEND_EX: Counter;
+    pub static SESSION_SEND_BYTE: Counter;
 
-    static REQUEST_LATENCY: Relaxed<Heatmap> = Relaxed::new(||
+    pub static REQUEST_LATENCY: Relaxed<Heatmap> = Relaxed::new(||
         Heatmap::new(1_000_000_000, 3, Duration::from_secs(60), Duration::from_secs(1))
     );
 
-    static PIPELINE_DEPTH: Relaxed<Heatmap> = Relaxed::new(||
+    pub static PIPELINE_DEPTH: Relaxed<Heatmap> = Relaxed::new(||
         Heatmap::new(100_000, 3, Duration::from_secs(60), Duration::from_secs(1))
     );
 }
@@ -485,4 +485,4 @@ impl Write for Session {
     }
 }
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();

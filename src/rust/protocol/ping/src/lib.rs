@@ -15,4 +15,4 @@ mod ping;
 
 pub use ping::*;
 
-metrics::test_no_duplicates!();
+common::metrics::test_no_duplicates!();
