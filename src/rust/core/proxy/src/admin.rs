@@ -73,7 +73,6 @@ pub struct AdminBuilder {
     nevent: usize,
     poll: Poll,
     timeout: Duration,
-    ssl_context: Option<SslContext>,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
     http_server: Option<tiny_http::Server>,
@@ -82,9 +81,8 @@ pub struct AdminBuilder {
 
 impl AdminBuilder {
     /// Creates a new `Admin` event loop.
-    pub fn new<T: AdminConfig>(
+    pub fn new<T: AdminConfig + TlsConfig>(
         config: &T,
-        // ssl_context: Option<SslContext>,
         mut log_drain: Box<dyn Drain>,
     ) -> Result<Self> {
         let config = config.admin();
@@ -101,7 +99,7 @@ impl AdminBuilder {
             let _ = log_drain.flush();
             Error::new(ErrorKind::Other, "failed to create epoll instance")
         })?;
-        poll.bind(addr).map_err(|e| {
+        poll.bind(addr, &Tls::default()).map_err(|e| {
             error!("{}", e);
             error!("failed to bind admin tcp listener");
             let _ = log_drain.flush();
@@ -114,9 +112,6 @@ impl AdminBuilder {
                 ),
             )
         })?;
-
-        let ssl_context = None;
-        // let ssl_context = if config.use_tls() { ssl_context } else { None };
 
         let timeout = std::time::Duration::from_millis(config.timeout() as u64);
 
@@ -145,7 +140,6 @@ impl AdminBuilder {
             timeout,
             nevent,
             poll,
-            ssl_context,
             parser: AdminRequestParser::new(),
             log_drain,
             http_server,
@@ -177,7 +171,6 @@ impl AdminBuilder {
             nevent: self.nevent,
             poll: self.poll,
             timeout: self.timeout,
-            ssl_context: self.ssl_context,
             parser: self.parser,
             log_drain: self.log_drain,
             http_server: self.http_server,
@@ -193,7 +186,6 @@ pub struct Admin {
     nevent: usize,
     poll: Poll,
     timeout: Duration,
-    ssl_context: Option<SslContext>,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
     /// optional http server
@@ -253,39 +245,7 @@ impl Admin {
 
     /// Repeatedly call accept on the listener
     fn do_accept(&mut self) {
-        loop {
-            match self.poll.accept() {
-                Ok((stream, _)) => {
-                    // handle TLS if it is configured
-                    if let Some(ssl_context) = &self.ssl_context {
-                        match Ssl::new(ssl_context).map(|v| v.accept(stream)) {
-                            // handle case where we have a fully-negotiated
-                            // TLS stream on accept()
-                            Ok(Ok(tls_stream)) => {
-                                self.add_established_tls_session(tls_stream);
-                            }
-                            // handle case where further negotiation is
-                            // needed
-                            Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
-                                self.add_handshaking_tls_session(tls_stream);
-                            }
-                            // some other error has occurred and we drop the
-                            // stream
-                            Ok(Err(_)) | Err(_) => {
-                                TCP_ACCEPT_EX.increment();
-                            }
-                        }
-                    } else {
-                        self.add_plain_session(stream);
-                    };
-                }
-                Err(e) => {
-                    if e.kind() == ErrorKind::WouldBlock {
-                        break;
-                    }
-                }
-            }
-        }
+        while self.poll.accept().is_ok() {}
     }
 
     /// This is a handler for the stats commands on the legacy admin port. It

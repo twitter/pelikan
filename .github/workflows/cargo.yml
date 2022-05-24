@@ -138,3 +138,109 @@ jobs:
         run: |
           cargo install cargo-audit
           cargo audit
+
+  smoketest-pingserver:
+    name: smoketest-pingserver
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: pelikan
+      - name: Build Cache for Pelikan
+        uses: Swatinem/rust-cache@v1
+        with:
+          key: pelikan
+          working-directory: pelikan
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: ./pelikan/.github/actions/ca
+      - uses: ./pelikan/.github/actions/pingserver
+        with:
+          tls: false
+      - uses: ./pelikan/.github/actions/rpc-perf
+        with:
+          protocol: ping
+          port: 12321
+          tls: false
+
+  smoketest-pingserver-tls:
+    name: smoketest-pingserver-tls
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: pelikan
+      - name: Build Cache for Pelikan
+        uses: Swatinem/rust-cache@v1
+        with:
+          key: pelikan
+          working-directory: pelikan
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: ./pelikan/.github/actions/ca
+      - uses: ./pelikan/.github/actions/pingserver
+        with:
+          tls: true
+      - uses: ./pelikan/.github/actions/rpc-perf
+        with:
+          protocol: ping
+          port: 12321
+          tls: true
+
+  smoketest-pingproxy:
+    name: smoketest-pingproxy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: pelikan
+      - name: Build Cache for Pelikan
+        uses: Swatinem/rust-cache@v1
+        with:
+          key: pelikan
+          working-directory: pelikan
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: ./pelikan/.github/actions/ca
+      - uses: ./pelikan/.github/actions/pingserver
+        with:
+          tls: false
+      - uses: ./pelikan/.github/actions/pingproxy
+        with:
+          tls: false
+      - uses: ./pelikan/.github/actions/rpc-perf
+        with:
+          protocol: ping
+          port: 12322
+          tls: false
+
+  smoketest-pingproxy-tls-terminating:
+    name: smoketest-pingproxy-tls-terminating
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: pelikan
+      - name: Build Cache for Pelikan
+        uses: Swatinem/rust-cache@v1
+        with:
+          key: pelikan
+          working-directory: pelikan
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: ./pelikan/.github/actions/ca
+      - uses: ./pelikan/.github/actions/pingserver
+        with:
+          tls: false
+      - uses: ./pelikan/.github/actions/pingproxy
+        with:
+          tls: true
+      - uses: ./pelikan/.github/actions/rpc-perf
+        with:
+          protocol: ping
+          port: 12322
+          tls: true

@@ -1,0 +1,44 @@
+name: 'Configure and run pingproxy'
+description: 'Configures and runs the pingproxy'
+inputs:
+  tls:
+    description: 'Enable TLS'
+    required: false
+    default: false
+runs:
+  using: "composite"
+  steps:
+    - name: Configure
+      run: echo "$BASE_CONFIG" >> proxy.toml
+      env:
+        BASE_CONFIG: |
+          [admin]
+          port = "9997"
+
+          [backend]
+          endpoints = ["127.0.0.1:12321"]
+      shell: bash
+    - name: Generate TLS Key/Cert
+      run: |
+        if ${{ inputs.tls }}; then
+          step ca certificate --san=127.0.0.1 --ca-url=127.0.0.1:443 --provisioner-password-file=${HOME}/.step/password localhost proxy.crt proxy.key
+        fi
+      shell: bash
+    - name: Configure TLS
+      run: if ${{ inputs.tls }}; then echo "$TLS_CONFIG" >> proxy.toml; fi
+      env:
+        TLS_CONFIG: |
+          [tls]
+          certificate_chain = "root.crt"
+          certificate = "proxy.crt"
+          private_key = "proxy.key"
+      shell: bash
+    - name: Build pingproxy
+      run: |
+        cd pelikan && cargo build --release --bin pelikan_pingproxy_rs
+      shell: bash
+    - name: Run pingproxy
+      run: |
+        ./pelikan/target/release/pelikan_pingproxy_rs proxy.toml &
+        sleep 10
+      shell: bash

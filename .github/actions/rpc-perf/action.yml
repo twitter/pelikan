@@ -1,0 +1,91 @@
+name: 'Run rpc-perf'
+description: 'Builds, configures, and runs rpc-perf'
+inputs:
+  port:
+    description: 'Port number for endpoint'
+    required: true
+    default: '12321'
+  protocol:
+    description: 'Name of the protocol'
+    required: true
+    default: 'memcache'
+  tls:
+    description: 'Enable TLS connections to endpoint'
+    required: false
+    default: false
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout rpc-perf
+      uses: actions/checkout@v2
+      with:
+        repository: twitter/rpc-perf
+        path: rpc-perf
+    - name: Build Cache for rpc-perf
+      uses: Swatinem/rust-cache@v1
+      with:
+        key: rpc-perf
+        working-directory: rpc-perf
+    - name: Build rpc-perf
+      run: cd rpc-perf && cargo build --release
+      shell: bash
+    - name: Configure
+      run: echo "$BASE_CONFIG" >> client.toml
+      env:
+        BASE_CONFIG: |
+          [general]
+          protocol = "${{ inputs.protocol }}"
+          threads = 1
+
+          [target]
+          endpoints = ["127.0.0.1:${{ inputs.port }}"]
+
+          [connection]
+          poolsize = 20
+
+          [request]
+          ratelimit = 1000
+      shell: bash
+    - name: Generate TLS Key/Cert
+      run: |
+        if ${{ inputs.tls }}; then
+          step ca certificate --san=127.0.0.1 --ca-url=127.0.0.1:443 --provisioner-password-file=${HOME}/.step/password localhost client.crt client.key
+        fi
+      shell: bash
+    - name: Configure Workload
+      run: |
+        if [ ${{ inputs.protocol }} == "memcache" ]; then
+        echo "$MEMCACHE_WORKLOAD" >> client.toml
+        elif [ ${{ inputs.protocol }} == "ping" ]; then
+        echo "$PING_WORKLOAD" >> client.toml
+        fi
+      env:
+          MEMCACHE_WORKLOAD: |
+            [[keyspace]]
+            commands = [
+              { verb = "get", weight = 8 },
+              { verb = "set", weight = 2 }
+            ]
+            length = 3
+            values = [
+              { length = 16 }
+            ]
+          PING_WORKLOAD: |
+            [[keyspace]]
+            commands = [
+              { verb = "ping", weight = 1 },
+            ]
+      shell: bash
+    - name: Configure TLS
+      run: if ${{ inputs.tls }}; then echo "$TLS_CONFIG" >> client.toml; fi
+      env:
+        TLS_CONFIG: |
+          [tls]
+          verify = false
+          certificate_chain = "root.crt"
+          certificate = "client.crt"
+          private_key = "client.key"
+      shell: bash
+    - name: Run rpc-perf
+      run: rpc-perf/target/release/rpc-perf client.toml
+      shell: bash
