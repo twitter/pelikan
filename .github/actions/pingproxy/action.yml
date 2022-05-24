@@ -1,5 +1,17 @@
 name: 'Configure and run pingproxy'
 description: 'Configures and runs the pingproxy'
+env:
+  BASIC_CONFIG: |
+    [admin]
+    port = "9998"
+
+    [backend]
+    endpoints = ["127.0.0.1:12321"]
+  TLS_CONFIG: |
+    [tls]
+    certificate_chain = "root.crt"
+    certificate = "proxy.crt"
+    private_key = "proxy.key"
 inputs:
   tls:
     description: 'Enable TLS'
@@ -9,21 +21,16 @@ runs:
   using: "composite"
   steps:
     - name: Configure
+      run: echo $BASIC_CONFIG >> proxy.toml
+      shell: bash
+    - name: Generate TLS Key/Cert
       run: |
-        echo "[admin]" >> proxy.toml
-        echo "port = \"9998\"" >> proxy.toml
-        echo "[backend]" >> proxy.toml
-        echo "endpoints = [\"127.0.0.1:12321\"]" >> proxy.toml
+        if ${{ inputs.tls }}; then
+          step ca certificate --san=127.0.0.1 --ca-url=127.0.0.1:443 --provisioner-password-file=${HOME}/.step/password localhost proxy.crt proxy.key
+        fi
       shell: bash
     - name: Configure TLS
-      run: |
-          if ${{ inputs.tls }}; then
-          step ca certificate --san=127.0.0.1 --ca-url=127.0.0.1:443 --provisioner-password-file=${HOME}/.step/password localhost proxy.crt proxy.key
-          echo "[tls]" >> proxy.toml
-          echo "certificate_chain = \"root.crt\"" >> proxy.toml
-          echo "certificate = \"proxy.crt\"" >> proxy.toml
-          echo "private_key = \"proxy.key\"" >> proxy.toml
-          fi
+      run: if ${{ inputs.tls }}; then echo $TLS_CONFIG >> proxy.toml; fi
       shell: bash
     - name: Build pingproxy
       run: |
