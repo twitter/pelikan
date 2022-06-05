@@ -12,7 +12,7 @@ harness = false
 
 [dependencies]
 common = { path = "../../common" }
-nom = "*"
+nom = "5.1.2"
 protocol-common = { path = "../../protocol/common" }
 session = { path = "../../session" }
 
