@@ -10,7 +10,7 @@ use std::io::Write;
 
 #[allow(unused_must_use)]
 impl Compose for Response {
-    fn compose(self, dst: &mut Session) {
+    fn compose(&self, dst: &mut Session) {
         match self {
             Self::Pong => {
                 dst.write_all(b"PONG\r\n");

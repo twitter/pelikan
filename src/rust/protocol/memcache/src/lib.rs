@@ -1,21 +1,20 @@
-// Copyright 2021 Twitter, Inc.
+// Copyright 2022 Twitter, Inc.
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! A collection of protocol implementations which implement a set of common
-//! traits so that the a server implementation can easily switch between
-//! protocol implementations.
+mod request;
+mod response;
+mod storage;
+mod util;
 
-// TODO(bmartin): this crate should probably be split into one crate per
-// protocol to help separate the metrics namespaces.
+pub(crate) use util::*;
 
-#[macro_use]
-extern crate logger;
+pub use request::*;
+pub use response::*;
+pub use storage::*;
 
-pub use protocol_common::*;
-
-mod memcache;
-
-pub use memcache::*;
-
-common::metrics::test_no_duplicates!();
+pub enum MemcacheError {
+    Error(Error),
+    ClientError(ClientError),
+    ServerError(ServerError),
+}

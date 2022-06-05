@@ -10,7 +10,7 @@ use crate::EntryStore;
 
 use config::seg::Eviction;
 use config::SegConfig;
-use seg::{Policy, SegError, Value};
+use seg::{Policy, SegError};
 
 mod memcache;
 

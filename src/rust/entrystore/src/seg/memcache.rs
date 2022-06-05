@@ -6,328 +6,355 @@
 //! storage commands.
 
 use super::*;
+use protocol_common::*;
 
 use protocol_memcache::*;
 
 use std::time::Duration;
 
-impl<'a> Execute<MemcacheRequest, MemcacheResponse> for Seg {
-    fn execute(&mut self, request: MemcacheRequest) -> Option<MemcacheResponse> {
-        let result = match request {
-            MemcacheRequest::Get { ref keys } => MemcacheResult::Values {
-                entries: self.get(keys),
-                cas: false,
-            },
-            MemcacheRequest::Gets { ref keys } => MemcacheResult::Values {
-                entries: self.get(keys),
-                cas: true,
-            },
-            MemcacheRequest::Set { ref entry, noreply } => {
-                let response = match self.set(entry) {
-                    Ok(_) => MemcacheResult::Stored,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
-                    _ => {
-                        unreachable!()
-                    }
-                };
-                if noreply {
-                    return None;
-                }
-                response
-            }
-            MemcacheRequest::Add { ref entry, noreply } => {
-                let response = match self.add(entry) {
-                    Ok(_) => MemcacheResult::Stored,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
-                    _ => {
-                        unreachable!()
-                    }
-                };
-                if noreply {
-                    return None;
-                }
-                response
-            }
-            MemcacheRequest::Replace { ref entry, noreply } => {
-                let response = match self.replace(entry) {
-                    Ok(_) => MemcacheResult::Stored,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
-                    _ => {
-                        unreachable!()
-                    }
-                };
-                if noreply {
-                    return None;
-                }
-                response
-            }
-            MemcacheRequest::Append { ref entry, noreply } => {
-                let response = match self.append(entry) {
-                    Ok(_) => MemcacheResult::Stored,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
-                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
-                    _ => {
-                        unreachable!()
-                    }
-                };
-                if noreply {
-                    return None;
-                }
-                response
-            }
-            MemcacheRequest::Prepend { ref entry, noreply } => {
-                let response = match self.prepend(entry) {
-                    Ok(_) => MemcacheResult::Stored,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
-                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
-                    _ => {
-                        unreachable!()
-                    }
-                };
-                if noreply {
-                    return None;
-                }
-                response
-            }
-            MemcacheRequest::Delete { ref key, noreply } => {
-                let response = match self.delete(key) {
-                    Ok(_) => MemcacheResult::Deleted,
-                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
-                    _ => {
-                        unreachable!()
-                    }
-                };
-                if noreply {
-                    return None;
-                }
-                response
-            }
-            MemcacheRequest::Incr {
-                ref key,
-                value,
-                noreply,
-            } => {
-                let response = match self.incr(key, value) {
-                    Ok(count) => MemcacheResult::Count(count),
-                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
-                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
-                    Err(MemcacheStorageError::Error) => MemcacheResult::Error,
-                    _ => {
-                        unreachable!()
-                    }
-                };
-                if noreply {
-                    return None;
-                }
-                response
-            }
-            MemcacheRequest::Decr {
-                ref key,
-                value,
-                noreply,
-            } => {
-                let response = match self.decr(key, value) {
-                    Ok(count) => MemcacheResult::Count(count),
-                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
-                    Err(MemcacheStorageError::NotSupported) => MemcacheResult::Error,
-                    Err(MemcacheStorageError::Error) => MemcacheResult::Error,
-                    _ => {
-                        unreachable!()
-                    }
-                };
-                if noreply {
-                    return None;
-                }
-                response
-            }
-            MemcacheRequest::Cas { ref entry, noreply } => {
-                let response = match self.cas(entry) {
-                    Ok(_) => MemcacheResult::Stored,
-                    Err(MemcacheStorageError::NotFound) => MemcacheResult::NotFound,
-                    Err(MemcacheStorageError::Exists) => MemcacheResult::Exists,
-                    Err(MemcacheStorageError::NotStored) => MemcacheResult::NotStored,
-                    _ => {
-                        unreachable!()
-                    }
-                };
-                if noreply {
-                    return None;
-                }
-                response
-            }
-            MemcacheRequest::FlushAll => {
-                return None;
-            }
+impl Execute<Request, Response> for Seg {
+    fn execute(&mut self, request: Request) -> ExecutionResult<Request, Response> {
+        let response = match request {
+            Request::Get(ref get) => self.get(&get),
+            Request::Gets(ref gets) => self.gets(&gets),
+            Request::Set(ref set) => self.set(&set),
+            Request::Add(ref add) => self.add(&add),
+            Request::Replace(ref replace) => self.replace(&replace),
+            Request::Cas(ref cas) => self.cas(&cas),
+            Request::Incr(ref incr) => self.incr(&incr),
+            Request::Decr(ref decr) => self.decr(&decr),
+            Request::Append(ref append) => self.append(&append),
+            Request::Prepend(ref prepend) => self.prepend(&prepend),
+            Request::Delete(ref delete) => self.delete(&delete),
+            Request::FlushAll(ref flush_all) => self.flush_all(&flush_all),
+            Request::Quit(ref quit) => self.quit(&quit),
         };
 
-        Some(MemcacheResponse { request, result })
+        ExecutionResult::new(request, response)
     }
 }
 
-impl MemcacheStorage for Seg {
-    fn get(&mut self, keys: &[Box<[u8]>]) -> Box<[MemcacheEntry]> {
-        let mut items = Vec::with_capacity(keys.len());
-        for key in keys {
+impl Storage for Seg {
+    fn get(&mut self, get: &Get) -> Response {
+        let mut values = Vec::with_capacity(get.keys().len());
+        for key in get.keys().iter() {
             if let Some(item) = self.data.get(key) {
                 let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
                 let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
-                items.push(MemcacheEntry {
-                    key: item.key().to_vec().into_boxed_slice(),
-                    value: Some(item.value().to_owned()),
-                    flags,
-                    cas: Some(item.cas().into()),
-                    ttl: None,
-                });
-            } else {
-                items.push(MemcacheEntry {
-                    key: key.to_vec().into_boxed_slice(),
-                    value: None,
-                    flags: 0,
-                    cas: None,
-                    ttl: None,
-                });
+                match item.value() {
+                    seg::Value::Bytes(b) => {
+                        values.push(Value::new(item.key(), flags, None, b));
+                    }
+                    seg::Value::U64(v) => {
+                        values.push(Value::new(
+                            item.key(),
+                            flags,
+                            None,
+                            &format!("{}", v).as_bytes(),
+                        ));
+                    }
+                }
             }
         }
-
-        items.into_boxed_slice()
+        Values::new(values.into_boxed_slice()).into()
     }
 
-    fn set(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
-            return Err(MemcacheStorageError::NotStored);
-        } else {
-            entry
-                .ttl()
-                .map(|v| Duration::from_secs(v.as_secs()))
-                .unwrap_or_else(|| Duration::from_secs(0))
-        };
+    fn gets(&mut self, get: &Gets) -> Response {
+        let mut values = Vec::with_capacity(get.keys().len());
+        for key in get.keys().iter() {
+            if let Some(item) = self.data.get(key) {
+                let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
+                let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
+                match item.value() {
+                    seg::Value::Bytes(b) => {
+                        values.push(Value::new(item.key(), flags, Some(item.cas().into()), b));
+                    }
+                    seg::Value::U64(v) => {
+                        values.push(Value::new(
+                            item.key(),
+                            flags,
+                            Some(item.cas().into()),
+                            &format!("{}", v).as_bytes(),
+                        ));
+                    }
+                }
+            }
+        }
+        Values::new(values.into_boxed_slice()).into()
+    }
 
-        match self.data.insert(
-            entry.key(),
-            entry.value().unwrap_or_else(|| b"".into()),
-            Some(&entry.flags().to_be_bytes()),
-            ttl,
-        ) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(MemcacheStorageError::NotStored),
+    fn set(&mut self, set: &Set) -> Response {
+        if let Some(0) = set.ttl() {
+            self.data.delete(set.key());
+            Response::stored(set.noreply())
+        } else {
+            if let Ok(s) = std::str::from_utf8(set.value()) {
+                if let Ok(v) = s.parse::<u64>() {
+                    if self
+                        .data
+                        .insert(
+                            set.key(),
+                            v,
+                            Some(&set.flags().to_be_bytes()),
+                            Duration::from_secs(set.ttl().unwrap_or(0).into()),
+                        )
+                        .is_ok()
+                    {
+                        Response::stored(set.noreply())
+                    } else {
+                        Response::server_error("")
+                    }
+                } else {
+                    if self
+                        .data
+                        .insert(
+                            set.key(),
+                            set.value(),
+                            Some(&set.flags().to_be_bytes()),
+                            Duration::from_secs(set.ttl().unwrap_or(0).into()),
+                        )
+                        .is_ok()
+                    {
+                        Response::stored(set.noreply())
+                    } else {
+                        Response::server_error("")
+                    }
+                }
+            } else {
+                if self
+                    .data
+                    .insert(
+                        set.key(),
+                        set.value(),
+                        Some(&set.flags().to_be_bytes()),
+                        Duration::from_secs(set.ttl().unwrap_or(0).into()),
+                    )
+                    .is_ok()
+                {
+                    Response::stored(set.noreply())
+                } else {
+                    Response::server_error("")
+                }
+            }
         }
     }
 
-    fn add(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
-            return Err(MemcacheStorageError::NotStored);
-        } else {
-            entry
-                .ttl()
-                .map(|v| Duration::from_secs(v.as_secs()))
-                .unwrap_or_else(|| Duration::from_secs(0))
-        };
+    fn add(&mut self, add: &Add) -> Response {
+        if self.data.get_no_freq_incr(add.key()).is_some() {
+            return Response::not_stored(add.noreply());
+        }
 
-        if self.data.get_no_freq_incr(entry.key()).is_none()
-            && self
-                .data
-                .insert(
-                    entry.key(),
-                    entry.value().unwrap_or_else(|| b"".into()),
-                    Some(&entry.flags().to_be_bytes()),
-                    ttl,
-                )
-                .is_ok()
-        {
-            Ok(())
+        if let Some(0) = add.ttl() {
+            self.data.delete(add.key());
+            Response::stored(add.noreply())
         } else {
-            Err(MemcacheStorageError::NotStored)
+            if let Ok(s) = std::str::from_utf8(add.value()) {
+                if let Ok(v) = s.parse::<u64>() {
+                    if self
+                        .data
+                        .insert(
+                            add.key(),
+                            v,
+                            Some(&add.flags().to_be_bytes()),
+                            Duration::from_secs(add.ttl().unwrap_or(0).into()),
+                        )
+                        .is_ok()
+                    {
+                        Response::stored(add.noreply())
+                    } else {
+                        Response::server_error("")
+                    }
+                } else {
+                    if self
+                        .data
+                        .insert(
+                            add.key(),
+                            add.value(),
+                            Some(&add.flags().to_be_bytes()),
+                            Duration::from_secs(add.ttl().unwrap_or(0).into()),
+                        )
+                        .is_ok()
+                    {
+                        Response::stored(add.noreply())
+                    } else {
+                        Response::server_error("")
+                    }
+                }
+            } else {
+                if self
+                    .data
+                    .insert(
+                        add.key(),
+                        add.value(),
+                        Some(&add.flags().to_be_bytes()),
+                        Duration::from_secs(add.ttl().unwrap_or(0).into()),
+                    )
+                    .is_ok()
+                {
+                    Response::stored(add.noreply())
+                } else {
+                    Response::server_error("")
+                }
+            }
         }
     }
 
-    fn replace(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
-            return Err(MemcacheStorageError::NotStored);
-        } else {
-            entry
-                .ttl()
-                .map(|v| Duration::from_secs(v.as_secs()))
-                .unwrap_or_else(|| Duration::from_secs(0))
-        };
+    fn replace(&mut self, replace: &Replace) -> Response {
+        if self.data.get_no_freq_incr(replace.key()).is_none() {
+            return Response::not_stored(replace.noreply());
+        }
 
-        if self.data.get_no_freq_incr(entry.key()).is_some()
-            && self
-                .data
-                .insert(
-                    entry.key(),
-                    entry.value().unwrap_or_else(|| b"".into()),
-                    Some(&entry.flags().to_be_bytes()),
-                    ttl,
-                )
-                .is_ok()
-        {
-            Ok(())
+        if let Some(0) = replace.ttl() {
+            self.data.delete(replace.key());
+            Response::stored(replace.noreply())
         } else {
-            Err(MemcacheStorageError::NotStored)
+            if let Ok(s) = std::str::from_utf8(replace.value()) {
+                if let Ok(v) = s.parse::<u64>() {
+                    if self
+                        .data
+                        .insert(
+                            replace.key(),
+                            v,
+                            Some(&replace.flags().to_be_bytes()),
+                            Duration::from_secs(replace.ttl().unwrap_or(0).into()),
+                        )
+                        .is_ok()
+                    {
+                        Response::stored(replace.noreply())
+                    } else {
+                        Response::server_error("")
+                    }
+                } else {
+                    if self
+                        .data
+                        .insert(
+                            replace.key(),
+                            replace.value(),
+                            Some(&replace.flags().to_be_bytes()),
+                            Duration::from_secs(replace.ttl().unwrap_or(0).into()),
+                        )
+                        .is_ok()
+                    {
+                        Response::stored(replace.noreply())
+                    } else {
+                        Response::server_error("")
+                    }
+                }
+            } else {
+                if self
+                    .data
+                    .insert(
+                        replace.key(),
+                        replace.value(),
+                        Some(&replace.flags().to_be_bytes()),
+                        Duration::from_secs(replace.ttl().unwrap_or(0).into()),
+                    )
+                    .is_ok()
+                {
+                    Response::stored(replace.noreply())
+                } else {
+                    Response::server_error("")
+                }
+            }
         }
     }
 
-    fn append(&mut self, _entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        Err(MemcacheStorageError::NotSupported)
+    fn append(&mut self, _: &Append) -> Response {
+        Response::error()
     }
 
-    fn prepend(&mut self, _entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        Err(MemcacheStorageError::NotSupported)
+    fn prepend(&mut self, _: &Prepend) -> Response {
+        Response::error()
     }
 
-    fn delete(&mut self, key: &[u8]) -> Result<(), MemcacheStorageError> {
-        if self.data.delete(key) {
-            Ok(())
-        } else {
-            Err(MemcacheStorageError::NotFound)
-        }
-    }
-
-    fn incr(&mut self, key: &[u8], value: u64) -> Result<u64, MemcacheStorageError> {
-        match self.data.wrapping_add(key, value) {
+    fn incr(&mut self, incr: &Incr) -> Response {
+        match self.data.wrapping_add(incr.key(), incr.value()) {
             Ok(item) => match item.value() {
-                Value::U64(v) => Ok(v),
-                _ => Err(MemcacheStorageError::ServerError),
+                seg::Value::U64(v) => Response::numeric(v, incr.noreply()),
+                _ => Response::server_error(""),
             },
-            Err(SegError::NotFound) => Err(MemcacheStorageError::NotFound),
-            Err(SegError::NotNumeric) => Err(MemcacheStorageError::Error),
-            Err(_) => Err(MemcacheStorageError::ServerError),
+            Err(SegError::NotFound) => Response::not_found(incr.noreply()),
+            Err(SegError::NotNumeric) => Response::error(),
+            Err(_) => Response::server_error(""),
         }
     }
 
-    fn decr(&mut self, key: &[u8], value: u64) -> Result<u64, MemcacheStorageError> {
-        match self.data.saturating_sub(key, value) {
+    fn decr(&mut self, decr: &Decr) -> Response {
+        match self.data.saturating_sub(decr.key(), decr.value()) {
             Ok(item) => match item.value() {
-                Value::U64(v) => Ok(v),
-                _ => Err(MemcacheStorageError::ServerError),
+                seg::Value::U64(v) => Response::numeric(v, decr.noreply()),
+                _ => Response::server_error(""),
             },
-            Err(SegError::NotFound) => Err(MemcacheStorageError::NotFound),
-            Err(SegError::NotNumeric) => Err(MemcacheStorageError::Error),
-            Err(_) => Err(MemcacheStorageError::ServerError),
+            Err(SegError::NotFound) => Response::not_found(decr.noreply()),
+            Err(SegError::NotNumeric) => Response::error(),
+            Err(_) => Response::server_error(""),
         }
     }
 
-    fn cas(&mut self, entry: &MemcacheEntry) -> Result<(), MemcacheStorageError> {
-        let ttl = if entry.ttl().map(|v| v.as_secs()) == Some(0) {
-            return Err(MemcacheStorageError::NotStored);
-        } else {
-            entry
-                .ttl()
-                .map(|v| Duration::from_secs(v.as_secs()))
-                .unwrap_or_else(|| Duration::from_secs(0))
-        };
+    fn cas(&mut self, cas: &Cas) -> Response {
+        // duration of zero is treated as no expiry. as we have
+        // no way of checking the cas value without performing a cas
+        // and checking the result, setting the shortest possible ttl
+        // results in nearly immediate expiry
+        let ttl = Duration::from_secs(cas.ttl().unwrap_or(1).into());
 
-        match self.data.cas(
-            entry.key(),
-            entry.value().unwrap_or_else(|| b"".into()),
-            Some(&entry.flags().to_be_bytes()),
-            ttl,
-            entry.cas().unwrap_or(0) as u32,
-        ) {
-            Ok(_) => Ok(()),
-            Err(SegError::NotFound) => Err(MemcacheStorageError::NotFound),
-            Err(SegError::Exists) => Err(MemcacheStorageError::Exists),
-            Err(_) => Err(MemcacheStorageError::NotStored),
+        if let Ok(s) = std::str::from_utf8(cas.value()) {
+            if let Ok(v) = s.parse::<u64>() {
+                match self.data.cas(
+                    cas.key(),
+                    v,
+                    Some(&cas.flags().to_be_bytes()),
+                    ttl,
+                    cas.cas() as u32,
+                ) {
+                    Ok(_) => Response::stored(cas.noreply()),
+                    Err(SegError::NotFound) => Response::not_found(cas.noreply()),
+                    Err(SegError::Exists) => Response::exists(cas.noreply()),
+                    Err(_) => Response::error(),
+                }
+            } else {
+                match self.data.cas(
+                    cas.key(),
+                    cas.value(),
+                    Some(&cas.flags().to_be_bytes()),
+                    ttl,
+                    cas.cas() as u32,
+                ) {
+                    Ok(_) => Response::stored(cas.noreply()),
+                    Err(SegError::NotFound) => Response::not_found(cas.noreply()),
+                    Err(SegError::Exists) => Response::exists(cas.noreply()),
+                    Err(_) => Response::error(),
+                }
+            }
+        } else {
+            match self.data.cas(
+                cas.key(),
+                cas.value(),
+                Some(&cas.flags().to_be_bytes()),
+                ttl,
+                cas.cas() as u32,
+            ) {
+                Ok(_) => Response::stored(cas.noreply()),
+                Err(SegError::NotFound) => Response::not_found(cas.noreply()),
+                Err(SegError::Exists) => Response::exists(cas.noreply()),
+                Err(_) => Response::error(),
+            }
         }
+    }
+
+    fn delete(&mut self, delete: &Delete) -> Response {
+        if self.data.delete(delete.key()) {
+            Response::deleted(delete.noreply())
+        } else {
+            Response::not_found(delete.noreply())
+        }
+    }
+
+    fn flush_all(&mut self, _flush_all: &FlushAll) -> Response {
+        Response::error()
+    }
+
+    fn quit(&mut self, _quit: &Quit) -> Response {
+        Response::hangup()
     }
 }

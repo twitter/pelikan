@@ -24,7 +24,6 @@ use protocol_memcache::*;
 use session::*;
 use std::borrow::{Borrow, BorrowMut};
 use std::io::{Error, ErrorKind};
-use storage_types::OwnedValue;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::runtime::Builder;

@@ -11,11 +11,37 @@ use session::Session;
 pub const CRLF: &str = "\r\n";
 
 pub trait Compose {
-    fn compose(self, dst: &mut Session);
+    fn compose(&self, dst: &mut Session);
+
+    /// Indicates that the connection should be closed.
+    /// Override this function as appropriate for the
+    /// protocol.
+    fn should_hangup(&self) -> bool {
+        false
+    }
 }
 
 pub trait Execute<Request, Response> {
-    fn execute(&mut self, request: Request) -> Option<Response>;
+    fn execute(&mut self, request: Request) -> ExecutionResult<Request, Response>;
+}
+
+pub struct ExecutionResult<Request, Response> {
+    request: Request,
+    response: Response,
+}
+
+impl<Request, Response> ExecutionResult<Request, Response> {
+    pub fn new(request: Request, response: Response) -> Self {
+        Self { request, response }
+    }
+
+    pub fn request(&self) -> &Request {
+        &self.request
+    }
+
+    pub fn response(&self) -> &Response {
+        &self.response
+    }
 }
 
 #[derive(Debug, PartialEq)]

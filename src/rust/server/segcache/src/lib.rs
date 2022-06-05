@@ -9,12 +9,10 @@
 use config::*;
 use entrystore::Seg;
 use logger::*;
-use protocol_memcache::{MemcacheRequest, MemcacheRequestParser, MemcacheResponse};
+use protocol_memcache::{Request, RequestParser, Response};
 use server::{Process, ProcessBuilder};
 
-type Parser = MemcacheRequestParser;
-type Request = MemcacheRequest;
-type Response = MemcacheResponse;
+type Parser = RequestParser;
 type Storage = Seg;
 
 /// This structure represents a running `Segcache` process.
@@ -41,10 +39,9 @@ impl Segcache {
         );
 
         // initialize parser
-        let parser = Parser::new(
-            config.seg().segment_size() as usize,
-            config.time().time_type(),
-        );
+        let parser = Parser::new()
+            .max_value_size(config.seg().segment_size() as usize)
+            .time_type(config.time().time_type());
 
         // initialize process
         let process_builder = ProcessBuilder::<Storage, Parser, Request, Response>::new(
