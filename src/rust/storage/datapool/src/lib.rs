@@ -85,12 +85,12 @@ pub struct Header {
     checksum: [u8; 32],
     magic: [u8; 8],
     version: u64,
-    options: u64,
     time_monotonic_s: Instant<Seconds<u32>>,
     time_unix_s: UnixInstant<Seconds<u32>>,
     time_monotonic_ns: Instant<Nanoseconds<u64>>,
     time_unix_ns: UnixInstant<Nanoseconds<u64>>,
     user_version: u64,
+    options: u64,
     _pad: [u8; 4008],
 }
 
@@ -100,12 +100,12 @@ impl Header {
             checksum: [0; 32],
             magic: MAGIC,
             version: VERSION,
-            options: 0,
             time_monotonic_s: Instant::<Seconds<u32>>::now(),
             time_unix_s: UnixInstant::<Seconds<u32>>::now(),
             time_monotonic_ns: Instant::<Nanoseconds<u64>>::now(),
             time_unix_ns: UnixInstant::<Nanoseconds<u64>>::now(),
             user_version: 0,
+            options: 0,
             _pad: [0; 4008],
         }
     }
