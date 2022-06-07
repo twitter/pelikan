@@ -11,6 +11,6 @@ struct context {
     int timeout;
 };
 
-bool admin_init;
-bool server_init;
-bool worker_init;
+extern bool admin_init;
+extern bool server_init;
+extern bool worker_init;
