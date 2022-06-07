@@ -4,7 +4,7 @@ pub use rustcommon_metrics::*;
 pub use macros::to_lowercase;
 
 #[macro_export]
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 macro_rules! counter {
     ($name:ident) => {
         #[$crate::metrics::metric(
@@ -24,7 +24,7 @@ macro_rules! counter {
 }
 
 #[macro_export]
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 macro_rules! gauge {
     ($name:ident) => {
         #[$crate::metrics::metric(
@@ -44,7 +44,7 @@ macro_rules! gauge {
 }
 
 #[macro_export]
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 macro_rules! heatmap {
     ($name:ident, $max:expr) => {
         #[$crate::metrics::metric(
@@ -78,7 +78,7 @@ macro_rules! heatmap {
 }
 
 #[macro_export]
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 macro_rules! static_metrics {
         {$(
             $( #[ $attr:meta ] )*
@@ -100,7 +100,7 @@ macro_rules! static_metrics {
 
 /// Creates a test that verifies that no two metrics have the same name.
 #[macro_export]
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 macro_rules! test_no_duplicates {
     () => {
         #[cfg(test)]
@@ -123,7 +123,7 @@ macro_rules! test_no_duplicates {
 pub use static_metrics;
 pub use test_no_duplicates;
 
-crate::gauge!(PID, "the process id");
+gauge!(PID, "the process id");
 
 pub fn init() {
     PID.set(std::process::id().into());

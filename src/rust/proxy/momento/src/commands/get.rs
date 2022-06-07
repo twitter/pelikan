@@ -34,7 +34,7 @@ pub(crate) async fn get(
         // know this unwrap is safe
         let key = std::str::from_utf8(key).unwrap();
 
-        match timeout(Duration::from_millis(200), client.get(&cache_name, key)).await {
+        match timeout(Duration::from_millis(200), client.get(cache_name, key)).await {
             Ok(Ok(response)) => {
                 match response.result {
                     MomentoGetStatus::ERROR => {
