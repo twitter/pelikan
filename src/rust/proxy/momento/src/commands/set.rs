@@ -49,7 +49,7 @@ pub(crate) async fn set(
 
         match timeout(
             Duration::from_millis(200),
-            client.set(&cache_name, key, &value, ttl),
+            client.set(cache_name, key, &value, ttl),
         )
         .await
         {
