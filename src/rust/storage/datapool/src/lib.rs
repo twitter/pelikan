@@ -24,6 +24,7 @@ const VERSION: u64 = 0;
 
 /// The datapool trait defines the abstraction that each datapool implementation
 /// should conform to.
+#[allow(clippy::len_without_is_empty)]
 pub trait Datapool: Send {
     /// Immutable borrow of the data within the datapool
     fn as_slice(&self) -> &[u8];
@@ -84,12 +85,13 @@ pub struct Header {
     checksum: [u8; 32],
     magic: [u8; 8],
     version: u64,
+    options: u64,
     time_monotonic_s: Instant<Seconds<u32>>,
     time_unix_s: UnixInstant<Seconds<u32>>,
     time_monotonic_ns: Instant<Nanoseconds<u64>>,
     time_unix_ns: UnixInstant<Nanoseconds<u64>>,
     user_version: u64,
-    _pad: [u8; 4016],
+    _pad: [u8; 4008],
 }
 
 impl Header {
@@ -98,12 +100,13 @@ impl Header {
             checksum: [0; 32],
             magic: MAGIC,
             version: VERSION,
+            options: 0,
             time_monotonic_s: Instant::<Seconds<u32>>::now(),
             time_unix_s: UnixInstant::<Seconds<u32>>::now(),
             time_monotonic_ns: Instant::<Nanoseconds<u64>>::now(),
             time_unix_ns: UnixInstant::<Nanoseconds<u64>>::now(),
             user_version: 0,
-            _pad: [0; 4016],
+            _pad: [0; 4008],
         }
     }
 
@@ -157,6 +160,10 @@ impl Header {
 
     fn set_user_version(&mut self, user_version: u64) {
         self.user_version = user_version;
+    }
+
+    pub fn options(&self) -> u64 {
+        self.options
     }
 }
 
@@ -228,7 +235,7 @@ impl MmapFile {
         let mut hasher = blake3::Hasher::new();
 
         // hash the header with a zero'd checksum
-        hasher.update(&header.as_bytes());
+        hasher.update(header.as_bytes());
 
         // calculates the hash of the data region, as a side effect this
         // prefaults all the pages
@@ -348,7 +355,7 @@ impl Datapool for MmapFile {
         header.set_user_version(self.user_version);
 
         // hash the header
-        hasher.update(&header.as_bytes());
+        hasher.update(header.as_bytes());
 
         // calculate the number of data pages to be copied
         let data_pages = (self.mmap.len() - HEADER_SIZE) / PAGE_SIZE;
@@ -484,7 +491,7 @@ impl FileBackedMemory {
         header.zero_checksum();
 
         // hash the header with the zero'd checksum
-        hasher.update(&header.as_bytes());
+        hasher.update(header.as_bytes());
 
         // seek to start of the data
         file.seek(SeekFrom::Start(file_data.start as u64))?;
@@ -628,7 +635,7 @@ impl Datapool for FileBackedMemory {
         header.set_user_version(self.user_version);
 
         // hash the header with a zero'd checksum
-        hasher.update(&header.as_bytes());
+        hasher.update(header.as_bytes());
 
         // calculate the number of data pages to be copied
         let data_pages = (self.file_data.end - self.file_data.start) / PAGE_SIZE;
@@ -657,7 +664,7 @@ impl Datapool for FileBackedMemory {
         // write the header to the file
         self.file.seek(SeekFrom::Start(0))?;
         loop {
-            if self.file.write(&header.as_bytes())? == HEADER_SIZE {
+            if self.file.write(header.as_bytes())? == HEADER_SIZE {
                 break;
             }
             self.file.seek(SeekFrom::Start(0))?;
