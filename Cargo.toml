@@ -17,6 +17,7 @@ members = [
     "src/rust/server/pingserver",
     "src/rust/server/segcache",
     "src/rust/session",
+    "src/rust/storage/datapool",
     "src/rust/storage/seg",
     "src/rust/storage/types",
 ]

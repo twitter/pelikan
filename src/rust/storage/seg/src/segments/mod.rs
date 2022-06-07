@@ -29,7 +29,8 @@ mod test {
     fn free_q() {
         let mut segments = SegmentsBuilder::default()
             .heap_size(16 * 1024 * 1024)
-            .build();
+            .build()
+            .expect("failed to create segments");
         let mut used = Vec::new();
         for _i in 0..16 {
             let id = segments.pop_free().unwrap();

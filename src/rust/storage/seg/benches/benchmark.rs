@@ -29,7 +29,8 @@ fn get_benchmark(c: &mut Criterion) {
             .hash_power(16)
             .heap_size(64 * MB)
             .segment_size(MB as i32)
-            .build();
+            .build()
+            .expect("failed to create cache");
 
         let mut key = 0;
 
@@ -85,7 +86,8 @@ fn set_benchmark(c: &mut Criterion) {
                 .hash_power(16)
                 .heap_size(64 * MB)
                 .segment_size(MB as i32)
-                .build();
+                .build()
+                .expect("failed to create cache");
 
             let mut key = 0;
             let mut value = 0;

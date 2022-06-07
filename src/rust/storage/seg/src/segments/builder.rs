@@ -71,7 +71,7 @@ impl<'a> SegmentsBuilder {
     }
 
     /// Construct the [`Segments`] from the builder
-    pub fn build(self) -> Segments {
+    pub fn build(self) -> Result<Segments, std::io::Error> {
         Segments::from_builder(self)
     }
 }

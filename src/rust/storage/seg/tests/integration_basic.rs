@@ -15,7 +15,8 @@ fn integration_basic() {
         .segment_size(segment_size)
         .heap_size(heap_size)
         .hash_power(16)
-        .build();
+        .build()
+        .expect("failed to create cache");
 
     println!("filling seg 0");
     let _ = cache.insert(

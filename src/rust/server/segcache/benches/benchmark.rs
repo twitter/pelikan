@@ -25,7 +25,7 @@ fn get_benchmark(c: &mut Criterion) {
     let config = SegcacheConfig::default();
 
     // launch the server
-    let server = Segcache::new(config);
+    let server = Segcache::new(config).expect("failed to launch segcache");
 
     // wait for server to startup. duration is chosen to be longer than we'd
     // expect startup to take in a slow ci environment.
