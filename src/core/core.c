@@ -9,6 +9,10 @@
 #include <string.h>
 #include <sysexits.h>
 
+bool admin_init;
+bool server_init;
+bool worker_init;
+
 void
 core_run(void *arg_worker)
 {

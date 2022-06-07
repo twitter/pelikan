@@ -93,7 +93,7 @@ fn main() {
     // load config from file
     let config = if let Some(file) = matches.value_of("CONFIG") {
         debug!("loading config: {}", file);
-        match PingserverConfig::load(&file) {
+        match PingserverConfig::load(file) {
             Ok(c) => c,
             Err(e) => {
                 error!("{}", e);
