@@ -4,16 +4,19 @@
 
 use super::{SegmentHeader, SegmentsError};
 use crate::*;
-use common::metrics::{static_metrics, Counter, Gauge};
 use core::num::NonZeroU32;
 
-static_metrics! {
-    static ITEM_CURRENT: Gauge;
-    static ITEM_CURRENT_BYTES: Gauge;
-    static ITEM_DEAD: Gauge;
-    static ITEM_DEAD_BYTES: Gauge;
-    static ITEM_COMPACTED: Counter;
-}
+gauge!(ITEM_CURRENT, "current number of live items");
+gauge!(
+    ITEM_CURRENT_BYTES,
+    "current number of live bytes for storing items"
+);
+gauge!(ITEM_DEAD, "current number of dead items");
+gauge!(
+    ITEM_DEAD_BYTES,
+    "current number of dead bytes for storing items"
+);
+counter!(ITEM_COMPACTED, "number of items which have been compacted");
 
 pub const SEG_MAGIC: u64 = 0xBADC0FFEEBADCAFE;
 

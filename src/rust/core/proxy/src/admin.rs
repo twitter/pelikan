@@ -10,7 +10,6 @@ use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use crate::QUEUE_RETRIES;
 use crate::TCP_ACCEPT_EX;
 use crate::*;
-use common::metrics::{metrics, static_metrics, Counter, Gauge, Heatmap};
 use common::signal::Signal;
 use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use config::*;
@@ -21,38 +20,36 @@ use mio::event::Event;
 use mio::{Events, Token, Waker};
 use protocol_admin::*;
 use queues::Queues;
+use rustcommon_metrics::*;
 use session::{Session, TcpStream};
 use std::io::{BufRead, Error, ErrorKind, Write};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tiny_http::{Method, Request, Response};
 
-static_metrics! {
-    static ADMIN_REQUEST_PARSE: Counter;
-    static ADMIN_RESPONSE_COMPOSE: Counter;
-    static ADMIN_EVENT_ERROR: Counter;
-    static ADMIN_EVENT_WRITE: Counter;
-    static ADMIN_EVENT_READ: Counter;
-    static ADMIN_EVENT_LOOP: Counter;
-    static ADMIN_EVENT_TOTAL: Counter;
-
-    static RU_UTIME: Counter;
-    static RU_STIME: Counter;
-    static RU_MAXRSS: Gauge;
-    static RU_IXRSS: Gauge;
-    static RU_IDRSS: Gauge;
-    static RU_ISRSS: Gauge;
-    static RU_MINFLT: Counter;
-    static RU_MAJFLT: Counter;
-    static RU_NSWAP: Counter;
-    static RU_INBLOCK: Counter;
-    static RU_OUBLOCK: Counter;
-    static RU_MSGSND: Counter;
-    static RU_MSGRCV: Counter;
-    static RU_NSIGNALS: Counter;
-    static RU_NVCSW: Counter;
-    static RU_NIVCSW: Counter;
-}
+counter!(ADMIN_REQUEST_PARSE);
+counter!(ADMIN_RESPONSE_COMPOSE);
+counter!(ADMIN_EVENT_ERROR);
+counter!(ADMIN_EVENT_WRITE);
+counter!(ADMIN_EVENT_READ);
+counter!(ADMIN_EVENT_LOOP);
+counter!(ADMIN_EVENT_TOTAL);
+counter!(RU_UTIME);
+counter!(RU_STIME);
+gauge!(RU_MAXRSS);
+gauge!(RU_IXRSS);
+gauge!(RU_IDRSS);
+gauge!(RU_ISRSS);
+counter!(RU_MINFLT);
+counter!(RU_MAJFLT);
+counter!(RU_NSWAP);
+counter!(RU_INBLOCK);
+counter!(RU_OUBLOCK);
+counter!(RU_MSGSND);
+counter!(RU_MSGRCV);
+counter!(RU_NSIGNALS);
+counter!(RU_NVCSW);
+counter!(RU_NIVCSW);
 
 const KB: u64 = 1024; // one kilobyte in bytes
 const S: u64 = 1_000_000_000; // one second in nanoseconds
@@ -270,7 +267,7 @@ impl Admin {
     fn handle_stats_request(session: &mut Session) {
         ADMIN_REQUEST_PARSE.increment();
         let mut data = Vec::new();
-        for metric in &common::metrics::metrics() {
+        for metric in &rustcommon_metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {
@@ -370,7 +367,7 @@ impl Admin {
     fn human_stats(&self) -> String {
         let mut data = Vec::new();
 
-        for metric in &common::metrics::metrics() {
+        for metric in &rustcommon_metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {
@@ -408,7 +405,7 @@ impl Admin {
 
         let mut data = Vec::new();
 
-        for metric in &common::metrics::metrics() {
+        for metric in &rustcommon_metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {
@@ -469,7 +466,7 @@ impl Admin {
     fn prometheus_stats(&self) -> String {
         let mut data = Vec::new();
 
-        for metric in &common::metrics::metrics() {
+        for metric in &rustcommon_metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {

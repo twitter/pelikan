@@ -24,12 +24,15 @@ pub use error::TtlBucketsError;
 pub use ttl_bucket::TtlBucket;
 pub use ttl_buckets::TtlBuckets;
 
-use common::metrics::{static_metrics, Counter};
+use rustcommon_metrics::*;
 
-static_metrics! {
-    static SEGMENT_CLEAR: Counter;
-    static SEGMENT_EXPIRE: Counter;
-
-    static CLEAR_TIME: Counter;
-    static EXPIRE_TIME: Counter;
-}
+counter!(SEGMENT_CLEAR, "number of segments cleared");
+counter!(SEGMENT_EXPIRE, "number of segments expired");
+counter!(
+    CLEAR_TIME,
+    "amount of time, in nanoseconds, spent clearing segments"
+);
+counter!(
+    EXPIRE_TIME,
+    "amount of time, in nanoseconds, spent expiring segments"
+);

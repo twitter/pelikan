@@ -24,3 +24,7 @@ strum = "0.20.0"
 strum_macros = "0.20.1"
 sysconf = "0.3.4"
 thiserror = "1.0.23"
+
+[dependencies.rustcommon-metrics]
+git = "https://github.com/twitter/rustcommon"
+features = ["heatmap"]

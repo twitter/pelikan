@@ -19,6 +19,8 @@ mio = { version = "0.8.0", features = ["os-poll", "net"] }
 mpmc = "*"
 protocol-admin = { path = "../../protocol/admin" }
 protocol-common = { path = "../../protocol/common" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
 queues = { path = "../../queues" }
 session = { path = "../../session" }
 slab = "*"

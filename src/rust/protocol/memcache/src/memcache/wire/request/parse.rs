@@ -273,9 +273,9 @@ fn parse_set(
     let ttl = if time_type == TimeType::Unix
         || (time_type == TimeType::Memcache && expiry >= 60 * 60 * 24 * 30)
     {
-        if let Some(d) =
-            UnixInstant::from_secs(expiry).checked_duration_since(UnixInstant::recent())
-        {
+        if let Some(d) = common::time::UnixInstant::from_secs(expiry).checked_duration_since(
+            common::time::UnixInstant::<common::time::Seconds<u32>>::recent(),
+        ) {
             Some(Duration::from_secs(d.as_secs().into()))
         } else {
             Some(Duration::from_secs(0))

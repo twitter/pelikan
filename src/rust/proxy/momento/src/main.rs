@@ -7,7 +7,6 @@ extern crate logger;
 
 use backtrace::Backtrace;
 use clap::{App, Arg};
-use common::metrics::*;
 use config::*;
 use core::num::NonZeroU64;
 use core::num::NonZeroUsize;
@@ -21,6 +20,7 @@ use momento::response::error::*;
 use momento::simple_cache_client::*;
 use protocol_admin::*;
 use protocol_memcache::*;
+use rustcommon_metrics::*;
 use session::*;
 use std::borrow::{Borrow, BorrowMut};
 use std::io::{Error, ErrorKind};
@@ -78,44 +78,43 @@ pub static PERCENTILES: &[(&str, f64)] = &[
 ];
 
 // define metrics that are part of the proxy
-static_metrics! {
-    static ADMIN_REQUEST_PARSE: Counter;
-    static ADMIN_RESPONSE_COMPOSE: Counter;
 
-    static BACKEND_REQUEST: Counter;
-    static BACKEND_EX: Counter;
-    static BACKEND_EX_RATE_LIMITED: Counter;
-    static BACKEND_EX_TIMEOUT: Counter;
+counter!(ADMIN_REQUEST_PARSE);
+counter!(ADMIN_RESPONSE_COMPOSE);
 
-    static GET: Counter;
-    static GET_EX: Counter;
-    static GET_KEY: Counter;
-    static GET_KEY_EX: Counter;
-    static GET_KEY_HIT: Counter;
-    static GET_KEY_MISS: Counter;
+counter!(BACKEND_REQUEST);
+counter!(BACKEND_EX);
+counter!(BACKEND_EX_RATE_LIMITED);
+counter!(BACKEND_EX_TIMEOUT);
 
-    static SET: Counter;
-    static SET_EX: Counter;
-    static SET_NOT_STORED: Counter;
-    static SET_STORED: Counter;
+counter!(GET);
+counter!(GET_EX);
+counter!(GET_KEY);
+counter!(GET_KEY_EX);
+counter!(GET_KEY_HIT);
+counter!(GET_KEY_MISS);
 
-    static RU_UTIME: Counter;
-    static RU_STIME: Counter;
-    static RU_MAXRSS: Gauge;
-    static RU_IXRSS: Gauge;
-    static RU_IDRSS: Gauge;
-    static RU_ISRSS: Gauge;
-    static RU_MINFLT: Counter;
-    static RU_MAJFLT: Counter;
-    static RU_NSWAP: Counter;
-    static RU_INBLOCK: Counter;
-    static RU_OUBLOCK: Counter;
-    static RU_MSGSND: Counter;
-    static RU_MSGRCV: Counter;
-    static RU_NSIGNALS: Counter;
-    static RU_NVCSW: Counter;
-    static RU_NIVCSW: Counter;
-}
+counter!(SET);
+counter!(SET_EX);
+counter!(SET_NOT_STORED);
+counter!(SET_STORED);
+
+counter!(RU_UTIME);
+counter!(RU_STIME);
+gauge!(RU_MAXRSS);
+gauge!(RU_IXRSS);
+gauge!(RU_IDRSS);
+gauge!(RU_ISRSS);
+counter!(RU_MINFLT);
+counter!(RU_MAJFLT);
+counter!(RU_NSWAP);
+counter!(RU_INBLOCK);
+counter!(RU_OUBLOCK);
+counter!(RU_MSGSND);
+counter!(RU_MSGRCV);
+counter!(RU_NSIGNALS);
+counter!(RU_NVCSW);
+counter!(RU_NIVCSW);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // custom panic hook to terminate whole process after unwinding
@@ -196,7 +195,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut metrics = Vec::new();
 
-        for metric in &common::metrics::metrics() {
+        for metric in &rustcommon_metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {

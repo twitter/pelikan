@@ -10,6 +10,7 @@ mod single;
 mod storage;
 
 pub use self::storage::{StorageWorker, StorageWorkerBuilder};
+use crate::*;
 use crate::{QUEUE_CAPACITY, THREAD_PREFIX};
 use common::signal::Signal;
 use config::WorkerConfig;
@@ -25,25 +26,18 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 
 use super::EventLoop;
-
-use common::metrics::{static_metrics, Counter, Heatmap, Relaxed};
-use common::time::{Duration, Nanoseconds};
 use mio::Token;
 
-static_metrics! {
-    static WORKER_EVENT_LOOP: Counter;
-    static WORKER_EVENT_TOTAL: Counter;
-    static WORKER_EVENT_ERROR: Counter;
-    static WORKER_EVENT_WRITE: Counter;
-    static WORKER_EVENT_READ: Counter;
+counter!(WORKER_EVENT_LOOP);
+counter!(WORKER_EVENT_TOTAL);
+counter!(WORKER_EVENT_ERROR);
+counter!(WORKER_EVENT_WRITE);
+counter!(WORKER_EVENT_READ);
 
-    static STORAGE_EVENT_LOOP: Counter;
-    static STORAGE_QUEUE_DEPTH: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(1_000_000, 3, Duration::<Nanoseconds<u64>>::from_secs(60), Duration::<Nanoseconds<u64>>::from_secs(1))
-    );
+counter!(STORAGE_EVENT_LOOP);
+heatmap!(STORAGE_QUEUE_DEPTH, 1_000_000);
 
-    static PROCESS_REQ: Counter;
-}
+counter!(PROCESS_REQ);
 
 pub struct TokenWrapper<T> {
     inner: T,
