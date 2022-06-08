@@ -6,8 +6,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ahash = "0.7.4"
 common = { path = "../common" }
 config = { path = "../config" }
-log = { version = "0.4.14", features = ["std"] }
-mpmc = "0.1.6"
+rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }

@@ -1022,11 +1022,9 @@ dependencies = [
 name = "logger"
 version = "0.1.0"
 dependencies = [
- "ahash 0.7.6",
  "common",
  "config",
- "log",
- "mpmc",
+ "rustcommon-logger",
 ]
 
 [[package]]
