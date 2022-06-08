@@ -10,15 +10,10 @@ mod response;
 pub use request::*;
 pub use response::*;
 
-#[allow(unused_imports)]
-use common::metrics::{static_metrics, Counter};
+use rustcommon_metrics::*;
 
 #[cfg(feature = "server")]
-static_metrics! {
-    static PING: Counter;
-}
+counter!(PING);
 
 #[cfg(feature = "client")]
-static_metrics! {
-    static PONG: Counter;
-}
+counter!(PONG);

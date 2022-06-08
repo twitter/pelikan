@@ -8,15 +8,17 @@ use crate::Value;
 use crate::*;
 use std::cmp::min;
 
-use common::metrics::{static_metrics, Counter};
-
 const RESERVE_RETRIES: usize = 3;
 
-static_metrics! {
-    pub(crate) static SEGMENT_REQUEST: Counter;
-    pub(crate) static SEGMENT_REQUEST_FAILURE: Counter;
-    pub(crate) static SEGMENT_REQUEST_SUCCESS: Counter;
-}
+counter!(SEGMENT_REQUEST, "number of segment allocation attempts");
+counter!(
+    SEGMENT_REQUEST_FAILURE,
+    "number of segment allocation attempts which failed"
+);
+counter!(
+    SEGMENT_REQUEST_SUCCESS,
+    "number of segment allocation attempts which were successful"
+);
 
 /// A pre-allocated key-value store with eager expiration. It uses a
 /// segment-structured design that stores data in fixed-size segments, grouping

@@ -8,9 +8,9 @@ extern crate logger;
 use backtrace::Backtrace;
 use clap::App;
 use clap::Arg;
-use common::metrics::*;
 use config::PingproxyConfig;
 use pingproxy::Pingproxy;
+use rustcommon_metrics::*;
 
 use proxy::PERCENTILES;
 
@@ -51,7 +51,7 @@ fn main() {
 
         let mut metrics = Vec::new();
 
-        for metric in &common::metrics::metrics() {
+        for metric in &rustcommon_metrics::metrics() {
             let any = match metric.as_any() {
                 Some(any) => any,
                 None => {

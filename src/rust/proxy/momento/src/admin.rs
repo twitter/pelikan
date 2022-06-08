@@ -116,7 +116,7 @@ async fn handle_admin_client(mut socket: tokio::net::TcpStream) {
 
 async fn stats_response(socket: &mut tokio::net::TcpStream) -> Result<(), Error> {
     let mut data = Vec::new();
-    for metric in &common::metrics::metrics() {
+    for metric in &rustcommon_metrics::metrics() {
         let any = match metric.as_any() {
             Some(any) => any,
             None => {

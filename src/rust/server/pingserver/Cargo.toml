@@ -38,7 +38,9 @@ config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
 protocol-ping = { path = "../../protocol/ping", features = ["server"] }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 server = { path = "../../core/server" }
+
 
 [dev-dependencies]
 criterion = "0.3"

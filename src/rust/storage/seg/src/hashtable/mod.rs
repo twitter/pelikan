@@ -75,7 +75,6 @@ const MAX_CHAIN_LEN: u64 = 16;
 
 use crate::*;
 use ahash::RandomState;
-use common::metrics::{static_metrics, Counter};
 use core::marker::PhantomData;
 use core::num::NonZeroU32;
 
@@ -83,19 +82,28 @@ mod hash_bucket;
 
 pub(crate) use hash_bucket::*;
 
-static_metrics! {
-    static HASH_TAG_COLLISION: Counter;
-    static HASH_INSERT: Counter;
-    static HASH_INSERT_EX: Counter;
-    static HASH_REMOVE: Counter;
-    static HASH_LOOKUP: Counter;
-
-    static ITEM_RELINK: Counter;
-    static ITEM_REPLACE: Counter;
-    static ITEM_DELETE: Counter;
-    static ITEM_EVICT: Counter;
-    static ITEM_EXPIRE: Counter;
-}
+counter!(HASH_TAG_COLLISION, "number of partial hash collisions");
+counter!(HASH_INSERT, "number of inserts into the hash table");
+counter!(
+    HASH_INSERT_EX,
+    "number of hash table inserts which failed, likely due to capacity"
+);
+counter!(
+    HASH_REMOVE,
+    "number of hash table entries which have been removed"
+);
+counter!(
+    HASH_LOOKUP,
+    "total number of lookups against the hash table"
+);
+counter!(
+    ITEM_RELINK,
+    "number of times items have been relinked to different locations"
+);
+counter!(ITEM_REPLACE, "number of times items have been replaced");
+counter!(ITEM_DELETE, "number of items removed from the hash table");
+counter!(ITEM_EXPIRE, "number of items removed due to expiration");
+counter!(ITEM_EVICT, "number of items removed due to eviction");
 
 #[derive(Debug)]
 struct IterState {

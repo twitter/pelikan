@@ -44,6 +44,7 @@ config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
 protocol-memcache = { path = "../../protocol/memcache" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 server = { path = "../../core/server" }
 
 [dev-dependencies]
