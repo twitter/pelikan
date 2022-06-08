@@ -98,5 +98,3 @@ pub fn configure_logging<T: DebugConfig + KlogConfig>(config: &T) -> Box<dyn Dra
         .build()
         .start()
 }
-
-common::metrics::test_no_duplicates!();

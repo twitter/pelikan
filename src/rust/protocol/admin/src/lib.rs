@@ -7,5 +7,3 @@ pub use protocol_common::*;
 mod admin;
 
 pub use admin::*;
-
-common::metrics::test_no_duplicates!();
