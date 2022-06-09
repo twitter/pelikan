@@ -15,16 +15,16 @@ use queues::TrackedItem;
 use session::Session;
 use std::sync::Arc;
 
+use rustcommon_metrics::*;
+
 const KB: usize = 1024;
 
 const SESSION_BUFFER_MIN: usize = 16 * KB;
 const SESSION_BUFFER_MAX: usize = 1024 * KB;
 
-static_metrics! {
-    static BACKEND_EVENT_ERROR: Counter;
-    static BACKEND_EVENT_READ: Counter;
-    static BACKEND_EVENT_WRITE: Counter;
-}
+counter!(BACKEND_EVENT_ERROR);
+counter!(BACKEND_EVENT_READ);
+counter!(BACKEND_EVENT_WRITE);
 
 pub const QUEUE_RETRIES: usize = 3;
 
@@ -156,8 +156,8 @@ where
         if event.is_readable() {
             BACKEND_EVENT_READ.increment();
             if let Ok(session) = self.poll.get_mut_session(token) {
-                session.session.set_timestamp(common::time::Instant::<
-                    common::time::Nanoseconds<u64>,
+                session.session.set_timestamp(rustcommon_time::Instant::<
+                    rustcommon_time::Nanoseconds<u64>,
                 >::recent());
             }
             let _ = self.do_read(token);

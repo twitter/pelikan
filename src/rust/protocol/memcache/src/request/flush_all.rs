@@ -68,7 +68,7 @@ impl Compose for FlushAll {
     fn compose(&self, session: &mut session::Session) {
         let _ = session.write_all(b"flush_all");
         if self.delay != 0 {
-            let _ = session.write_all(&format!(" {}", self.delay).as_bytes());
+            let _ = session.write_all(format!(" {}", self.delay).as_bytes());
         }
         if self.noreply {
             let _ = session.write_all(b" noreply\r\n");

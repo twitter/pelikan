@@ -15,11 +15,11 @@ use queues::Queues;
 use session::Session;
 use std::sync::Arc;
 
-static_metrics! {
-    static FRONTEND_EVENT_ERROR: Counter;
-    static FRONTEND_EVENT_READ: Counter;
-    static FRONTEND_EVENT_WRITE: Counter;
-}
+use rustcommon_metrics::*;
+
+counter!(FRONTEND_EVENT_ERROR);
+counter!(FRONTEND_EVENT_READ);
+counter!(FRONTEND_EVENT_WRITE);
 
 pub const QUEUE_RETRIES: usize = 3;
 
@@ -150,8 +150,8 @@ where
         if event.is_readable() {
             FRONTEND_EVENT_READ.increment();
             if let Ok(session) = self.poll.get_mut_session(token) {
-                session.session.set_timestamp(common::time::Instant::<
-                    common::time::Nanoseconds<u64>,
+                session.session.set_timestamp(rustcommon_time::Instant::<
+                    rustcommon_time::Nanoseconds<u64>,
                 >::recent());
             }
             let _ = self.do_read(token);

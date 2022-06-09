@@ -12,16 +12,16 @@ use queues::Queues;
 use session::Session;
 use std::sync::Arc;
 
+use rustcommon_metrics::*;
+
 const KB: usize = 1024;
 
 const SESSION_BUFFER_MIN: usize = 16 * KB;
 const SESSION_BUFFER_MAX: usize = 1024 * KB;
 
-static_metrics! {
-    static LISTENER_EVENT_ERROR: Counter;
-    static LISTENER_EVENT_READ: Counter;
-    static LISTENER_EVENT_WRITE: Counter;
-}
+counter!(LISTENER_EVENT_ERROR);
+counter!(LISTENER_EVENT_READ);
+counter!(LISTENER_EVENT_WRITE);
 
 pub struct ListenerBuilder {
     addr: SocketAddr,

@@ -44,7 +44,7 @@ impl Cas {
 
 impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
-    pub fn parse_cas<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Cas> {
+    pub(crate) fn parse_cas_no_stats<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Cas> {
         let mut noreply = false;
 
         let (input, _) = space1(input)?;
@@ -115,13 +115,28 @@ impl RequestParser {
             },
         ))
     }
+
+    pub fn parse_cas<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Set> {
+        SET.increment();
+        match self.parse_cas_no_stats(input) {
+            Ok((input, request)) => {
+                Ok((input, request))
+            }
+            Err(e) => {
+                if ! e.is_incomplete() {
+                    SET_EX.increment();
+                }
+                Err(e)
+            }
+        }
+    }
 }
 
 impl Compose for Cas {
     fn compose(&self, session: &mut session::Session) {
         let _ = session.write_all(b"cas ");
         let _ = session.write_all(&self.key);
-        let _ = session.write_all(&format!(" {}", self.flags).as_bytes());
+        let _ = session.write_all(format!(" {}", self.flags).as_bytes());
         match self.ttl {
             None => {
                 let _ = session.write_all(b" 0");
@@ -130,10 +145,10 @@ impl Compose for Cas {
                 let _ = session.write_all(b" -1");
             }
             Some(s) => {
-                let _ = session.write_all(&format!(" {}", s).as_bytes());
+                let _ = session.write_all(format!(" {}", s).as_bytes());
             }
         }
-        let _ = session.write_all(&format!(" {} {}\r\n", self.value.len(), self.cas).as_bytes());
+        let _ = session.write_all(format!(" {} {}\r\n", self.value.len(), self.cas).as_bytes());
         let _ = session.write_all(&self.value);
         let _ = session.write_all(b"\r\n");
     }

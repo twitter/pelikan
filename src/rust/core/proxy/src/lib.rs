@@ -8,7 +8,6 @@
 #[macro_use]
 extern crate logger;
 
-use common::metrics::{static_metrics, Counter};
 use mio::event::Event;
 use mio::net::{TcpListener, TcpStream};
 use mio::{Events, Interest, Token};
@@ -36,9 +35,9 @@ pub use process::{Process, ProcessBuilder};
 
 type Result<T> = std::result::Result<T, std::io::Error>;
 
-static_metrics! {
-    static TCP_ACCEPT_EX: Counter;
-}
+use rustcommon_metrics::*;
+
+counter!(TCP_ACCEPT_EX);
 
 // The default buffer size is matched to the upper-bound on TLS fragment size as
 // per RFC 5246 https://datatracker.ietf.org/doc/html/rfc5246#section-6.2.1

@@ -38,18 +38,29 @@ impl Prepend {
 impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
     pub fn parse_prepend<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Prepend> {
+        PREPEND.increment();
+
         // we can use the set parser here and convert the request
-        let (input, request) = self.parse_set(input)?;
-        Ok((
-            input,
-            Prepend {
-                key: request.key,
-                value: request.value,
-                ttl: request.ttl,
-                flags: request.flags,
-                noreply: request.noreply,
-            },
-        ))
+        match self.parse_set_no_stats(input) {
+            Ok((input, request)) => {
+                Ok((
+                    input,
+                    Prepend {
+                        key: request.key,
+                        value: request.value,
+                        ttl: request.ttl,
+                        flags: request.flags,
+                        noreply: request.noreply,
+                    },
+                ))
+            }
+            Err(e) => {
+                if ! e.is_incomplete() {
+                    PREPEND_EX.increment();
+                }
+                Err(e)
+            }
+        }
     }
 }
 
@@ -57,7 +68,7 @@ impl Compose for Prepend {
     fn compose(&self, session: &mut session::Session) {
         let _ = session.write_all(b"prepend ");
         let _ = session.write_all(&self.key);
-        let _ = session.write_all(&format!(" {}", self.flags).as_bytes());
+        let _ = session.write_all(format!(" {}", self.flags).as_bytes());
         match self.ttl {
             None => {
                 let _ = session.write_all(b" 0");
@@ -66,10 +77,10 @@ impl Compose for Prepend {
                 let _ = session.write_all(b" -1");
             }
             Some(s) => {
-                let _ = session.write_all(&format!(" {}", s).as_bytes());
+                let _ = session.write_all(format!(" {}", s).as_bytes());
             }
         }
-        let _ = session.write_all(&format!(" {}\r\n", self.value.len()).as_bytes());
+        let _ = session.write_all(format!(" {}\r\n", self.value.len()).as_bytes());
         let _ = session.write_all(&self.value);
         let _ = session.write_all(b"\r\n");
     }

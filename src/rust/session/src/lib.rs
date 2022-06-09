@@ -12,51 +12,63 @@ extern crate logger;
 mod buffer;
 mod stream;
 mod tcp_stream;
-
+use common::ssl::{MidHandshakeSslStream, SslStream};
+use mio::event::Source;
+use mio::{Interest, Poll, Token};
+use rustcommon_metrics::{counter, gauge, heatmap, metric, Counter, Gauge, Heatmap, Relaxed};
 use std::borrow::{Borrow, BorrowMut};
 use std::cmp::Ordering;
 use std::io::{BufRead, ErrorKind, Read, Write};
 use std::net::SocketAddr;
 
-use common::metrics::{static_metrics, Counter, Gauge, Heatmap, Relaxed};
-use common::ssl::{MidHandshakeSslStream, SslStream};
-use common::time::Nanoseconds;
-use mio::event::Source;
-use mio::{Interest, Poll, Token};
-
 pub use buffer::Buffer;
 use stream::Stream;
 
-type Instant = common::time::Instant<Nanoseconds<u64>>;
-type Duration = common::time::Duration<Nanoseconds<u64>>;
+type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
 
 pub use tcp_stream::TcpStream;
 
-static_metrics! {
-    pub static SESSION_BUFFER_BYTE: Gauge;
+gauge!(
+    SESSION_BUFFER_BYTE,
+    "current size of the session buffers in bytes"
+);
 
-    pub static TCP_ACCEPT: Counter;
-    pub static TCP_CLOSE: Counter;
-    pub static TCP_CONN_CURR: Gauge;
-    pub static TCP_RECV_BYTE: Counter;
-    pub static TCP_SEND_BYTE: Counter;
-    pub static TCP_SEND_PARTIAL: Counter;
+counter!(
+    TCP_ACCEPT,
+    "number of times accept has been called on listening sockets"
+);
+counter!(TCP_CLOSE, "number of times TCP streams have been closed");
+gauge!(TCP_CONN_CURR, "current number of open TCP streams");
+counter!(TCP_RECV_BYTE, "number of bytes received on TCP streams");
+counter!(TCP_SEND_BYTE, "number of bytes sent on TCP streams");
+counter!(
+    TCP_SEND_PARTIAL,
+    "number of partial writes to the system socket buffer"
+);
 
-    pub static SESSION_RECV: Counter;
-    pub static SESSION_RECV_EX: Counter;
-    pub static SESSION_RECV_BYTE: Counter;
-    pub static SESSION_SEND: Counter;
-    pub static SESSION_SEND_EX: Counter;
-    pub static SESSION_SEND_BYTE: Counter;
+counter!(SESSION_RECV, "number of reads from sessions");
+counter!(
+    SESSION_RECV_EX,
+    "number of exceptions while reading from sessions"
+);
+counter!(SESSION_RECV_BYTE, "number of bytes read from sessions");
+counter!(SESSION_SEND, "number of writes to sessions");
+counter!(
+    SESSION_SEND_EX,
+    "number of exceptions while writing to sessions"
+);
+counter!(SESSION_SEND_BYTE, "number of bytes written to sessions");
 
-    pub static REQUEST_LATENCY: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(1_000_000_000, 3, Duration::from_secs(60), Duration::from_secs(1))
-    );
-
-    pub static PIPELINE_DEPTH: Relaxed<Heatmap> = Relaxed::new(||
-        Heatmap::new(100_000, 3, Duration::from_secs(60), Duration::from_secs(1))
-    );
-}
+heatmap!(
+    REQUEST_LATENCY,
+    1_000_000_000,
+    "distribution of request latencies in nanoseconds"
+);
+heatmap!(
+    PIPELINE_DEPTH,
+    100_000,
+    "distribution of request pipeline depth"
+);
 
 // TODO(bmartin): implement connect/reconnect so we can use this in clients too.
 /// The core `Session` type which represents a TCP stream (with or without TLS),

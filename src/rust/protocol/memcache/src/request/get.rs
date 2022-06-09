@@ -66,7 +66,7 @@ impl Compose for Get {
         let _ = session.write_all(b"get");
         for key in self.keys.iter() {
             let _ = session.write_all(b" ");
-            let _ = session.write_all(&key);
+            let _ = session.write_all(key);
         }
         let _ = session.write_all(b"\r\n");
     }

@@ -7,8 +7,7 @@
 
 use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
-use crate::TCP_ACCEPT_EX;
-use common::metrics::{static_metrics, Counter};
+use crate::*;
 use common::signal::Signal;
 use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
 use config::ServerConfig;
@@ -21,13 +20,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-static_metrics! {
-    static SERVER_EVENT_ERROR: Counter;
-    static SERVER_EVENT_WRITE: Counter;
-    static SERVER_EVENT_READ: Counter;
-    static SERVER_EVENT_LOOP: Counter;
-    static SERVER_EVENT_TOTAL: Counter;
-}
+counter!(SERVER_EVENT_ERROR);
+counter!(SERVER_EVENT_WRITE);
+counter!(SERVER_EVENT_READ);
+counter!(SERVER_EVENT_LOOP);
+counter!(SERVER_EVENT_TOTAL);
 
 pub struct ListenerBuilder {
     addr: SocketAddr,

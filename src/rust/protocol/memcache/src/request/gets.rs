@@ -29,7 +29,7 @@ impl Compose for Gets {
         let _ = session.write_all(b"gets");
         for key in self.keys.iter() {
             let _ = session.write_all(b" ");
-            let _ = session.write_all(&key);
+            let _ = session.write_all(key);
         }
         let _ = session.write_all(b"\r\n");
     }

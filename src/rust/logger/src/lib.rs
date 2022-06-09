@@ -34,82 +34,9 @@
 //! a file, while letting all other log messages pass to standard out. This
 //! could allow splitting command/access/audit logs from the normal logging.
 
-pub use log::*;
+pub use rustcommon_logger::*;
 
-mod format;
-mod multi;
-mod nop;
-mod outputs;
-mod sampling;
-mod single;
-mod traits;
-
-pub use format::*;
-pub use multi::*;
-pub use nop::*;
-pub use outputs::*;
-pub use sampling::*;
-pub use single::*;
-pub use traits::*;
-
-use common::metrics::{static_metrics, Counter, Gauge};
-use common::time::DateTime;
 use config::{DebugConfig, KlogConfig};
-use mpmc::Queue;
-
-pub(crate) type LogBuffer = Vec<u8>;
-
-static_metrics! {
-    static LOG_CREATE: Counter;
-    static LOG_CREATE_EX: Counter;
-    static LOG_DESTROY: Counter;
-    static LOG_CURR: Gauge;
-    static LOG_OPEN: Counter;
-    static LOG_OPEN_EX: Counter;
-    static LOG_WRITE: Counter;
-    static LOG_WRITE_BYTE: Counter;
-    static LOG_WRITE_EX: Counter;
-    static LOG_SKIP: Counter;
-    static LOG_DROP: Counter;
-    static LOG_DROP_BYTE: Counter;
-    static LOG_FLUSH: Counter;
-    static LOG_FLUSH_EX: Counter;
-}
-
-/// A type which implements an asynchronous logging backend.
-pub struct AsyncLog {
-    pub(crate) logger: Box<dyn Log>,
-    pub(crate) drain: Box<dyn Drain>,
-    pub(crate) level_filter: LevelFilter,
-}
-
-impl AsyncLog {
-    /// Register the logger and return a type which implements `Drain`. It is
-    /// up to the user to periodically call flush on the resulting drain.
-    pub fn start(self) -> Box<dyn Drain> {
-        let level_filter = self.level_filter;
-        log::set_boxed_logger(self.logger)
-            .map(|()| log::set_max_level(level_filter))
-            .expect("failed to start logger");
-        self.drain
-    }
-}
-
-#[macro_export]
-macro_rules! fatal {
-    () => (
-        error!();
-        std::process::exit(1);
-        );
-    ($fmt:expr) => (
-        error!($fmt);
-        std::process::exit(1);
-        );
-    ($fmt:expr, $($arg:tt)*) => (
-        error!($fmt, $($arg)*);
-        std::process::exit(1);
-        );
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // TODO(bmartin): everything below is Pelikan specific, and should be factored
@@ -171,5 +98,3 @@ pub fn configure_logging<T: DebugConfig + KlogConfig>(config: &T) -> Box<dyn Dra
         .build()
         .start()
 }
-
-common::metrics::test_no_duplicates!();

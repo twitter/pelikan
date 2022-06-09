@@ -49,10 +49,10 @@ impl Compose for Value {
         let _ = session.write_all(&self.key);
         if let Some(cas) = self.cas {
             let _ = session
-                .write_all(&format!(" {} {} {}\r\n", self.flags, self.data.len(), cas).as_bytes());
+                .write_all(format!(" {} {} {}\r\n", self.flags, self.data.len(), cas).as_bytes());
         } else {
             let _ =
-                session.write_all(&format!(" {} {}\r\n", self.flags, self.data.len()).as_bytes());
+                session.write_all(format!(" {} {}\r\n", self.flags, self.data.len()).as_bytes());
         }
         let _ = session.write_all(&self.data);
         let _ = session.write_all(b"\r\n");

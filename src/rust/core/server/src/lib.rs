@@ -98,11 +98,9 @@ mod threads;
 pub use process::{Process, ProcessBuilder};
 pub use threads::PERCENTILES;
 
-use common::metrics::{static_metrics, Counter};
+use rustcommon_metrics::*;
 
-static_metrics! {
-    static TCP_ACCEPT_EX: Counter;
-}
+counter!(TCP_ACCEPT_EX);
 
 // The default buffer size is matched to the upper-bound on TLS fragment size as
 // per RFC 5246 https://datatracker.ietf.org/doc/html/rfc5246#section-6.2.1
