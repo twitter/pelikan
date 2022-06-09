@@ -85,7 +85,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], Values> {
                 // make sure it's a valid string
                 let c = std::str::from_utf8(c)
                     .map_err(|_| nom::Err::Failure((i, nom::error::ErrorKind::Tag)))?;
-                // and make sure that sring represents a 64bit integer
+                // and make sure that string represents a 64bit integer
                 cas = Some(
                     c.parse::<u64>()
                         .map_err(|_| nom::Err::Failure((i, nom::error::ErrorKind::Tag)))?,
