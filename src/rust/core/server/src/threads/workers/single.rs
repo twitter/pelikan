@@ -242,9 +242,9 @@ where
 
                         let result = self.storage.execute(request);
                         trace!("composing response for session: {:?}", session);
-                        result.response().compose(session);
+                        result.compose(session);
                         session.finalize_response();
-                        if result.response().should_hangup() {
+                        if result.should_hangup() {
                             return Err(std::io::Error::new(
                                 std::io::ErrorKind::Other,
                                 "response requires hangup",

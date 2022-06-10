@@ -4,8 +4,6 @@
 
 use crate::*;
 
-// TODO(bmartin): should we use newtypes to constrain the
-// possible responses?
 pub trait Storage {
     fn add(&mut self, request: &Add) -> Response;
     fn append(&mut self, request: &Append) -> Response;

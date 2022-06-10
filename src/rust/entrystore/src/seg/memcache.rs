@@ -13,7 +13,7 @@ use protocol_memcache::*;
 use std::time::Duration;
 
 impl Execute<Request, Response> for Seg {
-    fn execute(&mut self, request: Request) -> ExecutionResult<Request, Response> {
+    fn execute(&mut self, request: Request) -> Box<dyn ExecutionResult<Request, Response>> {
         let response = match request {
             Request::Get(ref get) => self.get(&get),
             Request::Gets(ref gets) => self.gets(&gets),
@@ -30,7 +30,7 @@ impl Execute<Request, Response> for Seg {
             Request::Quit(ref quit) => self.quit(&quit),
         };
 
-        ExecutionResult::new(request, response)
+        Box::new(MemcacheExecutionResult::new(request, response))
     }
 }
 

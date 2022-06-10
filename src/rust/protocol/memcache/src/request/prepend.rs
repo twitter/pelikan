@@ -38,11 +38,10 @@ impl Prepend {
 impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
     pub fn parse_prepend<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Prepend> {
-        PREPEND.increment();
-
         // we can use the set parser here and convert the request
         match self.parse_set_no_stats(input) {
             Ok((input, request)) => {
+                PREPEND.increment();
                 Ok((
                     input,
                     Prepend {
@@ -56,6 +55,7 @@ impl RequestParser {
             }
             Err(e) => {
                 if ! e.is_incomplete() {
+                    PREPEND.increment();
                     PREPEND_EX.increment();
                 }
                 Err(e)

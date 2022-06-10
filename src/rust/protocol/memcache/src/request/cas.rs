@@ -88,19 +88,17 @@ impl RequestParser {
             Some(0)
         } else if exptime == 0 {
             None
+        } else if self.time_type == TimeType::Unix
+            || (self.time_type == TimeType::Memcache && exptime > 60 * 60 * 24 * 30)
+        {
+            Some(
+                UnixInstant::from_secs(exptime as u32)
+                    .checked_duration_since(UnixInstant::<Seconds<u32>>::recent())
+                    .map(|v| v.as_secs())
+                    .unwrap_or(0),
+            )
         } else {
-            if self.time_type == TimeType::Unix
-                || (self.time_type == TimeType::Memcache && exptime > 60 * 60 * 24 * 30)
-            {
-                Some(
-                    UnixInstant::from_secs(exptime as u32)
-                        .checked_duration_since(UnixInstant::<Seconds<u32>>::recent())
-                        .map(|v| v.as_secs())
-                        .unwrap_or(0),
-                )
-            } else {
-                Some(exptime as u32)
-            }
+            Some(exptime as u32)
         };
 
         Ok((
@@ -116,15 +114,17 @@ impl RequestParser {
         ))
     }
 
-    pub fn parse_cas<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Set> {
-        SET.increment();
+    // this is to be called after parsing the command, so we do not match the verb
+    pub fn parse_cas<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Cas> {
         match self.parse_cas_no_stats(input) {
             Ok((input, request)) => {
+                CAS.increment();
                 Ok((input, request))
             }
             Err(e) => {
                 if ! e.is_incomplete() {
-                    SET_EX.increment();
+                    CAS.increment();
+                    CAS_EX.increment();
                 }
                 Err(e)
             }

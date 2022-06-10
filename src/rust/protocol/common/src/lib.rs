@@ -21,27 +21,14 @@ pub trait Compose {
     }
 }
 
-pub trait Execute<Request, Response> {
-    fn execute(&mut self, request: Request) -> ExecutionResult<Request, Response>;
+pub trait Execute<Request, Response: Compose> {
+    fn execute(&mut self, request: Request) -> Box<dyn ExecutionResult<Request, Response>>;
 }
 
-pub struct ExecutionResult<Request, Response> {
-    request: Request,
-    response: Response,
-}
+pub trait ExecutionResult<Request, Response: Compose>: Send + Compose {
+    fn request(&self) -> &Request;
 
-impl<Request, Response> ExecutionResult<Request, Response> {
-    pub fn new(request: Request, response: Response) -> Self {
-        Self { request, response }
-    }
-
-    pub fn request(&self) -> &Request {
-        &self.request
-    }
-
-    pub fn response(&self) -> &Response {
-        &self.response
-    }
+    fn response(&self) -> &Response;
 }
 
 #[derive(Debug, PartialEq)]

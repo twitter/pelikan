@@ -38,11 +38,10 @@ impl Append {
 impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
     pub fn parse_append<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Append> {
-        APPEND.increment();
-
         // we can use the set parser here and convert the request
         match self.parse_set_no_stats(input) {
             Ok((input, request)) => {
+                APPEND.increment();
                 Ok((
                     input,
                     Append {
@@ -56,6 +55,7 @@ impl RequestParser {
             }
             Err(e) => {
                 if ! e.is_incomplete() {
+                    APPEND.increment();
                     APPEND_EX.increment();
                 }
                 Err(e)

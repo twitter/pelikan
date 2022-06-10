@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use super::*;
+use crate::*;
 use common::time::Seconds;
 use common::time::UnixInstant;
 
@@ -80,19 +80,17 @@ impl RequestParser {
             Some(0)
         } else if exptime == 0 {
             None
+        } else if self.time_type == TimeType::Unix
+            || (self.time_type == TimeType::Memcache && exptime > 60 * 60 * 24 * 30)
+        {
+            Some(
+                UnixInstant::from_secs(exptime as u32)
+                    .checked_duration_since(UnixInstant::<Seconds<u32>>::recent())
+                    .map(|v| v.as_secs())
+                    .unwrap_or(0),
+            )
         } else {
-            if self.time_type == TimeType::Unix
-                || (self.time_type == TimeType::Memcache && exptime > 60 * 60 * 24 * 30)
-            {
-                Some(
-                    UnixInstant::from_secs(exptime as u32)
-                        .checked_duration_since(UnixInstant::<Seconds<u32>>::recent())
-                        .map(|v| v.as_secs())
-                        .unwrap_or(0),
-                )
-            } else {
-                Some(exptime as u32)
-            }
+            Some(exptime as u32)
         };
 
         Ok((
@@ -108,13 +106,14 @@ impl RequestParser {
     }
 
     pub fn parse_set<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Set> {
-        SET.increment();
         match self.parse_set_no_stats(input) {
             Ok((input, request)) => {
+                SET.increment();
                 Ok((input, request))
             }
             Err(e) => {
                 if ! e.is_incomplete() {
+                    SET.increment();
                     SET_EX.increment();
                 }
                 Err(e)
@@ -144,6 +143,7 @@ impl Compose for Set {
         let _ = session.write_all(b"\r\n");
     }
 }
+
 
 #[cfg(test)]
 mod tests {

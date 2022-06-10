@@ -9,6 +9,7 @@ mod multi;
 mod single;
 mod storage;
 
+use protocol_common::ExecutionResult;
 pub use self::storage::{StorageWorker, StorageWorkerBuilder};
 use crate::*;
 use crate::{QUEUE_CAPACITY, THREAD_PREFIX};
@@ -38,6 +39,8 @@ counter!(STORAGE_EVENT_LOOP);
 heatmap!(STORAGE_QUEUE_DEPTH, 1_000_000);
 
 counter!(PROCESS_REQ);
+
+type WrappedResult<Request, Response> = TokenWrapper<Box<dyn ExecutionResult<Request, Response>>>;
 
 pub struct TokenWrapper<T> {
     inner: T,

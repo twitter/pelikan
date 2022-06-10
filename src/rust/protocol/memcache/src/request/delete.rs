@@ -22,7 +22,7 @@ impl Delete {
 
 impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
-    pub fn parse_delete<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Delete> {
+    pub(crate) fn parse_delete_no_stats<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Delete> {
         let (input, _) = space1(input)?;
 
         let (mut input, key) = key(input, self.max_key_len)?;
@@ -54,6 +54,23 @@ impl RequestParser {
                 noreply,
             },
         ))
+    }
+
+    // this is to be called after parsing the command, so we do not match the verb
+    pub fn parse_delete<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Delete> {
+        match self.parse_delete_no_stats(input) {
+            Ok((input, request)) => {
+                DELETE.increment();
+                Ok((input, request))
+            }
+            Err(e) => {
+                if ! e.is_incomplete() {
+                    DELETE.increment();
+                    DELETE_EX.increment();
+                }
+                Err(e)
+            }
+        }
     }
 }
 

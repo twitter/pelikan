@@ -4,6 +4,7 @@
 
 mod request;
 mod response;
+mod result;
 mod storage;
 mod util;
 
@@ -11,7 +12,10 @@ pub(crate) use util::*;
 
 pub use request::*;
 pub use response::*;
+pub use result::*;
 pub use storage::*;
+
+use common::expiry::TimeType;
 
 pub enum MemcacheError {
     Error(Error),
@@ -20,6 +24,8 @@ pub enum MemcacheError {
 }
 
 use rustcommon_metrics::*;
+
+type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
 
 counter!(GET);
 heatmap!(GET_CARDINALITY, 1_000_000, "distribution of key cardinality for get requests");
@@ -77,3 +83,8 @@ counter!(CAS_EX);
 counter!(CAS_EXISTS);
 counter!(CAS_NOT_FOUND);
 counter!(CAS_STORED);
+
+counter!(FLUSH_ALL);
+counter!(FLUSH_ALL_EX);
+
+counter!(QUIT);

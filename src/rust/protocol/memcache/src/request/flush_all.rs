@@ -22,7 +22,7 @@ impl FlushAll {
 
 impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
-    pub fn parse_flush_all<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], FlushAll> {
+    pub fn parse_flush_all_no_stats<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], FlushAll> {
         let mut input = input;
 
         let mut delay = 0;
@@ -61,6 +61,23 @@ impl RequestParser {
         let (input, _) = crlf(input)?;
 
         Ok((input, FlushAll { delay, noreply }))
+    }
+
+    // this is to be called after parsing the command, so we do not match the verb
+    pub fn parse_flush_all<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], FlushAll> {
+        match self.parse_flush_all_no_stats(input) {
+            Ok((input, request)) => {
+                FLUSH_ALL.increment();
+                Ok((input, request))
+            }
+            Err(e) => {
+                if ! e.is_incomplete() {
+                    FLUSH_ALL.increment();
+                    FLUSH_ALL_EX.increment();
+                }
+                Err(e)
+            }
+        }
     }
 }
 

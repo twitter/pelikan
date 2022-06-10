@@ -29,16 +29,26 @@ impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
     pub fn parse_decr<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Decr> {
         // we can use the incr parser here and convert the request
-        let (input, request) = self.parse_incr(input)?;
-
-        Ok((
-            input,
-            Decr {
-                key: request.key,
-                value: request.value,
-                noreply: request.noreply,
-            },
-        ))
+        match self.parse_incr_no_stats(input) {
+            Ok((input, request)) => {
+                DECR.increment();
+                Ok((
+                    input,
+                    Decr {
+                        key: request.key,
+                        value: request.value,
+                        noreply: request.noreply,
+                    },
+                ))
+            }
+            Err(e) => {
+                if ! e.is_incomplete() {
+                    DECR.increment();
+                    DECR_EX.increment();
+                }
+                Err(e)
+            }
+        }
     }
 }
 

@@ -11,7 +11,6 @@ use core::time::Duration;
 use entrystore::EntryStore;
 use mio::{Events, Waker};
 use protocol_common::Execute;
-use protocol_common::ExecutionResult;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -55,7 +54,7 @@ impl<Storage, Request, Response> StorageWorkerBuilder<Storage, Request, Response
         self,
         signal_queue: Queues<(), Signal>,
         storage_queue: Queues<
-            TokenWrapper<ExecutionResult<Request, Response>>,
+            WrappedResult<Request, Response>,
             TokenWrapper<Request>,
         >,
     ) -> StorageWorker<Storage, Request, Response> {
@@ -77,12 +76,13 @@ pub struct StorageWorker<Storage, Request, Response> {
     timeout: Duration,
     signal_queue: Queues<(), Signal>,
     storage: Storage,
-    storage_queue: Queues<TokenWrapper<ExecutionResult<Request, Response>>, TokenWrapper<Request>>,
+    storage_queue: Queues<WrappedResult<Request, Response>, TokenWrapper<Request>>,
 }
 
 impl<Storage, Request, Response> StorageWorker<Storage, Request, Response>
 where
     Storage: Execute<Request, Response> + EntryStore,
+    Response: Compose,
 {
     /// Run the `StorageWorker` in a loop, handling new session events.
     pub fn run(&mut self) {

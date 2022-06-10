@@ -17,7 +17,6 @@ use core::time::Duration;
 use entrystore::EntryStore;
 use mio::event::Event;
 use mio::{Events, Token, Waker};
-use protocol_common::ExecutionResult;
 use protocol_common::{Compose, Execute, Parse, ParseError};
 use queues::TrackedItem;
 use session::Session;
@@ -71,7 +70,7 @@ impl<Storage, Parser, Request, Response> MultiWorkerBuilder<Storage, Parser, Req
         session_queue: Queues<(), Session>,
         storage_queue: Queues<
             TokenWrapper<Request>,
-            TokenWrapper<ExecutionResult<Request, Response>>,
+            WrappedResult<Request, Response>,
         >,
     ) -> MultiWorker<Storage, Parser, Request, Response> {
         MultiWorker {
@@ -96,7 +95,7 @@ pub struct MultiWorker<Storage, Parser, Request, Response> {
     session_queue: Queues<(), Session>,
     signal_queue: Queues<(), Signal>,
     _storage: PhantomData<Storage>,
-    storage_queue: Queues<TokenWrapper<Request>, TokenWrapper<ExecutionResult<Request, Response>>>,
+    storage_queue: Queues<TokenWrapper<Request>, WrappedResult<Request, Response>>,
 }
 
 impl<Storage, Parser, Request, Response> MultiWorker<Storage, Parser, Request, Response>
@@ -248,7 +247,7 @@ where
 
     fn handle_storage_queue(
         &mut self,
-        responses: &mut Vec<TrackedItem<TokenWrapper<ExecutionResult<Request, Response>>>>,
+        responses: &mut Vec<TrackedItem<WrappedResult<Request, Response>>>,
     ) {
         trace!("handling event for storage queue");
         // process all storage queue responses
@@ -260,7 +259,7 @@ where
             if let Ok(session) = self.poll.get_mut_session(token) {
                 let result = message.into_inner();
                 trace!("composing response for session: {:?}", session);
-                result.response().compose(session);
+                result.compose(session);
                 session.finalize_response();
                 // if we have pending writes, we should attempt to flush the session
                 // now. if we still have pending bytes, we should re-register to

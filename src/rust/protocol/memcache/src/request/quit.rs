@@ -15,6 +15,8 @@ impl RequestParser {
         let (input, _) = space0(input)?;
         let (input, _) = crlf(input)?;
 
+        QUIT.increment();
+        
         Ok((input, Quit {}))
     }
 }

@@ -19,8 +19,21 @@ impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
     pub(crate) fn parse_gets<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Gets> {
         // we can use the get parser here and convert the request
-        let (input, request) = self.parse_get(input)?;
-        Ok((input, Gets { keys: request.keys }))
+        match self.parse_get_no_stats(input) {
+            Ok((input, request)) => {
+                GETS.increment();
+                let keys = request.keys.len() as u64;
+                GETS_KEY.add(keys);
+                Ok((input, Gets { keys: request.keys }))
+            }
+            Err(e) => {
+                if ! e.is_incomplete() {
+                    GETS.increment();
+                    GETS_EX.increment();
+                }
+                Err(e)
+            }
+        }
     }
 }
 
