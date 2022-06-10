@@ -71,7 +71,7 @@ impl RequestParser {
                 Ok((input, request))
             }
             Err(e) => {
-                if ! e.is_incomplete() {
+                if !e.is_incomplete() {
                     FLUSH_ALL.increment();
                     FLUSH_ALL_EX.increment();
                 }

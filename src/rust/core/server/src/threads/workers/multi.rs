@@ -68,10 +68,7 @@ impl<Storage, Parser, Request, Response> MultiWorkerBuilder<Storage, Parser, Req
         self,
         signal_queue: Queues<(), Signal>,
         session_queue: Queues<(), Session>,
-        storage_queue: Queues<
-            TokenWrapper<Request>,
-            WrappedResult<Request, Response>,
-        >,
+        storage_queue: Queues<TokenWrapper<Request>, WrappedResult<Request, Response>>,
     ) -> MultiWorker<Storage, Parser, Request, Response> {
         MultiWorker {
             nevent: self.nevent,

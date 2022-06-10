@@ -27,7 +27,7 @@ impl RequestParser {
                 Ok((input, Gets { keys: request.keys }))
             }
             Err(e) => {
-                if ! e.is_incomplete() {
+                if !e.is_incomplete() {
                     GETS.increment();
                     GETS_EX.increment();
                 }

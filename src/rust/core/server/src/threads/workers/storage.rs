@@ -53,10 +53,7 @@ impl<Storage, Request, Response> StorageWorkerBuilder<Storage, Request, Response
     pub fn build(
         self,
         signal_queue: Queues<(), Signal>,
-        storage_queue: Queues<
-            WrappedResult<Request, Response>,
-            TokenWrapper<Request>,
-        >,
+        storage_queue: Queues<WrappedResult<Request, Response>, TokenWrapper<Request>>,
     ) -> StorageWorker<Storage, Request, Response> {
         StorageWorker {
             poll: self.poll,

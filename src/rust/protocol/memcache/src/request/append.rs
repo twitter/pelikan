@@ -54,7 +54,7 @@ impl RequestParser {
                 ))
             }
             Err(e) => {
-                if ! e.is_incomplete() {
+                if !e.is_incomplete() {
                     APPEND.increment();
                     APPEND_EX.increment();
                 }

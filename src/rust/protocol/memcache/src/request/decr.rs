@@ -42,7 +42,7 @@ impl RequestParser {
                 ))
             }
             Err(e) => {
-                if ! e.is_incomplete() {
+                if !e.is_incomplete() {
                     DECR.increment();
                     DECR_EX.increment();
                 }

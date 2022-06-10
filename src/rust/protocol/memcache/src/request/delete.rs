@@ -64,7 +64,7 @@ impl RequestParser {
                 Ok((input, request))
             }
             Err(e) => {
-                if ! e.is_incomplete() {
+                if !e.is_incomplete() {
                     DELETE.increment();
                     DELETE_EX.increment();
                 }

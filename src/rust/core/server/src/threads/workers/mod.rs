@@ -9,7 +9,6 @@ mod multi;
 mod single;
 mod storage;
 
-use protocol_common::ExecutionResult;
 pub use self::storage::{StorageWorker, StorageWorkerBuilder};
 use crate::*;
 use crate::{QUEUE_CAPACITY, THREAD_PREFIX};
@@ -18,6 +17,7 @@ use config::WorkerConfig;
 use entrystore::EntryStore;
 use mio::Waker;
 pub use multi::{MultiWorker, MultiWorkerBuilder};
+use protocol_common::ExecutionResult;
 use protocol_common::{Compose, Execute, Parse};
 use queues::Queues;
 use session::Session;

@@ -16,7 +16,7 @@ impl RequestParser {
         let (input, _) = crlf(input)?;
 
         QUIT.increment();
-        
+
         Ok((input, Quit {}))
     }
 }

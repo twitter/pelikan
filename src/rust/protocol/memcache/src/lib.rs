@@ -28,7 +28,11 @@ use rustcommon_metrics::*;
 type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
 
 counter!(GET);
-heatmap!(GET_CARDINALITY, 1_000_000, "distribution of key cardinality for get requests");
+heatmap!(
+    GET_CARDINALITY,
+    1_000_000,
+    "distribution of key cardinality for get requests"
+);
 counter!(GET_EX);
 counter!(GET_KEY);
 counter!(GET_KEY_HIT);

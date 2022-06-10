@@ -8,10 +8,10 @@ mod request;
 mod response;
 
 use protocol_common::Compose;
-use session::Session;
 use protocol_common::ExecutionResult;
 pub use request::*;
 pub use response::*;
+use session::Session;
 
 #[allow(unused)]
 use rustcommon_metrics::*;
@@ -26,10 +26,7 @@ pub struct PingExecutionResult<Request, Response> {
 
 impl PingExecutionResult<Request, Response> {
     pub fn new(request: Request, response: Response) -> Self {
-        Self {
-            request,
-            response,
-        }
+        Self { request, response }
     }
 }
 

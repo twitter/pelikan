@@ -112,7 +112,7 @@ impl RequestParser {
                 Ok((input, request))
             }
             Err(e) => {
-                if ! e.is_incomplete() {
+                if !e.is_incomplete() {
                     SET.increment();
                     SET_EX.increment();
                 }
@@ -143,7 +143,6 @@ impl Compose for Set {
         let _ = session.write_all(b"\r\n");
     }
 }
-
 
 #[cfg(test)]
 mod tests {
