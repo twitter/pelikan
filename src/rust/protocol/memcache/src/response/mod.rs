@@ -116,10 +116,7 @@ impl Compose for Response {
     }
 
     fn should_hangup(&self) -> bool {
-        match self {
-            Self::Error(_) | Self::ClientError(_) | Self::Hangup => true,
-            _ => false,
-        }
+        matches!(self, Self::Error(_) | Self::ClientError(_) | Self::Hangup)
     }
 }
 

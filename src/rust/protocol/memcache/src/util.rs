@@ -59,7 +59,7 @@ pub fn key(input: &[u8], max_len: usize) -> IResult<&[u8], Option<&[u8]>> {
     if key.len() > max_len {
         return Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)));
     }
-    if key.len() == 0 {
+    if key.is_empty() {
         // returns unmodified input and signals that no key was found
         Ok((input, None))
     } else {
