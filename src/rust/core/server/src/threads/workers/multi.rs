@@ -118,6 +118,9 @@ where
             }
 
             WORKER_EVENT_TOTAL.add(events.iter().count() as _);
+            if events.iter().count() == self.nevent {
+                WORKER_EVENT_MAX.increment();
+            }
 
             common::time::refresh_clock();
 
