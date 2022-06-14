@@ -33,7 +33,8 @@ counter!(WORKER_EVENT_TOTAL);
 counter!(WORKER_EVENT_ERROR);
 counter!(WORKER_EVENT_WRITE);
 counter!(WORKER_EVENT_READ);
-counter!(WORKER_EVENT_MAX);
+counter!(WORKER_EVENT_MAX_REACHED,
+    "the number of times the maximum number of events has been returned");
 
 counter!(STORAGE_EVENT_LOOP);
 heatmap!(STORAGE_QUEUE_DEPTH, 1_000_000);
