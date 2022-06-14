@@ -668,8 +668,9 @@ impl<'a> Segment<'a> {
 
         // skips over seg_wait_refcount and evict retry, because no threading
 
-        if self.live_items() != 0 {
-            assert_eq!(self.live_items(), 0, "segment not empty after clearing");
+        if self.live_items() > 0 {
+            error!("segment not empty after clearing, still contains: {} items", self.live_items());
+            panic!();
         }
 
         let expected_size = if cfg!(feature = "magic") {
@@ -678,11 +679,8 @@ impl<'a> Segment<'a> {
             0
         };
         if self.live_bytes() != expected_size {
-            assert_eq!(
-                self.live_bytes(),
-                expected_size,
-                "segment size incorrect after clearing"
-            );
+            error!("segment size incorrect after clearing");
+            panic!();
         }
 
         self.set_write_offset(self.live_bytes());
