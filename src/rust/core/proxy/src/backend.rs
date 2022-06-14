@@ -25,6 +25,10 @@ const SESSION_BUFFER_MAX: usize = 1024 * KB;
 counter!(BACKEND_EVENT_ERROR);
 counter!(BACKEND_EVENT_READ);
 counter!(BACKEND_EVENT_WRITE);
+counter!(
+    BACKEND_EVENT_MAX_REACHED,
+    "the number of times the maximum number of events was returned"
+);
 
 pub const QUEUE_RETRIES: usize = 3;
 
@@ -131,6 +135,9 @@ where
                         self.handle_event(event);
                     }
                 }
+            }
+            if events.iter().count() == self.nevent {
+                BACKEND_EVENT_MAX_REACHED.increment();
             }
             let _ = self.queues.wake();
         }
