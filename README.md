@@ -98,9 +98,9 @@ cargo test
 ### Legacy Build
 ```sh
 git clone https://github.com/twitter/pelikan.git
-cd pelikan/legacy
+cd pelikan
 mkdir _build && cd _build
-cmake ..
+cmake ../legacy
 make -j
 ```
 The executables can be found under ``_bin/`` (under build directory)
