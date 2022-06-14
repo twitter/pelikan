@@ -384,31 +384,21 @@ impl HashTable {
         let hash = self.hash(key);
         let tag = tag_from_hash(hash);
 
-        let mut updated = false;
-
         let iter = IterMut::new(self, hash);
 
         for item_info in iter {
             if get_tag(*item_info) == tag {
                 if get_seg_id(*item_info) == Some(old_seg) && get_offset(*item_info) == old_offset {
-                    if !updated {
-                        *item_info = build_item_info(tag, new_seg, new_offset);
-                        updated = true;
-                    } else {
-                        *item_info = 0;
-                    }
+                    *item_info = build_item_info(tag, new_seg, new_offset);
+                    ITEM_RELINK.increment();
+                    return Ok(());
                 } else {
                     HASH_TAG_COLLISION.increment();
                 }
             }
         }
 
-        if updated {
-            ITEM_RELINK.increment();
-            Ok(())
-        } else {
-            Err(())
-        }
+        Err(())
     }
 
     pub(crate) fn is_item_at(&mut self, key: &[u8], seg: NonZeroU32, offset: u64) -> bool {
@@ -450,7 +440,7 @@ impl HashTable {
 
         let mut insert_item_info = build_item_info(tag, seg, offset);
 
-        let mut removed = Vec::new();
+        let mut removed: Option<u64> = None;
 
         let iter = IterMut::new(self, hash);
 
@@ -467,14 +457,15 @@ impl HashTable {
                 HASH_TAG_COLLISION.increment();
             } else {
                 // update existing key
-                removed.push(*item_info);
+                removed = Some(*item_info);
                 *item_info = insert_item_info;
-                ITEM_REPLACE.increment();
                 insert_item_info = 0;
+                break;
             }
         }
 
-        for removed_item in removed {
+        if let Some(removed_item) = removed {
+            ITEM_REPLACE.increment();
             let _ = segments.remove_item(removed_item, ttl_buckets, self);
         }
 
@@ -571,11 +562,9 @@ impl HashTable {
         let hash = self.hash(key);
         let tag = tag_from_hash(hash);
 
-        let mut deleted = false;
-
         let iter = IterMut::new(self, hash);
 
-        let mut removed = Vec::new();
+        let mut removed: Option<u64> = None;
 
         for item_info in iter {
             if get_tag(*item_info) == tag {
@@ -585,22 +574,20 @@ impl HashTable {
                     continue;
                 } else {
                     HASH_REMOVE.increment();
-                    removed.push(*item_info);
+                    removed = Some(*item_info);
                     *item_info = 0;
-                    deleted = true;
+                    break;
                 }
             }
         }
 
-        for removed_item in removed {
-            let _ = segments.remove_item(removed_item, ttl_buckets, self);
-        }
-
-        if deleted {
+        if let Some(removed_item) = removed {
             ITEM_DELETE.increment();
+            let _ = segments.remove_item(removed_item, ttl_buckets, self);
+            true
+        } else {
+            false
         }
-
-        deleted
     }
 
     /// Evict a single item from the cache
@@ -627,9 +614,6 @@ impl HashTable {
         let tag = tag_from_hash(hash);
         let evict_item_info = build_item_info(tag, segment.id(), offset as u64);
 
-        let mut evicted = false;
-        let mut first_match = true;
-
         let iter = IterMut::new(self, hash);
 
         for item_info in iter {
@@ -645,24 +629,14 @@ impl HashTable {
                 continue;
             }
 
-            if first_match {
-                if evict_item_info == current_item_info {
-                    segment.remove_item(current_item_info);
-                    *item_info = 0;
-                    evicted = true;
-                }
-                first_match = false;
-                continue;
-            } else {
-                if !evicted && current_item_info == evict_item_info {
-                    evicted = true;
-                }
-                segment.remove_item(*item_info);
+            if evict_item_info == current_item_info {
+                segment.remove_item(current_item_info);
                 *item_info = 0;
+                return true;
             }
         }
 
-        evicted
+        false
     }
 
     /// Internal function used to calculate a hash value for a key
