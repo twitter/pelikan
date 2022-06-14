@@ -12,10 +12,8 @@ Pelikan is Twitter's framework for developing cache services. It is:
   services and providing reusable low-level components.
 
 [![License: Apache-2.0][license-badge]][license-url]
-
 [![Build Status][cargo-build-badge]][cargo-build-url]
 [![Fuzz Status][cargo-fuzz-badge]][cargo-fuzz-url]
-[![Legacy Build Status][c-build-badge]][c-build-url]
 [![Zulip Chat][zulip-badge]][zulip-url]
 
 [Website](http://pelikan.io) |
@@ -99,7 +97,7 @@ target/release/pelikan_segcache_rs
 
 To launch the service with the sample config file, run:
 ```sh
-target/release/pelikan_twemcache config/segcache.toml
+target/release/pelikan_segcache_rs config/segcache.toml
 ```
 
 You should be able to try out the server using an existing memcached client,
@@ -168,8 +166,6 @@ on our website. Meanwhile, check out the current material under `docs/`
 This software is licensed under the Apache 2.0 license, see [LICENSE](LICENSE) for details.
 
 [@pelikan_cache]: https://twitter.com/pelikan_cache
-[c-build-badge]: https://img.shields.io/github/workflow/status/twitter/pelikan/cmake-build/master?label=cmake%20build
-[c-build-url]: https://github.com/twitter/pelikan/actions/workflows/cmake.yml?query=branch%3Amaster+event%3Apush
 [cargo-build-badge]: https://img.shields.io/github/workflow/status/twitter/pelikan/cargo-build/master?label=cargo%20build
 [cargo-build-url]: https://github.com/twitter/pelikan/actions/workflows/cargo.yml?query=branch%3Amaster+event%3Apush
 [cargo-fuzz-badge]: https://img.shields.io/github/workflow/status/twitter/pelikan/cargo-fuzz/master?label=cargo%20fuzz
