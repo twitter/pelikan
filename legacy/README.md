@@ -12,10 +12,7 @@ Pelikan is Twitter's framework for developing cache services. It is:
   services and providing reusable low-level components.
 
 [![License: Apache-2.0][license-badge]][license-url]
-
-[![Build Status][cargo-build-badge]][cargo-build-url]
-[![Fuzz Status][cargo-fuzz-badge]][cargo-fuzz-url]
-[![Legacy Build Status][c-build-badge]][c-build-url]
+[![Build Status][c-build-badge]][c-build-url]
 [![Zulip Chat][zulip-badge]][zulip-url]
 
 [Website](http://pelikan.io) |
@@ -45,18 +42,15 @@ software designed for large-scale deployment.
 The framework approach allows us to develop new features and protocols quickly.
 
 ## Products
-Pelikan contains the following products:
-- `pelikan_segcache_rs`: a Rust implementation of `pelikan_segcache` which 
-  includes TLS support and is the preferred Segcache implementation.
-- `pelikan_pingserver_rs`: a Rust implementation of `pelikan_pingserver` which
-  includes TLS support.
-- [`momento_proxy`][momento_proxy-url]: a proxy which allows existing 
-  applications to use Momento instead of a Memcache-compatible cache backend.
-
-## Legacy
-Pelikan legacy codebase can be found within the `legacy` folder of this project.
-It is composed of the original C codebase and backend implementations. It
-remains as a reference, but is not recommended for production deployments.
+Currently Pelikan yields the following products:
+- `pelikan_twemcache`: a Twemcache replacement
+- `pelikan_slimcache`: a Memcached-like server with ultra-low memory overhead-
+  compared to Memcached/Redis, the per-key overhead is reduced by up to 90%
+- `pelikan_pingserver`: an over-engineered, production-ready ping server useful
+  as a tutorial and for measuring baseline RPC performance
+- **[Experimental]**`pelikan_segcache`: a Memcached-like server with extremely high
+  memory efficiency and excellent core scalability. See our [NSDI'21 paper]
+  for design and evaluation details.
 
 ## Features
 - runtime separation of control and data plane
@@ -68,38 +62,56 @@ remains as a reference, but is not recommended for production deployments.
 # Building Pelikan
 
 ## Requirement
-- Rust [stable toolchain](https://www.rust-lang.org/learn/get-started)
-- C toolchain: `llvm/clang (>= 7.0)`
-- Build tools: `cmake (>= 3.2)`
+- platform: Mac OS X or Linux
+- build tools: `cmake (>=2.8)`
+- compiler: `gcc (>=4.8)` or `clang (>=3.1)`
+- (optional) unit testing framework: `check (>=0.10.0)`. See below.
 
 ## Build
 ```sh
 git clone https://github.com/twitter/pelikan.git
 cd pelikan
-cargo build --release
+mkdir _build && cd _build
+cmake ..
+make -j
+```
+The executables can be found under ``_bin/`` (under build directory)
+
+To run all the tests, including those on `ccommon`, run:
+```sh
+make test
 ```
 
-## Tests
+To skip building tests, replace the `cmake` step with the following:
 ```sh
-cargo test
+cmake -DCHECK_WORKING=off ..
 ```
+## Install `check`
+To compile and run tests, you will have to install `[check]`. Please follow
+instructions in the project.
+
+**Note**: we highly recommend installing the latest version of `check` from
+source, as there are, unfortunately, a [linker bug][check-linker-bug] in
+packages installed by the current versions of `brew` (OS X), `CentOS` and
+`Ubuntu LTS`. The bug does not affect building executables.
+
 
 # Usage
-Using `pelikan_segcache_rs` as an example, other executables are highly similar.
+Using `pelikan_twemcache` as an example, other executables are highly similar.
 
 To get info of the service, including usage format and options, run:
 ```sh
-target/release/pelikan_segcache_rs --help
+_bin/pelikan_twemcache -h
 ```
 
 To launch the service with default settings, simply run:
 ```sh
-target/release/pelikan_segcache_rs
+_bin/pelikan_twemcache
 ```
 
 To launch the service with the sample config file, run:
 ```sh
-target/release/pelikan_twemcache config/segcache.toml
+_bin/pelikan_twemcache config/twemcache.conf
 ```
 
 You should be able to try out the server using an existing memcached client,
@@ -137,6 +149,11 @@ Pelikan is file-first when it comes to configurations, and currently is
 config-file only. You can create a new config file following the examples
 included under the `config` directory.
 
+**Tip**: to get a list of config options for each executable, use `-c` option:
+```sh
+_bin/pelikan_twemcache -c
+```
+
 
 # Community
 
@@ -170,15 +187,10 @@ This software is licensed under the Apache 2.0 license, see [LICENSE](LICENSE) f
 [@pelikan_cache]: https://twitter.com/pelikan_cache
 [c-build-badge]: https://img.shields.io/github/workflow/status/twitter/pelikan/cmake-build/master?label=cmake%20build
 [c-build-url]: https://github.com/twitter/pelikan/actions/workflows/cmake.yml?query=branch%3Amaster+event%3Apush
-[cargo-build-badge]: https://img.shields.io/github/workflow/status/twitter/pelikan/cargo-build/master?label=cargo%20build
-[cargo-build-url]: https://github.com/twitter/pelikan/actions/workflows/cargo.yml?query=branch%3Amaster+event%3Apush
-[cargo-fuzz-badge]: https://img.shields.io/github/workflow/status/twitter/pelikan/cargo-fuzz/master?label=cargo%20fuzz
-[cargo-fuzz-url]: https://github.com/twitter/pelikan/actions/workflows/fuzz.yml?query=branch%3Amaster+event%3Apush
 [check]: (http://libcheck.github.io/check/)
 [check-linker-bug]: (https://sourceforge.net/p/check/mailman/message/32835594/)
 [license-badge]: https://img.shields.io/badge/license-Apache%202.0-blue.svg
 [license-url]: https://github.com/twitter/pelikan/blob/master/LICENSE
-[momento_proxy-url]: src/rust/proxy/momento/README.md
 [NSDI'21 paper]: https://www.usenix.org/conference/nsdi21/presentation/yang-juncheng
 [zulip-badge]: https://img.shields.io/badge/zulip-join_chat-blue.svg
 [zulip-url]: https://pelikan.zulipchat.com/
