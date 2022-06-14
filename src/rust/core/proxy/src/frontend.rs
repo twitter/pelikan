@@ -20,6 +20,10 @@ use rustcommon_metrics::*;
 counter!(FRONTEND_EVENT_ERROR);
 counter!(FRONTEND_EVENT_READ);
 counter!(FRONTEND_EVENT_WRITE);
+counter!(
+    FRONTEND_EVENT_MAX_REACHED,
+    "the number of times the maximum number of events was returned"
+);
 
 pub const QUEUE_RETRIES: usize = 3;
 
@@ -125,6 +129,9 @@ where
                         self.handle_event(event);
                     }
                 }
+            }
+            if events.iter().count() == self.nevent {
+                FRONTEND_EVENT_MAX_REACHED.increment();
             }
             let _ = self.data_queues.wake();
         }
