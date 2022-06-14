@@ -117,7 +117,11 @@ where
                 error!("Error polling");
             }
 
-            WORKER_EVENT_TOTAL.add(events.iter().count() as _);
+            let count = events.iter().count();
+            WORKER_EVENT_TOTAL.add(count as _);
+            if count == self.nevent {
+                WORKER_EVENT_MAX_REACHED.increment();
+            }
 
             common::time::refresh_clock();
 
