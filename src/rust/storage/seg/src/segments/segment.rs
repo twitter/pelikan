@@ -669,7 +669,10 @@ impl<'a> Segment<'a> {
         // skips over seg_wait_refcount and evict retry, because no threading
 
         if self.live_items() > 0 {
-            error!("segment not empty after clearing, still contains: {} items", self.live_items());
+            error!(
+                "segment not empty after clearing, still contains: {} items",
+                self.live_items()
+            );
             panic!();
         }
 
