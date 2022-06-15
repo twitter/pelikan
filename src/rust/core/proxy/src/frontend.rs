@@ -24,7 +24,7 @@ counter!(
     FRONTEND_EVENT_MAX_REACHED,
     "the number of times the maximum number of events was returned"
 );
-heatmap!(FRONTEND_EVENT_DEPTH, 1_000_000);
+heatmap!(FRONTEND_EVENT_DEPTH, 100_000);
 
 pub const QUEUE_RETRIES: usize = 3;
 
