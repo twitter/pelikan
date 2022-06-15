@@ -29,6 +29,7 @@ counter!(
     BACKEND_EVENT_MAX_REACHED,
     "the number of times the maximum number of events was returned"
 );
+heatmap!(BACKEND_EVENT_DEPTH, 100_000);
 
 pub const QUEUE_RETRIES: usize = 3;
 
@@ -136,8 +137,15 @@ where
                     }
                 }
             }
-            if events.iter().count() == self.nevent {
+            let count = events.iter().count();
+            if count == self.nevent {
                 BACKEND_EVENT_MAX_REACHED.increment();
+            } else {
+                BACKEND_EVENT_DEPTH.increment(
+                    common::time::Instant::<common::time::Nanoseconds<u64>>::now(),
+                    count as _,
+                    1,
+                );
             }
             let _ = self.queues.wake();
         }
