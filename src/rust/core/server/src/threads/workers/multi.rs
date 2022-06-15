@@ -122,6 +122,11 @@ where
             if count == self.nevent {
                 WORKER_EVENT_MAX_REACHED.increment();
             }
+            WORKER_EVENT_MAX_REACHED_DEPTH.increment(
+                common::time::Instant::<common::time::Nanoseconds<u64>>::now(),
+                count as u64,
+                1,
+            );
 
             common::time::refresh_clock();
 
