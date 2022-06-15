@@ -121,12 +121,13 @@ where
             WORKER_EVENT_TOTAL.add(count as _);
             if count == self.nevent {
                 WORKER_EVENT_MAX_REACHED.increment();
+            } else {
+                WORKER_EVENT_DEPTH.increment(
+                    common::time::Instant::<common::time::Nanoseconds<u64>>::now(),
+                    count as _,
+                    1,
+                );
             }
-            WORKER_EVENT_MAX_REACHED_DEPTH.increment(
-                common::time::Instant::<common::time::Nanoseconds<u64>>::now(),
-                count as u64,
-                1,
-            );
 
             common::time::refresh_clock();
 

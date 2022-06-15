@@ -37,7 +37,7 @@ counter!(
     WORKER_EVENT_MAX_REACHED,
     "the number of times the maximum number of events was returned"
 );
-heatmap!(WORKER_EVENT_MAX_REACHED_DEPTH, 1_000_000);
+heatmap!(WORKER_EVENT_DEPTH, 1_000_000);
 
 counter!(STORAGE_EVENT_LOOP);
 heatmap!(STORAGE_QUEUE_DEPTH, 1_000_000);
