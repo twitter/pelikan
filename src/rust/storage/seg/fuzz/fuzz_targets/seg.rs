@@ -10,7 +10,7 @@ use core::time::Duration;
 use seg::*;
 
 const SEG_SIZE: i32 = 1024; // 1KB
-const HEAP_SIZE: usize = 8 * 1024; // 8KB => 8 segments => 32 items total
+const HEAP_SIZE: usize = 8 * 1024; // 8KB => 8 segments
 const HASH_POWER: u8 = 5;
 const OVERFLOW_FACTOR: f64 = 1.0;
 
