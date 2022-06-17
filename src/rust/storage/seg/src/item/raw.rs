@@ -107,15 +107,6 @@ impl RawItem {
         self.header().check_magic()
     }
 
-    /// Set the header magic bytes
-    #[inline]
-    pub(crate) fn set_magic(&mut self) {
-        #[cfg(feature = "magic")]
-        unsafe {
-            (*self.header_mut()).set_magic()
-        }
-    }
-
     /// Copy data into the item
     pub(crate) fn define(&mut self, key: &[u8], value: Value, optional: &[u8]) {
         unsafe {
@@ -123,7 +114,6 @@ impl RawItem {
         }
         match value {
             Value::Bytes(value) => unsafe {
-                self.set_magic();
                 (*self.header_mut()).set_type(None);
                 (*self.header_mut()).set_olen(optional.len() as u8);
                 std::ptr::copy_nonoverlapping(
@@ -145,7 +135,6 @@ impl RawItem {
                 );
             },
             Value::U64(value) => unsafe {
-                self.set_magic();
                 (*self.header_mut()).set_type(Some(ValueType::U64));
                 (*self.header_mut()).set_olen(optional.len() as u8);
                 std::ptr::copy_nonoverlapping(
