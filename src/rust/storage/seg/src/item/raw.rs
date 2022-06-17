@@ -118,7 +118,9 @@ impl RawItem {
 
     /// Copy data into the item
     pub(crate) fn define(&mut self, key: &[u8], value: Value, optional: &[u8]) {
-        unsafe { (*self.header_mut()).init(); }
+        unsafe {
+            (*self.header_mut()).init();
+        }
         match value {
             Value::Bytes(value) => unsafe {
                 self.set_magic();

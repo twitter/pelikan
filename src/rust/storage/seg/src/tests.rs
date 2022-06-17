@@ -520,7 +520,12 @@ fn fuzz_1() {
     let _ = cache.clear();
     assert_eq!(cache.items(), 0);
 
-    let _ = cache.insert(&[1], &[0xDE, 0xAD, 0xBE, 0xEF], None, Duration::from_secs(4));
+    let _ = cache.insert(
+        &[1],
+        &[0xDE, 0xAD, 0xBE, 0xEF],
+        None,
+        Duration::from_secs(4),
+    );
     let _ = cache.insert(&[1], &[0xC0, 0xFF, 0xEE], None, Duration::from_secs(2));
     let _ = cache.delete(&[1]);
 }
