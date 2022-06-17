@@ -536,7 +536,10 @@ impl Segments {
             // regardless of eviction policy, we can evict the segment if its now
             // empty and would be evictable. if we evict, we must return early
             if segment.live_items() == 0 && segment.can_evict() {
-                // NOTE: we skip clearing because we know the segment is empty
+                // even though the item has zero live items, we clear it as a
+                // way of updating the dead item metrics.
+                segment.clear(hashtable, false);
+
                 segment.set_evictable(false);
                 // if it's the head of a ttl bucket, we need to manually relink
                 // the bucket head while we have access to the ttl buckets
