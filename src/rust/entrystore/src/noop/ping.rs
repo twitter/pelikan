@@ -11,11 +11,11 @@ use protocol_ping::*;
 impl PingStorage for Noop {}
 
 impl Execute<Request, Response> for Noop {
-    fn execute(&mut self, request: Request) -> Option<Response> {
+    fn execute(&mut self, request: Request) -> Box<dyn ExecutionResult<Request, Response>> {
         let response = match request {
             Request::Ping => Response::Pong,
         };
 
-        Some(response)
+        Box::new(PingExecutionResult::new(request, response))
     }
 }

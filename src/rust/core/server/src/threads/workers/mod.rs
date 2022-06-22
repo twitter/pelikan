@@ -17,6 +17,7 @@ use config::WorkerConfig;
 use entrystore::EntryStore;
 use mio::Waker;
 pub use multi::{MultiWorker, MultiWorkerBuilder};
+use protocol_common::ExecutionResult;
 use protocol_common::{Compose, Execute, Parse};
 use queues::Queues;
 use session::Session;
@@ -43,6 +44,8 @@ counter!(STORAGE_EVENT_LOOP);
 heatmap!(STORAGE_QUEUE_DEPTH, 1_000_000);
 
 counter!(PROCESS_REQ);
+
+type WrappedResult<Request, Response> = TokenWrapper<Box<dyn ExecutionResult<Request, Response>>>;
 
 pub struct TokenWrapper<T> {
     inner: T,

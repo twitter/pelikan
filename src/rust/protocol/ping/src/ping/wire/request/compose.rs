@@ -10,7 +10,7 @@ use std::io::Write;
 
 #[allow(unused_must_use)]
 impl Compose for Request {
-    fn compose(self, dst: &mut Session) {
+    fn compose(&self, dst: &mut Session) {
         match self {
             Self::Ping => {
                 dst.write_all(b"ping\r\n");

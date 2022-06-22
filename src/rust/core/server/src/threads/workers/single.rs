@@ -250,10 +250,15 @@ where
                         let request = parsed_request.into_inner();
                         session.consume(consumed);
 
-                        if let Some(response) = self.storage.execute(request) {
-                            trace!("composing response for session: {:?}", session);
-                            response.compose(session);
-                            session.finalize_response();
+                        let result = self.storage.execute(request);
+                        trace!("composing response for session: {:?}", session);
+                        result.compose(session);
+                        session.finalize_response();
+                        if result.should_hangup() {
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                "response requires hangup",
+                            ));
                         }
                     }
                     Err(ParseError::Incomplete) => {

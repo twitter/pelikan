@@ -8,41 +8,34 @@ pub(crate) async fn set(
     client: &mut SimpleCacheClient,
     cache_name: &str,
     socket: &mut tokio::net::TcpStream,
-    entry: MemcacheEntry,
-    noreply: bool,
+    request: Set,
 ) -> Result<(), Error> {
     SET.increment();
 
-    if let Ok(key) = std::str::from_utf8(&entry.key) {
-        let value = match entry.value {
-            Some(OwnedValue::Bytes(v)) => {
-                if let Ok(value) = std::str::from_utf8(&v) {
-                    value.to_owned()
-                } else {
-                    debug!("value is not valid utf8: {:?}", v);
-                    let _ = socket.write_all(b"ERROR\r\n").await;
-                    return Err(Error::from(ErrorKind::InvalidInput));
-                }
+    if let Ok(key) = std::str::from_utf8(request.key()) {
+        if request.value().is_empty() {
+            error!("empty values are not supported by momento");
+            SESSION_SEND.increment();
+            SESSION_SEND_BYTE.add(7);
+            TCP_SEND_BYTE.add(7);
+            if socket.write_all(b"ERROR\r\n").await.is_err() {
+                SESSION_SEND_EX.increment();
             }
-            Some(OwnedValue::U64(v)) => {
-                format!("{}", v)
-            }
-            None => {
-                error!("empty values are not supported by momento");
-                SESSION_SEND.increment();
-                SESSION_SEND_BYTE.add(7);
-                TCP_SEND_BYTE.add(7);
-                if socket.write_all(b"ERROR\r\n").await.is_err() {
-                    SESSION_SEND_EX.increment();
-                }
-                return Err(Error::from(ErrorKind::InvalidInput));
-            }
+            return Err(Error::from(ErrorKind::InvalidInput));
+        }
+
+        let value = if let Ok(value) = std::str::from_utf8(&request.value()) {
+            value.to_owned()
+        } else {
+            debug!("value is not valid utf8: {:?}", request.value());
+            let _ = socket.write_all(b"ERROR\r\n").await;
+            return Err(Error::from(ErrorKind::InvalidInput));
         };
 
         BACKEND_REQUEST.increment();
 
-        let ttl = if let Some(ttl) = entry.ttl {
-            NonZeroU64::new(ttl.as_secs() as u64)
+        let ttl = if let Some(ttl) = request.ttl() {
+            NonZeroU64::new(ttl as u64)
         } else {
             None
         };
@@ -57,11 +50,11 @@ pub(crate) async fn set(
                 match result.result {
                     MomentoSetStatus::OK => {
                         SET_STORED.increment();
-                        if noreply {
+                        if request.noreply() {
                             klog_set(
                                 key,
-                                entry.flags,
-                                entry.ttl.map(|v| v.as_secs() as u32).unwrap_or(0),
+                                request.flags(),
+                                request.ttl().map(|v| v as u32).unwrap_or(0),
                                 value.len(),
                                 5,
                                 0,
@@ -69,8 +62,8 @@ pub(crate) async fn set(
                         } else {
                             klog_set(
                                 key,
-                                entry.flags,
-                                entry.ttl.map(|v| v.as_secs() as u32).unwrap_or(0),
+                                request.flags(),
+                                request.ttl().map(|v| v as u32).unwrap_or(0),
                                 value.len(),
                                 5,
                                 8,
@@ -87,11 +80,11 @@ pub(crate) async fn set(
                     }
                     MomentoSetStatus::ERROR => {
                         SET_NOT_STORED.increment();
-                        if noreply {
+                        if request.noreply() {
                             klog_set(
                                 key,
-                                entry.flags,
-                                entry.ttl.map(|v| v.as_secs() as u32).unwrap_or(0),
+                                request.flags(),
+                                request.ttl().map(|v| v as u32).unwrap_or(0),
                                 value.len(),
                                 9,
                                 0,
@@ -99,8 +92,8 @@ pub(crate) async fn set(
                         } else {
                             klog_set(
                                 key,
-                                entry.flags,
-                                entry.ttl.map(|v| v.as_secs() as u32).unwrap_or(0),
+                                request.flags(),
+                                request.ttl().map(|v| v as u32).unwrap_or(0),
                                 value.len(),
                                 9,
                                 12,

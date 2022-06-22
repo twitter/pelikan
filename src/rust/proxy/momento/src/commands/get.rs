@@ -8,13 +8,13 @@ pub(crate) async fn get(
     client: &mut SimpleCacheClient,
     cache_name: &str,
     socket: &mut tokio::net::TcpStream,
-    keys: &[Box<[u8]>],
+    request: Get,
 ) -> Result<(), Error> {
     GET.increment();
 
     // check if any of the keys are invalid before
     // sending the requests to the backend
-    for key in keys.iter() {
+    for key in request.keys() {
         if std::str::from_utf8(key).is_err() {
             GET_EX.increment();
 
@@ -26,7 +26,7 @@ pub(crate) async fn get(
 
     let mut response_buf = Vec::new();
 
-    for key in keys.iter() {
+    for key in request.keys() {
         BACKEND_REQUEST.increment();
         GET_KEY.increment();
 
