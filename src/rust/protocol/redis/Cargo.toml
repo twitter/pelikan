@@ -1,0 +1,23 @@
+[package]
+name = "protocol-redis"
+version = "0.1.0"
+edition = "2021"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+description = "Redis protocol support for Pelikan"
+homepage = "https://pelikan.io"
+repository = "https://github.com/twitter/pelikan"
+license = "Apache-2.0"
+
+[dependencies]
+nom = "5.1.2"
+protocol-common = { path = "../../protocol/common" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+session = { path = "../../session" }
+
+[dev-dependencies]
+criterion = "0.3.4"
+
+[[bench]]
+name = "request-parsing"
+path = "benches/request_parsing.rs"
+harness = false
