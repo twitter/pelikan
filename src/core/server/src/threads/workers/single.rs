@@ -118,7 +118,17 @@ where
                 error!("Error polling");
             }
 
-            WORKER_EVENT_TOTAL.add(events.iter().count() as _);
+            let count = events.iter().count();
+            WORKER_EVENT_TOTAL.add(count as _);
+            if count == self.nevent {
+                WORKER_EVENT_MAX_REACHED.increment();
+            } else {
+                WORKER_EVENT_DEPTH.increment(
+                    common::time::Instant::<common::time::Nanoseconds<u64>>::now(),
+                    count as _,
+                    1,
+                );
+            }
 
             common::time::refresh_clock();
 
@@ -240,10 +250,15 @@ where
                         let request = parsed_request.into_inner();
                         session.consume(consumed);
 
-                        if let Some(response) = self.storage.execute(request) {
-                            trace!("composing response for session: {:?}", session);
-                            response.compose(session);
-                            session.finalize_response();
+                        let result = self.storage.execute(request);
+                        trace!("composing response for session: {:?}", session);
+                        result.compose(session);
+                        session.finalize_response();
+                        if result.should_hangup() {
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                "response requires hangup",
+                            ));
                         }
                     }
                     Err(ParseError::Incomplete) => {

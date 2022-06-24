@@ -17,6 +17,7 @@ use config::WorkerConfig;
 use entrystore::EntryStore;
 use mio::Waker;
 pub use multi::{MultiWorker, MultiWorkerBuilder};
+use protocol_common::ExecutionResult;
 use protocol_common::{Compose, Execute, Parse};
 use queues::Queues;
 use session::Session;
@@ -33,11 +34,18 @@ counter!(WORKER_EVENT_TOTAL);
 counter!(WORKER_EVENT_ERROR);
 counter!(WORKER_EVENT_WRITE);
 counter!(WORKER_EVENT_READ);
+counter!(
+    WORKER_EVENT_MAX_REACHED,
+    "the number of times the maximum number of events was returned"
+);
+heatmap!(WORKER_EVENT_DEPTH, 100_000);
 
 counter!(STORAGE_EVENT_LOOP);
 heatmap!(STORAGE_QUEUE_DEPTH, 1_000_000);
 
 counter!(PROCESS_REQ);
+
+type WrappedResult<Request, Response> = TokenWrapper<Box<dyn ExecutionResult<Request, Response>>>;
 
 pub struct TokenWrapper<T> {
     inner: T,

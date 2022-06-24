@@ -11,6 +11,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 config = { path = "../../../config" }
+protocol-common = { path = "../../common" }
 
 [dependencies.protocol-memcache]
 path = ".."

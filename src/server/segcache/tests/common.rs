@@ -63,16 +63,16 @@ pub fn tests() {
         &[("get 1\r\n", Some("VALUE 1 0 1\r\n2\r\nEND\r\n"))],
     );
     test(
-        "replace value (key: 0)",
-        &[("replace 0 0 0 1\r\n2\r\n", Some("STORED\r\n"))],
+        "replace value (key: 1)",
+        &[("replace 1 0 0 1\r\n3\r\n", Some("STORED\r\n"))],
     );
     test(
         "replace value (key: 2)",
         &[("replace 2 0 0 1\r\n2\r\n", Some("NOT_STORED\r\n"))],
     );
     test(
-        "get value (key: 0)",
-        &[("get 0\r\n", Some("VALUE 0 0 1\r\n2\r\nEND\r\n"))],
+        "get value (key: 1)",
+        &[("get 1\r\n", Some("VALUE 1 0 1\r\n3\r\nEND\r\n"))],
     );
     test("get value (key: 2)", &[("get 2\r\n", Some("END\r\n"))]);
 

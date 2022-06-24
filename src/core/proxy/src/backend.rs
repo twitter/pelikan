@@ -25,6 +25,11 @@ const SESSION_BUFFER_MAX: usize = 1024 * KB;
 counter!(BACKEND_EVENT_ERROR);
 counter!(BACKEND_EVENT_READ);
 counter!(BACKEND_EVENT_WRITE);
+counter!(
+    BACKEND_EVENT_MAX_REACHED,
+    "the number of times the maximum number of events was returned"
+);
+heatmap!(BACKEND_EVENT_DEPTH, 100_000);
 
 pub const QUEUE_RETRIES: usize = 3;
 
@@ -131,6 +136,16 @@ where
                         self.handle_event(event);
                     }
                 }
+            }
+            let count = events.iter().count();
+            if count == self.nevent {
+                BACKEND_EVENT_MAX_REACHED.increment();
+            } else {
+                BACKEND_EVENT_DEPTH.increment(
+                    common::time::Instant::<common::time::Nanoseconds<u64>>::now(),
+                    count as _,
+                    1,
+                );
             }
             let _ = self.queues.wake();
         }

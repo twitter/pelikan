@@ -213,6 +213,14 @@ impl ItemHeader {
         }
     }
 
+    pub fn init(&mut self) {
+        #[cfg(feature = "magic")]
+        self.set_magic();
+
+        self.len = 0;
+        self.flags = 0;
+    }
+
     /// Set the optional length
     #[inline]
     pub fn set_olen(&mut self, len: u8) {

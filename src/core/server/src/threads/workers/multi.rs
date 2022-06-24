@@ -68,7 +68,7 @@ impl<Storage, Parser, Request, Response> MultiWorkerBuilder<Storage, Parser, Req
         self,
         signal_queue: Queues<(), Signal>,
         session_queue: Queues<(), Session>,
-        storage_queue: Queues<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
+        storage_queue: Queues<TokenWrapper<Request>, WrappedResult<Request, Response>>,
     ) -> MultiWorker<Storage, Parser, Request, Response> {
         MultiWorker {
             nevent: self.nevent,
@@ -92,7 +92,7 @@ pub struct MultiWorker<Storage, Parser, Request, Response> {
     session_queue: Queues<(), Session>,
     signal_queue: Queues<(), Signal>,
     _storage: PhantomData<Storage>,
-    storage_queue: Queues<TokenWrapper<Request>, TokenWrapper<Option<Response>>>,
+    storage_queue: Queues<TokenWrapper<Request>, WrappedResult<Request, Response>>,
 }
 
 impl<Storage, Parser, Request, Response> MultiWorker<Storage, Parser, Request, Response>
@@ -117,7 +117,17 @@ where
                 error!("Error polling");
             }
 
-            WORKER_EVENT_TOTAL.add(events.iter().count() as _);
+            let count = events.iter().count();
+            WORKER_EVENT_TOTAL.add(count as _);
+            if count == self.nevent {
+                WORKER_EVENT_MAX_REACHED.increment();
+            } else {
+                WORKER_EVENT_DEPTH.increment(
+                    common::time::Instant::<common::time::Nanoseconds<u64>>::now(),
+                    count as _,
+                    1,
+                );
+            }
 
             common::time::refresh_clock();
 
@@ -244,7 +254,7 @@ where
 
     fn handle_storage_queue(
         &mut self,
-        responses: &mut Vec<TrackedItem<TokenWrapper<Option<Response>>>>,
+        responses: &mut Vec<TrackedItem<WrappedResult<Request, Response>>>,
     ) {
         trace!("handling event for storage queue");
         // process all storage queue responses
@@ -254,18 +264,17 @@ where
             let token = message.token();
             let mut reregister = false;
             if let Ok(session) = self.poll.get_mut_session(token) {
-                if let Some(response) = message.into_inner() {
-                    trace!("composing response for session: {:?}", session);
-                    response.compose(session);
-                    session.finalize_response();
-                    // if we have pending writes, we should attempt to flush the session
-                    // now. if we still have pending bytes, we should re-register to
-                    // remove the read interest.
+                let result = message.into_inner();
+                trace!("composing response for session: {:?}", session);
+                result.compose(session);
+                session.finalize_response();
+                // if we have pending writes, we should attempt to flush the session
+                // now. if we still have pending bytes, we should re-register to
+                // remove the read interest.
+                if session.write_pending() > 0 {
+                    let _ = session.flush();
                     if session.write_pending() > 0 {
-                        let _ = session.flush();
-                        if session.write_pending() > 0 {
-                            reregister = true;
-                        }
+                        reregister = true;
                     }
                 }
                 if session.read_pending() > 0 && self.handle_session_read(token).is_ok() {

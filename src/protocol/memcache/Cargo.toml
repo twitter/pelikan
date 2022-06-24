@@ -1,30 +1,22 @@
 [package]
 name = "protocol-memcache"
-version = "0.0.1"
-authors = ["Brian Martin <bmartin@twitter.com>"]
-edition = "2018"
-description = "protocols used in Pelikan servers"
-homepage = "https://pelikan.io"
-repository = "https://github.com/twitter/pelikan"
-license = "Apache-2.0"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bench]]
-name = "memcache"
-path = "benches/memcache.rs"
+name = "request-parsing"
+path = "benches/request_parsing.rs"
 harness = false
 
 [dependencies]
 common = { path = "../../common" }
-config = { path = "../../config" }
-logger = { path = "../../logger" }
+nom = "5.1.2"
 protocol-common = { path = "../../protocol/common" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 session = { path = "../../session" }
-storage-types = { path = "../../storage/types" }
+
 
 [dev-dependencies]
 criterion = "0.3.4"
-
-[features]
-default = ["stats"]
-stats = []

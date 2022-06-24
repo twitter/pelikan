@@ -6,20 +6,17 @@
 
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use protocol_common::Parse;
 
-use config::TimeType;
 use protocol_memcache::*;
 
 const KB: usize = 1024;
-const MB: usize = 1024 * KB;
 
 const BUFFER_SIZE: usize = 16 * KB;
-const MAX_VALUE_SIZE: usize = MB;
-
 const DURATION: u64 = 30; // seconds
 
 fn get(c: &mut Criterion) {
-    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE, TimeType::Memcache);
+    let parser = RequestParser::new();
 
     let mut group = c.benchmark_group("get");
     group.measurement_time(Duration::from_secs(DURATION));
@@ -37,7 +34,7 @@ fn get(c: &mut Criterion) {
 }
 
 fn set(c: &mut Criterion) {
-    let parser = MemcacheRequestParser::new(MAX_VALUE_SIZE, TimeType::Memcache);
+    let parser = RequestParser::new();
 
     let mut group = c.benchmark_group("set");
     group.measurement_time(Duration::from_secs(DURATION));

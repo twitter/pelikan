@@ -8,4 +8,4 @@ mod storage;
 mod wire;
 
 pub use storage::PingStorage;
-pub use wire::{Request, RequestParser, Response, ResponseParser};
+pub use wire::{PingExecutionResult, Request, RequestParser, Response, ResponseParser};

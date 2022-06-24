@@ -14,7 +14,7 @@ pub(crate) async fn handle_proxy_client(
     let mut buf = Buffer::with_capacity(INITIAL_BUFFER_SIZE);
 
     // initialize the request parser
-    let parser = MemcacheRequestParser::new(MAX_REQUEST_SIZE, TIME_TYPE);
+    let parser = RequestParser::new().max_value_size(MAX_REQUEST_SIZE);
 
     // handle incoming data from the client
     loop {
@@ -28,24 +28,24 @@ pub(crate) async fn handle_proxy_client(
                 let request = request.into_inner();
 
                 match request {
-                    MemcacheRequest::Get { keys, .. } => {
-                        if get(&mut client, &cache_name, &mut socket, &keys)
+                    Request::Get(request) => {
+                        if get(&mut client, &cache_name, &mut socket, request)
                             .await
                             .is_err()
                         {
                             break;
                         }
                     }
-                    MemcacheRequest::Set { entry, noreply } => {
-                        if set(&mut client, &cache_name, &mut socket, entry, noreply)
+                    Request::Set(request) => {
+                        if set(&mut client, &cache_name, &mut socket, request)
                             .await
                             .is_err()
                         {
                             break;
                         }
                     }
-                    _ => {
-                        debug!("unsupported command: {}", request.command());
+                    request => {
+                        debug!("unsupported command: {}", request);
                     }
                 }
                 buf.consume(consumed);
