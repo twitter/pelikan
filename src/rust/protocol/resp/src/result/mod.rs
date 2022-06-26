@@ -6,18 +6,18 @@ use crate::*;
 use protocol_common::ExecutionResult;
 use session::Session;
 
-pub struct RedisExecutionResult<Request, Response> {
+pub struct RespExecutionResult<Request, Response> {
     pub(crate) request: Request,
     pub(crate) response: Response,
 }
 
-impl RedisExecutionResult<Request, Response> {
+impl RespExecutionResult<Request, Response> {
     pub fn new(request: Request, response: Response) -> Self {
         Self { request, response }
     }
 }
 
-impl ExecutionResult<Request, Response> for RedisExecutionResult<Request, Response> {
+impl ExecutionResult<Request, Response> for RespExecutionResult<Request, Response> {
     fn request(&self) -> &Request {
         &self.request
     }
@@ -27,7 +27,7 @@ impl ExecutionResult<Request, Response> for RedisExecutionResult<Request, Respon
     }
 }
 
-impl Compose for RedisExecutionResult<Request, Response> {
+impl Compose for RespExecutionResult<Request, Response> {
     fn compose(&self, dst: &mut Session) {
         match self.request {
             Request::Get(_) => match self.response {

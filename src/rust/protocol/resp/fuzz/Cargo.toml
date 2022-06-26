@@ -1,5 +1,5 @@
 [package]
-name = "protocol-redis-fuzz"
+name = "protocol-resp-fuzz"
 version = "0.0.0"
 authors = ["Automatically generated"]
 publish = false

@@ -2,14 +2,14 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! A fuzz target which makes sure that the `Redis` protocol implementation
+//! A fuzz target which makes sure that the `RESP` protocol implementation
 //! will handle arbitrary data without panicking or violating protocol specific
 //! invariants.
 
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
-use protocol_redis::*;
+use protocol_resp::*;
 use protocol_common::Parse;
 
 const MAX_KEY_LEN: usize = 128;

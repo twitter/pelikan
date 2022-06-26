@@ -8,7 +8,7 @@ use core::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use protocol_common::Parse;
 
-use protocol_redis::*;
+use protocol_resp::*;
 
 const KB: usize = 1024;
 

@@ -1607,7 +1607,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "protocol-redis"
+name = "protocol-resp"
 version = "0.1.0"
 dependencies = [
  "criterion",

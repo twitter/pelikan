@@ -1,9 +1,9 @@
 [package]
-name = "protocol-redis"
+name = "protocol-resp"
 version = "0.1.0"
 edition = "2021"
 authors = ["Brian Martin <bmartin@twitter.com>"]
-description = "Redis protocol support for Pelikan"
+description = "RESP protocol support for Pelikan"
 homepage = "https://pelikan.io"
 repository = "https://github.com/twitter/pelikan"
 license = "Apache-2.0"
