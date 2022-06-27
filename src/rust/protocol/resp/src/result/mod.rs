@@ -33,19 +33,19 @@ impl Compose for RespExecutionResult<Request, Response> {
             Request::Get(_) => match self.response {
                 Response::BulkString(ref res) => {
                     if res.inner.is_some() {
-                        GET_KEY_HIT.increment();
+                        COMPOSE_GET_HIT.increment();
                     } else {
-                        GET_KEY_MISS.increment();
+                        COMPOSE_GET_MISS.increment();
                     }
                 }
                 _ => return Error::from("Internal error").compose(dst),
             },
             Request::Set(_) => match self.response {
                 Response::SimpleString(_) => {
-                    SET_STORED.increment();
+                    COMPOSE_SET_STORED.increment();
                 }
                 Response::Error(_) => {
-                    SET_NOT_STORED.increment();
+                    COMPOSE_SET_NOT_STORED.increment();
                 }
                 _ => return Error::from("Internal error").compose(dst),
             },

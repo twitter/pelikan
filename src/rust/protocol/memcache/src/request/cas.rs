@@ -118,13 +118,13 @@ impl RequestParser {
     pub fn parse_cas<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Cas> {
         match self.parse_cas_no_stats(input) {
             Ok((input, request)) => {
-                CAS.increment();
+                PARSE_CAS.increment();
                 Ok((input, request))
             }
             Err(e) => {
                 if !e.is_incomplete() {
-                    CAS.increment();
-                    CAS_EX.increment();
+                    PARSE_CAS.increment();
+                    PARSE_CAS_EX.increment();
                 }
                 Err(e)
             }
@@ -134,6 +134,7 @@ impl RequestParser {
 
 impl Compose for Cas {
     fn compose(&self, session: &mut session::Session) {
+        COMPOSE_CAS.increment();
         let _ = session.write_all(b"cas ");
         let _ = session.write_all(&self.key);
         let _ = session.write_all(format!(" {}", self.flags).as_bytes());

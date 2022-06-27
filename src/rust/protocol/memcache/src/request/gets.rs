@@ -21,15 +21,16 @@ impl RequestParser {
         // we can use the get parser here and convert the request
         match self.parse_get_no_stats(input) {
             Ok((input, request)) => {
-                GETS.increment();
+                PARSE_GETS.increment();
                 let keys = request.keys.len() as u64;
-                GETS_KEY.add(keys);
+                PARSE_GETS_KEY.add(keys);
+                PARSE_GET_CARDINALITY.increment(Instant::now(), keys, 1);
                 Ok((input, Gets { keys: request.keys }))
             }
             Err(e) => {
                 if !e.is_incomplete() {
-                    GETS.increment();
-                    GETS_EX.increment();
+                    PARSE_GETS.increment();
+                    PARSE_GETS_EX.increment();
                 }
                 Err(e)
             }
@@ -39,6 +40,7 @@ impl RequestParser {
 
 impl Compose for Gets {
     fn compose(&self, session: &mut session::Session) {
+        COMPOSE_GETS.increment();
         let _ = session.write_all(b"gets");
         for key in self.keys.iter() {
             let _ = session.write_all(b" ");

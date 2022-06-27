@@ -67,13 +67,13 @@ impl RequestParser {
     pub fn parse_incr<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Incr> {
         match self.parse_incr_no_stats(input) {
             Ok((input, request)) => {
-                INCR.increment();
+                PARSE_INCR.increment();
                 Ok((input, request))
             }
             Err(e) => {
                 if !e.is_incomplete() {
-                    INCR.increment();
-                    INCR_EX.increment();
+                    PARSE_INCR.increment();
+                    PARSE_INCR_EX.increment();
                 }
                 Err(e)
             }
@@ -83,6 +83,7 @@ impl RequestParser {
 
 impl Compose for Incr {
     fn compose(&self, session: &mut session::Session) {
+        COMPOSE_INCR.increment();
         let _ = session.write_all(b"incr ");
         let _ = session.write_all(&self.key);
         let _ = session.write_all(format!(" {}", self.value).as_bytes());

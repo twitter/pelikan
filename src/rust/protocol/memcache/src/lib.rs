@@ -4,16 +4,17 @@
 
 mod request;
 mod response;
-mod result;
-mod storage;
+// mod result;
+// mod storage;
 mod util;
 
+use rustcommon_metrics::{Counter, Heatmap, Relaxed, metric};
 pub(crate) use util::*;
 
 pub use request::*;
 pub use response::*;
-pub use result::*;
-pub use storage::*;
+// pub use result::*;
+// pub use storage::*;
 
 use common::expiry::TimeType;
 
@@ -23,72 +24,103 @@ pub enum MemcacheError {
     ServerError(ServerError),
 }
 
-use rustcommon_metrics::*;
+// use rustcommon_metrics::*;
 
 type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
 
-counter!(GET);
-heatmap!(
-    GET_CARDINALITY,
-    1_000_000,
-    "distribution of key cardinality for get requests"
-);
-counter!(GET_EX);
-counter!(GET_KEY);
-counter!(GET_KEY_HIT);
-counter!(GET_KEY_MISS);
+#[rustfmt::skip]
+macro_rules! counter {
+    ($identifier:ident, $name:tt) => {
+        #[metric(
+            name = $name
+        )]
+        pub static $identifier: Counter = Counter::new();
+    };
+    ($identifier:ident, $name:tt, $description:tt) => {
+        #[metric(
+            name = $name,
+            description = $description
+        )]
+        pub static $identifier: Counter = Counter::new();
+    };
+}
 
-counter!(GETS);
-counter!(GETS_EX);
-counter!(GETS_KEY);
-counter!(GETS_KEY_HIT);
-counter!(GETS_KEY_MISS);
+#[rustfmt::skip]
+macro_rules! heatmap {
+    ($identifier:ident, $name:tt, $max:expr) => {
+        #[metric(
+            name = $name
+        )]
+        pub static $identifier: Relaxed<Heatmap> = Relaxed::new(|| {
+            Heatmap::new(
+                $max as _,
+                3,
+                rustcommon_metrics::Duration::<rustcommon_metrics::Nanoseconds<u64>>::from_secs(60),
+                rustcommon_metrics::Duration::<rustcommon_metrics::Nanoseconds<u64>>::from_secs(1),
+            )
+        });
+    };
+    ($identifier:ident, $name:tt, $max:expr, $description:tt) => {
+        #[metric(
+            name = $name,
+            description = $description
+        )]
+        pub static $identifier: Relaxed<Heatmap> = Relaxed::new(|| {
+            Heatmap::new(
+                $max as _,
+                3,
+                rustcommon_metrics::Duration::<rustcommon_metrics::Nanoseconds<u64>>::from_secs(60),
+                rustcommon_metrics::Duration::<rustcommon_metrics::Nanoseconds<u64>>::from_secs(1),
+            )
+        });
+    };
+}
 
-counter!(SET);
-counter!(SET_EX);
-counter!(SET_STORED);
-counter!(SET_NOT_STORED);
 
-counter!(ADD);
-counter!(ADD_EX);
-counter!(ADD_STORED);
-counter!(ADD_NOT_STORED);
+counter!(COMPOSE_GET, "compose/get");
+counter!(COMPOSE_GET_KEY, "compose/get/key");
+heatmap!(COMPOSE_GET_CARDINALITY, "compose/get/cardinality", 1_000_000);
+counter!(COMPOSE_GETS, "compose/gets");
+counter!(COMPOSE_GETS_KEY, "compose/gets/key");
+heatmap!(COMPOSE_GETS_CARDINALITY, "compose/gets/cardinality", 1_000_000);
+counter!(COMPOSE_SET, "compose/set");
+counter!(COMPOSE_ADD, "compose/add");
+counter!(COMPOSE_REPLACE, "compose/replace");
+counter!(COMPOSE_CAS, "compose/cas");
+counter!(COMPOSE_INCR, "compose/incr");
+counter!(COMPOSE_DECR, "compose/decr");
+counter!(COMPOSE_APPEND, "compose/append");
+counter!(COMPOSE_PREPEND, "compose/prepend");
+counter!(COMPOSE_DELETE, "compose/delete");
+counter!(COMPOSE_QUIT, "compose/quit");
+counter!(COMPOSE_FLUSH_ALL, "compose/flush_all");
 
-counter!(REPLACE);
-counter!(REPLACE_EX);
-counter!(REPLACE_STORED);
-counter!(REPLACE_NOT_STORED);
-
-counter!(APPEND);
-counter!(APPEND_EX);
-counter!(APPEND_STORED);
-counter!(APPEND_NOT_STORED);
-
-counter!(PREPEND);
-counter!(PREPEND_EX);
-counter!(PREPEND_STORED);
-counter!(PREPEND_NOT_STORED);
-
-counter!(DELETE);
-counter!(DELETE_EX);
-counter!(DELETE_DELETED);
-counter!(DELETE_NOT_FOUND);
-
-counter!(INCR);
-counter!(INCR_EX);
-counter!(INCR_NOT_FOUND);
-
-counter!(DECR);
-counter!(DECR_EX);
-counter!(DECR_NOT_FOUND);
-
-counter!(CAS);
-counter!(CAS_EX);
-counter!(CAS_EXISTS);
-counter!(CAS_NOT_FOUND);
-counter!(CAS_STORED);
-
-counter!(FLUSH_ALL);
-counter!(FLUSH_ALL_EX);
-
-counter!(QUIT);
+counter!(PARSE_GET, "parse/get");
+counter!(PARSE_GET_KEY, "parse/get/key");
+heatmap!(PARSE_GET_CARDINALITY, "parse/get/cardinality", 1_000_000);
+counter!(PARSE_GET_EX, "parse/get_ex");
+counter!(PARSE_GETS, "parse/gets");
+counter!(PARSE_GETS_KEY, "parse/gets/key");
+heatmap!(PARSE_GETS_CARDINALITY, "parse/gets/cardinality", 1_000_000);
+counter!(PARSE_GETS_EX, "parse/gets_ex");
+counter!(PARSE_SET, "parse/set");
+counter!(PARSE_SET_EX, "parse/set_ex");
+counter!(PARSE_ADD, "parse/add");
+counter!(PARSE_ADD_EX, "parse/add_ex");
+counter!(PARSE_REPLACE, "parse/replace");
+counter!(PARSE_REPLACE_EX, "parse/replace_ex");
+counter!(PARSE_CAS, "parse/cas");
+counter!(PARSE_CAS_EX, "parse/cas_ex");
+counter!(PARSE_INCR, "parse/incr");
+counter!(PARSE_INCR_EX, "parse/incr_ex");
+counter!(PARSE_DECR, "parse/decr");
+counter!(PARSE_DECR_EX, "parse/decr_ex");
+counter!(PARSE_APPEND, "parse/append");
+counter!(PARSE_APPEND_EX, "parse/append_ex");
+counter!(PARSE_PREPEND, "parse/prepend");
+counter!(PARSE_PREPEND_EX, "parse/prepend_ex");
+counter!(PARSE_DELETE, "parse/delete");
+counter!(PARSE_DELETE_EX, "parse/delete_ex");
+counter!(PARSE_QUIT, "parse/quit");
+counter!(PARSE_FLUSH_ALL, "parse/flush_all");
+counter!(PARSE_FLUSH_ALL_EX, "parse/flush_all_ex");

@@ -60,13 +60,13 @@ impl RequestParser {
     pub fn parse_delete<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Delete> {
         match self.parse_delete_no_stats(input) {
             Ok((input, request)) => {
-                DELETE.increment();
+                PARSE_DELETE.increment();
                 Ok((input, request))
             }
             Err(e) => {
                 if !e.is_incomplete() {
-                    DELETE.increment();
-                    DELETE_EX.increment();
+                    PARSE_DELETE.increment();
+                    PARSE_DELETE_EX.increment();
                 }
                 Err(e)
             }
@@ -76,6 +76,7 @@ impl RequestParser {
 
 impl Compose for Delete {
     fn compose(&self, session: &mut session::Session) {
+        COMPOSE_DELETE.increment();
         let _ = session.write_all(b"delete ");
         let _ = session.write_all(&self.key);
         if self.noreply {

@@ -41,7 +41,7 @@ impl RequestParser {
         // we can use the set parser here and convert the request
         match self.parse_set_no_stats(input) {
             Ok((input, request)) => {
-                REPLACE.increment();
+                PARSE_REPLACE.increment();
                 Ok((
                     input,
                     Replace {
@@ -55,8 +55,8 @@ impl RequestParser {
             }
             Err(e) => {
                 if !e.is_incomplete() {
-                    REPLACE.increment();
-                    REPLACE_EX.increment();
+                    PARSE_REPLACE.increment();
+                    PARSE_REPLACE_EX.increment();
                 }
                 Err(e)
             }
@@ -66,6 +66,7 @@ impl RequestParser {
 
 impl Compose for Replace {
     fn compose(&self, session: &mut session::Session) {
+        COMPOSE_REPLACE.increment();
         let _ = session.write_all(b"replace ");
         let _ = session.write_all(&self.key);
         let _ = session.write_all(format!(" {}", self.flags).as_bytes());

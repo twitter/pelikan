@@ -67,13 +67,13 @@ impl RequestParser {
     pub fn parse_flush_all<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], FlushAll> {
         match self.parse_flush_all_no_stats(input) {
             Ok((input, request)) => {
-                FLUSH_ALL.increment();
+                PARSE_FLUSH_ALL.increment();
                 Ok((input, request))
             }
             Err(e) => {
                 if !e.is_incomplete() {
-                    FLUSH_ALL.increment();
-                    FLUSH_ALL_EX.increment();
+                    PARSE_FLUSH_ALL.increment();
+                    PARSE_FLUSH_ALL_EX.increment();
                 }
                 Err(e)
             }
@@ -83,6 +83,7 @@ impl RequestParser {
 
 impl Compose for FlushAll {
     fn compose(&self, session: &mut session::Session) {
+        COMPOSE_FLUSH_ALL.increment();
         let _ = session.write_all(b"flush_all");
         if self.delay != 0 {
             let _ = session.write_all(format!(" {}", self.delay).as_bytes());

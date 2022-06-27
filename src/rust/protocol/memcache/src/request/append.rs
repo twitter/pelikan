@@ -41,7 +41,7 @@ impl RequestParser {
         // we can use the set parser here and convert the request
         match self.parse_set_no_stats(input) {
             Ok((input, request)) => {
-                APPEND.increment();
+                PARSE_APPEND.increment();
                 Ok((
                     input,
                     Append {
@@ -55,8 +55,8 @@ impl RequestParser {
             }
             Err(e) => {
                 if !e.is_incomplete() {
-                    APPEND.increment();
-                    APPEND_EX.increment();
+                    PARSE_APPEND.increment();
+                    PARSE_APPEND_EX.increment();
                 }
                 Err(e)
             }
@@ -66,6 +66,7 @@ impl RequestParser {
 
 impl Compose for Append {
     fn compose(&self, session: &mut session::Session) {
+        COMPOSE_APPEND.increment();
         let _ = session.write_all(b"append ");
         let _ = session.write_all(&self.key);
         let _ = session.write_all(format!(" {}", self.flags).as_bytes());

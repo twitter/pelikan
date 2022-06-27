@@ -108,13 +108,13 @@ impl RequestParser {
     pub fn parse_set<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Set> {
         match self.parse_set_no_stats(input) {
             Ok((input, request)) => {
-                SET.increment();
+                PARSE_SET.increment();
                 Ok((input, request))
             }
             Err(e) => {
                 if !e.is_incomplete() {
-                    SET.increment();
-                    SET_EX.increment();
+                    PARSE_SET.increment();
+                    PARSE_SET_EX.increment();
                 }
                 Err(e)
             }
@@ -124,6 +124,7 @@ impl RequestParser {
 
 impl Compose for Set {
     fn compose(&self, session: &mut session::Session) {
+        COMPOSE_SET.increment();
         let _ = session.write_all(b"set ");
         let _ = session.write_all(&self.key);
         let _ = session.write_all(format!(" {}", self.flags).as_bytes());

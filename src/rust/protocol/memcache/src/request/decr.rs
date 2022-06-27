@@ -31,7 +31,7 @@ impl RequestParser {
         // we can use the incr parser here and convert the request
         match self.parse_incr_no_stats(input) {
             Ok((input, request)) => {
-                DECR.increment();
+                PARSE_DECR.increment();
                 Ok((
                     input,
                     Decr {
@@ -43,8 +43,8 @@ impl RequestParser {
             }
             Err(e) => {
                 if !e.is_incomplete() {
-                    DECR.increment();
-                    DECR_EX.increment();
+                    PARSE_DECR.increment();
+                    PARSE_DECR_EX.increment();
                 }
                 Err(e)
             }
@@ -54,6 +54,7 @@ impl RequestParser {
 
 impl Compose for Decr {
     fn compose(&self, session: &mut session::Session) {
+        COMPOSE_DECR.increment();
         let _ = session.write_all(b"decr ");
         let _ = session.write_all(&self.key);
         let _ = session.write_all(format!(" {}", self.value).as_bytes());

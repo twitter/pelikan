@@ -15,7 +15,7 @@ impl RequestParser {
         let (input, _) = space0(input)?;
         let (input, _) = crlf(input)?;
 
-        QUIT.increment();
+        PARSE_QUIT.increment();
 
         Ok((input, Quit {}))
     }
@@ -23,6 +23,7 @@ impl RequestParser {
 
 impl Compose for Quit {
     fn compose(&self, session: &mut session::Session) {
+        COMPOSE_QUIT.increment();
         let _ = session.write_all(b"quit\r\n");
     }
 }

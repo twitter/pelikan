@@ -64,16 +64,16 @@ impl RequestParser {
     pub fn parse_get<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Get> {
         match self.parse_get_no_stats(input) {
             Ok((input, request)) => {
-                GET.increment();
+                PARSE_GET.increment();
                 let keys = request.keys.len() as u64;
-                GET_KEY.add(keys);
-                GET_CARDINALITY.increment(Instant::now(), keys, 1);
+                PARSE_GET_KEY.add(keys);
+                PARSE_GET_CARDINALITY.increment(Instant::now(), keys, 1);
                 Ok((input, request))
             }
             Err(e) => {
                 if !e.is_incomplete() {
-                    GET.increment();
-                    GET_EX.increment();
+                    PARSE_GET.increment();
+                    PARSE_GET_EX.increment();
                 }
                 Err(e)
             }
@@ -83,6 +83,7 @@ impl RequestParser {
 
 impl Compose for Get {
     fn compose(&self, session: &mut session::Session) {
+        COMPOSE_GET.increment();
         let _ = session.write_all(b"get");
         for key in self.keys.iter() {
             let _ = session.write_all(b" ");
