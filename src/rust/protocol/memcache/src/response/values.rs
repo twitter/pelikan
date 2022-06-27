@@ -13,6 +13,10 @@ impl Values {
     pub fn new(values: Box<[Value]>) -> Self {
         Self { values }
     }
+
+    pub fn values(&self) -> &[Value] {
+        &self.values
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

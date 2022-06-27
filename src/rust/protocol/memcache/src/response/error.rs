@@ -7,6 +7,12 @@ use super::*;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Error {}
 
+impl Error {
+    pub fn new() -> Self {
+        Self { }
+    }
+}
+
 impl Compose for Error {
     fn compose(&self, session: &mut session::Session) {
         let _ = session.write_all(b"ERROR\r\n");

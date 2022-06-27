@@ -79,17 +79,43 @@ macro_rules! heatmap {
 
 counter!(COMPOSE_GET, "compose/get");
 counter!(COMPOSE_GET_KEY, "compose/get/key");
+counter!(COMPOSE_GET_KEY_HIT, "compose/get/key/hit");
+counter!(COMPOSE_GET_KEY_MISS, "compose/get/key/miss");
 heatmap!(COMPOSE_GET_CARDINALITY, "compose/get/cardinality", 1_000_000);
+
 counter!(COMPOSE_GETS, "compose/gets");
 counter!(COMPOSE_GETS_KEY, "compose/gets/key");
+counter!(COMPOSE_GETS_KEY_HIT, "compose/gets/key/hit");
+counter!(COMPOSE_GETS_KEY_MISS, "compose/gets/key/miss");
 heatmap!(COMPOSE_GETS_CARDINALITY, "compose/gets/cardinality", 1_000_000);
+
 counter!(COMPOSE_SET, "compose/set");
+counter!(COMPOSE_SET_STORED, "compose/set/stored");
+counter!(COMPOSE_SET_NOT_STORED, "compose/set/not_stored");
+
 counter!(COMPOSE_ADD, "compose/add");
+counter!(COMPOSE_ADD_STORED, "compose/add/stored");
+counter!(COMPOSE_ADD_NOT_STORED, "compose/add/not_stored");
+
 counter!(COMPOSE_REPLACE, "compose/replace");
+counter!(COMPOSE_REPLACE_STORED, "compose/replace/stored");
+counter!(COMPOSE_REPLACE_NOT_STORED, "compose/replace/not_stored");
+
 counter!(COMPOSE_CAS, "compose/cas");
+counter!(COMPOSE_CAS_STORED, "compose/cas/stored");
+counter!(COMPOSE_CAS_EXISTS, "compose/cas/exists");
+counter!(COMPOSE_CAS_NOT_FOUND, "compose/cas/not_found");
+
 counter!(COMPOSE_INCR, "compose/incr");
+counter!(COMPOSE_INCR_NOT_FOUND, "compose/incr/not_found");
+
 counter!(COMPOSE_DECR, "compose/decr");
+counter!(COMPOSE_DECR_NOT_FOUND, "compose/decr/not_found");
+
 counter!(COMPOSE_APPEND, "compose/append");
+counter!(COMPOSE_APPEND_STORED, "compose/append/stored");
+counter!(COMPOSE_APPEND_NOT_FOUND, "compose/append/not_found");
+
 counter!(COMPOSE_PREPEND, "compose/prepend");
 counter!(COMPOSE_DELETE, "compose/delete");
 counter!(COMPOSE_QUIT, "compose/quit");
@@ -97,12 +123,18 @@ counter!(COMPOSE_FLUSH_ALL, "compose/flush_all");
 
 counter!(PARSE_GET, "parse/get");
 counter!(PARSE_GET_KEY, "parse/get/key");
+counter!(PARSE_GET_KEY_HIT, "parse/get/key/hit");
+counter!(PARSE_GET_KEY_MISS, "parse/get/key/miss");
 heatmap!(PARSE_GET_CARDINALITY, "parse/get/cardinality", 1_000_000);
 counter!(PARSE_GET_EX, "parse/get_ex");
+
 counter!(PARSE_GETS, "parse/gets");
 counter!(PARSE_GETS_KEY, "parse/gets/key");
+counter!(PARSE_GETS_KEY_HIT, "parse/gets/key/hit");
+counter!(PARSE_GETS_KEY_MISS, "parse/gets/key/miss");
 heatmap!(PARSE_GETS_CARDINALITY, "parse/gets/cardinality", 1_000_000);
 counter!(PARSE_GETS_EX, "parse/gets_ex");
+
 counter!(PARSE_SET, "parse/set");
 counter!(PARSE_SET_EX, "parse/set_ex");
 counter!(PARSE_ADD, "parse/add");
