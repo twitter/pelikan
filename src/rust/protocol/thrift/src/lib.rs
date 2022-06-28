@@ -9,6 +9,8 @@ use protocol_common::Parse;
 use protocol_common::{ParseError, ParseOk};
 use std::io::Write;
 
+const THRIFT_HEADER_LEN: usize = std::mem::size_of::<u32>();
+
 /// An opaque Thrift message
 pub struct Message {
     data: Box<[u8]>,
@@ -42,13 +44,13 @@ impl MessageParser {
 
 impl Parse<Message> for MessageParser {
     fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Message>, ParseError> {
-        if buffer.len() < 4 {
+        if buffer.len() < THRIFT_HEADER_LEN {
             return Err(ParseError::Incomplete);
         }
 
         let data_len = u32::from_be_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]);
 
-        let framed_len = 4 + data_len as usize;
+        let framed_len = THRIFT_HEADER_LEN + data_len as usize;
 
         if framed_len == 0 || framed_len > self.max_size {
             return Err(ParseError::Invalid);
@@ -57,7 +59,7 @@ impl Parse<Message> for MessageParser {
         if buffer.len() < framed_len {
             Err(ParseError::Incomplete)
         } else {
-            let data = buffer[4..framed_len].to_vec().into_boxed_slice();
+            let data = buffer[THRIFT_HEADER_LEN..framed_len].to_vec().into_boxed_slice();
             let message = Message { data };
             Ok(ParseOk::new(message, framed_len))
         }
@@ -82,7 +84,7 @@ mod tests {
         let consumed = parsed.consumed();
         let parsed = parsed.into_inner();
 
-        assert_eq!(consumed, body.len() + 4);
+        assert_eq!(consumed, body.len() + THRIFT_HEADER_LEN);
         assert_eq!(*parsed.data, body);
     }
 }
