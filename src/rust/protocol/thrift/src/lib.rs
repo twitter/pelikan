@@ -4,10 +4,10 @@
 
 //! A protocol crate for Thrift binary protocol.
 
-use protocol_common::Parse;
-use protocol_common::{ParseOk, ParseError};
-use std::io::Write;
 use protocol_common::Compose;
+use protocol_common::Parse;
+use protocol_common::{ParseError, ParseOk};
+use std::io::Write;
 
 /// An opaque Thrift message
 pub struct Message {
@@ -29,9 +29,7 @@ pub struct MessageParser {
 
 impl MessageParser {
     pub fn new(max_size: usize) -> Self {
-        Self {
-            max_size
-        }
+        Self { max_size }
     }
 }
 

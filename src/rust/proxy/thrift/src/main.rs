@@ -9,8 +9,8 @@ use backtrace::Backtrace;
 use clap::App;
 use clap::Arg;
 use config::PingproxyConfig;
-use thriftproxy::Thriftproxy;
 use rustcommon_metrics::*;
+use thriftproxy::Thriftproxy;
 
 use proxy::PERCENTILES;
 
@@ -28,7 +28,7 @@ fn main() {
         .version_short("v")
         .long_about(
             "A Pelikan proxy server which speaks the Thrift binary protocol \
-            and routes messages to a backend server."
+            and routes messages to a backend server.",
         )
         .arg(
             Arg::with_name("stats")
