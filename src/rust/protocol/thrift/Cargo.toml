@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 logger = { path = "../../logger" }
 protocol-common = { path = "../../protocol/common" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 session = { path = "../../session" }

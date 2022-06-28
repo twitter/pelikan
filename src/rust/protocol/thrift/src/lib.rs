@@ -7,9 +7,14 @@
 use protocol_common::Compose;
 use protocol_common::Parse;
 use protocol_common::{ParseError, ParseOk};
+use rustcommon_metrics::*;
 use std::io::Write;
 
 const THRIFT_HEADER_LEN: usize = std::mem::size_of::<u32>();
+
+// Stats
+counter!(MESSAGES_PARSED);
+counter!(MESSAGES_COMPOSED);
 
 /// An opaque Thrift message
 pub struct Message {
@@ -25,6 +30,7 @@ impl Message {
 
 impl Compose for Message {
     fn compose(&self, session: &mut session::Session) {
+        MESSAGES_COMPOSED.increment();
         let _ = session.write_all(&(self.data.len() as u32).to_be_bytes());
         let _ = session.write_all(&self.data);
     }
@@ -59,7 +65,10 @@ impl Parse<Message> for MessageParser {
         if buffer.len() < framed_len {
             Err(ParseError::Incomplete)
         } else {
-            let data = buffer[THRIFT_HEADER_LEN..framed_len].to_vec().into_boxed_slice();
+            MESSAGES_PARSED.increment();
+            let data = buffer[THRIFT_HEADER_LEN..framed_len]
+                .to_vec()
+                .into_boxed_slice();
             let message = Message { data };
             Ok(ParseOk::new(message, framed_len))
         }

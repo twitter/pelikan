@@ -1612,6 +1612,7 @@ version = "0.0.1"
 dependencies = [
  "logger",
  "protocol-common",
+ "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
  "session",
 ]
 
