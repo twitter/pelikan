@@ -20,7 +20,7 @@ jobs:
           protocol/memcache,
           protocol/ping,
           protocol/thrift,
-          storage/seg
+          storage/seg,
         ]
     name: fuzz-${{ matrix.os }}-${{ matrix.target }}
     runs-on: ${{ matrix.os }}
