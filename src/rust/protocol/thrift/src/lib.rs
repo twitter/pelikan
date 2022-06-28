@@ -1,4 +1,9 @@
-use logger::*;
+// Copyright 2022 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
+//! A protocol crate for Thrift binary protocol.
+
 use protocol_common::Parse;
 use protocol_common::{ParseOk, ParseError};
 use std::io::Write;
@@ -11,14 +16,8 @@ pub struct Message {
 
 impl Compose for Message {
     fn compose(&self, session: &mut session::Session) {
-        debug!("message size: {} bytes framed size: {}", self.data.len(), self.data.len() + 4);
-        let initial = session.write_pending();
-        debug!("session had: {} bytes in the write buffer", initial);
         let _ = session.write_all(&(self.data.len() as u32).to_be_bytes());
         let _ = session.write_all(&self.data);
-        let written = session.write_pending() - initial;
-
-        debug!("wrote: {} bytes to session", written);
     }
 }
 
@@ -51,10 +50,8 @@ impl Parse<Message> for MessageParser {
         }
 
         if buffer.len() < framed_len {
-            trace!("incomplete response have: {} bytes need: {}", buffer.len(), framed_len);
             Err(ParseError::Incomplete)
         } else {
-            debug!("message size: {} bytes framed size: {}", data_len, framed_len);
             let data = buffer[4..framed_len].to_vec().into_boxed_slice();
             let message = Message { data };
             Ok(ParseOk::new(message, framed_len))
@@ -64,9 +61,23 @@ impl Parse<Message> for MessageParser {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
+    fn parse() {
+        let body = b"COFFEE".to_vec();
+        let len = (body.len() as u32).to_be_bytes();
+
+        let mut message: Vec<u8> = len.to_vec();
+        message.extend_from_slice(&body);
+
+        let parser = MessageParser::new(1024);
+
+        let parsed = parser.parse(&message).expect("failed to parse");
+        let consumed = parsed.consumed();
+        let parsed = parsed.into_inner();
+
+        assert_eq!(consumed, body.len() + 4);
+        assert_eq!(*parsed.data, body);
     }
 }
