@@ -14,6 +14,13 @@ pub struct Message {
     data: Box<[u8]>,
 }
 
+#[allow(clippy::len_without_is_empty)]
+impl Message {
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+}
+
 impl Compose for Message {
     fn compose(&self, session: &mut session::Session) {
         let _ = session.write_all(&(self.data.len() as u32).to_be_bytes());
@@ -28,7 +35,7 @@ pub struct MessageParser {
 }
 
 impl MessageParser {
-    pub fn new(max_size: usize) -> Self {
+    pub const fn new(max_size: usize) -> Self {
         Self { max_size }
     }
 }
@@ -43,7 +50,7 @@ impl Parse<Message> for MessageParser {
 
         let framed_len = 4 + data_len as usize;
 
-        if framed_len > self.max_size {
+        if framed_len == 0 || framed_len > self.max_size {
             return Err(ParseError::Invalid);
         }
 
