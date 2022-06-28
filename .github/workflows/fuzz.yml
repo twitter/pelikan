@@ -15,7 +15,13 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-18.04 ]
-        target: [ protocol/admin, protocol/memcache, protocol/ping, storage/seg ]
+        target: [
+          protocol/admin,
+          protocol/memcache,
+          protocol/ping,
+          protocol/thrift,
+          storage/seg,
+        ]
     name: fuzz-${{ matrix.os }}-${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     steps:
