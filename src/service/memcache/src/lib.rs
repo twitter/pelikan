@@ -10,7 +10,6 @@ mod client;
 #[cfg(feature = "server")]
 mod server;
 
-
 #[cfg(feature = "client")]
 pub use client::*;
 
@@ -86,8 +85,6 @@ macro_rules! server_counter {
         pub static $identifier: Counter = Counter::new();
     };
 }
-
-
 
 #[cfg(test)]
 mod tests {

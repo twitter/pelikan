@@ -19,17 +19,17 @@ server_counter!(COMPOSE_SET_STORED, "compose/set/stored");
 server_counter!(COMPOSE_SET_NOT_STORED, "compose/set/not_stored");
 
 pub struct Server {
-	parser: RequestParser,
+    parser: RequestParser,
 }
 
 impl Server {
-	pub fn recv(&self, src: &[u8]) -> Result<ParseOk<Request>, ParseError> {
-		self.parser.parse(src)
-	}
+    pub fn recv(&self, src: &[u8]) -> Result<ParseOk<Request>, ParseError> {
+        self.parser.parse(src)
+    }
 
-	pub fn send(&self, dst: &mut Session, req: Request, res: Response) {
-		match req {
-			Request::Get(ref req) => match res {
+    pub fn send(&self, dst: &mut Session, req: Request, res: Response) {
+        match req {
+            Request::Get(ref req) => match res {
                 Response::Values(ref res) => {
                     let total_keys = req.keys().len();
                     let hit_keys = res.values().len();
@@ -49,9 +49,9 @@ impl Server {
                 _ => return Error {}.compose(dst),
             },
             _ => {
-            	todo!()
+                todo!()
             }
-		}
-		res.compose(dst)
-	}
+        }
+        res.compose(dst)
+    }
 }
