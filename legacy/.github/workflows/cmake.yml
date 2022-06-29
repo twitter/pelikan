@@ -22,7 +22,7 @@ jobs:
       - name: Configure
         run: |
           mkdir -p _build
-          cmake -B _build -S . \
+          cmake -B _build -S legacy \
             -DCMAKE_BUILD_TYPE=${{ matrix.profile }} \
             -DBUILD_AND_INSTALL_CHECK=yes
 

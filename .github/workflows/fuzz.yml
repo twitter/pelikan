@@ -41,7 +41,7 @@ jobs:
 
       - name: fuzz ${{ matrix.target }}
         run: |
-          cd src/rust/${{ matrix.target }}
+          cd src/${{ matrix.target }}
           for FUZZ_TARGET in `cargo +nightly fuzz list`; do
             cargo +nightly fuzz run ${FUZZ_TARGET} --jobs ${{ env.FUZZ_JOBS }} -- \
               -max_total_time=${{ env.FUZZ_TIME }};
