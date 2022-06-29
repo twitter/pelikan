@@ -1,0 +1,12 @@
+[package]
+name = "protocol-thrift"
+version = "0.0.1"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+logger = { path = "../../logger" }
+protocol-common = { path = "../../protocol/common" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+session = { path = "../../session" }
