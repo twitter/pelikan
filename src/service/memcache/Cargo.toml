@@ -1,0 +1,17 @@
+[package]
+name = "service-memcache"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+protocol-common = { path = "../../protocol/common" }
+protocol-memcache = { path = "../../protocol/memcache" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+session = { path = "../../session" }
+
+[features]
+default = ["server", "client"]
+server = []
+client = []
