@@ -118,6 +118,6 @@ const ADMIN_MAX_BUFFER_SIZE: usize = 2 * 1024 * 1024; // 1MB
 const QUEUE_RETRIES: usize = 3;
 
 const THREAD_PREFIX: &str = "pelikan";
-const QUEUE_CAPACITY: usize = 1024;
+const QUEUE_CAPACITY: usize = 64 * 1024;
 
 common::metrics::test_no_duplicates!();
