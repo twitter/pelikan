@@ -118,19 +118,15 @@ where
                 error!("Error polling");
             }
 
+            let timestamp = Instant::now();
+
             let count = events.iter().count();
             WORKER_EVENT_TOTAL.add(count as _);
             if count == self.nevent {
                 WORKER_EVENT_MAX_REACHED.increment();
             } else {
-                WORKER_EVENT_DEPTH.increment(
-                    common::time::Instant::<common::time::Nanoseconds<u64>>::now(),
-                    count as _,
-                    1,
-                );
+                WORKER_EVENT_DEPTH.increment(timestamp, count as _, 1);
             }
-
-            common::time::refresh_clock();
 
             // process all events
             for event in events.iter() {
@@ -154,7 +150,7 @@ where
                         }
                     }
                     _ => {
-                        self.handle_event(event);
+                        self.handle_event(event, timestamp);
                     }
                 }
             }
@@ -182,7 +178,7 @@ where
         }
     }
 
-    fn handle_event(&mut self, event: &Event) {
+    fn handle_event(&mut self, event: &Event, timestamp: Instant) {
         let token = event.token();
 
         // handle error events first
@@ -202,9 +198,7 @@ where
         if event.is_readable() {
             WORKER_EVENT_READ.increment();
             if let Ok(session) = self.poll.get_mut_session(token) {
-                session.set_timestamp(
-                    common::time::Instant::<common::time::Nanoseconds<u64>>::recent(),
-                );
+                session.set_timestamp(timestamp);
             }
             let _ = self.do_read(token);
         }

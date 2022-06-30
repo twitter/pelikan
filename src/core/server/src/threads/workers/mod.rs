@@ -45,6 +45,7 @@ heatmap!(STORAGE_QUEUE_DEPTH, 1_000_000);
 
 counter!(PROCESS_REQ);
 
+type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
 type WrappedResult<Request, Response> = TokenWrapper<Box<dyn ExecutionResult<Request, Response>>>;
 
 pub struct TokenWrapper<T> {
