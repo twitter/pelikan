@@ -39,28 +39,17 @@ impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
     pub fn parse_add<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Add> {
         // we can use the set parser here and convert the request
-        match self.parse_set_no_stats(input) {
-            Ok((input, request)) => {
-                ADD.increment();
-                Ok((
-                    input,
-                    Add {
-                        key: request.key,
-                        value: request.value,
-                        ttl: request.ttl,
-                        flags: request.flags,
-                        noreply: request.noreply,
-                    },
-                ))
-            }
-            Err(e) => {
-                if !e.is_incomplete() {
-                    ADD.increment();
-                    ADD_EX.increment();
-                }
-                Err(e)
-            }
-        }
+        let (input, request) = self.parse_set(input)?;
+        Ok((
+            input,
+            Add {
+                key: request.key,
+                value: request.value,
+                ttl: request.ttl,
+                flags: request.flags,
+                noreply: request.noreply,
+            },
+        ))
     }
 }
 

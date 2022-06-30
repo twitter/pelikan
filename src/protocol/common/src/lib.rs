@@ -22,7 +22,7 @@ pub trait Compose {
 }
 
 pub trait Execute<Request, Response: Compose> {
-    fn execute(&mut self, request: Request) -> Box<dyn ExecutionResult<Request, Response>>;
+    fn execute(&mut self, request: Request) -> (Request, Response);
 }
 
 pub trait ExecutionResult<Request, Response: Compose>: Send + Compose {

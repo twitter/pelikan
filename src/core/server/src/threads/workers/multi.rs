@@ -17,7 +17,7 @@ use core::time::Duration;
 use entrystore::EntryStore;
 use mio::event::Event;
 use mio::{Events, Token, Waker};
-use protocol_common::{Compose, Execute, Parse, ParseError};
+use protocol_common::{Compose, Execute, ParseError};
 use queues::TrackedItem;
 use session::Session;
 use std::io::{BufRead, Write};
@@ -28,9 +28,9 @@ const STORAGE_THREAD_ID: usize = 0;
 
 /// A builder for the request/response worker which communicates to the storage
 /// thread over a queue.
-pub struct MultiWorkerBuilder<Storage, Parser, Request, Response> {
+pub struct MultiWorkerBuilder<Storage, Server, Request, Response> {
     nevent: usize,
-    parser: Parser,
+    server: Server,
     poll: Poll,
     timeout: Duration,
     _storage: PhantomData<Storage>,
@@ -38,9 +38,12 @@ pub struct MultiWorkerBuilder<Storage, Parser, Request, Response> {
     _response: PhantomData<Response>,
 }
 
-impl<Storage, Parser, Request, Response> MultiWorkerBuilder<Storage, Parser, Request, Response> {
+impl<Storage, Server, Request, Response> MultiWorkerBuilder<Storage, Server, Request, Response>
+where
+    Server: service_common::Server<Request, Response>,
+{
     /// Create a new builder from the provided config and parser.
-    pub fn new<T: WorkerConfig>(config: &T, parser: Parser) -> Result<Self, std::io::Error> {
+    pub fn new<T: WorkerConfig>(config: &T, server: Server) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
@@ -53,7 +56,7 @@ impl<Storage, Parser, Request, Response> MultiWorkerBuilder<Storage, Parser, Req
             _request: PhantomData,
             _response: PhantomData,
             _storage: PhantomData,
-            parser,
+            server,
         })
     }
 
@@ -68,11 +71,11 @@ impl<Storage, Parser, Request, Response> MultiWorkerBuilder<Storage, Parser, Req
         self,
         signal_queue: Queues<(), Signal>,
         session_queue: Queues<(), Session>,
-        storage_queue: Queues<TokenWrapper<Request>, WrappedResult<Request, Response>>,
-    ) -> MultiWorker<Storage, Parser, Request, Response> {
+        storage_queue: Queues<TokenWrapper<Request>, TokenWrapper<(Request, Response)>>,
+    ) -> MultiWorker<Storage, Server, Request, Response> {
         MultiWorker {
             nevent: self.nevent,
-            parser: self.parser,
+            server: self.server,
             poll: self.poll,
             timeout: self.timeout,
             signal_queue,
@@ -84,20 +87,20 @@ impl<Storage, Parser, Request, Response> MultiWorkerBuilder<Storage, Parser, Req
 }
 
 /// Represents a finalized request/response worker which is ready to be run.
-pub struct MultiWorker<Storage, Parser, Request, Response> {
+pub struct MultiWorker<Storage, Server, Request, Response> {
     nevent: usize,
-    parser: Parser,
+    server: Server,
     poll: Poll,
     timeout: Duration,
     session_queue: Queues<(), Session>,
     signal_queue: Queues<(), Signal>,
     _storage: PhantomData<Storage>,
-    storage_queue: Queues<TokenWrapper<Request>, WrappedResult<Request, Response>>,
+    storage_queue: Queues<TokenWrapper<Request>, TokenWrapper<(Request, Response)>>,
 }
 
-impl<Storage, Parser, Request, Response> MultiWorker<Storage, Parser, Request, Response>
+impl<Storage, Server, Request, Response> MultiWorker<Storage, Server, Request, Response>
 where
-    Parser: Parse<Request>,
+    Server: service_common::Server<Request, Response>,
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {
@@ -210,7 +213,7 @@ where
 
     fn handle_session_read(&mut self, token: Token) -> Result<(), std::io::Error> {
         let session = self.poll.get_mut_session(token)?;
-        match self.parser.parse(session.buffer()) {
+        match self.server.recv(session.buffer()) {
             Ok(request) => {
                 let consumed = request.consumed();
                 let request = request.into_inner();
@@ -254,7 +257,7 @@ where
 
     fn handle_storage_queue(
         &mut self,
-        responses: &mut Vec<TrackedItem<WrappedResult<Request, Response>>>,
+        responses: &mut Vec<TrackedItem<TokenWrapper<(Request, Response)>>>,
     ) {
         trace!("handling event for storage queue");
         // process all storage queue responses
@@ -264,9 +267,9 @@ where
             let token = message.token();
             let mut reregister = false;
             if let Ok(session) = self.poll.get_mut_session(token) {
-                let result = message.into_inner();
+                let (request, response) = message.into_inner();
                 trace!("composing response for session: {:?}", session);
-                result.compose(session);
+                self.server.send(session, request, response);
                 session.finalize_response();
                 // if we have pending writes, we should attempt to flush the session
                 // now. if we still have pending bytes, we should re-register to
@@ -310,10 +313,10 @@ where
     }
 }
 
-impl<Storage, Parser, Request, Response> EventLoop
-    for MultiWorker<Storage, Parser, Request, Response>
+impl<Storage, Server, Request, Response> EventLoop
+    for MultiWorker<Storage, Server, Request, Response>
 where
-    Parser: Parse<Request>,
+    Server: service_common::Server<Request, Response>,
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {

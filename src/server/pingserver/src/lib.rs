@@ -14,7 +14,9 @@ use entrystore::Noop;
 use logger::*;
 use protocol_ping::{Request, RequestParser, Response};
 use server::{Process, ProcessBuilder};
+use service_ping::PingServer;
 
+type Server = PingServer;
 type Parser = RequestParser;
 type Storage = Noop;
 
@@ -38,15 +40,15 @@ impl Pingserver {
         // use a fixed buffer size for the pingserver
         let max_buffer_size = server::DEFAULT_BUFFER_SIZE;
 
-        // initialize parser
-        let parser = Parser::new();
+        // initialize server service
+        let server = Server::from(Parser::new());
 
         // initialize process
-        let process_builder = ProcessBuilder::<Storage, Parser, Request, Response>::new(
+        let process_builder = ProcessBuilder::<Storage, Server, Request, Response>::new(
             config,
             storage,
             max_buffer_size,
-            parser,
+            server,
             log_drain,
         )
         .version(env!("CARGO_PKG_VERSION"));

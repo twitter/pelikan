@@ -1,5 +1,5 @@
 [package]
-name = "service-memcache"
+name = "service-ping"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 protocol-common = { path = "../../protocol/common" }
-protocol-memcache = { path = "../../protocol/memcache" }
+protocol-ping = { path = "../../protocol/ping" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 service-common = { path = "../common" }
 session = { path = "../../session" }

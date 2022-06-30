@@ -17,7 +17,7 @@ impl Get {
 
 impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
-    pub(crate) fn parse_get_no_stats<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Get> {
+    pub(crate) fn parse_get<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Get> {
         let mut keys = Vec::new();
 
         let (mut input, _) = space1(input)?;
@@ -58,26 +58,6 @@ impl RequestParser {
                 keys: keys.to_owned().into_boxed_slice(),
             },
         ))
-    }
-
-    // this is to be called after parsing the command, so we do not match the verb
-    pub fn parse_get<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Get> {
-        match self.parse_get_no_stats(input) {
-            Ok((input, request)) => {
-                GET.increment();
-                let keys = request.keys.len() as u64;
-                GET_KEY.add(keys);
-                GET_CARDINALITY.increment(Instant::now(), keys, 1);
-                Ok((input, request))
-            }
-            Err(e) => {
-                if !e.is_incomplete() {
-                    GET.increment();
-                    GET_EX.increment();
-                }
-                Err(e)
-            }
-        }
     }
 }
 

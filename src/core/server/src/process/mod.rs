@@ -16,26 +16,26 @@ use queues::Queues;
 use std::thread::JoinHandle;
 
 use entrystore::EntryStore;
-use protocol_common::{Compose, Execute, Parse};
+use protocol_common::{Compose, Execute};
 
 /// A builder for Pelikan server processes.
-pub struct ProcessBuilder<Storage, Parser, Request, Response>
+pub struct ProcessBuilder<Storage, Server, Request, Response>
 where
     Storage: Execute<Request, Response> + EntryStore + Send,
-    Parser: Parse<Request> + Clone + Send,
+    Server: service_common::Server<Request, Response> + Clone + Send,
     Request: Send,
     Response: Compose + std::marker::Send,
 {
     admin: AdminBuilder,
     listener: ListenerBuilder,
-    workers: WorkersBuilder<Storage, Parser, Request, Response>,
+    workers: WorkersBuilder<Storage, Server, Request, Response>,
 }
 
-impl<Storage: 'static, Parser: 'static, Request: 'static, Response: 'static>
-    ProcessBuilder<Storage, Parser, Request, Response>
+impl<Storage: 'static, Server: 'static, Request: 'static, Response: 'static>
+    ProcessBuilder<Storage, Server, Request, Response>
 where
     Storage: Execute<Request, Response> + EntryStore + Send,
-    Parser: Parse<Request> + Clone + Send,
+    Server: service_common::Server<Request, Response> + Clone + Send,
     Request: Send,
     Response: Compose + std::marker::Send,
 {
@@ -47,7 +47,7 @@ where
         config: T,
         storage: Storage,
         max_buffer_size: usize,
-        parser: Parser,
+        server: Server,
         mut log_drain: Box<dyn Drain>,
     ) -> Self {
         // initialize admin
@@ -62,7 +62,7 @@ where
             std::process::exit(1);
         });
 
-        let workers = WorkersBuilder::new(&config, storage, parser).unwrap_or_else(|e| {
+        let workers = WorkersBuilder::new(&config, storage, server).unwrap_or_else(|e| {
             error!("failed to initialize workers: {}", e);
             let _ = admin.log_flush();
             std::process::exit(1);

@@ -17,6 +17,5 @@ protocol-common = { path = "../../protocol/common" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 session = { path = "../../session" }
 
-
 [dev-dependencies]
 criterion = "0.3.4"

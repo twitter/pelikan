@@ -19,15 +19,15 @@ use mio::event::Event;
 use mio::Events;
 use mio::Token;
 use mio::Waker;
-use protocol_common::{Compose, Execute, Parse, ParseError};
+use protocol_common::{Compose, Execute, ParseError};
 use session::Session;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
 
 /// A builder type for a single-threaded worker which owns the storage.
-pub struct SingleWorkerBuilder<Storage, Parser, Request, Response> {
+pub struct SingleWorkerBuilder<Storage, Server, Request, Response> {
     nevent: usize,
-    parser: Parser,
+    server: Server,
     poll: Poll,
     timeout: Duration,
     storage: Storage,
@@ -35,13 +35,16 @@ pub struct SingleWorkerBuilder<Storage, Parser, Request, Response> {
     _response: PhantomData<Response>,
 }
 
-impl<Storage, Parser, Request, Response> SingleWorkerBuilder<Storage, Parser, Request, Response> {
+impl<Storage, Server, Request, Response> SingleWorkerBuilder<Storage, Server, Request, Response>
+where
+    Server: service_common::Server<Request, Response>,
+{
     /// Create a new builder for a single-threaded worker from the provided
     /// config, storage, and parser
     pub fn new<T: WorkerConfig>(
         config: &T,
         storage: Storage,
-        parser: Parser,
+        server: Server,
     ) -> Result<Self, std::io::Error> {
         let poll = Poll::new().map_err(|e| {
             error!("{}", e);
@@ -55,7 +58,7 @@ impl<Storage, Parser, Request, Response> SingleWorkerBuilder<Storage, Parser, Re
             storage,
             _request: PhantomData,
             _response: PhantomData,
-            parser,
+            server,
         })
     }
 
@@ -70,10 +73,10 @@ impl<Storage, Parser, Request, Response> SingleWorkerBuilder<Storage, Parser, Re
         self,
         signal_queue: Queues<(), Signal>,
         session_queue: Queues<(), Session>,
-    ) -> SingleWorker<Storage, Parser, Request, Response> {
+    ) -> SingleWorker<Storage, Server, Request, Response> {
         SingleWorker {
             nevent: self.nevent,
-            parser: self.parser,
+            server: self.server,
             poll: self.poll,
             timeout: self.timeout,
             storage: self.storage,
@@ -86,9 +89,9 @@ impl<Storage, Parser, Request, Response> SingleWorkerBuilder<Storage, Parser, Re
 }
 
 /// A finalized single-threaded worker which is ready to be run.
-pub struct SingleWorker<Storage, Parser, Request, Response> {
+pub struct SingleWorker<Storage, Server, Request, Response> {
     nevent: usize,
-    parser: Parser,
+    server: Server,
     poll: Poll,
     timeout: Duration,
     storage: Storage,
@@ -98,9 +101,9 @@ pub struct SingleWorker<Storage, Parser, Request, Response> {
     _response: PhantomData<Response>,
 }
 
-impl<Storage, Parser, Request, Response> SingleWorker<Storage, Parser, Request, Response>
+impl<Storage, Server, Request, Response> SingleWorker<Storage, Server, Request, Response>
 where
-    Parser: Parse<Request>,
+    Server: service_common::Server<Request, Response>,
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {
@@ -228,10 +231,10 @@ where
     }
 }
 
-impl<Storage, Parser, Request, Response> EventLoop
-    for SingleWorker<Storage, Parser, Request, Response>
+impl<Storage, Server, Request, Response> EventLoop
+    for SingleWorker<Storage, Server, Request, Response>
 where
-    Parser: Parse<Request>,
+    Server: service_common::Server<Request, Response>,
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {
@@ -242,7 +245,7 @@ where
                     // if the write buffer is over-full, skip processing
                     break;
                 }
-                match self.parser.parse(session.buffer()) {
+                match self.server.recv(session.buffer()) {
                     Ok(parsed_request) => {
                         trace!("parsed request for sesion: {:?}", session);
                         PROCESS_REQ.increment();
@@ -250,11 +253,14 @@ where
                         let request = parsed_request.into_inner();
                         session.consume(consumed);
 
-                        let result = self.storage.execute(request);
+                        let (request, response) = self.storage.execute(request);
+                        let should_hangup = response.should_hangup();
+
                         trace!("composing response for session: {:?}", session);
-                        result.compose(session);
+                        self.server.send(session, request, response);
+
                         session.finalize_response();
-                        if result.should_hangup() {
+                        if should_hangup {
                             return Err(std::io::Error::new(
                                 std::io::ErrorKind::Other,
                                 "response requires hangup",

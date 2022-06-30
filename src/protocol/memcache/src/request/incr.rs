@@ -27,7 +27,7 @@ impl Incr {
 
 impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
-    pub(crate) fn parse_incr_no_stats<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Incr> {
+    pub(crate) fn parse_incr<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Incr> {
         let mut noreply = false;
 
         let (input, _) = space1(input)?;
@@ -62,22 +62,6 @@ impl RequestParser {
                 noreply,
             },
         ))
-    }
-
-    pub fn parse_incr<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Incr> {
-        match self.parse_incr_no_stats(input) {
-            Ok((input, request)) => {
-                INCR.increment();
-                Ok((input, request))
-            }
-            Err(e) => {
-                if !e.is_incomplete() {
-                    INCR.increment();
-                    INCR_EX.increment();
-                }
-                Err(e)
-            }
-        }
     }
 }
 

@@ -17,8 +17,7 @@ use config::WorkerConfig;
 use entrystore::EntryStore;
 use mio::Waker;
 pub use multi::{MultiWorker, MultiWorkerBuilder};
-use protocol_common::ExecutionResult;
-use protocol_common::{Compose, Execute, Parse};
+use protocol_common::{Compose, Execute};
 use queues::Queues;
 use session::Session;
 pub use single::{SingleWorker, SingleWorkerBuilder};
@@ -45,8 +44,6 @@ heatmap!(STORAGE_QUEUE_DEPTH, 1_000_000);
 
 counter!(PROCESS_REQ);
 
-type WrappedResult<Request, Response> = TokenWrapper<Box<dyn ExecutionResult<Request, Response>>>;
-
 pub struct TokenWrapper<T> {
     inner: T,
     token: Token,
@@ -68,9 +65,9 @@ impl<T> TokenWrapper<T> {
 
 /// A builder type for the worker threads which process requests and write
 /// responses.
-pub enum WorkersBuilder<Storage, Parser, Request, Response>
+pub enum WorkersBuilder<Storage, Server, Request, Response>
 where
-    Parser: Parse<Request>,
+    Server: service_common::Server<Request, Response>,
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {
@@ -78,17 +75,17 @@ where
     /// `storage` thread.
     Multi {
         storage: StorageWorkerBuilder<Storage, Request, Response>,
-        workers: Vec<MultiWorkerBuilder<Storage, Parser, Request, Response>>,
+        workers: Vec<MultiWorkerBuilder<Storage, Server, Request, Response>>,
     },
     /// Used to create a single `worker` thread with thread-local storage.
     Single {
-        worker: SingleWorkerBuilder<Storage, Parser, Request, Response>,
+        worker: SingleWorkerBuilder<Storage, Server, Request, Response>,
     },
 }
 
-impl<Storage, Parser, Request, Response> WorkersBuilder<Storage, Parser, Request, Response>
+impl<Storage, Server, Request, Response> WorkersBuilder<Storage, Server, Request, Response>
 where
-    Parser: Parse<Request> + Clone,
+    Server: service_common::Server<Request, Response> + Clone,
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {
@@ -97,14 +94,14 @@ where
     pub fn new<T: WorkerConfig>(
         config: &T,
         storage: Storage,
-        parser: Parser,
-    ) -> Result<WorkersBuilder<Storage, Parser, Request, Response>, Error> {
+        server: Server,
+    ) -> Result<WorkersBuilder<Storage, Server, Request, Response>, Error> {
         let worker_config = config.worker();
 
         if worker_config.threads() == 1 {
-            Self::single_worker(config, storage, parser)
+            Self::single_worker(config, storage, server)
         } else {
-            Self::multi_worker(config, storage, parser)
+            Self::multi_worker(config, storage, server)
         }
     }
 
@@ -112,8 +109,8 @@ where
     fn multi_worker<T: WorkerConfig>(
         config: &T,
         storage: Storage,
-        parser: Parser,
-    ) -> Result<WorkersBuilder<Storage, Parser, Request, Response>, Error> {
+        server: Server,
+    ) -> Result<WorkersBuilder<Storage, Server, Request, Response>, Error> {
         let worker_config = config.worker();
 
         // initialize storage
@@ -125,7 +122,7 @@ where
         // initialize workers
         let mut workers = Vec::new();
         for _ in 0..worker_config.threads() {
-            let worker = MultiWorkerBuilder::new(config, parser.clone()).unwrap_or_else(|e| {
+            let worker = MultiWorkerBuilder::new(config, server.clone()).unwrap_or_else(|e| {
                 error!("{}", e);
                 std::process::exit(1);
             });
@@ -139,10 +136,10 @@ where
     fn single_worker<T: WorkerConfig>(
         config: &T,
         storage: Storage,
-        parser: Parser,
-    ) -> Result<WorkersBuilder<Storage, Parser, Request, Response>, Error> {
+        server: Server,
+    ) -> Result<WorkersBuilder<Storage, Server, Request, Response>, Error> {
         // initialize worker
-        let worker = SingleWorkerBuilder::new(config, storage, parser).unwrap_or_else(|e| {
+        let worker = SingleWorkerBuilder::new(config, storage, server).unwrap_or_else(|e| {
             error!("{}", e);
             std::process::exit(1);
         });
@@ -184,7 +181,7 @@ where
         self,
         signal_queues: Vec<Queues<(), Signal>>,
         session_queues: Vec<Queues<(), Session>>,
-    ) -> Workers<Storage, Parser, Request, Response> {
+    ) -> Workers<Storage, Server, Request, Response> {
         let mut signal_queues = signal_queues;
         let mut session_queues = session_queues;
         match self {
@@ -227,28 +224,28 @@ where
 }
 
 /// Represents the finalized `Workers`.
-pub enum Workers<Storage, Parser, Request, Response> {
+pub enum Workers<Storage, Server, Request, Response> {
     /// A multi-threaded worker which includes two or more threads to handle
     /// request/response as well as a shared storage thread.
     Multi {
         storage: StorageWorker<Storage, Request, Response>,
-        workers: Vec<MultiWorker<Storage, Parser, Request, Response>>,
+        workers: Vec<MultiWorker<Storage, Server, Request, Response>>,
     },
     /// A single-threaded worker which handles request/response and owns the
     /// storage.
     Single {
-        worker: SingleWorker<Storage, Parser, Request, Response>,
+        worker: SingleWorker<Storage, Server, Request, Response>,
     },
 }
 
 impl<
         Storage: 'static + Send,
-        Parser: 'static + Send,
+        Server: 'static + Send,
         Request: 'static + Send,
         Response: 'static + Send,
-    > Workers<Storage, Parser, Request, Response>
+    > Workers<Storage, Server, Request, Response>
 where
-    Parser: Parse<Request>,
+    Server: service_common::Server<Request, Response>,
     Response: Compose,
     Storage: Execute<Request, Response> + EntryStore,
 {

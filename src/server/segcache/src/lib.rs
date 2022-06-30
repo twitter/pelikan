@@ -11,7 +11,9 @@ use entrystore::Seg;
 use logger::*;
 use protocol_memcache::{Request, RequestParser, Response};
 use server::{Process, ProcessBuilder};
+use service_memcache::MemcacheServer;
 
+type Server = MemcacheServer;
 type Parser = RequestParser;
 type Storage = Seg;
 
@@ -38,17 +40,17 @@ impl Segcache {
             config.seg().segment_size() as usize * 2,
         );
 
-        // initialize parser
-        let parser = Parser::new()
+        // initialize server service
+        let server = Server::from(Parser::new()
             .max_value_size(config.seg().segment_size() as usize)
-            .time_type(config.time().time_type());
+            .time_type(config.time().time_type()));
 
         // initialize process
-        let process_builder = ProcessBuilder::<Storage, Parser, Request, Response>::new(
+        let process_builder = ProcessBuilder::<Storage, Server, Request, Response>::new(
             config,
             storage,
             max_buffer_size,
-            parser,
+            server,
             log_drain,
         )
         .version(env!("CARGO_PKG_VERSION"));

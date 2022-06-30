@@ -1,5 +1,5 @@
 [package]
-name = "service-memcache"
+name = "service-common"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,13 +7,5 @@ edition = "2021"
 
 [dependencies]
 protocol-common = { path = "../../protocol/common" }
-protocol-memcache = { path = "../../protocol/memcache" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
-service-common = { path = "../common" }
 session = { path = "../../session" }
-
-[features]
-default = ["proxy"]
-server = []
-client = []
-proxy = ["server", "client"]

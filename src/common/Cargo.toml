@@ -18,7 +18,6 @@ macros = { path = "../macros" }
 [dependencies.rustcommon-metrics]
 git = "https://github.com/twitter/rustcommon"
 features = ["heatmap"]
-rev = "fc9c565"
 
 [dependencies.rustcommon-logger]
 git = "https://github.com/twitter/rustcommon"

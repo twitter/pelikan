@@ -12,6 +12,7 @@ mod exists;
 mod not_found;
 mod not_stored;
 mod numeric;
+mod ok;
 mod server_error;
 mod stored;
 mod values;
@@ -29,6 +30,7 @@ pub use values::{Value, Values};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Response {
+    Ok(ok::Ok),
     Error(Error),
     ClientError(ClientError),
     ServerError(ServerError),
@@ -43,6 +45,10 @@ pub enum Response {
 }
 
 impl Response {
+    pub fn ok() -> Self {
+        Self::Ok(ok::Ok { })
+    }
+
     pub fn error() -> Self {
         Self::Error(Error {})
     }
@@ -101,6 +107,7 @@ impl From<Values> for Response {
 impl Compose for Response {
     fn compose(&self, session: &mut session::Session) {
         match self {
+            Self::Ok(e) => e.compose(session),
             Self::Error(e) => e.compose(session),
             Self::ClientError(e) => e.compose(session),
             Self::ServerError(e) => e.compose(session),
@@ -122,6 +129,7 @@ impl Compose for Response {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ResponseType {
+    Ok,
     Error,
     ClientError,
     ServerError,
@@ -140,6 +148,7 @@ pub struct ResponseParser {}
 pub(crate) fn response_type(input: &[u8]) -> IResult<&[u8], ResponseType> {
     let (remaining, response_type_token) = take_till(|b| (b == b' ' || b == b'\r'))(input)?;
     let response_type = match response_type_token {
+        b"OK" => ResponseType::Ok,
         b"ERROR" => ResponseType::Error,
         b"CLIENT_ERROR" => ResponseType::ClientError,
         b"SERVER_ERROR" => ResponseType::ServerError,
@@ -167,6 +176,10 @@ pub(crate) fn response_type(input: &[u8]) -> IResult<&[u8], ResponseType> {
 
 pub(crate) fn response(input: &[u8]) -> IResult<&[u8], Response> {
     match response_type(input)? {
+        (input, ResponseType::Ok) => {
+            let (input, response) = ok::parse(input)?;
+            Ok((input, Response::Ok(response)))
+        }
         (input, ResponseType::Error) => {
             let (input, response) = error::parse(input)?;
             Ok((input, Response::Error(response)))

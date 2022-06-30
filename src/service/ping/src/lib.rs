@@ -2,10 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! Provides an abstraction for Memcache client and server services. See the
-//! protocol reference for more details about the behaviors.
-//!
-//! https://github.com/memcached/memcached/blob/master/doc/protocol.txt
+//! Provides an abstraction for Ping client and server services.
 
 #[cfg(feature = "client")]
 mod client;
