@@ -178,7 +178,7 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                     }
                     _ => return Error {}.compose(dst),
                 };
-                klog!("\"replace {} {} {} {} {}\" {} {}", string_key(req.key()), req.flags(), ttl, req.value().len(), req.cas(), code, len);
+                klog!("\"cas {} {} {} {} {}\" {} {}", string_key(req.key()), req.flags(), ttl, req.value().len(), req.cas(), code, len);
             },
             Request::Append(ref req) => {
                 let ttl: i64 = match req.ttl() {
