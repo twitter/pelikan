@@ -4,6 +4,8 @@
 
 use super::*;
 
+const BYTES: &[u8] = b"EXISTS\r\n";
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Exists {
     noreply: bool,
@@ -13,12 +15,24 @@ impl Exists {
     pub fn new(noreply: bool) -> Self {
         Self { noreply }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn len(&self) -> usize {
+        if self.noreply {
+            0
+        } else {
+            BYTES.len()
+        }
+    }
 }
 
 impl Compose for Exists {
     fn compose(&self, session: &mut session::Session) {
         if !self.noreply {
-            let _ = session.write_all(b"EXISTS\r\n");
+            let _ = session.write_all(BYTES);
         }
     }
 }

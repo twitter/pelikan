@@ -76,10 +76,12 @@ counter!(DELETE_NOT_FOUND);
 
 counter!(INCR);
 counter!(INCR_EX);
+counter!(INCR_STORED);
 counter!(INCR_NOT_FOUND);
 
 counter!(DECR);
 counter!(DECR_EX);
+counter!(DECR_STORED);
 counter!(DECR_NOT_FOUND);
 
 counter!(CAS);

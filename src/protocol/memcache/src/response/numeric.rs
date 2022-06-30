@@ -14,6 +14,18 @@ impl Numeric {
     pub fn new(value: u64, noreply: bool) -> Self {
         Self { value, noreply }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn len(&self) -> usize {
+        if self.noreply {
+            0
+        } else {
+            format!("{}\r\n", self.value).len()
+        }
+    }
 }
 
 impl Compose for Numeric {
