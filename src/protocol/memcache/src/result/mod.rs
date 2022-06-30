@@ -2,12 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::ops::Deref;
-use std::borrow::Cow;
 use crate::*;
+use logger::*;
 use protocol_common::ExecutionResult;
 use session::Session;
-use logger::*;
+use std::borrow::Cow;
+use std::ops::Deref;
 
 // response codes for klog
 const MISS: u8 = 0;
@@ -52,7 +52,7 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
 
                     let values = res.values();
                     let mut value_index = 0;
-                    
+
                     for key in req.keys() {
                         let key = key.deref();
                         // if we are out of values or the keys don't match, it's a miss
@@ -81,7 +81,7 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
 
                     let values = res.values();
                     let mut value_index = 0;
-                    
+
                     for key in req.keys() {
                         let key = key.deref();
                         // if we are out of values or the keys don't match, it's a miss
@@ -117,8 +117,16 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                     }
                     _ => return Error {}.compose(dst),
                 };
-                klog!("\"set {} {} {} {}\" {} {}", string_key(req.key()), req.flags(), ttl, req.value().len(), code, len);
-            },
+                klog!(
+                    "\"set {} {} {} {}\" {} {}",
+                    string_key(req.key()),
+                    req.flags(),
+                    ttl,
+                    req.value().len(),
+                    code,
+                    len
+                );
+            }
             Request::Add(ref req) => {
                 let ttl: i64 = match req.ttl() {
                     None => 0,
@@ -136,8 +144,16 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                     }
                     _ => return Error {}.compose(dst),
                 };
-                klog!("\"add {} {} {} {}\" {} {}", string_key(req.key()), req.flags(), ttl, req.value().len(), code, len);
-            },
+                klog!(
+                    "\"add {} {} {} {}\" {} {}",
+                    string_key(req.key()),
+                    req.flags(),
+                    ttl,
+                    req.value().len(),
+                    code,
+                    len
+                );
+            }
             Request::Replace(ref req) => {
                 let ttl: i64 = match req.ttl() {
                     None => 0,
@@ -155,8 +171,16 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                     }
                     _ => return Error {}.compose(dst),
                 };
-                klog!("\"replace {} {} {} {}\" {} {}", string_key(req.key()), req.flags(), ttl, req.value().len(), code, len);
-            },
+                klog!(
+                    "\"replace {} {} {} {}\" {} {}",
+                    string_key(req.key()),
+                    req.flags(),
+                    ttl,
+                    req.value().len(),
+                    code,
+                    len
+                );
+            }
             Request::Cas(ref req) => {
                 let ttl: i64 = match req.ttl() {
                     None => 0,
@@ -178,8 +202,17 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                     }
                     _ => return Error {}.compose(dst),
                 };
-                klog!("\"cas {} {} {} {} {}\" {} {}", string_key(req.key()), req.flags(), ttl, req.value().len(), req.cas(), code, len);
-            },
+                klog!(
+                    "\"cas {} {} {} {} {}\" {} {}",
+                    string_key(req.key()),
+                    req.flags(),
+                    ttl,
+                    req.value().len(),
+                    req.cas(),
+                    code,
+                    len
+                );
+            }
             Request::Append(ref req) => {
                 let ttl: i64 = match req.ttl() {
                     None => 0,
@@ -197,8 +230,16 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                     }
                     _ => return Error {}.compose(dst),
                 };
-                klog!("\"append {} {} {} {}\" {} {}", string_key(req.key()), req.flags(), ttl, req.value().len(), code, len);
-            },
+                klog!(
+                    "\"append {} {} {} {}\" {} {}",
+                    string_key(req.key()),
+                    req.flags(),
+                    ttl,
+                    req.value().len(),
+                    code,
+                    len
+                );
+            }
             Request::Prepend(ref req) => {
                 let ttl: i64 = match req.ttl() {
                     None => 0,
@@ -216,8 +257,16 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                     }
                     _ => return Error {}.compose(dst),
                 };
-                klog!("\"prepend {} {} {} {}\" {} {}", string_key(req.key()), req.flags(), ttl, req.value().len(), code, len);
-            },
+                klog!(
+                    "\"prepend {} {} {} {}\" {} {}",
+                    string_key(req.key()),
+                    req.flags(),
+                    ttl,
+                    req.value().len(),
+                    code,
+                    len
+                );
+            }
             Request::Incr(ref req) => {
                 let (code, len) = match self.response {
                     Response::Numeric(ref res) => {
@@ -231,7 +280,7 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                     _ => return Error {}.compose(dst),
                 };
                 klog!("\"incr {}\" {} {}", string_key(req.key()), code, len);
-            },
+            }
             Request::Decr(ref req) => {
                 let (code, len) = match self.response {
                     Response::Numeric(ref res) => {
@@ -245,7 +294,7 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                     _ => return Error {}.compose(dst),
                 };
                 klog!("\"decr {}\" {} {}", string_key(req.key()), code, len);
-            },
+            }
             Request::Delete(ref req) => {
                 let (code, len) = match self.response {
                     Response::Deleted(ref res) => {
@@ -259,7 +308,7 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                     _ => return Error {}.compose(dst),
                 };
                 klog!("\"delete {}\" {} {}", string_key(req.key()), code, len);
-            },
+            }
             Request::FlushAll(_) => {}
             Request::Quit(_) => {}
         }
