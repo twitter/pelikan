@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::borrow::Cow;
 use crate::*;
 use common::expiry::TimeType;
 use core::fmt::{Display, Formatter};
@@ -255,6 +256,48 @@ pub enum Command {
 pub enum ExpireTime {
     Seconds(u32),
     UnixSeconds(u32),
+}
+
+pub trait Ttl {
+    /// The logical view of the TTL (time-to-live). The `None` variant means the
+    /// value does not expire. The `Some` variant contains the number of seconds
+    /// before the item expires. Zero should be treated as immediate expiration. 
+    fn ttl(&self) -> Option<u32>;
+
+    /// The wire format view of the TTL (time-to-live). A negative value means
+    /// the items should expire immediately. Zero is treated as no-expiry. Any
+    /// value >= 1 is the number of seconds until expiration.
+    fn ttl_as_i64(&self) -> i64 {
+        match self.ttl() {
+            None => 0,
+            Some(0) => -1,
+            Some(t) => t as _,
+        }
+    }
+}
+
+pub trait Keys {
+    fn keys(&self) -> &[Box<[u8]>];
+}
+
+pub trait Key {
+    fn key(&self) -> &[u8];
+
+    fn key_as_str(&self) -> Cow<'_, str> {
+        String::from_utf8_lossy(self.key())
+    }
+}
+
+pub trait NoReply {
+    fn noreply(&self) -> bool;
+}
+
+pub trait RequestValue {
+    fn value(&self) -> &[u8];
+}
+
+pub trait Flags {
+    fn flags(&self) -> u32;
 }
 
 #[cfg(test)]

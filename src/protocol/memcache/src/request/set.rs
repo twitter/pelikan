@@ -2,7 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::*;
+use super::*;
+
 use common::time::Seconds;
 use common::time::UnixInstant;
 
@@ -15,25 +16,39 @@ pub struct Set {
     pub(crate) noreply: bool,
 }
 
-impl Set {
-    pub fn key(&self) -> &[u8] {
-        &self.key
-    }
-
-    pub fn value(&self) -> &[u8] {
-        &self.value
-    }
-
-    pub fn ttl(&self) -> Option<u32> {
+impl Ttl for Set {
+    fn ttl(&self) -> Option<u32> {
         self.ttl
     }
+}
 
-    pub fn flags(&self) -> u32 {
+impl Key for Set {
+    fn key(&self) -> &[u8] {
+        &self.key
+    }
+}
+
+impl NoReply for Set {
+    fn noreply(&self) -> bool {
+        self.noreply
+    }
+}
+
+impl RequestValue for Set {
+    fn value(&self) -> &[u8] {
+        &self.value
+    }
+}
+
+impl Flags for Set {
+    fn flags(&self) -> u32 {
         self.flags
     }
+}
 
-    pub fn noreply(&self) -> bool {
-        self.noreply
+impl Display for Set {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "set")
     }
 }
 

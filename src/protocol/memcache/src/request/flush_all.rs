@@ -20,6 +20,12 @@ impl FlushAll {
     }
 }
 
+impl Display for FlushAll {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "flush_all")
+    }
+}
+
 impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
     pub fn parse_flush_all<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], FlushAll> {

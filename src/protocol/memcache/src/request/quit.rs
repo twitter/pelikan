@@ -9,6 +9,12 @@ pub struct Quit {}
 
 impl Quit {}
 
+impl Display for Quit {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "quit")
+    }
+}
+
 impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
     pub fn parse_quit<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Quit> {

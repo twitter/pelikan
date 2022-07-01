@@ -2101,6 +2101,7 @@ dependencies = [
 name = "service-memcache"
 version = "0.1.0"
 dependencies = [
+ "logger",
  "protocol-common",
  "protocol-memcache",
  "rustcommon-metrics",

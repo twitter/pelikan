@@ -9,9 +9,15 @@ pub struct Gets {
     pub(crate) keys: Box<[Box<[u8]>]>,
 }
 
-impl Gets {
-    pub fn keys(&self) -> &[Box<[u8]>] {
+impl Keys for Gets {
+    fn keys(&self) -> &[Box<[u8]>] {
         self.keys.as_ref()
+    }
+}
+
+impl Display for Gets {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "gets")
     }
 }
 

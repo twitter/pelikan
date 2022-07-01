@@ -10,13 +10,21 @@ pub struct Delete {
     pub(crate) noreply: bool,
 }
 
-impl Delete {
-    pub fn key(&self) -> &[u8] {
-        self.key.as_ref()
+impl Key for Delete {
+    fn key(&self) -> &[u8] {
+        &self.key
     }
+}
 
-    pub fn noreply(&self) -> bool {
+impl NoReply for Delete {
+    fn noreply(&self) -> bool {
         self.noreply
+    }
+}
+
+impl Display for Delete {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "delete")
     }
 }
 

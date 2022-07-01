@@ -13,25 +13,39 @@ pub struct Prepend {
     pub(crate) noreply: bool,
 }
 
-impl Prepend {
-    pub fn key(&self) -> &[u8] {
-        &self.key
-    }
-
-    pub fn value(&self) -> &[u8] {
-        &self.value
-    }
-
-    pub fn ttl(&self) -> Option<u32> {
+impl Ttl for Prepend {
+    fn ttl(&self) -> Option<u32> {
         self.ttl
     }
+}
 
-    pub fn flags(&self) -> u32 {
+impl Key for Prepend {
+    fn key(&self) -> &[u8] {
+        &self.key
+    }
+}
+
+impl NoReply for Prepend {
+    fn noreply(&self) -> bool {
+        self.noreply
+    }
+}
+
+impl RequestValue for Prepend {
+    fn value(&self) -> &[u8] {
+        &self.value
+    }
+}
+
+impl Flags for Prepend {
+    fn flags(&self) -> u32 {
         self.flags
     }
+}
 
-    pub fn noreply(&self) -> bool {
-        self.noreply
+impl Display for Prepend {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "prepend")
     }
 }
 

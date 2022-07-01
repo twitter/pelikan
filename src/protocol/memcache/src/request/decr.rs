@@ -12,16 +12,26 @@ pub struct Decr {
 }
 
 impl Decr {
-    pub fn key(&self) -> &[u8] {
-        self.key.as_ref()
-    }
-
     pub fn value(&self) -> u64 {
         self.value
     }
+}
 
-    pub fn noreply(&self) -> bool {
+impl Key for Decr {
+    fn key(&self) -> &[u8] {
+        &self.key
+    }
+}
+
+impl NoReply for Decr {
+    fn noreply(&self) -> bool {
         self.noreply
+    }
+}
+
+impl Display for Decr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "decr")
     }
 }
 

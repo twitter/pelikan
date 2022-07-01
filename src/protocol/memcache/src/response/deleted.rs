@@ -15,24 +15,30 @@ impl Deleted {
     pub fn new(noreply: bool) -> Self {
         Self { noreply }
     }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    pub fn len(&self) -> usize {
-        if self.noreply {
-            0
-        } else {
-            MSG.len()
-        }
-    }
 }
 
 impl Compose for Deleted {
     fn compose(&self, session: &mut session::Session) {
         if !self.noreply {
             let _ = session.write_all(MSG);
+        }
+    }
+}
+
+impl SimpleResponse for Deleted {
+    fn code(&self) -> u8 {
+        7
+    }
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    fn len(&self) -> usize {
+        if self.noreply {
+            0
+        } else {
+            MSG.len()
         }
     }
 }

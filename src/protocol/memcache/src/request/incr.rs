@@ -12,16 +12,26 @@ pub struct Incr {
 }
 
 impl Incr {
-    pub fn key(&self) -> &[u8] {
-        self.key.as_ref()
-    }
-
     pub fn value(&self) -> u64 {
         self.value
     }
+}
 
-    pub fn noreply(&self) -> bool {
+impl Key for Incr {
+    fn key(&self) -> &[u8] {
+        &self.key
+    }
+}
+
+impl NoReply for Incr {
+    fn noreply(&self) -> bool {
         self.noreply
+    }
+}
+
+impl Display for Incr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "incr")
     }
 }
 

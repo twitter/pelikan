@@ -13,25 +13,39 @@ pub struct Append {
     pub(crate) noreply: bool,
 }
 
-impl Append {
-    pub fn key(&self) -> &[u8] {
-        &self.key
-    }
-
-    pub fn value(&self) -> &[u8] {
-        &self.value
-    }
-
-    pub fn ttl(&self) -> Option<u32> {
+impl Ttl for Append {
+    fn ttl(&self) -> Option<u32> {
         self.ttl
     }
+}
 
-    pub fn flags(&self) -> u32 {
+impl Key for Append {
+    fn key(&self) -> &[u8] {
+        &self.key
+    }
+}
+
+impl NoReply for Append {
+    fn noreply(&self) -> bool {
+        self.noreply
+    }
+}
+
+impl RequestValue for Append {
+    fn value(&self) -> &[u8] {
+        &self.value
+    }
+}
+
+impl Flags for Append {
+    fn flags(&self) -> u32 {
         self.flags
     }
+}
 
-    pub fn noreply(&self) -> bool {
-        self.noreply
+impl Display for Append {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "append")
     }
 }
 

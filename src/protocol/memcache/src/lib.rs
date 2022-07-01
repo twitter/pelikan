@@ -13,8 +13,6 @@ pub use request::*;
 pub use response::*;
 pub use storage::*;
 
-use common::expiry::TimeType;
-
 pub enum MemcacheError {
     Error(Error),
     ClientError(ClientError),

@@ -7,6 +7,9 @@
 //!
 //! https://github.com/memcached/memcached/blob/master/doc/protocol.txt
 
+#[macro_use]
+extern crate logger;
+
 #[cfg(feature = "client")]
 mod client;
 

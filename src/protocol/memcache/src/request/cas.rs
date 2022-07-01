@@ -17,28 +17,44 @@ pub struct Cas {
 }
 
 impl Cas {
-    pub fn key(&self) -> &[u8] {
-        &self.key
-    }
-
-    pub fn value(&self) -> &[u8] {
-        &self.value
-    }
-
-    pub fn ttl(&self) -> Option<u32> {
-        self.ttl
-    }
-
-    pub fn flags(&self) -> u32 {
-        self.flags
-    }
-
     pub fn cas(&self) -> u64 {
         self.cas
     }
+}
 
-    pub fn noreply(&self) -> bool {
+impl Ttl for Cas {
+    fn ttl(&self) -> Option<u32> {
+        self.ttl
+    }
+}
+
+impl Key for Cas {
+    fn key(&self) -> &[u8] {
+        &self.key
+    }
+}
+
+impl NoReply for Cas {
+    fn noreply(&self) -> bool {
         self.noreply
+    }
+}
+
+impl RequestValue for Cas {
+    fn value(&self) -> &[u8] {
+        &self.value
+    }
+}
+
+impl Flags for Cas {
+    fn flags(&self) -> u32 {
+        self.flags
+    }
+}
+
+impl Display for Cas {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "cas")
     }
 }
 

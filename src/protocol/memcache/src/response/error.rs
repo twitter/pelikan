@@ -9,22 +9,28 @@ const MSG: &[u8] = b"ERROR\r\n";
 #[derive(Debug, PartialEq, Eq)]
 pub struct Error {}
 
-impl Default for Error {
-    fn default() -> Self {
-        Self::new()
+impl Error {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
-impl Error {
-    pub fn new() -> Self {
-        Self {}
+impl Default for Error {
+    fn default() -> Self {
+        Error {}
+    }
+}
+
+impl SimpleResponse for Error {
+    fn code(&self) -> u8 {
+        0
     }
 
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         false
     }
 
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         MSG.len()
     }
 }

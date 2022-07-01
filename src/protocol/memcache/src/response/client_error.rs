@@ -11,12 +11,16 @@ pub struct ClientError {
     pub(crate) inner: String,
 }
 
-impl ClientError {
-    pub fn is_empty(&self) -> bool {
+impl SimpleResponse for ClientError {
+    fn code(&self) -> u8 {
+        10
+    }
+
+    fn is_empty(&self) -> bool {
         false
     }
 
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         MSG_PREFIX.len() + self.inner.len() + 2
     }
 }

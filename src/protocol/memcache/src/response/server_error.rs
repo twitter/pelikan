@@ -11,13 +11,11 @@ pub struct ServerError {
     pub(crate) inner: String,
 }
 
-impl ServerError {
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    pub fn len(&self) -> usize {
-        MSG_PREFIX.len() + self.inner.len() + 2
+impl From<&str> for ServerError {
+    fn from(other: &str) -> Self {
+        Self {
+            inner: other.to_string(),
+        }
     }
 }
 
@@ -26,6 +24,20 @@ impl Compose for ServerError {
         let _ = session.write_all(MSG_PREFIX);
         let _ = session.write_all(self.inner.as_bytes());
         let _ = session.write_all(b"\r\n");
+    }
+}
+
+impl SimpleResponse for ServerError {
+    fn code(&self) -> u8 {
+        11
+    }
+
+    fn is_empty(&self) -> bool {
+        false
+    }
+
+    fn len(&self) -> usize {
+        MSG_PREFIX.len() + self.inner.len() + 2
     }
 }
 
@@ -39,14 +51,6 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], ServerError> {
             inner: unsafe { std::str::from_utf8_unchecked(string).to_owned() },
         },
     ))
-}
-
-impl From<&str> for ServerError {
-    fn from(other: &str) -> Self {
-        Self {
-            inner: other.to_string(),
-        }
-    }
 }
 
 #[cfg(test)]

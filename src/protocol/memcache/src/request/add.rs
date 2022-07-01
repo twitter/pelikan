@@ -13,25 +13,39 @@ pub struct Add {
     pub(crate) noreply: bool,
 }
 
-impl Add {
-    pub fn key(&self) -> &[u8] {
-        &self.key
-    }
-
-    pub fn value(&self) -> &[u8] {
-        &self.value
-    }
-
-    pub fn ttl(&self) -> Option<u32> {
+impl Ttl for Add {
+    fn ttl(&self) -> Option<u32> {
         self.ttl
     }
+}
 
-    pub fn flags(&self) -> u32 {
-        self.flags
+impl Key for Add {
+    fn key(&self) -> &[u8] {
+        &self.key
     }
+}
 
-    pub fn noreply(&self) -> bool {
+impl NoReply for Add {
+    fn noreply(&self) -> bool {
         self.noreply
+    }
+}
+
+impl Display for Add {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "add")
+    }
+}
+
+impl RequestValue for Add {
+    fn value(&self) -> &[u8] {
+        &self.value
+    }
+}
+
+impl Flags for Add {
+    fn flags(&self) -> u32 {
+        self.flags
     }
 }
 

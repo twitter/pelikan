@@ -14,12 +14,19 @@ impl Numeric {
     pub fn new(value: u64, noreply: bool) -> Self {
         Self { value, noreply }
     }
+}
 
-    pub fn is_empty(&self) -> bool {
+impl SimpleResponse for Numeric {
+    fn code(&self) -> u8 {
+        // use the same code as `Stored`, there's no separate code for this
+        5
+    }
+
+    fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         if self.noreply {
             0
         } else {

@@ -45,8 +45,8 @@ pub enum Response {
 }
 
 impl Response {
-    pub fn ok() -> Self {
-        Self::Ok(ok::Ok { })
+    pub fn ok(noreply: bool) -> Self {
+        Self::Ok(ok::Ok::new(noreply))
     }
 
     pub fn error() -> Self {
@@ -124,6 +124,16 @@ impl Compose for Response {
 
     fn should_hangup(&self) -> bool {
         matches!(self, Self::Error(_) | Self::ClientError(_) | Self::Hangup)
+    }
+}
+
+pub trait SimpleResponse {
+    fn code(&self) -> u8;
+
+    fn len(&self) -> usize;
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
