@@ -7,17 +7,11 @@ mod response;
 mod storage;
 mod util;
 
-#[cfg(feature = "stats")]
-mod stats;
-
 pub(crate) use util::*;
 
 pub use request::*;
 pub use response::*;
 pub use storage::*;
-
-#[cfg(feature = "stats")]
-pub use stats::*;
 
 use common::expiry::TimeType;
 

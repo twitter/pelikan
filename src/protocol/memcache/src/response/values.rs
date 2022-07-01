@@ -36,6 +36,10 @@ impl Value {
             data: data.to_owned().into_boxed_slice(),
         }
     }
+
+    pub fn key(&self) -> &[u8] {
+        &self.key
+    }
 }
 
 impl Compose for Values {

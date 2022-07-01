@@ -1587,6 +1587,7 @@ version = "0.1.0"
 dependencies = [
  "common",
  "criterion",
+ "logger",
  "nom 5.1.2",
  "protocol-common",
  "rustcommon-metrics",

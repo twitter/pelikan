@@ -44,6 +44,8 @@ heatmap!(STORAGE_QUEUE_DEPTH, 1_000_000);
 
 counter!(PROCESS_REQ);
 
+type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
+
 pub struct TokenWrapper<T> {
     inner: T,
     token: Token,

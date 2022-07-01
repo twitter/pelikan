@@ -12,6 +12,7 @@ harness = false
 
 [dependencies]
 common = { path = "../../common" }
+logger = { path = "../../logger" }
 nom = "5.1.2"
 protocol-common = { path = "../../protocol/common" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }

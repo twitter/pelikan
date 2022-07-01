@@ -4,6 +4,8 @@
 
 use super::*;
 
+const MSG: &[u8] = b"NOT_STORED\r\n";
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct NotStored {
     noreply: bool,
@@ -13,12 +15,24 @@ impl NotStored {
     pub fn new(noreply: bool) -> Self {
         Self { noreply }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn len(&self) -> usize {
+        if self.noreply {
+            0
+        } else {
+            MSG.len()
+        }
+    }
 }
 
 impl Compose for NotStored {
     fn compose(&self, session: &mut session::Session) {
         if !self.noreply {
-            let _ = session.write_all(b"NOT_STORED\r\n");
+            let _ = session.write_all(MSG);
         }
     }
 }

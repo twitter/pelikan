@@ -4,14 +4,26 @@
 
 use super::*;
 
+const MSG_PREFIX: &[u8] = b"SERVER_ERROR ";
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct ServerError {
     pub(crate) inner: String,
 }
 
+impl ServerError {
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn len(&self) -> usize {
+        MSG_PREFIX.len() + self.inner.len() + 2
+    }
+}
+
 impl Compose for ServerError {
     fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(b"SERVER_ERROR ");
+        let _ = session.write_all(MSG_PREFIX);
         let _ = session.write_all(self.inner.as_bytes());
         let _ = session.write_all(b"\r\n");
     }

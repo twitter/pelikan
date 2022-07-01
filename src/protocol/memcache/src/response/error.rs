@@ -4,12 +4,34 @@
 
 use super::*;
 
+const MSG: &[u8] = b"ERROR\r\n";
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Error {}
 
+impl Default for Error {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Error {
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    pub fn is_empty(&self) -> bool {
+        false
+    }
+
+    pub fn len(&self) -> usize {
+        MSG.len()
+    }
+}
+
 impl Compose for Error {
     fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(b"ERROR\r\n");
+        let _ = session.write_all(MSG);
     }
 }
 

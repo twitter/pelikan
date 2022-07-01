@@ -96,16 +96,14 @@ where
                 error!("Error polling");
             }
 
+            let timestamp = Instant::now();
+
             if !events.is_empty() {
                 trace!("handling events");
 
                 self.storage_queue.try_recv_all(&mut requests);
 
-                STORAGE_QUEUE_DEPTH.increment(
-                    common::time::Instant::<common::time::Nanoseconds<u64>>::now(),
-                    requests.len() as _,
-                    1,
-                );
+                STORAGE_QUEUE_DEPTH.increment(timestamp, requests.len() as _, 1);
 
                 for request in requests.drain(..) {
                     let sender = request.sender();
