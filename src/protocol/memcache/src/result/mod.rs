@@ -67,6 +67,8 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                         }
                     }
 
+                    let _ = dst.write_all(b"END\r\n");
+
                     return;
                 }
                 _ => return Error {}.compose(dst),
@@ -95,6 +97,8 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                             value_index += 1;
                         }
                     }
+
+                    let _ = dst.write_all(b"END\r\n");
 
                     return;
                 }
@@ -273,7 +277,7 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                         INCR_STORED.increment();
                         (STORED, res.len())
                     }
-                    Response::NotStored(ref res) => {
+                    Response::NotFound(ref res) => {
                         INCR_NOT_FOUND.increment();
                         (NOT_FOUND, res.len())
                     }
@@ -287,7 +291,7 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                         DECR_STORED.increment();
                         (STORED, res.len())
                     }
-                    Response::NotStored(ref res) => {
+                    Response::NotFound(ref res) => {
                         DECR_NOT_FOUND.increment();
                         (NOT_FOUND, res.len())
                     }
