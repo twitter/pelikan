@@ -13,6 +13,10 @@ impl Values {
     pub fn new(values: Box<[Value]>) -> Self {
         Self { values }
     }
+
+    pub fn values(&self) -> &[Value] {
+        &self.values
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -31,6 +35,10 @@ impl Value {
             cas,
             data: data.to_owned().into_boxed_slice(),
         }
+    }
+
+    pub fn key(&self) -> &[u8] {
+        &self.key
     }
 }
 
