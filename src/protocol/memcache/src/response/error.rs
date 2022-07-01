@@ -4,7 +4,7 @@
 
 use super::*;
 
-const BYTES: &[u8] = b"ERROR\r\n";
+const MSG: &[u8] = b"ERROR\r\n";
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Error {}
@@ -25,13 +25,13 @@ impl Error {
     }
 
     pub fn len(&self) -> usize {
-        BYTES.len()
+        MSG.len()
     }
 }
 
 impl Compose for Error {
     fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(BYTES);
+        let _ = session.write_all(MSG);
     }
 }
 

@@ -4,7 +4,7 @@
 
 use super::*;
 
-const BYTES: &[u8] = b"STORED\r\n";
+const MSG: &[u8] = b"STORED\r\n";
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Stored {
@@ -24,7 +24,7 @@ impl Stored {
         if self.noreply {
             0
         } else {
-            BYTES.len()
+            MSG.len()
         }
     }
 }
@@ -32,7 +32,7 @@ impl Stored {
 impl Compose for Stored {
     fn compose(&self, session: &mut session::Session) {
         if !self.noreply {
-            let _ = session.write_all(BYTES);
+            let _ = session.write_all(MSG);
         }
     }
 }
