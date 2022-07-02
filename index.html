@@ -1,57 +1,6 @@
----
-layout: default
----
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Redirecting to https://pelikan.io/</title>
+<meta http-equiv="refresh" content="0; URL=https://pelikan.io/">
+<link rel="canonical" href="https://pelikan.io/">
 
-<div class="home">
-
-  <p class="page-announce">
-    Pelikan is a cache framework written in C. It provides an expanding
-    collection of cache services, and a common library used to build them.
-  </p>
-
-  <div class="page-col-wrapper">
-    <div class="page-col">
-      <div align="center">
-        <h2>Source</h3>
-        <a href="https://github.com/twitter/pelikan"><span class="icon-large icon--github">{% include icon-github.svg %}</span></a>
-      </div>
-    </div>
-    <div class="page-col">
-      <div align="center">
-        <h2>Discussion</h3>
-        <p><a href="https://groups.google.com/forum/#!forum/pelikan-cache">Google group</a></p>
-        <span><a href="https://pelikan.zulipchat.com"><img src="https://raw.githubusercontent.com/zulip/zulip/master/static/images/logo/zulip-org-logo.svg" alt="Zulip Chat" style="max-width:50%;"></a></span>
-      </div>
-    </div>
-    <div class="page-col">
-      <div align="center">
-        <h2>Follow</h3>
-        <p class="rss-subscribe" style="padding-bottom: 4px"><a href="{{ "/feed.xml" | prepend: site.baseurl }}">Blog RSS</a></p>
-        <span><a href="https://twitter.com/pelikan_cache" class="twitter-follow-button" data-show-count="false">Follow @pelikan_cache</a></span>
-        <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
-      </div>
-    </div>
-  </div>
-
-  <h1 class="page-heading">Talks</h1>
-  <ul class="video-list">
-    <li>
-      <div class="video-text-wrap"><iframe width="320" height="180" src="https://www.youtube.com/embed/pLRztKYvMLk" frameborder="0" allowfullscreen></iframe></div>
-      <h4>Cache à la carte: a framework for in-memory caching</h4><p class="video-text">In this StrangeLoop 2015 talk, we explained Pelikan's approach toward a generalized framework for building caching software, and how we design the system for both performance and operations.</p>
-    </li>
-  </ul>
-
-  <h1 class="page-heading">Posts</h1>
-  <ul class="post-list">
-    {% for post in site.posts %}
-      <li>
-        <span class="post-meta">{{ post.date | date: "%b %-d, %Y" }}</span>
-
-        <h2>
-          <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
-        </h2>
-      </li>
-    {% endfor %}
-  </ul>
-
-</div>
