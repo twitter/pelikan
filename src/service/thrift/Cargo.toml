@@ -1,0 +1,19 @@
+[package]
+name = "service-thrift"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+protocol-common = { path = "../../protocol/common" }
+protocol-thrift = { path = "../../protocol/thrift" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+service-common = { path = "../common" }
+session = { path = "../../session" }
+
+[features]
+default = ["proxy"]
+server = []
+client = []
+proxy = ["server", "client"]

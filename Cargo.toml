@@ -21,6 +21,7 @@ members = [
     "src/service/common",
     "src/service/memcache",
     "src/service/ping",
+    "src/service/thrift",
     "src/session",
     "src/storage/datapool",
     "src/storage/seg",

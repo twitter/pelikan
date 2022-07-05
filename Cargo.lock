@@ -2121,6 +2121,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "service-thrift"
+version = "0.1.0"
+dependencies = [
+ "protocol-common",
+ "protocol-thrift",
+ "rustcommon-metrics",
+ "service-common",
+ "session",
+]
+
+[[package]]
 name = "session"
 version = "0.0.2"
 dependencies = [
