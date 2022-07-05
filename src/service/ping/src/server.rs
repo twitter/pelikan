@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use service_common::*;
 use rustcommon_metrics::*;
+use service_common::*;
 
 use protocol_common::*;
 use protocol_ping::*;
@@ -19,9 +19,7 @@ pub struct PingServer {
 
 impl From<RequestParser> for PingServer {
     fn from(other: RequestParser) -> Self {
-        Self {
-            parser: other,
-        }
+        Self { parser: other }
     }
 }
 

@@ -5,8 +5,8 @@
 //! Encodes the client side of the memcache service, where we send requests and
 //! parse responses.
 
-use service_common::*;
 use rustcommon_metrics::*;
+use service_common::*;
 
 use protocol_common::*;
 use protocol_ping::*;
@@ -22,9 +22,7 @@ pub struct PingClient {
 
 impl From<ResponseParser> for PingClient {
     fn from(other: ResponseParser) -> Self {
-        Self {
-            parser: other,
-        }
+        Self { parser: other }
     }
 }
 

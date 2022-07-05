@@ -1,5 +1,5 @@
-use session::Session;
 use protocol_common::*;
+use session::Session;
 
 pub trait Client<Request, Response> {
     fn recv(&self, src: &[u8], req: &Request) -> Result<ParseOk<Response>, ParseError>;

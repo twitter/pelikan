@@ -3,10 +3,10 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use core::fmt::Display;
+use rustcommon_metrics::*;
+use service_common::*;
 use std::io::Write;
 use std::ops::Deref;
-use service_common::*;
-use rustcommon_metrics::*;
 
 use protocol_common::*;
 use protocol_memcache::*;
@@ -71,9 +71,7 @@ pub struct MemcacheServer {
 
 impl From<RequestParser> for MemcacheServer {
     fn from(other: RequestParser) -> Self {
-        Self {
-            parser: other,
-        }
+        Self { parser: other }
     }
 }
 
@@ -204,7 +202,7 @@ impl Server<Request, Response> for MemcacheServer {
                 let _ = res.compose(dst);
                 COMPOSE_FLUSH_ALL_OK.increment();
             }
-            (Request::Quit(_), _) => {},
+            (Request::Quit(_), _) => {}
             _ => {
                 // We have some unexpected request, respomse, or
                 // request-response pair. This is treated as an internal error.
@@ -213,7 +211,6 @@ impl Server<Request, Response> for MemcacheServer {
         }
     }
 }
-
 
 fn compose_read<T: Display + Keys>(dst: &mut Session, req: &T, res: &Values) -> (usize, usize) {
     let total_keys = req.keys().len();
@@ -242,8 +239,13 @@ fn compose_read<T: Display + Keys>(dst: &mut Session, req: &T, res: &Values) -> 
     (hit_keys, miss_keys)
 }
 
-fn compose_modify<T: Display + Key, U: Compose + SimpleResponse>(dst: &mut Session, req: &T, res: &U) {
-    klog!("\"{} {}\" {} {}",
+fn compose_modify<T: Display + Key, U: Compose + SimpleResponse>(
+    dst: &mut Session,
+    req: &T,
+    res: &U,
+) {
+    klog!(
+        "\"{} {}\" {} {}",
         req,
         req.key_as_str(),
         res.code(),
@@ -253,8 +255,13 @@ fn compose_modify<T: Display + Key, U: Compose + SimpleResponse>(dst: &mut Sessi
     res.compose(dst);
 }
 
-fn compose_write<T: Display + Key + Ttl + RequestValue + Flags, U: Compose + SimpleResponse>(dst: &mut Session, req: &T, res: &U) {
-    klog!("\"{} {} {} {} {}\" {} {}",
+fn compose_write<T: Display + Key + Ttl + RequestValue + Flags, U: Compose + SimpleResponse>(
+    dst: &mut Session,
+    req: &T,
+    res: &U,
+) {
+    klog!(
+        "\"{} {} {} {} {}\" {} {}",
         req,
         req.key_as_str(),
         req.flags(),
@@ -268,7 +275,8 @@ fn compose_write<T: Display + Key + Ttl + RequestValue + Flags, U: Compose + Sim
 }
 
 fn compose_cas<U: Compose + SimpleResponse>(dst: &mut Session, req: &Cas, res: &U) {
-    klog!("\"{} {} {} {} {} {}\" {} {}",
+    klog!(
+        "\"{} {} {} {} {} {}\" {} {}",
         req,
         req.key_as_str(),
         req.flags(),

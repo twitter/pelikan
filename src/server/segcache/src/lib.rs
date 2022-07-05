@@ -41,9 +41,11 @@ impl Segcache {
         );
 
         // initialize server service
-        let server = Server::from(Parser::new()
-            .max_value_size(config.seg().segment_size() as usize)
-            .time_type(config.time().time_type()));
+        let server = Server::from(
+            Parser::new()
+                .max_value_size(config.seg().segment_size() as usize)
+                .time_type(config.time().time_type()),
+        );
 
         // initialize process
         let process_builder = ProcessBuilder::<Storage, Server, Request, Response>::new(

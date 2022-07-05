@@ -13,9 +13,7 @@ pub struct Ok {
 
 impl Ok {
     pub fn new(noreply: bool) -> Self {
-        Self {
-            noreply,
-        }
+        Self { noreply }
     }
 }
 
@@ -23,7 +21,7 @@ impl Compose for Ok {
     fn compose(&self, session: &mut session::Session) {
         if !self.noreply {
             let _ = session.write_all(MSG);
-        }   
+        }
     }
 }
 

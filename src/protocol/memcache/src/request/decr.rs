@@ -39,7 +39,7 @@ impl RequestParser {
     // this is to be called after parsing the command, so we do not match the verb
     pub fn parse_decr<'a>(&self, input: &'a [u8]) -> IResult<&'a [u8], Decr> {
         // we can use the incr parser here and convert the request
-        let (input, request) =  self.parse_incr(input)?;
+        let (input, request) = self.parse_incr(input)?;
 
         Ok((
             input,

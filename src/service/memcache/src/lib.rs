@@ -22,7 +22,6 @@ pub use client::*;
 #[cfg(feature = "server")]
 pub use server::*;
 
-
 #[cfg(test)]
 mod tests {
     #[test]

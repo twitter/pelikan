@@ -2,13 +2,13 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::borrow::Cow;
 use crate::*;
 use common::expiry::TimeType;
 use core::fmt::{Display, Formatter};
 use protocol_common::Parse;
 use protocol_common::{ParseError, ParseOk};
 use session::Session;
+use std::borrow::Cow;
 
 mod add;
 mod append;
@@ -261,7 +261,7 @@ pub enum ExpireTime {
 pub trait Ttl {
     /// The logical view of the TTL (time-to-live). The `None` variant means the
     /// value does not expire. The `Some` variant contains the number of seconds
-    /// before the item expires. Zero should be treated as immediate expiration. 
+    /// before the item expires. Zero should be treated as immediate expiration.
     fn ttl(&self) -> Option<u32>;
 
     /// The wire format view of the TTL (time-to-live). A negative value means
