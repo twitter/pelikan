@@ -24,7 +24,7 @@ pub struct PingClient {
 impl PingClient {
     pub fn new() -> Self {
         Self {
-            parser: ResponseParser::new()
+            parser: ResponseParser::new(),
         }
     }
 }

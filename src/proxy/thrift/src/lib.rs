@@ -35,8 +35,7 @@ impl Thriftproxy {
 
         // initialize process
         let process_builder =
-            ProcessBuilder::new(config, server, client, log_drain)
-                .expect("failed to launch");
+            ProcessBuilder::new(config, server, client, log_drain).expect("failed to launch");
         let process = process_builder.spawn();
 
         Self { process }

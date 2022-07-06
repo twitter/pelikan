@@ -24,7 +24,7 @@ pub struct ThriftClient {
 impl ThriftClient {
     pub fn new(max_size: usize) -> Self {
         Self {
-            parser: MessageParser::new(max_size)
+            parser: MessageParser::new(max_size),
         }
     }
 }

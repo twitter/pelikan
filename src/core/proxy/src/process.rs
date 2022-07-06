@@ -34,8 +34,7 @@ pub struct ProcessBuilder<Server, Request, Client, Response> {
     signal_tx: Sender<Signal>,
 }
 
-impl<Server, Request, Client, Response>
-    ProcessBuilder<Server, Request, Client, Response>
+impl<Server, Request, Client, Response> ProcessBuilder<Server, Request, Client, Response>
 where
     Server: 'static + Clone + Send + service_common::Server<Request, Response>,
     Request: 'static + Send + Compose,

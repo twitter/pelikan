@@ -260,7 +260,10 @@ where
             ));
         }
 
-        match self.client.recv(session.buffer(), self.pending[token.0].as_ref().unwrap()) {
+        match self
+            .client
+            .recv(session.buffer(), self.pending[token.0].as_ref().unwrap())
+        {
             Ok(response) => {
                 let consumed = response.consumed();
                 let response = response.into_inner();

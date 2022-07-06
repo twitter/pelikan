@@ -20,7 +20,7 @@ pub struct PingServer {
 impl PingServer {
     pub fn new() -> Self {
         Self {
-            parser: RequestParser::new()
+            parser: RequestParser::new(),
         }
     }
 }

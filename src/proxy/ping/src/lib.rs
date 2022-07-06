@@ -2,10 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use service_ping::{PingServer, PingClient};
 use config::PingproxyConfig;
 use logger::configure_logging;
 use proxy::{Process, ProcessBuilder};
+use service_ping::{PingClient, PingServer};
 
 #[allow(dead_code)]
 pub struct Pingproxy {
@@ -33,8 +33,7 @@ impl Pingproxy {
 
         // initialize process
         let process_builder =
-            ProcessBuilder::new(config, server, client, log_drain)
-                .expect("failed to launch");
+            ProcessBuilder::new(config, server, client, log_drain).expect("failed to launch");
         let process = process_builder.spawn();
 
         Self { process }
