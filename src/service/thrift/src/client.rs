@@ -16,8 +16,17 @@ client_counter!(COMPOSE_MESSAGE, "compose/message");
 client_counter!(PARSE_MESSAGE, "parse/message");
 client_counter!(PARSE_INVALID, "parse/invalid");
 
+#[derive(Clone)]
 pub struct ThriftClient {
     parser: MessageParser,
+}
+
+impl ThriftClient {
+    pub fn new(max_size: usize) -> Self {
+        Self {
+            parser: MessageParser::new(max_size)
+        }
+    }
 }
 
 impl From<MessageParser> for ThriftClient {

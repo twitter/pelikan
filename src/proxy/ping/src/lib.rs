@@ -2,9 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use service_ping::{PingServer, PingClient};
 use config::PingproxyConfig;
 use logger::configure_logging;
-use protocol_ping::*;
 use proxy::{Process, ProcessBuilder};
 
 #[allow(dead_code)]
@@ -28,12 +28,12 @@ impl Pingproxy {
         common::metrics::init();
 
         // initialize parsers
-        let request_parser = RequestParser::new();
-        let response_parser = ResponseParser::new();
+        let server = PingServer::new();
+        let client = PingClient::new();
 
         // initialize process
         let process_builder =
-            ProcessBuilder::new(config, request_parser, response_parser, log_drain)
+            ProcessBuilder::new(config, server, client, log_drain)
                 .expect("failed to launch");
         let process = process_builder.spawn();
 

@@ -23,6 +23,14 @@ impl From<MessageParser> for ThriftServer {
     }
 }
 
+impl ThriftServer {
+    pub fn new(max_size: usize) -> Self {
+        Self {
+            parser: MessageParser::new(max_size),
+        }
+    }
+}
+
 impl Server<Message, Message> for ThriftServer {
     fn recv(&self, src: &[u8]) -> Result<ParseOk<Message>, ParseError> {
         let message = self.parser.parse(src)?;

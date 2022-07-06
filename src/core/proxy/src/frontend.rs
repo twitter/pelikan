@@ -28,22 +28,22 @@ heatmap!(FRONTEND_EVENT_DEPTH, 100_000);
 
 pub const QUEUE_RETRIES: usize = 3;
 
-pub struct FrontendWorkerBuilder<Parser, Request, Response> {
+pub struct FrontendWorkerBuilder<Server, Request, Response> {
     poll: Poll,
-    parser: Parser,
+    server: Server,
     nevent: usize,
     timeout: Duration,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
 }
 
-impl<Parser, Request, Response> FrontendWorkerBuilder<Parser, Request, Response> {
-    pub fn new<T: FrontendConfig>(config: &T, parser: Parser) -> Result<Self> {
+impl<Server, Request, Response> FrontendWorkerBuilder<Server, Request, Response> {
+    pub fn new<T: FrontendConfig>(config: &T, server: Server) -> Result<Self> {
         let config = config.frontend();
 
         Ok(Self {
             poll: Poll::new()?,
-            parser,
+            server,
             nevent: config.nevent(),
             timeout: Duration::from_millis(config.timeout() as u64),
             _request: PhantomData,
@@ -60,10 +60,10 @@ impl<Parser, Request, Response> FrontendWorkerBuilder<Parser, Request, Response>
         signal_queue: Queues<(), Signal>,
         connection_queues: Queues<(), Session>,
         data_queues: Queues<TokenWrapper<Request>, TokenWrapper<Response>>,
-    ) -> FrontendWorker<Parser, Request, Response> {
+    ) -> FrontendWorker<Server, Request, Response> {
         FrontendWorker {
             poll: self.poll,
-            parser: self.parser,
+            server: self.server,
             nevent: self.nevent,
             timeout: self.timeout,
             signal_queue,
@@ -73,9 +73,9 @@ impl<Parser, Request, Response> FrontendWorkerBuilder<Parser, Request, Response>
     }
 }
 
-pub struct FrontendWorker<Parser, Request, Response> {
+pub struct FrontendWorker<Server, Request, Response> {
     poll: Poll,
-    parser: Parser,
+    server: Server,
     nevent: usize,
     timeout: Duration,
     signal_queue: Queues<(), Signal>,
@@ -83,9 +83,9 @@ pub struct FrontendWorker<Parser, Request, Response> {
     data_queues: Queues<TokenWrapper<Request>, TokenWrapper<Response>>,
 }
 
-impl<Parser, Request, Response> FrontendWorker<Parser, Request, Response>
+impl<Server, Request, Response> FrontendWorker<Server, Request, Response>
 where
-    Parser: Parse<Request>,
+    Server: service_common::Server<Request, Response>,
     Response: Compose,
 {
     #[allow(clippy::match_single_binding)]
@@ -193,7 +193,7 @@ where
     fn handle_session_read(&mut self, token: Token) -> Result<()> {
         let s = self.poll.get_mut_session(token)?;
         let session = &mut s.session;
-        match self.parser.parse(session.buffer()) {
+        match self.server.recv(session.buffer()) {
             Ok(request) => {
                 let consumed = request.consumed();
                 let request = request.into_inner();
@@ -240,9 +240,9 @@ where
     }
 }
 
-impl<Parser, Request, Response> EventLoop for FrontendWorker<Parser, Request, Response>
+impl<Server, Request, Response> EventLoop for FrontendWorker<Server, Request, Response>
 where
-    Parser: Parse<Request>,
+    Server: service_common::Server<Request, Response>,
     Response: Compose,
 {
     fn handle_data(&mut self, token: Token) -> Result<()> {

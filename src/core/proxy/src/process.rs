@@ -26,26 +26,26 @@ pub const FRONTEND_THREADS: usize = 1;
 pub const BACKEND_THREADS: usize = 1;
 pub const BACKEND_POOLSIZE: usize = 1;
 
-pub struct ProcessBuilder<RequestParser, Request, ResponseParser, Response> {
+pub struct ProcessBuilder<Server, Request, Client, Response> {
     admin: Admin,
     listener: Listener,
-    frontends: Vec<FrontendWorker<RequestParser, Request, Response>>,
-    backends: Vec<BackendWorker<ResponseParser, Request, Response>>,
+    frontends: Vec<FrontendWorker<Server, Request, Response>>,
+    backends: Vec<BackendWorker<Client, Request, Response>>,
     signal_tx: Sender<Signal>,
 }
 
-impl<RequestParser, Request, ResponseParser, Response>
-    ProcessBuilder<RequestParser, Request, ResponseParser, Response>
+impl<Server, Request, Client, Response>
+    ProcessBuilder<Server, Request, Client, Response>
 where
-    RequestParser: 'static + Clone + Send + Parse<Request>,
+    Server: 'static + Clone + Send + service_common::Server<Request, Response>,
     Request: 'static + Send + Compose,
-    ResponseParser: 'static + Clone + Send + Parse<Response>,
+    Client: 'static + Clone + Send + service_common::Client<Request, Response>,
     Response: 'static + Send + Compose,
 {
     pub fn new<T: AdminConfig + ListenerConfig + BackendConfig + FrontendConfig + TlsConfig>(
         config: T,
-        request_parser: RequestParser,
-        response_parser: ResponseParser,
+        server: Server,
+        client: Client,
         log_drain: Box<dyn Drain>,
     ) -> Result<Self> {
         // initialize the clock
@@ -62,14 +62,14 @@ where
 
         let mut frontend_builders = Vec::new();
         for _ in 0..config.frontend().threads() {
-            frontend_builders.push(FrontendWorkerBuilder::new(&config, request_parser.clone())?);
+            frontend_builders.push(FrontendWorkerBuilder::new(&config, server.clone())?);
         }
         let frontend_wakers: Vec<Arc<Waker>> =
             frontend_builders.iter().map(|v| v.waker()).collect();
 
         let mut backend_builders = Vec::new();
         for _ in 0..config.backend().threads() {
-            backend_builders.push(BackendWorkerBuilder::new(&config, response_parser.clone())?);
+            backend_builders.push(BackendWorkerBuilder::new(&config, client.clone())?);
         }
         let backend_wakers: Vec<Arc<Waker>> = backend_builders.iter().map(|v| v.waker()).collect();
 
@@ -92,12 +92,12 @@ where
         let (mut queues_frontend_data, mut queues_backend_data) =
             Queues::new(frontend_wakers, backend_wakers, QUEUE_CAPACITY);
 
-        let backends: Vec<BackendWorker<ResponseParser, Request, Response>> = backend_builders
+        let backends: Vec<BackendWorker<Client, Request, Response>> = backend_builders
             .drain(..)
             .map(|v| v.build(signal_queue_rx.remove(0), queues_backend_data.remove(0)))
             .collect();
 
-        let frontends: Vec<FrontendWorker<RequestParser, Request, Response>> = frontend_builders
+        let frontends: Vec<FrontendWorker<Server, Request, Response>> = frontend_builders
             .drain(..)
             .map(|v| {
                 v.build(

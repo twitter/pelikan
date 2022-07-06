@@ -28,3 +28,4 @@ logger = { path = "../../logger" }
 proxy = { path = "../../core/proxy" }
 protocol-thrift = { path = "../../protocol/thrift" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+service-thrift = { path = "../../service/thrift" }

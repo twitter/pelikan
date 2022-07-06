@@ -16,8 +16,23 @@ client_counter!(COMPOSE_PING, "compose/ping");
 client_counter!(PARSE_PONG, "parse/pong");
 client_counter!(PARSE_INVALID, "parse/invalid");
 
+#[derive(Clone)]
 pub struct PingClient {
     parser: ResponseParser,
+}
+
+impl PingClient {
+    pub fn new() -> Self {
+        Self {
+            parser: ResponseParser::new()
+        }
+    }
+}
+
+impl Default for PingClient {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl From<ResponseParser> for PingClient {

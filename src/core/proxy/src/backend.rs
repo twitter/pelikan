@@ -33,18 +33,19 @@ heatmap!(BACKEND_EVENT_DEPTH, 100_000);
 
 pub const QUEUE_RETRIES: usize = 3;
 
-pub struct BackendWorkerBuilder<Parser, Request, Response> {
+pub struct BackendWorkerBuilder<Client, Request, Response> {
     poll: Poll,
-    parser: Parser,
+    client: Client,
     free_queue: VecDeque<Token>,
     nevent: usize,
     timeout: Duration,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
+    pending: Vec<Option<Request>>,
 }
 
-impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> {
-    pub fn new<T: BackendConfig>(config: &T, parser: Parser) -> Result<Self> {
+impl<Client, Request, Response> BackendWorkerBuilder<Client, Request, Response> {
+    pub fn new<T: BackendConfig>(config: &T, client: Client) -> Result<Self> {
         let config = config.backend();
 
         let mut poll = Poll::new()?;
@@ -52,6 +53,11 @@ impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> 
         let server_endpoints = config.socket_addrs()?;
 
         let mut free_queue = VecDeque::with_capacity(server_endpoints.len() * config.poolsize());
+
+        let mut pending = Vec::with_capacity(server_endpoints.len() * config.poolsize());
+        for _ in 0..(server_endpoints.len() * config.poolsize()) {
+            pending.push(None);
+        }
 
         for addr in server_endpoints {
             for _ in 0..config.poolsize() {
@@ -75,11 +81,12 @@ impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> 
         Ok(Self {
             poll,
             free_queue,
-            parser,
+            client,
             nevent: config.nevent(),
             timeout: Duration::from_millis(config.timeout() as u64),
             _request: PhantomData,
             _response: PhantomData,
+            pending,
         })
     }
     pub fn waker(&self) -> Arc<Waker> {
@@ -90,33 +97,35 @@ impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> 
         self,
         signal_queue: Queues<(), Signal>,
         queues: Queues<TokenWrapper<Response>, TokenWrapper<Request>>,
-    ) -> BackendWorker<Parser, Request, Response> {
+    ) -> BackendWorker<Client, Request, Response> {
         BackendWorker {
             poll: self.poll,
             free_queue: self.free_queue,
             signal_queue,
             queues,
-            parser: self.parser,
+            client: self.client,
             nevent: self.nevent,
             timeout: self.timeout,
+            pending: self.pending,
         }
     }
 }
 
-pub struct BackendWorker<Parser, Request, Response> {
+pub struct BackendWorker<Client, Request, Response> {
     poll: Poll,
     queues: Queues<TokenWrapper<Response>, TokenWrapper<Request>>,
     free_queue: VecDeque<Token>,
     signal_queue: Queues<(), Signal>,
-    parser: Parser,
+    client: Client,
     nevent: usize,
     timeout: Duration,
+    pending: Vec<Option<Request>>,
 }
 
-impl<Parser, Request, Response> BackendWorker<Parser, Request, Response>
+impl<Client, Request, Response> BackendWorker<Client, Request, Response>
 where
     Request: Compose,
-    Parser: Parse<Response>,
+    Client: service_common::Client<Request, Response>,
 {
     #[allow(clippy::match_single_binding)]
     pub fn run(mut self) {
@@ -220,7 +229,9 @@ where
 
                     session.sender = Some(sender);
                     session.token = Some(token);
+
                     request.compose(&mut session.session);
+                    self.pending[token.0] = Some(request);
                     session.session.finalize_response();
 
                     if session.session.write_pending() > 0 {
@@ -239,7 +250,17 @@ where
     fn handle_session_read(&mut self, token: Token) -> Result<()> {
         let s = self.poll.get_mut_session(token)?;
         let session = &mut s.session;
-        match self.parser.parse(session.buffer()) {
+        if self.pending[token.0].is_none() {
+            debug!("did not expect response for session: {:?}", session);
+            trace!("session: {:?} read buffer: {:?}", session, session.buffer());
+            let _ = self.poll.close_session(token);
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "response unexpected",
+            ));
+        }
+
+        match self.client.recv(session.buffer(), self.pending[token.0].as_ref().unwrap()) {
             Ok(response) => {
                 let consumed = response.consumed();
                 let response = response.into_inner();
@@ -264,6 +285,7 @@ where
                     }
                 }
 
+                self.pending[token.0] = None;
                 self.free_queue.push_back(token);
 
                 let _ = self.queues.wake();
@@ -290,10 +312,10 @@ where
     }
 }
 
-impl<Parser, Request, Response> EventLoop for BackendWorker<Parser, Request, Response>
+impl<Client, Request, Response> EventLoop for BackendWorker<Client, Request, Response>
 where
     Request: Compose,
-    Parser: Parse<Response>,
+    Client: service_common::Client<Request, Response>,
 {
     fn handle_data(&mut self, token: Token) -> Result<()> {
         let _ = self.handle_session_read(token);

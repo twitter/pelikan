@@ -4,8 +4,8 @@
 
 use config::PingproxyConfig;
 use logger::configure_logging;
-use protocol_thrift::*;
 use proxy::{Process, ProcessBuilder};
+use service_thrift::{ThriftClient, ThriftServer};
 
 const MAX_SIZE: usize = 16 * 1024 * 1024; // 16MB
 
@@ -29,13 +29,13 @@ impl Thriftproxy {
         // initialize metrics
         common::metrics::init();
 
-        // initialize parsers
-        let request_parser = MessageParser::new(MAX_SIZE);
-        let response_parser = MessageParser::new(MAX_SIZE);
+        // initialize services
+        let server = ThriftServer::new(MAX_SIZE);
+        let client = ThriftClient::new(MAX_SIZE);
 
         // initialize process
         let process_builder =
-            ProcessBuilder::new(config, request_parser, response_parser, log_drain)
+            ProcessBuilder::new(config, server, client, log_drain)
                 .expect("failed to launch");
         let process = process_builder.spawn();
 

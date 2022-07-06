@@ -21,6 +21,7 @@ protocol-admin = { path = "../../protocol/admin" }
 protocol-common = { path = "../../protocol/common" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
+service-common = { path = "../../service/common" }
 queues = { path = "../../queues" }
 session = { path = "../../session" }
 slab = "*"

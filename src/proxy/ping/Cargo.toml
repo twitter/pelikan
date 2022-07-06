@@ -28,3 +28,4 @@ logger = { path = "../../logger" }
 proxy = { path = "../../core/proxy" }
 protocol-ping = { path = "../../protocol/ping", features = ["client", "server"] }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+service-ping = { path = "../../service/ping" }

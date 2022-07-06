@@ -1431,6 +1431,7 @@ dependencies = [
  "protocol-ping",
  "proxy",
  "rustcommon-metrics",
+ "service-ping",
 ]
 
 [[package]]
@@ -1634,6 +1635,7 @@ dependencies = [
  "queues",
  "rustcommon-metrics",
  "rustcommon-time",
+ "service-common",
  "session",
  "slab",
  "tiny_http",
@@ -2330,6 +2332,7 @@ dependencies = [
  "protocol-thrift",
  "proxy",
  "rustcommon-metrics",
+ "service-thrift",
 ]
 
 [[package]]

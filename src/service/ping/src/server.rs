@@ -17,9 +17,23 @@ pub struct PingServer {
     parser: RequestParser,
 }
 
+impl PingServer {
+    pub fn new() -> Self {
+        Self {
+            parser: RequestParser::new()
+        }
+    }
+}
+
 impl From<RequestParser> for PingServer {
     fn from(other: RequestParser) -> Self {
         Self { parser: other }
+    }
+}
+
+impl Default for PingServer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
