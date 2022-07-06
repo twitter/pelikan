@@ -9,3 +9,9 @@ edition = "2021"
 protocol-common = { path = "../../protocol/common" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 session = { path = "../../session" }
+
+[features]
+default = ["proxy"]
+server = []
+client = []
+proxy = ["server", "client"]

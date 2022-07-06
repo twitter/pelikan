@@ -15,6 +15,6 @@ session = { path = "../../session" }
 
 [features]
 default = ["proxy"]
-server = []
-client = []
+server = ["service-common/server"]
+client = ["service-common/client"]
 proxy = ["server", "client"]
