@@ -40,7 +40,7 @@ logger = { path = "../../logger" }
 protocol-ping = { path = "../../protocol/ping", features = ["server"] }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 server = { path = "../../core/server" }
-service-ping = { path = "../../service/ping" }
+service-ping = { default-features = false, features = ["server"], path = "../../service/ping" }
 
 
 [dev-dependencies]
