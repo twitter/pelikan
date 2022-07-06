@@ -9,8 +9,8 @@ use protocol_common::*;
 use protocol_thrift::*;
 use session::Session;
 
-server_counter!(PARSE_MESSAGE, "parse/message");
-server_counter!(COMPOSE_MESSAGE, "compose/message");
+server_counter!(SERVER_PARSE_MESSAGE, "parse/message");
+server_counter!(SERVER_COMPOSE_MESSAGE, "compose/message");
 
 #[derive(Clone)]
 pub struct ThriftServer {
@@ -38,13 +38,13 @@ impl Server<Message, Message> for ThriftServer {
         let consumed = message.consumed();
         let message = message.into_inner();
 
-        PARSE_MESSAGE.increment();
+        SERVER_PARSE_MESSAGE.increment();
 
         Ok(ParseOk::new(message, consumed))
     }
 
     fn send(&self, dst: &mut Session, _req: Message, res: Message) {
-        COMPOSE_MESSAGE.increment();
+        SERVER_COMPOSE_MESSAGE.increment();
         res.compose(dst)
     }
 }

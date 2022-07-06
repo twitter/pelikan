@@ -12,9 +12,9 @@ use protocol_common::*;
 use protocol_thrift::*;
 use session::Session;
 
-client_counter!(COMPOSE_MESSAGE, "compose/message");
-client_counter!(PARSE_MESSAGE, "parse/message");
-client_counter!(PARSE_INVALID, "parse/invalid");
+client_counter!(CLIENT_COMPOSE_MESSAGE, "compose/message");
+client_counter!(CLIENT_PARSE_MESSAGE, "parse/message");
+client_counter!(CLIENT_PARSE_INVALID, "parse/invalid");
 
 #[derive(Clone)]
 pub struct ThriftClient {
@@ -37,7 +37,7 @@ impl From<MessageParser> for ThriftClient {
 
 impl Client<Message, Message> for ThriftClient {
     fn send(&self, dst: &mut Session, req: &Message) {
-        COMPOSE_MESSAGE.increment();
+        CLIENT_COMPOSE_MESSAGE.increment();
         req.compose(dst)
     }
 
@@ -47,7 +47,7 @@ impl Client<Message, Message> for ThriftClient {
         let consumed = message.consumed();
         let message = message.into_inner();
 
-        PARSE_MESSAGE.increment();
+        CLIENT_PARSE_MESSAGE.increment();
 
         Ok(ParseOk::new(message, consumed))
     }

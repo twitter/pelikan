@@ -43,7 +43,7 @@ jobs:
         name: test
         with:
           command: test
-          args: ${{ env.CARGO_FLAGS }} --workspace  --all-features --tests --lib --bins --examples
+          args: ${{ env.CARGO_FLAGS }} --workspace  --tests --lib --bins --examples
       - uses: actions-rs/cargo@v1
         if: ${{ matrix.profile == 'debug' }}
         name: doctests
