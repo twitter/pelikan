@@ -96,6 +96,13 @@ impl Response {
     pub fn deleted(noreply: bool) -> Self {
         Self::Deleted(Deleted::new(noreply))
     }
+
+    pub fn is_error(&self) -> bool {
+        matches!(
+            self,
+            Self::Error(_) | Self::ClientError(_) | Self::ServerError(_)
+        )
+    }
 }
 
 impl From<Values> for Response {

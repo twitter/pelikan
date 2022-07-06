@@ -173,7 +173,7 @@ impl Server<Request, Response> for MemcacheServer {
                 compose_write(dst, &req, &res);
                 COMPOSE_PREPEND_NOT_STORED.increment();
             }
-            (Request::Incr(req), Response::Stored(res)) => {
+            (Request::Incr(req), Response::Numeric(res)) => {
                 compose_modify(dst, &req, &res);
                 COMPOSE_INCR_STORED.increment();
             }
@@ -181,7 +181,7 @@ impl Server<Request, Response> for MemcacheServer {
                 compose_modify(dst, &req, &res);
                 COMPOSE_INCR_NOT_FOUND.increment();
             }
-            (Request::Decr(req), Response::Stored(res)) => {
+            (Request::Decr(req), Response::Numeric(res)) => {
                 compose_modify(dst, &req, &res);
                 COMPOSE_DECR_STORED.increment();
             }
