@@ -4,7 +4,7 @@
 
 //! Queue type for inter-process communication (IPC).
 
-pub use mio::Waker;
+pub use net::Waker;
 
 use crossbeam_queue::*;
 use rand::distributions::Uniform;
@@ -270,7 +270,7 @@ impl<T> TrackedItem<T> {
 #[cfg(test)]
 mod tests {
     use crate::Queues;
-    use mio::*;
+    use net::*;
     use std::sync::Arc;
 
     const WAKER_TOKEN: Token = Token(usize::MAX);

@@ -12,6 +12,6 @@ license = "Apache-2.0"
 
 [dependencies]
 crossbeam-queue = "0.3.5"
-mio = { version = "0.8.0", features = ["os-poll", "net"] }
+net = { path = "../net" }
 rand = "0.8.5"
 rand_chacha = "0.3.1"

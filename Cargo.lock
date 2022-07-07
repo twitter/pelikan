@@ -1650,7 +1650,7 @@ name = "queues"
 version = "0.2.0"
 dependencies = [
  "crossbeam-queue",
- "mio 0.8.3",
+ "net",
  "rand",
  "rand_chacha",
 ]
