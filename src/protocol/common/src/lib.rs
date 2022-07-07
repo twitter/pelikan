@@ -6,7 +6,7 @@
 //! traits so that the a server implementation can easily switch between
 //! protocol implementations.
 
-use session::Session;
+use session_legacy::Session;
 
 pub const CRLF: &str = "\r\n";
 

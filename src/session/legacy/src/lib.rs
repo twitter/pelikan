@@ -11,10 +11,10 @@ extern crate logger;
 
 mod buffer;
 mod stream;
-mod tcp_stream;
+// mod tcp_stream;
 use common::ssl::{MidHandshakeSslStream, SslStream};
-use mio::event::Source;
-use mio::{Interest, Poll, Token};
+use net::event::Source;
+use net::{Interest, Poll, Token};
 use rustcommon_metrics::{counter, gauge, heatmap, metric, Counter, Gauge, Heatmap, Relaxed};
 use std::borrow::{Borrow, BorrowMut};
 use std::cmp::Ordering;
@@ -26,7 +26,9 @@ use stream::Stream;
 
 type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
 
-pub use tcp_stream::TcpStream;
+// pub use tcp_stream::TcpStream;
+
+pub use net::TcpStream;
 
 gauge!(
     SESSION_BUFFER_BYTE,

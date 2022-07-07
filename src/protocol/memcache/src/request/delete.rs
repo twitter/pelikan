@@ -75,7 +75,7 @@ impl RequestParser {
 }
 
 impl Compose for Delete {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut Session) {
         let _ = session.write_all(b"delete ");
         let _ = session.write_all(&self.key);
         if self.noreply {

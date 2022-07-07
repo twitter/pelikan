@@ -1,6 +1,6 @@
 use crate::Compose;
 use crate::Request;
-use session::Session;
+use session_legacy::Session;
 use std::io::Write;
 
 // TODO(bmartin): consider a different trait bound here when reworking buffers.

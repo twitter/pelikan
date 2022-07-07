@@ -15,12 +15,10 @@ use config::WorkerConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
 use entrystore::EntryStore;
-use mio::event::Event;
-use mio::Events;
-use mio::Token;
-use mio::Waker;
+use net::event::Event;
+use net::{Events, Token, Waker};
 use protocol_common::{Compose, Execute, Parse, ParseError};
-use session::Session;
+use session_legacy::Session;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
 

@@ -8,11 +8,11 @@ use common::time::Instant;
 use config::proxy::FrontendConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
-use mio::Waker;
+use net::Waker;
 use poll::*;
 use protocol_common::*;
 use queues::Queues;
-use session::Session;
+use session_legacy::Session;
 use std::sync::Arc;
 
 use rustcommon_metrics::*;

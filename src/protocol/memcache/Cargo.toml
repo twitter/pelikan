@@ -16,7 +16,7 @@ logger = { path = "../../logger" }
 nom = "5.1.2"
 protocol-common = { path = "../../protocol/common" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
-session = { path = "../../session" }
+session-legacy = { path = "../../session/legacy" }
 
 
 [dev-dependencies]

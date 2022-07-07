@@ -21,7 +21,7 @@ use momento::simple_cache_client::*;
 use protocol_admin::*;
 use protocol_memcache::*;
 use rustcommon_metrics::*;
-use session::*;
+use session_legacy::*;
 use std::borrow::{Borrow, BorrowMut};
 use std::io::{Error, ErrorKind};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};

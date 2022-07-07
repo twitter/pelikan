@@ -7,7 +7,7 @@ use common::expiry::TimeType;
 use core::fmt::{Display, Formatter};
 use protocol_common::Parse;
 use protocol_common::{ParseError, ParseOk};
-use session::Session;
+use session_legacy::Session;
 
 mod add;
 mod append;

@@ -1208,7 +1208,7 @@ dependencies = [
  "protocol-admin",
  "protocol-memcache",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
- "session",
+ "session-legacy",
  "storage-types",
  "tokio",
 ]
@@ -1224,6 +1224,13 @@ name = "multimap"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
+
+[[package]]
+name = "net"
+version = "0.1.0"
+dependencies = [
+ "mio 0.8.3",
+]
 
 [[package]]
 name = "net2"
@@ -1564,7 +1571,7 @@ dependencies = [
  "criterion",
  "logger",
  "protocol-common",
- "session",
+ "session-legacy",
  "storage-types",
 ]
 
@@ -1576,7 +1583,7 @@ dependencies = [
  "config",
  "criterion",
  "logger",
- "session",
+ "session-legacy",
  "storage-types",
 ]
 
@@ -1590,7 +1597,7 @@ dependencies = [
  "nom 5.1.2",
  "protocol-common",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
- "session",
+ "session-legacy",
 ]
 
 [[package]]
@@ -1603,7 +1610,7 @@ dependencies = [
  "logger",
  "protocol-common",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
- "session",
+ "session-legacy",
  "storage-types",
 ]
 
@@ -1614,7 +1621,7 @@ dependencies = [
  "logger",
  "protocol-common",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
- "session",
+ "session-legacy",
 ]
 
 [[package]]
@@ -1626,14 +1633,14 @@ dependencies = [
  "crossbeam-channel",
  "libc",
  "logger",
- "mio 0.8.3",
  "mpmc",
+ "net",
  "protocol-admin",
  "protocol-common",
  "queues",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
  "rustcommon-time 0.0.12 (git+https://github.com/twitter/rustcommon)",
- "session",
+ "session-legacy",
  "slab",
  "tiny_http",
 ]
@@ -2132,7 +2139,7 @@ dependencies = [
  "entrystore",
  "libc",
  "logger",
- "mio 0.8.3",
+ "net",
  "protocol-admin",
  "protocol-common",
  "queues",
@@ -2141,7 +2148,7 @@ dependencies = [
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
  "serde",
  "serde_json",
- "session",
+ "session-legacy",
  "slab",
  "strum",
  "strum_macros",
@@ -2151,13 +2158,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "session"
+name = "session-legacy"
 version = "0.0.2"
 dependencies = [
  "common",
  "config",
  "logger",
- "mio 0.8.3",
+ "net",
  "rand",
  "rtrb",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",

@@ -5,16 +5,11 @@
 //! This module provides common functionality for threads which are based on an
 //! event loop.
 
-use mio::event::Source;
-use mio::net::TcpListener;
-use mio::Events;
-use mio::Interest;
-use mio::Token;
-use mio::Waker;
-use session::Session;
-use session::TcpStream;
+use net::event::Source;
+use net::{Events, Interest, Token, Waker, TcpListener};
+use session_legacy::Session;
+use session_legacy::TcpStream;
 use slab::Slab;
-use std::convert::TryFrom;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -24,7 +19,7 @@ pub const WAKER_TOKEN: Token = Token(usize::MAX);
 
 pub struct Poll {
     listener: Option<TcpListener>,
-    poll: mio::Poll,
+    poll: net::Poll,
     sessions: Slab<Session>,
     waker: Arc<Waker>,
 }
@@ -32,7 +27,7 @@ pub struct Poll {
 impl Poll {
     /// Create a new `Poll` instance.
     pub fn new() -> Result<Self, std::io::Error> {
-        let poll = mio::Poll::new().map_err(|e| {
+        let poll = net::Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "failed to create poll instance")
         })?;
@@ -89,7 +84,6 @@ impl Poll {
             // disable Nagle's algorithm
             let _ = stream.set_nodelay(true);
 
-            let stream = TcpStream::try_from(stream)?;
             Ok((stream, addr))
         } else {
             Err(std::io::Error::new(

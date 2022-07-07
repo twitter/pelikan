@@ -6,10 +6,10 @@ use crate::*;
 use config::proxy::ListenerConfig;
 use config::TlsConfig;
 use core::time::Duration;
-use mio::Waker;
+use net::Waker;
 use poll::*;
 use queues::Queues;
-use session::Session;
+use session_legacy::Session;
 use std::sync::Arc;
 
 use rustcommon_metrics::*;

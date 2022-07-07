@@ -11,7 +11,7 @@ use protocol_common::Compose;
 use protocol_common::ExecutionResult;
 pub use request::*;
 pub use response::*;
-use session::Session;
+use session_legacy::Session;
 
 #[allow(unused)]
 use rustcommon_metrics::*;

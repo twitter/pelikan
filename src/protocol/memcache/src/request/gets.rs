@@ -38,7 +38,7 @@ impl RequestParser {
 }
 
 impl Compose for Gets {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut Session) {
         let _ = session.write_all(b"gets");
         for key in self.keys.iter() {
             let _ = session.write_all(b" ");

@@ -7,7 +7,7 @@
 
 use std::io::{BufRead, ErrorKind, Write};
 
-use mio::Token;
+use net::Token;
 
 use crate::poll::Poll;
 

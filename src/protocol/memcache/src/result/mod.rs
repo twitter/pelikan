@@ -5,7 +5,7 @@
 use crate::*;
 use logger::*;
 use protocol_common::ExecutionResult;
-use session::Session;
+use session_legacy::Session;
 use std::borrow::Cow;
 use std::ops::Deref;
 

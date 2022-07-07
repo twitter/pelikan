@@ -43,7 +43,7 @@ impl Value {
 }
 
 impl Compose for Values {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut Session) {
         for value in self.values.iter() {
             value.compose(session);
         }
@@ -52,7 +52,7 @@ impl Compose for Values {
 }
 
 impl Compose for Value {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut Session) {
         let _ = session.write_all(b"VALUE ");
         let _ = session.write_all(&self.key);
         if let Some(cas) = self.cas {

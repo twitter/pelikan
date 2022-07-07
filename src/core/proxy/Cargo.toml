@@ -15,14 +15,14 @@ config = { path = "../../config" }
 crossbeam-channel = "0.5.0"
 libc = "0.2.83"
 logger = { path = "../../logger" }
-mio = { version = "0.8.0", features = ["os-poll", "net"] }
+net = { path = "../../net" }
 mpmc = "*"
 protocol-admin = { path = "../../protocol/admin" }
 protocol-common = { path = "../../protocol/common" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
 queues = { path = "../../queues" }
-session = { path = "../../session" }
+session-legacy = { path = "../../session/legacy" }
 slab = "*"
 tiny_http = "0.11.0"
 

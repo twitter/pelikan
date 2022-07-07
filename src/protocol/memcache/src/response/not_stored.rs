@@ -30,7 +30,7 @@ impl NotStored {
 }
 
 impl Compose for NotStored {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut Session) {
         if !self.noreply {
             let _ = session.write_all(MSG);
         }

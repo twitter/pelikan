@@ -8,9 +8,8 @@
 #[macro_use]
 extern crate logger;
 
-use mio::event::Event;
-use mio::net::{TcpListener, TcpStream};
-use mio::{Events, Interest, Token};
+use net::event::{Event, Events};
+use net::{TcpListener, TcpStream, Interest, Token};
 use mpmc::Queue;
 use poll::Poll;
 use slab::Slab;

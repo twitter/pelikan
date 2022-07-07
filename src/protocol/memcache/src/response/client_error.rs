@@ -22,7 +22,7 @@ impl ClientError {
 }
 
 impl Compose for ClientError {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut Session) {
         let _ = session.write_all(MSG_PREFIX);
         let _ = session.write_all(self.inner.as_bytes());
         let _ = session.write_all(b"\r\n");

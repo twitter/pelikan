@@ -9,4 +9,4 @@ edition = "2021"
 logger = { path = "../../logger" }
 protocol-common = { path = "../../protocol/common" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
-session = { path = "../../session" }
+session-legacy = { path = "../../session/legacy" }

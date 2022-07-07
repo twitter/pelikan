@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::*;
+use super::*;
 use common::time::Seconds;
 use common::time::UnixInstant;
 
@@ -123,7 +123,7 @@ impl RequestParser {
 }
 
 impl Compose for Set {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut Session) {
         let _ = session.write_all(b"set ");
         let _ = session.write_all(&self.key);
         let _ = session.write_all(format!(" {}", self.flags).as_bytes());

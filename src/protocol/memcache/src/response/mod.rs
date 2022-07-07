@@ -4,6 +4,7 @@
 
 use crate::*;
 use protocol_common::*;
+use session_legacy::Session;
 
 mod client_error;
 mod deleted;
@@ -99,7 +100,7 @@ impl From<Values> for Response {
 }
 
 impl Compose for Response {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut Session) {
         match self {
             Self::Error(e) => e.compose(session),
             Self::ClientError(e) => e.compose(session),

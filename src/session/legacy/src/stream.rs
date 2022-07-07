@@ -180,12 +180,12 @@ impl Write for StreamType {
     }
 }
 
-impl mio::event::Source for Stream {
+impl net::event::Source for Stream {
     fn register(
         &mut self,
-        registry: &mio::Registry,
-        token: mio::Token,
-        interest: mio::Interest,
+        registry: &net::Registry,
+        token: net::Token,
+        interest: net::Interest,
     ) -> std::result::Result<(), std::io::Error> {
         if let Some(stream) = &mut self.inner {
             stream.register(registry, token, interest)
@@ -199,9 +199,9 @@ impl mio::event::Source for Stream {
 
     fn reregister(
         &mut self,
-        registry: &mio::Registry,
-        token: mio::Token,
-        interest: mio::Interest,
+        registry: &net::Registry,
+        token: net::Token,
+        interest: net::Interest,
     ) -> std::result::Result<(), std::io::Error> {
         if let Some(stream) = &mut self.inner {
             stream.reregister(registry, token, interest)
@@ -213,7 +213,7 @@ impl mio::event::Source for Stream {
         }
     }
 
-    fn deregister(&mut self, registry: &mio::Registry) -> std::result::Result<(), std::io::Error> {
+    fn deregister(&mut self, registry: &net::Registry) -> std::result::Result<(), std::io::Error> {
         if let Some(stream) = &mut self.inner {
             stream.deregister(registry)
         } else {
@@ -225,12 +225,12 @@ impl mio::event::Source for Stream {
     }
 }
 
-impl mio::event::Source for StreamType {
+impl net::event::Source for StreamType {
     fn register(
         &mut self,
-        registry: &mio::Registry,
-        token: mio::Token,
-        interest: mio::Interest,
+        registry: &net::Registry,
+        token: net::Token,
+        interest: net::Interest,
     ) -> std::result::Result<(), std::io::Error> {
         match self {
             Self::Plain(s) => registry.register(s, token, interest),
@@ -241,9 +241,9 @@ impl mio::event::Source for StreamType {
 
     fn reregister(
         &mut self,
-        registry: &mio::Registry,
-        token: mio::Token,
-        interest: mio::Interest,
+        registry: &net::Registry,
+        token: net::Token,
+        interest: net::Interest,
     ) -> std::result::Result<(), std::io::Error> {
         match self {
             Self::Plain(s) => registry.reregister(s, token, interest),
@@ -252,7 +252,7 @@ impl mio::event::Source for StreamType {
         }
     }
 
-    fn deregister(&mut self, registry: &mio::Registry) -> std::result::Result<(), std::io::Error> {
+    fn deregister(&mut self, registry: &net::Registry) -> std::result::Result<(), std::io::Error> {
         match self {
             Self::Plain(s) => registry.deregister(s),
             Self::Tls(s) => registry.deregister(s.get_mut()),

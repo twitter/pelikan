@@ -82,7 +82,7 @@ impl RequestParser {
 }
 
 impl Compose for FlushAll {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut Session) {
         let _ = session.write_all(b"flush_all");
         if self.delay != 0 {
             let _ = session.write_all(format!(" {}", self.delay).as_bytes());

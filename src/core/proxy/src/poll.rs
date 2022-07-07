@@ -7,9 +7,9 @@
 
 use crate::TCP_ACCEPT_EX;
 use common::ssl::*;
-use mio::event::Source;
-use mio::{Events, Interest, Token, Waker};
-use session::{Session, TcpStream};
+use net::event::{Source, Events};
+use net::{Interest, Token, Waker};
+use session_legacy::{Session, TcpStream};
 use slab::Slab;
 use std::convert::TryFrom;
 use std::net::SocketAddr;
@@ -25,13 +25,13 @@ const SESSION_BUFFER_MIN: usize = 16 * KB;
 const SESSION_BUFFER_MAX: usize = 1024 * KB;
 
 struct TcpListener {
-    inner: mio::net::TcpListener,
+    inner: net::TcpListener,
     ssl_context: Option<SslContext>,
 }
 
 impl TcpListener {
     pub fn bind(addr: SocketAddr, tls_config: &dyn TlsConfig) -> Result<Self, std::io::Error> {
-        let listener = mio::net::TcpListener::bind(addr).map_err(|e| {
+        let listener = net::TcpListener::bind(addr).map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "failed to start tcp listener")
         })?;
@@ -47,7 +47,7 @@ impl TcpListener {
 
 pub struct Poll {
     listener: Option<TcpListener>,
-    poll: mio::Poll,
+    poll: net::Poll,
     sessions: Slab<TrackedSession>,
     waker: Arc<Waker>,
 }
@@ -61,7 +61,7 @@ pub struct TrackedSession {
 impl Poll {
     /// Create a new `Poll` instance.
     pub fn new() -> Result<Self, std::io::Error> {
-        let poll = mio::Poll::new().map_err(|e| {
+        let poll = net::Poll::new().map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "failed to create poll instance")
         })?;
@@ -122,7 +122,7 @@ impl Poll {
             // disable Nagle's algorithm
             let _ = stream.set_nodelay(true);
 
-            let stream = TcpStream::try_from(stream)?;
+            // let stream = TcpStream::try_from(stream)?;
 
             let session = if let Some(ssl_context) = &listener.ssl_context {
                 match Ssl::new(ssl_context).map(|v| v.accept(stream)) {

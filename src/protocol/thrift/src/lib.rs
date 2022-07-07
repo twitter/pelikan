@@ -29,7 +29,7 @@ impl Message {
 }
 
 impl Compose for Message {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut session_legacy::Session) {
         MESSAGES_COMPOSED.increment();
         let _ = session.write_all(&(self.data.len() as u32).to_be_bytes());
         let _ = session.write_all(&self.data);

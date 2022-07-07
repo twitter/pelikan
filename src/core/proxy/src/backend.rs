@@ -7,12 +7,12 @@ use common::signal::Signal;
 use config::proxy::BackendConfig;
 use core::marker::PhantomData;
 use core::time::Duration;
-use mio::Waker;
+use net::Waker;
 use poll::*;
 use protocol_common::*;
 use queues::Queues;
 use queues::TrackedItem;
-use session::Session;
+use session_legacy::Session;
 use std::sync::Arc;
 
 use rustcommon_metrics::*;
@@ -61,7 +61,7 @@ impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> 
                     .expect("failed to set non-blocking");
                 let connection = TcpStream::from_std(connection);
                 let session = Session::plain_with_capacity(
-                    session::TcpStream::try_from(connection).expect("failed to convert"),
+                    session_legacy::TcpStream::try_from(connection).expect("failed to convert"),
                     SESSION_BUFFER_MIN,
                     SESSION_BUFFER_MAX,
                 );

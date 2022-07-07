@@ -15,19 +15,19 @@ use crate::{QUEUE_CAPACITY, THREAD_PREFIX};
 use common::signal::Signal;
 use config::WorkerConfig;
 use entrystore::EntryStore;
-use mio::Waker;
+use net::Waker;
 pub use multi::{MultiWorker, MultiWorkerBuilder};
 use protocol_common::ExecutionResult;
 use protocol_common::{Compose, Execute, Parse};
 use queues::Queues;
-use session::Session;
+use session_legacy::Session;
 pub use single::{SingleWorker, SingleWorkerBuilder};
 use std::io::Error;
 use std::sync::Arc;
 use std::thread::JoinHandle;
 
 use super::EventLoop;
-use mio::Token;
+use net::Token;
 
 counter!(WORKER_EVENT_LOOP);
 counter!(WORKER_EVENT_TOTAL);

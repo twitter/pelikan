@@ -16,7 +16,7 @@ use config::TlsConfig;
 use crossbeam_channel::bounded;
 use crossbeam_channel::Sender;
 use logger::Drain;
-use mio::Waker;
+use net::Waker;
 use protocol_common::*;
 use queues::Queues;
 use std::sync::Arc;

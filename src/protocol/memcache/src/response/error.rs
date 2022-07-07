@@ -30,7 +30,7 @@ impl Error {
 }
 
 impl Compose for Error {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut Session) {
         let _ = session.write_all(MSG);
     }
 }
