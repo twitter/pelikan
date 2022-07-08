@@ -6,7 +6,7 @@
 //! event loop.
 
 use net::event::Source;
-use net::{Events, Interest, Token, Waker, TcpListener};
+use net::{Events, Interest, TcpListener, Token, Waker};
 use session_legacy::Session;
 use session_legacy::TcpStream;
 use slab::Slab;

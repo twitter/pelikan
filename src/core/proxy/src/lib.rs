@@ -8,9 +8,9 @@
 #[macro_use]
 extern crate logger;
 
-use net::event::{Event, Events};
-use net::{TcpListener, TcpStream, Interest, Token};
 use mpmc::Queue;
+use net::event::{Event, Events};
+use net::{Interest, TcpListener, TcpStream, Token};
 use poll::Poll;
 use slab::Slab;
 use std::collections::VecDeque;

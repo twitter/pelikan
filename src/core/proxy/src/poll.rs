@@ -7,7 +7,7 @@
 
 use crate::TCP_ACCEPT_EX;
 use common::ssl::*;
-use net::event::{Source, Events};
+use net::event::{Events, Source};
 use net::{Interest, Token, Waker};
 use session_legacy::{Session, TcpStream};
 use slab::Slab;

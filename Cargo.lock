@@ -1229,6 +1229,7 @@ checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 name = "net"
 version = "0.1.0"
 dependencies = [
+ "boring",
  "mio 0.8.3",
 ]
 
@@ -2155,6 +2156,14 @@ dependencies = [
  "sysconf",
  "thiserror",
  "tiny_http",
+]
+
+[[package]]
+name = "session-common"
+version = "0.1.0"
+dependencies = [
+ "boring",
+ "net",
 ]
 
 [[package]]

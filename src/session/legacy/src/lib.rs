@@ -11,7 +11,7 @@ extern crate logger;
 
 mod buffer;
 mod stream;
-// mod tcp_stream;
+
 use common::ssl::{MidHandshakeSslStream, SslStream};
 use net::event::Source;
 use net::{Interest, Poll, Token};
@@ -25,8 +25,6 @@ pub use buffer::Buffer;
 use stream::Stream;
 
 type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
-
-// pub use tcp_stream::TcpStream;
 
 pub use net::TcpStream;
 
