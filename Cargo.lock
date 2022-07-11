@@ -2162,7 +2162,7 @@ dependencies = [
 name = "session-common"
 version = "0.1.0"
 dependencies = [
- "boring",
+ "bytes 1.1.0",
  "net",
 ]
 
