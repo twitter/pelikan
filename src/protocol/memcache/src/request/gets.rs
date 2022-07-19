@@ -38,13 +38,13 @@ impl RequestParser {
 }
 
 impl Compose for Gets {
-    fn compose(&self, session: &mut Session) {
-        let _ = session.write_all(b"gets");
+    fn compose(&self, session: &mut dyn BufMut) {
+        session.put_slice(b"gets");
         for key in self.keys.iter() {
-            let _ = session.write_all(b" ");
-            let _ = session.write_all(key);
+            session.put_slice(b" ");
+            session.put_slice(key);
         }
-        let _ = session.write_all(b"\r\n");
+        session.put_slice(b"\r\n");
     }
 }
 

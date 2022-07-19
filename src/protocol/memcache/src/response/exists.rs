@@ -30,9 +30,9 @@ impl Exists {
 }
 
 impl Compose for Exists {
-    fn compose(&self, session: &mut Session) {
+    fn compose(&self, session: &mut dyn BufMut) {
         if !self.noreply {
-            let _ = session.write_all(MSG);
+            session.put_slice(MSG);
         }
     }
 }

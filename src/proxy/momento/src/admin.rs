@@ -3,6 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::*;
+use buffer::Buf;
 
 pub(crate) async fn admin(mut log_drain: Box<dyn logger::Drain>, admin_listener: TcpListener) {
     loop {
@@ -71,7 +72,7 @@ pub(crate) async fn admin(mut log_drain: Box<dyn logger::Drain>, admin_listener:
 
 async fn handle_admin_client(mut socket: tokio::net::TcpStream) {
     // initialize a buffer for incoming bytes from the client
-    let mut buf = Buffer::with_capacity(INITIAL_BUFFER_SIZE);
+    let mut buf = Buffer::new(INITIAL_BUFFER_SIZE);
 
     // initialize the request parser
     let parser = AdminRequestParser::new();
@@ -97,7 +98,7 @@ async fn handle_admin_client(mut socket: tokio::net::TcpStream) {
                         debug!("unsupported command: {:?}", request);
                     }
                 }
-                buf.consume(consumed);
+                buf.advance(consumed);
             }
             Err(ParseError::Incomplete) => {}
             Err(ParseError::Invalid) => {

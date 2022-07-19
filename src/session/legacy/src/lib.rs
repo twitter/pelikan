@@ -16,6 +16,8 @@ use common::ssl::{MidHandshakeSslStream, SslStream};
 use net::event::Source;
 use net::{Interest, Poll, Token};
 use rustcommon_metrics::{counter, gauge, heatmap, metric, Counter, Gauge, Heatmap, Relaxed};
+use session_common::BufMut;
+use session_common::UninitSlice;
 use std::borrow::{Borrow, BorrowMut};
 use std::cmp::Ordering;
 use std::io::{BufRead, ErrorKind, Read, Write};
@@ -395,6 +397,21 @@ impl BufRead for Session {
 
     fn consume(&mut self, amt: usize) {
         self.read_buffer.consume(amt);
+    }
+}
+
+unsafe impl BufMut for Session {
+    fn remaining_mut(&self) -> usize {
+        self.write_buffer.available_capacity()
+    }
+
+    unsafe fn advance_mut(&mut self, amt: usize) {
+        self.write_buffer.increase_len(amt)
+    }
+
+    fn chunk_mut(&mut self) -> &mut session_common::UninitSlice {
+        let chunk: &mut [u8] = self.write_buffer.borrow_mut();
+        unsafe { UninitSlice::from_raw_parts_mut(chunk.as_mut_ptr(), chunk.len()) }
     }
 }
 

@@ -82,14 +82,14 @@ impl RequestParser {
 }
 
 impl Compose for Incr {
-    fn compose(&self, session: &mut Session) {
-        let _ = session.write_all(b"incr ");
-        let _ = session.write_all(&self.key);
-        let _ = session.write_all(format!(" {}", self.value).as_bytes());
+    fn compose(&self, session: &mut dyn BufMut) {
+        session.put_slice(b"incr ");
+        session.put_slice(&self.key);
+        session.put_slice(format!(" {}", self.value).as_bytes());
         if self.noreply {
-            let _ = session.write_all(b" noreply\r\n");
+            session.put_slice(b" noreply\r\n");
         } else {
-            let _ = session.write_all(b"\r\n");
+            session.put_slice(b"\r\n");
         }
     }
 }

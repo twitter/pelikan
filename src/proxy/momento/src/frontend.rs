@@ -4,6 +4,7 @@
 
 use crate::commands::*;
 use crate::*;
+use buffer::Buf;
 
 pub(crate) async fn handle_proxy_client(
     mut socket: tokio::net::TcpStream,
@@ -11,7 +12,7 @@ pub(crate) async fn handle_proxy_client(
     cache_name: String,
 ) {
     // initialize a buffer for incoming bytes from the client
-    let mut buf = Buffer::with_capacity(INITIAL_BUFFER_SIZE);
+    let mut buf = Buffer::new(INITIAL_BUFFER_SIZE);
 
     // initialize the request parser
     let parser = RequestParser::new().max_value_size(MAX_REQUEST_SIZE);
@@ -48,7 +49,7 @@ pub(crate) async fn handle_proxy_client(
                         debug!("unsupported command: {}", request);
                     }
                 }
-                buf.consume(consumed);
+                buf.advance(consumed);
             }
             Err(ParseError::Incomplete) => {}
             Err(ParseError::Invalid) => {

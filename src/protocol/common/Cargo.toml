@@ -12,7 +12,7 @@ license = "Apache-2.0"
 common = { path = "../../common" }
 config = { path = "../../config" }
 logger = { path = "../../logger" }
-session-legacy = { path = "../../session/legacy" }
+buffer = { path = "../../buffer" }
 storage-types = { path = "../../storage/types" }
 
 [dev-dependencies]

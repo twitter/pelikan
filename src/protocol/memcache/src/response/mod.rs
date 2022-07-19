@@ -100,7 +100,7 @@ impl From<Values> for Response {
 }
 
 impl Compose for Response {
-    fn compose(&self, session: &mut Session) {
+    fn compose(&self, session: &mut dyn BufMut) {
         match self {
             Self::Error(e) => e.compose(session),
             Self::ClientError(e) => e.compose(session),

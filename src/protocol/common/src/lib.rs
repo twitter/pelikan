@@ -6,12 +6,12 @@
 //! traits so that the a server implementation can easily switch between
 //! protocol implementations.
 
-use session_legacy::Session;
+pub use buffer::*;
 
 pub const CRLF: &str = "\r\n";
 
 pub trait Compose {
-    fn compose(&self, dst: &mut Session);
+    fn compose(&self, dst: &mut dyn BufMut);
 
     /// Indicates that the connection should be closed.
     /// Override this function as appropriate for the

@@ -5,8 +5,7 @@
 use crate::*;
 use common::expiry::TimeType;
 use core::fmt::{Display, Formatter};
-use protocol_common::Parse;
-use protocol_common::{ParseError, ParseOk};
+use protocol_common::{BufMut, Parse, ParseError, ParseOk};
 use session_legacy::Session;
 
 mod add;
@@ -178,7 +177,7 @@ impl Parse<Request> for RequestParser {
 }
 
 impl Compose for Request {
-    fn compose(&self, session: &mut Session) {
+    fn compose(&self, session: &mut dyn BufMut) {
         match self {
             Self::Add(r) => r.compose(session),
             Self::Append(r) => r.compose(session),

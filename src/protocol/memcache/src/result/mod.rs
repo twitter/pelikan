@@ -4,8 +4,8 @@
 
 use crate::*;
 use logger::*;
+use protocol_common::BufMut;
 use protocol_common::ExecutionResult;
-use session_legacy::Session;
 use std::borrow::Cow;
 use std::ops::Deref;
 
@@ -40,7 +40,7 @@ impl ExecutionResult<Request, Response> for MemcacheExecutionResult<Request, Res
 }
 
 impl Compose for MemcacheExecutionResult<Request, Response> {
-    fn compose(&self, dst: &mut Session) {
+    fn compose(&self, dst: &mut dyn BufMut) {
         match self.request {
             Request::Get(ref req) => match self.response {
                 Response::Values(ref res) => {
@@ -59,15 +59,15 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                         if value_index >= values.len() || values[value_index].key() != key {
                             klog!("\"get {}\" 0 0", String::from_utf8_lossy(key));
                         } else {
-                            let start = dst.write_pending();
+                            // let start = dst.len();
                             values[value_index].compose(dst);
-                            let size = dst.write_pending() - start;
-                            klog!("\"get {}\" 4 {}", String::from_utf8_lossy(key), size);
+                            // let size = dst.write_pending() - start;
+                            klog!("\"get {}\" 4 {}", String::from_utf8_lossy(key), 0);
                             value_index += 1;
                         }
                     }
 
-                    let _ = dst.write_all(b"END\r\n");
+                    dst.put_slice(b"END\r\n");
 
                     return;
                 }
@@ -90,15 +90,15 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                         if value_index >= values.len() || values[value_index].key() != key {
                             klog!("\"gets {}\" {} 0", String::from_utf8_lossy(key), MISS);
                         } else {
-                            let start = dst.write_pending();
+                            // let start = dst.write_pending();
                             values[value_index].compose(dst);
-                            let size = dst.write_pending() - start;
-                            klog!("\"gets {}\" {} {}", String::from_utf8_lossy(key), HIT, size);
+                            // let size = dst.write_pending() - start;
+                            klog!("\"gets {}\" {} {}", String::from_utf8_lossy(key), HIT, 0);
                             value_index += 1;
                         }
                     }
 
-                    let _ = dst.write_all(b"END\r\n");
+                    dst.put_slice(b"END\r\n");
 
                     return;
                 }

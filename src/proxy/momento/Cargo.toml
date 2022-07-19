@@ -10,6 +10,7 @@ license = "Apache-2.0"
 
 [dependencies]
 backtrace = "0.3.56"
+buffer = { path = "../../buffer" }
 clap = "2.33.3"
 common = { path = "../../common" }
 config = { path = "../../config" }

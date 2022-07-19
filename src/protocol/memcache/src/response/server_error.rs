@@ -22,10 +22,10 @@ impl ServerError {
 }
 
 impl Compose for ServerError {
-    fn compose(&self, session: &mut Session) {
-        let _ = session.write_all(MSG_PREFIX);
-        let _ = session.write_all(self.inner.as_bytes());
-        let _ = session.write_all(b"\r\n");
+    fn compose(&self, session: &mut dyn BufMut) {
+        session.put_slice(MSG_PREFIX);
+        session.put_slice(self.inner.as_bytes());
+        session.put_slice(b"\r\n");
     }
 }
 

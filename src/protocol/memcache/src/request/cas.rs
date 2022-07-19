@@ -133,24 +133,24 @@ impl RequestParser {
 }
 
 impl Compose for Cas {
-    fn compose(&self, session: &mut Session) {
-        let _ = session.write_all(b"cas ");
-        let _ = session.write_all(&self.key);
-        let _ = session.write_all(format!(" {}", self.flags).as_bytes());
+    fn compose(&self, session: &mut dyn BufMut) {
+        session.put_slice(b"cas ");
+        session.put_slice(&self.key);
+        session.put_slice(format!(" {}", self.flags).as_bytes());
         match self.ttl {
             None => {
-                let _ = session.write_all(b" 0");
+                let _ = session.put_slice(b" 0");
             }
             Some(0) => {
-                let _ = session.write_all(b" -1");
+                let _ = session.put_slice(b" -1");
             }
             Some(s) => {
-                let _ = session.write_all(format!(" {}", s).as_bytes());
+                let _ = session.put_slice(format!(" {}", s).as_bytes());
             }
         }
-        let _ = session.write_all(format!(" {} {}\r\n", self.value.len(), self.cas).as_bytes());
-        let _ = session.write_all(&self.value);
-        let _ = session.write_all(b"\r\n");
+        session.put_slice(format!(" {} {}\r\n", self.value.len(), self.cas).as_bytes());
+        session.put_slice(&self.value);
+        session.put_slice(b"\r\n");
     }
 }
 

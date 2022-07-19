@@ -1,6 +1,6 @@
 // use boring::ssl::{SslConnector, SslAcceptor};
 use core::ops::Deref;
-pub use mio::{Events, Interest, Poll, Registry, Token, Waker};
+pub use mio::*;
 use std::net::SocketAddr;
 
 // use std::io::Read;
@@ -28,6 +28,28 @@ type Result<T> = std::io::Result<T>;
 /// plaintext stream.
 pub struct Stream {
     inner: StreamType,
+}
+
+impl Stream {
+    pub fn interest(&self) -> Interest {
+        match &self.inner {
+            StreamType::Tcp(s) => {
+                if !s.is_established() {
+                    Interest::READABLE.add(Interest::WRITABLE)
+                } else {
+                    Interest::READABLE
+                }
+            }
+            StreamType::TlsTcp(s) => s.interest(),
+        }
+    }
+
+    pub fn is_established(&self) -> bool {
+        match &self.inner {
+            StreamType::Tcp(s) => s.peer_addr().is_ok(),
+            StreamType::TlsTcp(s) => !s.is_handshaking(),
+        }
+    }
 }
 
 impl From<TcpStream> for Stream {
@@ -83,6 +105,26 @@ enum StreamType {
 /// uniform type.
 pub struct TlsStream<S> {
     inner: TlsState<S>,
+}
+
+impl<S> TlsStream<S>
+where
+    S: Read + Write,
+{
+    pub fn is_handshaking(&self) -> bool {
+        match self.inner {
+            TlsState::Negotiated(_) => false,
+            TlsState::Handshaking(_) => true,
+        }
+    }
+
+    pub fn interest(&self) -> Interest {
+        if self.is_handshaking() {
+            Interest::READABLE.add(Interest::WRITABLE)
+        } else {
+            Interest::READABLE
+        }
+    }
 }
 
 impl<S> Read for TlsStream<S>

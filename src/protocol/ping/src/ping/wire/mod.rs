@@ -7,11 +7,11 @@
 mod request;
 mod response;
 
-use protocol_common::Compose;
-use protocol_common::ExecutionResult;
+use crate::BufMut;
+use protocol_common::{Compose, ExecutionResult};
+
 pub use request::*;
 pub use response::*;
-use session_legacy::Session;
 
 #[allow(unused)]
 use rustcommon_metrics::*;
@@ -41,7 +41,7 @@ impl ExecutionResult<Request, Response> for PingExecutionResult<Request, Respons
 }
 
 impl Compose for PingExecutionResult<Request, Response> {
-    fn compose(&self, dst: &mut Session) {
+    fn compose(&self, dst: &mut dyn BufMut) {
         PONG.increment();
         self.response.compose(dst)
     }

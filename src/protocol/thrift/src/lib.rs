@@ -4,11 +4,11 @@
 
 //! A protocol crate for Thrift binary protocol.
 
+use protocol_common::BufMut;
 use protocol_common::Compose;
 use protocol_common::Parse;
 use protocol_common::{ParseError, ParseOk};
 use rustcommon_metrics::*;
-use std::io::Write;
 
 const THRIFT_HEADER_LEN: usize = std::mem::size_of::<u32>();
 
@@ -29,10 +29,10 @@ impl Message {
 }
 
 impl Compose for Message {
-    fn compose(&self, session: &mut session_legacy::Session) {
+    fn compose(&self, session: &mut dyn BufMut) {
         MESSAGES_COMPOSED.increment();
-        let _ = session.write_all(&(self.data.len() as u32).to_be_bytes());
-        let _ = session.write_all(&self.data);
+        session.put_slice(&(self.data.len() as u32).to_be_bytes());
+        session.put_slice(&self.data);
     }
 }
 

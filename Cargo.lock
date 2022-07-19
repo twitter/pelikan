@@ -250,6 +250,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "buffer"
+version = "0.1.0"
+dependencies = [
+ "bytes 1.1.0",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1199,6 +1206,7 @@ name = "momento_proxy"
 version = "0.1.0"
 dependencies = [
  "backtrace",
+ "buffer",
  "clap",
  "common",
  "config",
@@ -1580,11 +1588,11 @@ dependencies = [
 name = "protocol-common"
 version = "0.0.1"
 dependencies = [
+ "buffer",
  "common",
  "config",
  "criterion",
  "logger",
- "session-legacy",
  "storage-types",
 ]
 
@@ -2162,8 +2170,9 @@ dependencies = [
 name = "session-common"
 version = "0.1.0"
 dependencies = [
- "bytes 1.1.0",
+ "buffer",
  "net",
+ "protocol-common",
 ]
 
 [[package]]
@@ -2179,6 +2188,7 @@ dependencies = [
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
  "serde",
  "serde_json",
+ "session-common",
  "slab",
  "strum",
  "strum_macros",

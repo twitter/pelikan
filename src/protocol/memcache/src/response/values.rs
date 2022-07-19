@@ -43,27 +43,26 @@ impl Value {
 }
 
 impl Compose for Values {
-    fn compose(&self, session: &mut Session) {
+    fn compose(&self, session: &mut dyn BufMut) {
         for value in self.values.iter() {
             value.compose(session);
         }
-        let _ = session.write_all(b"END\r\n");
+        session.put_slice(b"END\r\n");
     }
 }
 
 impl Compose for Value {
-    fn compose(&self, session: &mut Session) {
-        let _ = session.write_all(b"VALUE ");
-        let _ = session.write_all(&self.key);
+    fn compose(&self, session: &mut dyn BufMut) {
+        session.put_slice(b"VALUE ");
+        session.put_slice(&self.key);
         if let Some(cas) = self.cas {
-            let _ = session
-                .write_all(format!(" {} {} {}\r\n", self.flags, self.data.len(), cas).as_bytes());
+            session
+                .put_slice(format!(" {} {} {}\r\n", self.flags, self.data.len(), cas).as_bytes());
         } else {
-            let _ =
-                session.write_all(format!(" {} {}\r\n", self.flags, self.data.len()).as_bytes());
+            session.put_slice(format!(" {} {}\r\n", self.flags, self.data.len()).as_bytes());
         }
-        let _ = session.write_all(&self.data);
-        let _ = session.write_all(b"\r\n");
+        session.put_slice(&self.data);
+        session.put_slice(b"\r\n");
     }
 }
 

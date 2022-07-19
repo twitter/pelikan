@@ -6,6 +6,7 @@
 extern crate logger;
 
 use backtrace::Backtrace;
+use buffer::Buffer;
 use clap::{App, Arg};
 use config::*;
 use core::num::NonZeroU64;
@@ -359,11 +360,13 @@ async fn do_read(
             TCP_RECV_BYTE.add(n as _);
             // non-zero means we have some data, mark the buffer as
             // having additional content
-            buf.increase_len(n);
+            unsafe {
+                buf.advance_mut(n);
+            }
 
             // if the buffer is low on space, we will grow the
             // buffer
-            if buf.available_capacity() * 2 < INITIAL_BUFFER_SIZE {
+            if buf.remaining_mut() * 2 < INITIAL_BUFFER_SIZE {
                 buf.reserve(INITIAL_BUFFER_SIZE);
             }
 

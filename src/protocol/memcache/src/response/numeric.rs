@@ -29,9 +29,9 @@ impl Numeric {
 }
 
 impl Compose for Numeric {
-    fn compose(&self, session: &mut Session) {
+    fn compose(&self, session: &mut dyn BufMut) {
         if !self.noreply {
-            let _ = session.write_all(format!("{}\r\n", self.value).as_bytes());
+            session.put_slice(format!("{}\r\n", self.value).as_bytes());
         }
     }
 }
