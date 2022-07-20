@@ -7,10 +7,11 @@ use crate::*;
 
 #[allow(unused_must_use)]
 impl Compose for Response {
-    fn compose(&self, dst: &mut dyn BufMut) {
+    fn compose(&self, dst: &mut dyn BufMut) -> usize {
         match self {
             Self::Pong => {
                 dst.put_slice(b"PONG\r\n");
+                6
             }
         }
     }

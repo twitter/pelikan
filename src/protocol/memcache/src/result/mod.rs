@@ -40,7 +40,7 @@ impl ExecutionResult<Request, Response> for MemcacheExecutionResult<Request, Res
 }
 
 impl Compose for MemcacheExecutionResult<Request, Response> {
-    fn compose(&self, dst: &mut dyn BufMut) {
+    fn compose(&self, dst: &mut dyn BufMut) -> usize {
         match self.request {
             Request::Get(ref req) => match self.response {
                 Response::Values(ref res) => {
@@ -67,9 +67,7 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                         }
                     }
 
-                    dst.put_slice(b"END\r\n");
-
-                    return;
+                    return res.compose(dst);
                 }
                 _ => return Error {}.compose(dst),
             },
@@ -98,9 +96,7 @@ impl Compose for MemcacheExecutionResult<Request, Response> {
                         }
                     }
 
-                    dst.put_slice(b"END\r\n");
-
-                    return;
+                    return res.compose(dst);
                 }
                 _ => return Error {}.compose(dst),
             },

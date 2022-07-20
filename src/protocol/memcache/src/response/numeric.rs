@@ -29,9 +29,13 @@ impl Numeric {
 }
 
 impl Compose for Numeric {
-    fn compose(&self, session: &mut dyn BufMut) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
         if !self.noreply {
-            session.put_slice(format!("{}\r\n", self.value).as_bytes());
+            let response = format!("{}\r\n", self.value).into_bytes();
+            session.put_slice(&response);
+            response.len()
+        } else {
+            0
         }
     }
 }

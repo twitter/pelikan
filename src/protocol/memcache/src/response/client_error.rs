@@ -22,10 +22,16 @@ impl ClientError {
 }
 
 impl Compose for ClientError {
-    fn compose(&self, session: &mut dyn BufMut) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let msg = self.inner.as_bytes();
+
+        let size = MSG_PREFIX.len() + msg.len() + CRLF.len();
+
         session.put_slice(MSG_PREFIX);
-        session.put_slice(self.inner.as_bytes());
-        session.put_slice(b"\r\n");
+        session.put_slice(msg);
+        session.put_slice(CRLF);
+
+        size
     }
 }
 

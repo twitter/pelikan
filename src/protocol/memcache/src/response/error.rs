@@ -30,8 +30,9 @@ impl Error {
 }
 
 impl Compose for Error {
-    fn compose(&self, session: &mut dyn BufMut) {
-        let _ = session.put_slice(MSG);
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        session.put_slice(MSG);
+        MSG.len()
     }
 }
 

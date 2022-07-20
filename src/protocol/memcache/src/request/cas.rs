@@ -133,24 +133,31 @@ impl RequestParser {
 }
 
 impl Compose for Cas {
-    fn compose(&self, session: &mut dyn BufMut) {
-        session.put_slice(b"cas ");
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let verb = b"cas ";
+        let flags = format!(" {}", self.flags).into_bytes();
+        let ttl = convert_ttl(self.ttl);
+        let vlen = format!(" {}", self.value.len()).into_bytes();
+        let cas = format!(" {}", self.cas).into_bytes();
+        let header_end = if self.noreply {
+            " noreply\r\n".as_bytes()
+        } else {
+            "\r\n".as_bytes()
+        };
+
+        let size = verb.len() + self.key.len() + flags.len() + ttl.len() + vlen.len() + cas.len() + header_end.len() + self.value.len() + CRLF.len();
+
+        session.put_slice(verb);
         session.put_slice(&self.key);
-        session.put_slice(format!(" {}", self.flags).as_bytes());
-        match self.ttl {
-            None => {
-                let _ = session.put_slice(b" 0");
-            }
-            Some(0) => {
-                let _ = session.put_slice(b" -1");
-            }
-            Some(s) => {
-                let _ = session.put_slice(format!(" {}", s).as_bytes());
-            }
-        }
-        session.put_slice(format!(" {} {}\r\n", self.value.len(), self.cas).as_bytes());
+        session.put_slice(&flags);
+        session.put_slice(&ttl);
+        session.put_slice(&vlen);
+        session.put_slice(&cas);
+        session.put_slice(header_end);
         session.put_slice(&self.value);
-        session.put_slice(b"\r\n");
+        session.put_slice(CRLF);
+
+        size
     }
 }
 

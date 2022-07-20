@@ -75,14 +75,21 @@ impl RequestParser {
 }
 
 impl Compose for Delete {
-    fn compose(&self, session: &mut dyn BufMut) {
-        session.put_slice(b"delete ");
-        session.put_slice(&self.key);
-        if self.noreply {
-            session.put_slice(b" noreply\r\n");
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let verb = b"delete ";
+        let header_end = if self.noreply {
+            " noreply\r\n".as_bytes()
         } else {
-            session.put_slice(b"\r\n");
-        }
+            "\r\n".as_bytes()
+        };
+
+        let size = verb.len() + self.key.len() + header_end.len();
+
+        session.put_slice(verb);
+        session.put_slice(&self.key);
+        session.put_slice(header_end);
+
+        size
     }
 }
 

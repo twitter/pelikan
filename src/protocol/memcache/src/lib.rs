@@ -15,7 +15,11 @@ pub use response::*;
 pub use result::*;
 pub use storage::*;
 
+pub use protocol_common::*;
+
 use common::expiry::TimeType;
+
+const CRLF: &[u8] = b"\r\n";
 
 pub enum MemcacheError {
     Error(Error),

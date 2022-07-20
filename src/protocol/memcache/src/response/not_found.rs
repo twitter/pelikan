@@ -30,9 +30,12 @@ impl NotFound {
 }
 
 impl Compose for NotFound {
-    fn compose(&self, session: &mut dyn BufMut) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
         if !self.noreply {
             session.put_slice(MSG);
+            MSG.len()
+        } else {
+            0
         }
     }
 }

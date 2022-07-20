@@ -11,7 +11,7 @@ pub use buffer::*;
 pub const CRLF: &str = "\r\n";
 
 pub trait Compose {
-    fn compose(&self, dst: &mut dyn BufMut);
+    fn compose(&self, dst: &mut dyn BufMut) -> usize;
 
     /// Indicates that the connection should be closed.
     /// Override this function as appropriate for the

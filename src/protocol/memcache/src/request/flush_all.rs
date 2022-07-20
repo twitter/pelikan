@@ -82,16 +82,26 @@ impl RequestParser {
 }
 
 impl Compose for FlushAll {
-    fn compose(&self, session: &mut dyn BufMut) {
-        session.put_slice(b"flush_all");
-        if self.delay != 0 {
-            session.put_slice(format!(" {}", self.delay).as_bytes());
-        }
-        if self.noreply {
-            session.put_slice(b" noreply\r\n");
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let verb = b"flush_all";
+        let delay = if self.delay != 0 {
+            format!(" {}", self.delay).into_bytes()
         } else {
-            session.put_slice(b"\r\n");
-        }
+            vec![]
+        };
+        let header_end = if self.noreply {
+            " noreply\r\n".as_bytes()
+        } else {
+            "\r\n".as_bytes()
+        };
+
+        let size = verb.len() + delay.len() + header_end.len();
+
+        session.put_slice(verb);
+        session.put_slice(&delay);
+        session.put_slice(header_end);
+
+        size
     }
 }
 

@@ -29,10 +29,11 @@ impl Message {
 }
 
 impl Compose for Message {
-    fn compose(&self, session: &mut dyn BufMut) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
         MESSAGES_COMPOSED.increment();
         session.put_slice(&(self.data.len() as u32).to_be_bytes());
         session.put_slice(&self.data);
+        std::mem::size_of::<u32>() + self.data.len()
     }
 }
 

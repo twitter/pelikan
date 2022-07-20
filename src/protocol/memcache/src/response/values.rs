@@ -43,26 +43,38 @@ impl Value {
 }
 
 impl Compose for Values {
-    fn compose(&self, session: &mut dyn BufMut) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let suffix = b"END\r\n";
+
+        let mut size = suffix.len();
+        
         for value in self.values.iter() {
-            value.compose(session);
+            size += value.compose(session);
         }
-        session.put_slice(b"END\r\n");
+        session.put_slice(suffix);
+
+        size
     }
 }
 
 impl Compose for Value {
-    fn compose(&self, session: &mut dyn BufMut) {
-        session.put_slice(b"VALUE ");
-        session.put_slice(&self.key);
-        if let Some(cas) = self.cas {
-            session
-                .put_slice(format!(" {} {} {}\r\n", self.flags, self.data.len(), cas).as_bytes());
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let prefix = b"VALUE ";
+        let header_fields = if let Some(cas) = self.cas {
+            format!(" {} {} {}\r\n", self.flags, self.data.len(), cas).into_bytes()
         } else {
-            session.put_slice(format!(" {} {}\r\n", self.flags, self.data.len()).as_bytes());
-        }
+            format!(" {} {}\r\n", self.flags, self.data.len()).into_bytes()
+        };
+
+        let size = prefix.len() + self.key.len() + header_fields.len() + self.data.len() + CRLF.len();
+
+        session.put_slice(prefix);
+        session.put_slice(&self.key);
+        session.put_slice(&header_fields);
         session.put_slice(&self.data);
-        session.put_slice(b"\r\n");
+        session.put_slice(CRLF);
+
+        size
     }
 }
 

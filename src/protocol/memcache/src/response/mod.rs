@@ -3,8 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::*;
-use protocol_common::*;
-use session_legacy::Session;
+use protocol_common::{BufMut, Parse, ParseError, ParseOk};
 
 mod client_error;
 mod deleted;
@@ -100,7 +99,7 @@ impl From<Values> for Response {
 }
 
 impl Compose for Response {
-    fn compose(&self, session: &mut dyn BufMut) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
         match self {
             Self::Error(e) => e.compose(session),
             Self::ClientError(e) => e.compose(session),
@@ -112,7 +111,7 @@ impl Compose for Response {
             Self::Values(e) => e.compose(session),
             Self::Numeric(e) => e.compose(session),
             Self::Deleted(e) => e.compose(session),
-            Self::Hangup => {}
+            Self::Hangup => 0,
         }
     }
 

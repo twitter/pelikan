@@ -22,8 +22,9 @@ impl RequestParser {
 }
 
 impl Compose for Quit {
-    fn compose(&self, session: &mut dyn BufMut) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
         session.put_slice(b"quit\r\n");
+        6
     }
 }
 

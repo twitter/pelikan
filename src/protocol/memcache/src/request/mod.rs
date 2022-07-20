@@ -177,7 +177,7 @@ impl Parse<Request> for RequestParser {
 }
 
 impl Compose for Request {
-    fn compose(&self, session: &mut dyn BufMut) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
         match self {
             Self::Add(r) => r.compose(session),
             Self::Append(r) => r.compose(session),
@@ -254,6 +254,20 @@ pub enum Command {
 pub enum ExpireTime {
     Seconds(u32),
     UnixSeconds(u32),
+}
+
+fn convert_ttl(ttl: Option<u32>) -> Vec<u8> {
+    match ttl {
+        None => {
+            " 0".to_owned()
+        }
+        Some(0) => {
+            " -1".to_owned()
+        }
+        Some(s) => {
+            format!(" {}", s)
+        }
+    }.into_bytes()
 }
 
 #[cfg(test)]

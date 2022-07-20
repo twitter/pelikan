@@ -2173,6 +2173,7 @@ dependencies = [
  "buffer",
  "net",
  "protocol-common",
+ "rustcommon-time 0.0.12 (git+https://github.com/twitter/rustcommon)",
 ]
 
 [[package]]
@@ -2194,6 +2195,15 @@ dependencies = [
  "strum_macros",
  "sysconf",
  "thiserror",
+]
+
+[[package]]
+name = "session-memcache"
+version = "0.1.0"
+dependencies = [
+ "protocol-memcache",
+ "rustcommon-time 0.0.12 (git+https://github.com/twitter/rustcommon)",
+ "session-common",
 ]
 
 [[package]]

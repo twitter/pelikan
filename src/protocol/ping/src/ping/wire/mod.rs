@@ -41,7 +41,7 @@ impl ExecutionResult<Request, Response> for PingExecutionResult<Request, Respons
 }
 
 impl Compose for PingExecutionResult<Request, Response> {
-    fn compose(&self, dst: &mut dyn BufMut) {
+    fn compose(&self, dst: &mut dyn BufMut) -> usize {
         PONG.increment();
         self.response.compose(dst)
     }
