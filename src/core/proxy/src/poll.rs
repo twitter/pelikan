@@ -5,11 +5,15 @@
 //! This module provides common functionality for threads which are based on an
 //! event loop.
 
+use std::fmt::Debug;
+use session_common::Session;
+use net::TcpListener;
+use net::Listener;
 use crate::TCP_ACCEPT_EX;
 use common::ssl::*;
 use net::event::{Events, Source};
 use net::{Interest, Token, Waker};
-use session_legacy::{Session, TcpStream};
+// use session_legacy::{Session, TcpStream};
 use slab::Slab;
 use std::convert::TryFrom;
 use std::net::SocketAddr;
@@ -24,41 +28,29 @@ const KB: usize = 1024;
 const SESSION_BUFFER_MIN: usize = 16 * KB;
 const SESSION_BUFFER_MAX: usize = 1024 * KB;
 
-struct TcpListener {
-    inner: net::TcpListener,
-    ssl_context: Option<SslContext>,
-}
-
-impl TcpListener {
-    pub fn bind(addr: SocketAddr, tls_config: &dyn TlsConfig) -> Result<Self, std::io::Error> {
-        let listener = net::TcpListener::bind(addr).map_err(|e| {
-            error!("{}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, "failed to start tcp listener")
-        })?;
-
-        let ssl_context = common::ssl::ssl_context(tls_config)?;
-
-        Ok(Self {
-            inner: listener,
-            ssl_context,
-        })
-    }
-}
-
-pub struct Poll {
-    listener: Option<TcpListener>,
+pub struct Poll<S> {
+    listener: Option<Listener>,
     poll: net::Poll,
-    sessions: Slab<TrackedSession>,
+    sessions: Slab<TrackedSession<S>>,
     waker: Arc<Waker>,
 }
 
-pub struct TrackedSession {
-    pub session: Session,
+pub struct TrackedSession<S> {
+    pub session: S,
     pub sender: Option<usize>,
     pub token: Option<Token>,
 }
 
-impl Poll {
+impl<S> Debug for TrackedSession<S> where S: Debug {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self.session)
+    }
+}
+
+impl<S> Poll<S>
+where
+    S: net::event::Source + Debug
+{
     /// Create a new `Poll` instance.
     pub fn new() -> Result<Self, std::io::Error> {
         let poll = net::Poll::new().map_err(|e| {
@@ -84,15 +76,21 @@ impl Poll {
         addr: SocketAddr,
         tls_config: &dyn TlsConfig,
     ) -> Result<(), std::io::Error> {
-        let mut listener = TcpListener::bind(addr, tls_config).map_err(|e| {
+        let mut listener = TcpListener::bind(addr).map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "failed to start tcp listener")
         })?;
 
+        let listener = if let Some(acceptor) = common::ssl::tls_acceptor(tls_config)? {
+            Listener::from((listener, acceptor))
+        } else {
+            Listener::from(listener)
+        };
+
         // register listener to event loop
         self.poll
             .registry()
-            .register(&mut listener.inner, LISTENER_TOKEN, Interest::READABLE)
+            .register(&mut listener, LISTENER_TOKEN, Interest::READABLE)
             .map_err(|e| {
                 error!("{}", e);
                 std::io::Error::new(
@@ -117,51 +115,12 @@ impl Poll {
 
     pub fn accept(&mut self) -> Result<Token, std::io::Error> {
         if let Some(ref mut listener) = self.listener {
-            let (stream, _addr) = listener.inner.accept()?;
+            let stream = listener.accept()?;
 
             // disable Nagle's algorithm
             let _ = stream.set_nodelay(true);
 
-            // let stream = TcpStream::try_from(stream)?;
-
-            let session = if let Some(ssl_context) = &listener.ssl_context {
-                match Ssl::new(ssl_context).map(|v| v.accept(stream)) {
-                    // handle case where we have a fully-negotiated
-                    // TLS stream on accept()
-                    Ok(Ok(stream)) => {
-                        Session::tls_with_capacity(stream, SESSION_BUFFER_MIN, SESSION_BUFFER_MAX)
-                    }
-                    // handle case where further negotiation is
-                    // needed
-                    Ok(Err(HandshakeError::WouldBlock(stream))) => {
-                        Session::handshaking_with_capacity(
-                            stream,
-                            SESSION_BUFFER_MIN,
-                            SESSION_BUFFER_MAX,
-                        )
-                    }
-                    // some other error has occurred and we drop the
-                    // stream
-                    Ok(Err(e)) => {
-                        error!("accept failed: {}", e);
-                        TCP_ACCEPT_EX.increment();
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "accept failed",
-                        ));
-                    }
-                    Err(e) => {
-                        error!("accept failed: {}", e);
-                        TCP_ACCEPT_EX.increment();
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "accept failed",
-                        ));
-                    }
-                }
-            } else {
-                Session::plain_with_capacity(stream, SESSION_BUFFER_MIN, SESSION_BUFFER_MAX)
-            };
+            let session = Session::from(stream);
 
             self.add_session(session)
         } else {
@@ -198,20 +157,20 @@ impl Poll {
     }
 
     /// Remove a session from the poller and return it to the caller
-    pub fn remove_session(&mut self, token: Token) -> Result<TrackedSession, std::io::Error> {
+    pub fn remove_session(&mut self, token: Token) -> Result<TrackedSession<S>, std::io::Error> {
         let mut session = self.take_session(token)?;
         trace!("removing session: {:?}", session.session);
         session.session.deregister(&self.poll)?;
         Ok(session)
     }
 
-    pub fn get_mut_session(&mut self, token: Token) -> Result<&mut TrackedSession, std::io::Error> {
+    pub fn get_mut_session(&mut self, token: Token) -> Result<&mut TrackedSession<S>, std::io::Error> {
         self.sessions
             .get_mut(token.0)
             .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Other, "no such session"))
     }
 
-    fn take_session(&mut self, token: Token) -> Result<TrackedSession, std::io::Error> {
+    fn take_session(&mut self, token: Token) -> Result<TrackedSession<S>, std::io::Error> {
         if self.sessions.contains(token.0) {
             let session = self.sessions.remove(token.0);
             Ok(session)
@@ -228,14 +187,12 @@ impl Poll {
             LISTENER_TOKEN => {
                 if let Some(ref mut listener) = self.listener {
                     if listener
-                        .inner
                         .reregister(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE)
                         .is_err()
                     {
                         warn!("reregister of listener failed, attempting to recover");
-                        let _ = listener.inner.deregister(self.poll.registry());
+                        let _ = listener.deregister(self.poll.registry());
                         if listener
-                            .inner
                             .register(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE)
                             .is_err()
                         {

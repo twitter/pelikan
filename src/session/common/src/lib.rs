@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use core::fmt::Debug;
 use protocol_common::Parse;
 use protocol_common::Compose;
 use core::marker::PhantomData;
@@ -42,6 +43,12 @@ pub struct Session {
     write_buffer: Buffer,
 }
 
+impl Debug for Session {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self.stream)
+    }
+}
+
 impl Session {
     /// Construct a new `Session` from a `Stream` and read and write
     /// `SessionBuffer`s.
@@ -66,6 +73,10 @@ impl Session {
     /// any underlying stream negotation and handshaking is completed.
     pub fn is_established(&self) -> bool {
         self.stream.is_established()
+    }
+
+    pub fn is_handshaking(&self) -> bool {
+        self.stream.is_handshaking()
     }
 
     /// Fill the read buffer by calling read on the underlying stream until read
@@ -328,6 +339,42 @@ unsafe impl BufMut for Session {
     fn chunk_mut(&mut self) -> &mut UninitSlice {
         self.write_buffer.chunk_mut()
     }
+
+    #[allow(unused_mut)]
+    fn put<T: Buf>(&mut self, mut src: T)
+    where
+        Self: Sized,
+    {
+        self.write_buffer.put(src)
+    }
+
+    fn put_slice(&mut self, src: &[u8]) {
+        self.write_buffer.put_slice(src)
+    }
+}
+
+impl event::Source for Session {
+    fn register(
+        &mut self,
+        registry: &Registry,
+        token: Token,
+        interest: Interest,
+    ) -> Result<()> {
+        self.stream.register(registry, token, interest)
+    }
+
+    fn reregister(
+        &mut self,
+        registry: &Registry,
+        token: Token,
+        interest: Interest,
+    ) -> Result<()> {
+        self.stream.reregister(registry, token, interest)
+    }
+
+    fn deregister(&mut self, registry: &Registry) -> Result<()> {
+        self.stream.deregister(registry)
+    }
 }
 
 /// A basic session to represent the client side of a framed session.
@@ -338,22 +385,39 @@ pub struct ClientSession<Parser, Rx, Tx> {
     _rx: PhantomData<Rx>,
 }
 
+
+impl<Parser, Rx, Tx> Debug for ClientSession<Parser, Rx, Tx> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self.session)
+    }
+}
+
 impl<Parser, Rx, Tx> ClientSession<Parser, Rx, Tx>
 where
     Tx: Compose,
     Parser: Parse<Rx>,
 {
+    pub fn new(session: Session, parser: Parser) -> Self {
+        Self {
+            session,
+            parser,
+            pending: VecDeque::with_capacity(256),
+            _rx: PhantomData,
+        }
+    }
+
     /// Sends the frame to the underlying session and attempts to flush the
     /// session buffer. This function also adds a timestamp to a queue so that
     /// response latencies can be determined. The latency will include any time
     /// that it takes to compose the message onto the session buffer, time to
     /// flush the session buffer, and any additional calls to flush which may be
     /// required.
-    pub fn send(&mut self, tx: Tx) {
+    pub fn send(&mut self, tx: Tx) -> Result<usize> {
         let now = Instant::now();
-        tx.compose(&mut self.session);
-        let _ = self.session.flush();
+        let size = tx.compose(&mut self.session);
         self.pending.push_back((now, tx));
+        self.session.flush()?;
+        Ok(size)
     }
 
     pub fn receive(&mut self) -> std::result::Result<(Tx, Rx), ParseError> {
@@ -388,11 +452,28 @@ pub struct ServerSession<Parser, Rx, Tx> {
     _tx: PhantomData<Tx>,
 }
 
+impl<Parser, Rx, Tx> Debug for ServerSession<Parser, Rx, Tx> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self.session)
+    }
+}
+
 impl<Parser, Rx, Tx> ServerSession<Parser, Rx, Tx>
 where
     Tx: Compose,
     Parser: Parse<Rx>,
 {
+    pub fn new(session: Session, parser: Parser) -> Self {
+        Self {
+            session,
+            parser,
+            pending: VecDeque::with_capacity(256),
+            outstanding: VecDeque::with_capacity(256),
+            _rx: PhantomData,
+            _tx: PhantomData,
+        }
+    }
+
     pub fn receive(&mut self) -> std::result::Result<Rx, ParseError> {
         let src: &[u8] = self.session.borrow();
         match self.parser.parse(src) {
@@ -408,76 +489,57 @@ where
         }
     }
 
-    pub fn send(&mut self, tx: Tx) {
-        let current_pending = self.session.write_pending();
+    pub fn send(&mut self, tx: Tx) -> Result<usize> {
         let timestamp = self.pending.pop_front();
 
         let size = tx.compose(&mut self.session);
-        let final_pending = self.session.write_pending();
 
-        if final_pending == current_pending {
+        if size == 0 {
             // we have a zero sized response
             if let Some(timestamp) = timestamp {
                 let now = Instant::now();
                 let _latency = now - timestamp;
             }
         } else {
-            let pending = final_pending - current_pending;
-            self.outstanding.push_back((timestamp, pending));
-            // self.flush();
+            self.outstanding.push_back((timestamp, size));
+            let _ = self.flush()?;
         }
 
+        Ok(size)
     }
 
-    // pub fn flush(&mut self) -> Result<()> {
-    //     let current_pending = self.session.write_pending();
-    //     self.session.flush();
-    // }
-}
+    pub fn flush(&mut self) -> Result<()> {
+        let current_pending = self.session.write_pending();
+        self.session.flush()?;
+        let final_pending = self.session.write_pending();
 
-// /// A basic session to represent the client side of a stream.
-// pub struct ClientSession {
-//     session: Session,
-// }
+        let mut flushed = current_pending - final_pending;
 
-// /// A basic session to represent the server side of a stream. Unlike the
-// /// `ClientSession` this type performs internal tracking so that the time to
-// /// flush responses is counted towards latency statistics.
-// pub struct ServerSession {
-//     session: Session,
-//     outstanding: VecDeque<(Instant, usize)>,
-// }
+        if flushed == 0 {
+            return Ok(());
+        }
 
-// impl ServerSession {
-//     pub fn new(stream: Stream, read_buffer: Buffer, write_buffer: Buffer) -> Self {
-//         let session = Session::new(stream, read_buffer, write_buffer);
-//         let outstanding = VecDeque::new();
+        let now = Instant::now();
 
-//         Self {
-//             session,
-//             outstanding,
-//         }
-//     }
-// }
+        while flushed > 0 {
+            if let Some(mut front) = self.outstanding.pop_front() {
+                if front.1 > flushed {
+                    front.1 -= flushed;
+                    self.outstanding.push_front(front);
+                    break;
+                } else {
+                    flushed -= front.1;
+                    if let Some(ts) = front.0 {
+                        let _latency = now - ts;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
 
-// impl From<Stream> for ServerSession {
-//     fn from(other: Stream) -> Self {
-//         let session = Session::from(other);
-//         let outstanding = VecDeque::new();
-
-//         Self {
-//             session,
-//             outstanding,
-//         }
-//     }
-// }
-
-pub trait FramedSession {
-    type Receive;
-    type Transmit;
-
-    fn receive(&mut self) -> std::result::Result<Self::Receive, ParseError>;
-    fn send(&mut self, msg: Self::Transmit);  
+        Ok(())
+    }
 }
 
 #[cfg(test)]

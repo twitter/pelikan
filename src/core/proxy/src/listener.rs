@@ -9,7 +9,7 @@ use core::time::Duration;
 use net::Waker;
 use poll::*;
 use queues::Queues;
-use session_legacy::Session;
+use session_common::*;
 use std::sync::Arc;
 
 use rustcommon_metrics::*;
@@ -26,7 +26,7 @@ counter!(LISTENER_EVENT_WRITE);
 pub struct ListenerBuilder {
     addr: SocketAddr,
     nevent: usize,
-    poll: Poll,
+    poll: Poll<Session>,
     timeout: Duration,
 }
 
@@ -71,7 +71,7 @@ pub struct Listener {
     addr: SocketAddr,
     connection_queues: Queues<Session, ()>,
     nevent: usize,
-    poll: Poll,
+    poll: Poll<Session>,
     timeout: Duration,
 }
 
@@ -100,8 +100,8 @@ impl Listener {
         }
 
         if let Ok(session) = self.poll.get_mut_session(token) {
-            if session.session.do_handshake().is_ok() {
-                trace!("handshake complete for session: {:?}", session.session);
+            if session.do_handshake().is_ok() {
+                trace!("handshake complete for session: {:?}", session);
                 if let Ok(session) = self.poll.remove_session(token) {
                     if self
                         .connection_queues
@@ -172,12 +172,12 @@ impl Listener {
     }
 }
 
-impl EventLoop for Listener {
+impl EventLoop<Session> for Listener {
     fn handle_data(&mut self, _token: Token) -> Result<()> {
         Ok(())
     }
 
-    fn poll(&mut self) -> &mut Poll {
+    fn poll(&mut self) -> &mut Poll<Session> {
         &mut self.poll
     }
 }

@@ -22,7 +22,7 @@ protocol-common = { path = "../../protocol/common" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
 queues = { path = "../../queues" }
-session-legacy = { path = "../../session/legacy" }
+session-common = { path = "../../session/common" }
 slab = "*"
 tiny_http = "0.11.0"
 

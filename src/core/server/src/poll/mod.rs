@@ -5,10 +5,13 @@
 //! This module provides common functionality for threads which are based on an
 //! event loop.
 
+use net::Stream;
+use net::TcpListener;
+use net::TlsAcceptor;
 use net::event::Source;
-use net::{Events, Interest, TcpListener, Token, Waker};
+use net::{Events, Interest, Listener, Token, Waker};
 use session_legacy::Session;
-use session_legacy::TcpStream;
+// use session_legacy::TcpStream;
 use slab::Slab;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -18,7 +21,7 @@ pub const LISTENER_TOKEN: Token = Token(usize::MAX - 1);
 pub const WAKER_TOKEN: Token = Token(usize::MAX);
 
 pub struct Poll {
-    listener: Option<TcpListener>,
+    listener: Option<Listener>,
     poll: net::Poll,
     sessions: Slab<Session>,
     waker: Arc<Waker>,
@@ -45,11 +48,17 @@ impl Poll {
     }
 
     /// Bind and begin listening on the provided address.
-    pub fn bind(&mut self, addr: SocketAddr) -> Result<(), std::io::Error> {
+    pub fn bind(&mut self, addr: SocketAddr, tls_acceptor: Option<TlsAcceptor>) -> Result<(), std::io::Error> {
         let mut listener = TcpListener::bind(addr).map_err(|e| {
             error!("{}", e);
             std::io::Error::new(std::io::ErrorKind::Other, "failed to start tcp listener")
         })?;
+
+        let listener = if let Some(acceptor) = tls_acceptor {
+            Listener::from((listener, acceptor))
+        } else {
+            Listener::from(listener)
+        };
 
         // register listener to event loop
         self.poll
@@ -77,9 +86,9 @@ impl Poll {
         self.poll.poll(events, Some(timeout))
     }
 
-    pub fn accept(&mut self) -> Result<(TcpStream, SocketAddr), std::io::Error> {
+    pub fn accept(&mut self) -> Result<(Stream, SocketAddr), std::io::Error> {
         if let Some(ref mut listener) = self.listener {
-            let (stream, addr) = listener.accept()?;
+            let stream = listener.accept()?;
 
             // disable Nagle's algorithm
             let _ = stream.set_nodelay(true);

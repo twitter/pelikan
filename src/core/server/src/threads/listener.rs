@@ -5,6 +5,11 @@
 //! The server thread which accepts new connections, handles TLS handshaking,
 //! and sends established sessions to the worker thread(s).
 
+use session_common::Session;
+use net::Stream;
+use net::TlsAcceptor;
+use core::marker::PhantomData;
+use net::TcpStream;
 use super::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use crate::*;
@@ -15,7 +20,8 @@ use net::event::Event;
 use net::Events;
 use net::Token;
 use queues::*;
-use session_legacy::{Session, TcpStream};
+// use session_legacy::{Session, TcpStream};
+use session_common::ServerSession;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,21 +32,23 @@ counter!(SERVER_EVENT_READ);
 counter!(SERVER_EVENT_LOOP);
 counter!(SERVER_EVENT_TOTAL);
 
-pub struct ListenerBuilder {
+pub struct ListenerBuilder<Parser, Request, Response> {
     addr: SocketAddr,
     max_buffer_size: usize,
     nevent: usize,
     poll: Poll,
-    ssl_context: Option<SslContext>,
     timeout: Duration,
+    parser: Parser,
+    _request: PhantomData<Request>,
+    _response: PhantomData<Response>,
 }
 
-impl ListenerBuilder {
+impl<Parser, Request, Response> ListenerBuilder<Parser, Request, Response> {
     /// Creates a new `Listener` from a `ServerConfig` and an optional
     /// `SslContext`.
     pub fn new<T: ServerConfig>(
         config: &T,
-        ssl_context: Option<SslContext>,
+        tls_acceptor: Option<TlsAcceptor>,
         max_buffer_size: usize,
     ) -> Result<Self, std::io::Error> {
         let config = config.server();
@@ -54,7 +62,7 @@ impl ListenerBuilder {
             std::io::Error::new(std::io::ErrorKind::Other, "Failed to create epoll instance")
         })?;
 
-        poll.bind(addr)?;
+        poll.bind(addr, tls_acceptor)?;
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -63,7 +71,6 @@ impl ListenerBuilder {
             addr,
             nevent,
             poll,
-            ssl_context,
             timeout,
             max_buffer_size,
         })
@@ -76,8 +83,8 @@ impl ListenerBuilder {
     pub fn build(
         self,
         signal_queue: Queues<(), Signal>,
-        session_queue: Queues<Session, ()>,
-    ) -> Listener {
+        session_queue: Queues<ServerSession<Parser, Request, Response>, ()>,
+    ) -> Listener<Parser, Request, Response> {
         Listener {
             addr: self.addr,
             max_buffer_size: self.max_buffer_size,
@@ -91,7 +98,7 @@ impl ListenerBuilder {
     }
 }
 
-pub struct Listener {
+pub struct Listener<Parser, Request, Response> {
     addr: SocketAddr,
     max_buffer_size: usize,
     nevent: usize,
@@ -99,10 +106,10 @@ pub struct Listener {
     ssl_context: Option<SslContext>,
     timeout: Duration,
     signal_queue: Queues<(), Signal>,
-    session_queue: Queues<Session, ()>,
+    session_queue: Queues<ServerSession<Parser, Request, Response>, ()>,
 }
 
-impl Listener {
+impl<Parser, Request, Response> Listener<Parser, Request, Response> {
     /// Call accept one time
     // TODO(bmartin): splitting accept and negotiation into separate threads
     // would allow us to handle TLS handshake with multiple threads and avoid
@@ -110,17 +117,18 @@ impl Listener {
     fn do_accept(&mut self) {
         if let Ok((stream, _)) = self.poll.accept() {
             // handle TLS if it is configured
-            if let Some(ssl_context) = &self.ssl_context {
+            let stream = if let Some(ssl_context) = &self.ssl_context {
                 match Ssl::new(ssl_context).map(|v| v.accept(stream)) {
                     // handle case where we have a fully-negotiated
                     // TLS stream on accept()
                     Ok(Ok(tls_stream)) => {
-                        self.add_established_tls_session(tls_stream);
+                        Stream::from(tls_stream)
+                        // self.add_established_tls_session(tls_stream);
                     }
                     // handle case where further negotiation is
                     // needed
                     Ok(Err(HandshakeError::WouldBlock(tls_stream))) => {
-                        self.add_handshaking_tls_session(tls_stream);
+                        Stream::from(tls_stream)
                     }
                     // some other error has occurred and we drop the
                     // stream
@@ -134,15 +142,16 @@ impl Listener {
                     }
                 }
             } else {
-                self.add_plain_session(stream);
+                let session = ServerSession::from(Stream::from(stream));
             };
+
             self.poll.reregister(LISTENER_TOKEN);
         }
     }
 
     /// Adds a new fully established TLS session
     fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
-        let session =
+        let session = ServerSession::from(stream)
             Session::tls_with_capacity(stream, crate::DEFAULT_BUFFER_SIZE, self.max_buffer_size);
         trace!("accepted new session: {:?}", session);
         if self.session_queue.try_send_any(session).is_err() {

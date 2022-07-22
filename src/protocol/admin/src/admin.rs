@@ -70,6 +70,14 @@ impl Parse<AdminRequest> for AdminRequestParser {
     }
 }
 
+pub struct AdminResponse {}
+
+impl Compose for AdminResponse {
+    fn compose(&self, _: &mut dyn protocol_common::BufMut) -> usize {
+        0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -12,13 +12,23 @@ impl TcpStream {
     }
 
     pub fn is_established(&self) -> bool {
-        self.peer_addr().is_ok()
+        self.inner.peer_addr().is_ok()
     }
 
     pub fn from_std(stream: std::net::TcpStream) -> Self {
         let inner = mio::net::TcpStream::from_std(stream);
 
         Self { inner }
+    }
+
+    pub fn set_nodelay(&mut self, nodelay: bool) -> Result<()> {
+        self.inner.set_nodelay(nodelay)
+    }
+}
+
+impl Debug for TcpStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self.inner)
     }
 }
 
@@ -86,6 +96,7 @@ impl TcpListener {
     pub fn bind<A: ToSocketAddrs>(addr: A) -> Result<TcpListener> {
         // we create from a std TcpListener so SO_REUSEADDR is not set for us
         let l = std::net::TcpListener::bind(addr)?;
+        // this means we need to set non-blocking ourselves
         l.set_nonblocking(true)?;
 
         let inner = mio::net::TcpListener::from_std(l);

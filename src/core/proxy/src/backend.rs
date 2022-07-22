@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use net::TcpStream;
 use crate::*;
 use common::signal::Signal;
 use config::proxy::BackendConfig;
@@ -12,7 +13,7 @@ use poll::*;
 use protocol_common::*;
 use queues::Queues;
 use queues::TrackedItem;
-use session_legacy::Session;
+use session_common::*;
 use std::sync::Arc;
 
 use rustcommon_metrics::*;
@@ -34,7 +35,7 @@ heatmap!(BACKEND_EVENT_DEPTH, 100_000);
 pub const QUEUE_RETRIES: usize = 3;
 
 pub struct BackendWorkerBuilder<Parser, Request, Response> {
-    poll: Poll,
+    poll: Poll<ClientSession<Parser, Request, Response>>,
     parser: Parser,
     free_queue: VecDeque<Token>,
     nevent: usize,
@@ -55,16 +56,17 @@ impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> 
 
         for addr in server_endpoints {
             for _ in 0..config.poolsize() {
-                let connection = std::net::TcpStream::connect(addr).expect("failed to connect");
-                connection
+                let stream = std::net::TcpStream::connect(addr).expect("failed to connect");
+                stream
                     .set_nonblocking(true)
                     .expect("failed to set non-blocking");
-                let connection = TcpStream::from_std(connection);
-                let session = Session::plain_with_capacity(
-                    session_legacy::TcpStream::try_from(connection).expect("failed to convert"),
-                    SESSION_BUFFER_MIN,
-                    SESSION_BUFFER_MAX,
-                );
+                let stream = TcpStream::from_std(stream);
+                let session = Session::from(stream);
+                // let session = Session::plain_with_capacity(
+                //     session_legacy::TcpStream::try_from(connection).expect("failed to convert"),
+                //     SESSION_BUFFER_MIN,
+                //     SESSION_BUFFER_MAX,
+                // );
                 if let Ok(token) = poll.add_session(session) {
                     println!("new backend connection with token: {}", token.0);
                     free_queue.push_back(token);
@@ -104,7 +106,7 @@ impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> 
 }
 
 pub struct BackendWorker<Parser, Request, Response> {
-    poll: Poll,
+    poll: Poll<ClientSession<Parser, Request, Response>>,
     queues: Queues<TokenWrapper<Response>, TokenWrapper<Request>>,
     free_queue: VecDeque<Token>,
     signal_queue: Queues<(), Signal>,
@@ -290,7 +292,7 @@ where
     }
 }
 
-impl<Parser, Request, Response> EventLoop for BackendWorker<Parser, Request, Response>
+impl<Parser, Request, Response> EventLoop<ClientSession<Parser, Request, Response>> for BackendWorker<Parser, Request, Response>
 where
     Request: Compose,
     Parser: Parse<Response>,
@@ -300,7 +302,7 @@ where
         Ok(())
     }
 
-    fn poll(&mut self) -> &mut poll::Poll {
+    fn poll(&mut self) -> &mut poll::Poll<ClientSession<Parser, Request, Response>> {
         &mut self.poll
     }
 }

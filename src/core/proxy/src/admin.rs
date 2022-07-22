@@ -5,6 +5,7 @@
 //! The admin thread, which handles admin requests to return stats, get version
 //! info, etc.
 
+use session_common::*;
 use crate::event_loop::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use crate::QUEUE_RETRIES;
@@ -21,7 +22,6 @@ use net::{Events, Token, Waker};
 use protocol_admin::*;
 use queues::Queues;
 use rustcommon_metrics::*;
-use session_legacy::{Session, TcpStream};
 use std::io::{BufRead, Error, ErrorKind, Write};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -68,7 +68,7 @@ pub static PERCENTILES: &[(&str, f64)] = &[
 pub struct AdminBuilder {
     addr: SocketAddr,
     nevent: usize,
-    poll: Poll,
+    poll: Poll<Session>,
     timeout: Duration,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
@@ -181,7 +181,7 @@ impl AdminBuilder {
 pub struct Admin {
     addr: SocketAddr,
     nevent: usize,
-    poll: Poll,
+    poll: Poll<Session>,
     timeout: Duration,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
@@ -202,43 +202,43 @@ impl Drop for Admin {
 }
 
 impl Admin {
-    /// Adds a new fully established TLS session
-    fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
-        let session = Session::tls_with_capacity(
-            stream,
-            crate::DEFAULT_BUFFER_SIZE,
-            crate::ADMIN_MAX_BUFFER_SIZE,
-        );
-        if self.poll.add_session(session).is_err() {
-            TCP_ACCEPT_EX.increment();
-        }
-    }
+    // /// Adds a new fully established TLS session
+    // fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
+    //     let session = Session::tls_with_capacity(
+    //         stream,
+    //         crate::DEFAULT_BUFFER_SIZE,
+    //         crate::ADMIN_MAX_BUFFER_SIZE,
+    //     );
+    //     if self.poll.add_session(session).is_err() {
+    //         TCP_ACCEPT_EX.increment();
+    //     }
+    // }
 
-    /// Adds a new TLS session that requires further handshaking
-    fn add_handshaking_tls_session(&mut self, stream: MidHandshakeSslStream<TcpStream>) {
-        let session = Session::handshaking_with_capacity(
-            stream,
-            crate::DEFAULT_BUFFER_SIZE,
-            crate::ADMIN_MAX_BUFFER_SIZE,
-        );
-        trace!("accepted new session: {:?}", session.peer_addr());
-        if self.poll.add_session(session).is_err() {
-            TCP_ACCEPT_EX.increment();
-        }
-    }
+    // /// Adds a new TLS session that requires further handshaking
+    // fn add_handshaking_tls_session(&mut self, stream: MidHandshakeSslStream<TcpStream>) {
+    //     let session = Session::handshaking_with_capacity(
+    //         stream,
+    //         crate::DEFAULT_BUFFER_SIZE,
+    //         crate::ADMIN_MAX_BUFFER_SIZE,
+    //     );
+    //     trace!("accepted new session: {:?}", session.peer_addr());
+    //     if self.poll.add_session(session).is_err() {
+    //         TCP_ACCEPT_EX.increment();
+    //     }
+    // }
 
-    /// Adds a new plain (non-TLS) session
-    fn add_plain_session(&mut self, stream: TcpStream) {
-        let session = Session::plain_with_capacity(
-            stream,
-            crate::DEFAULT_BUFFER_SIZE,
-            crate::ADMIN_MAX_BUFFER_SIZE,
-        );
-        trace!("accepted new session: {:?}", session.peer_addr());
-        if self.poll.add_session(session).is_err() {
-            TCP_ACCEPT_EX.increment();
-        }
-    }
+    // /// Adds a new plain (non-TLS) session
+    // fn add_plain_session(&mut self, stream: TcpStream) {
+    //     let session = Session::plain_with_capacity(
+    //         stream,
+    //         crate::DEFAULT_BUFFER_SIZE,
+    //         crate::ADMIN_MAX_BUFFER_SIZE,
+    //     );
+    //     trace!("accepted new session: {:?}", session.peer_addr());
+    //     if self.poll.add_session(session).is_err() {
+    //         TCP_ACCEPT_EX.increment();
+    //     }
+    // }
 
     /// Repeatedly call accept on the listener
     fn do_accept(&mut self) {
@@ -294,16 +294,16 @@ impl Admin {
 
         data.sort();
         for line in data {
-            let _ = session.write(line.as_bytes());
+            session.put_slice(line.as_bytes());
         }
-        let _ = session.write(b"END\r\n");
-        session.finalize_response();
+        session.put_slice(b"END\r\n");
+        // session.finalize_response();
         ADMIN_RESPONSE_COMPOSE.increment();
     }
 
     fn handle_version_request(session: &mut Session, version: &str) {
-        let _ = session.write(format!("VERSION {}\r\n", version).as_bytes());
-        session.finalize_response();
+        session.put_slice(format!("VERSION {}\r\n", version).as_bytes());
+        // session.finalize_response();
         ADMIN_RESPONSE_COMPOSE.increment();
     }
 
@@ -320,7 +320,7 @@ impl Admin {
 
         // handle handshaking
         if let Ok(session) = self.poll.get_mut_session(token) {
-            if session.session.is_handshaking() {
+            if !session.session.is_established() {
                 if let Err(e) = session.session.do_handshake() {
                     if e.kind() == ErrorKind::WouldBlock {
                         // the session is still handshaking
@@ -683,7 +683,7 @@ impl Admin {
     }
 }
 
-impl EventLoop for Admin {
+impl EventLoop<Session> for Admin {
     fn handle_data(&mut self, token: Token) -> Result<()> {
         trace!("handling request for admin session: {}", token.0);
         if let Ok(session) = self.poll.get_mut_session(token) {
@@ -752,7 +752,7 @@ impl EventLoop for Admin {
         Ok(())
     }
 
-    fn poll(&mut self) -> &mut Poll {
+    fn poll(&mut self) -> &mut Poll<Session> {
         &mut self.poll
     }
 }

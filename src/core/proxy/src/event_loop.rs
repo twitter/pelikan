@@ -13,12 +13,12 @@ use crate::poll::Poll;
 
 /// An `EventLoop` describes the functions which must be implemented for a basic
 /// event loop and provides some default implementations and helper functions.
-pub trait EventLoop {
+pub trait EventLoop<S> {
     // the following functions must be implemented
 
     /// Provides access to the `Poll` structure which allows polling for new
     /// readiness events and managing registration for event sources.
-    fn poll(&mut self) -> &mut Poll;
+    fn poll(&mut self) -> &mut Poll<S>;
 
     /// Handle new data received for the `Session` with the provided `Token`.
     /// This will include parsing the incoming data and composing a response.

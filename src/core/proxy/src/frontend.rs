@@ -12,7 +12,7 @@ use net::Waker;
 use poll::*;
 use protocol_common::*;
 use queues::Queues;
-use session_legacy::Session;
+use session_common::*;
 use std::sync::Arc;
 
 use rustcommon_metrics::*;
@@ -29,7 +29,7 @@ heatmap!(FRONTEND_EVENT_DEPTH, 100_000);
 pub const QUEUE_RETRIES: usize = 3;
 
 pub struct FrontendWorkerBuilder<Parser, Request, Response> {
-    poll: Poll,
+    poll: Poll<ServerSession<Parser, Request, Response>>,
     parser: Parser,
     nevent: usize,
     timeout: Duration,
@@ -74,7 +74,7 @@ impl<Parser, Request, Response> FrontendWorkerBuilder<Parser, Request, Response>
 }
 
 pub struct FrontendWorker<Parser, Request, Response> {
-    poll: Poll,
+    poll: Poll<ServerSession<Parser, Request, Response>>,
     parser: Parser,
     nevent: usize,
     timeout: Duration,
@@ -240,7 +240,7 @@ where
     }
 }
 
-impl<Parser, Request, Response> EventLoop for FrontendWorker<Parser, Request, Response>
+impl<Parser, Request, Response> EventLoop<ServerSession<Parser, Request, Response>> for FrontendWorker<Parser, Request, Response>
 where
     Parser: Parse<Request>,
     Response: Compose,
@@ -250,7 +250,7 @@ where
         Ok(())
     }
 
-    fn poll(&mut self) -> &mut poll::Poll {
+    fn poll(&mut self) -> &mut poll::Poll<ServerSession<Parser, Request, Response>> {
         &mut self.poll
     }
 }
