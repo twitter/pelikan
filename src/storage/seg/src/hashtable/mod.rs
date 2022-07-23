@@ -308,8 +308,10 @@ impl HashTable {
                         *item_info = (*item_info & !FREQ_MASK) | freq;
                     }
 
+                    let age = segments.get_age(*item_info).unwrap();
                     let item = Item::new(
                         current_item,
+                        age, 
                         get_cas(self.data[(hash & self.mask) as usize].data[0]),
                     );
                     item.check_magic();
@@ -359,8 +361,10 @@ impl HashTable {
                 if current_item.key() != key {
                     HASH_TAG_COLLISION.increment();
                 } else {
+                    let age = segments.get_age(*item_info).unwrap();
                     let item = Item::new(
                         current_item,
+                        age, 
                         get_cas(self.data[(hash & self.mask) as usize].data[0]),
                     );
                     item.check_magic();

@@ -21,13 +21,14 @@ pub(crate) use reserved::ReservedItem;
 /// Items are the base unit of data stored within the cache.
 pub struct Item {
     cas: u32,
+    age: u32,
     raw: RawItem,
 }
 
 impl Item {
     /// Creates a new `Item` from its parts
-    pub(crate) fn new(raw: RawItem, cas: u32) -> Self {
-        Item { cas, raw }
+    pub(crate) fn new(raw: RawItem, age: u32, cas: u32) -> Self {
+        Item { cas, age, raw }
     }
 
     /// If the `magic` or `debug` features are enabled, this allows for checking
@@ -54,6 +55,10 @@ impl Item {
     /// CAS value for the item
     pub fn cas(&self) -> u32 {
         self.cas
+    }
+
+    pub fn age(&self) -> u32 {
+        self.age
     }
 
     /// Borrow the optional data
