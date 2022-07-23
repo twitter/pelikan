@@ -322,6 +322,27 @@ impl HashTable {
         None
     }
 
+    /// Lookup an item by key and return it
+    pub fn get_age(&mut self, key: &[u8], segments: &mut Segments) -> Option<u32> {
+        let hash = self.hash(key);
+        let tag = tag_from_hash(hash);
+
+        let iter = IterMut::new(self, hash);
+
+        for item_info in iter {
+            if get_tag(*item_info) == tag {
+                let current_item = segments.get_item(*item_info).unwrap();
+                if current_item.key() != key {
+                    HASH_TAG_COLLISION.increment();
+                } else {
+                    return segments.get_age(*item_info);
+                }
+            }
+        }
+
+        None
+    }
+
     /// Lookup an item by key and return it without incrementing the item
     /// frequency. This may be used to compose higher-level functions which do
     /// not want a successful item lookup to count as a hit for that item.

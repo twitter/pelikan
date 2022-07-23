@@ -84,6 +84,10 @@ impl Seg {
         self.hashtable.get(key, self.time, &mut self.segments)
     }
 
+    pub fn get_age(&mut self, key: &[u8]) -> Option<u32> {
+        self.hashtable.get_age(key, &mut self.segments)
+    }
+
     /// Get the item in the `Seg` with the provided key without
     /// increasing the item frequency - useful for combined operations that
     /// check for presence - eg replace is a get + set
