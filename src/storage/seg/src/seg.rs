@@ -84,8 +84,47 @@ impl Seg {
         self.hashtable.get(key, self.time, &mut self.segments)
     }
 
+    /// Get the age of the item in the `Seg` with the provided key
+    ///
+    /// ```
+    /// use seg::{Policy, Seg};
+    /// use std::time::Duration;
+    ///
+    /// let mut cache = Seg::builder().build().expect("failed to create cache");
+    /// assert!(cache.get(b"coffee").is_none());
+    ///
+    /// cache.insert(b"coffee", b"strong", None, Duration::ZERO);
+    /// let age = cache.get_age(b"coffee").expect("didn't get item back");
+    /// assert_eq!(age, 0);
+    /// ```
     pub fn get_age(&mut self, key: &[u8]) -> Option<u32> {
         self.hashtable.get_age(key, &mut self.segments)
+    }
+
+    /// Get the item in the `Seg` with the provided key
+    /// this differs from get by returning information about hash table entry
+    /// this allows opportunistic concurrency control and enables 
+    /// multiple readers and a single writer 
+    /// To use it, one simply checks the hash table entry does not change after 
+    /// copying/using the item value, if it has changed, it means the item 
+    /// is evicted or updated by another thread and we need to roll back 
+    ///
+    /// ```
+    /// use seg::{Policy, Seg};
+    /// use std::time::Duration;
+    ///
+    /// let mut cache = Seg::builder().build().expect("failed to create cache");
+    /// assert!(cache.get(b"coffee").is_none());
+    ///
+    /// cache.insert(b"coffee", b"strong", None, Duration::ZERO);
+    /// let item = cache.get_with_item_info(b"coffee").expect("didn't get item back");
+    /// assert_eq!(item.value(), b"strong");
+    /// assert!(item.verify_hashtable_entry());
+    /// cache.insert(b"coffee", b"notStrong", None, Duration::ZERO);
+    /// assert!(!item.verify_hashtable_entry()); 
+    /// ```
+    pub fn get_with_item_info(&mut self, key: &[u8]) -> Option<RichItem> {
+        self.hashtable.get_with_item_info(key, self.time, &mut self.segments)
     }
 
     /// Get the item in the `Seg` with the provided key without

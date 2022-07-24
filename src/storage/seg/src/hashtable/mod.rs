@@ -311,7 +311,7 @@ impl HashTable {
                     let age = segments.get_age(*item_info).unwrap();
                     let item = Item::new(
                         current_item,
-                        age, 
+                        age,
                         get_cas(self.data[(hash & self.mask) as usize].data[0]),
                     );
                     item.check_magic();
@@ -345,6 +345,75 @@ impl HashTable {
         None
     }
 
+    /// Lookup an item by key and return it
+    /// compare to get, this is designed to support multiple readers and single writer. 
+    /// because eviction always remove hashtable entry first, 
+    /// so if an object is evicted, its hash table entry must have been removed, 
+    /// as a result, we can verify hash table entry after reading/copying the value.
+    /// 
+    /// Therefore, we can leverage opportunistic concurrency control to support
+    /// multiple readers and a single writer. 
+    /// we check the hash table after a reader reads the data, 
+    /// if the data is evicted, then its hash table entry must have been removed.
+    ///  
+    pub fn get_with_item_info(&mut self, key: &[u8], time: Instant, segments: &mut Segments) -> Option<RichItem> {
+        let hash = self.hash(key);
+        let tag = tag_from_hash(hash);
+        let bucket_id = hash & self.mask;
+
+        let bucket_info = self.data[bucket_id as usize].data[0];
+
+        let curr_ts = (time - self.started).as_secs() & PROC_TS_MASK;
+
+        if curr_ts != get_ts(bucket_info) as u32 {
+            self.data[bucket_id as usize].data[0] = (bucket_info & !TS_MASK) | (curr_ts as u64);
+
+            let iter = IterMut::new(self, hash);
+            for item_info in iter {
+                *item_info &= CLEAR_FREQ_SMOOTH_MASK;
+            }
+        }
+
+        let iter = IterMut::new(self, hash);
+
+        for item_info in iter {
+            let item_info_val = *item_info;
+            if get_tag(item_info_val) == tag {
+                let current_item = segments.get_item(*item_info).unwrap();
+                if current_item.key() != key {
+                    HASH_TAG_COLLISION.increment();
+                } else {
+                    // update item frequency
+                    let mut freq = get_freq(*item_info);
+                    if freq < 127 {
+                        let rand = thread_rng().gen::<u64>();
+                        if freq <= 16 || rand % freq == 0 {
+                            freq = ((freq + 1) | 0x80) << FREQ_BIT_SHIFT;
+                        } else {
+                            freq = (freq | 0x80) << FREQ_BIT_SHIFT;
+                        }
+                        // TODO: this needs to be atomic
+                        *item_info = (*item_info & !FREQ_MASK) | freq;
+                    }
+
+                    let age = segments.get_age(item_info_val).unwrap();
+                    let item = RichItem::new(
+                        current_item,
+                        age,
+                        item_info_val,
+                        item_info,
+                        get_cas(self.data[(hash & self.mask) as usize].data[0]),
+                    );
+                    item.check_magic();
+
+                    return Some(item);
+                }
+            }
+        }
+
+        None
+    }    
+
     /// Lookup an item by key and return it without incrementing the item
     /// frequency. This may be used to compose higher-level functions which do
     /// not want a successful item lookup to count as a hit for that item.
@@ -364,7 +433,7 @@ impl HashTable {
                     let age = segments.get_age(*item_info).unwrap();
                     let item = Item::new(
                         current_item,
-                        age, 
+                        age,
                         get_cas(self.data[(hash & self.mask) as usize].data[0]),
                     );
                     item.check_magic();
