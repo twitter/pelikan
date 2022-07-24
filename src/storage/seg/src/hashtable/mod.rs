@@ -397,12 +397,11 @@ impl HashTable {
                         *item_info = (*item_info & !FREQ_MASK) | freq;
                     }
 
-                    println!("{} == {}", item_info_val, *item_info);
                     let age = segments.get_age(item_info_val).unwrap();
                     let item = RichItem::new(
                         current_item,
                         age,
-                        item_info_val,
+                        item_info_val & !FREQ_MASK,
                         item_info,
                         get_cas(self.data[(hash & self.mask) as usize].data[0]),
                     );

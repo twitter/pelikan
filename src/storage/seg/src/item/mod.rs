@@ -13,6 +13,7 @@ pub(crate) use header::ITEM_MAGIC_SIZE;
 
 use crate::SegError;
 use crate::Value;
+use crate::hashtable::FREQ_MASK;
 
 pub(crate) use header::{ItemHeader, ITEM_HDR_SIZE};
 pub(crate) use raw::RawItem;
@@ -151,7 +152,7 @@ impl RichItem {
     // used to support multi readers and single writer
     pub fn verify_hashtable_entry(&self) -> bool {
         unsafe {
-            return self.item_info == *self.item_info_ptr
+            return self.item_info == *self.item_info_ptr & !FREQ_MASK
         }
     }
 
