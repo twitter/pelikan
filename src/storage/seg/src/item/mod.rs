@@ -135,22 +135,9 @@ impl RichItem {
     }
 
     // used to support multi readers and single writer
-    pub fn item_info(&self) -> u64 {
-        return self.item_info; 
-    }
-
-    pub fn item_info_ptr(&self) -> *const u64 {
-        return self.item_info_ptr;
-    }
-
-    pub fn item_info_ptr_val(&self) -> u64 {
-        unsafe {
-            return *self.item_info_ptr;
-        }
-    }
-
-    // used to support multi readers and single writer
-    pub fn verify_hashtable_entry(&self) -> bool {
+    // return true, if the item is evicted/updated since being 
+    // read from the hash table
+    pub fn is_not_changed(&self) -> bool {
         unsafe {
             return self.item_info == *self.item_info_ptr & !FREQ_MASK
         }

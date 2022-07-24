@@ -119,9 +119,9 @@ impl Seg {
     /// cache.insert(b"coffee", b"strong", None, Duration::ZERO);
     /// let item = cache.get_with_item_info(b"coffee").expect("didn't get item back");
     /// assert_eq!(item.value(), b"strong");
-    /// assert!(item.verify_hashtable_entry());
+    /// assert!(item.is_not_changed());
     /// cache.insert(b"coffee", b"notStrong", None, Duration::ZERO);
-    /// assert!(!item.verify_hashtable_entry()); 
+    /// assert!(!item.is_not_changed());
     /// ```
     pub fn get_with_item_info(&mut self, key: &[u8]) -> Option<RichItem> {
         self.hashtable.get_with_item_info(key, self.time, &mut self.segments)

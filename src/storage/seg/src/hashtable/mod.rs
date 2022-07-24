@@ -405,7 +405,6 @@ impl HashTable {
                         item_info,
                         get_cas(self.data[(hash & self.mask) as usize].data[0]),
                     );
-                    assert!(item.verify_hashtable_entry()); 
                     item.check_magic();
 
                     return Some(item);
