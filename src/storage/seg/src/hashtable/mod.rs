@@ -393,9 +393,11 @@ impl HashTable {
                             freq = (freq | 0x80) << FREQ_BIT_SHIFT;
                         }
                         // TODO: this needs to be atomic
+                        // worse case new item insert fails
                         *item_info = (*item_info & !FREQ_MASK) | freq;
                     }
 
+                    println!("{} == {}", item_info_val, *item_info);
                     let age = segments.get_age(item_info_val).unwrap();
                     let item = RichItem::new(
                         current_item,
@@ -404,6 +406,7 @@ impl HashTable {
                         item_info,
                         get_cas(self.data[(hash & self.mask) as usize].data[0]),
                     );
+                    assert!(item.verify_hashtable_entry()); 
                     item.check_magic();
 
                     return Some(item);
