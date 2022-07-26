@@ -7,8 +7,21 @@ use serde::{Deserialize, Serialize};
 
 use std::io::Read;
 
+#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum Protocol {
+    Memcache,
+    Redis,
+}
+
+impl Default for Protocol {
+    fn default() -> Self {
+        Self::Memcache
+    }
+}
+
 // struct definitions
-#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct MomentoProxyConfig {
     // application modules
     #[serde(default)]
@@ -35,6 +48,8 @@ pub struct Cache {
     port: String,
     cache_name: String,
     default_ttl: NonZeroU64,
+    #[serde(default)]
+    protocol: Protocol,
 }
 
 // implementation
@@ -62,6 +77,10 @@ impl Cache {
     /// The default TTL (in seconds) for
     pub fn default_ttl(&self) -> NonZeroU64 {
         self.default_ttl
+    }
+
+    pub fn protocol(&self) -> Protocol {
+        self.protocol
     }
 }
 
@@ -107,5 +126,18 @@ impl DebugConfig for MomentoProxyConfig {
 impl KlogConfig for MomentoProxyConfig {
     fn klog(&self) -> &Klog {
         &self.klog
+    }
+}
+
+// trait implementations
+impl Default for MomentoProxyConfig {
+    fn default() -> Self {
+        Self {
+            admin: Default::default(),
+            proxy: Default::default(),
+            cache: Default::default(),
+            debug: Default::default(),
+            klog: Default::default(),
+        }
     }
 }

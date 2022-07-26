@@ -2,8 +2,11 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-mod get;
-mod set;
+mod request;
+mod response;
+mod util;
 
-pub(crate) use get::*;
-pub(crate) use set::*;
+pub(crate) use util::*;
+
+pub use request::*;
+pub use response::*;

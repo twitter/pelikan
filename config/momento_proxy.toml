@@ -21,6 +21,8 @@ cache_name = "users"
 # the TTL, in seconds, to use when items are set as 'no expiry' (TTL is zero)
 # NOTE: accepted values are between 1 and 4_294_967 (inclusive)
 default_ttl = 900
+# the protocol can be "memcache" or "redis", default is memcache
+# protocol = "memcache"
 
 [[cache]]
 # interfaces listening on
@@ -32,6 +34,21 @@ cache_name = "products"
 # the TTL, in seconds, to use when items are set as 'no expiry' (TTL is zero)
 # NOTE: accepted values are between 1 and 4_294_967 (inclusive)
 default_ttl = 1800
+# the protocol can be "memcache" or "redis", default is memcache
+protocol = "memcache"
+
+[[cache]]
+# interfaces listening on
+host = "0.0.0.0"
+# port listening on
+port = "6379"
+# the name of the Momento cache to direct requests to
+cache_name = "ratings"
+# the TTL, in seconds, to use when items are set as 'no expiry' (TTL is zero)
+# NOTE: accepted values are between 1 and 4_294_967 (inclusive)
+default_ttl = 300
+# the protocol can be "memcache" or "redis", default is memcache
+protocol = "redis"
 
 # Configure the proxy's logging
 

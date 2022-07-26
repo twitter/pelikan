@@ -11,7 +11,7 @@ mod buf;
 mod dbuf;
 mod debug;
 mod klog;
-mod momento_proxy;
+pub mod momento_proxy;
 mod pingproxy;
 mod pingserver;
 pub mod proxy;

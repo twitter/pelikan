@@ -8,6 +8,7 @@ pub(crate) async fn listener(
     listener: TcpListener,
     client_builder: SimpleCacheClientBuilder,
     cache_name: String,
+    protocol: Protocol,
 ) {
     // this acts as our listener thread and spawns tasks for each client
     loop {
@@ -21,7 +22,14 @@ pub(crate) async fn listener(
             // spawn a task for managing requests for the client
             tokio::spawn(async move {
                 TCP_CONN_CURR.increment();
-                crate::frontend::handle_proxy_client(socket, client, cache_name).await;
+                match protocol {
+                    Protocol::Memcache => {
+                        crate::frontend::handle_memcache_client(socket, client, cache_name).await;
+                    }
+                    Protocol::Redis => {
+                        crate::frontend::handle_redis_client(socket, client, cache_name).await;
+                    }
+                }
 
                 TCP_CLOSE.increment();
                 TCP_CONN_CURR.decrement();
