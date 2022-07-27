@@ -270,7 +270,7 @@ impl<T> TrackedItem<T> {
 #[cfg(test)]
 mod tests {
     use crate::Queues;
-    use net::*;
+    use ::net::*;
     use std::sync::Arc;
 
     const WAKER_TOKEN: Token = Token(usize::MAX);

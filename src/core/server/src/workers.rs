@@ -15,80 +15,84 @@ pub struct SingleWorker<Parser, Request, Response, Storage> {
 }
 
 fn map_err(e: std::io::Error) -> Result<()> {
-	match e.kind() {
-        ErrorKind::WouldBlock => {
-            Ok(())
-        }
+    match e.kind() {
+        ErrorKind::WouldBlock => Ok(()),
         _ => Err(e),
     }
 }
 
 impl<Parser, Request, Response, Storage> SingleWorker<Parser, Request, Response, Storage>
 where
-	Parser: Parse<Request> + Clone,
-	Response: Compose,
+    Parser: Parse<Request> + Clone,
+    Response: Compose,
     Storage: EntryStore + Execute<Request, Response>,
 {
-	/// Return the `Session` to the `Listener` to handle flush/close
+    /// Return the `Session` to the `Listener` to handle flush/close
     fn close(&mut self, token: Token) {
-    	if self.sessions.contains(token.0) {
-    		let mut session = self.sessions.remove(token.0).into_inner();
-	        let _ = session.deregister(self.poll.registry());
-	        let _ = self.session_queue.try_send_any(session);
-	        let _ = self.session_queue.wake();
-    	}
+        if self.sessions.contains(token.0) {
+            let mut session = self.sessions.remove(token.0).into_inner();
+            let _ = session.deregister(self.poll.registry());
+            let _ = self.session_queue.try_send_any(session);
+            let _ = self.session_queue.wake();
+        }
     }
 
     /// Handle up to one request for a session
     fn read(&mut self, token: Token) -> Result<()> {
-    	let session = self
+        let session = self
             .sessions
             .get_mut(token.0)
             .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
 
         // fill the session
         match session.fill() {
-        	Ok(0) => {
-        		Err(Error::new(ErrorKind::Other, "client hangup"))
-        	}
-        	r => r,
+            Ok(0) => Err(Error::new(ErrorKind::Other, "client hangup")),
+            r => r,
         }?;
 
         // process up to one request
         match session.receive() {
-        	Ok(request) => {
-        		let response = self.storage.execute(&request);
-        		match session.send(response) {
-        			Ok(_) => {
-        				if session.write_pending() > 0 {
-        					match session.flush() {
-					        	Ok(_) => Ok(()),
-					        	Err(e) => map_err(e),
-					        }?;
-        				}
+            Ok(request) => {
+                let response = self.storage.execute(&request);
+                if response.should_hangup() {
+                    let _ = session.send(response);
+                    return Err(Error::new(ErrorKind::Other, "should hangup"));
+                }
+                match session.send(response) {
+                    Ok(_) => {
+                        if session.write_pending() > 0 {
+                            match session.flush() {
+                                Ok(_) => Ok(()),
+                                Err(e) => map_err(e),
+                            }?;
+                        }
 
-        				if session.write_pending() > 0 && session.reregister(self.poll.registry(), token, session.interest()).is_err() {
-    						Err(Error::new(ErrorKind::Other, "failed to reregister"))
-    					} else {
-    						Ok(())
-    					}
-        			},
-        			Err(e) => map_err(e),
-        		}
-        	}
-        	Err(e) => map_err(e),
+                        if (session.write_pending() > 0 || session.remaining() > 0)
+                            && session
+                                .reregister(self.poll.registry(), token, session.interest())
+                                .is_err()
+                        {
+                            Err(Error::new(ErrorKind::Other, "failed to reregister"))
+                        } else {
+                            Ok(())
+                        }
+                    }
+                    Err(e) => map_err(e),
+                }
+            }
+            Err(e) => map_err(e),
         }
     }
 
     fn write(&mut self, token: Token) -> Result<()> {
-    	let session = self
+        let session = self
             .sessions
             .get_mut(token.0)
             .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
 
         match session.flush() {
-        	Ok(_) => Ok(()),
-        	Err(e) => map_err(e),
+            Ok(_) => Ok(()),
+            Err(e) => map_err(e),
         }
     }
 
@@ -118,22 +122,27 @@ where
 
             // process all events
             for event in events.iter() {
-            	let token = event.token();
+                let token = event.token();
 
                 match token {
                     WAKER_TOKEN => {
-                    	// handle up to one new session
-                        if let Some(mut session) = self.session_queue.try_recv().map(|v| v.into_inner()) {
-				            let s = self.sessions.vacant_entry();
-				            if session.register(self.poll.registry(), Token(s.key()), session.interest()).is_ok() {
-				            	s.insert(ServerSession::new(session, self.parser.clone()));
-				            } else {
-				            	let _ = self.session_queue.try_send_any(session);
-				            }
-				            
-				            // trigger a wake-up in case there are more sessions
-				            let _ = self.waker.wake();
-				        }
+                        // handle up to one new session
+                        if let Some(mut session) =
+                            self.session_queue.try_recv().map(|v| v.into_inner())
+                        {
+                            let s = self.sessions.vacant_entry();
+                            if session
+                                .register(self.poll.registry(), Token(s.key()), session.interest())
+                                .is_ok()
+                            {
+                                s.insert(ServerSession::new(session, self.parser.clone()));
+                            } else {
+                                let _ = self.session_queue.try_send_any(session);
+                            }
+
+                            // trigger a wake-up in case there are more sessions
+                            let _ = self.waker.wake();
+                        }
 
                         // check if we received any signals from the admin thread
                         while let Some(signal) = self.signal_queue.try_recv() {
@@ -151,9 +160,12 @@ where
                         }
                     }
                     _ => {
-                    	if event.is_error() || event.is_writable() && self.write(token).is_err() || event.is_readable() && self.read(token).is_err() {
-				            self.close(token);
-				        }
+                        if event.is_error()
+                            || event.is_writable() && self.write(token).is_err()
+                            || event.is_readable() && self.read(token).is_err()
+                        {
+                            self.close(token);
+                        }
                     }
                 }
             }
@@ -230,49 +242,46 @@ where
     /// Return the `Session` to the `Listener` to handle flush/close
     fn close(&mut self, token: Token) {
         if self.sessions.contains(token.0) {
-    		let mut session = self.sessions.remove(token.0).into_inner();
-	        let _ = session.deregister(self.poll.registry());
-	        let _ = self.session_queue.try_send_any(session);
-	        let _ = self.session_queue.wake();
-    	}
+            let mut session = self.sessions.remove(token.0).into_inner();
+            let _ = session.deregister(self.poll.registry());
+            let _ = self.session_queue.try_send_any(session);
+            let _ = self.session_queue.wake();
+        }
     }
 
     /// Handle up to one request for a session
     fn read(&mut self, token: Token) -> Result<()> {
-    	let session = self
+        let session = self
             .sessions
             .get_mut(token.0)
             .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
 
         // fill the session
         match session.fill() {
-        	Ok(0) => {
-        		Err(Error::new(ErrorKind::Other, "client hangup"))
-        	}
-        	r => r,
+            Ok(0) => Err(Error::new(ErrorKind::Other, "client hangup")),
+            r => r,
         }?;
 
         // process up to one request
         match session.receive() {
-        	Ok(request) => {
-        		self.data_queue.try_send_to(0, (request, token)).map_err(|_| Error::new(ErrorKind::Other, "data queue is full"))
-        	}
-        	Err(e) => {
-        		map_err(e)
-        	}
+            Ok(request) => self
+                .data_queue
+                .try_send_to(0, (request, token))
+                .map_err(|_| Error::new(ErrorKind::Other, "data queue is full")),
+            Err(e) => map_err(e),
         }
     }
 
     /// Handle write by flushing the session
     fn write(&mut self, token: Token) -> Result<()> {
-    	let session = self
+        let session = self
             .sessions
             .get_mut(token.0)
             .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
 
         match session.flush() {
-        	Ok(_) => Ok(()),
-        	Err(e) => map_err(e),
+            Ok(_) => Ok(()),
+            Err(e) => map_err(e),
         }
     }
 
@@ -304,31 +313,50 @@ where
 
             // process all events
             for event in events.iter() {
-            	let token = event.token();
+                let token = event.token();
                 match token {
                     WAKER_TOKEN => {
-                    	// handle up to one new session
-                        if let Some(mut session) = self.session_queue.try_recv().map(|v| v.into_inner()) {
-				            let s = self.sessions.vacant_entry();
-				            if session.register(self.poll.registry(), Token(s.key()), session.interest()).is_ok() {
-				            	s.insert(ServerSession::new(session, self.parser.clone()));
-				            } else {
-				            	let _ = self.session_queue.try_send_any(session);
-				            }
-				            
-				            // trigger a wake-up in case there are more sessions
-				            let _ = self.waker.wake();
-				        }
+                        // handle up to one new session
+                        if let Some(mut session) =
+                            self.session_queue.try_recv().map(|v| v.into_inner())
+                        {
+                            let s = self.sessions.vacant_entry();
+                            if session
+                                .register(self.poll.registry(), Token(s.key()), session.interest())
+                                .is_ok()
+                            {
+                                s.insert(ServerSession::new(session, self.parser.clone()));
+                            } else {
+                                let _ = self.session_queue.try_send_any(session);
+                            }
 
-				        // handle all pending messages on the data queue
-				        self.data_queue.try_recv_all(&mut messages);
-				        for (_request, response, token) in messages.drain(..).map(|v| v.into_inner()) {
-				            if let Some(session) = self.sessions.get_mut(token.0) {
-				                if session.send(response).is_err() || session.write_pending() > 0 && session.reregister(self.poll.registry(), token, session.interest()).is_err() {
-				                	self.close(token);
-				                }
-				            }
-				        }
+                            // trigger a wake-up in case there are more sessions
+                            let _ = self.waker.wake();
+                        }
+
+                        // handle all pending messages on the data queue
+                        self.data_queue.try_recv_all(&mut messages);
+                        for (_request, response, token) in
+                            messages.drain(..).map(|v| v.into_inner())
+                        {
+                            if let Some(session) = self.sessions.get_mut(token.0) {
+                                if response.should_hangup() {
+                                    let _ = session.send(response);
+                                    self.close(token);
+                                } else if session.send(response).is_err()
+                                    || (session.write_pending() > 0
+                                        && session
+                                            .reregister(
+                                                self.poll.registry(),
+                                                token,
+                                                session.interest(),
+                                            )
+                                            .is_err())
+                                {
+                                    self.close(token);
+                                }
+                            }
+                        }
 
                         // check if we received any signals from the admin thread
                         while let Some(signal) =
@@ -345,10 +373,13 @@ where
                         }
                     }
                     _ => {
-                    	// handle each session event
-                        if event.is_error() || event.is_writable() && self.write(token).is_err() || event.is_readable() && self.read(token).is_err() {
-				            self.close(token);
-				        }
+                        // handle each session event
+                        if event.is_error()
+                            || event.is_writable() && self.write(token).is_err()
+                            || event.is_readable() && self.read(token).is_err()
+                        {
+                            self.close(token);
+                        }
                     }
                 }
             }
@@ -649,16 +680,13 @@ where
             Self::Single { worker } => {
                 vec![worker.waker.clone()]
             }
-            Self::Multi {
-                workers,
-                storage,
-            } => {
-            	let mut wakers = vec![storage.waker.clone()];
-            	for worker in workers {
-            		wakers.push(worker.waker.clone());
-            	}
-            	wakers
-            },
+            Self::Multi { workers, storage } => {
+                let mut wakers = vec![storage.waker.clone()];
+                for worker in workers {
+                    wakers.push(worker.waker.clone());
+                }
+                wakers
+            }
         }
     }
 

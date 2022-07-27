@@ -19,7 +19,7 @@ members = [
     # "src/proxy/thrift",
     "src/queues",
     "src/server/pingserver",
-    # "src/server/segcache",
+    "src/server/segcache",
     "src/session/common",
     "src/session/legacy",
     "src/storage/datapool",

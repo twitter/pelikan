@@ -15,5 +15,6 @@ net = { path = "../../net" }
 protocol-admin = { path = "../../protocol/admin" }
 protocol-common = { path = "../../protocol/common" }
 queues = { path = "../../queues" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 session-common = { path = "../../session/common" }
 slab = "0.4.2"

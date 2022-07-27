@@ -452,7 +452,8 @@ where
                 let now = Instant::now();
                 let _latency = now - timestamp;
             }
-        } else {            self.outstanding.push_back((timestamp, size));
+        } else {
+            self.outstanding.push_back((timestamp, size));
             let _ = self.flush()?;
         }
 

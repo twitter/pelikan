@@ -43,14 +43,13 @@ impl Pingserver {
 
         // initialize process
         let process_builder = ProcessBuilder::<Parser, Request, Response, Storage>::new(
-            &config,
-            log_drain,
-            parser,
+            &config, log_drain, parser,
             storage,
             // max_buffer_size,
             // parser,
             // log_drain,
-        ).expect("failed to start process");
+        )
+        .expect("failed to start process");
         // .version(env!("CARGO_PKG_VERSION"));
 
         // spawn threads

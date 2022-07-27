@@ -34,9 +34,9 @@ mod listener;
 mod process;
 mod workers;
 
-use admin::{Admin, AdminBuilder};
-use listener::{Listener, ListenerBuilder};
-use workers::{Workers, WorkersBuilder};
+use admin::AdminBuilder;
+use listener::ListenerBuilder;
+use workers::WorkersBuilder;
 
 pub use process::{Process, ProcessBuilder};
 
@@ -51,3 +51,20 @@ const LISTENER_TOKEN: Token = Token(usize::MAX - 1);
 const WAKER_TOKEN: Token = Token(usize::MAX);
 
 const THREAD_PREFIX: &str = "pelikan";
+
+pub static PERCENTILES: &[(&str, f64)] = &[
+    ("p25", 25.0),
+    ("p50", 50.0),
+    ("p75", 75.0),
+    ("p90", 90.0),
+    ("p99", 99.0),
+    ("p999", 99.9),
+    ("p9999", 99.99),
+];
+
+fn map_err(e: std::io::Error) -> Result<()> {
+    match e.kind() {
+        ErrorKind::WouldBlock => Ok(()),
+        _ => Err(e),
+    }
+}

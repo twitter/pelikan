@@ -16,7 +16,7 @@ use clap::{App, Arg};
 use config::PingserverConfig;
 use pelikan_pingserver_rs::Pingserver;
 use rustcommon_metrics::*;
-// use server::PERCENTILES;
+use server::PERCENTILES;
 
 /// The entry point into the running Pingserver instance. This function parses
 /// parses the command line options, loads the configuration, and launches the
@@ -74,10 +74,10 @@ fn main() {
             } else if any.downcast_ref::<Gauge>().is_some() {
                 metrics.push(format!("{:<31} gauge", metric.name()));
             } else if any.downcast_ref::<Heatmap>().is_some() {
-                // for (label, _) in PERCENTILES {
-                //     let name = format!("{}_{}", metric.name(), label);
-                //     metrics.push(format!("{:<31} percentile", name));
-                // }
+                for (label, _) in PERCENTILES {
+                    let name = format!("{}_{}", metric.name(), label);
+                    metrics.push(format!("{:<31} percentile", name));
+                }
             } else {
                 continue;
             }
@@ -96,8 +96,7 @@ fn main() {
         match PingserverConfig::load(file) {
             Ok(c) => c,
             Err(e) => {
-                println!("error: {}", e);
-                error!("{}", e);
+                println!("error launching pingserver: {}", e);
                 std::process::exit(1);
             }
         }

@@ -165,6 +165,8 @@ unsafe impl BufMut for Buffer {
         unsafe {
             std::ptr::copy_nonoverlapping(src.as_ptr(), self.ptr.add(self.write_offset), src.len());
         }
-        unsafe { self.advance_mut(src.len()); }
+        unsafe {
+            self.advance_mut(src.len());
+        }
     }
 }

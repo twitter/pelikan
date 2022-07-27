@@ -120,7 +120,8 @@ fn main() {
     match Segcache::new(config) {
         Ok(segcache) => segcache.wait(),
         Err(e) => {
-            error!("error launching segcache: {}", e);
+            println!("error launching segcache: {}", e);
+            std::process::exit(1);
         }
     }
 }

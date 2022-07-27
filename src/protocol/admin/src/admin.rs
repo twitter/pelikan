@@ -90,7 +90,11 @@ mod tests {
 
         let buffers: Vec<&[u8]> = vec![b"", b"stats", b"stats\r"];
         for buffer in buffers.iter() {
-            assert_eq!(parser.parse(buffer), Err(ParseError::Incomplete));
+            if let Err(e) = parser.parse(buffer) {
+                assert_eq!(e.kind(), ErrorKind::WouldBlock);
+            } else {
+                panic!("parser should not have returned a request");
+            }
         }
     }
 
