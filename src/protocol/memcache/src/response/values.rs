@@ -47,7 +47,7 @@ impl Compose for Values {
         let suffix = b"END\r\n";
 
         let mut size = suffix.len();
-        
+
         for value in self.values.iter() {
             size += value.compose(session);
         }
@@ -66,7 +66,8 @@ impl Compose for Value {
             format!(" {} {}\r\n", self.flags, self.data.len()).into_bytes()
         };
 
-        let size = prefix.len() + self.key.len() + header_fields.len() + self.data.len() + CRLF.len();
+        let size =
+            prefix.len() + self.key.len() + header_fields.len() + self.data.len() + CRLF.len();
 
         session.put_slice(prefix);
         session.put_slice(&self.key);

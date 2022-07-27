@@ -1,18 +1,18 @@
 // use boring::ssl::{SslConnector, SslAcceptor};
-use foreign_types_shared::ForeignType;
-use boring::ssl::Ssl;
 use boring::ssl::ErrorCode;
+use boring::ssl::Ssl;
 use boring::ssl::SslStream;
-use foreign_types_shared::ForeignTypeRef;
-use core::fmt::Debug;
+pub use boring::ssl::{SslFiletype, SslMethod, SslVerifyMode};
 use boring::x509::X509;
-use std::path::PathBuf;
-use std::path::Path;
+use core::fmt::Debug;
 use core::ops::Deref;
+use foreign_types_shared::ForeignType;
+use foreign_types_shared::ForeignTypeRef;
 pub use mio::*;
-use std::net::SocketAddr;
 use std::io::ErrorKind;
-pub use boring::ssl::{SslMethod, SslVerifyMode, SslFiletype};
+use std::net::SocketAddr;
+use std::path::Path;
+use std::path::PathBuf;
 
 mod tcp;
 
@@ -61,6 +61,13 @@ impl Stream {
         match &self.inner {
             StreamType::Tcp(_) => false,
             StreamType::TlsTcp(s) => s.is_handshaking(),
+        }
+    }
+
+    pub fn do_handshake(&mut self) -> Result<()> {
+        match &mut self.inner {
+            StreamType::Tcp(_) => Ok(()),
+            StreamType::TlsTcp(s) => s.do_handshake(),
         }
     }
 
@@ -123,12 +130,7 @@ impl Write for Stream {
 }
 
 impl event::Source for Stream {
-    fn register(
-        &mut self,
-        registry: &Registry,
-        token: Token,
-        interest: Interest,
-    ) -> Result<()> {
+    fn register(&mut self, registry: &Registry, token: Token, interest: Interest) -> Result<()> {
         match &mut self.inner {
             StreamType::Tcp(s) => s.register(registry, token, interest),
             StreamType::TlsTcp(s) => s.register(registry, token, interest),
@@ -258,12 +260,7 @@ impl Write for TlsTcpStream {
 }
 
 impl event::Source for TlsTcpStream {
-    fn register(
-        &mut self,
-        registry: &Registry,
-        token: Token,
-        interest: Interest,
-    ) -> Result<()> {
+    fn register(&mut self, registry: &Registry, token: Token, interest: Interest) -> Result<()> {
         self.inner.get_mut().register(registry, token, interest)
     }
 
@@ -281,6 +278,35 @@ impl event::Source for TlsTcpStream {
     }
 }
 
+pub struct Connector {
+    inner: ConnectorType,
+}
+
+enum ConnectorType {
+    Plain,
+    Tls(TlsTcpConnector),
+}
+
+impl Connector {
+    pub fn connect<A: ToSocketAddrs>(&self, addr: A) -> Result<Stream> {
+        match &self.inner {
+            ConnectorType::Plain => {
+                let addrs: Vec<SocketAddr> = addr.to_socket_addrs()?.collect();
+                let mut s = Err(Error::new(ErrorKind::Other, "failed to resolve"));
+                for addr in addrs {
+                    s = TcpStream::connect(addr);
+                    if s.is_ok() {
+                        break;
+                    }
+                }
+                Ok(Stream::from(s?))
+            }
+            ConnectorType::Tls(_connector) => {
+                todo!()
+            }
+        }
+    }
+}
 
 pub struct Listener {
     inner: ListenerType,
@@ -331,9 +357,7 @@ impl event::Source for Listener {
         interests: mio::Interest,
     ) -> Result<()> {
         match &mut self.inner {
-            ListenerType::Plain(listener) => {
-                listener.register(registry, token, interests)
-            }
+            ListenerType::Plain(listener) => listener.register(registry, token, interests),
             ListenerType::Tls((listener, _acceptor)) => {
                 listener.register(registry, token, interests)
             }
@@ -347,9 +371,7 @@ impl event::Source for Listener {
         interests: mio::Interest,
     ) -> Result<()> {
         match &mut self.inner {
-            ListenerType::Plain(listener) => {
-                listener.reregister(registry, token, interests)
-            }
+            ListenerType::Plain(listener) => listener.reregister(registry, token, interests),
             ListenerType::Tls((listener, _acceptor)) => {
                 listener.reregister(registry, token, interests)
             }
@@ -358,12 +380,8 @@ impl event::Source for Listener {
 
     fn deregister(&mut self, registry: &mio::Registry) -> Result<()> {
         match &mut self.inner {
-            ListenerType::Plain(listener) => {
-                listener.deregister(registry)
-            }
-            ListenerType::Tls((listener, _acceptor)) => {
-                listener.deregister(registry)
-            }
+            ListenerType::Plain(listener) => listener.deregister(registry),
+            ListenerType::Tls((listener, _acceptor)) => listener.deregister(registry),
         }
     }
 }
@@ -400,14 +418,14 @@ impl TlsTcpConnector {
                 state: TlsState::Negotiated,
             })
         } else {
-            let code = unsafe { ErrorCode::from_raw(boring_sys::SSL_get_error(stream.ssl().as_ptr(), ret)) };
+            let code = unsafe {
+                ErrorCode::from_raw(boring_sys::SSL_get_error(stream.ssl().as_ptr(), ret))
+            };
             match code {
-                ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => {
-                    Ok(TlsTcpStream {
-                        inner: stream,
-                        state: TlsState::Handshaking,
-                    })
-                }
+                ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => Ok(TlsTcpStream {
+                    inner: stream,
+                    state: TlsState::Handshaking,
+                }),
                 _ => Err(Error::new(ErrorKind::Other, "handshake failed")),
             }
         }
@@ -429,9 +447,8 @@ pub struct TlsTcpAcceptor {
 
 impl TlsTcpAcceptor {
     pub fn mozilla_intermediate_v5(method: SslMethod) -> Result<TlsTcpAcceptorBuilder> {
-        let inner = boring::ssl::SslAcceptor::mozilla_intermediate_v5(method).map_err(|e| {
-            Error::new(ErrorKind::Other, e.to_string())
-        })?;
+        let inner = boring::ssl::SslAcceptor::mozilla_intermediate_v5(method)
+            .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))?;
 
         Ok(TlsTcpAcceptorBuilder {
             inner,
@@ -455,14 +472,14 @@ impl TlsTcpAcceptor {
                 state: TlsState::Negotiated,
             })
         } else {
-            let code = unsafe { ErrorCode::from_raw(boring_sys::SSL_get_error(stream.ssl().as_ptr(), ret)) };
+            let code = unsafe {
+                ErrorCode::from_raw(boring_sys::SSL_get_error(stream.ssl().as_ptr(), ret))
+            };
             match code {
-                ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => {
-                    Ok(TlsTcpStream {
-                        inner: stream,
-                        state: TlsState::Handshaking,
-                    })
-                }
+                ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => Ok(TlsTcpStream {
+                    inner: stream,
+                    state: TlsState::Handshaking,
+                }),
                 _ => Err(Error::new(ErrorKind::Other, "handshake failed")),
             }
         }
@@ -484,16 +501,21 @@ impl TlsTcpAcceptorBuilder {
     pub fn build(mut self) -> Result<TlsTcpAcceptor> {
         // load the CA file, if provided
         if let Some(f) = self.ca_file {
-            self.inner
-                .set_ca_file(f)
-                .map_err(|e| Error::new(ErrorKind::Other, format!("failed to load CA file: {}", e)))?;
+            self.inner.set_ca_file(f).map_err(|e| {
+                Error::new(ErrorKind::Other, format!("failed to load CA file: {}", e))
+            })?;
         }
 
         // load the private key from file
         if let Some(f) = self.private_key_file {
             self.inner
                 .set_private_key_file(f, SslFiletype::PEM)
-                .map_err(|e| Error::new(ErrorKind::Other, format!("failed to load private key file: {}", e)))?;
+                .map_err(|e| {
+                    Error::new(
+                        ErrorKind::Other,
+                        format!("failed to load private key file: {}", e),
+                    )
+                })?;
         } else {
             return Err(Error::new(ErrorKind::Other, "no private key file provided"));
         }
@@ -507,17 +529,33 @@ impl TlsTcpAcceptorBuilder {
                 // first load the leaf
                 self.inner
                     .set_certificate_file(cert, SslFiletype::PEM)
-                    .map_err(|e| Error::new(ErrorKind::Other, format!("failed to load certificate file: {}", e)))?;
+                    .map_err(|e| {
+                        Error::new(
+                            ErrorKind::Other,
+                            format!("failed to load certificate file: {}", e),
+                        )
+                    })?;
 
                 // append the rest of the chain
-                let pem = std::fs::read(chain)
-                    .map_err(|e| Error::new(ErrorKind::Other, format!("failed to load certificate chain file: {}", e)))?;
-                let chain = X509::stack_from_pem(&pem)
-                    .map_err(|e| Error::new(ErrorKind::Other, format!("failed to load certificate chain file: {}", e)))?;
+                let pem = std::fs::read(chain).map_err(|e| {
+                    Error::new(
+                        ErrorKind::Other,
+                        format!("failed to load certificate chain file: {}", e),
+                    )
+                })?;
+                let chain = X509::stack_from_pem(&pem).map_err(|e| {
+                    Error::new(
+                        ErrorKind::Other,
+                        format!("failed to load certificate chain file: {}", e),
+                    )
+                })?;
                 for cert in chain {
-                    self.inner
-                        .add_extra_chain_cert(cert)
-                        .map_err(|e| Error::new(ErrorKind::Other, format!("bad certificate in certificate chain file: {}", e)))?;
+                    self.inner.add_extra_chain_cert(cert).map_err(|e| {
+                        Error::new(
+                            ErrorKind::Other,
+                            format!("bad certificate in certificate chain file: {}", e),
+                        )
+                    })?;
                 }
             }
             (Some(chain), None) => {
@@ -525,26 +563,35 @@ impl TlsTcpAcceptorBuilder {
                 // one file
 
                 // load the entire chain
-                self.inner
-                    .set_certificate_chain_file(chain)
-                    .map_err(|e| Error::new(ErrorKind::Other, format!("failed to load certificate chain file: {}", e)))?;
+                self.inner.set_certificate_chain_file(chain).map_err(|e| {
+                    Error::new(
+                        ErrorKind::Other,
+                        format!("failed to load certificate chain file: {}", e),
+                    )
+                })?;
             }
             (None, Some(cert)) => {
                 // this will just load the leaf certificate from the file
                 self.inner
                     .set_certificate_file(cert, SslFiletype::PEM)
-                    .map_err(|e| Error::new(ErrorKind::Other, format!("failed to load certificate file: {}", e)))?;
+                    .map_err(|e| {
+                        Error::new(
+                            ErrorKind::Other,
+                            format!("failed to load certificate file: {}", e),
+                        )
+                    })?;
             }
             (None, None) => {
-                return Err(Error::new(ErrorKind::Other, "no certificate file or certificate chain file provided"));
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    "no certificate file or certificate chain file provided",
+                ));
             }
         }
 
         let inner = self.inner.build().into_context();
 
-        Ok(TlsTcpAcceptor {
-            inner
-        })
+        Ok(TlsTcpAcceptor { inner })
     }
 
     pub fn verify(mut self, mode: SslVerifyMode) -> Self {

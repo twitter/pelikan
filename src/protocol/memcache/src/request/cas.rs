@@ -145,7 +145,15 @@ impl Compose for Cas {
             "\r\n".as_bytes()
         };
 
-        let size = verb.len() + self.key.len() + flags.len() + ttl.len() + vlen.len() + cas.len() + header_end.len() + self.value.len() + CRLF.len();
+        let size = verb.len()
+            + self.key.len()
+            + flags.len()
+            + ttl.len()
+            + vlen.len()
+            + cas.len()
+            + header_end.len()
+            + self.value.len()
+            + CRLF.len();
 
         session.put_slice(verb);
         session.put_slice(&self.key);

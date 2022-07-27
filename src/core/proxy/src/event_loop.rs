@@ -5,6 +5,8 @@
 //! A trait defining common functions for event-based threads which operate on
 //! sessions.
 
+use net::event::Source;
+use std::fmt::Debug;
 use std::io::{BufRead, ErrorKind, Write};
 
 use net::Token;
@@ -13,7 +15,10 @@ use crate::poll::Poll;
 
 /// An `EventLoop` describes the functions which must be implemented for a basic
 /// event loop and provides some default implementations and helper functions.
-pub trait EventLoop<S> {
+pub trait EventLoop<S>
+where
+    S: Source + Debug,
+{
     // the following functions must be implemented
 
     /// Provides access to the `Poll` structure which allows polling for new

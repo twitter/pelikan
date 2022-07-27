@@ -2,15 +2,16 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+pub use buffer::*;
 use core::fmt::Debug;
-use protocol_common::Parse;
-use protocol_common::Compose;
 use core::marker::PhantomData;
+use protocol_common::Compose;
+use protocol_common::Parse;
 use rustcommon_time::Nanoseconds;
 use std::collections::VecDeque;
-pub use buffer::*;
+use std::io::Error;
 
-use protocol_common::ParseError;
+// use protocol_common::ParseError;
 
 use ::net::*;
 use core::borrow::{Borrow, BorrowMut};
@@ -153,6 +154,10 @@ impl Session {
 
         Ok(flushed)
     }
+
+    pub fn do_handshake(&mut self) -> Result<()> {
+        self.stream.do_handshake()
+    }
 }
 
 // NOTE: this is opioniated in that we set the buffer sizes, but should be an
@@ -167,147 +172,23 @@ impl From<Stream> for Session {
     }
 }
 
-// impl Read for Session {
-//     // NOTE: this implementation will make a syscall only if the caller wants
-//     // more data than is currently in the internal read buffer.
-//     fn read(&mut self, buf: &mut [u8]) -> std::result::Result<usize, std::io::Error> {
-//         // If the read buffer is empty and the provided buffer is sufficiently
-//         // large, we bypass the read buffer and read directly into the provided
-//         // buffer.
-//         if self.read_buffer.remaining() == 0 && buf.len() >= self.read_buffer.remaining_mut() {
-//             return self.stream.read(buf);
-//         }
-
-//         // TODO(bmartin): consider eliminating the double-copy here. This simple
-//         // implementation copies from the stream into the read buffer and then
-//         // to the provided buffer.
-//         if self.read_buffer.remaining() < buf.len() {
-//             self.read_buffer.put_slice(buf);
-//             match self.stream.read(self.read_buffer.borrow_mut()) {
-//                 Ok(0) => {
-//                     // This means the underlying stream is closed, we need to
-//                     // notify the caller by returning this result.
-//                     return Ok(0);
-//                 }
-//                 Ok(n) => {
-//                     // Successfully read 'n' bytes from the stream into the
-//                     // buffer. Advance the write position.
-//                     unsafe {
-//                         self.read_buffer.advance_mut(n);
-//                     }
-//                 }
-//                 Err(e) => match e.kind() {
-//                     ErrorKind::WouldBlock | ErrorKind::Interrupted => {}
-//                     _ => {
-//                         return Err(e);
-//                     }
-//                 },
-//             }
-//         }
-
-//         let len = std::cmp::min(self.read_buffer.remaining(), buf.len());
-//         let src: &[u8] = self.read_buffer.borrow();
-//         unsafe {
-//             std::ptr::copy_nonoverlapping(src.as_ptr(), buf.as_mut_ptr(), len);
-//         }
-//         self.read_buffer.advance(len);
-
-//         Ok(buf.len())
-//     }
-// }
-
-// impl Write for Session {
-//     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-//         // if the contents fit in the write buffer, copy them and return
-//         if buf.len() <= self.write_buffer.remaining_mut() {
-//             self.write_buffer.put_slice(buf);
-//             return Ok(buf.len());
-//         }
-
-//         // The contents don't fit in the write buffer, so we try flushing to the
-//         // underlying stream. This helps prevent unnecessary growth of the write
-//         // buffer at the expense of additional system calls.
-//         match self.flush() {
-//             Ok(()) => {
-//                 // flush completed, we can now see if the contents are still
-//                 // bigger than the write buffer. If they are, we attempt to
-//                 // bypass the write buffer and write directly to the stream.
-//                 if buf.len() >= self.write_buffer.remaining_mut() {
-//                     // large write, attempt to bypass buffer
-//                     match self.stream.write(buf) {
-//                         Ok(n) => {
-//                             if n == buf.len() {
-//                                 // complete write
-//                                 Ok(buf.len())
-//                             } else {
-//                                 // partial write, copy the rest to the buffer
-//                                 self.write_buffer.put_slice(&buf[n..]);
-//                                 Ok(buf.len())
-//                             }
-//                         }
-//                         Err(e) => match e.kind() {
-//                             ErrorKind::Interrupted | ErrorKind::WouldBlock => {
-//                                 // no bytes were written, but could be written
-//                                 // in the future, put them in the write buffer.
-//                                 // NOTE: `Interrupted` is immediately retryable,
-//                                 // but it's simpler to handle this way for now.
-//                                 self.write_buffer.put_slice(buf);
-//                                 Ok(buf.len())
-//                             }
-//                             _ => Err(e),
-//                         },
-//                     }
-//                 } else {
-//                     // small write, just write to buffer
-//                     self.write_buffer.put_slice(buf);
-//                     Ok(buf.len())
-//                 }
-//             }
-//             Err(e) => match e.kind() {
-//                 ErrorKind::Interrupted | ErrorKind::WouldBlock => {
-//                     // flush shouldn't return interrupted, but both these errors
-//                     // indicate that future writes may be successful. Write the
-//                     // contents into the write buffer
-//                     self.write_buffer.put_slice(buf);
-//                     Ok(buf.len())
-//                 }
-//                 _ => {
-//                     // flush failed in some way that is not retryable, bubble
-//                     // the error up to the caller
-//                     Err(e)
-//                 }
-//             },
-//         }
-//     }
-
-//     // NOTE: this is implemented as a non-blocking operation that may make
-//     // multiple syscalls to complete. An `Ok` result indicates that the entire
-//     // write buffer has been flushed to the underlying stream. An `Err` result
-//     // indicates that some or all of the write buffer was *not* flushed to the
-//     // underlying stream and that flush should be called again in the future.
-//     fn flush(&mut self) -> Result<()> {
-//         while self.write_buffer.has_remaining() {
-//             match self.stream.write(self.write_buffer.borrow()) {
-//                 Ok(amt) => {
-//                     self.write_buffer.advance(amt);
-//                 }
-//                 Err(e) => match e.kind() {
-//                     ErrorKind::Interrupted => {
-//                         // this should be retried immediately
-//                     }
-//                     _ => {
-//                         // all other errors get bubbled up
-//                         return Err(e);
-//                     }
-//                 },
-//             }
-//         }
-
-//         Ok(())
-//     }
-// }
+impl From<TcpStream> for Session {
+    fn from(other: TcpStream) -> Self {
+        Self::new(
+            Stream::from(other),
+            Buffer::new(TARGET_READ_SIZE),
+            Buffer::new(TARGET_READ_SIZE),
+        )
+    }
+}
 
 impl Borrow<[u8]> for Session {
+    fn borrow(&self) -> &[u8] {
+        self.read_buffer.borrow()
+    }
+}
+
+impl Borrow<[u8]> for &mut Session {
     fn borrow(&self) -> &[u8] {
         self.read_buffer.borrow()
     }
@@ -354,21 +235,11 @@ unsafe impl BufMut for Session {
 }
 
 impl event::Source for Session {
-    fn register(
-        &mut self,
-        registry: &Registry,
-        token: Token,
-        interest: Interest,
-    ) -> Result<()> {
+    fn register(&mut self, registry: &Registry, token: Token, interest: Interest) -> Result<()> {
         self.stream.register(registry, token, interest)
     }
 
-    fn reregister(
-        &mut self,
-        registry: &Registry,
-        token: Token,
-        interest: Interest,
-    ) -> Result<()> {
+    fn reregister(&mut self, registry: &Registry, token: Token, interest: Interest) -> Result<()> {
         self.stream.reregister(registry, token, interest)
     }
 
@@ -378,21 +249,20 @@ impl event::Source for Session {
 }
 
 /// A basic session to represent the client side of a framed session.
-pub struct ClientSession<Parser, Rx, Tx> {
+pub struct ClientSession<Parser, Tx, Rx> {
     session: Session,
     parser: Parser,
     pending: VecDeque<(Instant, Tx)>,
     _rx: PhantomData<Rx>,
 }
 
-
-impl<Parser, Rx, Tx> Debug for ClientSession<Parser, Rx, Tx> {
+impl<Parser, Tx, Rx> Debug for ClientSession<Parser, Tx, Rx> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(f, "{:?}", self.session)
     }
 }
 
-impl<Parser, Rx, Tx> ClientSession<Parser, Rx, Tx>
+impl<Parser, Tx, Rx> ClientSession<Parser, Tx, Rx>
 where
     Tx: Compose,
     Parser: Parse<Rx>,
@@ -420,14 +290,15 @@ where
         Ok(size)
     }
 
-    pub fn receive(&mut self) -> std::result::Result<(Tx, Rx), ParseError> {
+    pub fn receive(&mut self) -> Result<(Tx, Rx)> {
         let src: &[u8] = self.session.borrow();
         match self.parser.parse(src) {
             Ok(res) => {
                 let now = Instant::now();
-                let (timestamp, request) = self.pending.pop_front().ok_or(
-                    ParseError::Unknown
-                )?;
+                let (timestamp, request) = self
+                    .pending
+                    .pop_front()
+                    .ok_or_else(|| Error::from(ErrorKind::InvalidInput))?;
                 let _elapsed = now - timestamp;
                 let consumed = res.consumed();
                 let msg = res.into_inner();
@@ -438,12 +309,89 @@ where
         }
     }
 
-    pub fn flush(&mut self) {
-        let _ = self.session.flush();
+    pub fn flush(&mut self) -> Result<()> {
+        self.session.flush()?;
+        Ok(())
+    }
+
+    pub fn write_pending(&self) -> usize {
+        self.session.write_pending()
+    }
+
+    pub fn fill(&mut self) -> Result<usize> {
+        self.session.fill()
+    }
+
+    pub fn interest(&self) -> Interest {
+        self.session.interest()
+    }
+
+    pub fn do_handshake(&mut self) -> Result<()> {
+        self.session.do_handshake()
     }
 }
 
-pub struct ServerSession<Parser, Rx, Tx> {
+impl<Parser, Tx, Rx> Borrow<[u8]> for ClientSession<Parser, Tx, Rx> {
+    fn borrow(&self) -> &[u8] {
+        self.session.borrow()
+    }
+}
+
+impl<Parser, Tx, Rx> Buf for ClientSession<Parser, Tx, Rx> {
+    fn remaining(&self) -> usize {
+        self.session.remaining()
+    }
+
+    fn chunk(&self) -> &[u8] {
+        self.session.chunk()
+    }
+
+    fn advance(&mut self, amt: usize) {
+        self.session.advance(amt)
+    }
+}
+
+unsafe impl<Parser, Tx, Rx> BufMut for ClientSession<Parser, Tx, Rx> {
+    fn remaining_mut(&self) -> usize {
+        self.session.remaining_mut()
+    }
+
+    unsafe fn advance_mut(&mut self, amt: usize) {
+        self.session.advance_mut(amt)
+    }
+
+    fn chunk_mut(&mut self) -> &mut UninitSlice {
+        self.session.chunk_mut()
+    }
+
+    #[allow(unused_mut)]
+    fn put<T: Buf>(&mut self, mut src: T)
+    where
+        Self: Sized,
+    {
+        self.session.put(src)
+    }
+
+    fn put_slice(&mut self, src: &[u8]) {
+        self.session.put_slice(src)
+    }
+}
+
+impl<Parser, Tx, Rx> event::Source for ClientSession<Parser, Tx, Rx> {
+    fn register(&mut self, registry: &Registry, token: Token, interest: Interest) -> Result<()> {
+        self.session.register(registry, token, interest)
+    }
+
+    fn reregister(&mut self, registry: &Registry, token: Token, interest: Interest) -> Result<()> {
+        self.session.reregister(registry, token, interest)
+    }
+
+    fn deregister(&mut self, registry: &Registry) -> Result<()> {
+        self.session.deregister(registry)
+    }
+}
+
+pub struct ServerSession<Parser, Tx, Rx> {
     session: Session,
     parser: Parser,
     pending: VecDeque<Instant>,
@@ -452,13 +400,13 @@ pub struct ServerSession<Parser, Rx, Tx> {
     _tx: PhantomData<Tx>,
 }
 
-impl<Parser, Rx, Tx> Debug for ServerSession<Parser, Rx, Tx> {
+impl<Parser, Tx, Rx> Debug for ServerSession<Parser, Tx, Rx> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(f, "{:?}", self.session)
     }
 }
 
-impl<Parser, Rx, Tx> ServerSession<Parser, Rx, Tx>
+impl<Parser, Tx, Rx> ServerSession<Parser, Tx, Rx>
 where
     Tx: Compose,
     Parser: Parse<Rx>,
@@ -474,7 +422,11 @@ where
         }
     }
 
-    pub fn receive(&mut self) -> std::result::Result<Rx, ParseError> {
+    pub fn into_inner(self) -> Session {
+        self.session
+    }
+
+    pub fn receive(&mut self) -> Result<Rx> {
         let src: &[u8] = self.session.borrow();
         match self.parser.parse(src) {
             Ok(res) => {
@@ -500,8 +452,7 @@ where
                 let now = Instant::now();
                 let _latency = now - timestamp;
             }
-        } else {
-            self.outstanding.push_back((timestamp, size));
+        } else {            self.outstanding.push_back((timestamp, size));
             let _ = self.flush()?;
         }
 
@@ -539,6 +490,82 @@ where
         }
 
         Ok(())
+    }
+
+    pub fn write_pending(&self) -> usize {
+        self.session.write_pending()
+    }
+
+    pub fn fill(&mut self) -> Result<usize> {
+        self.session.fill()
+    }
+
+    pub fn interest(&self) -> Interest {
+        self.session.interest()
+    }
+
+    pub fn do_handshake(&mut self) -> Result<()> {
+        self.session.do_handshake()
+    }
+}
+
+impl<Parser, Tx, Rx> Borrow<[u8]> for ServerSession<Parser, Tx, Rx> {
+    fn borrow(&self) -> &[u8] {
+        self.session.borrow()
+    }
+}
+
+impl<Parser, Tx, Rx> Buf for ServerSession<Parser, Tx, Rx> {
+    fn remaining(&self) -> usize {
+        self.session.remaining()
+    }
+
+    fn chunk(&self) -> &[u8] {
+        self.session.chunk()
+    }
+
+    fn advance(&mut self, amt: usize) {
+        self.session.advance(amt)
+    }
+}
+
+unsafe impl<Parser, Tx, Rx> BufMut for ServerSession<Parser, Tx, Rx> {
+    fn remaining_mut(&self) -> usize {
+        self.session.remaining_mut()
+    }
+
+    unsafe fn advance_mut(&mut self, amt: usize) {
+        self.session.advance_mut(amt)
+    }
+
+    fn chunk_mut(&mut self) -> &mut UninitSlice {
+        self.session.chunk_mut()
+    }
+
+    #[allow(unused_mut)]
+    fn put<T: Buf>(&mut self, mut src: T)
+    where
+        Self: Sized,
+    {
+        self.session.put(src)
+    }
+
+    fn put_slice(&mut self, src: &[u8]) {
+        self.session.put_slice(src)
+    }
+}
+
+impl<Parser, Tx, Rx> event::Source for ServerSession<Parser, Tx, Rx> {
+    fn register(&mut self, registry: &Registry, token: Token, interest: Interest) -> Result<()> {
+        self.session.register(registry, token, interest)
+    }
+
+    fn reregister(&mut self, registry: &Registry, token: Token, interest: Interest) -> Result<()> {
+        self.session.reregister(registry, token, interest)
+    }
+
+    fn deregister(&mut self, registry: &Registry) -> Result<()> {
+        self.session.deregister(registry)
     }
 }
 

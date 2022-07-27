@@ -7,7 +7,7 @@
 use protocol_common::BufMut;
 use protocol_common::Compose;
 use protocol_common::Parse;
-use protocol_common::{ParseError, ParseOk};
+use protocol_common::ParseOk;
 use rustcommon_metrics::*;
 
 const THRIFT_HEADER_LEN: usize = std::mem::size_of::<u32>();
@@ -50,9 +50,9 @@ impl MessageParser {
 }
 
 impl Parse<Message> for MessageParser {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Message>, ParseError> {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Message>, std::io::Error> {
         if buffer.len() < THRIFT_HEADER_LEN {
-            return Err(ParseError::Incomplete);
+            return Err(std::io::Error::from(std::io::ErrorKind::WouldBlock));
         }
 
         let data_len = u32::from_be_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]);
@@ -60,11 +60,11 @@ impl Parse<Message> for MessageParser {
         let framed_len = THRIFT_HEADER_LEN + data_len as usize;
 
         if framed_len == 0 || framed_len > self.max_size {
-            return Err(ParseError::Invalid);
+            return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
         }
 
         if buffer.len() < framed_len {
-            Err(ParseError::Incomplete)
+            Err(std::io::Error::from(std::io::ErrorKind::WouldBlock))
         } else {
             MESSAGES_PARSED.increment();
             let data = buffer[THRIFT_HEADER_LEN..framed_len]

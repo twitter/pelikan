@@ -20,13 +20,13 @@ use net::Waker;
 use protocol_common::ExecutionResult;
 use protocol_common::{Compose, Execute, Parse};
 use queues::Queues;
-use session_legacy::Session;
+use session_common::Session;
 pub use single::{SingleWorker, SingleWorkerBuilder};
 use std::io::Error;
 use std::sync::Arc;
 use std::thread::JoinHandle;
 
-use super::EventLoop;
+// use super::EventLoop;
 use net::Token;
 
 counter!(WORKER_EVENT_LOOP);

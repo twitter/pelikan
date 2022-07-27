@@ -5,8 +5,7 @@
 use crate::*;
 use common::expiry::TimeType;
 use core::fmt::{Display, Formatter};
-use protocol_common::{BufMut, Parse, ParseError, ParseOk};
-use session_legacy::Session;
+use protocol_common::{BufMut, Parse, ParseOk};
 
 mod add;
 mod append;
@@ -167,11 +166,11 @@ impl Default for RequestParser {
 }
 
 impl Parse<Request> for RequestParser {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Request>, protocol_common::ParseError> {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Request>, std::io::Error> {
         match self.parse_request(buffer) {
             Ok((input, request)) => Ok(ParseOk::new(request, buffer.len() - input.len())),
-            Err(Err::Incomplete(_)) => Err(ParseError::Incomplete),
-            Err(_) => Err(ParseError::Invalid),
+            Err(Err::Incomplete(_)) => Err(std::io::Error::from(std::io::ErrorKind::WouldBlock)),
+            Err(_) => Err(std::io::Error::from(std::io::ErrorKind::InvalidInput)),
         }
     }
 }
@@ -258,16 +257,13 @@ pub enum ExpireTime {
 
 fn convert_ttl(ttl: Option<u32>) -> Vec<u8> {
     match ttl {
-        None => {
-            " 0".to_owned()
-        }
-        Some(0) => {
-            " -1".to_owned()
-        }
+        None => " 0".to_owned(),
+        Some(0) => " -1".to_owned(),
         Some(s) => {
             format!(" {}", s)
         }
-    }.into_bytes()
+    }
+    .into_bytes()
 }
 
 #[cfg(test)]

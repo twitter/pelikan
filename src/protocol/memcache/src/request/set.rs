@@ -123,7 +123,6 @@ impl RequestParser {
 
 impl Compose for Set {
     fn compose(&self, session: &mut dyn BufMut) -> usize {
-
         let verb = b"set ";
         let flags = format!(" {}", self.flags).into_bytes();
         let ttl = convert_ttl(self.ttl);
@@ -134,7 +133,14 @@ impl Compose for Set {
             "\r\n".as_bytes()
         };
 
-        let size = verb.len() + self.key.len() + flags.len() + ttl.len() + vlen.len() + header_end.len() + self.value.len() + CRLF.len();
+        let size = verb.len()
+            + self.key.len()
+            + flags.len()
+            + ttl.len()
+            + vlen.len()
+            + header_end.len()
+            + self.value.len()
+            + CRLF.len();
 
         session.put_slice(verb);
         session.put_slice(&self.key);

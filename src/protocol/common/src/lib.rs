@@ -22,21 +22,21 @@ pub trait Compose {
 }
 
 pub trait Execute<Request, Response: Compose> {
-    fn execute(&mut self, request: Request) -> Box<dyn ExecutionResult<Request, Response>>;
+    fn execute(&mut self, request: &Request) -> Response;
 }
 
-pub trait ExecutionResult<Request, Response: Compose>: Send + Compose {
-    fn request(&self) -> &Request;
+// pub trait ExecutionResult<Request, Response: Compose>: Send + Compose {
+//     fn request(&self) -> &Request;
 
-    fn response(&self) -> &Response;
-}
+//     fn response(&self) -> &Response;
+// }
 
-#[derive(Debug, PartialEq)]
-pub enum ParseError {
-    Invalid,
-    Incomplete,
-    Unknown,
-}
+// #[derive(Debug, PartialEq)]
+// pub enum ParseError {
+//     Invalid,
+//     Incomplete,
+//     Unknown,
+// }
 
 #[derive(Debug, PartialEq)]
 pub struct ParseOk<T> {
@@ -59,5 +59,5 @@ impl<T> ParseOk<T> {
 }
 
 pub trait Parse<T> {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<T>, ParseError>;
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<T>, std::io::Error>;
 }

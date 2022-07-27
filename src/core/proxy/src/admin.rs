@@ -5,8 +5,10 @@
 //! The admin thread, which handles admin requests to return stats, get version
 //! info, etc.
 
+use net::event::Source;
+use std::borrow::Borrow;
 use session_common::*;
-use crate::event_loop::EventLoop;
+// use crate::event_loop::EventLoop;
 use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
 use crate::QUEUE_RETRIES;
 use crate::TCP_ACCEPT_EX;
@@ -66,14 +68,17 @@ pub static PERCENTILES: &[(&str, f64)] = &[
 ];
 
 pub struct AdminBuilder {
+    listener: net::Listener,
+    poll: net::Poll,
+    sessions: Slab<Session>,
     addr: SocketAddr,
     nevent: usize,
-    poll: Poll<Session>,
     timeout: Duration,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
     http_server: Option<tiny_http::Server>,
     version: String,
+    waker: Arc<Waker>,
 }
 
 impl AdminBuilder {
@@ -90,25 +95,37 @@ impl AdminBuilder {
             let _ = log_drain.flush();
             Error::new(ErrorKind::Other, "bad listen address")
         })?;
-        let mut poll = Poll::new().map_err(|e| {
-            error!("{}", e);
-            error!("failed to create epoll instance");
-            let _ = log_drain.flush();
-            Error::new(ErrorKind::Other, "failed to create epoll instance")
-        })?;
-        poll.bind(addr, &Tls::default()).map_err(|e| {
-            error!("{}", e);
-            error!("failed to bind admin tcp listener");
-            let _ = log_drain.flush();
-            Error::new(
-                ErrorKind::Other,
-                format!(
-                    "failed to bind listener on: {}:{}",
-                    config.host(),
-                    config.port()
-                ),
-            )
-        })?;
+
+        let tcp_listener = TcpListener::bind(addr)?;
+
+        let listener = net::Listener::from(tcp_listener);
+
+        let mut poll = net::Poll::new()?;
+        listener.register(poll.registry(), LISTENER_TOKEN, net::Interest::READABLE)?;
+
+        let waker = Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap());
+
+
+
+        // let mut poll = Poll::new().map_err(|e| {
+        //     error!("{}", e);
+        //     error!("failed to create epoll instance");
+        //     let _ = log_drain.flush();
+        //     Error::new(ErrorKind::Other, "failed to create epoll instance")
+        // })?;
+        // poll.bind(addr, &Tls::default()).map_err(|e| {
+        //     error!("{}", e);
+        //     error!("failed to bind admin tcp listener");
+        //     let _ = log_drain.flush();
+        //     Error::new(
+        //         ErrorKind::Other,
+        //         format!(
+        //             "failed to bind listener on: {}:{}",
+        //             config.host(),
+        //             config.port()
+        //         ),
+        //     )
+        // })?;
 
         let timeout = std::time::Duration::from_millis(config.timeout() as u64);
 
@@ -133,6 +150,8 @@ impl AdminBuilder {
         };
 
         Ok(Self {
+            listener,
+            sessions: Slab::new(),
             addr,
             timeout,
             nevent,
@@ -141,11 +160,12 @@ impl AdminBuilder {
             log_drain,
             http_server,
             version: "unknown".to_string(),
+            waker,
         })
     }
 
     pub fn waker(&self) -> Arc<Waker> {
-        self.poll.waker()
+        self.waker.clone()
     }
 
     /// Triggers a flush of the log
@@ -164,6 +184,7 @@ impl AdminBuilder {
         signal_queue_rx: Receiver<Signal>,
     ) -> Admin {
         Admin {
+            listener: self.listener,
             addr: self.addr,
             nevent: self.nevent,
             poll: self.poll,
@@ -174,6 +195,8 @@ impl AdminBuilder {
             signal_queue_tx,
             signal_queue_rx,
             version: self.version,
+            waker: self.waker,
+            sessions: self.sessions,
         }
     }
 }
@@ -181,7 +204,9 @@ impl AdminBuilder {
 pub struct Admin {
     addr: SocketAddr,
     nevent: usize,
-    poll: Poll<Session>,
+    listener: net::Listener,
+    poll: net::Poll,
+    sessions: Slab<Session>,
     timeout: Duration,
     parser: AdminRequestParser,
     log_drain: Box<dyn Drain>,
@@ -193,6 +218,7 @@ pub struct Admin {
     signal_queue_rx: Receiver<Signal>,
     /// version number to report
     version: String,
+    waker: Arc<Waker>,
 }
 
 impl Drop for Admin {
@@ -202,47 +228,15 @@ impl Drop for Admin {
 }
 
 impl Admin {
-    // /// Adds a new fully established TLS session
-    // fn add_established_tls_session(&mut self, stream: SslStream<TcpStream>) {
-    //     let session = Session::tls_with_capacity(
-    //         stream,
-    //         crate::DEFAULT_BUFFER_SIZE,
-    //         crate::ADMIN_MAX_BUFFER_SIZE,
-    //     );
-    //     if self.poll.add_session(session).is_err() {
-    //         TCP_ACCEPT_EX.increment();
-    //     }
-    // }
+    /// Call accept once on the listener
+    pub fn do_accept(&mut self) {
+        if let Ok(session) = self.listener.accept().map(|v| Session::from(v)) {
+            let s = self.sessions.vacant_entry();
+            session.register(self.poll.registry(), Token(s.key()), session.interest());
+            s.insert(session);
+        }
 
-    // /// Adds a new TLS session that requires further handshaking
-    // fn add_handshaking_tls_session(&mut self, stream: MidHandshakeSslStream<TcpStream>) {
-    //     let session = Session::handshaking_with_capacity(
-    //         stream,
-    //         crate::DEFAULT_BUFFER_SIZE,
-    //         crate::ADMIN_MAX_BUFFER_SIZE,
-    //     );
-    //     trace!("accepted new session: {:?}", session.peer_addr());
-    //     if self.poll.add_session(session).is_err() {
-    //         TCP_ACCEPT_EX.increment();
-    //     }
-    // }
-
-    // /// Adds a new plain (non-TLS) session
-    // fn add_plain_session(&mut self, stream: TcpStream) {
-    //     let session = Session::plain_with_capacity(
-    //         stream,
-    //         crate::DEFAULT_BUFFER_SIZE,
-    //         crate::ADMIN_MAX_BUFFER_SIZE,
-    //     );
-    //     trace!("accepted new session: {:?}", session.peer_addr());
-    //     if self.poll.add_session(session).is_err() {
-    //         TCP_ACCEPT_EX.increment();
-    //     }
-    // }
-
-    /// Repeatedly call accept on the listener
-    fn do_accept(&mut self) {
-        while self.poll.accept().is_ok() {}
+        self.listener.reregister(self.poll.registry(), LISTENER_TOKEN, net::Interest::READABLE);
     }
 
     /// This is a handler for the stats commands on the legacy admin port. It
@@ -315,22 +309,8 @@ impl Admin {
         // handle error events first
         if event.is_error() {
             ADMIN_EVENT_ERROR.increment();
-            self.handle_error(token);
-        }
-
-        // handle handshaking
-        if let Ok(session) = self.poll.get_mut_session(token) {
-            if !session.session.is_established() {
-                if let Err(e) = session.session.do_handshake() {
-                    if e.kind() == ErrorKind::WouldBlock {
-                        // the session is still handshaking
-                        return;
-                    } else {
-                        // some error occured while handshaking
-                        let _ = self.poll.close_session(token);
-                    }
-                }
-            }
+            let _ = self.sessions.remove(token.0);
+            return;
         }
 
         // handle write events before read events to reduce write
@@ -346,6 +326,71 @@ impl Admin {
             let _ = self.do_read(token);
         };
     }
+
+    /// Handle a read event for the `Session` with the `Token`.
+    pub fn do_read(&mut self, token: Token) {
+        if let Some(session) = self.sessions.get_mut(token.0) {
+            // read from session to buffer
+            match session.fill() {
+                Ok(0) => {
+                    trace!("hangup for session: {:?}", session);
+                    let _ = self.sessions.remove(token.0);
+                }
+                Ok(bytes) => {
+                    trace!("read {} bytes for session: {:?}", bytes, session);
+                    if self.handle_data(token).is_err() {
+                        let _ = self.sessions.remove(token.0);
+                    }
+                }
+                Err(e) => {
+                    match e.kind() {
+                        ErrorKind::WouldBlock => {
+                            trace!("would block");
+                            // spurious read
+                            session.reregister(self.poll.registry(), token, session.interest());
+                        }
+                        ErrorKind::Interrupted => {
+                            trace!("interrupted");
+                            self.do_read(token)
+                        }
+                        _ => {
+                            trace!("error reading for session: {:?} {:?}", session, e);
+                            // some read error
+                            let _ = self.sessions.remove(token.0);
+                        }
+                    }
+                }
+            }
+        } else {
+            warn!("attempted to read from non-existent session: {}", token.0);
+        }
+    }
+
+
+    /// Handle a write event for a `Session` with the `Token`.
+    pub fn do_write(&mut self, token: Token) {
+        if let Some(session) = self.sessions.get_mut(token.0) {
+            trace!("write for session: {:?}", session);
+            match session.flush() {
+                Ok(_) => {
+                    session.reregister(self.poll.registry(), token, session.interest());
+                }
+                Err(e) => match e.kind() {
+                    ErrorKind::WouldBlock => {
+                        session.reregister(self.poll.registry(), token, session.interest());
+                    }
+                    ErrorKind::Interrupted => self.do_write(token),
+                    _ => {
+                        let _ = self.sessions.remove(token.0);
+                    }
+                },
+            }
+        } else {
+            trace!("attempted to write to non-existent session: {}", token.0)
+        }
+    }
+
+
 
     /// A "human-readable" exposition format which outputs one stat per line,
     /// with a LF used as the end of line symbol.
@@ -561,7 +606,7 @@ impl Admin {
         loop {
             ADMIN_EVENT_LOOP.increment();
 
-            if self.poll.poll(&mut events, self.timeout).is_err() {
+            if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
                 error!("Error polling");
             }
 
@@ -683,20 +728,20 @@ impl Admin {
     }
 }
 
-impl EventLoop<Session> for Admin {
+impl Admin {
     fn handle_data(&mut self, token: Token) -> Result<()> {
         trace!("handling request for admin session: {}", token.0);
-        if let Ok(session) = self.poll.get_mut_session(token) {
+        if let Some(session) = self.sessions.get_mut(token.0) {
             loop {
-                if session.session.write_capacity() == 0 {
+                if session.remaining_mut() == 0 {
                     // if the write buffer is over-full, skip processing
                     break;
                 }
-                match self.parser.parse(session.session.buffer()) {
+                match self.parser.parse(session.borrow()) {
                     Ok(parsed_request) => {
                         let consumed = parsed_request.consumed();
                         let request = parsed_request.into_inner();
-                        session.session.consume(consumed);
+                        session.consume(consumed);
 
                         match request {
                             AdminRequest::FlushAll => {
@@ -712,19 +757,19 @@ impl EventLoop<Session> for Admin {
                                     }
                                 }
 
-                                let _ = session.session.write(b"OK\r\n");
-                                session.session.finalize_response();
+                                session.put_slice(b"OK\r\n");
+                                // session.session.finalize_response();
                                 ADMIN_RESPONSE_COMPOSE.increment();
                             }
                             AdminRequest::Stats => {
-                                Self::handle_stats_request(&mut session.session);
+                                Self::handle_stats_request(&mut session);
                             }
                             AdminRequest::Quit => {
-                                let _ = self.poll.close_session(token);
+                                let _ = self.sessions.remove(token.0);
                                 return Ok(());
                             }
                             AdminRequest::Version => {
-                                Self::handle_version_request(&mut session.session, &self.version);
+                                Self::handle_version_request(&mut session, &self.version);
                             }
                         }
                     }
@@ -732,7 +777,7 @@ impl EventLoop<Session> for Admin {
                         break;
                     }
                     Err(_) => {
-                        self.handle_error(token);
+                        let _ = self.sessions.remove(token.0);
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::Other,
                             "bad request",
@@ -740,19 +785,14 @@ impl EventLoop<Session> for Admin {
                     }
                 }
             }
+            session.reregister(self.poll.registry(), token, session.interest());
         } else {
             // no session for the token
             trace!(
                 "attempted to handle data for non-existent session: {}",
                 token.0
             );
-            return Ok(());
         }
-        self.poll.reregister(token);
         Ok(())
-    }
-
-    fn poll(&mut self) -> &mut Poll<Session> {
-        &mut self.poll
     }
 }

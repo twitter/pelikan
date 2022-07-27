@@ -5,6 +5,8 @@
 //! This module provides common functionality for threads which are based on an
 //! event loop.
 
+use core::ops::DerefMut;
+use core::ops::Deref;
 use std::fmt::Debug;
 use session_common::Session;
 use net::TcpListener;
@@ -47,6 +49,20 @@ impl<S> Debug for TrackedSession<S> where S: Debug {
     }
 }
 
+impl<S> Deref for TrackedSession<S> {
+    type Target = S;
+    fn deref(&self) -> &<Self as std::ops::Deref>::Target {
+        &self.session
+    }
+}
+
+impl<S> DerefMut for TrackedSession<S> {
+    // type Target = S;
+    fn deref_mut(&mut self) -> &mut S {
+        &mut self.session
+    }
+}
+
 impl<S> Poll<S>
 where
     S: net::event::Source + Debug
@@ -60,7 +76,7 @@ where
 
         let waker = Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap());
 
-        let sessions = Slab::<TrackedSession>::new();
+        let sessions = Slab::<TrackedSession<S>>::new();
 
         Ok(Self {
             listener: None,

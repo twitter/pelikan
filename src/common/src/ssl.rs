@@ -53,7 +53,7 @@ pub fn tls_acceptor(config: &dyn TlsConfig) -> Result<Option<TlsTcpAcceptor>, st
     }
 
     if let Some(f) = config.certificate_chain() {
-        builder = builder.certificate_chain_file(f); 
+        builder = builder.certificate_chain_file(f);
     }
 
     Ok(Some(builder.build()?))

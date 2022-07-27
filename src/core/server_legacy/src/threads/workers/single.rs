@@ -7,9 +7,10 @@
 //! the request using the backing storage, and then composes a response onto the
 //! session buffer.
 
-use super::EventLoop;
+// use super::EventLoop;
+use net::Poll;
 use super::*;
-use crate::poll::{Poll, WAKER_TOKEN};
+// use crate::poll::{Poll, WAKER_TOKEN};
 use common::signal::Signal;
 use config::WorkerConfig;
 use core::marker::PhantomData;
@@ -18,7 +19,7 @@ use entrystore::EntryStore;
 use net::event::Event;
 use net::{Events, Token, Waker};
 use protocol_common::{Compose, Execute, Parse, ParseError};
-use session_legacy::Session;
+// use session_legacy::Session;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
 
@@ -59,7 +60,7 @@ impl<Storage, Parser, Request, Response> SingleWorkerBuilder<Storage, Parser, Re
 
     /// Returns the waker for this worker.
     pub(crate) fn waker(&self) -> Arc<Waker> {
-        self.poll.waker()
+        self.waker.clone()
     }
 
     /// Finalize the builder and return a `SingleWorker` by providing the queues
@@ -70,6 +71,8 @@ impl<Storage, Parser, Request, Response> SingleWorkerBuilder<Storage, Parser, Re
         session_queue: Queues<(), Session>,
     ) -> SingleWorker<Storage, Parser, Request, Response> {
         SingleWorker {
+            waker: Arc<Waker>,
+
             nevent: self.nevent,
             parser: self.parser,
             poll: self.poll,
@@ -85,6 +88,8 @@ impl<Storage, Parser, Request, Response> SingleWorkerBuilder<Storage, Parser, Re
 
 /// A finalized single-threaded worker which is ready to be run.
 pub struct SingleWorker<Storage, Parser, Request, Response> {
+    waker: Arc<Waker>,
+
     nevent: usize,
     parser: Parser,
     poll: Poll,
@@ -112,7 +117,7 @@ where
             self.storage.expire();
 
             // get events with timeout
-            if self.poll.poll(&mut events, self.timeout).is_err() {
+            if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
                 error!("Error polling");
             }
 
@@ -155,26 +160,38 @@ where
         }
     }
 
-    fn handle_new_sessions(&mut self) {
-        while let Some(session) = self.session_queue.try_recv().map(|v| v.into_inner()) {
-            let pending = session.read_pending();
-            trace!(
-                "new session: {:?} with {} bytes pending in read buffer",
-                session,
-                pending
-            );
+    fn handle_new_session(&mut self) {
+        if let Some(session) = self.session_queue.try_recv().map(|v| v.into_inner()) {
+            let s = self.sessions.vacant_entry();
+            session.register(self.poll.registry(), Token(s.key()), session.interest());
+            s.insert(session);
 
-            // reserve vacant slab
-            if let Ok(token) = self.poll.add_session(session) {
-                if pending > 0 {
-                    // handle any pending data immediately
-                    if self.handle_data(token).is_err() {
-                        self.handle_error(token);
-                    }
-                }
-            }
+            self.waker.wake();
+
+            // self.listener.reregister(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE);
         }
     }
+
+    // fn handle_new_sessions(&mut self) {
+    //     while let Some(session) = self.session_queue.try_recv().map(|v| v.into_inner()) {
+    //         // let pending = session.read_pending();
+    //         // trace!(
+    //         //     "new session: {:?} with {} bytes pending in read buffer",
+    //         //     session,
+    //         //     pending
+    //         // );
+
+    //         // reserve vacant slab
+    //         if let Ok(token) = self.poll.add_session(session) {
+    //             if pending > 0 {
+    //                 // handle any pending data immediately
+    //                 if self.handle_data(token).is_err() {
+    //                     self.handle_error(token);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     fn handle_event(&mut self, event: &Event, timestamp: Instant) {
         let token = event.token();
@@ -220,75 +237,75 @@ where
     }
 }
 
-impl<Storage, Parser, Request, Response> EventLoop
-    for SingleWorker<Storage, Parser, Request, Response>
-where
-    Parser: Parse<Request>,
-    Response: Compose,
-    Storage: Execute<Request, Response> + EntryStore,
-{
-    fn handle_data(&mut self, token: Token) -> Result<(), std::io::Error> {
-        if let Ok(session) = self.poll.get_mut_session(token) {
-            loop {
-                if session.write_capacity() == 0 {
-                    // if the write buffer is over-full, skip processing
-                    break;
-                }
-                match self.parser.parse(session.buffer()) {
-                    Ok(parsed_request) => {
-                        trace!("parsed request for sesion: {:?}", session);
-                        PROCESS_REQ.increment();
-                        let consumed = parsed_request.consumed();
-                        let request = parsed_request.into_inner();
-                        session.consume(consumed);
+// impl<Storage, Parser, Request, Response> EventLoop
+//     for SingleWorker<Storage, Parser, Request, Response>
+// where
+//     Parser: Parse<Request>,
+//     Response: Compose,
+//     Storage: Execute<Request, Response> + EntryStore,
+// {
+//     fn handle_data(&mut self, token: Token) -> Result<(), std::io::Error> {
+//         if let Ok(session) = self.poll.get_mut_session(token) {
+//             loop {
+//                 if session.write_capacity() == 0 {
+//                     // if the write buffer is over-full, skip processing
+//                     break;
+//                 }
+//                 match self.parser.parse(session.buffer()) {
+//                     Ok(parsed_request) => {
+//                         trace!("parsed request for sesion: {:?}", session);
+//                         PROCESS_REQ.increment();
+//                         let consumed = parsed_request.consumed();
+//                         let request = parsed_request.into_inner();
+//                         session.consume(consumed);
 
-                        let result = self.storage.execute(request);
-                        trace!("composing response for session: {:?}", session);
-                        result.compose(session);
-                        session.finalize_response();
-                        if result.should_hangup() {
-                            return Err(std::io::Error::new(
-                                std::io::ErrorKind::Other,
-                                "response requires hangup",
-                            ));
-                        }
-                    }
-                    Err(ParseError::Incomplete) => {
-                        trace!("incomplete request for session: {:?}", session);
-                        break;
-                    }
-                    Err(_) => {
-                        debug!("bad request for session: {:?}", session);
-                        trace!("session: {:?} read buffer: {:?}", session, session.buffer());
-                        self.handle_error(token);
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "bad request",
-                        ));
-                    }
-                }
-            }
-            // if we have pending writes, we should attempt to flush the session
-            // now. if we still have pending bytes, we should re-register to
-            // remove the read interest.
-            if session.write_pending() > 0 {
-                let _ = session.flush();
-                if session.write_pending() > 0 {
-                    self.poll.reregister(token);
-                }
-            }
-            Ok(())
-        } else {
-            // no session for the token
-            trace!(
-                "attempted to handle data for non-existent session: {}",
-                token.0
-            );
-            Ok(())
-        }
-    }
+//                         let result = self.storage.execute(request);
+//                         trace!("composing response for session: {:?}", session);
+//                         result.compose(session);
+//                         session.finalize_response();
+//                         if result.should_hangup() {
+//                             return Err(std::io::Error::new(
+//                                 std::io::ErrorKind::Other,
+//                                 "response requires hangup",
+//                             ));
+//                         }
+//                     }
+//                     Err(ParseError::Incomplete) => {
+//                         trace!("incomplete request for session: {:?}", session);
+//                         break;
+//                     }
+//                     Err(_) => {
+//                         debug!("bad request for session: {:?}", session);
+//                         trace!("session: {:?} read buffer: {:?}", session, session.buffer());
+//                         self.handle_error(token);
+//                         return Err(std::io::Error::new(
+//                             std::io::ErrorKind::Other,
+//                             "bad request",
+//                         ));
+//                     }
+//                 }
+//             }
+//             // if we have pending writes, we should attempt to flush the session
+//             // now. if we still have pending bytes, we should re-register to
+//             // remove the read interest.
+//             if session.write_pending() > 0 {
+//                 let _ = session.flush();
+//                 if session.write_pending() > 0 {
+//                     self.poll.reregister(token);
+//                 }
+//             }
+//             Ok(())
+//         } else {
+//             // no session for the token
+//             trace!(
+//                 "attempted to handle data for non-existent session: {}",
+//                 token.0
+//             );
+//             Ok(())
+//         }
+//     }
 
-    fn poll(&mut self) -> &mut Poll {
-        &mut self.poll
-    }
-}
+//     fn poll(&mut self) -> &mut Poll {
+//         &mut self.poll
+//     }
+// }

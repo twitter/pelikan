@@ -22,7 +22,7 @@ impl Parser {
 }
 
 impl Parse<Response> for Parser {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Response>, ParseError> {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Response>, std::io::Error> {
         match parse_keyword(buffer)? {
             Keyword::Pong => parse_pong(buffer),
         }
@@ -53,7 +53,7 @@ impl<'a> ParseState<'a> {
     }
 }
 
-fn parse_keyword(buffer: &[u8]) -> Result<Keyword, ParseError> {
+fn parse_keyword(buffer: &[u8]) -> Result<Keyword, std::io::Error> {
     let command;
     {
         let mut parse_state = ParseState::new(buffer);
@@ -64,14 +64,14 @@ fn parse_keyword(buffer: &[u8]) -> Result<Keyword, ParseError> {
                 command = Keyword::try_from(&buffer[0..line_end])?;
             }
         } else {
-            return Err(ParseError::Incomplete);
+            return Err(std::io::Error::from(std::io::ErrorKind::WouldBlock));
         }
     }
     Ok(command)
 }
 
 #[allow(clippy::unnecessary_wraps)]
-fn parse_pong(buffer: &[u8]) -> Result<ParseOk<Response>, ParseError> {
+fn parse_pong(buffer: &[u8]) -> Result<ParseOk<Response>, std::io::Error> {
     let mut parse_state = ParseState::new(buffer);
 
     // this was already checked for when determining the command

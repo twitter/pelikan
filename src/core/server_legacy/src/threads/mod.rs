@@ -7,10 +7,10 @@
 
 mod admin;
 mod listener;
-mod traits;
+// mod traits;
 mod workers;
 
 pub use admin::{Admin, AdminBuilder, PERCENTILES};
 pub use listener::{Listener, ListenerBuilder};
-pub use traits::EventLoop;
+// pub use traits::EventLoop;
 pub use workers::{Workers, WorkersBuilder};

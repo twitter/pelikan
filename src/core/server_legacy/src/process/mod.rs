@@ -51,13 +51,13 @@ where
         mut log_drain: Box<dyn Drain>,
     ) -> Self {
         // initialize admin
-        let tls_acceptor = common::ssl::tls_acceptor(config.tls()).unwrap_or_else(|e| {
-            error!("failed to initialize TLS: {}", e);
-            let _ = log_drain.flush();
-            std::process::exit(1);
-        });
+        // let tls_acceptor = common::ssl::tls_acceptor(config.tls()).unwrap_or_else(|e| {
+        //     error!("failed to initialize TLS: {}", e);
+        //     let _ = log_drain.flush();
+        //     std::process::exit(1);
+        // });
 
-        let mut admin = AdminBuilder::new(&config, tls_acceptor, log_drain).unwrap_or_else(|e| {
+        let mut admin = AdminBuilder::new(&config, log_drain).unwrap_or_else(|e| {
             error!("failed to initialize admin: {}", e);
             std::process::exit(1);
         });
@@ -75,7 +75,7 @@ where
             std::process::exit(1);
         });
         let listener =
-            ListenerBuilder::new(&config, tls_acceptor, max_buffer_size).unwrap_or_else(|e| {
+            ListenerBuilder::new(&config, max_buffer_size).unwrap_or_else(|e| {
                 error!("failed to initialize listener: {}", e);
                 let _ = admin.log_flush();
                 std::process::exit(1);

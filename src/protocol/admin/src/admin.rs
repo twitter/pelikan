@@ -10,6 +10,8 @@
 use crate::*;
 use common::bytes::SliceExtension;
 
+use std::io::{Error, ErrorKind, Result};
+
 // TODO(bmartin): see TODO for protocol::data::Request, this is cleaner here
 // since the variants are simple, but better to take the same approach in both
 // modules.
@@ -31,7 +33,7 @@ impl AdminRequestParser {
 }
 
 impl Parse<AdminRequest> for AdminRequestParser {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<AdminRequest>, ParseError> {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<AdminRequest>> {
         // check if we got a CRLF
         if let Some(command_end) = buffer
             .windows(CRLF.len())
@@ -47,7 +49,7 @@ impl Parse<AdminRequest> for AdminRequestParser {
                 // remove the need for ignoring this lint.
                 #[allow(clippy::match_single_binding)]
                 match command_verb {
-                    _ => Err(ParseError::Unknown),
+                    _ => Err(Error::from(ErrorKind::InvalidInput)),
                 }
             } else {
                 match &trimmed_buffer[0..] {
@@ -61,11 +63,11 @@ impl Parse<AdminRequest> for AdminRequestParser {
                         AdminRequest::Version,
                         command_end + CRLF.len(),
                     )),
-                    _ => Err(ParseError::Unknown),
+                    _ => Err(Error::from(ErrorKind::InvalidInput)),
                 }
             }
         } else {
-            Err(ParseError::Incomplete)
+            Err(Error::from(ErrorKind::WouldBlock))
         }
     }
 }
