@@ -176,6 +176,8 @@ impl Seg {
 
         // try to get a `ReservedItem`
         let mut retries = RESERVE_RETRIES;
+        let mut has_removed_expired = false; 
+        
         let reserved;
         loop {
             match self
@@ -192,6 +194,11 @@ impl Seg {
                     return Err(SegError::ItemOversized { size });
                 }
                 Err(TtlBucketsError::NoFreeSegments) => {
+                    if !has_removed_expired {
+                        self.expire();
+                        has_removed_expired = true;
+                        continue;
+                    }
                     if self
                         .segments
                         .evict(&mut self.ttl_buckets, &mut self.hashtable)
