@@ -4,6 +4,8 @@
 
 use crate::*;
 
+pub use std::net::Shutdown;
+
 pub struct TcpStream {
     inner: mio::net::TcpStream,
 }
@@ -140,5 +142,107 @@ impl event::Source for TcpListener {
 
     fn deregister(&mut self, registry: &mio::Registry) -> Result<()> {
         self.inner.deregister(registry)
+    }
+}
+
+#[derive(Default)]
+pub struct TcpConnector {
+    _inner: (),
+}
+
+impl TcpConnector {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn connect<A: ToSocketAddrs>(&self, addr: A) -> Result<TcpStream> {
+        let addrs: Vec<SocketAddr> = addr.to_socket_addrs()?.collect();
+        let mut s = Err(Error::new(ErrorKind::Other, "failed to resolve"));
+        for addr in addrs {
+            s = TcpStream::connect(addr);
+            if s.is_ok() {
+                break;
+            }
+        }
+
+        s
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_connector() -> Connector {
+        let tls_connector = TcpConnector::new();
+
+        Connector::from(tls_connector)
+    }
+
+    fn create_listener(addr: &'static str) -> Listener {
+        let tcp_listener = TcpListener::bind(addr).expect("failed to bind");
+
+        Listener::from(tcp_listener)
+    }
+
+
+    #[test]
+    fn listener() {
+        let _ = create_listener("127.0.0.1:0");
+    }
+
+    #[test]
+    fn connector() {
+        let _ = create_connector();
+    }
+
+    #[test]
+    fn ping_pong() {
+        let connector = create_connector();
+        let listener = create_listener("127.0.0.1:0");
+
+        let addr = listener.local_addr().expect("listener has no local addr");
+        
+        let mut client_stream = connector.connect(addr).expect("failed to connect");
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let mut server_stream = listener.accept().expect("failed to accept");
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        client_stream.write_all(b"PING\r\n").expect("failed to write");
+        client_stream.flush().expect("failed to flush");
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        let mut buf = [0; 4096];
+
+        match server_stream.read(&mut buf) {
+            Ok(6) => {
+                assert_eq!(&buf[0..6], b"PING\r\n");
+                server_stream.write_all(b"PONG\r\n").expect("failed to write");
+            }
+            Ok(n) => {
+                panic!("read: {} bytes but expected 6", n);
+            }
+            Err(e) => {
+                panic!("error reading: {}", e);
+            }
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        match client_stream.read(&mut buf) {
+            Ok(6) => {
+                assert_eq!(&buf[0..6], b"PONG\r\n");
+            }
+            Ok(n) => {
+                panic!("read: {} bytes but expected 6", n);
+            }
+            Err(e) => {
+                panic!("error reading: {}", e);
+            }
+        }
+
+
     }
 }

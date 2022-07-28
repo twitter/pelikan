@@ -18,7 +18,6 @@ pub mod event {
     pub use mio::event::*;
 }
 
-pub use boring::ssl::{SslFiletype, SslMethod, SslVerifyMode};
 pub use mio::*;
 
 use core::fmt::Debug;
@@ -27,8 +26,6 @@ use std::io::{Error, ErrorKind, Read, Write};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 
-use boring::ssl::{ErrorCode, Ssl, SslStream};
-use boring::x509::X509;
 use foreign_types_shared::{ForeignType, ForeignTypeRef};
 use rustcommon_metrics::*;
 

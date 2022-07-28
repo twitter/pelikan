@@ -886,6 +886,7 @@ dependencies = [
  "libc",
  "mio 0.8.3",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
+ "tempfile",
 ]
 
 [[package]]

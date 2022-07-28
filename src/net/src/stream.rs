@@ -2,10 +2,14 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+pub use std::net::Shutdown;
+
 use crate::*;
 
 counter!(STREAM_ACCEPT);
 counter!(STREAM_ACCEPT_EX);
+counter!(STREAM_SHUTDOWN);
+counter!(STREAM_SHUTDOWN_EX);
 counter!(STREAM_HANDSHAKE);
 counter!(STREAM_HANDSHAKE_EX);
 
@@ -58,6 +62,20 @@ impl Stream {
             StreamType::Tcp(s) => s.set_nodelay(nodelay),
             StreamType::TlsTcp(s) => s.set_nodelay(nodelay),
         }
+    }
+
+    pub fn shutdown(&mut self) -> Result<bool> {
+        let result = match &mut self.inner {
+            StreamType::Tcp(s) => s.shutdown(Shutdown::Both).map(|_| true),
+            StreamType::TlsTcp(s) => s.shutdown().map(|v| v == ShutdownResult::Received),
+        };
+
+        STREAM_SHUTDOWN.increment();
+        if result.is_err() {
+            STREAM_SHUTDOWN_EX.increment();
+        }
+
+        result
     }
 }
 

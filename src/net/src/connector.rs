@@ -9,35 +9,28 @@ pub struct Connector {
 }
 
 enum ConnectorType {
-    Tcp,
+    Tcp(TcpConnector),
     TlsTcp(TlsTcpConnector),
 }
 
 impl Connector {
-    /// Returns a new TCP `Connector`
-    pub fn tcp() -> Self {
-        Self {
-            inner: ConnectorType::Tcp,
-        }
-    }
-
     /// Attemps to connect to the provided address.
     pub fn connect<A: ToSocketAddrs>(&self, addr: A) -> Result<Stream> {
         match &self.inner {
-            ConnectorType::Tcp => {
-                let addrs: Vec<SocketAddr> = addr.to_socket_addrs()?.collect();
-                let mut s = Err(Error::new(ErrorKind::Other, "failed to resolve"));
-                for addr in addrs {
-                    s = TcpStream::connect(addr);
-                    if s.is_ok() {
-                        break;
-                    }
-                }
-                Ok(Stream::from(s?))
+            ConnectorType::Tcp(connector) => {
+                Ok(Stream::from(connector.connect(addr)?))
             }
-            ConnectorType::TlsTcp(_connector) => {
-                todo!()
+            ConnectorType::TlsTcp(connector) => {
+                Ok(Stream::from(connector.connect(addr)?))
             }
+        }
+    }
+}
+
+impl From<TcpConnector> for Connector {
+    fn from(other: TcpConnector) -> Self {
+        Self {
+            inner: ConnectorType::Tcp(other)
         }
     }
 }
