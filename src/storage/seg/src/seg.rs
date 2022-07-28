@@ -167,6 +167,10 @@ impl Seg {
     ) -> Result<(), SegError> {
         let value: Value = value.into();
 
+        if key.len() > 255 {
+            return Err(SegError::KeySizeTooLargeEx);
+        }
+
         // default optional data is empty
         let optional = optional.unwrap_or(&[]);
 
