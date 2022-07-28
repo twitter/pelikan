@@ -11,9 +11,9 @@ mod reserved;
 #[cfg(any(feature = "magic", feature = "debug"))]
 pub(crate) use header::ITEM_MAGIC_SIZE;
 
+use crate::hashtable::FREQ_MASK;
 use crate::SegError;
 use crate::Value;
-use crate::hashtable::FREQ_MASK;
 
 pub(crate) use header::{ItemHeader, ITEM_HDR_SIZE};
 pub(crate) use raw::RawItem;
@@ -100,8 +100,20 @@ pub struct RichItem {
 
 impl RichItem {
     /// Creates a new `Item` from its parts
-    pub(crate) fn new(raw: RawItem, age: u32, item_info: u64, item_info_ptr: *const u64, cas: u32) -> Self {
-        RichItem { cas, age, item_info, item_info_ptr, raw }
+    pub(crate) fn new(
+        raw: RawItem,
+        age: u32,
+        item_info: u64,
+        item_info_ptr: *const u64,
+        cas: u32,
+    ) -> Self {
+        RichItem {
+            cas,
+            age,
+            item_info,
+            item_info_ptr,
+            raw,
+        }
     }
 
     /// If the `magic` or `debug` features are enabled, this allows for checking
@@ -135,12 +147,10 @@ impl RichItem {
     }
 
     // used to support multi readers and single writer
-    // return true, if the item is evicted/updated since being 
+    // return true, if the item is evicted/updated since being
     // read from the hash table
     pub fn is_not_changed(&self) -> bool {
-        unsafe {
-            return self.item_info == *self.item_info_ptr & !FREQ_MASK
-        }
+        unsafe { return self.item_info == *self.item_info_ptr & !FREQ_MASK }
     }
 
     /// Borrow the optional data

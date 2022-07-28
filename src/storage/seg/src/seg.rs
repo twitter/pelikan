@@ -103,11 +103,11 @@ impl Seg {
 
     /// Get the item in the `Seg` with the provided key
     /// this differs from get by returning information about hash table entry
-    /// this allows opportunistic concurrency control and enables 
-    /// multiple readers and a single writer 
-    /// To use it, one simply checks the hash table entry does not change after 
-    /// copying/using the item value, if it has changed, it means the item 
-    /// is evicted or updated by another thread and we need to roll back 
+    /// this allows opportunistic concurrency control and enables
+    /// multiple readers and a single writer
+    /// To use it, one simply checks the hash table entry does not change after
+    /// copying/using the item value, if it has changed, it means the item
+    /// is evicted or updated by another thread and we need to roll back
     ///
     /// ```
     /// use seg::{Policy, Seg};
@@ -124,7 +124,8 @@ impl Seg {
     /// assert!(!item.is_not_changed());
     /// ```
     pub fn get_with_item_info(&mut self, key: &[u8]) -> Option<RichItem> {
-        self.hashtable.get_with_item_info(key, self.time, &mut self.segments)
+        self.hashtable
+            .get_with_item_info(key, self.time, &mut self.segments)
     }
 
     /// Get the item in the `Seg` with the provided key without
@@ -176,8 +177,8 @@ impl Seg {
 
         // try to get a `ReservedItem`
         let mut retries = RESERVE_RETRIES;
-        let mut has_removed_expired = false; 
-        
+        let mut has_removed_expired = false;
+
         let reserved;
         loop {
             match self

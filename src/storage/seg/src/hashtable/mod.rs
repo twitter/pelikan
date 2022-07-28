@@ -346,17 +346,22 @@ impl HashTable {
     }
 
     /// Lookup an item by key and return it
-    /// compare to get, this is designed to support multiple readers and single writer. 
-    /// because eviction always remove hashtable entry first, 
-    /// so if an object is evicted, its hash table entry must have been removed, 
+    /// compare to get, this is designed to support multiple readers and single writer.
+    /// because eviction always remove hashtable entry first,
+    /// so if an object is evicted, its hash table entry must have been removed,
     /// as a result, we can verify hash table entry after reading/copying the value.
-    /// 
+    ///
     /// Therefore, we can leverage opportunistic concurrency control to support
-    /// multiple readers and a single writer. 
-    /// we check the hash table after a reader reads the data, 
+    /// multiple readers and a single writer.
+    /// we check the hash table after a reader reads the data,
     /// if the data is evicted, then its hash table entry must have been removed.
     ///  
-    pub fn get_with_item_info(&mut self, key: &[u8], time: Instant, segments: &mut Segments) -> Option<RichItem> {
+    pub fn get_with_item_info(
+        &mut self,
+        key: &[u8],
+        time: Instant,
+        segments: &mut Segments,
+    ) -> Option<RichItem> {
         let hash = self.hash(key);
         let tag = tag_from_hash(hash);
         let bucket_id = hash & self.mask;
@@ -413,7 +418,7 @@ impl HashTable {
         }
 
         None
-    }    
+    }
 
     /// Lookup an item by key and return it without incrementing the item
     /// frequency. This may be used to compose higher-level functions which do

@@ -149,7 +149,12 @@ impl Segments {
 
     pub(crate) fn get_age(&self, item_info: u64) -> Option<u32> {
         let seg_id = get_seg_id(item_info).map(|v| v.get())?;
-        return Some(self.headers[seg_id as usize - 1].create_at().elapsed().as_secs());
+        return Some(
+            self.headers[seg_id as usize - 1]
+                .create_at()
+                .elapsed()
+                .as_secs(),
+        );
     }
 
     /// Retrieve a `RawItem` from a specific segment id at the given offset
