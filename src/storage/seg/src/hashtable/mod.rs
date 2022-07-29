@@ -398,8 +398,6 @@ impl HashTable {
                         } else {
                             freq = (freq | 0x80) << FREQ_BIT_SHIFT;
                         }
-                        // TODO: this needs to be atomic
-                        // worse case new item insert fails
                         *item_info = (*item_info & !FREQ_MASK) | freq;
                     }
 
