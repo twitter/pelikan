@@ -379,6 +379,7 @@ impl HashTable {
             }
         }
 
+        let cas = get_cas(self.data[(hash & self.mask) as usize].data[0]); 
         let iter = IterMut::new(self, hash);
 
         for item_info in iter {
@@ -406,9 +407,9 @@ impl HashTable {
                     let item = RichItem::new(
                         current_item,
                         age,
+                        cas,
                         item_info_val & !FREQ_MASK,
-                        item_info,
-                        get_cas(self.data[(hash & self.mask) as usize].data[0]),
+                        item_info
                     );
                     item.check_magic();
 

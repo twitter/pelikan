@@ -58,7 +58,7 @@ pub use crate::seg::Seg;
 pub use builder::Builder;
 pub use error::SegError;
 pub use eviction::Policy;
-pub use item::Item;
+pub use item::{Item, RichItem};
 
 // publicly exported items from external crates
 pub use storage_types::Value;
