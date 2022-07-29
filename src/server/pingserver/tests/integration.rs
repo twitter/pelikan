@@ -16,7 +16,7 @@ use std::time::Duration;
 
 fn main() {
     debug!("launching server");
-    let server = Pingserver::new(PingserverConfig::default());
+    let server = Pingserver::new(PingserverConfig::default()).expect("failed to launch");
 
     // wait for server to startup. duration is chosen to be longer than we'd
     // expect startup to take in a slow ci environment.

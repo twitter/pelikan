@@ -45,6 +45,8 @@ pub struct Admin {
     signal_queue_tx: Queues<Signal, ()>,
     /// The timeout for each call to poll
     timeout: Duration,
+    /// The version of the service
+    version: String,
 }
 
 pub struct AdminBuilder {
@@ -53,6 +55,7 @@ pub struct AdminBuilder {
     poll: Poll,
     sessions: Slab<ServerSession<AdminRequestParser, AdminResponse, AdminRequest>>,
     timeout: Duration,
+    version: String,
     waker: Arc<Waker>,
 }
 
@@ -83,14 +86,21 @@ impl AdminBuilder {
 
         let sessions = Slab::new();
 
+        let version = "unknown".to_string();
+
         Ok(Self {
             listener,
             nevent,
             poll,
             sessions,
             timeout,
+            version,
             waker,
         })
+    }
+
+    pub fn version(&mut self, version: &str) {
+        self.version = version.to_string();
     }
 
     pub fn waker(&self) -> Arc<Waker> {
@@ -112,6 +122,7 @@ impl AdminBuilder {
             signal_queue_rx,
             signal_queue_tx,
             timeout: self.timeout,
+            version: self.version,
         }
     }
 }
@@ -199,7 +210,9 @@ impl Admin {
                         }
                     }
                     AdminRequest::Version => {
-                        session.put_slice(b"VERSION 0.0.0\r\n");
+                        session.put_slice(b"VERSION ");
+                        session.put_slice(self.version.as_bytes());
+                        session.put_slice(b"\r\n");
                         match session.flush() {
                             Ok(_) => Ok(()),
                             Err(e) => map_err(e),

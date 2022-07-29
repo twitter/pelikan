@@ -1,10 +1,11 @@
+use std::collections::VecDeque;
 use crate::*;
 use std::thread::JoinHandle;
-// use std::time::Instant;
 
 pub struct SingleWorker<Parser, Request, Response, Storage> {
     nevent: usize,
     parser: Parser,
+    pending: VecDeque<Token>,
     poll: Poll,
     session_queue: Queues<Session, Session>,
     sessions: Slab<ServerSession<Parser, Response, Request>>,
@@ -31,7 +32,7 @@ where
     fn close(&mut self, token: Token) {
         if self.sessions.contains(token.0) {
             let mut session = self.sessions.remove(token.0).into_inner();
-            let _ = session.deregister(self.poll.registry());
+            let _ = self.poll.registry().deregister(&mut session);
             let _ = self.session_queue.try_send_any(session);
             let _ = self.session_queue.wake();
         }
@@ -47,12 +48,17 @@ where
         // fill the session
         match session.fill() {
             Ok(0) => Err(Error::new(ErrorKind::Other, "client hangup")),
-            r => r,
+            Ok(_) => Ok(()),
+            Err(e) => if e.kind() == ErrorKind::WouldBlock {
+        		Ok(())
+        	} else {
+        		Err(e)
+        	}
         }?;
 
-        // process up to one request
-        match session.receive() {
-            Ok(request) => {
+        // process up to one pending request
+    	match session.receive() {
+       	    Ok(request) => {
                 let response = self.storage.execute(&request);
                 if response.should_hangup() {
                     let _ = session.send(response);
@@ -60,6 +66,8 @@ where
                 }
                 match session.send(response) {
                     Ok(_) => {
+                    	// attempt to flush immediately if there's now data in
+                    	// the write buffer
                         if session.write_pending() > 0 {
                             match session.flush() {
                                 Ok(_) => Ok(()),
@@ -67,20 +75,38 @@ where
                             }?;
                         }
 
-                        if (session.write_pending() > 0 || session.remaining() > 0)
-                            && session
-                                .reregister(self.poll.registry(), token, session.interest())
-                                .is_err()
-                        {
-                            Err(Error::new(ErrorKind::Other, "failed to reregister"))
-                        } else {
-                            Ok(())
+                        // reregister to get writable event
+                        if session.write_pending() > 0 && self.poll.registry().reregister(
+                        		session,
+                            	token,
+                            	session.interest()
+                            )
+                        .is_err() {
+                        	return Err(Error::new(ErrorKind::Other, "failed to reregister"));
                         }
+
+                        // if there's still data to read, put the token on the
+                        // pending queue
+                        if session.remaining() > 0 {
+                        	self.pending.push_back(token);
+                        }
+
+                        Ok(())
                     }
-                    Err(e) => map_err(e),
+                    Err(e) => if e.kind() == ErrorKind::WouldBlock {
+	            		Ok(())
+	            	} else {
+	            		Err(e)
+	            	}
                 }
             }
-            Err(e) => map_err(e),
+            Err(e) => {
+            	if e.kind() == ErrorKind::WouldBlock {
+            		Ok(())
+            	} else {
+            		Err(e)
+            	}
+            }
         }
     }
 
@@ -102,8 +128,12 @@ where
 
         loop {
             // WORKER_EVENT_LOOP.increment();
-
             self.storage.expire();
+
+            // we need another wakeup if there are still pending reads
+            if !self.pending.is_empty() {
+            	let _ = self.waker.wake();
+            }
 
             // get events with timeout
             if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
@@ -126,6 +156,15 @@ where
 
                 match token {
                     WAKER_TOKEN => {
+                    	// handle outstanding reads
+                    	for _ in 0..self.pending.len() {
+                    		if let Some(token) = self.pending.pop_front() {
+                    			if self.read(token).is_err() {
+                    				self.close(token);
+                    			}
+                    		}
+                    	}
+
                         // handle up to one new session
                         if let Some(mut session) =
                             self.session_queue.try_recv().map(|v| v.into_inner())
@@ -148,7 +187,6 @@ where
                         while let Some(signal) = self.signal_queue.try_recv() {
                             match signal.into_inner() {
                                 Signal::FlushAll => {
-                                    warn!("received flush_all");
                                     self.storage.clear();
                                 }
                                 Signal::Shutdown => {
@@ -160,21 +198,31 @@ where
                         }
                     }
                     _ => {
-                        if event.is_error()
-                            || event.is_writable() && self.write(token).is_err()
-                            || event.is_readable() && self.read(token).is_err()
-                        {
-                            self.close(token);
-                        }
+						if event.is_error() {
+                    		self.close(token);
+                    		continue;
+                    	}
+                    	if event.is_writable() && self.write(token).is_err() {
+                     			self.close(token);
+                     			continue;
+                     		}
+                    	if event.is_readable() && self.read(token).is_err() {
+                     			self.close(token);
+                     			continue;
+                     		}
                     }
                 }
             }
+
+
         }
     }
 }
 
 pub struct SingleWorkerBuilder<Parser, Request, Response, Storage> {
+	nevent: usize,
     parser: Parser,
+    pending: VecDeque<Token>,
     poll: Poll,
     sessions: Slab<ServerSession<Parser, Response, Request>>,
     storage: Storage,
@@ -190,11 +238,13 @@ impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Re
 
         let waker = Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap());
 
-        // let nevent = config.nevent();
+        let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
 
         Ok(Self {
+        	nevent,
             parser,
+            pending: VecDeque::new(),
             poll,
             sessions: Slab::new(),
             storage,
@@ -209,8 +259,9 @@ impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Re
         signal_queue: Queues<(), Signal>,
     ) -> SingleWorker<Parser, Request, Response, Storage> {
         SingleWorker {
-            nevent: 1024,
+            nevent: self.nevent,
             parser: self.parser,
+            pending: self.pending,
             poll: self.poll,
             session_queue,
             sessions: self.sessions,
@@ -259,7 +310,12 @@ where
         // fill the session
         match session.fill() {
             Ok(0) => Err(Error::new(ErrorKind::Other, "client hangup")),
-            r => r,
+            Ok(_) => Ok(()),
+            Err(e) => if e.kind() == ErrorKind::WouldBlock {
+        		Ok(())
+        	} else {
+        		Err(e)
+        	}
         }?;
 
         // process up to one request
@@ -343,6 +399,7 @@ where
                                 if response.should_hangup() {
                                     let _ = session.send(response);
                                     self.close(token);
+                                    continue;
                                 } else if session.send(response).is_err()
                                     || (session.write_pending() > 0
                                         && session
@@ -354,6 +411,11 @@ where
                                             .is_err())
                                 {
                                     self.close(token);
+                                    continue;
+                                }
+                                if session.remaining() > 0 && self.read(token).is_err() {
+                            		self.close(token);
+                            		continue;
                                 }
                             }
                         }
@@ -373,13 +435,18 @@ where
                         }
                     }
                     _ => {
-                        // handle each session event
-                        if event.is_error()
-                            || event.is_writable() && self.write(token).is_err()
-                            || event.is_readable() && self.read(token).is_err()
-                        {
-                            self.close(token);
-                        }
+                    	if event.is_error() {
+                    		self.close(token);
+                    		continue;
+                    	}
+                    	if event.is_writable() && self.write(token).is_err() {
+                     			self.close(token);
+                     			continue;
+                     		}
+                    	if event.is_readable() && self.read(token).is_err() {
+                     			self.close(token);
+                     			continue;
+                     		}
                     }
                 }
             }

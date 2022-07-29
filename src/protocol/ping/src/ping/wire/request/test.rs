@@ -41,7 +41,7 @@ fn unknown() {
 
     for request in &["unknown\r\n"] {
         if let Err(e) = parser.parse(request.as_bytes()) {
-            if e.kind() != ErrorKind::WouldBlock {
+            if e.kind() != ErrorKind::InvalidInput {
                 panic!("invalid parse result");
             }
         } else {

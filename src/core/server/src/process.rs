@@ -33,6 +33,11 @@ where
         })
     }
 
+    pub fn version(mut self, version: &str) -> Self {
+    	self.admin.version(version);
+    	self
+    }
+
     pub fn spawn(self) -> Process {
         let mut thread_wakers = vec![self.listener.waker()];
         thread_wakers.extend_from_slice(&self.workers.wakers());
