@@ -17,12 +17,8 @@ impl Connector {
     /// Attemps to connect to the provided address.
     pub fn connect<A: ToSocketAddrs>(&self, addr: A) -> Result<Stream> {
         match &self.inner {
-            ConnectorType::Tcp(connector) => {
-                Ok(Stream::from(connector.connect(addr)?))
-            }
-            ConnectorType::TlsTcp(connector) => {
-                Ok(Stream::from(connector.connect(addr)?))
-            }
+            ConnectorType::Tcp(connector) => Ok(Stream::from(connector.connect(addr)?)),
+            ConnectorType::TlsTcp(connector) => Ok(Stream::from(connector.connect(addr)?)),
         }
     }
 }
@@ -30,7 +26,7 @@ impl Connector {
 impl From<TcpConnector> for Connector {
     fn from(other: TcpConnector) -> Self {
         Self {
-            inner: ConnectorType::Tcp(other)
+            inner: ConnectorType::Tcp(other),
         }
     }
 }
@@ -38,7 +34,7 @@ impl From<TcpConnector> for Connector {
 impl From<TlsTcpConnector> for Connector {
     fn from(other: TlsTcpConnector) -> Self {
         Self {
-            inner: ConnectorType::TlsTcp(other)
+            inner: ConnectorType::TlsTcp(other),
         }
     }
 }

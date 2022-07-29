@@ -4,7 +4,7 @@
 
 pub use boring::ssl::{ShutdownResult, SslVerifyMode};
 
-use boring::ssl::{ErrorCode, Ssl, SslStream, SslFiletype, SslMethod};
+use boring::ssl::{ErrorCode, Ssl, SslFiletype, SslMethod, SslStream};
 use boring::x509::X509;
 
 use crate::*;
@@ -71,7 +71,9 @@ impl TlsTcpStream {
     }
 
     pub fn shutdown(&mut self) -> Result<ShutdownResult> {
-        self.inner.shutdown().map_err(|e| Error::new(ErrorKind::Other, e.to_string()))
+        self.inner
+            .shutdown()
+            .map_err(|e| Error::new(ErrorKind::Other, e.to_string()))
     }
 }
 
@@ -555,7 +557,6 @@ impl TlsTcpConnectorBuilder {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -585,7 +586,6 @@ mod tests {
         Listener::from((tcp_listener, tls_acceptor))
     }
 
-
     #[test]
     fn listener() {
         let _ = create_listener("127.0.0.1:0");
@@ -602,34 +602,35 @@ mod tests {
         let listener = create_listener("127.0.0.1:0");
 
         let addr = listener.local_addr().expect("listener has no local addr");
-        
+
         let mut client_stream = connector.connect(addr).expect("failed to connect");
         std::thread::sleep(std::time::Duration::from_millis(100));
         let mut server_stream = listener.accept().expect("failed to accept");
 
-        
         let mut server_handshake_complete = false;
         let mut client_handshake_complete = false;
 
-        while ! (server_handshake_complete && client_handshake_complete) {
-            if ! server_handshake_complete {
+        while !(server_handshake_complete && client_handshake_complete) {
+            if !server_handshake_complete {
                 std::thread::sleep(std::time::Duration::from_millis(100));
                 if server_stream.do_handshake().is_ok() {
                     server_handshake_complete = true;
                 }
             }
-            
-            if ! client_handshake_complete {
+
+            if !client_handshake_complete {
                 std::thread::sleep(std::time::Duration::from_millis(100));
                 if client_stream.do_handshake().is_ok() {
                     client_handshake_complete = true;
                 }
             }
         }
-        
+
         std::thread::sleep(std::time::Duration::from_millis(100));
 
-        client_stream.write_all(b"PING\r\n").expect("failed to write");
+        client_stream
+            .write_all(b"PING\r\n")
+            .expect("failed to write");
         client_stream.flush().expect("failed to flush");
 
         std::thread::sleep(std::time::Duration::from_millis(100));
@@ -639,7 +640,9 @@ mod tests {
         match server_stream.read(&mut buf) {
             Ok(6) => {
                 assert_eq!(&buf[0..6], b"PING\r\n");
-                server_stream.write_all(b"PONG\r\n").expect("failed to write");
+                server_stream
+                    .write_all(b"PONG\r\n")
+                    .expect("failed to write");
             }
             Ok(n) => {
                 panic!("read: {} bytes but expected 6", n);
@@ -662,6 +665,5 @@ mod tests {
                 panic!("error reading: {}", e);
             }
         }
-
     }
 }

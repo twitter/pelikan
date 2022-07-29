@@ -185,7 +185,6 @@ mod tests {
         Listener::from(tcp_listener)
     }
 
-
     #[test]
     fn listener() {
         let _ = create_listener("127.0.0.1:0");
@@ -202,14 +201,16 @@ mod tests {
         let listener = create_listener("127.0.0.1:0");
 
         let addr = listener.local_addr().expect("listener has no local addr");
-        
+
         let mut client_stream = connector.connect(addr).expect("failed to connect");
         std::thread::sleep(std::time::Duration::from_millis(100));
         let mut server_stream = listener.accept().expect("failed to accept");
 
         std::thread::sleep(std::time::Duration::from_millis(100));
 
-        client_stream.write_all(b"PING\r\n").expect("failed to write");
+        client_stream
+            .write_all(b"PING\r\n")
+            .expect("failed to write");
         client_stream.flush().expect("failed to flush");
 
         std::thread::sleep(std::time::Duration::from_millis(100));
@@ -219,7 +220,9 @@ mod tests {
         match server_stream.read(&mut buf) {
             Ok(6) => {
                 assert_eq!(&buf[0..6], b"PING\r\n");
-                server_stream.write_all(b"PONG\r\n").expect("failed to write");
+                server_stream
+                    .write_all(b"PONG\r\n")
+                    .expect("failed to write");
             }
             Ok(n) => {
                 panic!("read: {} bytes but expected 6", n);
@@ -242,7 +245,5 @@ mod tests {
                 panic!("error reading: {}", e);
             }
         }
-
-
     }
 }

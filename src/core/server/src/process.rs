@@ -34,8 +34,8 @@ where
     }
 
     pub fn version(mut self, version: &str) -> Self {
-    	self.admin.version(version);
-    	self
+        self.admin.version(version);
+        self
     }
 
     pub fn spawn(self) -> Process {
