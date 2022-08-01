@@ -16,7 +16,7 @@ members = [
     "src/protocol/thrift",
     # "src/proxy/momento",
     "src/proxy/ping",
-    # "src/proxy/thrift",
+    "src/proxy/thrift",
     "src/queues",
     "src/server/pingserver",
     "src/server/segcache",

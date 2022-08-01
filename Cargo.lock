@@ -1737,6 +1737,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "thriftproxy"
+version = "0.0.1"
+dependencies = [
+ "backtrace",
+ "clap",
+ "common",
+ "config",
+ "logger",
+ "protocol-thrift",
+ "proxy",
+ "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
+]
+
+[[package]]
 name = "time"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
