@@ -7,6 +7,14 @@ use logger::configure_logging;
 use protocol_ping::*;
 use proxy::{Process, ProcessBuilder};
 
+type BackendParser = ResponseParser;
+type BackendRequest = Request;
+type BackendResponse = Response;
+
+type FrontendParser = RequestParser;
+type FrontendRequest = Request;
+type FrontendResponse = Response;
+
 #[allow(dead_code)]
 pub struct Pingproxy {
     process: Process,
@@ -33,7 +41,7 @@ impl Pingproxy {
 
         // initialize process
         let process_builder =
-            ProcessBuilder::new(config, request_parser, response_parser, log_drain)
+            ProcessBuilder::<BackendParser, BackendRequest, BackendResponse, FrontendParser, FrontendRequest, FrontendResponse>::new(&config, log_drain, response_parser, request_parser)
                 .expect("failed to launch");
         let process = process_builder.spawn();
 

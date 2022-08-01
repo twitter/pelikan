@@ -1,172 +1,135 @@
-// Copyright 2022 Twitter, Inc.
+// Copyright 2021 Twitter, Inc.
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::admin::Admin;
-use crate::admin::AdminBuilder;
-use crate::backend::BackendWorkerBuilder;
-use crate::frontend::FrontendWorkerBuilder;
-use crate::listener::ListenerBuilder;
+use config::proxy::ListenerConfig;
+use config::proxy::FrontendConfig;
+use config::proxy::BackendConfig;
 use crate::*;
-use common::signal::Signal;
-use config::proxy::{BackendConfig, FrontendConfig, ListenerConfig};
-use config::AdminConfig;
-use config::ServerConfig;
-use config::TlsConfig;
-use crossbeam_channel::bounded;
-use crossbeam_channel::Sender;
-use logger::Drain;
-use net::Waker;
-use protocol_common::*;
-use queues::Queues;
-use std::sync::Arc;
 use std::thread::JoinHandle;
 
-pub const FRONTEND_THREADS: usize = 1;
-pub const BACKEND_THREADS: usize = 1;
-pub const BACKEND_POOLSIZE: usize = 1;
-
-pub struct ProcessBuilder<RequestParser, Request, ResponseParser, Response> {
-    admin: Admin,
-    listener: Listener,
-    frontends: Vec<FrontendWorker<RequestParser, Request, Response>>,
-    backends: Vec<BackendWorker<ResponseParser, Request, Response>>,
-    signal_tx: Sender<Signal>,
+pub struct ProcessBuilder<BackendParser, BackendRequest, BackendResponse, FrontendParser, FrontendRequest, FrontendResponse> {
+    admin: AdminBuilder,
+    backend: BackendBuilder<BackendParser, BackendRequest, BackendResponse>,
+    frontend: FrontendBuilder<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>,
+    listener: ListenerBuilder,
+    log_drain: Box<dyn Drain>,
+    // workers: WorkersBuilder<Parser, Request, Response, Storage>,
 }
 
-impl<RequestParser, Request, ResponseParser, Response>
-    ProcessBuilder<RequestParser, Request, ResponseParser, Response>
+impl<BackendParser, BackendRequest, BackendResponse, FrontendParser, FrontendRequest, FrontendResponse> ProcessBuilder<BackendParser, BackendRequest, BackendResponse, FrontendParser, FrontendRequest, FrontendResponse>
 where
-    RequestParser: 'static + Clone + Send + Parse<Request>,
-    Request: 'static + Send + Compose,
-    ResponseParser: 'static + Clone + Send + Parse<Response>,
-    Response: 'static + Send + Compose,
-{
-    pub fn new<T: AdminConfig + ListenerConfig + BackendConfig + FrontendConfig + TlsConfig>(
-        config: T,
-        request_parser: RequestParser,
-        response_parser: ResponseParser,
+    BackendParser: 'static + Parse<BackendResponse> + Clone + Send,
+    BackendRequest: 'static + Send + Compose + From<FrontendRequest> + Compose,
+    BackendResponse: 'static + Compose + Send,
+    FrontendParser: 'static + Parse<FrontendRequest> + Clone + Send,
+    FrontendRequest: 'static + Send,
+    FrontendResponse: 'static + Compose + Send,
+    FrontendResponse: From<BackendResponse> + Compose,
+{   
+    pub fn new<T: AdminConfig + FrontendConfig + BackendConfig + TlsConfig + ListenerConfig>(
+        config: &T,
         log_drain: Box<dyn Drain>,
+        backend_parser: BackendParser,
+        frontend_parser: FrontendParser,
     ) -> Result<Self> {
-        // initialize the clock
-        common::time::refresh_clock();
+        let admin = AdminBuilder::new(config)?;
+        let backend = BackendBuilder::new(config, backend_parser, 1)?;
+        let frontend = FrontendBuilder::new(config, frontend_parser, 1)?;
+        let listener = ListenerBuilder::new(config)?;
+        // let workers = WorkersBuilder::new(config, parser, storage)?;
 
-        let admin_builder = AdminBuilder::new(&config, log_drain).unwrap_or_else(|e| {
-            error!("failed to initialize admin: {}", e);
-            std::process::exit(1);
-        });
-        let admin_waker = admin_builder.waker();
+        Ok(Self {
+            admin,
+            backend,
+            frontend,
+            listener,
+            log_drain,
+        })
+    }
 
-        let listener_builder = ListenerBuilder::new(&config)?;
-        let listener_waker = listener_builder.waker();
+    pub fn version(mut self, version: &str) -> Self {
+        self.admin.version(version);
+        self
+    }
 
-        let mut frontend_builders = Vec::new();
-        for _ in 0..config.frontend().threads() {
-            frontend_builders.push(FrontendWorkerBuilder::new(&config, request_parser.clone())?);
-        }
-        let frontend_wakers: Vec<Arc<Waker>> =
-            frontend_builders.iter().map(|v| v.waker()).collect();
-
-        let mut backend_builders = Vec::new();
-        for _ in 0..config.backend().threads() {
-            backend_builders.push(BackendWorkerBuilder::new(&config, response_parser.clone())?);
-        }
-        let backend_wakers: Vec<Arc<Waker>> = backend_builders.iter().map(|v| v.waker()).collect();
-
-        let mut thread_wakers = vec![listener_waker.clone()];
-        thread_wakers.extend_from_slice(&backend_wakers);
-        thread_wakers.extend_from_slice(&frontend_wakers);
+    pub fn spawn(self) -> Process {
+        let mut thread_wakers = vec![self.listener.waker()];
+        thread_wakers.extend_from_slice(&self.backend.wakers());
+        thread_wakers.extend_from_slice(&self.frontend.wakers());
 
         // channel for the parent `Process` to send `Signal`s to the admin thread
         let (signal_tx, signal_rx) = bounded(QUEUE_CAPACITY);
 
         // queues for the `Admin` to send `Signal`s to all sibling threads
         let (mut signal_queue_tx, mut signal_queue_rx) =
-            Queues::new(vec![admin_waker], thread_wakers, QUEUE_CAPACITY);
+            Queues::new(vec![self.admin.waker()], thread_wakers, QUEUE_CAPACITY);
 
-        let (mut queues_listener_session, mut queues_worker_session) = Queues::new(
-            vec![listener_waker],
-            frontend_wakers.clone(),
+        // queues for the `Listener` to send `Session`s to the worker threads
+        let (mut listener_session_queues, worker_session_queues) = Queues::new(
+            vec![self.listener.waker()],
+            self.frontend.wakers(),
             QUEUE_CAPACITY,
         );
-        let (mut queues_frontend_data, mut queues_backend_data) =
-            Queues::new(frontend_wakers, backend_wakers, QUEUE_CAPACITY);
 
-        let backends: Vec<BackendWorker<ResponseParser, Request, Response>> = backend_builders
-            .drain(..)
-            .map(|v| v.build(signal_queue_rx.remove(0), queues_backend_data.remove(0)))
-            .collect();
+        let (fe_data_queues, be_data_queues) = Queues::new(
+            self.frontend.wakers(),
+            self.backend.wakers(),
+            QUEUE_CAPACITY,
+        );
 
-        let frontends: Vec<FrontendWorker<RequestParser, Request, Response>> = frontend_builders
-            .drain(..)
-            .map(|v| {
-                v.build(
-                    signal_queue_rx.remove(0),
-                    queues_worker_session.remove(0),
-                    queues_frontend_data.remove(0),
-                )
-            })
-            .collect();
-        let listener = listener_builder.build(queues_listener_session.remove(0));
+        let mut admin = self
+            .admin
+            .build(self.log_drain, signal_rx, signal_queue_tx.remove(0));
 
-        let admin = admin_builder.build(signal_queue_tx.remove(0), signal_rx);
+        let mut listener = self
+            .listener
+            .build(signal_queue_rx.remove(0), listener_session_queues.remove(0));
 
-        Ok(Self {
-            admin,
-            listener,
-            frontends,
-            backends,
-            signal_tx,
-        })
-    }
+        let be_threads = be_data_queues.len();
 
-    #[allow(clippy::vec_init_then_push)]
-    pub fn spawn(mut self) -> Process {
+        let mut backend_workers = self.backend.build(be_data_queues, signal_queue_rx.drain(0..be_threads).collect());
+        let mut frontend_workers = self.frontend.build(fe_data_queues, worker_session_queues, signal_queue_rx);
+
         let admin = std::thread::Builder::new()
-            .name("pelikan_admin".to_string())
-            .spawn(move || self.admin.run())
+            .name(format!("{}_admin", THREAD_PREFIX))
+            .spawn(move || admin.run())
             .unwrap();
 
         let listener = std::thread::Builder::new()
-            .name("pelikan_listener".to_string())
-            .spawn(move || self.listener.run())
+            .name(format!("{}_listener", THREAD_PREFIX))
+            .spawn(move || listener.run())
             .unwrap();
 
-        let mut frontend = Vec::new();
-        for (id, fe) in self.frontends.drain(..).enumerate() {
-            frontend.push(
-                std::thread::Builder::new()
-                    .name(format!("pelikan_fe_{}", id))
-                    .spawn(move || fe.run())
-                    .unwrap(),
-            )
-        }
+        let backend = backend_workers.drain(..).enumerate().map(|(i, mut b)| {
+            std::thread::Builder::new()
+            .name(format!("{}_be_{}", THREAD_PREFIX, i))
+            .spawn(move || b.run())
+            .unwrap()
+        }).collect();
 
-        let mut backend = Vec::new();
-        for (id, be) in self.backends.drain(..).enumerate() {
-            backend.push(
-                std::thread::Builder::new()
-                    .name(format!("pelikan_be_{}", id))
-                    .spawn(move || be.run())
-                    .unwrap(),
-            )
-        }
+        let frontend = frontend_workers.drain(..).enumerate().map(|(i, mut f)| {
+            std::thread::Builder::new()
+            .name(format!("{}_fe_{}", THREAD_PREFIX, i))
+            .spawn(move || f.run())
+            .unwrap()
+        }).collect();
 
         Process {
             admin,
-            listener,
-            frontend,
             backend,
-            signal_tx: self.signal_tx,
+            frontend,
+            listener,
+            signal_tx,
         }
     }
 }
 
 pub struct Process {
     admin: JoinHandle<()>,
-    listener: JoinHandle<()>,
     backend: Vec<JoinHandle<()>>,
     frontend: Vec<JoinHandle<()>>,
+    listener: JoinHandle<()>,
     signal_tx: Sender<Signal>,
 }
 

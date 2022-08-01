@@ -2,32 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-//! The admin thread, which handles admin requests to return stats, get version
-//! info, etc.
-
-use net::event::Source;
-use std::borrow::Borrow;
-use session_common::*;
-// use crate::event_loop::EventLoop;
-use crate::poll::{Poll, LISTENER_TOKEN, WAKER_TOKEN};
-use crate::QUEUE_RETRIES;
-use crate::TCP_ACCEPT_EX;
 use crate::*;
-use common::signal::Signal;
-use common::ssl::{HandshakeError, MidHandshakeSslStream, Ssl, SslContext, SslStream};
-use config::*;
-use core::time::Duration;
-use crossbeam_channel::Receiver;
-use logger::Drain;
-use net::event::Event;
-use net::{Events, Token, Waker};
-use protocol_admin::*;
-use queues::Queues;
+use protocol_common::BufMut;
 use rustcommon_metrics::*;
-use std::io::{BufRead, Error, ErrorKind, Write};
-use std::net::SocketAddr;
-use std::sync::Arc;
-use tiny_http::{Method, Request, Response};
+use std::time::Duration;
 
 counter!(ADMIN_REQUEST_PARSE);
 counter!(ADMIN_RESPONSE_COMPOSE);
@@ -36,6 +14,7 @@ counter!(ADMIN_EVENT_WRITE);
 counter!(ADMIN_EVENT_READ);
 counter!(ADMIN_EVENT_LOOP);
 counter!(ADMIN_EVENT_TOTAL);
+
 counter!(RU_UTIME);
 counter!(RU_STIME);
 gauge!(RU_MAXRSS);
@@ -53,602 +32,318 @@ counter!(RU_NSIGNALS);
 counter!(RU_NVCSW);
 counter!(RU_NIVCSW);
 
-const KB: u64 = 1024; // one kilobyte in bytes
-const S: u64 = 1_000_000_000; // one second in nanoseconds
-const US: u64 = 1_000; // one microsecond in nanoseconds
-
-pub static PERCENTILES: &[(&str, f64)] = &[
-    ("p25", 25.0),
-    ("p50", 50.0),
-    ("p75", 75.0),
-    ("p90", 90.0),
-    ("p99", 99.0),
-    ("p999", 99.9),
-    ("p9999", 99.99),
-];
+pub struct Admin {
+    /// The actual network listener for the ASCII Admin Endpoint
+    listener: ::net::Listener,
+    /// The drain handle for the logger
+    log_drain: Box<dyn Drain>,
+    /// The maximum number of events to process per call to poll
+    nevent: usize,
+    /// The actual poll instantance
+    poll: Poll,
+    /// The sessions which have been opened
+    sessions: Slab<ServerSession<AdminRequestParser, AdminResponse, AdminRequest>>,
+    /// A queue for receiving signals from the parent thread
+    signal_queue_rx: Receiver<Signal>,
+    /// A set of queues for sending signals to sibling threads
+    signal_queue_tx: Queues<Signal, ()>,
+    /// The timeout for each call to poll
+    timeout: Duration,
+    /// The version of the service
+    version: String,
+}
 
 pub struct AdminBuilder {
-    listener: net::Listener,
-    poll: net::Poll,
-    sessions: Slab<Session>,
-    addr: SocketAddr,
+    listener: ::net::Listener,
     nevent: usize,
+    poll: Poll,
+    sessions: Slab<ServerSession<AdminRequestParser, AdminResponse, AdminRequest>>,
     timeout: Duration,
-    parser: AdminRequestParser,
-    log_drain: Box<dyn Drain>,
-    http_server: Option<tiny_http::Server>,
     version: String,
     waker: Arc<Waker>,
 }
 
 impl AdminBuilder {
-    /// Creates a new `Admin` event loop.
-    pub fn new<T: AdminConfig + TlsConfig>(
-        config: &T,
-        mut log_drain: Box<dyn Drain>,
-    ) -> Result<Self> {
+    pub fn new<T: AdminConfig + TlsConfig>(config: &T) -> Result<Self> {
+        let tls_config = config.tls();
         let config = config.admin();
 
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
-            error!("bad admin listen address");
-            let _ = log_drain.flush();
-            Error::new(ErrorKind::Other, "bad listen address")
+            std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
         })?;
 
         let tcp_listener = TcpListener::bind(addr)?;
 
-        let listener = net::Listener::from(tcp_listener);
+        let mut listener = match (config.use_tls(), tls_acceptor(tls_config)?) {
+            (true, Some(tls_acceptor)) => ::net::Listener::from((tcp_listener, tls_acceptor)),
+            _ => ::net::Listener::from(tcp_listener),
+        };
 
-        let mut poll = net::Poll::new()?;
-        listener.register(poll.registry(), LISTENER_TOKEN, net::Interest::READABLE)?;
+        let poll = Poll::new()?;
+        listener.register(poll.registry(), LISTENER_TOKEN, Interest::READABLE)?;
 
         let waker = Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap());
 
-
-
-        // let mut poll = Poll::new().map_err(|e| {
-        //     error!("{}", e);
-        //     error!("failed to create epoll instance");
-        //     let _ = log_drain.flush();
-        //     Error::new(ErrorKind::Other, "failed to create epoll instance")
-        // })?;
-        // poll.bind(addr, &Tls::default()).map_err(|e| {
-        //     error!("{}", e);
-        //     error!("failed to bind admin tcp listener");
-        //     let _ = log_drain.flush();
-        //     Error::new(
-        //         ErrorKind::Other,
-        //         format!(
-        //             "failed to bind listener on: {}:{}",
-        //             config.host(),
-        //             config.port()
-        //         ),
-        //     )
-        // })?;
-
-        let timeout = std::time::Duration::from_millis(config.timeout() as u64);
-
         let nevent = config.nevent();
+        let timeout = Duration::from_millis(config.timeout() as u64);
 
-        let http_server = if config.http_enabled() {
-            let addr = config.http_socket_addr().map_err(|e| {
-                error!("{}", e);
-                error!("bad admin http listen address");
-                let _ = log_drain.flush();
-                Error::new(ErrorKind::Other, "bad listen address")
-            })?;
-            let server = tiny_http::Server::http(addr).map_err(|e| {
-                error!("{}", e);
-                error!("could not start admin http server");
-                let _ = log_drain.flush();
-                Error::new(ErrorKind::Other, "failed to create http server")
-            })?;
-            Some(server)
-        } else {
-            None
-        };
+        let sessions = Slab::new();
+
+        let version = "unknown".to_string();
 
         Ok(Self {
             listener,
-            sessions: Slab::new(),
-            addr,
-            timeout,
             nevent,
             poll,
-            parser: AdminRequestParser::new(),
-            log_drain,
-            http_server,
-            version: "unknown".to_string(),
+            sessions,
+            timeout,
+            version,
             waker,
         })
+    }
+
+    pub fn version(&mut self, version: &str) {
+        self.version = version.to_string();
     }
 
     pub fn waker(&self) -> Arc<Waker> {
         self.waker.clone()
     }
 
-    /// Triggers a flush of the log
-    pub fn log_flush(&mut self) -> Result<()> {
-        self.log_drain.flush()
-    }
-
-    /// Set the reported version number
-    pub fn version(&mut self, version: &str) {
-        self.version = version.to_string();
-    }
-
     pub fn build(
         self,
-        signal_queue_tx: Queues<Signal, ()>,
+        log_drain: Box<dyn Drain>,
         signal_queue_rx: Receiver<Signal>,
+        signal_queue_tx: Queues<Signal, ()>,
     ) -> Admin {
         Admin {
             listener: self.listener,
-            addr: self.addr,
+            log_drain,
             nevent: self.nevent,
             poll: self.poll,
-            timeout: self.timeout,
-            parser: self.parser,
-            log_drain: self.log_drain,
-            http_server: self.http_server,
-            signal_queue_tx,
-            signal_queue_rx,
-            version: self.version,
-            waker: self.waker,
             sessions: self.sessions,
+            signal_queue_rx,
+            signal_queue_tx,
+            timeout: self.timeout,
+            version: self.version,
         }
-    }
-}
-
-pub struct Admin {
-    addr: SocketAddr,
-    nevent: usize,
-    listener: net::Listener,
-    poll: net::Poll,
-    sessions: Slab<Session>,
-    timeout: Duration,
-    parser: AdminRequestParser,
-    log_drain: Box<dyn Drain>,
-    /// optional http server
-    http_server: Option<tiny_http::Server>,
-    /// used to send signals to all sibling threads
-    signal_queue_tx: Queues<Signal, ()>,
-    /// used to receive signals from the parent thread
-    signal_queue_rx: Receiver<Signal>,
-    /// version number to report
-    version: String,
-    waker: Arc<Waker>,
-}
-
-impl Drop for Admin {
-    fn drop(&mut self) {
-        let _ = self.log_drain.flush();
     }
 }
 
 impl Admin {
-    /// Call accept once on the listener
-    pub fn do_accept(&mut self) {
-        if let Ok(session) = self.listener.accept().map(|v| Session::from(v)) {
+    /// Call accept one time
+    fn accept(&mut self) {
+        if let Ok(mut session) = self
+            .listener
+            .accept()
+            .map(|v| ServerSession::new(Session::from(v), AdminRequestParser::default()))
+        {
             let s = self.sessions.vacant_entry();
-            session.register(self.poll.registry(), Token(s.key()), session.interest());
-            s.insert(session);
-        }
 
-        self.listener.reregister(self.poll.registry(), LISTENER_TOKEN, net::Interest::READABLE);
-    }
+            if session
+                .register(self.poll.registry(), Token(s.key()), session.interest())
+                .is_ok()
+            {
+                s.insert(session);
+            } else {
+                // failed to register
+            }
 
-    /// This is a handler for the stats commands on the legacy admin port. It
-    /// responses using the Memcached `stats` command response format, each stat
-    /// appears on its own line with a CR+LF used as end of line symbol. The
-    /// stats appear in sorted order.
-    ///
-    /// ```text
-    /// STAT get 0
-    /// STAT get_cardinality_p25 0
-    /// STAT get_cardinality_p50 0
-    /// STAT get_cardinality_p75 0
-    /// STAT get_cardinality_p90 0
-    /// STAT get_cardinality_p99 0
-    /// STAT get_cardinality_p999 0
-    /// STAT get_cardinality_p9999 0
-    /// STAT get_ex 0
-    /// STAT get_key 0
-    /// STAT get_key_hit 0
-    /// STAT get_key_miss 0
-    /// ```
-    fn handle_stats_request(session: &mut Session) {
-        ADMIN_REQUEST_PARSE.increment();
-        let mut data = Vec::new();
-        for metric in &rustcommon_metrics::metrics() {
-            let any = match metric.as_any() {
-                Some(any) => any,
-                None => {
-                    continue;
-                }
-            };
-
-            if let Some(counter) = any.downcast_ref::<Counter>() {
-                data.push(format!("STAT {} {}\r\n", metric.name(), counter.value()));
-            } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
-                data.push(format!("STAT {} {}\r\n", metric.name(), gauge.value()));
-            } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
-                for (label, value) in PERCENTILES {
-                    let percentile = heatmap.percentile(*value).unwrap_or(0);
-                    data.push(format!(
-                        "STAT {}_{} {}\r\n",
-                        metric.name(),
-                        label,
-                        percentile
-                    ));
-                }
+            // reregister is needed here so we will call accept if there is a backlog
+            if self
+                .listener
+                .reregister(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE)
+                .is_err()
+            {
+                // failed to reregister listener? how do we handle this?
             }
         }
+    }
 
-        data.sort();
-        for line in data {
-            session.put_slice(line.as_bytes());
+    fn read(&mut self, token: Token) -> Result<()> {
+        let session = self
+            .sessions
+            .get_mut(token.0)
+            .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
+
+        // fill the session
+        match session.fill() {
+            Ok(0) => Err(Error::new(ErrorKind::Other, "client hangup")),
+            r => r,
+        }?;
+
+        match session.receive() {
+            Ok(request) => {
+                // do some request handling
+                match request {
+                    AdminRequest::FlushAll => {
+                        let _ = self.signal_queue_tx.try_send_all(Signal::FlushAll);
+                        session.put_slice(b"OK\r\n");
+                        match session.flush() {
+                            Ok(_) => Ok(()),
+                            Err(e) => map_err(e),
+                        }?;
+
+                        if (session.write_pending() > 0 || session.remaining() > 0)
+                            && session
+                                .reregister(self.poll.registry(), token, session.interest())
+                                .is_err()
+                        {
+                            Err(Error::new(ErrorKind::Other, "failed to reregister"))
+                        } else {
+                            Ok(())
+                        }
+                    }
+                    AdminRequest::Quit => Err(Error::new(ErrorKind::Other, "should hangup")),
+                    AdminRequest::Stats => {
+                        handle_stats_request(session);
+                        match session.flush() {
+                            Ok(_) => Ok(()),
+                            Err(e) => map_err(e),
+                        }?;
+
+                        if (session.write_pending() > 0 || session.remaining() > 0)
+                            && session
+                                .reregister(self.poll.registry(), token, session.interest())
+                                .is_err()
+                        {
+                            Err(Error::new(ErrorKind::Other, "failed to reregister"))
+                        } else {
+                            Ok(())
+                        }
+                    }
+                    AdminRequest::Version => {
+                        session.put_slice(b"VERSION ");
+                        session.put_slice(self.version.as_bytes());
+                        session.put_slice(b"\r\n");
+                        match session.flush() {
+                            Ok(_) => Ok(()),
+                            Err(e) => map_err(e),
+                        }?;
+
+                        if (session.write_pending() > 0 || session.remaining() > 0)
+                            && session
+                                .reregister(self.poll.registry(), token, session.interest())
+                                .is_err()
+                        {
+                            Err(Error::new(ErrorKind::Other, "failed to reregister"))
+                        } else {
+                            Ok(())
+                        }
+                    }
+                }
+            }
+            Err(e) => match e.kind() {
+                ErrorKind::WouldBlock => Ok(()),
+                _ => Err(e),
+            },
         }
-        session.put_slice(b"END\r\n");
-        // session.finalize_response();
-        ADMIN_RESPONSE_COMPOSE.increment();
     }
 
-    fn handle_version_request(session: &mut Session, version: &str) {
-        session.put_slice(format!("VERSION {}\r\n", version).as_bytes());
-        // session.finalize_response();
-        ADMIN_RESPONSE_COMPOSE.increment();
+    fn write(&mut self, token: Token) -> Result<()> {
+        let session = self
+            .sessions
+            .get_mut(token.0)
+            .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
+
+        match session.flush() {
+            Ok(_) => Ok(()),
+            Err(e) => match e.kind() {
+                ErrorKind::WouldBlock => Ok(()),
+                _ => Err(e),
+            },
+        }
     }
 
-    /// Handle an event on an existing session
-    fn handle_session_event(&mut self, event: &Event) {
+    /// Closes the session with the given token
+    fn close(&mut self, token: Token) {
+        if self.sessions.contains(token.0) {
+            let mut session = self.sessions.remove(token.0);
+            let _ = session.flush();
+        }
+    }
+
+    fn handshake(&mut self, token: Token) -> Result<()> {
+        let session = self
+            .sessions
+            .get_mut(token.0)
+            .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
+
+        match session.do_handshake() {
+            Ok(()) => {
+                if session.remaining() > 0 {
+                    session.reregister(self.poll.registry(), token, session.interest())?;
+                    Ok(())
+                } else {
+                    Ok(())
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// handle a single session event
+    fn session_event(&mut self, event: &Event) {
         let token = event.token();
-        trace!("got event for admin session: {}", token.0);
 
-        // handle error events first
         if event.is_error() {
-            ADMIN_EVENT_ERROR.increment();
-            let _ = self.sessions.remove(token.0);
+            self.close(token);
             return;
         }
 
-        // handle write events before read events to reduce write
-        // buffer growth if there is also a readable event
-        if event.is_writable() {
-            ADMIN_EVENT_WRITE.increment();
-            self.do_write(token);
+        if event.is_writable() && self.write(token).is_err() {
+            self.close(token);
+            return;
         }
 
-        // read events are handled last
-        if event.is_readable() {
-            ADMIN_EVENT_READ.increment();
-            let _ = self.do_read(token);
-        };
-    }
-
-    /// Handle a read event for the `Session` with the `Token`.
-    pub fn do_read(&mut self, token: Token) {
-        if let Some(session) = self.sessions.get_mut(token.0) {
-            // read from session to buffer
-            match session.fill() {
-                Ok(0) => {
-                    trace!("hangup for session: {:?}", session);
-                    let _ = self.sessions.remove(token.0);
-                }
-                Ok(bytes) => {
-                    trace!("read {} bytes for session: {:?}", bytes, session);
-                    if self.handle_data(token).is_err() {
-                        let _ = self.sessions.remove(token.0);
-                    }
-                }
-                Err(e) => {
-                    match e.kind() {
-                        ErrorKind::WouldBlock => {
-                            trace!("would block");
-                            // spurious read
-                            session.reregister(self.poll.registry(), token, session.interest());
-                        }
-                        ErrorKind::Interrupted => {
-                            trace!("interrupted");
-                            self.do_read(token)
-                        }
-                        _ => {
-                            trace!("error reading for session: {:?} {:?}", session, e);
-                            // some read error
-                            let _ = self.sessions.remove(token.0);
-                        }
-                    }
-                }
-            }
-        } else {
-            warn!("attempted to read from non-existent session: {}", token.0);
-        }
-    }
-
-
-    /// Handle a write event for a `Session` with the `Token`.
-    pub fn do_write(&mut self, token: Token) {
-        if let Some(session) = self.sessions.get_mut(token.0) {
-            trace!("write for session: {:?}", session);
-            match session.flush() {
-                Ok(_) => {
-                    session.reregister(self.poll.registry(), token, session.interest());
-                }
-                Err(e) => match e.kind() {
-                    ErrorKind::WouldBlock => {
-                        session.reregister(self.poll.registry(), token, session.interest());
-                    }
-                    ErrorKind::Interrupted => self.do_write(token),
-                    _ => {
-                        let _ = self.sessions.remove(token.0);
-                    }
-                },
-            }
-        } else {
-            trace!("attempted to write to non-existent session: {}", token.0)
-        }
-    }
-
-
-
-    /// A "human-readable" exposition format which outputs one stat per line,
-    /// with a LF used as the end of line symbol.
-    ///
-    /// ```text
-    /// get: 0
-    /// get_cardinality_p25: 0
-    /// get_cardinality_p50: 0
-    /// get_cardinality_p75: 0
-    /// get_cardinality_p90: 0
-    /// get_cardinality_p9999: 0
-    /// get_cardinality_p999: 0
-    /// get_cardinality_p99: 0
-    /// get_ex: 0
-    /// get_key: 0
-    /// get_key_hit: 0
-    /// get_key_miss: 0
-    /// ```
-    fn human_stats(&self) -> String {
-        let mut data = Vec::new();
-
-        for metric in &rustcommon_metrics::metrics() {
-            let any = match metric.as_any() {
-                Some(any) => any,
-                None => {
-                    continue;
-                }
-            };
-
-            if let Some(counter) = any.downcast_ref::<Counter>() {
-                data.push(format!("{}: {}", metric.name(), counter.value()));
-            } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
-                data.push(format!("{}: {}", metric.name(), gauge.value()));
-            } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
-                for (label, value) in PERCENTILES {
-                    let percentile = heatmap.percentile(*value).unwrap_or(0);
-                    data.push(format!("{}_{}: {}", metric.name(), label, percentile));
-                }
-            }
+        if event.is_readable() && self.read(token).is_err() {
+            self.close(token);
+            return;
         }
 
-        data.sort();
-        data.join("\n") + "\n"
-    }
-
-    /// JSON stats output which follows the conventions found in Finagle and
-    /// TwitterServer libraries. Percentiles are appended to the metric name,
-    /// eg: `request_latency_p999` for the 99.9th percentile. For more details
-    /// about the Finagle / TwitterServer format see:
-    /// https://twitter.github.io/twitter-server/Features.html#metrics
-    ///
-    /// ```text
-    /// {"get": 0,"get_cardinality_p25": 0,"get_cardinality_p50": 0, ... }
-    /// ```
-    fn json_stats(&self) -> String {
-        let head = "{".to_owned();
-
-        let mut data = Vec::new();
-
-        for metric in &rustcommon_metrics::metrics() {
-            let any = match metric.as_any() {
-                Some(any) => any,
-                None => {
-                    continue;
-                }
-            };
-
-            if let Some(counter) = any.downcast_ref::<Counter>() {
-                data.push(format!("\"{}\": {}", metric.name(), counter.value()));
-            } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
-                data.push(format!("\"{}\": {}", metric.name(), gauge.value()));
-            } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
-                for (label, value) in PERCENTILES {
-                    let percentile = heatmap.percentile(*value).unwrap_or(0);
-                    data.push(format!("\"{}_{}\": {}", metric.name(), label, percentile));
-                }
-            }
-        }
-
-        data.sort();
-        let body = data.join(",");
-        let mut content = head;
-        content += &body;
-        content += "}";
-        content
-    }
-
-    /// Prometheus / OpenTelemetry compatible stats output. Each stat is
-    /// annotated with a type. Percentiles use the label 'percentile' to
-    /// indicate which percentile corresponds to the value:
-    ///
-    /// ```text
-    /// # TYPE get counter
-    /// get 0
-    /// # TYPE get_cardinality gauge
-    /// get_cardinality{percentile="p25"} 0
-    /// # TYPE get_cardinality gauge
-    /// get_cardinality{percentile="p50"} 0
-    /// # TYPE get_cardinality gauge
-    /// get_cardinality{percentile="p75"} 0
-    /// # TYPE get_cardinality gauge
-    /// get_cardinality{percentile="p90"} 0
-    /// # TYPE get_cardinality gauge
-    /// get_cardinality{percentile="p99"} 0
-    /// # TYPE get_cardinality gauge
-    /// get_cardinality{percentile="p999"} 0
-    /// # TYPE get_cardinality gauge
-    /// get_cardinality{percentile="p9999"} 0
-    /// # TYPE get_ex counter
-    /// get_ex 0
-    /// # TYPE get_key counter
-    /// get_key 0
-    /// # TYPE get_key_hit counter
-    /// get_key_hit 0
-    /// # TYPE get_key_miss counter
-    /// get_key_miss 0
-    /// ```
-    fn prometheus_stats(&self) -> String {
-        let mut data = Vec::new();
-
-        for metric in &rustcommon_metrics::metrics() {
-            let any = match metric.as_any() {
-                Some(any) => any,
-                None => {
-                    continue;
-                }
-            };
-
-            if let Some(counter) = any.downcast_ref::<Counter>() {
-                data.push(format!(
-                    "# TYPE {} counter\n{} {}",
-                    metric.name(),
-                    metric.name(),
-                    counter.value()
-                ));
-            } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
-                data.push(format!(
-                    "# TYPE {} gauge\n{} {}",
-                    metric.name(),
-                    metric.name(),
-                    gauge.value()
-                ));
-            } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
-                for (label, value) in PERCENTILES {
-                    let percentile = heatmap.percentile(*value).unwrap_or(0);
-                    data.push(format!(
-                        "# TYPE {} gauge\n{}{{percentile=\"{}\"}} {}",
-                        metric.name(),
-                        metric.name(),
-                        label,
-                        percentile
-                    ));
-                }
-            }
-        }
-        data.sort();
-        let mut content = data.join("\n");
-        content += "\n";
-        let parts: Vec<&str> = content.split('/').collect();
-        parts.join("_")
-    }
-
-    /// Handle a HTTP request
-    fn handle_http_request(&self, request: Request) {
-        let url = request.url();
-        let parts: Vec<&str> = url.split('?').collect();
-        let url = parts[0];
-        match url {
-            // Prometheus/OpenTelemetry expect the `/metrics` URI will return
-            // stats in the Prometheus format
-            "/metrics" => match request.method() {
-                Method::Get => {
-                    let _ = request.respond(Response::from_string(self.prometheus_stats()));
-                }
+        match self.handshake(token) {
+            Ok(_) => {}
+            Err(e) => match e.kind() {
+                ErrorKind::WouldBlock => {}
                 _ => {
-                    let _ = request.respond(Response::empty(400));
+                    self.close(token);
                 }
             },
-            // we export Finagle/TwitterServer format stats on a few endpoints
-            // for maximum compatibility with various internal conventions
-            "/metrics.json" | "/vars.json" | "/admin/metrics.json" => match request.method() {
-                Method::Get => {
-                    let _ = request.respond(Response::from_string(self.json_stats()));
-                }
-                _ => {
-                    let _ = request.respond(Response::empty(400));
-                }
-            },
-            // human-readable stats are exported on the `/vars` endpoint based
-            // on internal conventions
-            "/vars" => match request.method() {
-                Method::Get => {
-                    let _ = request.respond(Response::from_string(self.human_stats()));
-                }
-                _ => {
-                    let _ = request.respond(Response::empty(400));
-                }
-            },
-            _ => {
-                let _ = request.respond(Response::empty(404));
-            }
         }
     }
 
-    /// Runs the `Admin` in a loop, accepting new sessions for the admin
-    /// listener and handling events on existing sessions.
     pub fn run(&mut self) {
-        info!("running admin on: {}", self.addr);
+        info!(
+            "running admin on: {}",
+            self.listener
+                .local_addr()
+                .map(|v| format!("{v}"))
+                .unwrap_or_else(|_| "unknown address".to_string())
+        );
 
         let mut events = Events::with_capacity(self.nevent);
 
-        // run in a loop, accepting new sessions and events on existing sessions
+        // repeatedly run accepting new connections and moving them to the worker
         loop {
-            ADMIN_EVENT_LOOP.increment();
-
+            // ADMIN_EVENT_LOOP.increment();
             if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
                 error!("Error polling");
             }
-
-            ADMIN_EVENT_TOTAL.add(events.iter().count() as _);
+            // ADMIN_EVENT_TOTAL.add(events.iter().count() as _);
 
             // handle all events
             for event in events.iter() {
                 match event.token() {
                     LISTENER_TOKEN => {
-                        self.do_accept();
+                        self.accept();
                     }
                     WAKER_TOKEN => {
-                        // check if we have received signals from any sibling
-                        // thread
-                        while let Ok(signal) = self.signal_queue_rx.try_recv() {
-                            match signal {
-                                Signal::FlushAll => {}
-                                Signal::Shutdown => {
-                                    // if a shutdown is received from any
-                                    // thread, we will broadcast it to all
-                                    // sibling threads and stop our event loop
-                                    info!("shutting down");
-                                    let _ = self.signal_queue_tx.try_send_all(Signal::Shutdown);
-                                    if self.signal_queue_tx.wake().is_err() {
-                                        fatal!("error waking threads for shutdown");
-                                    }
-                                    let _ = self.log_drain.flush();
-                                    return;
-                                }
-                            }
-                        }
+                        // do something here
                     }
                     _ => {
-                        self.handle_session_event(event);
+                        self.session_event(event);
                     }
-                }
-            }
-
-            // handle all http requests if the http server is enabled
-            if let Some(ref server) = self.http_server {
-                while let Ok(Some(request)) = server.try_recv() {
-                    self.handle_http_request(request);
                 }
             }
 
@@ -671,128 +366,63 @@ impl Admin {
                 }
             }
 
-            // get updated usage
-            self.get_rusage();
-
             // flush pending log entries to log destinations
             let _ = self.log_drain.flush();
         }
     }
-
-    // TODO(bmartin): move this into a common module, should be shared with
-    // other backends
-    pub fn get_rusage(&self) {
-        let mut rusage = libc::rusage {
-            ru_utime: libc::timeval {
-                tv_sec: 0,
-                tv_usec: 0,
-            },
-            ru_stime: libc::timeval {
-                tv_sec: 0,
-                tv_usec: 0,
-            },
-            ru_maxrss: 0,
-            ru_ixrss: 0,
-            ru_idrss: 0,
-            ru_isrss: 0,
-            ru_minflt: 0,
-            ru_majflt: 0,
-            ru_nswap: 0,
-            ru_inblock: 0,
-            ru_oublock: 0,
-            ru_msgsnd: 0,
-            ru_msgrcv: 0,
-            ru_nsignals: 0,
-            ru_nvcsw: 0,
-            ru_nivcsw: 0,
-        };
-
-        if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut rusage) } == 0 {
-            RU_UTIME.set(rusage.ru_utime.tv_sec as u64 * S + rusage.ru_utime.tv_usec as u64 * US);
-            RU_STIME.set(rusage.ru_stime.tv_sec as u64 * S + rusage.ru_stime.tv_usec as u64 * US);
-            RU_MAXRSS.set(rusage.ru_maxrss * KB as i64);
-            RU_IXRSS.set(rusage.ru_ixrss * KB as i64);
-            RU_IDRSS.set(rusage.ru_idrss * KB as i64);
-            RU_ISRSS.set(rusage.ru_isrss * KB as i64);
-            RU_MINFLT.set(rusage.ru_minflt as u64);
-            RU_MAJFLT.set(rusage.ru_majflt as u64);
-            RU_NSWAP.set(rusage.ru_nswap as u64);
-            RU_INBLOCK.set(rusage.ru_inblock as u64);
-            RU_OUBLOCK.set(rusage.ru_oublock as u64);
-            RU_MSGSND.set(rusage.ru_msgsnd as u64);
-            RU_MSGRCV.set(rusage.ru_msgrcv as u64);
-            RU_NSIGNALS.set(rusage.ru_nsignals as u64);
-            RU_NVCSW.set(rusage.ru_nvcsw as u64);
-            RU_NIVCSW.set(rusage.ru_nivcsw as u64);
-        }
-    }
 }
 
-impl Admin {
-    fn handle_data(&mut self, token: Token) -> Result<()> {
-        trace!("handling request for admin session: {}", token.0);
-        if let Some(session) = self.sessions.get_mut(token.0) {
-            loop {
-                if session.remaining_mut() == 0 {
-                    // if the write buffer is over-full, skip processing
-                    break;
-                }
-                match self.parser.parse(session.borrow()) {
-                    Ok(parsed_request) => {
-                        let consumed = parsed_request.consumed();
-                        let request = parsed_request.into_inner();
-                        session.consume(consumed);
-
-                        match request {
-                            AdminRequest::FlushAll => {
-                                for _ in 0..QUEUE_RETRIES {
-                                    if self.signal_queue_tx.try_send_all(Signal::FlushAll).is_ok() {
-                                        warn!("sending flush_all signal");
-                                        break;
-                                    }
-                                }
-                                for _ in 0..QUEUE_RETRIES {
-                                    if self.signal_queue_tx.wake().is_ok() {
-                                        break;
-                                    }
-                                }
-
-                                session.put_slice(b"OK\r\n");
-                                // session.session.finalize_response();
-                                ADMIN_RESPONSE_COMPOSE.increment();
-                            }
-                            AdminRequest::Stats => {
-                                Self::handle_stats_request(&mut session);
-                            }
-                            AdminRequest::Quit => {
-                                let _ = self.sessions.remove(token.0);
-                                return Ok(());
-                            }
-                            AdminRequest::Version => {
-                                Self::handle_version_request(&mut session, &self.version);
-                            }
-                        }
-                    }
-                    Err(ParseError::Incomplete) => {
-                        break;
-                    }
-                    Err(_) => {
-                        let _ = self.sessions.remove(token.0);
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "bad request",
-                        ));
-                    }
-                }
+/// This is a handler for the stats commands on the legacy admin port. It
+/// responses using the Memcached `stats` command response format, each stat
+/// appears on its own line with a CR+LF used as end of line symbol. The
+/// stats appear in sorted order.
+///
+/// ```text
+/// STAT get 0
+/// STAT get_cardinality_p25 0
+/// STAT get_cardinality_p50 0
+/// STAT get_cardinality_p75 0
+/// STAT get_cardinality_p90 0
+/// STAT get_cardinality_p99 0
+/// STAT get_cardinality_p999 0
+/// STAT get_cardinality_p9999 0
+/// STAT get_ex 0
+/// STAT get_key 0
+/// STAT get_key_hit 0
+/// STAT get_key_miss 0
+/// ```
+fn handle_stats_request(session: &mut dyn BufMut) {
+    // ADMIN_REQUEST_PARSE.increment();
+    let mut data = Vec::new();
+    for metric in &rustcommon_metrics::metrics() {
+        let any = match metric.as_any() {
+            Some(any) => any,
+            None => {
+                continue;
             }
-            session.reregister(self.poll.registry(), token, session.interest());
-        } else {
-            // no session for the token
-            trace!(
-                "attempted to handle data for non-existent session: {}",
-                token.0
-            );
+        };
+
+        if let Some(counter) = any.downcast_ref::<Counter>() {
+            data.push(format!("STAT {} {}\r\n", metric.name(), counter.value()));
+        } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
+            data.push(format!("STAT {} {}\r\n", metric.name(), gauge.value()));
+        } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
+            for (label, value) in PERCENTILES {
+                let percentile = heatmap.percentile(*value).unwrap_or(0);
+                data.push(format!(
+                    "STAT {}_{} {}\r\n",
+                    metric.name(),
+                    label,
+                    percentile
+                ));
+            }
         }
-        Ok(())
     }
+
+    data.sort();
+    for line in data {
+        session.put_slice(line.as_bytes());
+    }
+    session.put_slice(b"END\r\n");
+    // ADMIN_RESPONSE_COMPOSE.increment();
 }

@@ -1000,6 +1000,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
+name = "pingproxy"
+version = "0.0.1"
+dependencies = [
+ "backtrace",
+ "clap",
+ "common",
+ "config",
+ "logger",
+ "protocol-ping",
+ "proxy",
+ "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
+]
+
+[[package]]
 name = "pingserver"
 version = "0.1.0"
 dependencies = [
@@ -1128,6 +1142,24 @@ dependencies = [
  "protocol-common",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
  "session-legacy",
+]
+
+[[package]]
+name = "proxy"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "config",
+ "crossbeam-channel",
+ "entrystore",
+ "logger",
+ "net",
+ "protocol-admin",
+ "protocol-common",
+ "queues",
+ "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
+ "session-common",
+ "slab",
 ]
 
 [[package]]

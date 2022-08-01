@@ -1,37 +1,45 @@
-// Copyright 2022 Twitter, Inc.
+// Copyright 2021 Twitter, Inc.
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use net::event::Source;
-use common::ssl::tls_acceptor;
 use crate::*;
-use config::proxy::ListenerConfig;
-use config::TlsConfig;
-use core::time::Duration;
-use net::{Poll, Waker};
-// use poll::*;
-use queues::Queues;
-use session_common::*;
-use std::sync::Arc;
-
 use rustcommon_metrics::*;
-
-const KB: usize = 1024;
-
-const SESSION_BUFFER_MIN: usize = 16 * KB;
-const SESSION_BUFFER_MAX: usize = 1024 * KB;
+use std::time::Duration;
 
 counter!(LISTENER_EVENT_ERROR);
-counter!(LISTENER_EVENT_READ);
 counter!(LISTENER_EVENT_WRITE);
+counter!(LISTENER_EVENT_READ);
+counter!(LISTENER_EVENT_LOOP);
+counter!(LISTENER_EVENT_TOTAL);
+
+counter!(LISTENER_SESSION_DISCARD);
+
+pub struct Listener {
+    /// The actual network listener server
+    listener: ::net::Listener,
+    /// The maximum number of events to process per call to poll
+    nevent: usize,
+    /// The actual poll instantance
+    poll: Poll,
+    /// Sessions which have been opened, but are not fully established
+    sessions: Slab<Session>,
+    /// Queues for sending established sessions to the worker thread(s) and to
+    /// receive sessions which should be closed
+    session_queue: Queues<Session, Session>,
+    /// Queue for receieving signals from the admin thread
+    signal_queue: Queues<(), Signal>,
+    /// The timeout for each call to poll
+    timeout: Duration,
+    /// The waker handle for this thread
+    waker: Arc<Waker>,
+}
 
 pub struct ListenerBuilder {
-    addr: SocketAddr,
+    listener: ::net::Listener,
     nevent: usize,
-    listener: net::Listener,
     poll: Poll,
-    timeout: Duration,
     sessions: Slab<Session>,
+    timeout: Duration,
     waker: Arc<Waker>,
 }
 
@@ -40,32 +48,34 @@ impl ListenerBuilder {
         let tls_config = config.tls();
         let config = config.listener();
 
-        let addr = config
-            .socket_addr()
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "bad listen address"))?;
+        let addr = config.socket_addr().map_err(|e| {
+            error!("{}", e);
+            std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
+        })?;
 
         let tcp_listener = TcpListener::bind(addr)?;
+
+        let mut listener = if let Some(tls_acceptor) = tls_acceptor(tls_config)? {
+            ::net::Listener::from((tcp_listener, tls_acceptor))
+        } else {
+            ::net::Listener::from(tcp_listener)
+        };
+
+        let poll = Poll::new()?;
+        listener.register(poll.registry(), LISTENER_TOKEN, Interest::READABLE)?;
+
+        let waker = Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap());
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
 
-        let listener = if let Some(tls_acceptor) = tls_acceptor(tls_config)? {
-            net::Listener::from((tcp_listener, tls_acceptor))
-        } else {
-            net::Listener::from(tcp_listener)
-        };
-
-        let mut poll = Poll::new()?;
-        listener.register(poll.registry(), LISTENER_TOKEN, net::Interest::READABLE)?;
-
-        let waker = Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap());
+        let sessions = Slab::new();
 
         Ok(Self {
-            addr,
-            nevent,
             listener,
+            nevent,
             poll,
-            sessions: Slab::new(),
+            sessions,
             timeout,
             waker,
         })
@@ -75,134 +85,203 @@ impl ListenerBuilder {
         self.waker.clone()
     }
 
-    pub fn build(self, connection_queues: Queues<Session, ()>) -> Listener {
+    pub fn build(
+        self,
+        signal_queue: Queues<(), Signal>,
+        session_queue: Queues<Session, Session>,
+    ) -> Listener {
         Listener {
-            addr: self.addr,
-            connection_queues,
+            listener: self.listener,
             nevent: self.nevent,
             poll: self.poll,
-            timeout: self.timeout,
-            listener: self.listener,
             sessions: self.sessions,
-            waker: self.waker
+            session_queue,
+            signal_queue,
+            timeout: self.timeout,
+            waker: self.waker,
         }
     }
-}
-
-pub struct Listener {
-    addr: SocketAddr,
-    connection_queues: Queues<Session, ()>,
-    nevent: usize,
-    listener: net::Listener,
-    sessions: Slab<Session>,
-    poll: Poll,
-    timeout: Duration,
-    waker: Arc<Waker>,
 }
 
 impl Listener {
-    /// Handle an event on an existing session
-    fn handle_session_event(&mut self, event: &Event) {
+    /// Call accept one time
+    fn accept(&mut self) {
+        if let Ok(mut session) = self.listener.accept().map(Session::from) {
+            if session.is_handshaking() {
+                let s = self.sessions.vacant_entry();
+                if session
+                    .register(self.poll.registry(), Token(s.key()), session.interest())
+                    .is_ok()
+                {
+                    s.insert(session);
+                } else {
+                    // failed to register
+                }
+            } else if self.session_queue.try_send_any(session).is_err() {
+                // we probably want to wake and retry here
+            }
+
+            // reregister is needed here so we will call accept if there is a backlog
+            if self
+                .listener
+                .reregister(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE)
+                .is_err()
+            {
+                // failed to reregister listener? how do we handle this?
+            }
+        }
+    }
+
+    /// Handle a read event for the `Session` with the `Token`. This primarily
+    /// just checks that there wasn't a hangup, as indicated by a zero-sized
+    /// return from `read()`.
+    fn read(&mut self, token: Token) -> Result<()> {
+        let session = self
+            .sessions
+            .get_mut(token.0)
+            .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
+
+        // read from session to buffer
+        match session.fill() {
+            Ok(0) => {
+                // zero-length reads indicate remote side has closed connection
+                trace!("hangup for session: {:?}", session);
+                Err(Error::new(ErrorKind::Other, "client hangup"))
+            }
+            Ok(bytes) => {
+                trace!("read {} bytes for session: {:?}", bytes, session);
+                Ok(())
+            }
+            Err(e) => {
+                match e.kind() {
+                    ErrorKind::WouldBlock => {
+                        // spurious read, ignore
+                        Ok(())
+                    }
+                    _ => Err(e),
+                }
+            }
+        }
+    }
+
+    /// Closes the session with the given token
+    fn close(&mut self, token: Token) {
+        if self.sessions.contains(token.0) {
+            let mut session = self.sessions.remove(token.0);
+            let _ = session.flush();
+        }
+    }
+
+    fn handshake(&mut self, token: Token) -> Result<()> {
+        let session = self
+            .sessions
+            .get_mut(token.0)
+            .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
+
+        session.do_handshake()
+    }
+
+    /// handle a single session event
+    fn session_event(&mut self, event: &Event) {
         let token = event.token();
 
-        // handle error events first
         if event.is_error() {
             LISTENER_EVENT_ERROR.increment();
-            let _ = self.sessions.remove(token.0);
+            self.close(token);
+            return;
         }
 
-        // read events are handled last
         if event.is_readable() {
             LISTENER_EVENT_READ.increment();
-            let _ = self.do_read(token);
-        }
-
-        if let Some(session) = self.sessions.get_mut(token.0) {
-            if session.do_handshake().is_ok() {
-                trace!("handshake complete for session: {:?}", session);
-                let session = self.sessions.remove(token.0);
-                if self
-                    .connection_queues
-                    .try_send_any(session)
-                    .is_err()
-                {
-                    error!("error sending session to worker");
-                    TCP_ACCEPT_EX.increment();
-                }
-            } else {
-                trace!("handshake incomplete for session: {:?}", session);
+            if self.read(token).is_err() {
+                self.close(token);
+                return;
             }
         }
-    }
 
-    /// Handle a read event for the `Session` with the `Token`.
-    pub fn do_read(&mut self, token: Token) {
-        if let Some(session) = self.sessions.get_mut(token.0) {
-            // read from session to buffer
-            match session.fill() {
-                Ok(0) => {
-                    trace!("hangup for session: {:?}", session);
-                    let _ = self.sessions.remove(token.0);
-                }
-                Ok(bytes) => {
-                    trace!("read {} bytes for session: {:?}", bytes, session);
-                }
-                Err(e) => {
-                    match e.kind() {
-                        ErrorKind::WouldBlock => {
-                            // spurious read, ignore
+        match self.handshake(token) {
+            Ok(_) => {
+                // handshake is complete, send the session to a worker thread
+                let mut session = self.sessions.remove(token.0);
+                for attempt in 1..=QUEUE_RETRIES {
+                    if let Err(s) = self.session_queue.try_send_any(session) {
+                        if attempt == QUEUE_RETRIES {
+                            LISTENER_SESSION_DISCARD.increment();
+                        } else {
+                            let _ = self.session_queue.wake();
                         }
-                        ErrorKind::Interrupted => {
-                            // this should be retried immediately
-                            trace!("interrupted");
-                            self.do_read(token)
-                        }
-                        _ => {
-                            // some read error
-                            trace!("closing session due to read error: {:?} {:?}", session, e);
-                            let _ = session.flush();
-                            let _ = self.sessions.remove(token.0);
-                        }
+                        session = s;
+                    } else {
+                        break;
                     }
                 }
             }
-        } else {
-            warn!("attempted to read from non-existent session: {}", token.0);
+            Err(e) => match e.kind() {
+                ErrorKind::WouldBlock => {}
+                _ => {
+                    self.close(token);
+                }
+            },
         }
     }
 
-    pub fn do_accept(&mut self) {
-        if let Ok(session) = self.listener.accept().map(|v| Session::from(v)) {
-            if !session.is_handshaking() {
-                self.connection_queues.try_send_any(session);
-            } else {
-                let s = self.sessions.vacant_entry();
-                session.register(self.poll.registry(), Token(s.key()), session.interest());
-                s.insert(session);
-            }
-        }
-
-        self.listener.reregister(self.poll.registry(), LISTENER_TOKEN, net::Interest::READABLE);
-        let _ = self.connection_queues.wake();
-    }
-
-    pub fn run(mut self) {
-        info!("running listener on: {}", self.addr);
+    pub fn run(&mut self) {
+        info!(
+            "running server on: {}",
+            self.listener
+                .local_addr()
+                .map(|v| format!("{v}"))
+                .unwrap_or_else(|_| "unknown address".to_string())
+        );
 
         let mut events = Events::with_capacity(self.nevent);
+
+        // repeatedly run accepting new connections and moving them to the worker
         loop {
-            let _ = self.poll.poll(&mut events, Some(self.timeout));
-            for event in &events {
+            LISTENER_EVENT_LOOP.increment();
+            if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
+                error!("Error polling server");
+            }
+            LISTENER_EVENT_TOTAL.add(events.iter().count() as _);
+
+            // handle all events
+            for event in events.iter() {
                 match event.token() {
                     LISTENER_TOKEN => {
-                        self.do_accept();
+                        self.accept();
                     }
-                    WAKER_TOKEN => {}
+                    WAKER_TOKEN => {
+                        // handle any closing sessions
+                        if let Some(mut session) =
+                            self.session_queue.try_recv().map(|v| v.into_inner())
+                        {
+                            let _ = session.flush();
+
+                            // wakeup to handle the possibility of more sessions
+                            let _ = self.waker.wake();
+                        }
+
+                        // check if we received any signals from the admin thread
+                        while let Some(signal) =
+                            self.signal_queue.try_recv().map(|v| v.into_inner())
+                        {
+                            match signal {
+                                Signal::FlushAll => {}
+                                Signal::Shutdown => {
+                                    // if we received a shutdown, we can return
+                                    // and stop processing events
+                                    return;
+                                }
+                            }
+                        }
+                    }
                     _ => {
-                        self.handle_session_event(event);
+                        self.session_event(event);
                     }
                 }
             }
+
+            let _ = self.session_queue.wake();
         }
     }
 }
