@@ -14,7 +14,7 @@ members = [
     "src/protocol/memcache",
     "src/protocol/ping",
     "src/protocol/thrift",
-    # "src/proxy/momento",
+    "src/proxy/momento",
     "src/proxy/ping",
     "src/proxy/thrift",
     "src/queues",

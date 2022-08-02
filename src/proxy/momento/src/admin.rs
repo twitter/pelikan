@@ -100,16 +100,13 @@ async fn handle_admin_client(mut socket: tokio::net::TcpStream) {
                 }
                 buf.advance(consumed);
             }
-            Err(ParseError::Incomplete) => {}
-            Err(ParseError::Invalid) => {
-                // invalid request
-                let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
-                break;
-            }
-            Err(ParseError::Unknown) => {
-                // unknown command
-                let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
-                break;
+            Err(e) => match e.kind() {
+                ErrorKind::WouldBlock => {},
+                _ => {
+                    // invalid request
+                    let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
+                    break;
+                }
             }
         }
     }
