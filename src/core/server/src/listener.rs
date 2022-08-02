@@ -12,7 +12,7 @@ counter!(LISTENER_EVENT_READ);
 counter!(LISTENER_EVENT_LOOP);
 counter!(LISTENER_EVENT_TOTAL);
 
-counter!(LISTENER_SESSION_DISCARD);
+counter!(LISTENER_SESSION_DROP);
 
 pub struct Listener {
     /// The actual network listener server
@@ -206,7 +206,7 @@ impl Listener {
                 for attempt in 1..=QUEUE_RETRIES {
                     if let Err(s) = self.session_queue.try_send_any(session) {
                         if attempt == QUEUE_RETRIES {
-                            LISTENER_SESSION_DISCARD.increment();
+                            LISTENER_SESSION_DROP.increment();
                         } else {
                             let _ = self.session_queue.wake();
                         }

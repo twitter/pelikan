@@ -3,22 +3,38 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 pub use buffer::*;
+
 use core::fmt::Debug;
 use core::marker::PhantomData;
 use protocol_common::Compose;
 use protocol_common::Parse;
+use rustcommon_metrics::*;
 use rustcommon_time::Nanoseconds;
 use std::collections::VecDeque;
 use std::io::Error;
-
-// use protocol_common::ParseError;
-
 use ::net::*;
 use core::borrow::{Borrow, BorrowMut};
 use std::io::ErrorKind;
 use std::io::Read;
 use std::io::Result;
 use std::io::Write;
+
+const ONE_SECOND: u64 = 1_000_000_000; // in nanoseconds
+
+counter!(CLIENT_SESSION_RECV);
+counter!(CLIENT_SESSION_RECV_EX);
+counter!(CLIENT_SESSION_SEND);
+counter!(CLIENT_SESSION_SEND_EX);
+heatmap!(CLIENT_RESPONSE_LATENCY, ONE_SECOND);
+
+counter!(SERVER_SESSION_READ);
+counter!(SERVER_SESSION_READ_BYTES);
+counter!(SERVER_SESSION_READ_EX);
+counter!(SERVER_SESSION_RECV);
+counter!(SERVER_SESSION_RECV_EX);
+counter!(SERVER_SESSION_SEND);
+counter!(SERVER_SESSION_SEND_EX);
+heatmap!(SERVER_RESPONSE_LATENCY, ONE_SECOND);
 
 type Instant = rustcommon_time::Instant<Nanoseconds<u64>>;
 
@@ -283,6 +299,7 @@ where
     /// flush the session buffer, and any additional calls to flush which may be
     /// required.
     pub fn send(&mut self, tx: Tx) -> Result<usize> {
+        CLIENT_SESSION_SEND.increment();
         let now = Instant::now();
         let size = tx.compose(&mut self.session);
         self.pending.push_back((now, tx));
@@ -291,21 +308,29 @@ where
     }
 
     pub fn receive(&mut self) -> Result<(Tx, Rx)> {
+        
         let src: &[u8] = self.session.borrow();
         match self.parser.parse(src) {
             Ok(res) => {
+                CLIENT_SESSION_RECV.increment();
                 let now = Instant::now();
                 let (timestamp, request) = self
                     .pending
                     .pop_front()
                     .ok_or_else(|| Error::from(ErrorKind::InvalidInput))?;
-                let _elapsed = now - timestamp;
+                let latency = now - timestamp;
+                CLIENT_RESPONSE_LATENCY.increment(now, latency.as_nanos(), 1);
                 let consumed = res.consumed();
                 let msg = res.into_inner();
                 self.session.consume(consumed);
                 Ok((request, msg))
             }
-            Err(e) => Err(e),
+            Err(e) => {
+                if e.kind() != ErrorKind::WouldBlock {
+                    CLIENT_SESSION_RECV_EX.increment();
+                }
+                Err(e)
+            }
         }
     }
 
@@ -442,24 +467,37 @@ where
     }
 
     pub fn send(&mut self, tx: Tx) -> Result<usize> {
+        SERVER_SESSION_SEND.increment();
+
         let timestamp = self.pending.pop_front();
 
         let size = tx.compose(&mut self.session);
 
         if size == 0 {
-            // we have a zero sized response
+            // we have a zero sized response, increment heatmap now
             if let Some(timestamp) = timestamp {
                 let now = Instant::now();
-                let _latency = now - timestamp;
+                let latency = now - timestamp;
+                SERVER_RESPONSE_LATENCY.increment(now, latency.as_nanos(), 1);
             }
         } else {
+            // we have bytes in our response, we need to add it on the
+            // outstanding response queue
             self.outstanding.push_back((timestamp, size));
-            let _ = self.flush()?;
+            if let Err(e) = self.flush() {
+                if e.kind() != ErrorKind::WouldBlock {
+                    SERVER_SESSION_SEND_EX.increment();
+                }
+                return Err(e);
+            }
         }
 
         Ok(size)
     }
 
+    /// Attempts to flush all bytes currently in the write buffer to the
+    /// underlying stream. Also handles bookeeping necessary to determine the
+    /// server-side response latency.
     pub fn flush(&mut self) -> Result<()> {
         let current_pending = self.session.write_pending();
         self.session.flush()?;
@@ -482,7 +520,8 @@ where
                 } else {
                     flushed -= front.1;
                     if let Some(ts) = front.0 {
-                        let _latency = now - ts;
+                        let latency = now - ts;
+                        SERVER_RESPONSE_LATENCY.increment(now, latency.as_nanos(), 1);
                     }
                 }
             } else {
@@ -493,12 +532,30 @@ where
         Ok(())
     }
 
+    /// Returns the number of bytes pending in the write buffer.
     pub fn write_pending(&self) -> usize {
         self.session.write_pending()
     }
 
+    /// Reads from the underlying stream and returns the number of bytes read.
     pub fn fill(&mut self) -> Result<usize> {
-        self.session.fill()
+        SERVER_SESSION_READ.increment();
+
+        match self.session.fill() {
+            Ok(amt) => {
+                SERVER_SESSION_READ_BYTES.add(amt as _);
+                Ok(amt)
+            }
+            Err(e) => {
+                if e.kind() != ErrorKind::WouldBlock {
+                    SERVER_SESSION_READ_EX.increment();
+                }
+                Err(e)
+            }
+        }
+
+        
+        
     }
 
     pub fn interest(&self) -> Interest {

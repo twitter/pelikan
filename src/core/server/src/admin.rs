@@ -179,59 +179,32 @@ impl Admin {
                 match request {
                     AdminRequest::FlushAll => {
                         let _ = self.signal_queue_tx.try_send_all(Signal::FlushAll);
-                        session.put_slice(b"OK\r\n");
-                        match session.flush() {
-                            Ok(_) => Ok(()),
-                            Err(e) => map_err(e),
-                        }?;
-
-                        if (session.write_pending() > 0 || session.remaining() > 0)
-                            && session
-                                .reregister(self.poll.registry(), token, session.interest())
-                                .is_err()
-                        {
-                            Err(Error::new(ErrorKind::Other, "failed to reregister"))
-                        } else {
-                            Ok(())
-                        }
+                        session.send(AdminResponse::Ok)?;
                     }
-                    AdminRequest::Quit => Err(Error::new(ErrorKind::Other, "should hangup")),
+                    AdminRequest::Quit => {
+                        return Err(Error::new(ErrorKind::Other, "should hangup"));
+                    }
                     AdminRequest::Stats => {
-                        handle_stats_request(session);
-                        match session.flush() {
-                            Ok(_) => Ok(()),
-                            Err(e) => map_err(e),
-                        }?;
-
-                        if (session.write_pending() > 0 || session.remaining() > 0)
-                            && session
-                                .reregister(self.poll.registry(), token, session.interest())
-                                .is_err()
-                        {
-                            Err(Error::new(ErrorKind::Other, "failed to reregister"))
-                        } else {
-                            Ok(())
-                        }
+                        session.send(AdminResponse::Stats)?;
                     }
                     AdminRequest::Version => {
-                        session.put_slice(b"VERSION ");
-                        session.put_slice(self.version.as_bytes());
-                        session.put_slice(b"\r\n");
-                        match session.flush() {
-                            Ok(_) => Ok(()),
-                            Err(e) => map_err(e),
-                        }?;
-
-                        if (session.write_pending() > 0 || session.remaining() > 0)
-                            && session
-                                .reregister(self.poll.registry(), token, session.interest())
-                                .is_err()
-                        {
-                            Err(Error::new(ErrorKind::Other, "failed to reregister"))
-                        } else {
-                            Ok(())
-                        }
+                        session.send(AdminResponse::version(self.version.clone()))?;
                     }
+                }
+
+                match session.flush() {
+                    Ok(_) => Ok(()),
+                    Err(e) => map_err(e),
+                }?;
+
+                if (session.write_pending() > 0 || session.remaining() > 0)
+                    && session
+                        .reregister(self.poll.registry(), token, session.interest())
+                        .is_err()
+                {
+                    Err(Error::new(ErrorKind::Other, "failed to reregister"))
+                } else {
+                    Ok(())
                 }
             }
             Err(e) => match e.kind() {

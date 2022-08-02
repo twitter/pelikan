@@ -9,4 +9,5 @@ edition = "2021"
 buffer = { path = "../../buffer" }
 net = { path = "../../net" }
 protocol-common = { path = "../../protocol/common" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon", features = ["heatmap"] }
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }
