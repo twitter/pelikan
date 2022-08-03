@@ -2,11 +2,11 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::collections::HashMap;
-use std::collections::VecDeque;
-use session_common::ClientSession;
 use super::map_result;
 use crate::*;
+use session_common::ClientSession;
+use std::collections::HashMap;
+use std::collections::VecDeque;
 
 pub struct BackendWorker<Parser, Request, Response> {
     backlog: VecDeque<(Request, Token)>,
@@ -50,8 +50,7 @@ where
             Ok((request, response)) => {
                 if let Some(fe_token) = self.pending.remove(&token) {
                     self.free_queue.push_back(token);
-                    self
-                        .data_queue
+                    self.data_queue
                         .try_send_to(0, (request, response, fe_token))
                         .map_err(|_| Error::new(ErrorKind::Other, "data queue is full"))
                 } else {
@@ -108,9 +107,7 @@ where
                     WAKER_TOKEN => {
                         // handle all pending messages on the data queue
                         self.data_queue.try_recv_all(&mut messages);
-                        for (request, fe_token) in
-                            messages.drain(..).map(|v| v.into_inner())
-                        {
+                        for (request, fe_token) in messages.drain(..).map(|v| v.into_inner()) {
                             if let Some(be_token) = self.free_queue.pop_front() {
                                 let session = &mut self.sessions[be_token.0];
                                 if session.send(request).is_err() {
@@ -192,12 +189,12 @@ where
             let stream = TcpStream::connect(endpoint)?;
             let mut session = ClientSession::new(Session::from(stream), parser.clone());
             let s = sessions.vacant_entry();
-            session.register(poll.registry(), Token(s.key()), session.interest()).expect("failed to register");
+            session
+                .register(poll.registry(), Token(s.key()), session.interest())
+                .expect("failed to register");
             free_queue.push_back(Token(s.key()));
             s.insert(session);
         }
-
-
 
         Ok(Self {
             free_queue,
@@ -239,20 +236,23 @@ pub struct BackendBuilder<Parser, Request, Response> {
     builders: Vec<BackendWorkerBuilder<Parser, Request, Response>>,
 }
 
-impl<BackendParser, BackendRequest, BackendResponse> BackendBuilder<BackendParser, BackendRequest, BackendResponse>
+impl<BackendParser, BackendRequest, BackendResponse>
+    BackendBuilder<BackendParser, BackendRequest, BackendResponse>
 where
     BackendParser: Parse<BackendResponse> + Clone,
     // BackendResponse: Compose,
     BackendRequest: Compose,
 {
-    pub fn new<T: BackendConfig>(config: &T, parser: BackendParser, threads: usize) -> Result<Self> {
+    pub fn new<T: BackendConfig>(
+        config: &T,
+        parser: BackendParser,
+        threads: usize,
+    ) -> Result<Self> {
         let mut builders = Vec::new();
         for _ in 0..threads {
             builders.push(BackendWorkerBuilder::new(config, parser.clone())?);
         }
-        Ok(Self {
-            builders
-        })
+        Ok(Self { builders })
     }
 
     pub fn wakers(&self) -> Vec<Arc<Waker>> {
@@ -261,9 +261,14 @@ where
 
     pub fn build(
         mut self,
-        mut data_queues: Vec<Queues<(BackendRequest, BackendResponse, Token), (BackendRequest, Token)>>,
+        mut data_queues: Vec<
+            Queues<(BackendRequest, BackendResponse, Token), (BackendRequest, Token)>,
+        >,
         mut signal_queues: Vec<Queues<(), Signal>>,
     ) -> Vec<BackendWorker<BackendParser, BackendRequest, BackendResponse>> {
-        self.builders.drain(..).map(|b| b.build(data_queues.pop().unwrap(), signal_queues.pop().unwrap())).collect()
+        self.builders
+            .drain(..)
+            .map(|b| b.build(data_queues.pop().unwrap(), signal_queues.pop().unwrap()))
+            .collect()
     }
 }

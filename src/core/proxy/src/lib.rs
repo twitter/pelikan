@@ -8,13 +8,13 @@
 #[macro_use]
 extern crate logger;
 
-use admin::AdminBuilder;
 use ::net::event::{Event, Source};
 use ::net::*;
+use admin::AdminBuilder;
 use common::signal::Signal;
 use common::ssl::tls_acceptor;
-use config::*;
 use config::proxy::*;
+use config::*;
 use core::marker::PhantomData;
 use core::time::Duration;
 use crossbeam_channel::{bounded, Receiver, Sender};
@@ -32,7 +32,6 @@ mod backend;
 mod frontend;
 mod listener;
 mod process;
-
 
 use backend::BackendBuilder;
 use frontend::FrontendBuilder;

@@ -5,7 +5,13 @@
 use super::map_result;
 use crate::*;
 
-pub struct FrontendWorker<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse> {
+pub struct FrontendWorker<
+    FrontendParser,
+    FrontendRequest,
+    FrontendResponse,
+    BackendRequest,
+    BackendResponse,
+> {
     data_queue: Queues<(BackendRequest, Token), (BackendRequest, BackendResponse, Token)>,
     nevent: usize,
     parser: FrontendParser,
@@ -17,7 +23,14 @@ pub struct FrontendWorker<FrontendParser, FrontendRequest, FrontendResponse, Bac
     waker: Arc<Waker>,
 }
 
-impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse> FrontendWorker<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>
+impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>
+    FrontendWorker<
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+        BackendRequest,
+        BackendResponse,
+    >
 where
     FrontendParser: Parse<FrontendRequest> + Clone,
     FrontendResponse: Compose,
@@ -48,12 +61,10 @@ where
 
         // process up to one request
         match session.receive() {
-            Ok(request) => {
-                self
-                    .data_queue
-                    .try_send_to(0, (BackendRequest::from(request), token))
-                    .map_err(|_| Error::new(ErrorKind::Other, "data queue is full"))
-            }
+            Ok(request) => self
+                .data_queue
+                .try_send_to(0, (BackendRequest::from(request), token))
+                .map_err(|_| Error::new(ErrorKind::Other, "data queue is full")),
             Err(e) => map_err(e),
         }
     }
@@ -187,7 +198,13 @@ where
     }
 }
 
-pub struct FrontendWorkerBuilder<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse> {
+pub struct FrontendWorkerBuilder<
+    FrontendParser,
+    FrontendRequest,
+    FrontendResponse,
+    BackendRequest,
+    BackendResponse,
+> {
     nevent: usize,
     parser: FrontendParser,
     poll: Poll,
@@ -198,7 +215,15 @@ pub struct FrontendWorkerBuilder<FrontendParser, FrontendRequest, FrontendRespon
     _backend_response: PhantomData<BackendResponse>,
 }
 
-impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse> FrontendWorkerBuilder<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse> {
+impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>
+    FrontendWorkerBuilder<
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+        BackendRequest,
+        BackendResponse,
+    >
+{
     pub fn new<T: FrontendConfig>(config: &T, parser: FrontendParser) -> Result<Self> {
         let config = config.frontend();
 
@@ -230,7 +255,13 @@ impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendR
         data_queue: Queues<(BackendRequest, Token), (BackendRequest, BackendResponse, Token)>,
         session_queue: Queues<Session, Session>,
         signal_queue: Queues<(), Signal>,
-    ) -> FrontendWorker<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse> {
+    ) -> FrontendWorker<
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+        BackendRequest,
+        BackendResponse,
+    > {
         FrontendWorker {
             data_queue,
             nevent: self.nevent,
@@ -245,12 +276,32 @@ impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendR
     }
 }
 
-
-pub struct FrontendBuilder<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse> {
-    builders: Vec<FrontendWorkerBuilder<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>>,
+pub struct FrontendBuilder<
+    FrontendParser,
+    FrontendRequest,
+    FrontendResponse,
+    BackendRequest,
+    BackendResponse,
+> {
+    builders: Vec<
+        FrontendWorkerBuilder<
+            FrontendParser,
+            FrontendRequest,
+            FrontendResponse,
+            BackendRequest,
+            BackendResponse,
+        >,
+    >,
 }
 
-impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse> FrontendBuilder<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>
+impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>
+    FrontendBuilder<
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+        BackendRequest,
+        BackendResponse,
+    >
 where
     FrontendParser: Parse<FrontendRequest> + Clone,
     FrontendResponse: Compose,
@@ -258,14 +309,16 @@ where
     BackendRequest: From<FrontendRequest>,
     BackendRequest: Compose,
 {
-    pub fn new<T: FrontendConfig>(config: &T, parser: FrontendParser, threads: usize) -> Result<Self> {
+    pub fn new<T: FrontendConfig>(
+        config: &T,
+        parser: FrontendParser,
+        threads: usize,
+    ) -> Result<Self> {
         let mut builders = Vec::new();
         for _ in 0..threads {
             builders.push(FrontendWorkerBuilder::new(config, parser.clone())?);
         }
-        Ok(Self {
-            builders
-        })
+        Ok(Self { builders })
     }
 
     pub fn wakers(&self) -> Vec<Arc<Waker>> {
@@ -274,10 +327,29 @@ where
 
     pub fn build(
         mut self,
-        mut data_queues: Vec<Queues<(BackendRequest, Token), (BackendRequest, BackendResponse, Token)>>,
+        mut data_queues: Vec<
+            Queues<(BackendRequest, Token), (BackendRequest, BackendResponse, Token)>,
+        >,
         mut session_queues: Vec<Queues<Session, Session>>,
         mut signal_queues: Vec<Queues<(), Signal>>,
-    ) -> Vec<FrontendWorker<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>> {
-        self.builders.drain(..).map(|b| b.build(data_queues.pop().unwrap(), session_queues.pop().unwrap(), signal_queues.pop().unwrap())).collect()
+    ) -> Vec<
+        FrontendWorker<
+            FrontendParser,
+            FrontendRequest,
+            FrontendResponse,
+            BackendRequest,
+            BackendResponse,
+        >,
+    > {
+        self.builders
+            .drain(..)
+            .map(|b| {
+                b.build(
+                    data_queues.pop().unwrap(),
+                    session_queues.pop().unwrap(),
+                    signal_queues.pop().unwrap(),
+                )
+            })
+            .collect()
     }
 }

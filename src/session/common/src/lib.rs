@@ -4,6 +4,8 @@
 
 pub use buffer::*;
 
+use ::net::*;
+use core::borrow::{Borrow, BorrowMut};
 use core::fmt::Debug;
 use core::marker::PhantomData;
 use protocol_common::Compose;
@@ -12,8 +14,6 @@ use rustcommon_metrics::*;
 use rustcommon_time::Nanoseconds;
 use std::collections::VecDeque;
 use std::io::Error;
-use ::net::*;
-use core::borrow::{Borrow, BorrowMut};
 use std::io::ErrorKind;
 use std::io::Read;
 use std::io::Result;
@@ -308,7 +308,6 @@ where
     }
 
     pub fn receive(&mut self) -> Result<(Tx, Rx)> {
-        
         let src: &[u8] = self.session.borrow();
         match self.parser.parse(src) {
             Ok(res) => {
@@ -553,9 +552,6 @@ where
                 Err(e)
             }
         }
-
-        
-        
     }
 
     pub fn interest(&self) -> Interest {

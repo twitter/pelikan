@@ -40,9 +40,15 @@ impl Pingproxy {
         let response_parser = ResponseParser::new();
 
         // initialize process
-        let process_builder =
-            ProcessBuilder::<BackendParser, BackendRequest, BackendResponse, FrontendParser, FrontendRequest, FrontendResponse>::new(&config, log_drain, response_parser, request_parser)
-                .expect("failed to launch");
+        let process_builder = ProcessBuilder::<
+            BackendParser,
+            BackendRequest,
+            BackendResponse,
+            FrontendParser,
+            FrontendRequest,
+            FrontendResponse,
+        >::new(&config, log_drain, response_parser, request_parser)
+        .expect("failed to launch");
         let process = process_builder.spawn();
 
         Self { process }

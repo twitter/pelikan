@@ -101,13 +101,13 @@ async fn handle_admin_client(mut socket: tokio::net::TcpStream) {
                 buf.advance(consumed);
             }
             Err(e) => match e.kind() {
-                ErrorKind::WouldBlock => {},
+                ErrorKind::WouldBlock => {}
                 _ => {
                     // invalid request
                     let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
                     break;
                 }
-            }
+            },
         }
     }
 }

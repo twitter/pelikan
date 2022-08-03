@@ -2,22 +2,50 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use config::proxy::ListenerConfig;
-use config::proxy::FrontendConfig;
-use config::proxy::BackendConfig;
 use crate::*;
+use config::proxy::BackendConfig;
+use config::proxy::FrontendConfig;
+use config::proxy::ListenerConfig;
 use std::thread::JoinHandle;
 
-pub struct ProcessBuilder<BackendParser, BackendRequest, BackendResponse, FrontendParser, FrontendRequest, FrontendResponse> {
+pub struct ProcessBuilder<
+    BackendParser,
+    BackendRequest,
+    BackendResponse,
+    FrontendParser,
+    FrontendRequest,
+    FrontendResponse,
+> {
     admin: AdminBuilder,
     backend: BackendBuilder<BackendParser, BackendRequest, BackendResponse>,
-    frontend: FrontendBuilder<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>,
+    frontend: FrontendBuilder<
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+        BackendRequest,
+        BackendResponse,
+    >,
     listener: ListenerBuilder,
     log_drain: Box<dyn Drain>,
     // workers: WorkersBuilder<Parser, Request, Response, Storage>,
 }
 
-impl<BackendParser, BackendRequest, BackendResponse, FrontendParser, FrontendRequest, FrontendResponse> ProcessBuilder<BackendParser, BackendRequest, BackendResponse, FrontendParser, FrontendRequest, FrontendResponse>
+impl<
+        BackendParser,
+        BackendRequest,
+        BackendResponse,
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+    >
+    ProcessBuilder<
+        BackendParser,
+        BackendRequest,
+        BackendResponse,
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+    >
 where
     BackendParser: 'static + Parse<BackendResponse> + Clone + Send,
     BackendRequest: 'static + Send + Compose + From<FrontendRequest> + Compose,
@@ -26,7 +54,7 @@ where
     FrontendRequest: 'static + Send,
     FrontendResponse: 'static + Compose + Send,
     FrontendResponse: From<BackendResponse> + Compose,
-{   
+{
     pub fn new<T: AdminConfig + FrontendConfig + BackendConfig + TlsConfig + ListenerConfig>(
         config: &T,
         log_drain: Box<dyn Drain>,
@@ -88,8 +116,13 @@ where
 
         let be_threads = be_data_queues.len();
 
-        let mut backend_workers = self.backend.build(be_data_queues, signal_queue_rx.drain(0..be_threads).collect());
-        let mut frontend_workers = self.frontend.build(fe_data_queues, worker_session_queues, signal_queue_rx);
+        let mut backend_workers = self.backend.build(
+            be_data_queues,
+            signal_queue_rx.drain(0..be_threads).collect(),
+        );
+        let mut frontend_workers =
+            self.frontend
+                .build(fe_data_queues, worker_session_queues, signal_queue_rx);
 
         let admin = std::thread::Builder::new()
             .name(format!("{}_admin", THREAD_PREFIX))
@@ -101,19 +134,27 @@ where
             .spawn(move || listener.run())
             .unwrap();
 
-        let backend = backend_workers.drain(..).enumerate().map(|(i, mut b)| {
-            std::thread::Builder::new()
-            .name(format!("{}_be_{}", THREAD_PREFIX, i))
-            .spawn(move || b.run())
-            .unwrap()
-        }).collect();
+        let backend = backend_workers
+            .drain(..)
+            .enumerate()
+            .map(|(i, mut b)| {
+                std::thread::Builder::new()
+                    .name(format!("{}_be_{}", THREAD_PREFIX, i))
+                    .spawn(move || b.run())
+                    .unwrap()
+            })
+            .collect();
 
-        let frontend = frontend_workers.drain(..).enumerate().map(|(i, mut f)| {
-            std::thread::Builder::new()
-            .name(format!("{}_fe_{}", THREAD_PREFIX, i))
-            .spawn(move || f.run())
-            .unwrap()
-        }).collect();
+        let frontend = frontend_workers
+            .drain(..)
+            .enumerate()
+            .map(|(i, mut f)| {
+                std::thread::Builder::new()
+                    .name(format!("{}_fe_{}", THREAD_PREFIX, i))
+                    .spawn(move || f.run())
+                    .unwrap()
+            })
+            .collect();
 
         Process {
             admin,

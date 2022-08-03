@@ -41,10 +41,16 @@ impl Thriftproxy {
         let request_parser = MessageParser::new(MAX_SIZE);
         let response_parser = MessageParser::new(MAX_SIZE);
 
-       // initialize process
-        let process_builder =
-            ProcessBuilder::<BackendParser, BackendRequest, BackendResponse, FrontendParser, FrontendRequest, FrontendResponse>::new(&config, log_drain, response_parser, request_parser)
-                .expect("failed to launch");
+        // initialize process
+        let process_builder = ProcessBuilder::<
+            BackendParser,
+            BackendRequest,
+            BackendResponse,
+            FrontendParser,
+            FrontendRequest,
+            FrontendResponse,
+        >::new(&config, log_drain, response_parser, request_parser)
+        .expect("failed to launch");
         let process = process_builder.spawn();
 
         Self { process }

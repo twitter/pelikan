@@ -3,21 +3,21 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use ::net::event::{Event, Source};
-use session_common::Session;
-use std::io::{Error, ErrorKind, Result};
-use config::{AdminConfig, TlsConfig};
-use common::ssl::tls_acceptor;
-use common::signal::Signal;
-use queues::Queues;
-use std::sync::Arc;
-use session_common::ServerSession;
-use crossbeam_channel::Receiver;
-use slab::Slab;
 use ::net::*;
+use common::signal::Signal;
+use common::ssl::tls_acceptor;
+use config::{AdminConfig, TlsConfig};
+use crossbeam_channel::Receiver;
 use logger::*;
 use protocol_admin::*;
-use std::collections::VecDeque;
+use queues::Queues;
 use rustcommon_metrics::*;
+use session_common::ServerSession;
+use session_common::Session;
+use slab::Slab;
+use std::collections::VecDeque;
+use std::io::{Error, ErrorKind, Result};
+use std::sync::Arc;
 use std::time::Duration;
 
 counter!(ADMIN_REQUEST_PARSE);
@@ -47,11 +47,23 @@ counter!(RU_NIVCSW);
 
 // new stats below
 
-counter!(ADMIN_SESSION_ACCEPT, "total number of attempts to accept a session");
-counter!(ADMIN_SESSION_ACCEPT_EX, "number of times accept resulted in an exception, ignoring attempts that would block");
-counter!(ADMIN_SESSION_ACCEPT_OK, "number of times a session was accepted successfully");
+counter!(
+    ADMIN_SESSION_ACCEPT,
+    "total number of attempts to accept a session"
+);
+counter!(
+    ADMIN_SESSION_ACCEPT_EX,
+    "number of times accept resulted in an exception, ignoring attempts that would block"
+);
+counter!(
+    ADMIN_SESSION_ACCEPT_OK,
+    "number of times a session was accepted successfully"
+);
 
-counter!(ADMIN_SESSION_CLOSE, "total number of times a session was closed");
+counter!(
+    ADMIN_SESSION_CLOSE,
+    "total number of times a session was closed"
+);
 
 gauge!(ADMIN_SESSION_CURR, "current number of admin sessions");
 
