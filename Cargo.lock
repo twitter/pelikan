@@ -18,6 +18,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
+name = "admin"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "config",
+ "crossbeam-channel",
+ "entrystore",
+ "logger",
+ "net",
+ "protocol-admin",
+ "protocol-common",
+ "queues",
+ "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
+ "session-common",
+ "slab",
+]
+
+[[package]]
 name = "ahash"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1562,6 +1580,7 @@ dependencies = [
 name = "proxy"
 version = "0.1.0"
 dependencies = [
+ "admin",
  "common",
  "config",
  "crossbeam-channel",
@@ -2051,6 +2070,7 @@ dependencies = [
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "admin",
  "common",
  "config",
  "crossbeam-channel",

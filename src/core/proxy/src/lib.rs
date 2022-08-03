@@ -8,8 +8,8 @@
 #[macro_use]
 extern crate logger;
 
-use ::net::event::Event;
-use ::net::event::Source;
+use admin::AdminBuilder;
+use ::net::event::{Event, Source};
 use ::net::*;
 use common::signal::Signal;
 use common::ssl::tls_acceptor;
@@ -17,33 +17,23 @@ use config::*;
 use config::proxy::*;
 use core::marker::PhantomData;
 use core::time::Duration;
-use crossbeam_channel::bounded;
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
+use crossbeam_channel::{bounded, Receiver, Sender};
 use entrystore::EntryStore;
 use logger::Drain;
-use protocol_admin::AdminRequest;
-use protocol_admin::AdminRequestParser;
-use protocol_admin::AdminResponse;
-use protocol_common::Compose;
-use protocol_common::Execute;
-use protocol_common::Parse;
+use protocol_common::{Compose, Execute, Parse};
 use queues::Queues;
-use session_common::Buf;
-use session_common::ServerSession;
-use session_common::Session;
+use session_common::{Buf, ServerSession, Session};
 use slab::Slab;
-use std::io::Result;
-use std::io::{Error, ErrorKind};
+use std::io::{Error, ErrorKind, Result};
 use std::sync::Arc;
 
-mod admin;
+// mod admin;
 mod backend;
 mod frontend;
 mod listener;
 mod process;
 
-use admin::AdminBuilder;
+
 use backend::BackendBuilder;
 use frontend::FrontendBuilder;
 use listener::ListenerBuilder;

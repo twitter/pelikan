@@ -2,9 +2,21 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use ::net::event::{Event, Source};
+use session_common::Session;
+use std::io::{Error, ErrorKind, Result};
+use config::{AdminConfig, TlsConfig};
+use common::ssl::tls_acceptor;
+use common::signal::Signal;
+use queues::Queues;
+use std::sync::Arc;
+use session_common::ServerSession;
+use crossbeam_channel::Receiver;
+use slab::Slab;
+use ::net::*;
+use logger::*;
+use protocol_admin::*;
 use std::collections::VecDeque;
-use crate::*;
-use protocol_common::BufMut;
 use rustcommon_metrics::*;
 use std::time::Duration;
 
@@ -43,6 +55,19 @@ counter!(ADMIN_SESSION_CLOSE, "total number of times a session was closed");
 
 gauge!(ADMIN_SESSION_CURR, "current number of admin sessions");
 
+// consts
+
+const LISTENER_TOKEN: Token = Token(usize::MAX - 1);
+const WAKER_TOKEN: Token = Token(usize::MAX);
+
+// helper functions
+
+fn map_err(e: std::io::Error) -> Result<()> {
+    match e.kind() {
+        ErrorKind::WouldBlock => Ok(()),
+        _ => Err(e),
+    }
+}
 
 pub struct Admin {
     /// A backlog of tokens that need to be handled

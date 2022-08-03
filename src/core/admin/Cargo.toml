@@ -1,15 +1,11 @@
 [package]
-name = "server"
+name = "admin"
 version = "0.1.0"
 edition = "2021"
-authors = ["Brian Martin <bmartin@twitter.com>"]
-description = "core server event loops and threads for Pelikan servers"
-homepage = "https://pelikan.io"
-repository = "https://github.com/twitter/pelikan"
-license = "Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-admin = { path = "../admin" }
 common = { path = "../../common" }
 config = { path = "../../config" }
 crossbeam-channel = "0.5.0"
