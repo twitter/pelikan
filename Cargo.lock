@@ -851,6 +851,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "io-uring"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "427496d698429d86ff947537dff68facb83fe753b7abea4fab4ac1c4b7a4b94b"
+dependencies = [
+ "bitflags",
+ "libc",
+]
+
+[[package]]
 name = "iovec"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2082,6 +2092,16 @@ dependencies = [
  "queues",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
  "session-common",
+ "slab",
+]
+
+[[package]]
+name = "server-iouring"
+version = "0.1.0"
+dependencies = [
+ "bytes 1.1.0",
+ "io-uring",
+ "libc",
  "slab",
 ]
 
