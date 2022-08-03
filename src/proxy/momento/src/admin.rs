@@ -13,12 +13,12 @@ pub(crate) async fn admin(mut log_drain: Box<dyn logger::Drain>, admin_listener:
         if let Ok(Ok((socket, _))) =
             timeout(Duration::from_millis(1), admin_listener.accept()).await
         {
-            TCP_CONN_CURR.increment();
-            TCP_ACCEPT.increment();
+            // TCP_CONN_CURR.increment();
+            // TCP_ACCEPT.increment();
             tokio::spawn(async move {
                 admin::handle_admin_client(socket).await;
-                TCP_CLOSE.increment();
-                TCP_CONN_CURR.decrement();
+                // TCP_CLOSE.increment();
+                // TCP_CONN_CURR.decrement();
             });
         };
 
@@ -81,7 +81,7 @@ async fn handle_admin_client(mut socket: tokio::net::TcpStream) {
             break;
         }
 
-        ADMIN_REQUEST_PARSE.increment();
+        // ADMIN_REQUEST_PARSE.increment();
 
         match parser.parse(buf.borrow()) {
             Ok(request) => {
@@ -159,7 +159,7 @@ async fn stats_response(socket: &mut tokio::net::TcpStream) -> Result<(), Error>
     }
 
     data.sort();
-    ADMIN_RESPONSE_COMPOSE.increment();
+    // ADMIN_RESPONSE_COMPOSE.increment();
     for line in data {
         socket.write_all(line.as_bytes()).await?;
     }

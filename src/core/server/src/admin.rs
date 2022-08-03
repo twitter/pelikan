@@ -3,7 +3,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::*;
-use protocol_common::BufMut;
 use rustcommon_metrics::*;
 use std::time::Duration;
 
@@ -343,59 +342,4 @@ impl Admin {
             let _ = self.log_drain.flush();
         }
     }
-}
-
-/// This is a handler for the stats commands on the legacy admin port. It
-/// responses using the Memcached `stats` command response format, each stat
-/// appears on its own line with a CR+LF used as end of line symbol. The
-/// stats appear in sorted order.
-///
-/// ```text
-/// STAT get 0
-/// STAT get_cardinality_p25 0
-/// STAT get_cardinality_p50 0
-/// STAT get_cardinality_p75 0
-/// STAT get_cardinality_p90 0
-/// STAT get_cardinality_p99 0
-/// STAT get_cardinality_p999 0
-/// STAT get_cardinality_p9999 0
-/// STAT get_ex 0
-/// STAT get_key 0
-/// STAT get_key_hit 0
-/// STAT get_key_miss 0
-/// ```
-fn handle_stats_request(session: &mut dyn BufMut) {
-    // ADMIN_REQUEST_PARSE.increment();
-    let mut data = Vec::new();
-    for metric in &rustcommon_metrics::metrics() {
-        let any = match metric.as_any() {
-            Some(any) => any,
-            None => {
-                continue;
-            }
-        };
-
-        if let Some(counter) = any.downcast_ref::<Counter>() {
-            data.push(format!("STAT {} {}\r\n", metric.name(), counter.value()));
-        } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
-            data.push(format!("STAT {} {}\r\n", metric.name(), gauge.value()));
-        } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
-            for (label, value) in PERCENTILES {
-                let percentile = heatmap.percentile(*value).unwrap_or(0);
-                data.push(format!(
-                    "STAT {}_{} {}\r\n",
-                    metric.name(),
-                    label,
-                    percentile
-                ));
-            }
-        }
-    }
-
-    data.sort();
-    for line in data {
-        session.put_slice(line.as_bytes());
-    }
-    session.put_slice(b"END\r\n");
-    // ADMIN_RESPONSE_COMPOSE.increment();
 }

@@ -21,7 +21,6 @@ members = [
     "src/server/pingserver",
     "src/server/segcache",
     "src/session/common",
-    "src/session/legacy",
     "src/storage/datapool",
     "src/storage/seg",
     "src/storage/types",

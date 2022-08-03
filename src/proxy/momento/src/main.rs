@@ -22,7 +22,6 @@ use momento::simple_cache_client::*;
 use protocol_admin::*;
 use protocol_memcache::*;
 use rustcommon_metrics::*;
-use session_legacy::*;
 use std::borrow::{Borrow, BorrowMut};
 use std::io::{Error, ErrorKind};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -350,14 +349,14 @@ async fn do_read(
 ) -> Result<NonZeroUsize, Error> {
     match socket.read(buf.borrow_mut()).await {
         Ok(0) => {
-            SESSION_RECV.increment();
+            // SESSION_RECV.increment();
             // zero length reads mean we got a HUP. close it
             Err(Error::from(ErrorKind::ConnectionReset))
         }
         Ok(n) => {
-            SESSION_RECV.increment();
-            SESSION_RECV_BYTE.add(n as _);
-            TCP_RECV_BYTE.add(n as _);
+            // SESSION_RECV.increment();
+            // SESSION_RECV_BYTE.add(n as _);
+            // TCP_RECV_BYTE.add(n as _);
             // non-zero means we have some data, mark the buffer as
             // having additional content
             unsafe {
@@ -375,8 +374,8 @@ async fn do_read(
             Ok(unsafe { NonZeroUsize::new_unchecked(n) })
         }
         Err(e) => {
-            SESSION_RECV.increment();
-            SESSION_RECV_EX.increment();
+            // SESSION_RECV.increment();
+            // SESSION_RECV_EX.increment();
             // we has some other error reading from the socket,
             // return an error so the connection can be closed
             Err(e)

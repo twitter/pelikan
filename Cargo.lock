@@ -264,12 +264,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4872d67bab6358e59559027aa3b9157c53d9358c51423c17554809a8858e0f8"
 
 [[package]]
-name = "cache-padded"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1db59621ec70f09c5e9b597b220c7a2b43611f4710dc03ceb8748637775692c"
-
-[[package]]
 name = "cast"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -562,27 +556,6 @@ dependencies = [
  "protocol-memcache",
  "protocol-ping",
  "seg",
-]
-
-[[package]]
-name = "errno"
-version = "0.2.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f639046355ee4f37944e44f60642c6f3a7efa3cf6b78c78a0d989a8ce6c396a1"
-dependencies = [
- "errno-dragonfly",
- "libc",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "errno-dragonfly"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
-dependencies = [
- "cc",
- "libc",
 ]
 
 [[package]]
@@ -1167,7 +1140,6 @@ dependencies = [
  "protocol-admin",
  "protocol-memcache",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
- "session-legacy",
  "storage-types",
  "tokio",
 ]
@@ -1537,7 +1509,6 @@ dependencies = [
  "logger",
  "protocol-common",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
- "session-legacy",
  "storage-types",
 ]
 
@@ -1563,7 +1534,6 @@ dependencies = [
  "nom 5.1.2",
  "protocol-common",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
- "session-legacy",
 ]
 
 [[package]]
@@ -1576,7 +1546,6 @@ dependencies = [
  "logger",
  "protocol-common",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
- "session-legacy",
  "storage-types",
 ]
 
@@ -1587,7 +1556,6 @@ dependencies = [
  "logger",
  "protocol-common",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
- "session-legacy",
 ]
 
 [[package]]
@@ -1744,15 +1712,6 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "rtrb"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "318256ac02f7e11a48a10339ba5dca8bd7eb17496abf384e8ea909bb2ae5275f"
-dependencies = [
- "cache-padded",
 ]
 
 [[package]]
@@ -2118,27 +2077,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "session-legacy"
-version = "0.0.2"
-dependencies = [
- "common",
- "config",
- "logger",
- "net",
- "rand",
- "rtrb",
- "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
- "serde",
- "serde_json",
- "session-common",
- "slab",
- "strum",
- "strum_macros",
- "sysconf",
- "thiserror",
-]
-
-[[package]]
 name = "shlex"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2216,24 +2154,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
-name = "strum"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7318c509b5ba57f18533982607f24070a55d353e90d4cae30c467cdb2ad5ac5c"
-
-[[package]]
-name = "strum_macros"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee8bc6b87a5112aeeab1f4a9f7ab634fe6cbefc4850006df31267f4cfb9e3149"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "subtle"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2248,18 +2168,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "sysconf"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59e93f5d45535f49b6a05ef7ac2f0f795d28de494cf53a512751602c9849bea3"
-dependencies = [
- "errno",
- "kernel32-sys",
- "libc",
- "winapi 0.2.8",
 ]
 
 [[package]]
