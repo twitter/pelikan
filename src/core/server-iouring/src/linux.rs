@@ -17,9 +17,17 @@ use slab::Slab;
 
 use std::sync::mpsc::*;
 
+use ::net::TcpStream;
+use std::os::unix::io::FromRawFd;
+
+use session_common::ServerSession;
+
+use protocol_ping::*;
+
 // mod buffer;
 // use buffer::Buffer;
 
+const TIMEOUT_TOKEN: u64 = u64::MAX - 1;
 const LISTENER_TOKEN: u64 = u64::MAX;
 
 #[derive(Clone, Copy, Debug)]
@@ -31,8 +39,7 @@ enum State {
 }
 
 pub struct Session {
-    read_buffer: Buffer,
-    write_buffer: Buffer,
+    inner: ServerSession<RequestParser, Response, Request>,
     state: State,
     fd: RawFd,
 }
@@ -60,88 +67,168 @@ impl Worker {
         })
     }
 
+    pub fn close(&mut self, token: usize) {
+        let session = self.sessions.remove(token);
+        let fd = session.fd;
+        let _ = self.session_tx.send(session);
+    }
+
+    pub fn read(&mut self, token: usize) {
+        let session = &mut self.sessions[token];
+
+        if let Ok(request) = session.inner.receive() {
+            let send = match request {
+                Request::Ping => session.inner.send(Response::Pong),
+            };
+
+            if send.is_ok() {
+                session.state = State::Write;
+
+                let entry = opcode::Send::new(
+                    types::Fd(session.fd),
+                    session.inner.write_buffer_mut().read_ptr(),
+                    session.inner.write_buffer_mut().remaining() as _,
+                )
+                .build()
+                .user_data(token as _);
+
+                unsafe {
+                    if self.ring.submission().push(&entry).is_err() {
+                        self.backlog.push_back(entry);
+                    }
+                }
+            } else {
+                let session = self.sessions.remove(token);
+                let _ = self.session_tx.send(session);
+            }
+        } else {
+            let session = self.sessions.remove(token);
+            let _ = self.session_tx.send(session);
+        }
+    }
+
+    /// Puts a read operation onto the submission queue. If the submission queue
+    /// is full, it will be placed on the backlog instead.
+    pub fn submit_read(&mut self, token: usize) {
+        let session = &mut self.sessions[token];
+
+        session.state = State::Read;
+
+        let entry = opcode::Read::new(
+            types::Fd(session.fd),
+            session.inner.read_buffer_mut().write_ptr(),
+            session.inner.read_buffer_mut().remaining_mut() as _,
+        )
+        .build()
+        .user_data(token as _);
+
+        unsafe {
+            if self.ring.submission().push(&entry).is_err() {
+                self.backlog.push_back(entry);
+            }
+        }
+    }
+
+    /// Puts a write operation onto the submission queue. If the submission
+    /// queue is full, it will be placed on the backlog instead.
+    pub fn submit_write(&mut self, token: usize) {
+        let session = &mut self.sessions[token];
+
+        session.state = State::Write;
+
+        let entry = opcode::Write::new(
+            types::Fd(session.fd),
+            session.inner.write_buffer_mut().read_ptr(),
+            session.inner.write_buffer_mut().remaining() as _,
+        )
+        .build()
+        .user_data(token as _);
+
+        unsafe {
+            if self.ring.submission().push(&entry).is_err() {
+                self.backlog.push_back(entry);
+            }
+        }
+    }
+
     pub fn run(mut self) {
-        let (submitter, mut sq, mut cq) = self.ring.split();
+        // let (submitter, mut sq, mut cq) = self.ring.split();
 
         let timeout_ts = types::Timespec::new().nsec(1_000_000);
 
-        let timeout = opcode::Timeout::new(&timeout_ts).build().user_data(LISTENER_TOKEN as _);
+        let timeout = opcode::Timeout::new(&timeout_ts)
+            .build()
+            .user_data(TIMEOUT_TOKEN as _);
         unsafe {
-            match sq.push(&timeout) {
-                Ok(_) => {},
+            match self.ring.submission().push(&timeout) {
+                Ok(_) => {}
                 Err(_) => {
                     panic!("failed to register timeout");
-                },
+                }
             }
         }
 
-        sq.sync();
-
+        self.ring.submission().sync();
 
         loop {
-            match submitter.submit_and_wait(1) {
+            match self.ring.submit_and_wait(1) {
                 Ok(_) => (),
                 Err(ref err) if err.raw_os_error() == Some(libc::EBUSY) => (),
                 Err(err) => panic!("{}", err),
             }
 
-            cq.sync();
+            self.ring.completion().sync();
 
             // handle backlog
             loop {
-                if sq.is_full() {
-                    match submitter.submit() {
+                if self.ring.submission().is_full() {
+                    match self.ring.submit() {
                         Ok(_) => (),
                         Err(ref e) if e.raw_os_error() == Some(libc::EBUSY) => break,
                         Err(e) => panic!("{}", e),
                     }
                 }
 
-                sq.sync();
+                self.ring.submission().sync();
 
                 match self.backlog.pop_front() {
                     Some(sqe) => unsafe {
-                        let _ = sq.push(&sqe);
+                        let _ = self.ring.submission().push(&sqe);
                     },
                     None => break,
                 }
             }
 
-            if let Ok(mut session) = self.session_rx.try_recv() {
-                let fd = session.fd;
-                let ptr = session.read_buffer.write_ptr();
-                let len = session.read_buffer.remaining_mut() as u32;
-
-                session.state = State::Read;
+            // take one session from the queue, add it to the sessions slab, and
+            // submit a read to the kernel
+            if let Ok(session) = self.session_rx.try_recv() {
                 let token = self.sessions.insert(session);
 
-                let entry = opcode::Read::new(types::Fd(fd), ptr, len)
-                                .build()
-                                .user_data(token as _);
-
-                unsafe {
-                    if sq.push(&entry).is_err() {
-                        self.backlog.push_back(entry);
-                    }
-                }
+                self.submit_read(token);
             }
 
-            for cqe in &mut cq {
+            // to avoid borrow issues, we write this as a while loop instead of
+            // a for loop
+            let mut next = self.ring.completion().next();
+
+            while let Some(cqe) = next.take() {
                 let ret = cqe.result();
                 let token = cqe.user_data() as usize;
 
-                if token == LISTENER_TOKEN as _ {
+                // timeouts get resubmitted
+                if token == TIMEOUT_TOKEN as _ {
                     unsafe {
-                        match sq.push(&timeout) {
-                            Ok(_) => {},
+                        match self.ring.submission().push(&timeout) {
+                            Ok(_) => {}
                             Err(_) => {
                                 panic!("failed to register timeout");
-                            },
+                            }
                         }
                     }
                     continue;
                 }
 
+                // handle any errors here
                 if ret < 0 {
                     eprintln!(
                         "token {:?} error: {:?}",
@@ -156,92 +243,38 @@ impl Worker {
                 match session.state {
                     State::Read => {
                         if ret == 0 {
-                            let session = self.sessions.remove(token);
-                            let fd = session.fd;
-                            if self.session_tx.send(session).is_err() {
-                                unsafe {
-                                    libc::close(fd);
-                                }
-                            }
+                            self.close(token);
                         } else {
-                            let len = ret as usize;
-
+                            // mark the read buffer as containing the number of
+                            // bytes read into it by the kernel
                             unsafe {
-                                session.read_buffer.advance_mut(len);
+                                session.inner.read_buffer_mut().advance_mut(ret as usize);
                             }
 
-                            if <Buffer as Borrow<[u8]>>::borrow(&session.read_buffer) == b"PING\r\n" {
-                                session.read_buffer.advance(6);
-                                session.write_buffer.put_slice(b"PONG\r\n");
-
-                                session.state = State::Write ;
-
-                                let entry = opcode::Send::new(
-                                    types::Fd(session.fd),
-                                    session.write_buffer.read_ptr(),
-                                    session.write_buffer.remaining() as _,
-                                )
-
-
-                                .build()
-                                .user_data(token as _);
-
-                                unsafe {
-                                    if sq.push(&entry).is_err() {
-                                        self.backlog.push_back(entry);
-                                    }
-                                }
-                            } else {
-                                let session = self.sessions.remove(token);
-                                let fd = session.fd;
-                                if self.session_tx.send(session).is_err() {
-                                    unsafe {
-                                        libc::close(fd);
-                                    }
-                                }
-                            }
+                            self.read(token);
                         }
                     }
                     State::Write => {
-                        let write_len = ret as usize;
-                        // let buf = &mut self.buf_alloc[buf_index];
+                        // advance the write buffer by the number of bytes that
+                        // were written to the underlying stream
+                        session.inner.write_buffer_mut().advance(ret as usize);
 
-                        session.write_buffer.advance(write_len);
-
-                        let entry = if session.write_buffer.remaining() == 0 {
-                            // self.bufpool.push(buf_index);
-
-                            session.state = State::Read;
-
-                            opcode::Read::new(types::Fd(session.fd),
-                                session.read_buffer.write_ptr(),
-                                session.read_buffer.remaining_mut() as _)
-                                .build()
-                                .user_data(token as _)
+                        // if the write buffer is now empty, we want to resume
+                        // reading, otherwise submit a write so we can finish
+                        // flushing the buffer.
+                        if session.inner.write_buffer_mut().remaining() == 0 {
+                            self.submit_read(token);
                         } else {
-
-                            session.state = State::Write;
-
-                            opcode::Write::new(
-                                types::Fd(session.fd),
-                                session.read_buffer.write_ptr(),
-                                session.read_buffer.remaining_mut() as _
-                            )
-                                .build()
-                                .user_data(token as _)
+                            self.submit_write(token);
                         };
-
-                        unsafe {
-                            if sq.push(&entry).is_err() {
-                                self.backlog.push_back(entry);
-                            }
-                        }
                     }
                     _ => {
                         // this shouldn't happen here
                         panic!("unexpected session state");
                     }
                 }
+
+                next = self.ring.completion().next();
             }
         }
     }
@@ -277,124 +310,171 @@ impl Listener {
         })
     }
 
+    pub fn submit_shutdown(&mut self, token: usize) {
+        let session = &mut self.sessions[token];
+
+        session.state = State::Shutdown;
+
+        let entry = opcode::Shutdown::new(types::Fd(session.fd), libc::SHUT_RDWR)
+            .build()
+            .user_data(token as _);
+
+        unsafe {
+            if self.ring.submission().push(&entry).is_err() {
+                self.backlog.push_back(entry);
+            }
+        }
+    }
+
+    pub fn submit_poll(&mut self, token: usize) {
+        let session = &mut self.sessions[token];
+
+        session.state = State::Poll;
+
+        let event = opcode::PollAdd::new(types::Fd(session.fd), libc::POLLIN as _)
+            .build()
+            .user_data(token as _);
+
+        unsafe {
+            if self.ring.submission().push(&event).is_err() {
+                self.backlog.push_back(event);
+            }
+        }
+    }
+
     pub fn run(mut self) {
-        let (submitter, mut sq, mut cq) = self.ring.split();
+        // let (submitter, mut sq, mut cq) = self.ring.split();
 
         for _ in 0..1024 {
-            let entry = opcode::Accept::new(types::Fd(self.listener.as_raw_fd()), ptr::null_mut(), ptr::null_mut())
-                .build()
-                .user_data(LISTENER_TOKEN);
+            let entry = opcode::Accept::new(
+                types::Fd(self.listener.as_raw_fd()),
+                ptr::null_mut(),
+                ptr::null_mut(),
+            )
+            .build()
+            .user_data(LISTENER_TOKEN);
 
             unsafe {
-                match sq.push(&entry) {
+                match self.ring.submission().push(&entry) {
                     Ok(_) => self.accept_backlog -= 1,
                     Err(_) => break,
                 }
             }
         }
 
-        sq.sync();
+        let timeout_ts = types::Timespec::new().nsec(1_000_000);
+
+        let timeout = opcode::Timeout::new(&timeout_ts)
+            .build()
+            .user_data(TIMEOUT_TOKEN as _);
+        unsafe {
+            match self.ring.submission().push(&timeout) {
+                Ok(_) => {}
+                Err(_) => {
+                    panic!("failed to register timeout");
+                }
+            }
+        }
+
+        self.ring.submission().sync();
 
         loop {
-            
-
-            match submitter.submit_and_wait(1) {
+            match self.ring.submit_and_wait(1) {
                 Ok(_) => (),
                 Err(ref err) if err.raw_os_error() == Some(libc::EBUSY) => (),
                 Err(err) => panic!("{}", err),
             }
 
-            cq.sync();
+            self.ring.completion().sync();
 
             // handle backlog
             loop {
-                if sq.is_full() {
-                    match submitter.submit() {
+                if self.ring.submission().is_full() {
+                    match self.ring.submit() {
                         Ok(_) => (),
                         Err(ref e) if e.raw_os_error() == Some(libc::EBUSY) => break,
                         Err(e) => panic!("{}", e),
                     }
                 }
 
-                sq.sync();
+                self.ring.submission().sync();
 
                 match self.backlog.pop_front() {
                     Some(sqe) => unsafe {
-                        let _ = sq.push(&sqe);
+                        let _ = self.ring.submission().push(&sqe);
                     },
                     None => break,
                 }
             }
 
-            if let Ok(mut session) = self.session_rx.try_recv() {
-                session.state = State::Shutdown;
-
-                let fd = session.fd;
-                let poll_token = self.sessions.insert(session);
-
-                let entry = opcode::Shutdown::new(
-                    types::Fd(fd),
-                    libc::SHUT_RDWR,
-                )
-                .build()
-                .user_data(poll_token as _);
-
-                unsafe {
-                    if sq.push(&entry).is_err() {
-                        self.backlog.push_back(entry);
-                    }
-                }
+            // if there are any sessions to shutdown, take one and submit a
+            // shutdown for it
+            if let Ok(session) = self.session_rx.try_recv() {
+                let token = self.sessions.insert(session);
+                self.submit_shutdown(token);
             }
 
-            for cqe in &mut cq {
+            // to prevent borrow issues, this is implemented as a while loop
+            // instead of a for loop
+            let mut next = self.ring.completion().next();
+
+            while let Some(cqe) = next.take() {
                 let ret = cqe.result();
                 let token = cqe.user_data();
 
-                if ret < 0 {
-                    eprintln!(
-                        "error: {:?}",
-                        io::Error::from_raw_os_error(-ret)
-                    );
+                // replace timeout token with a new one and move on to other
+                // completions
+                if token == TIMEOUT_TOKEN as _ {
+                    unsafe {
+                        match self.ring.submission().push(&timeout) {
+                            Ok(_) => {}
+                            Err(_) => {
+                                panic!("failed to register timeout");
+                            }
+                        }
+                    }
                     continue;
                 }
 
-                // let token = &mut self.token_alloc[token_index];
+                // handle error result here
+                if ret < 0 {
+                    eprintln!("error: {:?}", io::Error::from_raw_os_error(-ret));
+                    continue;
+                }
 
                 match token {
                     LISTENER_TOKEN => {
-                        // println!("accept");
-
-                        let entry = opcode::Accept::new(types::Fd(self.listener.as_raw_fd()), ptr::null_mut(), ptr::null_mut())
-                            .build()
-                            .user_data(LISTENER_TOKEN);
+                        // add another accept to the submission queue to replace
+                        // this one
+                        let entry = opcode::Accept::new(
+                            types::Fd(self.listener.as_raw_fd()),
+                            ptr::null_mut(),
+                            ptr::null_mut(),
+                        )
+                        .build()
+                        .user_data(LISTENER_TOKEN);
 
                         unsafe {
-                            match sq.push(&entry) {
+                            match self.ring.submission().push(&entry) {
                                 Ok(_) => self.accept_backlog -= 1,
                                 Err(_) => break,
                             }
                         }
 
-                        let fd = ret;
-
+                        // create a session and submit a poll for it
+                        let tcp_stream = unsafe { TcpStream::from_raw_fd(ret) };
+                        let session = ServerSession::new(
+                            session_common::Session::from(tcp_stream),
+                            RequestParser::new(),
+                        );
                         let session = Session {
-                            read_buffer: Buffer::new(4096),
-                            write_buffer: Buffer::new(4096),
+                            inner: session,
                             state: State::Poll,
-                            fd,
+                            fd: ret,
                         };
 
-                        let poll_token = self.sessions.insert(session);
-
-                        let event = opcode::PollAdd::new(types::Fd(fd), libc::POLLIN as _)
-                            .build()
-                            .user_data(poll_token as _);
-
-                        unsafe {
-                            if sq.push(&event).is_err() {
-                                self.backlog.push_back(event);
-                            }
-                        }
+                        let token = self.sessions.insert(session);
+                        self.submit_poll(token);
                     }
                     token => {
                         let token = token as usize;
@@ -405,10 +485,7 @@ impl Listener {
                                 let _ = self.session_tx.send(session);
                             }
                             State::Shutdown => {
-                                let session = self.sessions.remove(token);
-                                unsafe {
-                                    libc::close(session.fd);
-                                }
+                                let _ = self.sessions.remove(token);
                             }
                             _ => {
                                 panic!("unexpected session state");
@@ -416,6 +493,8 @@ impl Listener {
                         }
                     }
                 }
+
+                next = self.ring.completion().next();
             }
         }
     }

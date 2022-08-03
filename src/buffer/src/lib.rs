@@ -101,6 +101,14 @@ impl Buffer {
             self.ptr = unsafe { realloc(self.ptr, layout, self.cap + self.target_size) };
         }
     }
+
+    pub fn read_ptr(&self) -> *mut u8 {
+        unsafe { self.ptr.add(self.read_offset) }
+    }
+
+    pub fn write_ptr(&self) -> *mut u8 {
+        unsafe { self.ptr.add(self.write_offset) }
+    }
 }
 
 impl Borrow<[u8]> for Buffer {

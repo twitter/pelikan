@@ -174,6 +174,14 @@ impl Session {
     pub fn do_handshake(&mut self) -> Result<()> {
         self.stream.do_handshake()
     }
+
+    pub fn read_buffer_mut(&mut self) -> &mut Buffer {
+        &mut self.read_buffer
+    }
+
+    pub fn write_buffer_mut(&mut self) -> &mut Buffer {
+        &mut self.write_buffer
+    }
 }
 
 // NOTE: this is opioniated in that we set the buffer sizes, but should be an
@@ -352,6 +360,14 @@ where
 
     pub fn do_handshake(&mut self) -> Result<()> {
         self.session.do_handshake()
+    }
+
+    pub fn read_buffer_mut(&mut self) -> &mut Buffer {
+        self.session.read_buffer_mut()
+    }
+
+    pub fn write_buffer_mut(&mut self) -> &mut Buffer {
+        self.session.write_buffer_mut()
     }
 }
 
@@ -560,6 +576,14 @@ where
 
     pub fn do_handshake(&mut self) -> Result<()> {
         self.session.do_handshake()
+    }
+
+    pub fn read_buffer_mut(&mut self) -> &mut Buffer {
+        self.session.read_buffer_mut()
+    }
+
+    pub fn write_buffer_mut(&mut self) -> &mut Buffer {
+        self.session.write_buffer_mut()
     }
 }
 

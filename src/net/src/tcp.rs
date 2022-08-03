@@ -3,6 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::*;
+use std::os::unix::prelude::FromRawFd;
 
 pub use std::net::Shutdown;
 
@@ -83,6 +84,14 @@ impl event::Source for TcpStream {
 
     fn deregister(&mut self, registry: &mio::Registry) -> Result<()> {
         self.inner.deregister(registry)
+    }
+}
+
+impl FromRawFd for TcpStream {
+    unsafe fn from_raw_fd(raw_fd: i32) -> Self {
+        let inner = mio::net::TcpStream::from_raw_fd(raw_fd);
+
+        Self { inner }
     }
 }
 
