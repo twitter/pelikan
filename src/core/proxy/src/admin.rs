@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::collections::VecDeque;
 use crate::*;
 use protocol_common::BufMut;
 use rustcommon_metrics::*;
@@ -32,7 +33,20 @@ counter!(RU_NSIGNALS);
 counter!(RU_NVCSW);
 counter!(RU_NIVCSW);
 
+// new stats below
+
+counter!(ADMIN_SESSION_ACCEPT, "total number of attempts to accept a session");
+counter!(ADMIN_SESSION_ACCEPT_EX, "number of times accept resulted in an exception, ignoring attempts that would block");
+counter!(ADMIN_SESSION_ACCEPT_OK, "number of times a session was accepted successfully");
+
+counter!(ADMIN_SESSION_CLOSE, "total number of times a session was closed");
+
+gauge!(ADMIN_SESSION_CURR, "current number of admin sessions");
+
+
 pub struct Admin {
+    /// A backlog of tokens that need to be handled
+    backlog: VecDeque<Token>,
     /// The actual network listener for the ASCII Admin Endpoint
     listener: ::net::Listener,
     /// The drain handle for the logger
@@ -51,9 +65,12 @@ pub struct Admin {
     timeout: Duration,
     /// The version of the service
     version: String,
+    /// The waker for this thread
+    waker: Arc<Waker>,
 }
 
 pub struct AdminBuilder {
+    backlog: VecDeque<Token>,
     listener: ::net::Listener,
     nevent: usize,
     poll: Poll,
@@ -92,7 +109,10 @@ impl AdminBuilder {
 
         let version = "unknown".to_string();
 
+        let backlog = VecDeque::new();
+
         Ok(Self {
+            backlog,
             listener,
             nevent,
             poll,
@@ -118,6 +138,7 @@ impl AdminBuilder {
         signal_queue_tx: Queues<Signal, ()>,
     ) -> Admin {
         Admin {
+            backlog: self.backlog,
             listener: self.listener,
             log_drain,
             nevent: self.nevent,
@@ -127,6 +148,7 @@ impl AdminBuilder {
             signal_queue_tx,
             timeout: self.timeout,
             version: self.version,
+            waker: self.waker,
         }
     }
 }
@@ -134,34 +156,45 @@ impl AdminBuilder {
 impl Admin {
     /// Call accept one time
     fn accept(&mut self) {
-        if let Ok(mut session) = self
+        ADMIN_SESSION_ACCEPT.increment();
+
+        match self
             .listener
             .accept()
             .map(|v| ServerSession::new(Session::from(v), AdminRequestParser::default()))
         {
-            let s = self.sessions.vacant_entry();
+            Ok(mut session) => {
+                let s = self.sessions.vacant_entry();
 
-            if session
-                .register(self.poll.registry(), Token(s.key()), session.interest())
-                .is_ok()
-            {
-                s.insert(session);
-            } else {
-                // failed to register
+                if session
+                    .register(self.poll.registry(), Token(s.key()), session.interest())
+                    .is_ok()
+                {
+                    ADMIN_SESSION_ACCEPT_OK.increment();
+                    ADMIN_SESSION_CURR.increment();
+
+                    s.insert(session);
+                } else {
+                    // failed to register
+                    ADMIN_SESSION_ACCEPT_EX.increment();
+                }
+
+                self.backlog.push_back(LISTENER_TOKEN);
+                let _ = self.waker.wake();
             }
-
-            // reregister is needed here so we will call accept if there is a backlog
-            if self
-                .listener
-                .reregister(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE)
-                .is_err()
-            {
-                // failed to reregister listener? how do we handle this?
+            Err(e) => {
+                if e.kind() != ErrorKind::WouldBlock {
+                    ADMIN_SESSION_ACCEPT_EX.increment();
+                    self.backlog.push_back(LISTENER_TOKEN);
+                    let _ = self.waker.wake();
+                }
             }
         }
     }
 
     fn read(&mut self, token: Token) -> Result<()> {
+        ADMIN_EVENT_READ.increment();
+
         let session = self
             .sessions
             .get_mut(token.0)
@@ -215,6 +248,8 @@ impl Admin {
     }
 
     fn write(&mut self, token: Token) -> Result<()> {
+        ADMIN_EVENT_WRITE.increment();
+
         let session = self
             .sessions
             .get_mut(token.0)
@@ -232,6 +267,9 @@ impl Admin {
     /// Closes the session with the given token
     fn close(&mut self, token: Token) {
         if self.sessions.contains(token.0) {
+            ADMIN_SESSION_CLOSE.increment();
+            ADMIN_SESSION_CURR.decrement();
+
             let mut session = self.sessions.remove(token.0);
             let _ = session.flush();
         }
@@ -261,18 +299,28 @@ impl Admin {
         let token = event.token();
 
         if event.is_error() {
+            ADMIN_EVENT_ERROR.increment();
+
             self.close(token);
             return;
         }
 
-        if event.is_writable() && self.write(token).is_err() {
-            self.close(token);
-            return;
+        if event.is_writable() {
+            ADMIN_EVENT_WRITE.increment();
+
+            if self.write(token).is_err() {
+                self.close(token);
+                return;
+            }
         }
 
-        if event.is_readable() && self.read(token).is_err() {
-            self.close(token);
-            return;
+        if event.is_readable() {
+            ADMIN_EVENT_READ.increment();
+
+            if self.read(token).is_err() {
+                self.close(token);
+                return;
+            }
         }
 
         match self.handshake(token) {
@@ -299,11 +347,13 @@ impl Admin {
 
         // repeatedly run accepting new connections and moving them to the worker
         loop {
-            // ADMIN_EVENT_LOOP.increment();
+            ADMIN_EVENT_LOOP.increment();
+
             if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
                 error!("Error polling");
             }
-            // ADMIN_EVENT_TOTAL.add(events.iter().count() as _);
+
+            ADMIN_EVENT_TOTAL.add(events.iter().count() as _);
 
             // handle all events
             for event in events.iter() {
@@ -312,7 +362,12 @@ impl Admin {
                         self.accept();
                     }
                     WAKER_TOKEN => {
-                        // do something here
+                        let tokens: Vec<Token> = self.backlog.drain(..).collect();
+                        for token in tokens {
+                            if token == LISTENER_TOKEN {
+                                self.accept();
+                            }
+                        }
                     }
                     _ => {
                         self.session_event(event);
