@@ -13,7 +13,7 @@ common = { path = "../../common" }
 config = { path = "../../config" }
 logger = { path = "../../logger" }
 protocol-common = { path = "../../protocol/common" }
-rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon", features = ["heatmap"] }
 storage-types = { path = "../../storage/types" }
 
 [dev-dependencies]

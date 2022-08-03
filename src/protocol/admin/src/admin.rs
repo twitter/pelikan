@@ -79,7 +79,7 @@ pub struct Version {
 
 impl Compose for Version {
     fn compose(&self, buf: &mut dyn BufMut) -> usize {
-        buf.put_slice(b"version ");
+        buf.put_slice(b"VERSION ");
         buf.put_slice(self.version.as_bytes());
         buf.put_slice(b"\r\n");
 
