@@ -560,7 +560,7 @@ impl TlsTcpConnectorBuilder {
 // NOTE: these tests only work if there's a `test` folder within this crate that
 // contains the necessary keys and certs. They are left here for reference and
 // in the future we should automate creation of self-signed keys and certs for
-// use for testing during local development and in CI. 
+// use for testing during local development and in CI.
 
 // #[cfg(test)]
 // mod tests {
