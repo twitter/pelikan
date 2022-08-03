@@ -1,6 +1,9 @@
 #![allow(unused_imports)]
-use bytes::Buf;
-use bytes::BufMut;
+
+use buffer::*;
+
+// use bytes::Buf;
+// use bytes::BufMut;
 use std::borrow::Borrow;
 use std::io::Result;
 
@@ -14,8 +17,8 @@ use slab::Slab;
 
 use std::sync::mpsc::*;
 
-mod buffer;
-use buffer::Buffer;
+// mod buffer;
+// use buffer::Buffer;
 
 const LISTENER_TOKEN: u64 = u64::MAX;
 

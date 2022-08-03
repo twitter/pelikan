@@ -2099,6 +2099,7 @@ dependencies = [
 name = "server-iouring"
 version = "0.1.0"
 dependencies = [
+ "buffer",
  "bytes 1.1.0",
  "io-uring",
  "libc",
