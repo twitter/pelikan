@@ -1,18 +1,27 @@
 #[cfg(target_os = "linux")]
 pub fn main() {
-    use server_iouring::Listener;
-    use server_iouring::Worker;
-    use std::sync::mpsc::channel;
+    use server_iouring::ListenerBuilder;
+    use server_iouring::WorkerBuilder;
 
-    let (l_tx, w_rx) = channel();
-    let (w_tx, l_rx) = channel();
+    let listener = ListenerBuilder::new().expect("failed to init listener");
+
+    let listener_waker = listener.waker();
+
+    let worker = WorkerBuilder::new().expect("failed to init worker");
+
+    let worker_waker = worker.waker();
+
+    let (l_queue, w_queue) = server_iouring::queues(worker_waker, listener_waker);
+
+    // let (l_tx, w_rx) = channel();
+    // let (w_tx, l_rx) = channel();
 
     let mut threads = Vec::new();
 
-    let listener = Listener::new(l_tx, l_rx).expect("failed to init listener");
+    let listener = listener.build(l_queue).expect("failed to build listener");
     threads.push(std::thread::spawn(|| listener.run()));
 
-    let worker = Worker::new(w_tx, w_rx).expect("failed to init worker");
+    let worker = worker.build(w_queue).expect("failed to build worker");
     threads.push(std::thread::spawn(|| worker.run()));
 
     for thread in threads {

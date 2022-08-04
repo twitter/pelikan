@@ -5,9 +5,9 @@ use buffer::*;
 // use bytes::Buf;
 // use bytes::BufMut;
 use std::borrow::Borrow;
-use std::io::Result;
-
 use std::collections::VecDeque;
+use std::fs::File;
+use std::io::{ErrorKind, Result, Write};
 use std::net::TcpListener;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::{io, ptr};
@@ -16,6 +16,7 @@ use io_uring::{opcode, squeue, types, IoUring, SubmissionQueue};
 use slab::Slab;
 
 use std::sync::mpsc::*;
+use std::sync::Arc;
 
 use ::net::TcpStream;
 use std::os::unix::io::FromRawFd;
@@ -29,6 +30,100 @@ use protocol_ping::*;
 
 const TIMEOUT_TOKEN: u64 = u64::MAX - 1;
 const LISTENER_TOKEN: u64 = u64::MAX;
+
+pub struct Queue<T, U> {
+    tx: Sender<T>,
+    rx: Receiver<U>,
+    waker: Arc<Waker>,
+}
+
+impl<T, U> Queue<T, U>
+where
+    T: Send,
+    U: Send,
+{
+    pub fn send(&self, item: T) -> std::result::Result<(), T> {
+        self.tx.send(item).map_err(|e| e.0)
+    }
+
+    pub fn try_recv(&self) -> std::result::Result<U, ()> {
+        self.rx.try_recv().map_err(|e| ())
+    }
+
+    pub fn wake(&self) -> Result<()> {
+        self.waker.wake()
+    }
+}
+
+pub fn queues<T, U>(a_waker: Arc<Waker>, b_waker: Arc<Waker>) -> (Queue<T, U>, Queue<U, T>) {
+    let (t_tx, t_rx) = channel();
+    let (u_tx, u_rx) = channel();
+
+    let a = Queue {
+        tx: t_tx,
+        rx: u_rx,
+        waker: b_waker,
+    };
+
+    let b = Queue {
+        tx: u_tx,
+        rx: t_rx,
+        waker: a_waker,
+    };
+
+    (a, b)
+}
+
+pub struct Waker {
+    inner: File,
+}
+
+// a simple eventfd waker. based off the implementation in mio
+impl Waker {
+    pub fn new() -> Result<Self> {
+        let ret = unsafe { libc::eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK) };
+        if ret < 0 {
+            Err(std::io::Error::new(
+                ErrorKind::Other,
+                "failed to create eventfd",
+            ))
+        } else {
+            Ok(Self {
+                inner: unsafe { File::from_raw_fd(ret) },
+            })
+        }
+    }
+
+    pub fn wake(&self) -> Result<()> {
+        match (&self.inner).write(&[1, 0, 0, 0, 0, 0, 0, 0]) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                if e.kind() == ErrorKind::WouldBlock {
+                    // writing blocks if the counter would overflow, reset it
+                    // and wake again
+                    self.reset()?;
+                    self.wake()
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+
+    fn reset(&self) -> Result<()> {
+        match (&self.inner).write(&[0, 0, 0, 0, 0, 0, 0, 0]) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                if e.kind() == ErrorKind::WouldBlock {
+                    // we can ignore wouldblock now
+                    Ok(())
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 enum State {
@@ -44,33 +139,73 @@ pub struct Session {
     fd: RawFd,
 }
 
-pub struct Worker {
+pub struct WorkerBuilder {
     backlog: VecDeque<squeue::Entry>,
     ring: IoUring,
     sessions: Slab<Session>,
-    session_tx: Sender<Session>,
-    session_rx: Receiver<Session>,
+    waker: Arc<Waker>,
 }
 
-impl Worker {
-    pub fn new(session_tx: Sender<Session>, session_rx: Receiver<Session>) -> Result<Self> {
+impl WorkerBuilder {
+    pub fn new() -> Result<Self> {
         let ring = IoUring::builder().build(8192)?;
         let sessions = Slab::new();
         let backlog = VecDeque::new();
+        let waker = Arc::new(Waker::new()?);
 
         Ok(Self {
             backlog,
             ring,
             sessions,
-            session_tx,
-            session_rx,
+            waker,
         })
     }
 
+    pub fn build(self, session_queue: Queue<Session, Session>) -> Result<Worker> {
+        Ok(Worker {
+            backlog: self.backlog,
+            ring: self.ring,
+            sessions: self.sessions,
+            session_queue,
+            waker: self.waker,
+        })
+    }
+
+    pub fn waker(&self) -> Arc<Waker> {
+        self.waker.clone()
+    }
+}
+
+pub struct Worker {
+    backlog: VecDeque<squeue::Entry>,
+    ring: IoUring,
+    sessions: Slab<Session>,
+    session_queue: Queue<Session, Session>,
+    waker: Arc<Waker>,
+    // session_tx: Sender<Session>,
+    // session_rx: Receiver<Session>,
+    // waker: Arc<Waker>,
+    // listener_waker: Arc<Waker>,
+}
+
+impl Worker {
+    // pub fn new(session_queue: Queue<Session, Session>) -> Result<Self> {
+    //     let ring = IoUring::builder().build(8192)?;
+    //     let sessions = Slab::new();
+    //     let backlog = VecDeque::new();
+
+    //     Ok(Self {
+    //         backlog,
+    //         ring,
+    //         sessions,
+    //         session_tx,
+    //         session_rx,
+    //     })
+    // }
+
     pub fn close(&mut self, token: usize) {
         let session = self.sessions.remove(token);
-        let fd = session.fd;
-        let _ = self.session_tx.send(session);
+        let _ = self.session_queue.send(session);
     }
 
     pub fn read(&mut self, token: usize) {
@@ -99,11 +234,11 @@ impl Worker {
                 }
             } else {
                 let session = self.sessions.remove(token);
-                let _ = self.session_tx.send(session);
+                let _ = self.session_queue.send(session);
             }
         } else {
             let session = self.sessions.remove(token);
-            let _ = self.session_tx.send(session);
+            let _ = self.session_queue.send(session);
         }
     }
 
@@ -201,7 +336,7 @@ impl Worker {
 
             // take one session from the queue, add it to the sessions slab, and
             // submit a read to the kernel
-            if let Ok(session) = self.session_rx.try_recv() {
+            if let Ok(session) = self.session_queue.try_recv() {
                 let token = self.sessions.insert(session);
 
                 self.submit_read(token);
@@ -276,39 +411,82 @@ impl Worker {
 
                 next = self.ring.completion().next();
             }
+
+            self.session_queue.wake();
         }
     }
 }
 
+pub struct ListenerBuilder {
+    backlog: VecDeque<squeue::Entry>,
+    listener: TcpListener,
+    ring: IoUring,
+    sessions: Slab<Session>,
+    waker: Arc<Waker>,
+}
+
+impl ListenerBuilder {
+    pub fn new() -> Result<Self> {
+        let ring = IoUring::builder().build(8192)?;
+        let listener = TcpListener::bind("127.0.0.1:12321")?;
+        let sessions = Slab::new();
+        let backlog = VecDeque::new();
+        let waker = Arc::new(Waker::new()?);
+
+        Ok(Self {
+            backlog,
+            listener,
+            ring,
+            sessions,
+            waker,
+        })
+    }
+
+    pub fn build(self, session_queue: Queue<Session, Session>) -> Result<Listener> {
+        Ok(Listener {
+            accept_backlog: 1024,
+            backlog: self.backlog,
+            listener: self.listener,
+            ring: self.ring,
+            sessions: self.sessions,
+            session_queue,
+            waker: self.waker,
+        })
+    }
+
+    pub fn waker(&self) -> Arc<Waker> {
+        self.waker.clone()
+    }
+}
+
 pub struct Listener {
-    // acceptor: Acceptor,
+    accept_backlog: usize,
     backlog: VecDeque<squeue::Entry>,
     ring: IoUring,
     #[allow(dead_code)]
     listener: TcpListener,
     sessions: Slab<Session>,
-    session_tx: Sender<Session>,
-    session_rx: Receiver<Session>,
-    accept_backlog: usize,
+    session_queue: Queue<Session, Session>,
+    waker: Arc<Waker>,
 }
 
 impl Listener {
-    pub fn new(session_tx: Sender<Session>, session_rx: Receiver<Session>) -> Result<Self> {
-        let ring = IoUring::builder().build(8192)?;
-        let listener = TcpListener::bind("127.0.0.1:12321")?;
-        let backlog = VecDeque::new();
-        let sessions = Slab::new();
+    // pub fn new(session_queue: Queue<Session, Session>) -> Result<Self> {
+    //     let ring = IoUring::builder().build(8192)?;
+    //     let listener = TcpListener::bind("127.0.0.1:12321")?;
+    //     let backlog = VecDeque::new();
+    //     let sessions = Slab::new();
 
-        Ok(Self {
-            backlog,
-            ring,
-            listener,
-            sessions,
-            session_tx,
-            session_rx,
-            accept_backlog: 1024,
-        })
-    }
+    //     Ok(Self {
+    //         backlog,
+    //         ring,
+    //         listener,
+    //         sessions,
+    //         session_tx,
+    //         session_rx,
+    //         accept_backlog: 1024,
+    //     })
+    // }
 
     pub fn submit_shutdown(&mut self, token: usize) {
         let session = &mut self.sessions[token];
@@ -409,7 +587,7 @@ impl Listener {
 
             // if there are any sessions to shutdown, take one and submit a
             // shutdown for it
-            if let Ok(session) = self.session_rx.try_recv() {
+            if let Ok(session) = self.session_queue.try_recv() {
                 let token = self.sessions.insert(session);
                 self.submit_shutdown(token);
             }
@@ -482,7 +660,7 @@ impl Listener {
                         match session.state {
                             State::Poll => {
                                 let session = self.sessions.remove(token);
-                                let _ = self.session_tx.send(session);
+                                let _ = self.session_queue.send(session);
                             }
                             State::Shutdown => {
                                 let _ = self.sessions.remove(token);
@@ -496,6 +674,8 @@ impl Listener {
 
                 next = self.ring.completion().next();
             }
+
+            self.session_queue.wake();
         }
     }
 }
