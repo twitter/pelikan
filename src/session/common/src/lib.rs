@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::os::unix::prelude::AsRawFd;
 pub use buffer::*;
 
 use ::net::*;
@@ -58,6 +59,12 @@ pub struct Session {
     stream: Stream,
     read_buffer: Buffer,
     write_buffer: Buffer,
+}
+
+impl AsRawFd for Session {
+    fn as_raw_fd(&self) -> i32 {
+        self.stream.as_raw_fd()
+    }
 }
 
 impl Debug for Session {
@@ -286,6 +293,12 @@ impl<Parser, Tx, Rx> Debug for ClientSession<Parser, Tx, Rx> {
     }
 }
 
+impl<Parser, Tx, Rx> AsRawFd for ClientSession<Parser, Tx, Rx> {
+    fn as_raw_fd(&self) -> i32 {
+        self.session.as_raw_fd()
+    }
+}
+
 impl<Parser, Tx, Rx> ClientSession<Parser, Tx, Rx>
 where
     Tx: Compose,
@@ -438,6 +451,12 @@ pub struct ServerSession<Parser, Tx, Rx> {
     outstanding: VecDeque<(Option<Instant>, usize)>,
     _rx: PhantomData<Rx>,
     _tx: PhantomData<Tx>,
+}
+
+impl<Parser, Tx, Rx> AsRawFd for ServerSession<Parser, Tx, Rx> {
+    fn as_raw_fd(&self) -> i32 {
+        self.session.as_raw_fd()
+    }
 }
 
 impl<Parser, Tx, Rx> Debug for ServerSession<Parser, Tx, Rx> {

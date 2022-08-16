@@ -8,6 +8,7 @@ edition = "2021"
 [target.'cfg(target_os = "linux")'.dependencies]
 buffer = { path = "../../buffer" }
 bytes = "1.1.0"
+entrystore = { path = "../../entrystore" }
 io-uring = { version = "0.5.3", features = ["unstable"] }
 libc = "0.2.126"
 net = { path = "../../net" }

@@ -22,6 +22,7 @@ use ::net::TcpStream;
 use std::os::unix::io::FromRawFd;
 
 use session_common::ServerSession;
+use entrystore::EntryStore;
 
 use protocol_ping::*;
 
@@ -115,7 +116,7 @@ impl Waker {
             Ok(_) => Ok(()),
             Err(e) => {
                 if e.kind() == ErrorKind::WouldBlock {
-                    // we can ignore wouldblock now
+                    // we can ignore wouldblock during reset
                     Ok(())
                 } else {
                     Err(e)
@@ -133,22 +134,50 @@ enum State {
     Shutdown,
 }
 
-pub struct Session<Parser, Request, Response> {
+pub struct Session<Parser, Request, Response>
+where
+    Parser: Send,
+    Request: Send,
+    Response: Send,
+{
     inner: ServerSession<Parser, Response, Request>,
     state: State,
-    fd: RawFd,
 }
 
-pub struct WorkerBuilder<Parser, Request, Response> {
+impl<Parser, Request, Response> AsRawFd for Session<Parser, Request, Response>
+where
+    Parser: Send,
+    Request: Send,
+    Response: Send,
+{
+    fn as_raw_fd(&self) -> i32 {
+        self.inner.as_raw_fd()
+    }
+}
+
+pub struct WorkerBuilder<Parser, Request, Response, Storage>
+where
+    Parser: Parse<Request> + Send,
+    Request: Send,
+    Response: Compose + Send,
+    Storage: EntryStore + Execute<Request, Response>,
+{
     backlog: VecDeque<squeue::Entry>,
     parser: Parser,
     ring: IoUring,
     sessions: Slab<Session<Parser, Request, Response>>,
+    storage: Storage,
     waker: Arc<Waker>,
 }
 
-impl<Parser, Request, Response> WorkerBuilder<Parser, Request, Response> {
-    pub fn new(parser: Parser) -> Result<Self> {
+impl<Parser, Request, Response, Storage> WorkerBuilder<Parser, Request, Response, Storage>
+where
+    Parser: Parse<Request> + Send,
+    Request: Send,
+    Response: Compose + Send,
+    Storage: EntryStore + Execute<Request, Response>,
+{
+    pub fn new(parser: Parser, storage: Storage) -> Result<Self> {
         let ring = IoUring::builder().build(8192)?;
         let sessions = Slab::new();
         let backlog = VecDeque::new();
@@ -159,17 +188,19 @@ impl<Parser, Request, Response> WorkerBuilder<Parser, Request, Response> {
             parser,
             ring,
             sessions,
+            storage,
             waker,
         })
     }
 
-    pub fn build(self, session_queue: Queue<session_common::Session, session_common::Session>) -> Result<Worker> {
+    pub fn build(self, session_queue: Queue<Session<Parser, Request, Response>, Session<Parser, Request, Response>>) -> Result<Worker<Parser, Request, Response, Storage>> {
         Ok(Worker {
             backlog: self.backlog,
             parser: self.parser,
             ring: self.ring,
             sessions: self.sessions,
             session_queue,
+            storage: self.storage,
             waker: self.waker,
         })
     }
@@ -179,12 +210,19 @@ impl<Parser, Request, Response> WorkerBuilder<Parser, Request, Response> {
     }
 }
 
-pub struct Worker<Parser, Request, Response> {
+pub struct Worker<Parser, Request, Response, Storage>
+where
+    Parser: Parse<Request> + Send,
+    Request: Send,
+    Response: Compose + Send,
+    Storage: EntryStore + Execute<Request, Response>,
+{
     backlog: VecDeque<squeue::Entry>,
     parser: Parser,
     ring: IoUring,
-    sessions: Slab<Session>,
-    session_queue: Queue<Session, Session>,
+    sessions: Slab<Session<Parser, Request, Response>>,
+    session_queue: Queue<Session<Parser, Request, Response>, Session<Parser, Request, Response>>,
+    storage: Storage,
     waker: Arc<Waker>,
     // session_tx: Sender<Session>,
     // session_rx: Receiver<Session>,
@@ -192,7 +230,13 @@ pub struct Worker<Parser, Request, Response> {
     // listener_waker: Arc<Waker>,
 }
 
-impl<Parser, Request, Response> Worker<Parser, Request, Response> {
+impl<Parser, Request, Response, Storage> Worker<Parser, Request, Response, Storage>
+where
+    Parser: Parse<Request> + Send,
+    Request: Send,
+    Response: Compose + Send,
+    Storage: EntryStore + Execute<Request, Response>,
+{
     // pub fn new(session_queue: Queue<Session, Session>) -> Result<Self> {
     //     let ring = IoUring::builder().build(8192)?;
     //     let sessions = Slab::new();
@@ -207,24 +251,27 @@ impl<Parser, Request, Response> Worker<Parser, Request, Response> {
     //     })
     // }
 
-    pub fn close(&mut self, token: usize) {
-        let session = self.sessions.remove(token);
+    pub fn close(&mut self, token: u64) {
+        let session = self.sessions.remove(token as usize);
         let _ = self.session_queue.send(session);
     }
 
-    pub fn read(&mut self, token: usize) {
-        let session = &mut self.sessions[token];
+    pub fn read(&mut self, token: u64) {
+        let session = &mut self.sessions[token as usize];
 
         if let Ok(request) = session.inner.receive() {
-            let send = match request {
-                Request::Ping => session.inner.send(Response::Pong),
-            };
+            let response = self.storage.execute(&request);
+
+            let send = session.inner.send(response);
+            // let send = match request {
+            //     Request::Ping => session.inner.send(Response::Pong),
+            // };
 
             if send.is_ok() {
                 session.state = State::Write;
 
                 let entry = opcode::Send::new(
-                    types::Fd(session.fd),
+                    types::Fd(session.as_raw_fd()),
                     session.inner.write_buffer_mut().read_ptr(),
                     session.inner.write_buffer_mut().remaining() as _,
                 )
@@ -237,24 +284,24 @@ impl<Parser, Request, Response> Worker<Parser, Request, Response> {
                     }
                 }
             } else {
-                let session = self.sessions.remove(token);
+                let session = self.sessions.remove(token as usize);
                 let _ = self.session_queue.send(session);
             }
         } else {
-            let session = self.sessions.remove(token);
+            let session = self.sessions.remove(token as usize);
             let _ = self.session_queue.send(session);
         }
     }
 
     /// Puts a read operation onto the submission queue. If the submission queue
     /// is full, it will be placed on the backlog instead.
-    pub fn submit_read(&mut self, token: usize) {
-        let session = &mut self.sessions[token];
+    pub fn submit_read(&mut self, token: u64) {
+        let session = &mut self.sessions[token as usize];
 
         session.state = State::Read;
 
         let entry = opcode::Read::new(
-            types::Fd(session.fd),
+            types::Fd(session.as_raw_fd()),
             session.inner.read_buffer_mut().write_ptr(),
             session.inner.read_buffer_mut().remaining_mut() as _,
         )
@@ -270,13 +317,13 @@ impl<Parser, Request, Response> Worker<Parser, Request, Response> {
 
     /// Puts a write operation onto the submission queue. If the submission
     /// queue is full, it will be placed on the backlog instead.
-    pub fn submit_write(&mut self, token: usize) {
-        let session = &mut self.sessions[token];
+    pub fn submit_write(&mut self, token: u64) {
+        let session = &mut self.sessions[token as usize];
 
         session.state = State::Write;
 
         let entry = opcode::Write::new(
-            types::Fd(session.fd),
+            types::Fd(session.as_raw_fd()),
             session.inner.write_buffer_mut().read_ptr(),
             session.inner.write_buffer_mut().remaining() as _,
         )
@@ -343,7 +390,7 @@ impl<Parser, Request, Response> Worker<Parser, Request, Response> {
             if let Ok(session) = self.session_queue.try_recv() {
                 let token = self.sessions.insert(session);
 
-                self.submit_read(token);
+                self.submit_read(token as u64);
             }
 
             // to avoid borrow issues, we write this as a while loop instead of
@@ -352,10 +399,10 @@ impl<Parser, Request, Response> Worker<Parser, Request, Response> {
 
             while let Some(cqe) = next.take() {
                 let ret = cqe.result();
-                let token = cqe.user_data() as usize;
+                let token = cqe.user_data();
 
                 // timeouts get resubmitted
-                if token == TIMEOUT_TOKEN as _ {
+                if token == TIMEOUT_TOKEN {
                     unsafe {
                         match self.ring.submission().push(&timeout) {
                             Ok(_) => {}
@@ -371,13 +418,13 @@ impl<Parser, Request, Response> Worker<Parser, Request, Response> {
                 if ret < 0 {
                     eprintln!(
                         "token {:?} error: {:?}",
-                        self.sessions.get(token).map(|v| v.state.clone()),
+                        self.sessions.get(token as usize).map(|v| v.state.clone()),
                         io::Error::from_raw_os_error(-ret)
                     );
                     continue;
                 }
 
-                let session = &mut self.sessions[token];
+                let session = &mut self.sessions[token as usize];
 
                 match session.state {
                     State::Read => {
@@ -421,16 +468,27 @@ impl<Parser, Request, Response> Worker<Parser, Request, Response> {
     }
 }
 
-pub struct ListenerBuilder {
+pub struct ListenerBuilder<Parser, Request, Response>
+where
+    Parser: Clone + Send,
+    Request: Send,
+    Response: Send,
+{
     backlog: VecDeque<squeue::Entry>,
     listener: TcpListener,
+    parser: Parser,
     ring: IoUring,
-    sessions: Slab<Session>,
+    sessions: Slab<Session<Parser, Request, Response>>,
     waker: Arc<Waker>,
 }
 
-impl ListenerBuilder {
-    pub fn new() -> Result<Self> {
+impl<Parser, Request, Response> ListenerBuilder<Parser, Request, Response>
+where
+    Parser: Clone + Send,
+    Request: Send,
+    Response: Send,
+{
+    pub fn new(parser: Parser) -> Result<Self> {
         let ring = IoUring::builder().build(8192)?;
         let listener = TcpListener::bind("127.0.0.1:12321")?;
         let sessions = Slab::new();
@@ -440,17 +498,19 @@ impl ListenerBuilder {
         Ok(Self {
             backlog,
             listener,
+            parser,
             ring,
             sessions,
             waker,
         })
     }
 
-    pub fn build(self, session_queue: Queue<Session, Session>) -> Result<Listener> {
+    pub fn build(self, session_queue: Queue<Session<Parser, Request, Response>, Session<Parser, Request, Response>>) -> Result<Listener<Parser, Request, Response>> {
         Ok(Listener {
             accept_backlog: 1024,
             backlog: self.backlog,
             listener: self.listener,
+            parser: self.parser,
             ring: self.ring,
             sessions: self.sessions,
             session_queue,
@@ -463,41 +523,39 @@ impl ListenerBuilder {
     }
 }
 
-pub struct Listener {
+pub trait ParserBuilder<Parser> {
+    fn build(&self) -> Parser;
+}
+
+pub struct Listener<Parser, Request, Response>
+where
+    Parser: Send,
+    Request: Send,
+    Response: Send,
+{
     accept_backlog: usize,
     backlog: VecDeque<squeue::Entry>,
     ring: IoUring,
     #[allow(dead_code)]
     listener: TcpListener,
-    sessions: Slab<Session>,
-    session_queue: Queue<Session, Session>,
+    parser: Parser,
+    sessions: Slab<Session<Parser, Request, Response>>,
+    session_queue: Queue<Session<Parser, Request, Response>, Session<Parser, Request, Response>>,
     waker: Arc<Waker>,
 }
 
-impl Listener {
-    // pub fn new(session_queue: Queue<Session, Session>) -> Result<Self> {
-    //     let ring = IoUring::builder().build(8192)?;
-    //     let listener = TcpListener::bind("127.0.0.1:12321")?;
-    //     let backlog = VecDeque::new();
-    //     let sessions = Slab::new();
-
-    //     Ok(Self {
-    //         backlog,
-    //         ring,
-    //         listener,
-    //         sessions,
-    //         session_tx,
-    //         session_rx,
-    //         accept_backlog: 1024,
-    //     })
-    // }
-
+impl<Parser, Request, Response> Listener<Parser, Request, Response>
+where
+    Parser: Parse<Request> + Clone + Send,
+    Request: Send,
+    Response: Compose + Send,
+{
     pub fn submit_shutdown(&mut self, token: usize) {
         let session = &mut self.sessions[token];
 
         session.state = State::Shutdown;
 
-        let entry = opcode::Shutdown::new(types::Fd(session.fd), libc::SHUT_RDWR)
+        let entry = opcode::Shutdown::new(types::Fd(session.as_raw_fd()), libc::SHUT_RDWR)
             .build()
             .user_data(token as _);
 
@@ -513,7 +571,7 @@ impl Listener {
 
         session.state = State::Poll;
 
-        let event = opcode::PollAdd::new(types::Fd(session.fd), libc::POLLIN as _)
+        let event = opcode::PollAdd::new(types::Fd(session.as_raw_fd()), libc::POLLIN as _)
             .build()
             .user_data(token as _);
 
@@ -606,7 +664,7 @@ impl Listener {
 
                 // replace timeout token with a new one and move on to other
                 // completions
-                if token == TIMEOUT_TOKEN as _ {
+                if token == TIMEOUT_TOKEN as u64 {
                     unsafe {
                         match self.ring.submission().push(&timeout) {
                             Ok(_) => {}
@@ -647,12 +705,11 @@ impl Listener {
                         let tcp_stream = unsafe { TcpStream::from_raw_fd(ret) };
                         let session = ServerSession::new(
                             session_common::Session::from(tcp_stream),
-                            RequestParser::new(),
+                            self.parser.clone(),
                         );
                         let session = Session {
                             inner: session,
                             state: State::Poll,
-                            fd: ret,
                         };
 
                         let token = self.sessions.insert(session);

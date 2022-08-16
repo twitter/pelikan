@@ -3,11 +3,14 @@ pub fn main() {
     use server_iouring::ListenerBuilder;
     use server_iouring::WorkerBuilder;
 
-    let listener = ListenerBuilder::new().expect("failed to init listener");
+    let storage = entrystore::Noop::new();
+    let parser = protocol_ping::RequestParser::new();
+
+    let listener = ListenerBuilder::new(parser.clone()).expect("failed to init listener");
 
     let listener_waker = listener.waker();
 
-    let worker = WorkerBuilder::new().expect("failed to init worker");
+    let worker = WorkerBuilder::new(parser, storage).expect("failed to init worker");
 
     let worker_waker = worker.waker();
 
@@ -17,6 +20,8 @@ pub fn main() {
     // let (w_tx, l_rx) = channel();
 
     let mut threads = Vec::new();
+
+
 
     let listener = listener.build(l_queue).expect("failed to build listener");
     threads.push(std::thread::spawn(|| listener.run()));

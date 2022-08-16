@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::os::unix::prelude::AsRawFd;
 pub use std::net::Shutdown;
 
 use crate::*;
@@ -20,6 +21,15 @@ counter!(STREAM_HANDSHAKE_EX);
 /// plaintext stream.
 pub struct Stream {
     inner: StreamType,
+}
+
+impl AsRawFd for Stream {
+    fn as_raw_fd(&self) -> i32 {
+        match &self.inner {
+            StreamType::Tcp(s) => s.as_raw_fd(),
+            StreamType::TlsTcp(s) => s.as_raw_fd(),
+        }
+    }
 }
 
 impl Stream {

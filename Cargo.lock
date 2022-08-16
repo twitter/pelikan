@@ -2101,6 +2101,7 @@ version = "0.1.0"
 dependencies = [
  "buffer",
  "bytes 1.1.0",
+ "entrystore",
  "io-uring",
  "libc",
  "net",

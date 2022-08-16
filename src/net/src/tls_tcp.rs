@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::os::unix::prelude::AsRawFd;
 pub use boring::ssl::{ShutdownResult, SslVerifyMode};
 
 use boring::ssl::{ErrorCode, Ssl, SslFiletype, SslMethod, SslStream};
@@ -20,6 +21,12 @@ enum TlsState {
 pub struct TlsTcpStream {
     inner: SslStream<TcpStream>,
     state: TlsState,
+}
+
+impl AsRawFd for TlsTcpStream {
+    fn as_raw_fd(&self) -> i32 {
+        self.inner.get_ref().as_raw_fd()
+    }
 }
 
 impl TlsTcpStream {
