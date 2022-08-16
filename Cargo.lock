@@ -2027,6 +2027,7 @@ dependencies = [
  "protocol-memcache",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
  "server",
+ "server-iouring",
 ]
 
 [[package]]

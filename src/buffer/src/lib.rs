@@ -102,12 +102,16 @@ impl Buffer {
         }
     }
 
-    pub fn read_ptr(&self) -> *mut u8 {
-        unsafe { self.ptr.add(self.read_offset) }
+    // get the current write position as a pointer
+    // remaining_mut should be used as the length
+    pub fn write_ptr(&mut self) -> *mut u8 {
+        unsafe { self.ptr.add(self.write_offset) }
     }
 
-    pub fn write_ptr(&self) -> *mut u8 {
-        unsafe { self.ptr.add(self.write_offset) }
+    // get the current read position as a pointer
+    // remaining should be used as the length
+    pub fn read_ptr(&mut self) -> *mut u8 {
+        unsafe { self.ptr.add(self.read_offset) }
     }
 }
 

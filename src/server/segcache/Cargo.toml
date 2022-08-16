@@ -46,6 +46,7 @@ logger = { path = "../../logger" }
 protocol-memcache = { path = "../../protocol/memcache" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 server = { path = "../../core/server" }
+server-iouring = { path = "../../core/server-iouring" }
 
 [dev-dependencies]
 criterion = "0.3"

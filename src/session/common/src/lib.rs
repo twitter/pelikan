@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::os::unix::prelude::AsRawFd;
 pub use buffer::*;
+use std::os::unix::prelude::AsRawFd;
 
 use ::net::*;
 use core::borrow::{Borrow, BorrowMut};

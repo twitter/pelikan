@@ -1,36 +1,35 @@
-#![allow(unused_imports)]
+// Copyright 2022 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
 
 use buffer::*;
+use entrystore::EntryStore;
+use io_uring::{opcode, squeue, types, IoUring, SubmissionQueue};
+use net::TcpStream;
+use protocol_ping::*;
+use session_common::ServerSession;
+use slab::Slab;
 
-// use bytes::Buf;
-// use bytes::BufMut;
 use std::borrow::Borrow;
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{ErrorKind, Result, Write};
+use std::marker::PhantomData;
 use std::net::TcpListener;
+use std::os::unix::io::FromRawFd;
 use std::os::unix::io::{AsRawFd, RawFd};
-use std::{io, ptr};
-
-use io_uring::{opcode, squeue, types, IoUring, SubmissionQueue};
-use slab::Slab;
-
 use std::sync::mpsc::*;
 use std::sync::Arc;
-
-use ::net::TcpStream;
-use std::os::unix::io::FromRawFd;
-
-use session_common::ServerSession;
-use entrystore::EntryStore;
-
-use protocol_ping::*;
-
-// mod buffer;
-// use buffer::Buffer;
+use std::{io, ptr};
 
 const TIMEOUT_TOKEN: u64 = u64::MAX - 1;
 const LISTENER_TOKEN: u64 = u64::MAX;
+
+mod session;
+mod waker;
+
+use session::{Session, State};
+use waker::Waker;
 
 pub struct Queue<T, U> {
     tx: Sender<T>,
@@ -75,86 +74,6 @@ pub fn queues<T, U>(a_waker: Arc<Waker>, b_waker: Arc<Waker>) -> (Queue<T, U>, Q
     (a, b)
 }
 
-pub struct Waker {
-    inner: File,
-}
-
-// a simple eventfd waker. based off the implementation in mio
-impl Waker {
-    pub fn new() -> Result<Self> {
-        let ret = unsafe { libc::eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK) };
-        if ret < 0 {
-            Err(std::io::Error::new(
-                ErrorKind::Other,
-                "failed to create eventfd",
-            ))
-        } else {
-            Ok(Self {
-                inner: unsafe { File::from_raw_fd(ret) },
-            })
-        }
-    }
-
-    pub fn wake(&self) -> Result<()> {
-        match (&self.inner).write(&[1, 0, 0, 0, 0, 0, 0, 0]) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                if e.kind() == ErrorKind::WouldBlock {
-                    // writing blocks if the counter would overflow, reset it
-                    // and wake again
-                    self.reset()?;
-                    self.wake()
-                } else {
-                    Err(e)
-                }
-            }
-        }
-    }
-
-    fn reset(&self) -> Result<()> {
-        match (&self.inner).write(&[0, 0, 0, 0, 0, 0, 0, 0]) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                if e.kind() == ErrorKind::WouldBlock {
-                    // we can ignore wouldblock during reset
-                    Ok(())
-                } else {
-                    Err(e)
-                }
-            }
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-enum State {
-    Poll,
-    Read,
-    Write,
-    Shutdown,
-}
-
-pub struct Session<Parser, Request, Response>
-where
-    Parser: Send,
-    Request: Send,
-    Response: Send,
-{
-    inner: ServerSession<Parser, Response, Request>,
-    state: State,
-}
-
-impl<Parser, Request, Response> AsRawFd for Session<Parser, Request, Response>
-where
-    Parser: Send,
-    Request: Send,
-    Response: Send,
-{
-    fn as_raw_fd(&self) -> i32 {
-        self.inner.as_raw_fd()
-    }
-}
-
 pub struct WorkerBuilder<Parser, Request, Response, Storage>
 where
     Parser: Parse<Request> + Send,
@@ -168,6 +87,10 @@ where
     sessions: Slab<Session<Parser, Request, Response>>,
     storage: Storage,
     waker: Arc<Waker>,
+    _parser: PhantomData<Parser>,
+    _request: PhantomData<Request>,
+    _response: PhantomData<Response>,
+    _storage: PhantomData<Storage>,
 }
 
 impl<Parser, Request, Response, Storage> WorkerBuilder<Parser, Request, Response, Storage>
@@ -179,7 +102,7 @@ where
 {
     pub fn new(parser: Parser, storage: Storage) -> Result<Self> {
         let ring = IoUring::builder().build(8192)?;
-        let sessions = Slab::new();
+        let sessions = Slab::<Session<Parser, Request, Response>>::new();
         let backlog = VecDeque::new();
         let waker = Arc::new(Waker::new()?);
 
@@ -190,10 +113,20 @@ where
             sessions,
             storage,
             waker,
+            _parser: PhantomData,
+            _request: PhantomData,
+            _response: PhantomData,
+            _storage: PhantomData,
         })
     }
 
-    pub fn build(self, session_queue: Queue<Session<Parser, Request, Response>, Session<Parser, Request, Response>>) -> Result<Worker<Parser, Request, Response, Storage>> {
+    pub fn build(
+        self,
+        session_queue: Queue<
+            Session<Parser, Request, Response>,
+            Session<Parser, Request, Response>,
+        >,
+    ) -> Result<Worker<Parser, Request, Response, Storage>> {
         Ok(Worker {
             backlog: self.backlog,
             parser: self.parser,
@@ -202,6 +135,8 @@ where
             session_queue,
             storage: self.storage,
             waker: self.waker,
+            _request: PhantomData,
+            _response: PhantomData,
         })
     }
 
@@ -224,10 +159,8 @@ where
     session_queue: Queue<Session<Parser, Request, Response>, Session<Parser, Request, Response>>,
     storage: Storage,
     waker: Arc<Waker>,
-    // session_tx: Sender<Session>,
-    // session_rx: Receiver<Session>,
-    // waker: Arc<Waker>,
-    // listener_waker: Arc<Waker>,
+    _request: PhantomData<Request>,
+    _response: PhantomData<Response>,
 }
 
 impl<Parser, Request, Response, Storage> Worker<Parser, Request, Response, Storage>
@@ -237,20 +170,6 @@ where
     Response: Compose + Send,
     Storage: EntryStore + Execute<Request, Response>,
 {
-    // pub fn new(session_queue: Queue<Session, Session>) -> Result<Self> {
-    //     let ring = IoUring::builder().build(8192)?;
-    //     let sessions = Slab::new();
-    //     let backlog = VecDeque::new();
-
-    //     Ok(Self {
-    //         backlog,
-    //         ring,
-    //         sessions,
-    //         session_tx,
-    //         session_rx,
-    //     })
-    // }
-
     pub fn close(&mut self, token: u64) {
         let session = self.sessions.remove(token as usize);
         let _ = self.session_queue.send(session);
@@ -259,21 +178,18 @@ where
     pub fn read(&mut self, token: u64) {
         let session = &mut self.sessions[token as usize];
 
-        if let Ok(request) = session.inner.receive() {
+        if let Ok(request) = session.receive() {
             let response = self.storage.execute(&request);
 
-            let send = session.inner.send(response);
-            // let send = match request {
-            //     Request::Ping => session.inner.send(Response::Pong),
-            // };
+            let send = session.send(response);
 
             if send.is_ok() {
-                session.state = State::Write;
+                session.set_state(State::Write);
 
                 let entry = opcode::Send::new(
                     types::Fd(session.as_raw_fd()),
-                    session.inner.write_buffer_mut().read_ptr(),
-                    session.inner.write_buffer_mut().remaining() as _,
+                    session.write_buffer_mut().read_ptr(),
+                    session.write_buffer_mut().remaining() as _,
                 )
                 .build()
                 .user_data(token as _);
@@ -298,12 +214,12 @@ where
     pub fn submit_read(&mut self, token: u64) {
         let session = &mut self.sessions[token as usize];
 
-        session.state = State::Read;
+        session.set_state(State::Read);
 
         let entry = opcode::Read::new(
             types::Fd(session.as_raw_fd()),
-            session.inner.read_buffer_mut().write_ptr(),
-            session.inner.read_buffer_mut().remaining_mut() as _,
+            session.read_buffer_mut().write_ptr(),
+            session.read_buffer_mut().remaining_mut() as _,
         )
         .build()
         .user_data(token as _);
@@ -320,12 +236,12 @@ where
     pub fn submit_write(&mut self, token: u64) {
         let session = &mut self.sessions[token as usize];
 
-        session.state = State::Write;
+        session.set_state(State::Write);
 
         let entry = opcode::Write::new(
             types::Fd(session.as_raw_fd()),
-            session.inner.write_buffer_mut().read_ptr(),
-            session.inner.write_buffer_mut().remaining() as _,
+            session.write_buffer_mut().read_ptr(),
+            session.write_buffer_mut().remaining() as _,
         )
         .build()
         .user_data(token as _);
@@ -418,7 +334,7 @@ where
                 if ret < 0 {
                     eprintln!(
                         "token {:?} error: {:?}",
-                        self.sessions.get(token as usize).map(|v| v.state.clone()),
+                        self.sessions.get(token as usize).map(|v| v.state().clone()),
                         io::Error::from_raw_os_error(-ret)
                     );
                     continue;
@@ -426,7 +342,7 @@ where
 
                 let session = &mut self.sessions[token as usize];
 
-                match session.state {
+                match session.state() {
                     State::Read => {
                         if ret == 0 {
                             self.close(token);
@@ -434,7 +350,7 @@ where
                             // mark the read buffer as containing the number of
                             // bytes read into it by the kernel
                             unsafe {
-                                session.inner.read_buffer_mut().advance_mut(ret as usize);
+                                session.read_buffer_mut().advance_mut(ret as usize);
                             }
 
                             self.read(token);
@@ -443,12 +359,12 @@ where
                     State::Write => {
                         // advance the write buffer by the number of bytes that
                         // were written to the underlying stream
-                        session.inner.write_buffer_mut().advance(ret as usize);
+                        session.write_buffer_mut().advance(ret as usize);
 
                         // if the write buffer is now empty, we want to resume
                         // reading, otherwise submit a write so we can finish
                         // flushing the buffer.
-                        if session.inner.write_buffer_mut().remaining() == 0 {
+                        if session.write_buffer_mut().remaining() == 0 {
                             self.submit_read(token);
                         } else {
                             self.submit_write(token);
@@ -470,9 +386,9 @@ where
 
 pub struct ListenerBuilder<Parser, Request, Response>
 where
-    Parser: Clone + Send,
+    Parser: Parse<Request> + Clone + Send,
     Request: Send,
-    Response: Send,
+    Response: Compose + Send,
 {
     backlog: VecDeque<squeue::Entry>,
     listener: TcpListener,
@@ -480,18 +396,20 @@ where
     ring: IoUring,
     sessions: Slab<Session<Parser, Request, Response>>,
     waker: Arc<Waker>,
+    _request: PhantomData<Request>,
+    _response: PhantomData<Response>,
 }
 
 impl<Parser, Request, Response> ListenerBuilder<Parser, Request, Response>
 where
-    Parser: Clone + Send,
+    Parser: Parse<Request> + Clone + Send,
     Request: Send,
-    Response: Send,
+    Response: Compose + Send,
 {
     pub fn new(parser: Parser) -> Result<Self> {
         let ring = IoUring::builder().build(8192)?;
         let listener = TcpListener::bind("127.0.0.1:12321")?;
-        let sessions = Slab::new();
+        let sessions = Slab::<Session<Parser, Request, Response>>::new();
         let backlog = VecDeque::new();
         let waker = Arc::new(Waker::new()?);
 
@@ -502,10 +420,18 @@ where
             ring,
             sessions,
             waker,
+            _request: PhantomData,
+            _response: PhantomData,
         })
     }
 
-    pub fn build(self, session_queue: Queue<Session<Parser, Request, Response>, Session<Parser, Request, Response>>) -> Result<Listener<Parser, Request, Response>> {
+    pub fn build(
+        self,
+        session_queue: Queue<
+            Session<Parser, Request, Response>,
+            Session<Parser, Request, Response>,
+        >,
+    ) -> Result<Listener<Parser, Request, Response>> {
         Ok(Listener {
             accept_backlog: 1024,
             backlog: self.backlog,
@@ -515,6 +441,8 @@ where
             sessions: self.sessions,
             session_queue,
             waker: self.waker,
+            _request: PhantomData,
+            _response: PhantomData,
         })
     }
 
@@ -529,9 +457,9 @@ pub trait ParserBuilder<Parser> {
 
 pub struct Listener<Parser, Request, Response>
 where
-    Parser: Send,
+    Parser: Parse<Request> + Send,
     Request: Send,
-    Response: Send,
+    Response: Compose + Send,
 {
     accept_backlog: usize,
     backlog: VecDeque<squeue::Entry>,
@@ -542,6 +470,8 @@ where
     sessions: Slab<Session<Parser, Request, Response>>,
     session_queue: Queue<Session<Parser, Request, Response>, Session<Parser, Request, Response>>,
     waker: Arc<Waker>,
+    _request: PhantomData<Request>,
+    _response: PhantomData<Response>,
 }
 
 impl<Parser, Request, Response> Listener<Parser, Request, Response>
@@ -553,7 +483,7 @@ where
     pub fn submit_shutdown(&mut self, token: usize) {
         let session = &mut self.sessions[token];
 
-        session.state = State::Shutdown;
+        session.set_state(State::Shutdown);
 
         let entry = opcode::Shutdown::new(types::Fd(session.as_raw_fd()), libc::SHUT_RDWR)
             .build()
@@ -569,7 +499,7 @@ where
     pub fn submit_poll(&mut self, token: usize) {
         let session = &mut self.sessions[token];
 
-        session.state = State::Poll;
+        session.set_state(State::Poll);
 
         let event = opcode::PollAdd::new(types::Fd(session.as_raw_fd()), libc::POLLIN as _)
             .build()
@@ -707,18 +637,14 @@ where
                             session_common::Session::from(tcp_stream),
                             self.parser.clone(),
                         );
-                        let session = Session {
-                            inner: session,
-                            state: State::Poll,
-                        };
-
+                        let session = Session::from(session);
                         let token = self.sessions.insert(session);
                         self.submit_poll(token);
                     }
                     token => {
                         let token = token as usize;
                         let session = &self.sessions[token];
-                        match session.state {
+                        match session.state() {
                             State::Poll => {
                                 let session = self.sessions.remove(token);
                                 let _ = self.session_queue.send(session);

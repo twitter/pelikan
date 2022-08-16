@@ -1,3 +1,7 @@
+// Copyright 2022 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
 #[cfg(target_os = "linux")]
 pub fn main() {
     use server_iouring::ListenerBuilder;
@@ -20,8 +24,6 @@ pub fn main() {
     // let (w_tx, l_rx) = channel();
 
     let mut threads = Vec::new();
-
-
 
     let listener = listener.build(l_queue).expect("failed to build listener");
     threads.push(std::thread::spawn(|| listener.run()));

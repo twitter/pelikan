@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::os::unix::prelude::AsRawFd;
 pub use boring::ssl::{ShutdownResult, SslVerifyMode};
+use std::os::unix::prelude::AsRawFd;
 
 use boring::ssl::{ErrorCode, Ssl, SslFiletype, SslMethod, SslStream};
 use boring::x509::X509;
