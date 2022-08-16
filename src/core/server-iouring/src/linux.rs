@@ -133,21 +133,22 @@ enum State {
     Shutdown,
 }
 
-pub struct Session {
-    inner: ServerSession<RequestParser, Response, Request>,
+pub struct Session<Parser, Request, Response> {
+    inner: ServerSession<Parser, Response, Request>,
     state: State,
     fd: RawFd,
 }
 
-pub struct WorkerBuilder {
+pub struct WorkerBuilder<Parser, Request, Response> {
     backlog: VecDeque<squeue::Entry>,
+    parser: Parser,
     ring: IoUring,
-    sessions: Slab<Session>,
+    sessions: Slab<Session<Parser, Request, Response>>,
     waker: Arc<Waker>,
 }
 
-impl WorkerBuilder {
-    pub fn new() -> Result<Self> {
+impl<Parser, Request, Response> WorkerBuilder<Parser, Request, Response> {
+    pub fn new(parser: Parser) -> Result<Self> {
         let ring = IoUring::builder().build(8192)?;
         let sessions = Slab::new();
         let backlog = VecDeque::new();
@@ -155,15 +156,17 @@ impl WorkerBuilder {
 
         Ok(Self {
             backlog,
+            parser,
             ring,
             sessions,
             waker,
         })
     }
 
-    pub fn build(self, session_queue: Queue<Session, Session>) -> Result<Worker> {
+    pub fn build(self, session_queue: Queue<session_common::Session, session_common::Session>) -> Result<Worker> {
         Ok(Worker {
             backlog: self.backlog,
+            parser: self.parser,
             ring: self.ring,
             sessions: self.sessions,
             session_queue,
@@ -176,8 +179,9 @@ impl WorkerBuilder {
     }
 }
 
-pub struct Worker {
+pub struct Worker<Parser, Request, Response> {
     backlog: VecDeque<squeue::Entry>,
+    parser: Parser,
     ring: IoUring,
     sessions: Slab<Session>,
     session_queue: Queue<Session, Session>,
@@ -188,7 +192,7 @@ pub struct Worker {
     // listener_waker: Arc<Waker>,
 }
 
-impl Worker {
+impl<Parser, Request, Response> Worker<Parser, Request, Response> {
     // pub fn new(session_queue: Queue<Session, Session>) -> Result<Self> {
     //     let ring = IoUring::builder().build(8192)?;
     //     let sessions = Slab::new();
