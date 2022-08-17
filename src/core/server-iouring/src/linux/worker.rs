@@ -145,6 +145,7 @@ where
                 let _ = self.session_queue.send(session);
             }
         } else {
+            info!("bad request, removing session: {}", token);
             let session = self.sessions.remove(token as usize);
             let _ = self.session_queue.send(session);
         }
@@ -224,6 +225,7 @@ where
 
             // handle backlog
             loop {
+                info!("loop");
                 if self.ring.submission().is_full() {
                     match self.ring.submit() {
                         Ok(_) => (),
