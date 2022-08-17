@@ -313,6 +313,7 @@ where
                     State::Read => {
                         if ret == 0 {
                             info!("session is closed: {}", token);
+                            info!("session has pending bytes: {}", session.read_buffer_mut().remaining());
                             self.close(token);
                         } else {
                             // mark the read buffer as containing the number of
