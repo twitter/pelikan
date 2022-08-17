@@ -225,8 +225,9 @@ where
 
             // handle backlog
             loop {
-                info!("loop");
+                // info!("loop");
                 if self.ring.submission().is_full() {
+                    info!("submission queue is full");
                     match self.ring.submit() {
                         Ok(_) => (),
                         Err(ref e) if e.raw_os_error() == Some(libc::EBUSY) => break,
