@@ -121,7 +121,7 @@ where
 
         let logging = std::thread::Builder::new()
             .name(format!("{}_logger", THREAD_PREFIX))
-            .spawn(move || loop { log_drain.flush(); std::thread::sleep(core::time::Duration::from_millis(1)); } )
+            .spawn(move || loop { log_drain.flush(); std::thread::sleep(core::time::Duration::from_millis(1)); common::time::refresh_clock(); } )
             .unwrap();
 
         // let workers = worker.spawn();
