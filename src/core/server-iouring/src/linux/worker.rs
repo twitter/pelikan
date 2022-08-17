@@ -8,7 +8,7 @@ use protocol_common::*;
 use slab::Slab;
 
 use std::collections::VecDeque;
-use std::io::Result;
+use std::io::{ErrorKind, Result};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::{io};
