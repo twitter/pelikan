@@ -198,7 +198,7 @@ where
     pub fn run(mut self) {
         // let (submitter, mut sq, mut cq) = self.ring.split();
 
-        let timeout_ts = types::Timespec::new().nsec(1_000_000);
+        let timeout_ts = types::Timespec::new().nsec(100_000_000);
 
         let timeout = opcode::Timeout::new(&timeout_ts)
             .build()
