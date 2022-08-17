@@ -67,7 +67,7 @@ where
         self
     }
 
-    pub fn spawn(self) -> Process {
+    pub fn spawn(mut self) -> Process {
         // let mut thread_wakers = vec![self.listener.waker()];
         // thread_wakers.extend_from_slice(&self.worker.waker());
         // thread_wakers.push_back(self.worker.waker());
@@ -117,9 +117,12 @@ where
             .spawn(move || worker.run())
             .unwrap();
 
+        let mut log_drain = self.log_drain;
+
         let logging = std::thread::Builder::new()
             .name(format!("{}_logger", THREAD_PREFIX))
             .spawn(move || loop { log_drain.flush(); std::thread::sleep(core::time::Duration::from_millis(1)); } )
+            .unwrap();
 
         // let workers = worker.spawn();
 
