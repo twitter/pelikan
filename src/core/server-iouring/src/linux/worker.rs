@@ -141,6 +141,7 @@ where
                     }
                 }
             } else {
+                info!("failed to send, removing session: {}", token);
                 let session = self.sessions.remove(token as usize);
                 let _ = self.session_queue.send(session);
             }
