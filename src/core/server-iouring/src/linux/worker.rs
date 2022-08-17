@@ -137,6 +137,7 @@ where
 
                 unsafe {
                     if self.ring.submission().push(&entry).is_err() {
+                        info!("putting send entry onto backlog for session: {}", token);
                         self.backlog.push_back(entry);
                     }
                 }
