@@ -179,7 +179,7 @@ where
 
         session.set_state(State::Read);
 
-        let entry = opcode::Read::new(
+        let entry = opcode::Recv::new(
             types::Fd(session.as_raw_fd()),
             session.read_buffer_mut().write_ptr(),
             session.read_buffer_mut().remaining_mut() as _,
@@ -201,7 +201,7 @@ where
 
         session.set_state(State::Write);
 
-        let entry = opcode::Write::new(
+        let entry = opcode::Send::new(
             types::Fd(session.as_raw_fd()),
             session.write_buffer_mut().read_ptr(),
             session.write_buffer_mut().remaining() as _,
@@ -312,6 +312,7 @@ where
                 match session.state() {
                     State::Read => {
                         if ret == 0 {
+                            info!("session is closed: {}", token);
                             self.close(token);
                         } else {
                             // mark the read buffer as containing the number of
