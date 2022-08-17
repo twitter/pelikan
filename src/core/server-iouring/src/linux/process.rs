@@ -117,11 +117,16 @@ where
             .spawn(move || worker.run())
             .unwrap();
 
+        let logging = std::thread::Builder::new()
+            .name(format!("{}_logger", THREAD_PREFIX))
+            .spawn(move || loop { log_drain.flush(); std::thread::sleep(core::time::Duration::from_millis(1)); } )
+
         // let workers = worker.spawn();
 
         Process {
             // admin,
             listener,
+            logging,
             // signal_tx,
             worker,
         }
@@ -131,6 +136,7 @@ where
 pub struct Process {
     // admin: JoinHandle<()>,
     listener: JoinHandle<()>,
+    logging: JoinHandle<()>,
     // signal_tx: Sender<Signal>,
     worker: JoinHandle<()>,
 }
@@ -162,6 +168,7 @@ impl Process {
         // }
         let _ = self.worker.join();
         let _ = self.listener.join();
+        let _ = self.logging.join();
         // let _ = self.admin.join();
     }
 }
