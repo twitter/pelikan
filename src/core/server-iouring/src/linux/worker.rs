@@ -239,6 +239,7 @@ where
 
                 match self.backlog.pop_front() {
                     Some(sqe) => unsafe {
+                        info!("adding backlog event to submission queue");
                         let _ = self.ring.submission().push(&sqe);
                     },
                     None => break,
