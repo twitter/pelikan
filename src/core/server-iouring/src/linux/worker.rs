@@ -265,7 +265,7 @@ where
 
                 // timeouts get resubmitted
                 if token == TIMEOUT_TOKEN {
-                    info!("re-add timeout event");
+                    trace!("re-add timeout event");
                     unsafe {
                         match self.ring.submission().push(&timeout) {
                             Ok(_) => {}
