@@ -155,6 +155,7 @@ where
             }
             Err(e) => {
                 if e.kind() == ErrorKind::WouldBlock {
+                    assert!(session.read_buffer_mut().remaining_mut() > 0);
                     let entry = opcode::Read::new(
                         types::Fd(session.as_raw_fd()),
                         session.read_buffer_mut().write_ptr(),
@@ -183,6 +184,8 @@ where
         let session = &mut self.sessions[token as usize];
 
         session.set_state(State::Read);
+
+        assert!(session.read_buffer_mut().remaining_mut() > 0);
 
         let entry = opcode::Recv::new(
             types::Fd(session.as_raw_fd()),
