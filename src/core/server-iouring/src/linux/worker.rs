@@ -119,8 +119,13 @@ where
     pub fn read(&mut self, token: u64) {
         let session = &mut self.sessions[token as usize];
 
+        info!("session has pending bytes: {}", session.read_buffer_mut().remaining());
+        info!("session has remaining bytes: {}", session.read_buffer_mut().remaining_mut());
+
         match session.receive() {
             Ok(request) => {
+                info!("session has pending bytes: {}", session.read_buffer_mut().remaining());
+                info!("session has remaining bytes: {}", session.read_buffer_mut().remaining_mut());
                 let response = self.storage.execute(&request);
 
                 let send = session.send(response);
