@@ -119,37 +119,56 @@ where
     pub fn read(&mut self, token: u64) {
         let session = &mut self.sessions[token as usize];
 
-        if let Ok(request) = session.receive() {
-            let response = self.storage.execute(&request);
+        match session.receive() {
+            Ok(request) => {
+                let response = self.storage.execute(&request);
 
-            let send = session.send(response);
+                let send = session.send(response);
 
-            if send.is_ok() {
-                session.set_state(State::Write);
+                if send.is_ok() {
+                    session.set_state(State::Write);
 
-                let entry = opcode::Send::new(
-                    types::Fd(session.as_raw_fd()),
-                    session.write_buffer_mut().read_ptr(),
-                    session.write_buffer_mut().remaining() as _,
-                )
-                .build()
-                .user_data(token as _);
+                    let entry = opcode::Send::new(
+                        types::Fd(session.as_raw_fd()),
+                        session.write_buffer_mut().read_ptr(),
+                        session.write_buffer_mut().remaining() as _,
+                    )
+                    .build()
+                    .user_data(token as _);
 
-                unsafe {
-                    if self.ring.submission().push(&entry).is_err() {
-                        info!("putting send entry onto backlog for session: {}", token);
-                        self.backlog.push_back(entry);
+                    unsafe {
+                        if self.ring.submission().push(&entry).is_err() {
+                            info!("putting send entry onto backlog for session: {}", token);
+                            self.backlog.push_back(entry);
+                        }
                     }
+                } else {
+                    info!("failed to send, removing session: {}", token);
+                    let session = self.sessions.remove(token as usize);
+                    let _ = self.session_queue.send(session);
                 }
-            } else {
-                info!("failed to send, removing session: {}", token);
-                let session = self.sessions.remove(token as usize);
-                let _ = self.session_queue.send(session);
             }
-        } else {
-            info!("bad request, removing session: {}", token);
-            let session = self.sessions.remove(token as usize);
-            let _ = self.session_queue.send(session);
+            Err(e) => {
+                if e.kind() == ErrorKind::WouldBlock {
+                    let entry = opcode::Read::new(
+                        types::Fd(session.as_raw_fd()),
+                        session.read_buffer_mut().write_ptr(),
+                        session.read_buffer_mut().remaining_mut() as _,
+                    )
+                    .build()
+                    .user_data(token as _);
+
+                    unsafe {
+                        if self.ring.submission().push(&entry).is_err() {
+                            self.backlog.push_back(entry);
+                        }
+                    }
+                } else {
+                    info!("bad request, removing session: {}", token);
+                    let session = self.sessions.remove(token as usize);
+                    let _ = self.session_queue.send(session);
+                }
+            }   
         }
     }
 
