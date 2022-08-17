@@ -1207,7 +1207,7 @@ dependencies = [
  "momento",
  "protocol-admin",
  "protocol-memcache",
- "protocol-redis",
+ "protocol-resp",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
  "session",
  "storage-types",
@@ -1609,7 +1609,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "protocol-redis"
+name = "protocol-resp"
 version = "0.1.0"
 dependencies = [
  "nom 5.1.2",

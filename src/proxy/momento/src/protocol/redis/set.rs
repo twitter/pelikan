@@ -1,7 +1,7 @@
 use crate::klog::klog_set;
 use crate::*;
 
-use protocol_redis::SetRequest;
+use protocol_resp::SetRequest;
 
 pub async fn set(
     client: &mut SimpleCacheClient,
@@ -34,8 +34,8 @@ pub async fn set(
         BACKEND_REQUEST.increment();
 
         let ttl = match request.expire_time() {
-            Some(protocol_redis::ExpireTime::Seconds(v)) => NonZeroU64::new(v as u64),
-            Some(protocol_redis::ExpireTime::Milliseconds(v)) => NonZeroU64::new(std::cmp::min(1, v / 1000 as u64)),
+            Some(protocol_resp::ExpireTime::Seconds(v)) => NonZeroU64::new(v as u64),
+            Some(protocol_resp::ExpireTime::Milliseconds(v)) => NonZeroU64::new(std::cmp::min(1, v / 1000 as u64)),
             Some(_) => {
                 if socket.write_all(b"-ERR expire time\r\n").await.is_err() {
                     SESSION_SEND_EX.increment();

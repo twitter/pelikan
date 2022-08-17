@@ -18,7 +18,7 @@ logger = { path = "../../logger" }
 momento = "0.3.1"
 protocol-admin = { path = "../../protocol/admin" }
 protocol-memcache = { path = "../../protocol/memcache" }
-protocol-redis = { path = "../../protocol/redis" }
+protocol-resp = { path = "../../protocol/resp" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 session = { path = "../../session" }
 storage-types = { path = "../../storage/types" }
