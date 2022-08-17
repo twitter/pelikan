@@ -4,7 +4,7 @@
 
 use io_uring::{opcode, squeue, types, IoUring};
 use net::TcpStream;
-use protocol_ping::*;
+use protocol_common::*;
 use session_common::ServerSession;
 use slab::Slab;
 
@@ -66,8 +66,8 @@ where
             Session<Parser, Request, Response>,
             Session<Parser, Request, Response>,
         >,
-    ) -> Result<Listener<Parser, Request, Response>> {
-        Ok(Listener {
+    ) ->Listener<Parser, Request, Response> {
+        Listener {
             accept_backlog: 1024,
             backlog: self.backlog,
             listener: self.listener,
@@ -78,7 +78,7 @@ where
             waker: self.waker,
             _request: PhantomData,
             _response: PhantomData,
-        })
+        }
     }
 
     pub fn waker(&self) -> Arc<Waker> {
@@ -257,7 +257,9 @@ where
 
                         unsafe {
                             match self.ring.submission().push(&entry) {
-                                Ok(_) => self.accept_backlog -= 1,
+                                Ok(_) => {
+                                    self.accept_backlog = self.accept_backlog.saturating_sub(1)
+                                },
                                 Err(_) => break,
                             }
                         }

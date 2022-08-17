@@ -1419,6 +1419,7 @@ dependencies = [
  "protocol-ping",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
  "server",
+ "server-iouring",
 ]
 
 [[package]]
@@ -2100,13 +2101,18 @@ dependencies = [
 name = "server-iouring"
 version = "0.1.0"
 dependencies = [
+ "admin",
  "buffer",
- "bytes 1.1.0",
+ "common",
+ "config",
+ "crossbeam-channel",
  "entrystore",
  "io-uring",
  "libc",
+ "logger",
  "net",
- "protocol-ping",
+ "protocol-common",
+ "queues",
  "session-common",
  "slab",
 ]

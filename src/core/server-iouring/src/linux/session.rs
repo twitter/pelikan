@@ -1,5 +1,5 @@
 use buffer::*;
-use protocol_ping::*;
+use protocol_common::*;
 use session_common::ServerSession;
 
 use std::io::Result;

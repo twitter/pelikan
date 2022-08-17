@@ -4,7 +4,7 @@
 
 use entrystore::EntryStore;
 use io_uring::{opcode, squeue, types, IoUring};
-use protocol_ping::*;
+use protocol_common::*;
 use slab::Slab;
 
 use std::collections::VecDeque;
@@ -67,8 +67,8 @@ where
             Session<Parser, Request, Response>,
             Session<Parser, Request, Response>,
         >,
-    ) -> Result<Worker<Parser, Request, Response, Storage>> {
-        Ok(Worker {
+    ) -> Worker<Parser, Request, Response, Storage> {
+        Worker {
             backlog: self.backlog,
             parser: self.parser,
             ring: self.ring,
@@ -78,7 +78,7 @@ where
             waker: self.waker,
             _request: PhantomData,
             _response: PhantomData,
-        })
+        }
     }
 
     pub fn waker(&self) -> Arc<Waker> {

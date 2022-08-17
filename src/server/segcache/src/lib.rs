@@ -10,6 +10,11 @@ use config::*;
 use entrystore::Seg;
 use logger::*;
 use protocol_memcache::{Request, RequestParser, Response};
+
+#[cfg(feature = "io-uring")]
+use server_iouring::{Process, ProcessBuilder};
+
+#[cfg(not(feature = "io-uring"))]
 use server::{Process, ProcessBuilder};
 
 type Parser = RequestParser;

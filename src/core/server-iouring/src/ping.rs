@@ -20,9 +20,6 @@ pub fn main() {
 
     let (l_queue, w_queue) = server_iouring::queues(worker_waker, listener_waker);
 
-    // let (l_tx, w_rx) = channel();
-    // let (w_tx, l_rx) = channel();
-
     let mut threads = Vec::new();
 
     let listener = listener.build(l_queue).expect("failed to build listener");
