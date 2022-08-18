@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+#[macro_use]
+extern crate log;
+
 pub use bytes::buf::UninitSlice;
 pub use bytes::{Buf, BufMut};
 
@@ -46,6 +49,7 @@ impl Buffer {
 
         // grow the buffer if needed, uses a multiple of the target size
         if amt > self.remaining_mut() {
+            info!("growing buffer");
             // round the amount up to a multiple of the target size
             let amt = ((amt / self.target_size) as usize + 1) * self.target_size;
 
@@ -63,6 +67,7 @@ impl Buffer {
 
         // if the buffer is oversized, shrink to the target size
         if self.cap > self.target_size {
+            info!("shrinking buffer");
             let layout = Layout::array::<u8>(self.cap).unwrap();
             self.ptr = unsafe { realloc(self.ptr, layout, self.target_size) };
             self.cap = self.target_size;
@@ -79,6 +84,7 @@ impl Buffer {
         // if the buffer data is deep into the buffer, we can copy the data to
         // the start of the buffer to make additional space available for writes
         if self.read_offset > self.target_size {
+            println!("compacting");
             if self.remaining() < self.read_offset {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -92,6 +98,8 @@ impl Buffer {
                     std::ptr::copy(self.ptr.add(self.read_offset), self.ptr, self.remaining());
                 }
             }
+            self.read_offset = 0;
+            self.write_offset = self.remaining();
         }
 
         // if the buffer is large and contents fit within the target size,

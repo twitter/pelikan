@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 bytes = "1.1.0"
+log = "*"

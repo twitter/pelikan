@@ -119,13 +119,8 @@ where
     pub fn read(&mut self, token: u64) {
         let session = &mut self.sessions[token as usize];
 
-        info!("session has pending bytes: {}", session.read_buffer_mut().remaining());
-        info!("session has remaining bytes: {}", session.read_buffer_mut().remaining_mut());
-
         match session.receive() {
             Ok(request) => {
-                info!("session has pending bytes: {}", session.read_buffer_mut().remaining());
-                info!("session has remaining bytes: {}", session.read_buffer_mut().remaining_mut());
                 let response = self.storage.execute(&request);
 
                 let send = session.send(response);
@@ -155,8 +150,9 @@ where
             }
             Err(e) => {
                 if e.kind() == ErrorKind::WouldBlock {
+                    info!("wouldblock for session: {}", token);
                     assert!(session.read_buffer_mut().remaining_mut() > 0);
-                    let entry = opcode::Read::new(
+                    let entry = opcode::Recv::new(
                         types::Fd(session.as_raw_fd()),
                         session.read_buffer_mut().write_ptr(),
                         session.read_buffer_mut().remaining_mut() as _,
@@ -166,6 +162,7 @@ where
 
                     unsafe {
                         if self.ring.submission().push(&entry).is_err() {
+                            info!("had to add recv to backlog for session: {}", token);
                             self.backlog.push_back(entry);
                         }
                     }
@@ -243,6 +240,8 @@ where
 
         self.ring.submission().sync();
 
+        let mut count = 0;
+
         loop {
             match self.ring.submit_and_wait(1) {
                 Ok(_) => (),
@@ -294,6 +293,8 @@ where
                 // timeouts get resubmitted
                 if token == TIMEOUT_TOKEN {
                     trace!("re-add timeout event");
+                    info!("events since timeout: {}", count);
+                    count = 0;
                     unsafe {
                         match self.ring.submission().push(&timeout) {
                             Ok(_) => {}
@@ -304,6 +305,8 @@ where
                     }
                     continue;
                 }
+
+                count += 1;
 
                 // handle any errors here
                 if ret < 0 {
