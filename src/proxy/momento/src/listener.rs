@@ -26,8 +26,8 @@ pub(crate) async fn listener(
                     Protocol::Memcache => {
                         crate::frontend::handle_memcache_client(socket, client, cache_name).await;
                     }
-                    Protocol::Redis => {
-                        crate::frontend::handle_redis_client(socket, client, cache_name).await;
+                    Protocol::Resp => {
+                        crate::frontend::handle_resp_client(socket, client, cache_name).await;
                     }
                 }
 

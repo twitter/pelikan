@@ -21,7 +21,7 @@ cache_name = "users"
 # the TTL, in seconds, to use when items are set as 'no expiry' (TTL is zero)
 # NOTE: accepted values are between 1 and 4_294_967 (inclusive)
 default_ttl = 900
-# the protocol can be "memcache" or "resp", default is memcache
+# the protocol can be "memcache" or "resp" (Redis), the default is memcache
 # protocol = "memcache"
 
 [[cache]]
@@ -34,7 +34,7 @@ cache_name = "products"
 # the TTL, in seconds, to use when items are set as 'no expiry' (TTL is zero)
 # NOTE: accepted values are between 1 and 4_294_967 (inclusive)
 default_ttl = 1800
-# the protocol can be "memcache" or "resp", default is memcache
+# the protocol can be "memcache" or "resp" (Redis), the default is memcache
 protocol = "memcache"
 
 [[cache]]
@@ -47,7 +47,7 @@ cache_name = "ratings"
 # the TTL, in seconds, to use when items are set as 'no expiry' (TTL is zero)
 # NOTE: accepted values are between 1 and 4_294_967 (inclusive)
 default_ttl = 300
-# the protocol can be "memcache" or "resp", default is memcache
+# the protocol can be "memcache" or "resp" (Redis), the default is memcache
 protocol = "resp"
 
 # Configure the proxy's logging

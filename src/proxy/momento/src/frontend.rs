@@ -65,7 +65,7 @@ pub(crate) async fn handle_memcache_client(
     }
 }
 
-pub(crate) async fn handle_redis_client(
+pub(crate) async fn handle_resp_client(
     mut socket: tokio::net::TcpStream,
     mut client: SimpleCacheClient,
     cache_name: String,
@@ -74,7 +74,7 @@ pub(crate) async fn handle_redis_client(
     let mut buf = Buffer::with_capacity(INITIAL_BUFFER_SIZE);
 
     // initialize the request parser
-    let parser = redis::RequestParser {};
+    let parser = resp::RequestParser {};
 
     // handle incoming data from the client
     loop {
@@ -88,16 +88,16 @@ pub(crate) async fn handle_redis_client(
                 let request = request.into_inner();
 
                 match request {
-                    redis::Request::Get(r) => {
-                        if redis::get(&mut client, &cache_name, &mut socket, r.key())
+                    resp::Request::Get(r) => {
+                        if resp::get(&mut client, &cache_name, &mut socket, r.key())
                             .await
                             .is_err()
                         {
                             break;
                         }
                     }
-                    redis::Request::Set(r) => {
-                        if redis::set(&mut client, &cache_name, &mut socket, &r)
+                    resp::Request::Set(r) => {
+                        if resp::set(&mut client, &cache_name, &mut socket, &r)
                             .await
                             .is_err()
                         {
