@@ -7,7 +7,7 @@ use protocol_common::Compose;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Array {
-    pub(crate) inner: Option<Vec<Response>>,
+    pub(crate) inner: Option<Vec<Message>>,
 }
 
 impl Compose for Array {
@@ -44,7 +44,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], Array> {
             let (mut input, _) = crlf(input)?;
             let mut values = Vec::new();
             for _ in 0..len {
-                let (i, value) = response(input)?;
+                let (i, value) = message(input)?;
                 values.push(value);
                 input = i;
             }
@@ -65,21 +65,21 @@ mod tests {
 
     #[test]
     fn parse() {
-        assert_eq!(response(b"$-1\r\n"), Ok((&b""[..], Response::null(),)));
+        assert_eq!(message(b"$-1\r\n"), Ok((&b""[..], Message::null(),)));
 
         assert_eq!(
-            response(b"$0\r\n\r\n"),
-            Ok((&b""[..], Response::bulk_string(&[])))
+            message(b"$0\r\n\r\n"),
+            Ok((&b""[..], Message::bulk_string(&[])))
         );
 
         assert_eq!(
-            response(b"$1\r\n\0\r\n"),
-            Ok((&b""[..], Response::bulk_string(&[0])))
+            message(b"$1\r\n\0\r\n"),
+            Ok((&b""[..], Message::bulk_string(&[0])))
         );
 
         assert_eq!(
-            response(b"$11\r\nHELLO WORLD\r\n"),
-            Ok((&b""[..], Response::bulk_string("HELLO WORLD".as_bytes())))
+            message(b"$11\r\nHELLO WORLD\r\n"),
+            Ok((&b""[..], Message::bulk_string("HELLO WORLD".as_bytes())))
         );
     }
 }

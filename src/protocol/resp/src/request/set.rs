@@ -20,6 +20,196 @@ pub struct SetRequest {
     get_old: bool,
 }
 
+impl TryFrom<Message> for SetRequest {
+    type Error = ParseError;
+
+    fn try_from(other: Message) -> Result<Self, ParseError> {
+        if let Message::Array(array) = other {
+            if array.inner.is_none() {
+                return Err(ParseError::Invalid);
+            }
+
+            let mut array = array.inner.unwrap();
+
+            if array.len() < 3 {
+                return Err(ParseError::Invalid);
+            }
+
+            let key = if let Message::BulkString(key) = array.remove(1) {
+                if key.inner.is_none() {
+                    return Err(ParseError::Invalid);
+                }
+
+                let key = key.inner.unwrap();
+
+                if key.len() == 0 {
+                    return Err(ParseError::Invalid);
+                }
+
+                key
+            } else {
+                return Err(ParseError::Invalid);
+            };
+
+            let value = if let Message::BulkString(value) = array.remove(1) {
+                if value.inner.is_none() {
+                    return Err(ParseError::Invalid);
+                }
+
+                let value = value.inner.unwrap();
+
+                value
+            } else {
+                return Err(ParseError::Invalid);
+            };
+
+            let mut expire_time = None;
+            let mut mode = SetMode::Set;
+            let mut get_old = false;
+
+            let mut i = 1;
+
+            while i < array.len() {
+                if let Message::BulkString(field) = &array[i] {
+                    if field.inner.is_none() {
+                        return Err(ParseError::Invalid);
+                    }
+                    let field = field.inner.as_ref().unwrap();
+
+                    match field.as_ref() {
+                        b"EX" => {
+                            if expire_time.is_some() || array.len() < i + 2 {
+                                return Err(ParseError::Invalid);
+                            }
+                            match &array[i + 1] {
+                                Message::BulkString(s) => {
+                                    let s = std::str::from_utf8(
+                                        &s.inner.as_ref().ok_or(ParseError::Invalid)?,
+                                    )
+                                    .map_err(|_| ParseError::Invalid)?
+                                    .parse::<u64>()
+                                    .map_err(|_| ParseError::Invalid)?;
+                                    expire_time = Some(ExpireTime::Seconds(s));
+                                    i += 1;
+                                }
+                                _ => {
+                                    return Err(ParseError::Invalid);
+                                }
+                            }
+                            i += 1;
+                        }
+                        b"PX" => {
+                            if expire_time.is_some() || array.len() < i + 2 {
+                                return Err(ParseError::Invalid);
+                            }
+                            match &array[i + 1] {
+                                Message::BulkString(s) => {
+                                    let ms = std::str::from_utf8(
+                                        &s.inner.as_ref().ok_or(ParseError::Invalid)?,
+                                    )
+                                    .map_err(|_| ParseError::Invalid)?
+                                    .parse::<u64>()
+                                    .map_err(|_| ParseError::Invalid)?;
+                                    expire_time = Some(ExpireTime::Milliseconds(ms));
+                                    i += 1;
+                                }
+                                _ => {
+                                    return Err(ParseError::Invalid);
+                                }
+                            }
+                            i += 1;
+                        }
+                        b"EXAT" => {
+                            if expire_time.is_some() || array.len() < i + 2 {
+                                return Err(ParseError::Invalid);
+                            }
+                            match &array[i + 1] {
+                                Message::BulkString(s) => {
+                                    let s = std::str::from_utf8(
+                                        &s.inner.as_ref().ok_or(ParseError::Invalid)?,
+                                    )
+                                    .map_err(|_| ParseError::Invalid)?
+                                    .parse::<u64>()
+                                    .map_err(|_| ParseError::Invalid)?;
+                                    expire_time = Some(ExpireTime::UnixSeconds(s));
+                                    i += 1;
+                                }
+                                _ => {
+                                    return Err(ParseError::Invalid);
+                                }
+                            }
+                            i += 1;
+                        }
+                        b"PXAT" => {
+                            if expire_time.is_some() || array.len() < i + 2 {
+                                return Err(ParseError::Invalid);
+                            }
+                            match &array[i + 1] {
+                                Message::BulkString(s) => {
+                                    let ms = std::str::from_utf8(
+                                        &s.inner.as_ref().ok_or(ParseError::Invalid)?,
+                                    )
+                                    .map_err(|_| ParseError::Invalid)?
+                                    .parse::<u64>()
+                                    .map_err(|_| ParseError::Invalid)?;
+                                    expire_time = Some(ExpireTime::UnixMilliseconds(ms));
+                                    i += 1;
+                                }
+                                _ => {
+                                    return Err(ParseError::Invalid);
+                                }
+                            }
+                            i += 1;
+                        }
+                        b"KEEPTTL" => {
+                            if expire_time.is_some() {
+                                return Err(ParseError::Invalid);
+                            }
+                            expire_time = Some(ExpireTime::KeepTtl);
+                        }
+                        b"NX" => {
+                            if mode != SetMode::Set {
+                                return Err(ParseError::Invalid);
+                            }
+
+                            mode = SetMode::Add;
+                        }
+                        b"XX" => {
+                            if mode != SetMode::Set {
+                                return Err(ParseError::Invalid);
+                            }
+
+                            mode = SetMode::Replace;
+                        }
+                        b"GET" => {
+                            if get_old {
+                                return Err(ParseError::Invalid);
+                            }
+
+                            get_old = true;
+                        }
+                        _ => {
+                            return Err(ParseError::Invalid);
+                        }
+                    }
+                } else {
+                    return Err(ParseError::Invalid);
+                }
+            }
+
+            Ok(Self {
+                key: key.clone(),
+                value: value.clone(),
+                expire_time,
+                mode,
+                get_old,
+            })
+        } else {
+            Err(ParseError::Invalid)
+        }
+    }
+}
+
 impl SetRequest {
     pub fn key(&self) -> &[u8] {
         &self.key
@@ -39,97 +229,6 @@ impl SetRequest {
 
     pub fn get_old(&self) -> bool {
         self.get_old
-    }
-
-    pub(crate) fn from_array(array: &[&[u8]]) -> Result<Self, ()> {
-        if array.len() < 3 {
-            return Err(());
-        }
-
-        let key = array[1];
-        let value = array[2];
-
-        let mut expire_time = None;
-        let mut mode = SetMode::Set;
-        let mut get_old = false;
-
-        let mut i = 3;
-
-        while i < array.len() {
-            match array[i] {
-                b"EX" => {
-                    if expire_time.is_some() || array.len() < i + 2 {
-                        return Err(());
-                    }
-                    let s = std::str::from_utf8(array[i+1]).map_err(|_| ())?.parse::<u64>().map_err(|_| ())?;
-                    expire_time = Some(ExpireTime::Seconds(s));
-                    i += 1;
-                }
-                b"PX" => {
-                    if expire_time.is_some() || array.len() < i + 2 {
-                        return Err(());
-                    }
-                    let ms = std::str::from_utf8(array[i+1]).map_err(|_| ())?.parse::<u64>().map_err(|_| ())?;
-                    expire_time = Some(ExpireTime::Milliseconds(ms));
-                    i += 1;
-                }
-                b"EXAT" => {
-                    if expire_time.is_some() || array.len() < i + 2 {
-                        return Err(());
-                    }
-                    let s = std::str::from_utf8(array[i+1]).map_err(|_| ())?.parse::<u64>().map_err(|_| ())?;
-                    expire_time = Some(ExpireTime::UnixSeconds(s));
-                    i += 1;
-                }
-                b"PXAT" => {
-                    if expire_time.is_some() || array.len() < i + 2 {
-                        return Err(());
-                    }
-                    let ms = std::str::from_utf8(array[i+1]).map_err(|_| ())?.parse::<u64>().map_err(|_| ())?;
-                    expire_time = Some(ExpireTime::UnixMilliseconds(ms));
-                    i += 1;
-                }
-                b"KEEPTTL" => {
-                    if expire_time.is_some() {
-                        return Err(());
-                    }
-                    expire_time = Some(ExpireTime::KeepTtl);
-                }
-                b"NX" => {
-                    if mode != SetMode::Set {
-                        return Err(());
-                    }
-
-                    mode = SetMode::Add;
-                }
-                b"XX" => {
-                    if mode != SetMode::Set {
-                        return Err(());
-                    }
-
-                    mode = SetMode::Replace;
-                }
-                b"GET" => {
-                    if get_old {
-                        return Err(());
-                    }
-
-                    get_old = true;
-                }
-                _ => {
-                    return Err(());
-                }
-            }
-            i += 1;
-        }
-
-        Ok(Self {
-            key: key.to_owned().into_boxed_slice(),
-            value: value.to_owned().into_boxed_slice(),
-            expire_time,
-            mode,
-            get_old,
-        })
     }
 }
 
@@ -281,7 +380,7 @@ impl Compose for SetRequest {
     fn compose(&self, session: &mut session::Session) {
         let mut alen = 3;
         match self.expire_time {
-            None => {},
+            None => {}
             Some(ExpireTime::KeepTtl) => {
                 alen += 1;
             }
@@ -296,7 +395,8 @@ impl Compose for SetRequest {
             alen += 1;
         }
 
-        let _ = session.write_all(&format!("*{}\r\n$3\r\nSET\r\n${}\r\n", alen, self.key.len()).as_bytes());
+        let _ = session
+            .write_all(&format!("*{}\r\n$3\r\nSET\r\n${}\r\n", alen, self.key.len()).as_bytes());
         let _ = session.write_all(&self.key);
         let _ = session.write_all(b"\r\n");
         let _ = session.write_all(&format!("${}\r\n", self.value.len()).as_bytes());
@@ -306,19 +406,23 @@ impl Compose for SetRequest {
             match expire_time {
                 ExpireTime::Seconds(s) => {
                     let s = format!("{}", s);
-                    let _ = session.write_all(format!("$2\r\nEX\r\n${}\r\n{}\r\n", s.len(), s).as_bytes());
+                    let _ = session
+                        .write_all(format!("$2\r\nEX\r\n${}\r\n{}\r\n", s.len(), s).as_bytes());
                 }
                 ExpireTime::Milliseconds(ms) => {
                     let ms = format!("{}", ms);
-                    let _ = session.write_all(format!("$2\r\nPX\r\n${}\r\n{}\r\n", ms.len(), ms).as_bytes());
+                    let _ = session
+                        .write_all(format!("$2\r\nPX\r\n${}\r\n{}\r\n", ms.len(), ms).as_bytes());
                 }
                 ExpireTime::UnixSeconds(s) => {
                     let s = format!("{}", s);
-                    let _ = session.write_all(format!("$4\r\nEXAT\r\n${}\r\n{}\r\n", s.len(), s).as_bytes());
+                    let _ = session
+                        .write_all(format!("$4\r\nEXAT\r\n${}\r\n{}\r\n", s.len(), s).as_bytes());
                 }
                 ExpireTime::UnixMilliseconds(ms) => {
                     let ms = format!("{}", ms);
-                    let _ = session.write_all(format!("$4\r\nPXAT\r\n${}\r\n{}\r\n", ms.len(), ms).as_bytes());
+                    let _ = session
+                        .write_all(format!("$4\r\nPXAT\r\n${}\r\n{}\r\n", ms.len(), ms).as_bytes());
                 }
                 ExpireTime::KeepTtl => {
                     let _ = session.write_all(b"$7\r\nKEEPTTL\r\n");
@@ -505,15 +609,19 @@ mod tests {
 
     #[test]
     fn parser() {
-        let parser = RequestParser {};
+        let parser = RequestParser::new();
         if let Request::Set(request) = parser.parse(b"set 0 1\r\n").unwrap().into_inner() {
             assert_eq!(request.key(), b"0");
             assert_eq!(request.value(), b"1");
         } else {
             panic!("invalid parse result");
         }
-        
-        if let Request::Set(request) = parser.parse(b"*3\r\n$3\r\nset\r\n$1\r\n0\r\n$1\r\n1\r\n").unwrap().into_inner() {
+
+        if let Request::Set(request) = parser
+            .parse(b"*3\r\n$3\r\nset\r\n$1\r\n0\r\n$1\r\n1\r\n")
+            .unwrap()
+            .into_inner()
+        {
             assert_eq!(request.key(), b"0");
             assert_eq!(request.value(), b"1");
         } else {

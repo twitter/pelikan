@@ -5,24 +5,24 @@
 use super::*;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct SimpleString {
+pub struct Error {
     pub(crate) inner: String,
 }
 
-impl Compose for SimpleString {
+impl Compose for Error {
     fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(b"+");
+        let _ = session.write_all(b"-");
         let _ = session.write_all(self.inner.as_bytes());
         let _ = session.write_all(b"\r\n");
     }
 }
 
-pub fn parse(input: &[u8]) -> IResult<&[u8], SimpleString> {
+pub fn parse(input: &[u8]) -> IResult<&[u8], Error> {
     let (input, string) = not_line_ending(input)?;
     let (input, _) = crlf(input)?;
     Ok((
         input,
-        SimpleString {
+        Error {
             inner: unsafe { std::str::from_utf8_unchecked(string).to_owned() },
         },
     ))
@@ -35,13 +35,13 @@ mod tests {
     #[test]
     fn parse() {
         assert_eq!(
-            response(b"+OK\r\n"),
-            Ok((&b""[..], Response::simple_string("OK"),))
+            message(b"-Error message\r\n"),
+            Ok((&b""[..], Message::error("Error message"),))
         );
 
         assert_eq!(
-            response(b"+SOME STRING WITH SPACES\r\n"),
-            Ok((&b""[..], Response::simple_string("SOME STRING WITH SPACES")))
+            message(b"-ERR unknown command 'helloworld'\r\n"),
+            Ok((&b""[..], Message::error("ERR unknown command 'helloworld'"),))
         );
     }
 }

@@ -32,11 +32,11 @@ mod tests {
 
     #[test]
     fn parse() {
-        assert_eq!(response(b":0\r\n"), Ok((&b""[..], Response::integer(0),)));
+        assert_eq!(message(b":0\r\n"), Ok((&b""[..], Message::integer(0),)));
 
         assert_eq!(
-            response(b":1000\r\n"),
-            Ok((&b""[..], Response::integer(1000),))
+            message(b":1000\r\n"),
+            Ok((&b""[..], Message::integer(1000),))
         );
     }
 }

@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use crate::message::{Message, MessageParser};
 use crate::*;
 use protocol_common::Parse;
 use protocol_common::{ParseError, ParseOk};
@@ -13,7 +14,17 @@ mod set;
 pub use get::GetRequest;
 pub use set::SetRequest;
 
-pub struct RequestParser {}
+pub struct RequestParser {
+    message_parser: MessageParser,
+}
+
+impl RequestParser {
+    pub fn new() -> Self {
+        Self {
+            message_parser: MessageParser {},
+        }
+    }
+}
 
 impl Parse<Request> for RequestParser {
     fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Request>, protocol_common::ParseError> {
@@ -23,23 +34,58 @@ impl Parse<Request> for RequestParser {
             return Err(ParseError::Incomplete);
         }
 
-        // we can now detect if its a RESP command or inline command
-        // all RESP commands are arrays of bulk strings
-        let result = match buffer[0] {
-            // redis RESP commands must be an array of bulk strings
-            b'*' => {
-                resp_request(buffer)
-            }
-            // if the start doesn't match for RESP, it's inline           
-            _ => {
-                inline_request(buffer)
-            }
-        };
+        // we can now detect if it is a RESP message or inline command
+        match buffer[0] {
+            // redis RESP commands must start with one of these chars
+            b'*' | b'+' | b'-' | b':' | b'$' => {
+                let (message, consumed) = self.message_parser.parse(buffer).map(|v| {
+                    let c = v.consumed();
+                    (v.into_inner(), c)
+                })?;
 
-        match result {
-            Ok((input, request)) => Ok(ParseOk::new(request, buffer.len() - input.len())),
-            Err(Err::Incomplete(_)) => Err(ParseError::Incomplete),
-            Err(_) => Err(ParseError::Invalid),
+                match &message {
+                    Message::Array(array) => {
+                        if array.inner.is_none() {
+                            return Err(ParseError::Invalid);
+                        }
+
+                        let array = array.inner.as_ref().unwrap();
+
+                        if array.len() < 1 {
+                            return Err(ParseError::Invalid);
+                        }
+
+                        match &array[0] {
+                            Message::BulkString(c) => {
+                                match c.inner.as_ref().map(|v| Command::try_from(v.as_ref())) {
+                                    Some(Ok(Command::Get)) => {
+                                        GetRequest::try_from(message).map(|v| Request::from(v))
+                                    }
+                                    Some(Ok(Command::Set)) => {
+                                        SetRequest::try_from(message).map(|v| Request::from(v))
+                                    }
+                                    _ => Err(ParseError::Invalid),
+                                }
+                            }
+                            _ => {
+                                // all valid commands are encoded as a bulk string
+                                Err(ParseError::Invalid)
+                            }
+                        }
+                    }
+                    _ => {
+                        // all valid requests are arrays
+                        Err(ParseError::Invalid)
+                    }
+                }
+                .map(|v| ParseOk::new(v, consumed))
+            }
+            // if the start doesn't match for RESP, it's inline or not valid
+            _ => match inline_request(buffer) {
+                Ok((input, request)) => Ok(ParseOk::new(request, buffer.len() - input.len())),
+                Err(Err::Incomplete(_)) => Err(ParseError::Incomplete),
+                Err(_) => Err(ParseError::Invalid),
+            },
         }
     }
 }
@@ -84,9 +130,7 @@ impl<'a> TryFrom<&'a [u8]> for Command {
         match other {
             b"get" | b"GET" => Ok(Command::Get),
             b"set" | b"SET" => Ok(Command::Set),
-            _ => {
-                Err(())
-            }
+            _ => Err(()),
         }
     }
 }
@@ -115,59 +159,10 @@ pub(crate) fn inline_command(input: &[u8]) -> IResult<&[u8], Command> {
 /// A parser for inline requests, typically used by humans over telnet
 pub(crate) fn inline_request(input: &[u8]) -> IResult<&[u8], Request> {
     match inline_command(input)? {
-        (input, Command::Get) => {
-            get::parse(input).map(|(i, r)| (i, Request::from(r)))
-        }
-        (input, Command::Set) => {
-            set::parse(input).map(|(i, r)| (i, Request::from(r)))
-        }
+        (input, Command::Get) => get::parse(input).map(|(i, r)| (i, Request::from(r))),
+        (input, Command::Set) => set::parse(input).map(|(i, r)| (i, Request::from(r))),
     }
 }
-
-/// A parser for RESP formatted requests
-pub(crate) fn resp_request(input: &[u8]) -> IResult<&[u8], Request> {
-    // all RESP commands are arrays of bulk strings
-    // figure out how long the array is
-    let (input, _) = char('*')(input)?;
-    let (input, alen) = parse_u64(input)?;
-    let (mut input, _) = crlf(input)?;
-
-    // empty arrays are invalid
-    if alen == 0 {
-        return Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)));
-    }
-    
-    let mut array: Vec<&[u8]> = Vec::with_capacity(alen as usize);
-
-    // loop through the bulk strings and add them to the array
-    for _ in 0..alen {
-        let (i, _) = char('$')(input)?;
-        let (i, len) = parse_u64(i)?;
-        let (i, _) = crlf(i)?;
-        let (i, string) = take(len as usize)(i)?;
-        let (i, _) = crlf(i)?;
-        array.push(string);
-        input = i;
-    }
-    
-    // figure out which command it is
-    let command = Command::try_from(array[0])
-        .map_err(|_| nom::Err::Failure((input, nom::error::ErrorKind::Tag)))?;
-
-    // command specific parsing happens here
-    let result = match command {
-        Command::Get => {
-            GetRequest::from_array(&array).map(|v| Request::from(v))
-        }
-        Command::Set => {
-            SetRequest::from_array(&array).map(|v| Request::from(v))
-        }
-    };
-
-    // map the result and return
-    result.map(|v| (input, v)).map_err(|_| nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

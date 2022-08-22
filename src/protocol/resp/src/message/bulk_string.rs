@@ -58,21 +58,21 @@ mod tests {
 
     #[test]
     fn parse() {
-        assert_eq!(response(b"$-1\r\n"), Ok((&b""[..], Response::null(),)));
+        assert_eq!(message(b"$-1\r\n"), Ok((&b""[..], Message::null(),)));
 
         assert_eq!(
-            response(b"$0\r\n\r\n"),
-            Ok((&b""[..], Response::bulk_string(&[])))
+            message(b"$0\r\n\r\n"),
+            Ok((&b""[..], Message::bulk_string(&[])))
         );
 
         assert_eq!(
-            response(b"$1\r\n\0\r\n"),
-            Ok((&b""[..], Response::bulk_string(&[0])))
+            message(b"$1\r\n\0\r\n"),
+            Ok((&b""[..], Message::bulk_string(&[0])))
         );
 
         assert_eq!(
-            response(b"$11\r\nHELLO WORLD\r\n"),
-            Ok((&b""[..], Response::bulk_string("HELLO WORLD".as_bytes())))
+            message(b"$11\r\nHELLO WORLD\r\n"),
+            Ok((&b""[..], Message::bulk_string("HELLO WORLD".as_bytes())))
         );
     }
 }
