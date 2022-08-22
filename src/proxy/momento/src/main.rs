@@ -5,11 +5,10 @@
 #[macro_use]
 extern crate logger;
 
-use rustcommon_metrics::*;
 use backtrace::Backtrace;
 use clap::{App, Arg};
-use config::*;
 use config::momento_proxy::Protocol;
+use config::*;
 use core::num::NonZeroU64;
 use core::num::NonZeroUsize;
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -21,6 +20,7 @@ use momento::response::cache_set_response::*;
 use momento::response::error::*;
 use momento::simple_cache_client::*;
 use protocol_admin::*;
+use rustcommon_metrics::*;
 use session::*;
 use std::borrow::{Borrow, BorrowMut};
 use std::io::{Error, ErrorKind};
@@ -36,10 +36,10 @@ const S: u64 = 1_000_000_000; // one second in nanoseconds
 const US: u64 = 1_000; // one microsecond in nanoseconds
 
 mod admin;
-mod protocol;
-mod klog;
 mod frontend;
+mod klog;
 mod listener;
+mod protocol;
 
 // NOTES:
 //

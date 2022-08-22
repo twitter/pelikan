@@ -35,16 +35,16 @@ pub async fn set(
 
         let ttl = match request.expire_time() {
             Some(protocol_resp::ExpireTime::Seconds(v)) => NonZeroU64::new(v as u64),
-            Some(protocol_resp::ExpireTime::Milliseconds(v)) => NonZeroU64::new(std::cmp::min(1, v / 1000 as u64)),
+            Some(protocol_resp::ExpireTime::Milliseconds(v)) => {
+                NonZeroU64::new(std::cmp::min(1, v / 1000 as u64))
+            }
             Some(_) => {
                 if socket.write_all(b"-ERR expire time\r\n").await.is_err() {
                     SESSION_SEND_EX.increment();
                 }
                 return Err(Error::from(ErrorKind::InvalidInput));
             }
-            None => {
-                None
-            }
+            None => None,
         };
 
         match timeout(
