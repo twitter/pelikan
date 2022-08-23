@@ -1,0 +1,91 @@
+// Copyright 2022 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
+//! Provides a `Waker` trait to allow using the `Waker` from `mio` or a provided
+//! `Waker` that uses eventfd directly (supported only on linux) interchangably.
+//!
+//! This is particularly useful in cases where some struct (such as a queue) may
+//! be used with either `mio`-based event loops, or with io_uring. The `Waker`
+//! provided by `mio` is not directly usable in io_uring based code due to the
+//! fact that it must be registered to an event loop (such as epoll).
+
+pub trait Waker: Send + Sync {
+    fn wake(&self) -> std::io::Result<()>;
+}
+
+pub use mio::Waker as MioWaker;
+
+impl Waker for MioWaker {
+    fn wake(&self) -> std::io::Result<()> {
+        self.wake()
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub use self::eventfd::EventfdWaker;
+
+#[cfg(target_os = "linux")]
+mod eventfd {
+    use crate::Waker;
+    use std::fs::File;
+    use std::io::{ErrorKind, Result, Write};
+    use std::os::unix::io::FromRawFd;
+
+    pub struct EventfdWaker {
+        inner: File,
+    }
+
+    // a simple eventfd waker. based off the implementation in mio
+    impl EventfdWaker {
+        pub fn new() -> Result<Self> {
+            let ret = unsafe { libc::eventfd(0, libc::EFD_CLOEXEC | libc::EFD_NONBLOCK) };
+            if ret < 0 {
+                Err(std::io::Error::new(
+                    ErrorKind::Other,
+                    "failed to create eventfd",
+                ))
+            } else {
+                Ok(Self {
+                    inner: unsafe { File::from_raw_fd(ret) },
+                })
+            }
+        }
+
+        pub fn wake(&self) -> Result<()> {
+            match (&self.inner).write(&[1, 0, 0, 0, 0, 0, 0, 0]) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if e.kind() == ErrorKind::WouldBlock {
+                        // writing blocks if the counter would overflow, reset it
+                        // and wake again
+                        self.reset()?;
+                        self.wake()
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
+        }
+
+        fn reset(&self) -> Result<()> {
+            match (&self.inner).write(&[0, 0, 0, 0, 0, 0, 0, 0]) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    if e.kind() == ErrorKind::WouldBlock {
+                        // we can ignore wouldblock during reset
+                        Ok(())
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
+        }
+    }
+
+    impl Waker for EventfdWaker {
+        fn wake(&self) -> Result<()> {
+            self.wake()
+        }
+    }
+}
