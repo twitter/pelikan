@@ -74,7 +74,7 @@ pub(crate) async fn handle_resp_client(
     let mut buf = Buffer::with_capacity(INITIAL_BUFFER_SIZE);
 
     // initialize the request parser
-    let parser = resp::RequestParser {};
+    let parser = resp::RequestParser::new();
 
     // handle incoming data from the client
     loop {
