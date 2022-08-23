@@ -56,9 +56,7 @@ impl TryFrom<Message> for SetRequest {
                     return Err(ParseError::Invalid);
                 }
 
-                let value = value.inner.unwrap();
-
-                value
+                value.inner.unwrap()
             } else {
                 return Err(ParseError::Invalid);
             };
@@ -84,7 +82,7 @@ impl TryFrom<Message> for SetRequest {
                             match &array[i + 1] {
                                 Message::BulkString(s) => {
                                     let s = std::str::from_utf8(
-                                        &s.inner.as_ref().ok_or(ParseError::Invalid)?,
+                                        s.inner.as_ref().ok_or(ParseError::Invalid)?,
                                     )
                                     .map_err(|_| ParseError::Invalid)?
                                     .parse::<u64>()
@@ -105,7 +103,7 @@ impl TryFrom<Message> for SetRequest {
                             match &array[i + 1] {
                                 Message::BulkString(s) => {
                                     let ms = std::str::from_utf8(
-                                        &s.inner.as_ref().ok_or(ParseError::Invalid)?,
+                                        s.inner.as_ref().ok_or(ParseError::Invalid)?,
                                     )
                                     .map_err(|_| ParseError::Invalid)?
                                     .parse::<u64>()
@@ -126,7 +124,7 @@ impl TryFrom<Message> for SetRequest {
                             match &array[i + 1] {
                                 Message::BulkString(s) => {
                                     let s = std::str::from_utf8(
-                                        &s.inner.as_ref().ok_or(ParseError::Invalid)?,
+                                        s.inner.as_ref().ok_or(ParseError::Invalid)?,
                                     )
                                     .map_err(|_| ParseError::Invalid)?
                                     .parse::<u64>()
@@ -147,7 +145,7 @@ impl TryFrom<Message> for SetRequest {
                             match &array[i + 1] {
                                 Message::BulkString(s) => {
                                     let ms = std::str::from_utf8(
-                                        &s.inner.as_ref().ok_or(ParseError::Invalid)?,
+                                        s.inner.as_ref().ok_or(ParseError::Invalid)?,
                                     )
                                     .map_err(|_| ParseError::Invalid)?
                                     .parse::<u64>()
@@ -198,8 +196,8 @@ impl TryFrom<Message> for SetRequest {
             }
 
             Ok(Self {
-                key: key.clone(),
-                value: value.clone(),
+                key,
+                value,
                 expire_time,
                 mode,
                 get_old,
@@ -396,10 +394,10 @@ impl Compose for SetRequest {
         }
 
         let _ = session
-            .write_all(&format!("*{}\r\n$3\r\nSET\r\n${}\r\n", alen, self.key.len()).as_bytes());
+            .write_all(format!("*{}\r\n$3\r\nSET\r\n${}\r\n", alen, self.key.len()).as_bytes());
         let _ = session.write_all(&self.key);
         let _ = session.write_all(b"\r\n");
-        let _ = session.write_all(&format!("${}\r\n", self.value.len()).as_bytes());
+        let _ = session.write_all(format!("${}\r\n", self.value.len()).as_bytes());
         let _ = session.write_all(&self.value);
         let _ = session.write_all(b"\r\n");
         if let Some(expire_time) = self.expire_time {

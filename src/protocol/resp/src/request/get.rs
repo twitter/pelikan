@@ -75,8 +75,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], GetRequest> {
 
 impl Compose for GetRequest {
     fn compose(&self, session: &mut session::Session) {
-        let _ =
-            session.write_all(&format!("*2\r\n$3\r\nGET\r\n${}\r\n", self.key.len()).as_bytes());
+        let _ = session.write_all(format!("*2\r\n$3\r\nGET\r\n${}\r\n", self.key.len()).as_bytes());
         let _ = session.write_all(&self.key);
         let _ = session.write_all(b"\r\n");
     }

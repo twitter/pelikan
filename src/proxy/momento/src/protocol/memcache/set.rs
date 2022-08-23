@@ -9,8 +9,8 @@ pub async fn set(
 ) -> Result<(), Error> {
     SET.increment();
 
-    if let Ok(key) = std::str::from_utf8(&request.key()) {
-        let value = if let Ok(value) = std::str::from_utf8(&request.value()) {
+    if let Ok(key) = std::str::from_utf8(request.key()) {
+        let value = if let Ok(value) = std::str::from_utf8(request.value()) {
             value.to_owned()
         } else {
             debug!("value is not valid utf8: {:?}", request.value());
@@ -18,7 +18,7 @@ pub async fn set(
             return Err(Error::from(ErrorKind::InvalidInput));
         };
 
-        if value.len() == 0 {
+        if value.is_empty() {
             error!("empty values are not supported by momento");
             SESSION_SEND.increment();
             SESSION_SEND_BYTE.add(7);
@@ -39,7 +39,7 @@ pub async fn set(
 
         match timeout(
             Duration::from_millis(200),
-            client.set(&cache_name, key, &value, ttl),
+            client.set(cache_name, key, &value, ttl),
         )
         .await
         {

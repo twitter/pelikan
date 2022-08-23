@@ -13,7 +13,7 @@ impl Compose for BulkString {
     fn compose(&self, session: &mut session::Session) {
         if let Some(value) = &self.inner {
             let _ = session.write_all(format!("${}\r\n", value.len()).as_bytes());
-            let _ = session.write_all(&value);
+            let _ = session.write_all(value);
             let _ = session.write_all(b"\r\n");
         } else {
             let _ = session.write_all(b"$-1\r\n");

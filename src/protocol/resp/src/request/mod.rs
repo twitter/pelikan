@@ -14,6 +14,7 @@ mod set;
 pub use get::GetRequest;
 pub use set::SetRequest;
 
+#[derive(Default)]
 pub struct RequestParser {
     message_parser: MessageParser,
 }
@@ -51,7 +52,7 @@ impl Parse<Request> for RequestParser {
 
                         let array = array.inner.as_ref().unwrap();
 
-                        if array.len() < 1 {
+                        if array.is_empty() {
                             return Err(ParseError::Invalid);
                         }
 
@@ -59,10 +60,10 @@ impl Parse<Request> for RequestParser {
                             Message::BulkString(c) => {
                                 match c.inner.as_ref().map(|v| Command::try_from(v.as_ref())) {
                                     Some(Ok(Command::Get)) => {
-                                        GetRequest::try_from(message).map(|v| Request::from(v))
+                                        GetRequest::try_from(message).map(Request::from)
                                     }
                                     Some(Ok(Command::Set)) => {
-                                        SetRequest::try_from(message).map(|v| Request::from(v))
+                                        SetRequest::try_from(message).map(Request::from)
                                     }
                                     _ => Err(ParseError::Invalid),
                                 }
