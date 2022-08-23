@@ -16,7 +16,7 @@ pub struct SingleWorker<Parser, Request, Response, Storage> {
     signal_queue: Queues<(), Signal>,
     storage: Storage,
     timeout: Duration,
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn waker::Waker>>,
 }
 
 fn map_err(e: std::io::Error) -> Result<()> {
@@ -224,7 +224,7 @@ pub struct SingleWorkerBuilder<Parser, Request, Response, Storage> {
     sessions: Slab<ServerSession<Parser, Response, Request>>,
     storage: Storage,
     timeout: Duration,
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn waker::Waker>>,
 }
 
 impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Response, Storage> {
@@ -233,7 +233,9 @@ impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Re
 
         let poll = Poll::new()?;
 
-        let waker = Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap());
+        let waker =
+            Arc::new(Box::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap())
+                as Box<dyn waker::Waker>);
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -250,7 +252,7 @@ impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Re
         })
     }
 
-    pub fn waker(&self) -> Arc<Waker> {
+    pub fn waker(&self) -> Arc<Box<dyn waker::Waker>> {
         self.waker.clone()
     }
 

@@ -3,17 +3,16 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::*;
-use config::*;
-use entrystore::EntryStore;
-use protocol_common::*;
 use admin::AdminBuilder;
-use std::thread::JoinHandle;
-use crossbeam_channel::{bounded, Sender};
 use common::signal::Signal;
+use config::*;
+use crossbeam_channel::{bounded, Sender};
+use entrystore::EntryStore;
 use logger::Drain;
+use protocol_common::*;
 use queues::Queues;
 use std::io::Result;
-
+use std::thread::JoinHandle;
 
 const QUEUE_RETRIES: usize = 3;
 
@@ -31,7 +30,7 @@ where
     Response: 'static + Compose + Send,
     Storage: 'static + Execute<Request, Response> + EntryStore + Send,
 {
-    // admin: AdminBuilder,
+    admin: AdminBuilder,
     listener: ListenerBuilder<Parser, Request, Response>,
     log_drain: Box<dyn Drain>,
     worker: WorkerBuilder<Parser, Request, Response, Storage>,
@@ -44,18 +43,18 @@ where
     Response: 'static + Compose + Send,
     Storage: 'static + Execute<Request, Response> + EntryStore + Send,
 {
-    pub fn new<T: AdminConfig + ServerConfig + WorkerConfig>(
+    pub fn new<T: AdminConfig + ServerConfig + TlsConfig + WorkerConfig>(
         config: &T,
         log_drain: Box<dyn Drain>,
         parser: Parser,
         storage: Storage,
     ) -> Result<Self> {
-        // let admin = AdminBuilder::new(config)?;
+        let admin = AdminBuilder::new(config)?;
         let listener = ListenerBuilder::new(parser.clone())?;
         let worker = WorkerBuilder::new(parser, storage)?;
 
         Ok(Self {
-            // admin,
+            admin,
             listener,
             log_drain,
             worker,
@@ -68,44 +67,40 @@ where
     }
 
     pub fn spawn(mut self) -> Process {
-        // let mut thread_wakers = vec![self.listener.waker()];
+        let mut thread_wakers = vec![self.listener.waker()];
         // thread_wakers.extend_from_slice(&self.worker.waker());
-        // thread_wakers.push_back(self.worker.waker());
+        thread_wakers.push(self.worker.waker());
 
         let listener_waker = self.listener.waker();
         let worker_waker = self.worker.waker();
 
-        let (l_queue, w_queue) = queues(worker_waker, listener_waker);
+        // queues for the `Listener` to send `Session`s to the worker threads
+        let (mut listener_session_queues, mut worker_session_queues) = Queues::new(
+            vec![self.listener.waker()],
+            vec![self.worker.waker()],
+            QUEUE_CAPACITY,
+        );
 
         // channel for the parent `Process` to send `Signal`s to the admin thread
-        // let (signal_tx, signal_rx) = bounded(QUEUE_CAPACITY);
+        let (signal_tx, signal_rx) = bounded(QUEUE_CAPACITY);
 
         // queues for the `Admin` to send `Signal`s to all sibling threads
-        // let (mut signal_queue_tx, mut signal_queue_rx) =
-        //     Queues::new(vec![self.admin.waker()], thread_wakers, QUEUE_CAPACITY);
+        let (mut signal_queue_tx, mut signal_queue_rx) =
+            Queues::new(vec![self.admin.waker()], thread_wakers, QUEUE_CAPACITY);
 
-        // queues for the `Listener` to send `Session`s to the worker threads
-        // let (mut listener_session_queues, worker_session_queues) = Queues::new(
-        //     vec![self.listener.waker()],
-        //     self.workers.worker_wakers(),
-        //     QUEUE_CAPACITY,
-        // );
+        let mut admin = self
+            .admin
+            .build(self.log_drain, signal_rx, signal_queue_tx.remove(0));
 
-        // let mut admin = self
-        //     .admin
-        //     .build(self.log_drain, signal_rx, signal_queue_tx.remove(0));
-
-        let mut listener = self
-            .listener
-            .build(l_queue);
+        let mut listener = self.listener.build(listener_session_queues.pop().unwrap());
 
         // let worker = self.worker.build(worker_session_queues, signal_queue_rx);
-        let worker = self.worker.build(w_queue);
+        let worker = self.worker.build(worker_session_queues.pop().unwrap());
 
-        // let admin = std::thread::Builder::new()
-        //     .name(format!("{}_admin", THREAD_PREFIX))
-        //     .spawn(move || admin.run())
-        //     .unwrap();
+        let admin = std::thread::Builder::new()
+            .name(format!("{}_admin", THREAD_PREFIX))
+            .spawn(move || admin.run())
+            .unwrap();
 
         let listener = std::thread::Builder::new()
             .name(format!("{}_listener", THREAD_PREFIX))
@@ -117,30 +112,30 @@ where
             .spawn(move || worker.run())
             .unwrap();
 
-        let mut log_drain = self.log_drain;
+        // let mut log_drain = self.log_drain;
 
-        let logging = std::thread::Builder::new()
-            .name(format!("{}_logger", THREAD_PREFIX))
-            .spawn(move || loop { log_drain.flush(); std::thread::sleep(core::time::Duration::from_millis(1)); common::time::refresh_clock(); } )
-            .unwrap();
+        // let logging = std::thread::Builder::new()
+        //     .name(format!("{}_logger", THREAD_PREFIX))
+        //     .spawn(move || loop { log_drain.flush(); std::thread::sleep(core::time::Duration::from_millis(1)); common::time::refresh_clock(); } )
+        //     .unwrap();
 
         // let workers = worker.spawn();
 
         Process {
-            // admin,
+            admin,
             listener,
-            logging,
-            // signal_tx,
+            // logging,
+            signal_tx,
             worker,
         }
     }
 }
 
 pub struct Process {
-    // admin: JoinHandle<()>,
+    admin: JoinHandle<()>,
     listener: JoinHandle<()>,
-    logging: JoinHandle<()>,
-    // signal_tx: Sender<Signal>,
+    // logging: JoinHandle<()>,
+    signal_tx: Sender<Signal>,
     worker: JoinHandle<()>,
 }
 
@@ -171,7 +166,7 @@ impl Process {
         // }
         let _ = self.worker.join();
         let _ = self.listener.join();
-        let _ = self.logging.join();
-        // let _ = self.admin.join();
+        // let _ = self.logging.join();
+        let _ = self.admin.join();
     }
 }

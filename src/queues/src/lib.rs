@@ -4,7 +4,7 @@
 
 //! Queue type for inter-process communication (IPC).
 
-pub use net::Waker;
+pub use waker::Waker;
 
 use crossbeam_queue::*;
 use rand::distributions::Uniform;
@@ -27,7 +27,7 @@ pub struct Queues<T, U> {
 
 struct WakingSender<T> {
     inner: Arc<ArrayQueue<T>>,
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn Waker>>,
     needs_wake: bool,
 }
 
@@ -98,7 +98,7 @@ impl<T, U> Queues<T, U> {
     /// NOTE: the return vectors maintain the ordering of the wakers that were
     /// provided. Care must be taken to ensure that the corresponding queues are
     /// given to the event loop with the corresponding waker.
-    pub fn new<A: AsRef<[Arc<Waker>]>, B: AsRef<[Arc<Waker>]>>(
+    pub fn new<A: AsRef<[Arc<Box<dyn Waker>>]>, B: AsRef<[Arc<Box<dyn Waker>>]>>(
         a_wakers: A,
         b_wakers: B,
         capacity: usize,
@@ -270,18 +270,24 @@ impl<T> TrackedItem<T> {
 #[cfg(test)]
 mod tests {
     use crate::Queues;
-    use ::net::*;
+    use ::net::Waker as MioWaker;
+    use ::net::{Poll, Token};
     use std::sync::Arc;
+    use waker::Waker;
 
     const WAKER_TOKEN: Token = Token(usize::MAX);
 
     #[test]
     fn basic() {
         let poll = Poll::new().expect("failed to create event loop");
-        let waker =
-            Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).expect("failed to create waker"));
+        let waker = Arc::new(Box::new(
+            MioWaker::new(poll.registry(), WAKER_TOKEN).expect("failed to create waker"),
+        ) as Box<dyn Waker>);
 
-        let (mut a, mut b) = Queues::<usize, String>::new(vec![waker.clone()], vec![waker], 1024);
+        let a_wakers = vec![waker.clone()];
+        let b_wakers = vec![waker];
+
+        let (mut a, mut b) = Queues::<usize, String>::new(&a_wakers, &b_wakers, 1024);
         let mut a = a.remove(0);
         let mut b = b.remove(0);
 

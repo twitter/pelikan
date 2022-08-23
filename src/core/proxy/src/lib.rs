@@ -26,6 +26,7 @@ use session_common::{Buf, ServerSession, Session};
 use slab::Slab;
 use std::io::{Error, ErrorKind, Result};
 use std::sync::Arc;
+use waker::Waker;
 
 // mod admin;
 mod backend;

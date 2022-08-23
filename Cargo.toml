@@ -7,6 +7,7 @@ members = [
     "src/core/proxy",
     "src/core/server",
     "src/core/server-iouring",
+    "src/core/waker",
     "src/entrystore",
     "src/logger",
     "src/macros",

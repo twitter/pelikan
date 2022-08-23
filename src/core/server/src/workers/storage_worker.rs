@@ -12,7 +12,7 @@ pub struct StorageWorker<Request, Response, Storage> {
     storage: Storage,
     timeout: Duration,
     #[allow(dead_code)]
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn waker::Waker>>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
 }
@@ -96,7 +96,7 @@ pub struct StorageWorkerBuilder<Request, Response, Storage> {
     poll: Poll,
     storage: Storage,
     timeout: Duration,
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn waker::Waker>>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
 }
@@ -107,7 +107,9 @@ impl<Request, Response, Storage> StorageWorkerBuilder<Request, Response, Storage
 
         let poll = Poll::new()?;
 
-        let waker = Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap());
+        let waker =
+            Arc::new(Box::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap())
+                as Box<dyn waker::Waker>);
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -123,7 +125,7 @@ impl<Request, Response, Storage> StorageWorkerBuilder<Request, Response, Storage
         })
     }
 
-    pub fn waker(&self) -> Arc<Waker> {
+    pub fn waker(&self) -> Arc<Box<dyn waker::Waker>> {
         self.waker.clone()
     }
 

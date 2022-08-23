@@ -5,6 +5,7 @@
 use io_uring::{opcode, squeue, types, IoUring};
 use net::TcpStream;
 use protocol_common::*;
+use rustcommon_metrics::*;
 use session_common::ServerSession;
 use slab::Slab;
 
@@ -12,12 +13,19 @@ use std::collections::VecDeque;
 use std::io::Result;
 use std::marker::PhantomData;
 use std::net::TcpListener;
-use std::os::unix::io::FromRawFd;
 use std::os::unix::io::AsRawFd;
+use std::os::unix::io::FromRawFd;
 use std::sync::Arc;
 use std::{io, ptr};
 
 use super::*;
+
+counter!(LISTENER_EVENT_ERROR);
+counter!(LISTENER_EVENT_LOOP);
+counter!(LISTENER_EVENT_TOTAL);
+
+counter!(LISTENER_SESSION_DROP);
+counter!(LISTENER_SESSION_SHUTDOWN);
 
 pub struct ListenerBuilder<Parser, Request, Response>
 where
@@ -30,7 +38,7 @@ where
     parser: Parser,
     ring: IoUring,
     sessions: Slab<Session<Parser, Request, Response>>,
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn Waker>>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
 }
@@ -46,7 +54,7 @@ where
         let listener = TcpListener::bind("127.0.0.1:12321")?;
         let sessions = Slab::<Session<Parser, Request, Response>>::new();
         let backlog = VecDeque::new();
-        let waker = Arc::new(Waker::new()?);
+        let waker = Arc::new(Box::new(EventfdWaker::new()?) as Box<dyn Waker>);
 
         Ok(Self {
             backlog,
@@ -62,11 +70,11 @@ where
 
     pub fn build(
         self,
-        session_queue: Queue<
+        session_queue: Queues<
             Session<Parser, Request, Response>,
             Session<Parser, Request, Response>,
         >,
-    ) ->Listener<Parser, Request, Response> {
+    ) -> Listener<Parser, Request, Response> {
         Listener {
             accept_backlog: 1024,
             backlog: self.backlog,
@@ -81,7 +89,7 @@ where
         }
     }
 
-    pub fn waker(&self) -> Arc<Waker> {
+    pub fn waker(&self) -> Arc<Box<dyn Waker>> {
         self.waker.clone()
     }
 }
@@ -99,8 +107,8 @@ where
     listener: TcpListener,
     parser: Parser,
     sessions: Slab<Session<Parser, Request, Response>>,
-    session_queue: Queue<Session<Parser, Request, Response>, Session<Parser, Request, Response>>,
-    waker: Arc<Waker>,
+    session_queue: Queues<Session<Parser, Request, Response>, Session<Parser, Request, Response>>,
+    waker: Arc<Box<dyn Waker>>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
 }
@@ -180,6 +188,8 @@ where
         self.ring.submission().sync();
 
         loop {
+            LISTENER_EVENT_LOOP.increment();
+
             match self.ring.submit_and_wait(1) {
                 Ok(_) => (),
                 Err(ref err) if err.raw_os_error() == Some(libc::EBUSY) => (),
@@ -210,7 +220,7 @@ where
 
             // if there are any sessions to shutdown, take one and submit a
             // shutdown for it
-            if let Ok(session) = self.session_queue.try_recv() {
+            if let Some(session) = self.session_queue.try_recv().map(|v| v.into_inner()) {
                 let token = self.sessions.insert(session);
                 self.submit_shutdown(token);
             }
@@ -220,6 +230,8 @@ where
             let mut next = self.ring.completion().next();
 
             while let Some(cqe) = next.take() {
+                LISTENER_EVENT_TOTAL.increment();
+
                 let ret = cqe.result();
                 let token = cqe.user_data();
 
@@ -239,6 +251,8 @@ where
 
                 // handle error result here
                 if ret < 0 {
+                    LISTENER_EVENT_ERROR.increment();
+
                     eprintln!("error: {:?}", io::Error::from_raw_os_error(-ret));
                     continue;
                 }
@@ -259,7 +273,7 @@ where
                             match self.ring.submission().push(&entry) {
                                 Ok(_) => {
                                     self.accept_backlog = self.accept_backlog.saturating_sub(1)
-                                },
+                                }
                                 Err(_) => break,
                             }
                         }
@@ -280,9 +294,12 @@ where
                         match session.state() {
                             State::Poll => {
                                 let session = self.sessions.remove(token);
-                                let _ = self.session_queue.send(session);
+                                if self.session_queue.try_send_any(session).is_err() {
+                                    LISTENER_SESSION_DROP.increment();
+                                }
                             }
                             State::Shutdown => {
+                                LISTENER_SESSION_SHUTDOWN.increment();
                                 let _ = self.sessions.remove(token);
                             }
                             _ => {

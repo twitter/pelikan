@@ -22,3 +22,4 @@ queues = { path = "../../queues" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 session-common = { path = "../../session/common" }
 slab = "0.4.2"
+waker = { path = "../waker" }

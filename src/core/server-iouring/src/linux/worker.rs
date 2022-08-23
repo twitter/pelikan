@@ -5,15 +5,33 @@
 use entrystore::EntryStore;
 use io_uring::{opcode, squeue, types, IoUring};
 use protocol_common::*;
+use rustcommon_metrics::*;
 use slab::Slab;
 
 use std::collections::VecDeque;
+use std::io;
 use std::io::{ErrorKind, Result};
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::{io};
 
 use super::*;
+
+counter!(WORKER_EVENT_ERROR);
+counter!(WORKER_EVENT_LOOP);
+counter!(WORKER_EVENT_TOTAL);
+
+counter!(WORKER_SESSION_CLOSE);
+counter!(WORKER_SESSION_READ);
+counter!(WORKER_SESSION_WRITE);
+
+counter!(WORKER_SUBMIT_READ);
+counter!(WORKER_SUBMIT_WRITE);
+
+counter!(WORKER_BACKLOG_PUSH);
+counter!(WORKER_BACKLOG_POP);
+
+// counter!(LISTENER_SESSION_DROP);
+// counter!(LISTENER_SESSION_SHUTDOWN);
 
 pub struct WorkerBuilder<Parser, Request, Response, Storage>
 where
@@ -27,7 +45,7 @@ where
     ring: IoUring,
     sessions: Slab<Session<Parser, Request, Response>>,
     storage: Storage,
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn Waker>>,
     _parser: PhantomData<Parser>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
@@ -42,10 +60,10 @@ where
     Storage: EntryStore + Execute<Request, Response>,
 {
     pub fn new(parser: Parser, storage: Storage) -> Result<Self> {
-        let ring = IoUring::builder().build(8192)?;
+        let ring = IoUring::builder().build(16384)?;
         let sessions = Slab::<Session<Parser, Request, Response>>::new();
         let backlog = VecDeque::new();
-        let waker = Arc::new(Waker::new()?);
+        let waker = Arc::new(Box::new(EventfdWaker::new()?) as Box<dyn Waker>);
 
         Ok(Self {
             backlog,
@@ -63,7 +81,7 @@ where
 
     pub fn build(
         self,
-        session_queue: Queue<
+        session_queue: Queues<
             Session<Parser, Request, Response>,
             Session<Parser, Request, Response>,
         >,
@@ -81,7 +99,7 @@ where
         }
     }
 
-    pub fn waker(&self) -> Arc<Waker> {
+    pub fn waker(&self) -> Arc<Box<dyn Waker>> {
         self.waker.clone()
     }
 }
@@ -97,9 +115,9 @@ where
     parser: Parser,
     ring: IoUring,
     sessions: Slab<Session<Parser, Request, Response>>,
-    session_queue: Queue<Session<Parser, Request, Response>, Session<Parser, Request, Response>>,
+    session_queue: Queues<Session<Parser, Request, Response>, Session<Parser, Request, Response>>,
     storage: Storage,
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn Waker>>,
     _request: PhantomData<Request>,
     _response: PhantomData<Response>,
 }
@@ -113,7 +131,7 @@ where
 {
     pub fn close(&mut self, token: u64) {
         let session = self.sessions.remove(token as usize);
-        let _ = self.session_queue.send(session);
+        let _ = self.session_queue.try_send_any(session);
     }
 
     pub fn read(&mut self, token: u64) {
@@ -127,57 +145,32 @@ where
 
                 if send.is_ok() {
                     session.set_state(State::Write);
-
-                    let entry = opcode::Send::new(
-                        types::Fd(session.as_raw_fd()),
-                        session.write_buffer_mut().read_ptr(),
-                        session.write_buffer_mut().remaining() as _,
-                    )
-                    .build()
-                    .user_data(token as _);
-
-                    unsafe {
-                        if self.ring.submission().push(&entry).is_err() {
-                            info!("putting send entry onto backlog for session: {}", token);
-                            self.backlog.push_back(entry);
-                        }
-                    }
+                    self.submit_write(token);
                 } else {
+                    WORKER_SESSION_CLOSE.increment();
                     info!("failed to send, removing session: {}", token);
-                    let session = self.sessions.remove(token as usize);
-                    let _ = self.session_queue.send(session);
+                    self.close(token);
                 }
             }
             Err(e) => {
                 if e.kind() == ErrorKind::WouldBlock {
                     info!("wouldblock for session: {}", token);
                     assert!(session.read_buffer_mut().remaining_mut() > 0);
-                    let entry = opcode::Recv::new(
-                        types::Fd(session.as_raw_fd()),
-                        session.read_buffer_mut().write_ptr(),
-                        session.read_buffer_mut().remaining_mut() as _,
-                    )
-                    .build()
-                    .user_data(token as _);
-
-                    unsafe {
-                        if self.ring.submission().push(&entry).is_err() {
-                            info!("had to add recv to backlog for session: {}", token);
-                            self.backlog.push_back(entry);
-                        }
-                    }
+                    self.submit_read(token);
                 } else {
+                    WORKER_SESSION_CLOSE.increment();
                     info!("bad request, removing session: {}", token);
-                    let session = self.sessions.remove(token as usize);
-                    let _ = self.session_queue.send(session);
+                    self.close(token);
                 }
-            }   
+            }
         }
     }
 
     /// Puts a read operation onto the submission queue. If the submission queue
     /// is full, it will be placed on the backlog instead.
     pub fn submit_read(&mut self, token: u64) {
+        WORKER_SUBMIT_READ.increment();
+
         let session = &mut self.sessions[token as usize];
 
         session.set_state(State::Read);
@@ -194,6 +187,7 @@ where
 
         unsafe {
             if self.ring.submission().push(&entry).is_err() {
+                WORKER_BACKLOG_PUSH.increment();
                 self.backlog.push_back(entry);
             }
         }
@@ -202,6 +196,8 @@ where
     /// Puts a write operation onto the submission queue. If the submission
     /// queue is full, it will be placed on the backlog instead.
     pub fn submit_write(&mut self, token: u64) {
+        WORKER_SUBMIT_WRITE.increment();
+
         let session = &mut self.sessions[token as usize];
 
         session.set_state(State::Write);
@@ -216,6 +212,7 @@ where
 
         unsafe {
             if self.ring.submission().push(&entry).is_err() {
+                WORKER_BACKLOG_PUSH.increment();
                 self.backlog.push_back(entry);
             }
         }
@@ -239,8 +236,6 @@ where
         }
 
         self.ring.submission().sync();
-
-        let mut count = 0;
 
         loop {
             match self.ring.submit_and_wait(1) {
@@ -267,6 +262,7 @@ where
 
                 match self.backlog.pop_front() {
                     Some(sqe) => unsafe {
+                        WORKER_BACKLOG_POP.increment();
                         info!("adding backlog event to submission queue");
                         let _ = self.ring.submission().push(&sqe);
                     },
@@ -276,7 +272,7 @@ where
 
             // take one session from the queue, add it to the sessions slab, and
             // submit a read to the kernel
-            if let Ok(session) = self.session_queue.try_recv() {
+            if let Some(session) = self.session_queue.try_recv().map(|v| v.into_inner()) {
                 let token = self.sessions.insert(session);
 
                 self.submit_read(token as u64);
@@ -286,14 +282,19 @@ where
             // a for loop
             let mut next = self.ring.completion().next();
 
+            let mut count = 0;
+
             while let Some(cqe) = next.take() {
+                WORKER_EVENT_TOTAL.increment();
+
+                count += 1;
+
                 let ret = cqe.result();
                 let token = cqe.user_data();
 
                 // timeouts get resubmitted
                 if token == TIMEOUT_TOKEN {
                     trace!("re-add timeout event");
-                    info!("events since timeout: {}", count);
                     count = 0;
                     unsafe {
                         match self.ring.submission().push(&timeout) {
@@ -306,10 +307,10 @@ where
                     continue;
                 }
 
-                count += 1;
-
                 // handle any errors here
                 if ret < 0 {
+                    WORKER_EVENT_ERROR.increment();
+
                     eprintln!(
                         "token {:?} error: {:?}",
                         self.sessions.get(token as usize).map(|v| v.state().clone()),
@@ -323,11 +324,19 @@ where
                 match session.state() {
                     State::Read => {
                         if ret == 0 {
+                            WORKER_SESSION_CLOSE.increment();
                             info!("session is closed: {}", token);
-                            info!("session has pending bytes: {}", session.read_buffer_mut().remaining());
-                            info!("session has remaining bytes: {}", session.read_buffer_mut().remaining_mut());
+                            info!(
+                                "session has pending bytes: {}",
+                                session.read_buffer_mut().remaining()
+                            );
+                            info!(
+                                "session has remaining bytes: {}",
+                                session.read_buffer_mut().remaining_mut()
+                            );
                             self.close(token);
                         } else {
+                            WORKER_SESSION_READ.increment();
                             // mark the read buffer as containing the number of
                             // bytes read into it by the kernel
                             unsafe {
@@ -338,6 +347,7 @@ where
                         }
                     }
                     State::Write => {
+                        WORKER_SESSION_WRITE.increment();
                         // advance the write buffer by the number of bytes that
                         // were written to the underlying stream
                         session.write_buffer_mut().advance(ret as usize);

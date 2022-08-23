@@ -17,9 +17,11 @@ crossbeam-channel = "0.5.0"
 entrystore = { path = "../../entrystore" }
 io-uring = { version = "0.5.3", features = ["unstable"] }
 libc = "0.2.126"
+mio = "0.8.4"
 net = { path = "../../net" }
 protocol-common = { path = "../../protocol/common" }
 queues = { path = "../../queues" }
-# protocol-ping = { path = "../../protocol/ping" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 session-common = { path = "../../session/common" }
 slab = "0.4.2"
+waker = { path = "../waker" }

@@ -103,7 +103,7 @@ pub struct Admin {
     /// The version of the service
     version: String,
     /// The waker for this thread
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn waker::Waker>>,
 }
 
 pub struct AdminBuilder {
@@ -114,7 +114,7 @@ pub struct AdminBuilder {
     sessions: Slab<ServerSession<AdminRequestParser, AdminResponse, AdminRequest>>,
     timeout: Duration,
     version: String,
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn waker::Waker>>,
 }
 
 impl AdminBuilder {
@@ -137,7 +137,9 @@ impl AdminBuilder {
         let poll = Poll::new()?;
         listener.register(poll.registry(), LISTENER_TOKEN, Interest::READABLE)?;
 
-        let waker = Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap());
+        let waker =
+            Arc::new(Box::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap())
+                as Box<dyn waker::Waker>);
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -164,7 +166,7 @@ impl AdminBuilder {
         self.version = version.to_string();
     }
 
-    pub fn waker(&self) -> Arc<Waker> {
+    pub fn waker(&self) -> Arc<Box<dyn waker::Waker>> {
         self.waker.clone()
     }
 

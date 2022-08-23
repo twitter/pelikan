@@ -14,7 +14,7 @@ pub struct MultiWorker<Parser, Request, Response> {
     sessions: Slab<ServerSession<Parser, Response, Request>>,
     signal_queue: Queues<(), Signal>,
     timeout: Duration,
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn waker::Waker>>,
 }
 
 impl<Parser, Request, Response> MultiWorker<Parser, Request, Response>
@@ -187,7 +187,7 @@ pub struct MultiWorkerBuilder<Parser, Request, Response> {
     poll: Poll,
     sessions: Slab<ServerSession<Parser, Response, Request>>,
     timeout: Duration,
-    waker: Arc<Waker>,
+    waker: Arc<Box<dyn waker::Waker>>,
 }
 
 impl<Parser, Request, Response> MultiWorkerBuilder<Parser, Request, Response> {
@@ -196,7 +196,9 @@ impl<Parser, Request, Response> MultiWorkerBuilder<Parser, Request, Response> {
 
         let poll = Poll::new()?;
 
-        let waker = Arc::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap());
+        let waker =
+            Arc::new(Box::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap())
+                as Box<dyn waker::Waker>);
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -211,7 +213,7 @@ impl<Parser, Request, Response> MultiWorkerBuilder<Parser, Request, Response> {
         })
     }
 
-    pub fn waker(&self) -> Arc<Waker> {
+    pub fn waker(&self) -> Arc<Box<dyn waker::Waker>> {
         self.waker.clone()
     }
 

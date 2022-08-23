@@ -65,7 +65,8 @@ where
     }
 }
 
-impl<Parser, Request, Response> From<ServerSession<Parser, Response, Request>> for Session<Parser, Request, Response>
+impl<Parser, Request, Response> From<ServerSession<Parser, Response, Request>>
+    for Session<Parser, Request, Response>
 where
     Parser: Parse<Request> + Send,
     Request: Send,
@@ -78,4 +79,3 @@ where
         }
     }
 }
-

@@ -12,6 +12,9 @@ license = "Apache-2.0"
 
 [dependencies]
 crossbeam-queue = "0.3.5"
-net = { path = "../net" }
 rand = "0.8.5"
 rand_chacha = "0.3.1"
+waker = { path = "../core/waker" }
+
+[dev-dependencies]
+net = { path = "../net" }
