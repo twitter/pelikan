@@ -59,20 +59,6 @@ impl GetRequest {
     }
 }
 
-// this is to be called after parsing the command, so we do not match the verb
-pub fn parse(input: &[u8]) -> IResult<&[u8], GetRequest> {
-    let (input, _) = space1(input)?;
-    let (input, key) = string(input)?;
-    let (input, _) = space0(input)?;
-    let (input, _) = crlf(input)?;
-    Ok((
-        input,
-        GetRequest {
-            key: key.to_owned().into_boxed_slice(),
-        },
-    ))
-}
-
 impl Compose for GetRequest {
     fn compose(&self, session: &mut session::Session) {
         let _ = session.write_all(format!("*2\r\n$3\r\nGET\r\n${}\r\n", self.key.len()).as_bytes());
@@ -86,51 +72,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_inline() {
-        assert_eq!(
-            inline_command(b"get key\r\n"),
-            Ok((&b" key\r\n"[..], Command::Get))
-        );
-        assert_eq!(
-            get::parse(b" key\r\n"),
-            Ok((
-                &b""[..],
-                GetRequest {
-                    key: b"key".to_vec().into_boxed_slice(),
-                }
-            ))
-        );
-
-        // test parsing the entire request in one pass
-        assert_eq!(
-            inline_request(b"GET key\r\n"),
-            Ok((
-                &b""[..],
-                Request::Get(GetRequest {
-                    key: b"key".to_vec().into_boxed_slice(),
-                })
-            ))
-        );
-
-        // test parsing with a binary key
-        assert_eq!(
-            inline_request(b"GET \"\0\r\n key\" \r\n"),
-            Ok((
-                &b""[..],
-                Request::Get(GetRequest {
-                    key: b"\0\r\n key".to_vec().into_boxed_slice(),
-                })
-            ))
-        );
-    }
-
-    #[test]
     fn parser() {
         let parser = RequestParser::new();
         assert_eq!(
-            parser.parse(b"get 0\r\n").unwrap().into_inner(),
+            parser.parse(b"get \"\0\r\n key\"\r\n").unwrap().into_inner(),
             Request::Get(GetRequest::new(b"0"))
         );
+
+         assert_eq!(
+            parser.parse(b"get 0\r\n").unwrap().into_inner(),
+            Request::Get(GetRequest::new(b"\0\r\n key"))
+        );
+
 
         assert_eq!(
             parser

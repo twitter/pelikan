@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::message::{Message, MessageParser};
+use crate::message::*;
 use crate::*;
 use protocol_common::Parse;
 use protocol_common::{ParseError, ParseOk};
@@ -35,59 +35,78 @@ impl Parse<Request> for RequestParser {
             return Err(ParseError::Incomplete);
         }
 
-        // we can now detect if it is a RESP message or inline command
-        match buffer[0] {
-            // redis RESP commands must start with one of these chars
-            b'*' | b'+' | b'-' | b':' | b'$' => {
-                let (message, consumed) = self.message_parser.parse(buffer).map(|v| {
-                    let c = v.consumed();
-                    (v.into_inner(), c)
-                })?;
+        let (message, consumed) = if matches!(buffer[0], b'*' | b'+' | b'-' | b':' | b'$' ) {
+            self.message_parser.parse(buffer).map(|v| {
+                let c = v.consumed();
+                (v.into_inner(), c)
+            })?
+        } else if let Some(command_end) = buffer.windows(2).position(|w| w == b"\r\n") {
+            let consumed = command_end + 2;
 
-                match &message {
-                    Message::Array(array) => {
-                        if array.inner.is_none() {
-                            return Err(ParseError::Invalid);
-                        }
+            let mut request = &buffer[0..consumed];
 
-                        let array = array.inner.as_ref().unwrap();
+            let mut message = vec![];
 
-                        if array.is_empty() {
-                            return Err(ParseError::Invalid);
-                        }
+            // build up the array of bulk strings
+            loop {
+                if let Ok((r, string)) = string(request) {
+                    message.push(Message::BulkString(BulkString { inner: Some(string.to_owned().into_boxed_slice()) }));
+                    request = r;
+                } else {
+                    break;
+                }
 
-                        match &array[0] {
-                            Message::BulkString(c) => {
-                                match c.inner.as_ref().map(|v| Command::try_from(v.as_ref())) {
-                                    Some(Ok(Command::Get)) => {
-                                        GetRequest::try_from(message).map(Request::from)
-                                    }
-                                    Some(Ok(Command::Set)) => {
-                                        SetRequest::try_from(message).map(Request::from)
-                                    }
-                                    _ => Err(ParseError::Invalid),
-                                }
+                if let Ok((r, _)) = space1(request) {
+                    request = r;
+                } else {
+                    break;
+                }
+            }
+
+            let message = Message::Array(Array { inner: Some(message) });
+
+            (message, consumed)
+        } else {
+            return Err(ParseError::Incomplete);
+        };
+
+
+        match &message {
+            Message::Array(array) => {
+                if array.inner.is_none() {
+                    return Err(ParseError::Invalid);
+                }
+
+                let array = array.inner.as_ref().unwrap();
+
+                if array.is_empty() {
+                    return Err(ParseError::Invalid);
+                }
+
+                match &array[0] {
+                    Message::BulkString(c) => {
+                        match c.inner.as_ref().map(|v| Command::try_from(v.as_ref())) {
+                            Some(Ok(Command::Get)) => {
+                                GetRequest::try_from(message).map(Request::from)
                             }
-                            _ => {
-                                // all valid commands are encoded as a bulk string
-                                Err(ParseError::Invalid)
+                            Some(Ok(Command::Set)) => {
+                                SetRequest::try_from(message).map(Request::from)
                             }
+                            _ => Err(ParseError::Invalid),
                         }
                     }
                     _ => {
-                        // all valid requests are arrays
+                        // all valid commands are encoded as a bulk string
                         Err(ParseError::Invalid)
                     }
                 }
-                .map(|v| ParseOk::new(v, consumed))
             }
-            // if the start doesn't match for RESP, it's inline or not valid
-            _ => match inline_request(buffer) {
-                Ok((input, request)) => Ok(ParseOk::new(request, buffer.len() - input.len())),
-                Err(Err::Incomplete(_)) => Err(ParseError::Incomplete),
-                Err(_) => Err(ParseError::Invalid),
-            },
+            _ => {
+                // all valid requests are arrays
+                Err(ParseError::Invalid)
+            }
         }
+        .map(|v| ParseOk::new(v, consumed))
     }
 }
 
@@ -149,21 +168,6 @@ pub(crate) fn command_bytes(input: &[u8]) -> IResult<&[u8], &[u8]> {
     alphanumeric1(input)
 }
 
-// A parser for getting the command from an inline request
-pub(crate) fn inline_command(input: &[u8]) -> IResult<&[u8], Command> {
-    let (remaining, command_bytes) = command_bytes(input)?;
-    let command = Command::try_from(command_bytes)
-        .map_err(|_| nom::Err::Failure((input, nom::error::ErrorKind::Tag)))?;
-    Ok((remaining, command))
-}
-
-/// A parser for inline requests, typically used by humans over telnet
-pub(crate) fn inline_request(input: &[u8]) -> IResult<&[u8], Request> {
-    match inline_command(input)? {
-        (input, Command::Get) => get::parse(input).map(|(i, r)| (i, Request::from(r))),
-        (input, Command::Set) => set::parse(input).map(|(i, r)| (i, Request::from(r))),
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,21 +190,6 @@ mod tests {
         assert_eq!(
             command_bytes(b"get"),
             Err(nom::Err::Incomplete(Needed::Size(1)))
-        );
-    }
-
-    #[test]
-    fn parse_command() {
-        assert_eq!(
-            inline_command(b"get key\r\n"),
-            Ok((&b" key\r\n"[..], Command::Get))
-        );
-        assert_eq!(inline_command(b"get "), Ok((&b" "[..], Command::Get)));
-        assert_eq!(inline_command(b"GET "), Ok((&b" "[..], Command::Get)));
-
-        assert_eq!(
-            inline_command(b"set key \"value\"\r\n"),
-            Ok((&b" key \"value\"\r\n"[..], Command::Set))
         );
     }
 }

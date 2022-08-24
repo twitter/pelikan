@@ -9,6 +9,23 @@ pub struct BulkString {
     pub(crate) inner: Option<Box<[u8]>>,
 }
 
+impl TryInto<u64> for BulkString {
+
+    type Error = ParseError;
+
+
+    fn try_into(self) -> std::result::Result<u64, ParseError> {
+        if self.inner.is_none() {
+            return Err(ParseError::Invalid);
+        }
+
+        std::str::from_utf8(self.inner.as_ref().unwrap())
+            .map_err(|_| ParseError::Invalid)?
+            .parse::<u64>()
+            .map_err(|_| ParseError::Invalid)
+    }
+}
+
 impl Compose for BulkString {
     fn compose(&self, session: &mut session::Session) {
         if let Some(value) = &self.inner {
