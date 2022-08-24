@@ -79,11 +79,13 @@ mod tests {
             Request::Get(GetRequest::new(b"0"))
         );
 
-         assert_eq!(
-            parser.parse(b"get \"\0\r\n key\"\r\n").unwrap().into_inner(),
+        assert_eq!(
+            parser
+                .parse(b"get \"\0\r\n key\"\r\n")
+                .unwrap()
+                .into_inner(),
             Request::Get(GetRequest::new(b"\0\r\n key"))
         );
-
 
         assert_eq!(
             parser

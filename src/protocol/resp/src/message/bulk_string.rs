@@ -12,15 +12,13 @@ pub struct BulkString {
 impl BulkString {
     pub fn new(bytes: &[u8]) -> Self {
         Self {
-            inner: Some(bytes.to_owned().into_boxed_slice())
+            inner: Some(bytes.to_owned().into_boxed_slice()),
         }
     }
 }
 
 impl TryInto<u64> for BulkString {
-
     type Error = ParseError;
-
 
     fn try_into(self) -> std::result::Result<u64, ParseError> {
         if self.inner.is_none() {

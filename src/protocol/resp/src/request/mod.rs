@@ -35,7 +35,7 @@ impl Parse<Request> for RequestParser {
             return Err(ParseError::Incomplete);
         }
 
-        let (message, consumed) = if matches!(buffer[0], b'*' | b'+' | b'-' | b':' | b'$' ) {
+        let (message, consumed) = if matches!(buffer[0], b'*' | b'+' | b'-' | b':' | b'$') {
             self.message_parser.parse(buffer).map(|v| {
                 let c = v.consumed();
                 (v.into_inner(), c)
@@ -48,7 +48,9 @@ impl Parse<Request> for RequestParser {
             // build up the array of bulk strings
             loop {
                 if let Ok((r, string)) = string(remaining) {
-                    message.push(Message::BulkString(BulkString { inner: Some(string.to_owned().into_boxed_slice()) }));
+                    message.push(Message::BulkString(BulkString {
+                        inner: Some(string.to_owned().into_boxed_slice()),
+                    }));
                     remaining = r;
                 } else {
                     break;
@@ -65,13 +67,14 @@ impl Parse<Request> for RequestParser {
                 return Err(ParseError::Incomplete);
             }
 
-            let message = Message::Array(Array { inner: Some(message) });
+            let message = Message::Array(Array {
+                inner: Some(message),
+            });
 
             let consumed = (buffer.len() - remaining.len()) + 2;
 
             (message, consumed)
         };
-
 
         match &message {
             Message::Array(array) => {

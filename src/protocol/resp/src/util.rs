@@ -2,13 +2,13 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use protocol_common::ParseError;
 use crate::message::*;
 pub use nom::bytes::streaming::*;
 pub use nom::character::streaming::*;
 pub use nom::error::ErrorKind;
 pub use nom::{AsChar, Err, IResult, InputTakeAtPosition, Needed};
 pub use protocol_common::Compose;
+use protocol_common::ParseError;
 pub use std::io::Write;
 
 // consumes one or more literal spaces
@@ -36,7 +36,6 @@ pub fn string(input: &[u8]) -> IResult<&[u8], &[u8]> {
         None => Err(Err::Incomplete(Needed::Size(1))),
     }
 }
-
 
 pub fn take_bulk_string(array: &mut Vec<Message>) -> Result<Box<[u8]>, ParseError> {
     if let Message::BulkString(s) = array.remove(1) {
