@@ -6,7 +6,7 @@ use super::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Integer {
-    pub(crate) inner: u64,
+    pub(crate) inner: i64,
 }
 
 impl Compose for Integer {
@@ -21,7 +21,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], Integer> {
 
     let string = unsafe { std::str::from_utf8_unchecked(string).to_owned() };
     let value = string
-        .parse::<u64>()
+        .parse::<i64>()
         .map_err(|_| nom::Err::Failure((input, nom::error::ErrorKind::Tag)))?;
     Ok((input, Integer { inner: value }))
 }

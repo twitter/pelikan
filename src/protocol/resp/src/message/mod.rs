@@ -39,7 +39,7 @@ impl Message {
         })
     }
 
-    pub fn integer(value: u64) -> Self {
+    pub fn integer(value: i64) -> Self {
         Self::Integer(Integer { inner: value })
     }
 
