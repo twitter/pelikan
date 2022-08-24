@@ -40,34 +40,36 @@ impl Parse<Request> for RequestParser {
                 let c = v.consumed();
                 (v.into_inner(), c)
             })?
-        } else if let Some(command_end) = buffer.windows(2).position(|w| w == b"\r\n") {
-            let consumed = command_end + 2;
+        } else {
+            let mut remaining = buffer;
 
-            let mut request = &buffer[0..consumed];
-
-            let mut message = vec![];
+            let mut message = Vec::new();
 
             // build up the array of bulk strings
             loop {
-                if let Ok((r, string)) = string(request) {
+                if let Ok((r, string)) = string(remaining) {
                     message.push(Message::BulkString(BulkString { inner: Some(string.to_owned().into_boxed_slice()) }));
-                    request = r;
+                    remaining = r;
                 } else {
                     break;
                 }
 
-                if let Ok((r, _)) = space1(request) {
-                    request = r;
+                if let Ok((r, _)) = space1(remaining) {
+                    remaining = r;
                 } else {
                     break;
                 }
             }
 
+            if &remaining[0..2] != b"\r\n" {
+                return Err(ParseError::Incomplete);
+            }
+
             let message = Message::Array(Array { inner: Some(message) });
 
+            let consumed = (buffer.len() - remaining.len()) + 2;
+
             (message, consumed)
-        } else {
-            return Err(ParseError::Incomplete);
         };
 
 
