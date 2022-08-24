@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use protocol_common::ParseError;
+use crate::message::*;
 pub use nom::bytes::streaming::*;
 pub use nom::character::streaming::*;
 pub use nom::error::ErrorKind;
@@ -20,14 +22,6 @@ pub fn space1(input: &[u8]) -> IResult<&[u8], &[u8]> {
     )
 }
 
-// consumes zero or more literal spaces
-pub fn space0(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    input.split_at_position(|item| {
-        let c = item.as_char();
-        c != ' '
-    })
-}
-
 // parses a string that is binary safe if wrapped in quotes, otherwise it must
 // not contain a space, carriage return, or newline
 pub fn string(input: &[u8]) -> IResult<&[u8], &[u8]> {
@@ -43,15 +37,25 @@ pub fn string(input: &[u8]) -> IResult<&[u8], &[u8]> {
     }
 }
 
-pub fn parse_u64(input: &[u8]) -> IResult<&[u8], u64> {
-    let (input, value) = digit1(input)?;
 
-    // SAFETY: we only matched digits [0-9] to produce the byte
-    // slice being transformed to a str here
-    let value = unsafe { std::str::from_utf8_unchecked(value) };
+pub fn take_bulk_string(array: &mut Vec<Message>) -> Result<Box<[u8]>, ParseError> {
+    if let Message::BulkString(s) = array.remove(1) {
+        if s.inner.is_none() {
+            return Err(ParseError::Invalid);
+        }
 
-    let value = value
+        let s = s.inner.unwrap();
+
+        Ok(s)
+    } else {
+        Err(ParseError::Invalid)
+    }
+}
+
+pub fn take_bulk_string_as_u64(array: &mut Vec<Message>) -> Result<u64, ParseError> {
+    let s = take_bulk_string(array)?;
+    std::str::from_utf8(&s)
+        .map_err(|_| ParseError::Invalid)?
         .parse::<u64>()
-        .map_err(|_| nom::Err::Failure((input, nom::error::ErrorKind::Tag)))?;
-    Ok((input, value))
+        .map_err(|_| ParseError::Invalid)
 }

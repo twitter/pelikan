@@ -165,33 +165,3 @@ pub enum ExpireTime {
     UnixMilliseconds(u64),
     KeepTtl,
 }
-
-pub(crate) fn command_bytes(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    alphanumeric1(input)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use nom::Needed;
-
-    #[test]
-    fn parse_command_bytes() {
-        // as long as we have enough bytes in the buffer, we can parse the
-        // entire command
-        assert_eq!(
-            command_bytes(b"get key\r\n"),
-            Ok((&b" key\r\n"[..], &b"get"[..]))
-        );
-        assert_eq!(command_bytes(b"get "), Ok((&b" "[..], &b"get"[..])));
-        assert_eq!(command_bytes(b"get "), Ok((&b" "[..], &b"get"[..])));
-        assert_eq!(command_bytes(b"quit\r\n"), Ok((&b"\r\n"[..], &b"quit"[..])));
-
-        // however, if we don't have a non-alphanumeric character, we don't know
-        // that the command token is complete
-        assert_eq!(
-            command_bytes(b"get"),
-            Err(nom::Err::Incomplete(Needed::Size(1)))
-        );
-    }
-}

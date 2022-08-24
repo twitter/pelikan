@@ -9,6 +9,14 @@ pub struct BulkString {
     pub(crate) inner: Option<Box<[u8]>>,
 }
 
+impl BulkString {
+    pub fn new(bytes: &[u8]) -> Self {
+        Self {
+            inner: Some(bytes.to_owned().into_boxed_slice())
+        }
+    }
+}
+
 impl TryInto<u64> for BulkString {
 
     type Error = ParseError;
