@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use config::*;
 use io_uring::{opcode, squeue, types, IoUring};
 use net::TcpStream;
 use protocol_common::*;
