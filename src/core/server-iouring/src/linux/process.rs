@@ -43,7 +43,7 @@ where
     Response: 'static + Compose + Send,
     Storage: 'static + Execute<Request, Response> + EntryStore + Send,
 {
-    pub fn new<T: AdminConfig + ServerConfig + ListenerConfig + TlsConfig + WorkerConfig>(
+    pub fn new<T: AdminConfig + ServerConfig + TlsConfig + WorkerConfig>(
         config: &T,
         log_drain: Box<dyn Drain>,
         parser: Parser,

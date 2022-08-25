@@ -50,8 +50,8 @@ where
     Request: Send,
     Response: Compose + Send,
 {
-    pub fn new<T: ListenerConfig + TlsConfig>(config: &T, parser: Parser) -> Result<Self> {
-        let config = config.listener();
+    pub fn new<T: ServerConfig + TlsConfig>(config: &T, parser: Parser) -> Result<Self> {
+        let config = config.server();
 
         let addr = config.socket_addr().map_err(|e| {
             error!("{}", e);
