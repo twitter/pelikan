@@ -2,12 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::sync::Arc;
 use crate::message::*;
 use crate::*;
 use protocol_common::Parse;
 use protocol_common::{ParseError, ParseOk};
 use session::Session;
-use std::rc::Rc;
 
 mod get;
 mod set;
@@ -50,7 +50,7 @@ impl Parse<Request> for RequestParser {
             loop {
                 if let Ok((r, string)) = string(remaining) {
                     message.push(Message::BulkString(BulkString {
-                        inner: Some(Rc::new(string.to_owned().into_boxed_slice())),
+                        inner: Some(Arc::new(string.to_owned().into_boxed_slice())),
                     }));
                     remaining = r;
                 } else {

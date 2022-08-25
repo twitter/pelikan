@@ -2,13 +2,13 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::sync::Arc;
 use super::*;
-use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Eq)]
 #[allow(clippy::redundant_allocation)]
 pub struct GetRequest {
-    key: Rc<Box<[u8]>>,
+    key: Arc<Box<[u8]>>,
 }
 
 impl TryFrom<Message> for GetRequest {
@@ -52,7 +52,7 @@ impl TryFrom<Message> for GetRequest {
 impl GetRequest {
     pub fn new(key: &[u8]) -> Self {
         Self {
-            key: Rc::new(key.to_owned().into_boxed_slice()),
+            key: Arc::new(key.to_owned().into_boxed_slice()),
         }
     }
 

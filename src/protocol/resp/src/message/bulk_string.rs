@@ -2,25 +2,25 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::sync::Arc;
 use super::*;
-use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Eq)]
 #[allow(clippy::redundant_allocation)]
 pub struct BulkString {
-    pub(crate) inner: Option<Rc<Box<[u8]>>>,
+    pub(crate) inner: Option<Arc<Box<[u8]>>>,
 }
 
 impl BulkString {
     pub fn new(bytes: &[u8]) -> Self {
         Self {
-            inner: Some(Rc::new(bytes.to_owned().into_boxed_slice())),
+            inner: Some(Arc::new(bytes.to_owned().into_boxed_slice())),
         }
     }
 }
 
-impl From<Rc<Box<[u8]>>> for BulkString {
-    fn from(other: Rc<Box<[u8]>>) -> Self {
+impl From<Arc<Box<[u8]>>> for BulkString {
+    fn from(other: Arc<Box<[u8]>>) -> Self {
         Self { inner: Some(other) }
     }
 }
@@ -75,7 +75,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], BulkString> {
             Ok((
                 input,
                 BulkString {
-                    inner: Some(Rc::new(value.to_vec().into_boxed_slice())),
+                    inner: Some(Arc::new(value.to_vec().into_boxed_slice())),
                 },
             ))
         }

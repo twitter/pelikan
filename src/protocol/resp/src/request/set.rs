@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::sync::Arc;
 use super::*;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -14,8 +15,8 @@ pub enum SetMode {
 #[derive(Debug, PartialEq, Eq)]
 #[allow(clippy::redundant_allocation)]
 pub struct SetRequest {
-    key: Rc<Box<[u8]>>,
-    value: Rc<Box<[u8]>>,
+    key: Arc<Box<[u8]>>,
+    value: Arc<Box<[u8]>>,
     expire_time: Option<ExpireTime>,
     mode: SetMode,
     get_old: bool,
