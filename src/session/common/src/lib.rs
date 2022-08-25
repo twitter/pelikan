@@ -313,7 +313,7 @@ where
         }
     }
 
-    /// Sends the frame to the underlying session and attempts to flush the
+    /// Sends the frame to the underlying session but does *not* flush the
     /// session buffer. This function also adds a timestamp to a queue so that
     /// response latencies can be determined. The latency will include any time
     /// that it takes to compose the message onto the session buffer, time to
@@ -324,7 +324,6 @@ where
         let now = Instant::now();
         let size = tx.compose(&mut self.session);
         self.pending.push_back((now, tx));
-        self.session.flush()?;
         Ok(size)
     }
 
@@ -518,15 +517,37 @@ where
             // we have bytes in our response, we need to add it on the
             // outstanding response queue
             self.outstanding.push_back((timestamp, size));
-            if let Err(e) = self.flush() {
-                if e.kind() != ErrorKind::WouldBlock {
-                    SERVER_SESSION_SEND_EX.increment();
-                }
-                return Err(e);
-            }
         }
 
         Ok(size)
+    }
+
+    pub fn advance_write(&mut self, amt: usize) {
+        if amt == 0 {
+            return;
+        }
+
+        let now = Instant::now();
+
+        let mut amt = amt;
+
+        while amt > 0 {
+            if let Some(mut front) = self.outstanding.pop_front() {
+                if front.1 > amt {
+                    front.1 -= amt;
+                    self.outstanding.push_front(front);
+                    break;
+                } else {
+                    amt -= front.1;
+                    if let Some(ts) = front.0 {
+                        let latency = now - ts;
+                        SERVER_RESPONSE_LATENCY.increment(now, latency.as_nanos(), 1);
+                    }
+                }
+            } else {
+                break;
+            }
+        }
     }
 
     /// Attempts to flush all bytes currently in the write buffer to the
@@ -537,31 +558,9 @@ where
         self.session.flush()?;
         let final_pending = self.session.write_pending();
 
-        let mut flushed = current_pending - final_pending;
+        let flushed = current_pending - final_pending;
 
-        if flushed == 0 {
-            return Ok(());
-        }
-
-        let now = Instant::now();
-
-        while flushed > 0 {
-            if let Some(mut front) = self.outstanding.pop_front() {
-                if front.1 > flushed {
-                    front.1 -= flushed;
-                    self.outstanding.push_front(front);
-                    break;
-                } else {
-                    flushed -= front.1;
-                    if let Some(ts) = front.0 {
-                        let latency = now - ts;
-                        SERVER_RESPONSE_LATENCY.increment(now, latency.as_nanos(), 1);
-                    }
-                }
-            } else {
-                break;
-            }
-        }
+        self.advance_write(flushed);
 
         Ok(())
     }
