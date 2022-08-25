@@ -49,9 +49,16 @@ where
     Request: Send,
     Response: Compose + Send,
 {
-    pub fn new(parser: Parser) -> Result<Self> {
+    pub fn new<T: ServerConfig + TlsConfig>(config: &T, parser: Parser) -> Result<Self> {
+        let config = config.listener();
+
+        let addr = config.socket_addr().map_err(|e| {
+            error!("{}", e);
+            std::io::Error::new(std::io::ErrorKind::Other, "Bad listen address")
+        })?;
+
         let ring = IoUring::builder().build(8192)?;
-        let listener = TcpListener::bind("127.0.0.1:12321")?;
+        let listener = TcpListener::bind(addr)?;
         let sessions = Slab::<Session<Parser, Request, Response>>::new();
         let backlog = VecDeque::new();
         let waker = Arc::new(Box::new(EventfdWaker::new()?) as Box<dyn Waker>);

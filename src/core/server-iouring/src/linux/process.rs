@@ -50,7 +50,7 @@ where
         storage: Storage,
     ) -> Result<Self> {
         let admin = AdminBuilder::new(config)?;
-        let listener = ListenerBuilder::new(parser.clone())?;
+        let listener = ListenerBuilder::new(config, parser.clone())?;
         let worker = WorkerBuilder::new(parser, storage)?;
 
         Ok(Self {
