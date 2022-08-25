@@ -12,12 +12,35 @@ pub enum SetMode {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+#[allow(clippy::redundant_allocation)]
 pub struct SetRequest {
-    key: Box<[u8]>,
-    value: Box<[u8]>,
+    key: Rc<Box<[u8]>>,
+    value: Rc<Box<[u8]>>,
     expire_time: Option<ExpireTime>,
     mode: SetMode,
     get_old: bool,
+}
+
+impl SetRequest {
+    pub fn key(&self) -> &[u8] {
+        &self.key
+    }
+
+    pub fn value(&self) -> &[u8] {
+        &self.value
+    }
+
+    pub fn expire_time(&self) -> Option<ExpireTime> {
+        self.expire_time
+    }
+
+    pub fn mode(&self) -> SetMode {
+        self.mode
+    }
+
+    pub fn get_old(&self) -> bool {
+        self.get_old
+    }
 }
 
 impl TryFrom<Message> for SetRequest {
@@ -55,7 +78,7 @@ impl TryFrom<Message> for SetRequest {
                     }
                     let field = field.inner.as_ref().unwrap();
 
-                    match field.as_ref() {
+                    match field.as_ref().as_ref() {
                         b"EX" => {
                             if expire_time.is_some() || array.len() < i + 2 {
                                 return Err(ParseError::Invalid);
@@ -139,93 +162,59 @@ impl TryFrom<Message> for SetRequest {
     }
 }
 
-impl SetRequest {
-    pub fn key(&self) -> &[u8] {
-        &self.key
-    }
+impl From<&SetRequest> for Message {
+    fn from(other: &SetRequest) -> Message {
+        let mut v = vec![
+            Message::bulk_string(b"SET"),
+            Message::BulkString(BulkString::from(other.key.clone())),
+            Message::BulkString(BulkString::from(other.value.clone())),
+        ];
 
-    pub fn value(&self) -> &[u8] {
-        &self.value
-    }
+        match other.expire_time {
+            Some(ExpireTime::Seconds(s)) => {
+                v.push(Message::bulk_string(b"EX"));
+                v.push(Message::bulk_string(format!("{}", s).as_bytes()));
+            }
+            Some(ExpireTime::Milliseconds(ms)) => {
+                v.push(Message::bulk_string(b"PX"));
+                v.push(Message::bulk_string(format!("{}", ms).as_bytes()));
+            }
+            Some(ExpireTime::UnixSeconds(s)) => {
+                v.push(Message::bulk_string(b"EXAT"));
+                v.push(Message::bulk_string(format!("{}", s).as_bytes()));
+            }
+            Some(ExpireTime::UnixMilliseconds(ms)) => {
+                v.push(Message::bulk_string(b"PXAT"));
+                v.push(Message::bulk_string(format!("{}", ms).as_bytes()));
+            }
+            Some(ExpireTime::KeepTtl) => {
+                v.push(Message::bulk_string(b"KEEPTTL"));
+            }
+            None => {}
+        }
 
-    pub fn expire_time(&self) -> Option<ExpireTime> {
-        self.expire_time
-    }
+        match other.mode {
+            SetMode::Add => {
+                v.push(Message::bulk_string(b"NX"));
+            }
+            SetMode::Replace => {
+                v.push(Message::bulk_string(b"XX"));
+            }
+            SetMode::Set => {}
+        }
 
-    pub fn mode(&self) -> SetMode {
-        self.mode
-    }
+        if other.get_old {
+            v.push(Message::bulk_string(b"GET"));
+        }
 
-    pub fn get_old(&self) -> bool {
-        self.get_old
+        Message::Array(Array { inner: Some(v) })
     }
 }
 
 impl Compose for SetRequest {
     fn compose(&self, session: &mut session::Session) {
-        let mut alen = 3;
-        match self.expire_time {
-            None => {}
-            Some(ExpireTime::KeepTtl) => {
-                alen += 1;
-            }
-            Some(_) => {
-                alen += 2;
-            }
-        }
-        if self.mode != SetMode::Set {
-            alen += 1;
-        }
-        if self.get_old {
-            alen += 1;
-        }
-
-        let _ = session
-            .write_all(format!("*{}\r\n$3\r\nSET\r\n${}\r\n", alen, self.key.len()).as_bytes());
-        let _ = session.write_all(&self.key);
-        let _ = session.write_all(b"\r\n");
-        let _ = session.write_all(format!("${}\r\n", self.value.len()).as_bytes());
-        let _ = session.write_all(&self.value);
-        let _ = session.write_all(b"\r\n");
-        if let Some(expire_time) = self.expire_time {
-            match expire_time {
-                ExpireTime::Seconds(s) => {
-                    let s = format!("{}", s);
-                    let _ = session
-                        .write_all(format!("$2\r\nEX\r\n${}\r\n{}\r\n", s.len(), s).as_bytes());
-                }
-                ExpireTime::Milliseconds(ms) => {
-                    let ms = format!("{}", ms);
-                    let _ = session
-                        .write_all(format!("$2\r\nPX\r\n${}\r\n{}\r\n", ms.len(), ms).as_bytes());
-                }
-                ExpireTime::UnixSeconds(s) => {
-                    let s = format!("{}", s);
-                    let _ = session
-                        .write_all(format!("$4\r\nEXAT\r\n${}\r\n{}\r\n", s.len(), s).as_bytes());
-                }
-                ExpireTime::UnixMilliseconds(ms) => {
-                    let ms = format!("{}", ms);
-                    let _ = session
-                        .write_all(format!("$4\r\nPXAT\r\n${}\r\n{}\r\n", ms.len(), ms).as_bytes());
-                }
-                ExpireTime::KeepTtl => {
-                    let _ = session.write_all(b"$7\r\nKEEPTTL\r\n");
-                }
-            }
-        }
-        match self.mode {
-            SetMode::Add => {
-                let _ = session.write_all(b"$2\r\nNX\r\n");
-            }
-            SetMode::Replace => {
-                let _ = session.write_all(b"$2\r\nXX\r\n");
-            }
-            SetMode::Set => {}
-        }
-        if self.get_old {
-            let _ = session.write_all(b"$3\r\nGET\r\n");
-        }
+        let message = Message::from(self);
+        message.compose(session)
     }
 }
 

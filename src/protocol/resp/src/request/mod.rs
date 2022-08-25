@@ -7,6 +7,7 @@ use crate::*;
 use protocol_common::Parse;
 use protocol_common::{ParseError, ParseOk};
 use session::Session;
+use std::rc::Rc;
 
 mod get;
 mod set;
@@ -49,7 +50,7 @@ impl Parse<Request> for RequestParser {
             loop {
                 if let Ok((r, string)) = string(remaining) {
                     message.push(Message::BulkString(BulkString {
-                        inner: Some(string.to_owned().into_boxed_slice()),
+                        inner: Some(Rc::new(string.to_owned().into_boxed_slice())),
                     }));
                     remaining = r;
                 } else {
@@ -90,11 +91,11 @@ impl Parse<Request> for RequestParser {
 
                 match &array[0] {
                     Message::BulkString(c) => {
-                        match c.inner.as_ref().map(|v| Command::try_from(v.as_ref())) {
-                            Some(Ok(Command::Get)) => {
+                        match c.inner.as_ref().map(|v| v.as_ref().as_ref()) {
+                            Some(b"get") | Some(b"GET") => {
                                 GetRequest::try_from(message).map(Request::from)
                             }
-                            Some(Ok(Command::Set)) => {
+                            Some(b"set") | Some(b"SET") => {
                                 SetRequest::try_from(message).map(Request::from)
                             }
                             _ => Err(ParseError::Invalid),
@@ -148,7 +149,7 @@ pub enum Command {
     Set,
 }
 
-impl<'a> TryFrom<&'a [u8]> for Command {
+impl TryFrom<&[u8]> for Command {
     type Error = ();
 
     fn try_from(other: &[u8]) -> Result<Self, ()> {

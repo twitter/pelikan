@@ -10,6 +10,7 @@ pub use nom::{AsChar, Err, IResult, InputTakeAtPosition, Needed};
 pub use protocol_common::Compose;
 use protocol_common::ParseError;
 pub use std::io::Write;
+use std::rc::Rc;
 
 // consumes one or more literal spaces
 pub fn space1(input: &[u8]) -> IResult<&[u8], &[u8]> {
@@ -37,7 +38,8 @@ pub fn string(input: &[u8]) -> IResult<&[u8], &[u8]> {
     }
 }
 
-pub fn take_bulk_string(array: &mut Vec<Message>) -> Result<Box<[u8]>, ParseError> {
+#[allow(clippy::redundant_allocation)]
+pub fn take_bulk_string(array: &mut Vec<Message>) -> Result<Rc<Box<[u8]>>, ParseError> {
     if let Message::BulkString(s) = array.remove(1) {
         if s.inner.is_none() {
             return Err(ParseError::Invalid);

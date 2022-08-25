@@ -3,10 +3,12 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use super::*;
+use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Eq)]
+#[allow(clippy::redundant_allocation)]
 pub struct GetRequest {
-    key: Box<[u8]>,
+    key: Rc<Box<[u8]>>,
 }
 
 impl TryFrom<Message> for GetRequest {
@@ -50,7 +52,7 @@ impl TryFrom<Message> for GetRequest {
 impl GetRequest {
     pub fn new(key: &[u8]) -> Self {
         Self {
-            key: key.to_owned().into_boxed_slice(),
+            key: Rc::new(key.to_owned().into_boxed_slice()),
         }
     }
 
@@ -59,11 +61,21 @@ impl GetRequest {
     }
 }
 
+impl From<&GetRequest> for Message {
+    fn from(other: &GetRequest) -> Message {
+        Message::Array(Array {
+            inner: Some(vec![
+                Message::BulkString(BulkString::new(b"GET")),
+                Message::BulkString(BulkString::from(other.key.clone())),
+            ]),
+        })
+    }
+}
+
 impl Compose for GetRequest {
     fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(format!("*2\r\n$3\r\nGET\r\n${}\r\n", self.key.len()).as_bytes());
-        let _ = session.write_all(&self.key);
-        let _ = session.write_all(b"\r\n");
+        let message = Message::from(self);
+        message.compose(session)
     }
 }
 

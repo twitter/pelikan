@@ -48,9 +48,7 @@ impl Message {
     }
 
     pub fn bulk_string(value: &[u8]) -> Self {
-        Self::BulkString(BulkString {
-            inner: Some(value.to_vec().into_boxed_slice()),
-        })
+        Self::BulkString(BulkString::new(value))
     }
 }
 
