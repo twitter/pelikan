@@ -2,12 +2,12 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::sync::Arc;
 use crate::message::*;
 use crate::*;
 use protocol_common::Parse;
 use protocol_common::{ParseError, ParseOk};
 use session::Session;
+use std::sync::Arc;
 
 mod get;
 mod set;
@@ -90,17 +90,15 @@ impl Parse<Request> for RequestParser {
                 }
 
                 match &array[0] {
-                    Message::BulkString(c) => {
-                        match c.inner.as_ref().map(|v| v.as_ref().as_ref()) {
-                            Some(b"get") | Some(b"GET") => {
-                                GetRequest::try_from(message).map(Request::from)
-                            }
-                            Some(b"set") | Some(b"SET") => {
-                                SetRequest::try_from(message).map(Request::from)
-                            }
-                            _ => Err(ParseError::Invalid),
+                    Message::BulkString(c) => match c.inner.as_ref().map(|v| v.as_ref().as_ref()) {
+                        Some(b"get") | Some(b"GET") => {
+                            GetRequest::try_from(message).map(Request::from)
                         }
-                    }
+                        Some(b"set") | Some(b"SET") => {
+                            SetRequest::try_from(message).map(Request::from)
+                        }
+                        _ => Err(ParseError::Invalid),
+                    },
                     _ => {
                         // all valid commands are encoded as a bulk string
                         Err(ParseError::Invalid)

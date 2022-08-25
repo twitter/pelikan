@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::sync::Arc;
 use super::*;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq)]
 #[allow(clippy::redundant_allocation)]

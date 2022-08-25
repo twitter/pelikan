@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::sync::Arc;
 use crate::message::*;
 pub use nom::bytes::streaming::*;
 pub use nom::character::streaming::*;
@@ -11,6 +10,7 @@ pub use nom::{AsChar, Err, IResult, InputTakeAtPosition, Needed};
 pub use protocol_common::Compose;
 use protocol_common::ParseError;
 pub use std::io::Write;
+use std::sync::Arc;
 
 // consumes one or more literal spaces
 pub fn space1(input: &[u8]) -> IResult<&[u8], &[u8]> {
