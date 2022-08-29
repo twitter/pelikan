@@ -167,18 +167,18 @@ impl Backend {
             self.zk_endpoint.as_ref(),
         ) {
             let mut ret = Vec::new();
-            if let Ok(server) = ZooKeeper::connect(server, Duration::from_secs(15), ExitWatcher) {
-                if let Ok(children) = server.get_children(path, true) {
+            if let Ok(server) = ZooKeeper::connect(&server, Duration::from_secs(15), ExitWatcher) {
+                if let Ok(children) = server.get_children(&path, true) {
                     for child in children {
                         let data = server
                             .get_data(&format!("{}/{}", path, child), true)
                             .map(|v| {
                                 std::str::from_utf8(&v.0)
                                     .map_err(|_| {
-                                        std::io::Error::new(
+                                        return std::io::Error::new(
                                             std::io::ErrorKind::Other,
                                             "bad data in zknode",
-                                        )
+                                        );
                                     })
                                     .unwrap()
                                     .to_owned()

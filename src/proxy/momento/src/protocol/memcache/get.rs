@@ -1,20 +1,19 @@
-// Copyright 2022 Twitter, Inc.
-// Licensed under the Apache License, Version 2.0
-// http://www.apache.org/licenses/LICENSE-2.0
-
+use crate::klog::klog_get;
 use crate::*;
 
-pub(crate) async fn get(
+pub use protocol_memcache::{Request, RequestParser};
+
+pub async fn get(
     client: &mut SimpleCacheClient,
     cache_name: &str,
     socket: &mut tokio::net::TcpStream,
-    request: Get,
+    keys: &[Box<[u8]>],
 ) -> Result<(), Error> {
     GET.increment();
 
     // check if any of the keys are invalid before
     // sending the requests to the backend
-    for key in request.keys() {
+    for key in keys.iter() {
         if std::str::from_utf8(key).is_err() {
             GET_EX.increment();
 
@@ -26,7 +25,7 @@ pub(crate) async fn get(
 
     let mut response_buf = Vec::new();
 
-    for key in request.keys() {
+    for key in keys.iter() {
         BACKEND_REQUEST.increment();
         GET_KEY.increment();
 
@@ -106,12 +105,4 @@ pub(crate) async fn get(
         return Err(e);
     }
     Ok(())
-}
-
-fn klog_get(key: &str, response_len: usize) {
-    if response_len == 0 {
-        klog!("\"get {}\" 0 {}", key, response_len);
-    } else {
-        klog!("\"get {}\" 4 {}", key, response_len);
-    }
 }
