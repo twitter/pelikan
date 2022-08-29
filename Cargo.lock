@@ -1169,6 +1169,7 @@ dependencies = [
  "momento",
  "protocol-admin",
  "protocol-memcache",
+ "protocol-resp",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
  "storage-types",
  "tokio",
@@ -1578,6 +1579,15 @@ dependencies = [
  "protocol-common",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
  "storage-types",
+]
+
+[[package]]
+name = "protocol-resp"
+version = "0.1.0"
+dependencies = [
+ "nom 5.1.2",
+ "protocol-common",
+ "session-common",
 ]
 
 [[package]]

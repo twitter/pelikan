@@ -16,6 +16,7 @@ members = [
     "src/protocol/common",
     "src/protocol/memcache",
     "src/protocol/ping",
+    "src/protocol/resp",
     "src/protocol/thrift",
     "src/proxy/momento",
     "src/proxy/ping",

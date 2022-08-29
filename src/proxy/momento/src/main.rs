@@ -8,6 +8,7 @@ extern crate logger;
 use backtrace::Backtrace;
 use buffer::Buffer;
 use clap::{App, Arg};
+use config::momento_proxy::Protocol;
 use config::*;
 use core::num::NonZeroU64;
 use core::num::NonZeroUsize;
@@ -20,7 +21,6 @@ use momento::response::cache_set_response::*;
 use momento::response::error::*;
 use momento::simple_cache_client::*;
 use protocol_admin::*;
-use protocol_memcache::*;
 use rustcommon_metrics::*;
 use std::borrow::{Borrow, BorrowMut};
 use std::io::{Error, ErrorKind};
@@ -36,9 +36,10 @@ const S: u64 = 1_000_000_000; // one second in nanoseconds
 const US: u64 = 1_000; // one microsecond in nanoseconds
 
 mod admin;
-mod commands;
 mod frontend;
+mod klog;
 mod listener;
+mod protocol;
 
 // NOTES:
 //
@@ -75,8 +76,6 @@ pub static PERCENTILES: &[(&str, f64)] = &[
     ("p999", 99.9),
     ("p9999", 99.99),
 ];
-
-// define metrics that are part of the proxy
 
 counter!(ADMIN_REQUEST_PARSE);
 counter!(ADMIN_RESPONSE_COMPOSE);
@@ -335,7 +334,13 @@ async fn spawn(
             );
             let tcp_listener =
                 TcpListener::from_std(tcp_listener).expect("could not convert to tokio listener");
-            listener::listener(tcp_listener, client_builder, cache.cache_name()).await;
+            listener::listener(
+                tcp_listener,
+                client_builder,
+                cache.cache_name(),
+                cache.protocol(),
+            )
+            .await;
         });
     }
 
