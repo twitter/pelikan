@@ -62,7 +62,7 @@ where
     }
 
     pub fn version(mut self, version: &str) -> Self {
-        // self.admin.version(version);
+        self.admin.version(version);
         self
     }
 

@@ -16,7 +16,7 @@ mod listener;
 mod process;
 mod session;
 // mod waker;
-mod worker;
+mod workers;
 
 use queues::Queues;
 use waker::{EventfdWaker, Waker};
@@ -25,7 +25,7 @@ pub use listener::{Listener, ListenerBuilder};
 pub use process::*;
 pub use session::{Session, State};
 // use waker::Waker;
-pub use worker::{Worker, WorkerBuilder};
+pub use workers::{Workers, WorkersBuilder};
 
 // pub struct Queue<T, U> {
 //     tx: Sender<T>,

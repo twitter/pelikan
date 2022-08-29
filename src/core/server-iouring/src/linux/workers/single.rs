@@ -33,7 +33,7 @@ counter!(WORKER_BACKLOG_POP);
 // counter!(LISTENER_SESSION_DROP);
 // counter!(LISTENER_SESSION_SHUTDOWN);
 
-pub struct WorkersBuilder<Parser, Request, Response, Storage>
+pub struct SingleWorkerBuilder<Parser, Request, Response, Storage>
 where
     Parser: Parse<Request> + Send,
     Request: Send,
@@ -52,7 +52,7 @@ where
     _storage: PhantomData<Storage>,
 }
 
-impl<Parser, Request, Response, Storage> WorkersBuilder<Parser, Request, Response, Storage>
+impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Response, Storage>
 where
     Parser: Parse<Request> + Send,
     Request: Send,
@@ -85,8 +85,8 @@ where
             Session<Parser, Request, Response>,
             Session<Parser, Request, Response>,
         >,
-    ) -> Worker<Parser, Request, Response, Storage> {
-        Worker {
+    ) -> SingleWorker<Parser, Request, Response, Storage> {
+        SingleWorker {
             backlog: self.backlog,
             parser: self.parser,
             ring: self.ring,
@@ -104,7 +104,7 @@ where
     }
 }
 
-pub struct Worker<Parser, Request, Response, Storage>
+pub struct SingleWorker<Parser, Request, Response, Storage>
 where
     Parser: Parse<Request> + Send,
     Request: Send,
@@ -122,7 +122,7 @@ where
     _response: PhantomData<Response>,
 }
 
-impl<Parser, Request, Response, Storage> Worker<Parser, Request, Response, Storage>
+impl<Parser, Request, Response, Storage> SingleWorker<Parser, Request, Response, Storage>
 where
     Parser: Parse<Request> + Send,
     Request: Send,
