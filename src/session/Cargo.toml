@@ -1,13 +1,13 @@
 [package]
-name = "session-common"
+name = "session"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-buffer = { path = "../../buffer" }
-net = { path = "../../net" }
-protocol-common = { path = "../../protocol/common" }
+buffer = { path = "../buffer" }
+net = { path = "../net" }
+protocol-common = { path = "../protocol/common" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon", features = ["heatmap"] }
 rustcommon-time = { git = "https://github.com/twitter/rustcommon" }

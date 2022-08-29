@@ -18,7 +18,7 @@ use entrystore::EntryStore;
 use logger::Drain;
 use protocol_common::{Compose, Execute, Parse};
 use queues::Queues;
-use session_common::{Buf, ServerSession, Session};
+use session::{Buf, ServerSession, Session};
 use slab::Slab;
 use std::io::{Error, ErrorKind, Result};
 use std::sync::Arc;

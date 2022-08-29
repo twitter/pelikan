@@ -4,7 +4,7 @@
 
 use super::map_result;
 use crate::*;
-use session_common::ClientSession;
+use session::ClientSession;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 

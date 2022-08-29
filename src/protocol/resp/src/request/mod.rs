@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use session_common::BufMut;
+use protocol_common::BufMut;
 use crate::message::*;
 use crate::*;
 use protocol_common::Parse;

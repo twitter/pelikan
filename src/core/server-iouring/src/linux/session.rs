@@ -1,6 +1,6 @@
 use buffer::*;
 use protocol_common::*;
-use session_common::ServerSession;
+use session::ServerSession;
 
 use std::io::Result;
 use std::os::unix::io::AsRawFd;

@@ -22,6 +22,6 @@ net = { path = "../../net" }
 protocol-common = { path = "../../protocol/common" }
 queues = { path = "../../queues" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
-session-common = { path = "../../session/common" }
+session = { path = "../../session" }
 slab = "0.4.2"
 waker = { path = "../waker" }
