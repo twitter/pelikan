@@ -35,7 +35,6 @@ harness = false
 
 [features]
 debug = ["entrystore/debug"]
-io-uring = ["server-iouring"]
 
 [dependencies]
 backtrace = "0.3.56"
@@ -47,7 +46,6 @@ logger = { path = "../../logger" }
 protocol-memcache = { path = "../../protocol/memcache" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 server = { path = "../../core/server" }
-server-iouring = { path = "../../core/server-iouring", optional = true }
 
 [dev-dependencies]
 criterion = "0.3"

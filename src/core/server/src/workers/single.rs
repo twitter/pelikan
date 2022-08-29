@@ -6,6 +6,66 @@ use super::map_result;
 use crate::*;
 use std::collections::VecDeque;
 
+pub struct SingleWorkerBuilder<Parser, Request, Response, Storage> {
+    nevent: usize,
+    parser: Parser,
+    pending: VecDeque<Token>,
+    poll: Poll,
+    sessions: Slab<ServerSession<Parser, Response, Request>>,
+    storage: Storage,
+    timeout: Duration,
+    waker: Arc<Box<dyn waker::Waker>>,
+}
+
+impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Response, Storage> {
+    pub fn new<T: WorkerConfig>(config: &T, parser: Parser, storage: Storage) -> Result<Self> {
+        let config = config.worker();
+
+        let poll = Poll::new()?;
+
+        let waker =
+            Arc::new(Box::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap())
+                as Box<dyn waker::Waker>);
+
+        let nevent = config.nevent();
+        let timeout = Duration::from_millis(config.timeout() as u64);
+
+        Ok(Self {
+            nevent,
+            parser,
+            pending: VecDeque::new(),
+            poll,
+            sessions: Slab::new(),
+            storage,
+            timeout,
+            waker,
+        })
+    }
+
+    pub fn waker(&self) -> Arc<Box<dyn waker::Waker>> {
+        self.waker.clone()
+    }
+
+    pub fn build(
+        self,
+        session_queue: Queues<Session, Session>,
+        signal_queue: Queues<(), Signal>,
+    ) -> SingleWorker<Parser, Request, Response, Storage> {
+        SingleWorker {
+            nevent: self.nevent,
+            parser: self.parser,
+            pending: self.pending,
+            poll: self.poll,
+            session_queue,
+            sessions: self.sessions,
+            signal_queue,
+            storage: self.storage,
+            timeout: self.timeout,
+            waker: self.waker,
+        }
+    }
+}
+
 pub struct SingleWorker<Parser, Request, Response, Storage> {
     nevent: usize,
     parser: Parser,
@@ -17,13 +77,6 @@ pub struct SingleWorker<Parser, Request, Response, Storage> {
     storage: Storage,
     timeout: Duration,
     waker: Arc<Box<dyn waker::Waker>>,
-}
-
-fn map_err(e: std::io::Error) -> Result<()> {
-    match e.kind() {
-        ErrorKind::WouldBlock => Ok(()),
-        _ => Err(e),
-    }
 }
 
 impl<Parser, Request, Response, Storage> SingleWorker<Parser, Request, Response, Storage>
@@ -216,62 +269,4 @@ where
     }
 }
 
-pub struct SingleWorkerBuilder<Parser, Request, Response, Storage> {
-    nevent: usize,
-    parser: Parser,
-    pending: VecDeque<Token>,
-    poll: Poll,
-    sessions: Slab<ServerSession<Parser, Response, Request>>,
-    storage: Storage,
-    timeout: Duration,
-    waker: Arc<Box<dyn waker::Waker>>,
-}
 
-impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Response, Storage> {
-    pub fn new<T: WorkerConfig>(config: &T, parser: Parser, storage: Storage) -> Result<Self> {
-        let config = config.worker();
-
-        let poll = Poll::new()?;
-
-        let waker =
-            Arc::new(Box::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap())
-                as Box<dyn waker::Waker>);
-
-        let nevent = config.nevent();
-        let timeout = Duration::from_millis(config.timeout() as u64);
-
-        Ok(Self {
-            nevent,
-            parser,
-            pending: VecDeque::new(),
-            poll,
-            sessions: Slab::new(),
-            storage,
-            timeout,
-            waker,
-        })
-    }
-
-    pub fn waker(&self) -> Arc<Box<dyn waker::Waker>> {
-        self.waker.clone()
-    }
-
-    pub fn build(
-        self,
-        session_queue: Queues<Session, Session>,
-        signal_queue: Queues<(), Signal>,
-    ) -> SingleWorker<Parser, Request, Response, Storage> {
-        SingleWorker {
-            nevent: self.nevent,
-            parser: self.parser,
-            pending: self.pending,
-            poll: self.poll,
-            session_queue,
-            sessions: self.sessions,
-            signal_queue,
-            storage: self.storage,
-            timeout: self.timeout,
-            waker: self.waker,
-        }
-    }
-}

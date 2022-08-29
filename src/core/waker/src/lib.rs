@@ -12,13 +12,21 @@
 
 pub trait Waker: Send + Sync {
     fn wake(&self) -> std::io::Result<()>;
+
+    fn as_raw_fd(&self) -> Option<RawFd>;
 }
+
+use std::os::unix::prelude::RawFd;
 
 pub use mio::Waker as MioWaker;
 
 impl Waker for MioWaker {
     fn wake(&self) -> std::io::Result<()> {
         self.wake()
+    }
+
+    fn as_raw_fd(&self) -> Option<RawFd> {
+        None
     }
 }
 
@@ -30,7 +38,8 @@ mod eventfd {
     use crate::Waker;
     use std::fs::File;
     use std::io::{ErrorKind, Result, Write};
-    use std::os::unix::io::FromRawFd;
+    use std::os::unix::io::{AsRawFd, FromRawFd};
+    use std::os::unix::prelude::RawFd;
 
     pub struct EventfdWaker {
         inner: File,
@@ -86,6 +95,10 @@ mod eventfd {
     impl Waker for EventfdWaker {
         fn wake(&self) -> Result<()> {
             self.wake()
+        }
+
+        fn as_raw_fd(&self) -> Option<RawFd> {
+            Some(self.inner.as_raw_fd())
         }
     }
 }

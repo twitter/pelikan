@@ -5,6 +5,62 @@
 use super::map_result;
 use crate::*;
 
+pub struct MultiWorkerBuilder<Parser, Request, Response> {
+    nevent: usize,
+    parser: Parser,
+    poll: Poll,
+    sessions: Slab<ServerSession<Parser, Response, Request>>,
+    timeout: Duration,
+    waker: Arc<Box<dyn waker::Waker>>,
+}
+
+impl<Parser, Request, Response> MultiWorkerBuilder<Parser, Request, Response> {
+    pub fn new<T: WorkerConfig>(config: &T, parser: Parser) -> Result<Self> {
+        let config = config.worker();
+
+        let poll = Poll::new()?;
+
+        let waker =
+            Arc::new(Box::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap())
+                as Box<dyn waker::Waker>);
+
+        let nevent = config.nevent();
+        let timeout = Duration::from_millis(config.timeout() as u64);
+
+        Ok(Self {
+            nevent,
+            parser,
+            poll,
+            sessions: Slab::new(),
+            timeout,
+            waker,
+        })
+    }
+
+    pub fn waker(&self) -> Arc<Box<dyn waker::Waker>> {
+        self.waker.clone()
+    }
+
+    pub fn build(
+        self,
+        data_queue: Queues<(Request, Token), (Request, Response, Token)>,
+        session_queue: Queues<Session, Session>,
+        signal_queue: Queues<(), Signal>,
+    ) -> MultiWorker<Parser, Request, Response> {
+        MultiWorker {
+            data_queue,
+            nevent: self.nevent,
+            parser: self.parser,
+            poll: self.poll,
+            session_queue,
+            sessions: self.sessions,
+            signal_queue,
+            timeout: self.timeout,
+            waker: self.waker,
+        }
+    }
+}
+
 pub struct MultiWorker<Parser, Request, Response> {
     data_queue: Queues<(Request, Token), (Request, Response, Token)>,
     nevent: usize,
@@ -177,62 +233,6 @@ where
 
             // wakes the storage thread if necessary
             let _ = self.data_queue.wake();
-        }
-    }
-}
-
-pub struct MultiWorkerBuilder<Parser, Request, Response> {
-    nevent: usize,
-    parser: Parser,
-    poll: Poll,
-    sessions: Slab<ServerSession<Parser, Response, Request>>,
-    timeout: Duration,
-    waker: Arc<Box<dyn waker::Waker>>,
-}
-
-impl<Parser, Request, Response> MultiWorkerBuilder<Parser, Request, Response> {
-    pub fn new<T: WorkerConfig>(config: &T, parser: Parser) -> Result<Self> {
-        let config = config.worker();
-
-        let poll = Poll::new()?;
-
-        let waker =
-            Arc::new(Box::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap())
-                as Box<dyn waker::Waker>);
-
-        let nevent = config.nevent();
-        let timeout = Duration::from_millis(config.timeout() as u64);
-
-        Ok(Self {
-            nevent,
-            parser,
-            poll,
-            sessions: Slab::new(),
-            timeout,
-            waker,
-        })
-    }
-
-    pub fn waker(&self) -> Arc<Box<dyn waker::Waker>> {
-        self.waker.clone()
-    }
-
-    pub fn build(
-        self,
-        data_queue: Queues<(Request, Token), (Request, Response, Token)>,
-        session_queue: Queues<Session, Session>,
-        signal_queue: Queues<(), Signal>,
-    ) -> MultiWorker<Parser, Request, Response> {
-        MultiWorker {
-            data_queue,
-            nevent: self.nevent,
-            parser: self.parser,
-            poll: self.poll,
-            session_queue,
-            sessions: self.sessions,
-            signal_queue,
-            timeout: self.timeout,
-            waker: self.waker,
         }
     }
 }

@@ -5,13 +5,13 @@
 use crate::*;
 use std::thread::JoinHandle;
 
-mod multi_worker;
-mod single_worker;
-mod storage_worker;
+mod multi;
+mod single;
+mod storage;
 
-use multi_worker::*;
-use single_worker::*;
-use storage_worker::*;
+use multi::*;
+use single::*;
+use storage::*;
 
 fn map_result(result: Result<usize>) -> Result<()> {
     match result {
@@ -34,7 +34,7 @@ pub enum Workers<Parser, Request, Response, Storage> {
     },
     Multi {
         workers: Vec<MultiWorker<Parser, Request, Response>>,
-        storage: StorageWorker<Request, Response, Storage>,
+        storage: StorageWorker<Request, Response, Storage, Token>,
     },
 }
 

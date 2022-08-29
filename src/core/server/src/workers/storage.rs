@@ -4,7 +4,64 @@
 
 use crate::*;
 
-pub struct StorageWorker<Request, Response, Storage> {
+pub struct StorageWorkerBuilder<Request, Response, Storage> {
+    nevent: usize,
+    poll: Poll,
+    storage: Storage,
+    timeout: Duration,
+    waker: Arc<Box<dyn waker::Waker>>,
+    _request: PhantomData<Request>,
+    _response: PhantomData<Response>,
+}
+
+impl<Request, Response, Storage> StorageWorkerBuilder<Request, Response, Storage> {
+    pub fn new<T: WorkerConfig>(config: &T, storage: Storage) -> Result<Self> {
+        let config = config.worker();
+
+        let poll = Poll::new()?;
+
+        let waker =
+            Arc::new(Box::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap())
+                as Box<dyn waker::Waker>);
+
+        let nevent = config.nevent();
+        let timeout = Duration::from_millis(config.timeout() as u64);
+
+        Ok(Self {
+            nevent,
+            poll,
+            storage,
+            timeout,
+            waker,
+            _request: PhantomData,
+            _response: PhantomData,
+        })
+    }
+
+    pub fn waker(&self) -> Arc<Box<dyn waker::Waker>> {
+        self.waker.clone()
+    }
+
+    pub fn build(
+        self,
+        data_queue: Queues<(Request, Response, Token), (Request, Token)>,
+        signal_queue: Queues<(), Signal>,
+    ) -> StorageWorker<Request, Response, Storage, Token> {
+        StorageWorker {
+            data_queue,
+            nevent: self.nevent,
+            poll: self.poll,
+            signal_queue,
+            storage: self.storage,
+            timeout: self.timeout,
+            waker: self.waker,
+            _request: PhantomData,
+            _response: PhantomData,
+        }
+    }
+}
+
+pub struct StorageWorker<Request, Response, Storage, Token> {
     data_queue: Queues<(Request, Response, Token), (Request, Token)>,
     nevent: usize,
     poll: Poll,
@@ -17,7 +74,7 @@ pub struct StorageWorker<Request, Response, Storage> {
     _response: PhantomData<Response>,
 }
 
-impl<Request, Response, Storage> StorageWorker<Request, Response, Storage>
+impl<Request, Response, Storage, Token> StorageWorker<Request, Response, Storage, Token>
 where
     Storage: Execute<Request, Response> + EntryStore,
     Response: Compose,
@@ -91,59 +148,3 @@ where
     }
 }
 
-pub struct StorageWorkerBuilder<Request, Response, Storage> {
-    nevent: usize,
-    poll: Poll,
-    storage: Storage,
-    timeout: Duration,
-    waker: Arc<Box<dyn waker::Waker>>,
-    _request: PhantomData<Request>,
-    _response: PhantomData<Response>,
-}
-
-impl<Request, Response, Storage> StorageWorkerBuilder<Request, Response, Storage> {
-    pub fn new<T: WorkerConfig>(config: &T, storage: Storage) -> Result<Self> {
-        let config = config.worker();
-
-        let poll = Poll::new()?;
-
-        let waker =
-            Arc::new(Box::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap())
-                as Box<dyn waker::Waker>);
-
-        let nevent = config.nevent();
-        let timeout = Duration::from_millis(config.timeout() as u64);
-
-        Ok(Self {
-            nevent,
-            poll,
-            storage,
-            timeout,
-            waker,
-            _request: PhantomData,
-            _response: PhantomData,
-        })
-    }
-
-    pub fn waker(&self) -> Arc<Box<dyn waker::Waker>> {
-        self.waker.clone()
-    }
-
-    pub fn build(
-        self,
-        data_queue: Queues<(Request, Response, Token), (Request, Token)>,
-        signal_queue: Queues<(), Signal>,
-    ) -> StorageWorker<Request, Response, Storage> {
-        StorageWorker {
-            data_queue,
-            nevent: self.nevent,
-            poll: self.poll,
-            signal_queue,
-            storage: self.storage,
-            timeout: self.timeout,
-            waker: self.waker,
-            _request: PhantomData,
-            _response: PhantomData,
-        }
-    }
-}

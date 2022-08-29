@@ -28,9 +28,6 @@ name = "benchmark"
 path = "benches/benchmark.rs"
 harness = false
 
-[features]
-io-uring = ["server-iouring"]
-
 [dependencies]
 backtrace = "0.3.56"
 clap = "2.33.3"
@@ -41,7 +38,6 @@ logger = { path = "../../logger" }
 protocol-ping = { path = "../../protocol/ping", features = ["server"] }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 server = { path = "../../core/server" }
-server-iouring = { path = "../../core/server-iouring", optional = true }
 
 [dev-dependencies]
 criterion = "0.3"

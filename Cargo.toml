@@ -6,7 +6,6 @@ members = [
     "src/core/admin",
     "src/core/proxy",
     "src/core/server",
-    "src/core/server-iouring",
     "src/core/waker",
     "src/entrystore",
     "src/logger",

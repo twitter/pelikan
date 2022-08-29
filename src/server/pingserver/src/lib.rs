@@ -13,11 +13,6 @@ use config::*;
 use entrystore::Noop;
 use logger::*;
 use protocol_ping::{Request, RequestParser, Response};
-
-#[cfg(feature = "io-uring")]
-use server_iouring::{Process, ProcessBuilder};
-
-#[cfg(not(feature = "io-uring"))]
 use server::{Process, ProcessBuilder};
 
 type Parser = RequestParser;
