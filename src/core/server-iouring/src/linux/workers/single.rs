@@ -14,7 +14,7 @@ use std::io::{ErrorKind, Result};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use super::*;
+use crate::*;
 
 counter!(WORKER_EVENT_ERROR);
 counter!(WORKER_EVENT_LOOP);

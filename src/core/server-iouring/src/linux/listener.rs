@@ -7,7 +7,7 @@ use io_uring::{opcode, squeue, types, IoUring};
 use net::TcpStream;
 use protocol_common::*;
 use rustcommon_metrics::*;
-use session_common::ServerSession;
+use session::ServerSession;
 use slab::Slab;
 
 use std::collections::VecDeque;

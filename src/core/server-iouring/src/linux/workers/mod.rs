@@ -13,6 +13,8 @@ mod single;
 use single::*;
 // use storage_worker::*;
 
+use std::io::ErrorKind;
+
 fn map_result(result: Result<usize>) -> Result<()> {
     match result {
         Ok(0) => Err(Error::new(ErrorKind::Other, "client hangup")),

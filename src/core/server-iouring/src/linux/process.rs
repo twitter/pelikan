@@ -33,7 +33,7 @@ where
     admin: AdminBuilder,
     listener: ListenerBuilder<Parser, Request, Response>,
     log_drain: Box<dyn Drain>,
-    worker: WorkerBuilder<Parser, Request, Response, Storage>,
+    workers: WorkersBuilder<Parser, Request, Response, Storage>,
 }
 
 impl<Parser, Request, Response, Storage> ProcessBuilder<Parser, Request, Response, Storage>
@@ -51,7 +51,7 @@ where
     ) -> Result<Self> {
         let admin = AdminBuilder::new(config)?;
         let listener = ListenerBuilder::new(config, parser.clone())?;
-        let worker = WorkerBuilder::new(parser, storage)?;
+        let workers = WorkersBuilder::new(parser, storage)?;
 
         Ok(Self {
             admin,
