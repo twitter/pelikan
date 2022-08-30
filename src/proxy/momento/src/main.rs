@@ -6,7 +6,7 @@
 extern crate logger;
 
 use backtrace::Backtrace;
-use buffer::Buffer;
+use session::Buffer;
 use clap::{App, Arg};
 use config::momento_proxy::Protocol;
 use config::*;

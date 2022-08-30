@@ -252,14 +252,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "buffer"
-version = "0.1.0"
-dependencies = [
- "bytes 1.1.0",
- "log",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1150,7 +1142,6 @@ name = "momento_proxy"
 version = "0.1.0"
 dependencies = [
  "backtrace",
- "buffer",
  "clap",
  "common",
  "config",
@@ -1161,6 +1152,7 @@ dependencies = [
  "protocol-memcache",
  "protocol-resp",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
+ "session",
  "storage-types",
  "tokio",
 ]
@@ -1537,7 +1529,7 @@ dependencies = [
 name = "protocol-common"
 version = "0.0.1"
 dependencies = [
- "buffer",
+ "bytes 1.1.0",
  "common",
  "config",
  "criterion",
@@ -2103,7 +2095,8 @@ dependencies = [
 name = "session"
 version = "0.1.0"
 dependencies = [
- "buffer",
+ "bytes 1.1.0",
+ "log",
  "net",
  "protocol-common",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",

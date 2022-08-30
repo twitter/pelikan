@@ -45,7 +45,7 @@ where
     /// flush the session buffer, and any additional calls to flush which may be
     /// required.
     pub fn send(&mut self, tx: Tx) -> Result<usize> {
-        CLIENT_SESSION_SEND.increment();
+        SESSION_SEND.increment();
         let now = Instant::now();
         let size = tx.compose(&mut self.session);
         self.pending.push_back((now, tx));
@@ -56,14 +56,14 @@ where
         let src: &[u8] = self.session.borrow();
         match self.parser.parse(src) {
             Ok(res) => {
-                CLIENT_SESSION_RECV.increment();
+                SESSION_RECV.increment();
                 let now = Instant::now();
                 let (timestamp, request) = self
                     .pending
                     .pop_front()
                     .ok_or_else(|| Error::from(ErrorKind::InvalidInput))?;
                 let latency = now - timestamp;
-                CLIENT_RESPONSE_LATENCY.increment(now, latency.as_nanos(), 1);
+                REQUEST_LATENCY.increment(now, latency.as_nanos(), 1);
                 let consumed = res.consumed();
                 let msg = res.into_inner();
                 self.session.consume(consumed);
@@ -71,7 +71,7 @@ where
             }
             Err(e) => {
                 if e.kind() != ErrorKind::WouldBlock {
-                    CLIENT_SESSION_RECV_EX.increment();
+                    SESSION_RECV_EX.increment();
                 }
                 Err(e)
             }

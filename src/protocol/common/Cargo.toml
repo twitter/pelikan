@@ -9,10 +9,10 @@ repository = "https://github.com/twitter/pelikan"
 license = "Apache-2.0"
 
 [dependencies]
+bytes = "1.1.0"
 common = { path = "../../common" }
 config = { path = "../../config" }
 logger = { path = "../../logger" }
-buffer = { path = "../../buffer" }
 storage-types = { path = "../../storage/types" }
 
 [dev-dependencies]

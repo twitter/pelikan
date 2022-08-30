@@ -12,7 +12,7 @@ use logger::*;
 use protocol_admin::*;
 use queues::Queues;
 use rustcommon_metrics::*;
-use session::{ServerSession, Session};
+use session::{Buf, ServerSession, Session};
 use slab::Slab;
 use std::collections::VecDeque;
 use std::io::{Error, ErrorKind, Result};

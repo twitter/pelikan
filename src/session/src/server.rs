@@ -61,7 +61,7 @@ where
     }
 
     pub fn send(&mut self, tx: Tx) -> Result<usize> {
-        SERVER_SESSION_SEND.increment();
+        SESSION_SEND.increment();
 
         let timestamp = self.pending.pop_front();
 
@@ -72,7 +72,7 @@ where
             if let Some(timestamp) = timestamp {
                 let now = Instant::now();
                 let latency = now - timestamp;
-                SERVER_RESPONSE_LATENCY.increment(now, latency.as_nanos(), 1);
+                REQUEST_LATENCY.increment(now, latency.as_nanos(), 1);
             }
         } else {
             // we have bytes in our response, we need to add it on the
@@ -102,7 +102,7 @@ where
                     amt -= front.1;
                     if let Some(ts) = front.0 {
                         let latency = now - ts;
-                        SERVER_RESPONSE_LATENCY.increment(now, latency.as_nanos(), 1);
+                        REQUEST_LATENCY.increment(now, latency.as_nanos(), 1);
                     }
                 }
             } else {
@@ -133,16 +133,16 @@ where
 
     /// Reads from the underlying stream and returns the number of bytes read.
     pub fn fill(&mut self) -> Result<usize> {
-        SERVER_SESSION_READ.increment();
+        SESSION_RECV.increment();
 
         match self.session.fill() {
             Ok(amt) => {
-                SERVER_SESSION_READ_BYTES.add(amt as _);
+                SESSION_RECV_BYTE.add(amt as _);
                 Ok(amt)
             }
             Err(e) => {
                 if e.kind() != ErrorKind::WouldBlock {
-                    SERVER_SESSION_READ_EX.increment();
+                    SESSION_RECV_EX.increment();
                 }
                 Err(e)
             }

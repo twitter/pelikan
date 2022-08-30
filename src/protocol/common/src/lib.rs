@@ -6,7 +6,7 @@
 //! traits so that the a server implementation can easily switch between
 //! protocol implementations.
 
-pub use buffer::*;
+pub use bytes::{BufMut};
 
 pub const CRLF: &str = "\r\n";
 

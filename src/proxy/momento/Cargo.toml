@@ -10,7 +10,6 @@ license = "Apache-2.0"
 
 [dependencies]
 backtrace = "0.3.56"
-buffer = { path = "../../buffer" }
 clap = "2.33.3"
 common = { path = "../../common" }
 config = { path = "../../config" }
@@ -21,5 +20,6 @@ protocol-admin = { path = "../../protocol/admin" }
 protocol-memcache = { path = "../../protocol/memcache" }
 protocol-resp = { path = "../../protocol/resp" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+session = { path = "../../session" }
 storage-types = { path = "../../storage/types" }
 tokio = { version = "1.17.0", features = ["full"] }

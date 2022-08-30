@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "src/buffer",
     "src/common",
     "src/config",
     "src/core/admin",

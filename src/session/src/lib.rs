@@ -7,11 +7,16 @@
 //! communication and provides abstractions for request/response oriented
 //! client/server communications.
 
-pub use buffer::*;
+// pub use buffer::*;
 
+#[macro_use]
+extern crate log;
+
+mod buffer;
 mod client;
 mod server;
 
+pub use buffer::*;
 pub use client::ClientSession;
 pub use server::ServerSession;
 
@@ -34,20 +39,29 @@ use std::io::Write;
 
 const ONE_SECOND: u64 = 1_000_000_000; // in nanoseconds
 
-counter!(CLIENT_SESSION_RECV);
-counter!(CLIENT_SESSION_RECV_EX);
-counter!(CLIENT_SESSION_SEND);
-counter!(CLIENT_SESSION_SEND_EX);
-heatmap!(CLIENT_RESPONSE_LATENCY, ONE_SECOND);
+gauge!(
+    SESSION_BUFFER_BYTE,
+    "current size of the session buffers in bytes"
+);
 
-counter!(SERVER_SESSION_READ);
-counter!(SERVER_SESSION_READ_BYTES);
-counter!(SERVER_SESSION_READ_EX);
-counter!(SERVER_SESSION_RECV);
-counter!(SERVER_SESSION_RECV_EX);
-counter!(SERVER_SESSION_SEND);
-counter!(SERVER_SESSION_SEND_EX);
-heatmap!(SERVER_RESPONSE_LATENCY, ONE_SECOND);
+counter!(SESSION_RECV, "number of reads from sessions");
+counter!(
+    SESSION_RECV_EX,
+    "number of exceptions while reading from sessions"
+);
+counter!(SESSION_RECV_BYTE, "number of bytes read from sessions");
+counter!(SESSION_SEND, "number of writes to sessions");
+counter!(
+    SESSION_SEND_EX,
+    "number of exceptions while writing to sessions"
+);
+counter!(SESSION_SEND_BYTE, "number of bytes written to sessions");
+
+heatmap!(
+    REQUEST_LATENCY,
+    ONE_SECOND,
+    "distribution of request latencies in nanoseconds"
+);
 
 type Instant = rustcommon_time::Instant<Nanoseconds<u64>>;
 
