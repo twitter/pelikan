@@ -10,6 +10,7 @@ common = { path = "../../common" }
 config = { path = "../../config" }
 crossbeam-channel = "0.5.0"
 entrystore = { path = "../../entrystore" }
+libc = "0.2.132"
 logger = { path = "../../logger" }
 net = { path = "../../net" }
 protocol-admin = { path = "../../protocol/admin" }

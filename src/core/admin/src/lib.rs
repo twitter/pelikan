@@ -69,6 +69,10 @@ gauge!(ADMIN_SESSION_CURR, "current number of admin sessions");
 const LISTENER_TOKEN: Token = Token(usize::MAX - 1);
 const WAKER_TOKEN: Token = Token(usize::MAX);
 
+const KB: u64 = 1024; // one kilobyte in bytes
+const S: u64 = 1_000_000_000; // one second in nanoseconds
+const US: u64 = 1_000; // one microsecond in nanoseconds
+
 // helper functions
 
 fn map_err(e: std::io::Error) -> Result<()> {
@@ -186,6 +190,52 @@ impl AdminBuilder {
             version: self.version,
             waker: self.waker,
         }
+    }
+}
+
+fn get_rusage() {
+    let mut rusage = libc::rusage {
+        ru_utime: libc::timeval {
+            tv_sec: 0,
+            tv_usec: 0,
+        },
+        ru_stime: libc::timeval {
+            tv_sec: 0,
+            tv_usec: 0,
+        },
+        ru_maxrss: 0,
+        ru_ixrss: 0,
+        ru_idrss: 0,
+        ru_isrss: 0,
+        ru_minflt: 0,
+        ru_majflt: 0,
+        ru_nswap: 0,
+        ru_inblock: 0,
+        ru_oublock: 0,
+        ru_msgsnd: 0,
+        ru_msgrcv: 0,
+        ru_nsignals: 0,
+        ru_nvcsw: 0,
+        ru_nivcsw: 0,
+    };
+
+    if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut rusage) } == 0 {
+        RU_UTIME.set(rusage.ru_utime.tv_sec as u64 * S + rusage.ru_utime.tv_usec as u64 * US);
+        RU_STIME.set(rusage.ru_stime.tv_sec as u64 * S + rusage.ru_stime.tv_usec as u64 * US);
+        RU_MAXRSS.set(rusage.ru_maxrss * KB as i64);
+        RU_IXRSS.set(rusage.ru_ixrss * KB as i64);
+        RU_IDRSS.set(rusage.ru_idrss * KB as i64);
+        RU_ISRSS.set(rusage.ru_isrss * KB as i64);
+        RU_MINFLT.set(rusage.ru_minflt as u64);
+        RU_MAJFLT.set(rusage.ru_majflt as u64);
+        RU_NSWAP.set(rusage.ru_nswap as u64);
+        RU_INBLOCK.set(rusage.ru_inblock as u64);
+        RU_OUBLOCK.set(rusage.ru_oublock as u64);
+        RU_MSGSND.set(rusage.ru_msgsnd as u64);
+        RU_MSGRCV.set(rusage.ru_msgrcv as u64);
+        RU_NSIGNALS.set(rusage.ru_nsignals as u64);
+        RU_NVCSW.set(rusage.ru_nvcsw as u64);
+        RU_NIVCSW.set(rusage.ru_nivcsw as u64);
     }
 }
 
@@ -381,9 +431,10 @@ impl Admin {
 
         let mut events = Events::with_capacity(self.nevent);
 
-        // repeatedly run accepting new connections and moving them to the worker
         loop {
             ADMIN_EVENT_LOOP.increment();
+
+            get_rusage();
 
             if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
                 error!("Error polling");
