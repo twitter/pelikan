@@ -6,7 +6,6 @@
 extern crate logger;
 
 use backtrace::Backtrace;
-use session::Buffer;
 use clap::{App, Arg};
 use config::momento_proxy::Protocol;
 use config::*;
@@ -22,6 +21,7 @@ use momento::response::error::*;
 use momento::simple_cache_client::*;
 use protocol_admin::*;
 use rustcommon_metrics::*;
+use session::Buffer;
 use std::borrow::{Borrow, BorrowMut};
 use std::io::{Error, ErrorKind};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};

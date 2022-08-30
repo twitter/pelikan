@@ -18,6 +18,7 @@ use entrystore::EntryStore;
 use logger::Drain;
 use protocol_common::{Compose, Execute, Parse};
 use queues::Queues;
+use rustcommon_metrics::*;
 use session::{Buf, ServerSession, Session};
 use slab::Slab;
 use std::io::{Error, ErrorKind, Result};
@@ -53,6 +54,9 @@ pub static PERCENTILES: &[(&str, f64)] = &[
     ("p999", 99.9),
     ("p9999", 99.99),
 ];
+
+// stats
+counter!(PROCESS_REQ);
 
 fn map_err(e: std::io::Error) -> Result<()> {
     match e.kind() {

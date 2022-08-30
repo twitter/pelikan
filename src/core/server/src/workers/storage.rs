@@ -108,6 +108,7 @@ where
                     let (request, token) = message.into_inner();
                     trace!("handling request from worker: {}", sender);
                     let response = self.storage.execute(&request);
+                    PROCESS_REQ.increment();
                     let mut message = (request, response, token);
                     for retry in 0..QUEUE_RETRIES {
                         if let Err(m) = self.data_queue.try_send_to(sender, message) {
@@ -147,4 +148,3 @@ where
         }
     }
 }
-

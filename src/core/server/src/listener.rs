@@ -3,7 +3,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::*;
-use rustcommon_metrics::*;
 use std::time::Duration;
 
 counter!(LISTENER_EVENT_ERROR);

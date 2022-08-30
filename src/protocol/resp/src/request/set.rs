@@ -3,8 +3,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use super::*;
-use std::sync::Arc;
 use std::io::{Error, ErrorKind};
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum SetMode {

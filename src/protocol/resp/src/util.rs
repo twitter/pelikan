@@ -49,7 +49,10 @@ pub fn take_bulk_string(array: &mut Vec<Message>) -> Result<Arc<Box<[u8]>>, Erro
 
         Ok(s)
     } else {
-        Err(Error::new(ErrorKind::Other, "next array element is not a bulk string"))
+        Err(Error::new(
+            ErrorKind::Other,
+            "next array element is not a bulk string",
+        ))
     }
 }
 

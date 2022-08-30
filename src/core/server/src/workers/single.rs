@@ -109,6 +109,7 @@ where
         match session.receive() {
             Ok(request) => {
                 let response = self.storage.execute(&request);
+                PROCESS_REQ.increment();
                 if response.should_hangup() {
                     let _ = session.send(response);
                     return Err(Error::new(ErrorKind::Other, "should hangup"));
@@ -268,5 +269,3 @@ where
         }
     }
 }
-
-

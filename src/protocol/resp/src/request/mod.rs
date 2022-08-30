@@ -2,13 +2,13 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use protocol_common::BufMut;
 use crate::message::*;
 use crate::*;
+use protocol_common::BufMut;
 use protocol_common::Parse;
-use protocol_common::{ParseOk};
-use std::sync::Arc;
+use protocol_common::ParseOk;
 use std::io::{Error, ErrorKind};
+use std::sync::Arc;
 
 mod get;
 mod set;
@@ -102,7 +102,7 @@ impl Parse<Request> for RequestParser {
                     },
                     _ => {
                         // all valid commands are encoded as a bulk string
-                       Err(Error::new(ErrorKind::Other, "malformed command"))
+                        Err(Error::new(ErrorKind::Other, "malformed command"))
                     }
                 }
             }

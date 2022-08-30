@@ -121,7 +121,10 @@ impl Parse<Message> for MessageParser {
         match message(buffer) {
             Ok((input, message)) => Ok(ParseOk::new(message, buffer.len() - input.len())),
             Err(Err::Incomplete(_)) => Err(std::io::Error::from(std::io::ErrorKind::WouldBlock)),
-            Err(_) => Err(std::io::Error::new(std::io::ErrorKind::Other, "malformed message")),
+            Err(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "malformed message",
+            )),
         }
     }
 }

@@ -106,13 +106,13 @@ pub(crate) async fn handle_resp_client(
                 buf.advance(consumed);
             }
             Err(e) => match e.kind() {
-                ErrorKind::WouldBlock => {},
+                ErrorKind::WouldBlock => {}
                 _ => {
                     println!("bad request");
                     let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
                     break;
                 }
-            }
+            },
         }
     }
 }
