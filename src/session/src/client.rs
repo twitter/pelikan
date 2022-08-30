@@ -4,11 +4,24 @@
 
 use super::*;
 
-/// A basic session to represent the client side of a framed session.
+/// A basic session to represent the client side of a framed session, meaning
+/// that is is used by a client to talk to a server.
+///
+/// `ClientSession` latency tracking counts all of the time from a message being
+/// sent until a corresponding message is returned by a call to receive. This
+/// means any delays within the client between actual bytes being received in
+/// the session buffer until actually handling the returned message is counted
+/// towards the latency. For example, if the client sleeps between filling the
+/// session buffer and receiving a message from the session, that time is
+/// counted towards the latency.
 pub struct ClientSession<Parser, Tx, Rx> {
+    // the actual session
     session: Session,
+    // a parser which produces messages from the session buffer
     parser: Parser,
+    // a queue of time and message pairs that are awaiting responses
     pending: VecDeque<(Instant, Tx)>,
+    // a marker for the received message type
     _rx: PhantomData<Rx>,
 }
 
@@ -29,6 +42,7 @@ where
     Tx: Compose,
     Parser: Parse<Rx>,
 {
+    /// Create a new `ClientSession` from a `Session` and a `Parser`.
     pub fn new(session: Session, parser: Parser) -> Self {
         Self {
             session,
@@ -38,7 +52,7 @@ where
         }
     }
 
-    /// Sends the frame to the underlying session but does *not* flush the
+    /// Sends the message to the underlying session but does *not* flush the
     /// session buffer. This function also adds a timestamp to a queue so that
     /// response latencies can be determined. The latency will include any time
     /// that it takes to compose the message onto the session buffer, time to
@@ -52,6 +66,10 @@ where
         Ok(size)
     }
 
+    /// Attempts to return a pair of messages, the one sent to the server as
+    /// well as the one received from the server, from the underlying session
+    /// buffer. This operates only on buffered data and does not result in a
+    /// read() of the underlying session.
     pub fn receive(&mut self) -> Result<(Tx, Rx)> {
         let src: &[u8] = self.session.borrow();
         match self.parser.parse(src) {
@@ -78,31 +96,38 @@ where
         }
     }
 
+    /// Attempts to flush the session write buffer.
     pub fn flush(&mut self) -> Result<()> {
         self.session.flush()?;
         Ok(())
     }
 
+    /// Returns the number of bytes currently in the write buffer.
     pub fn write_pending(&self) -> usize {
         self.session.write_pending()
     }
 
+    /// Performs a read of the underlying session to fill the read buffer.
     pub fn fill(&mut self) -> Result<usize> {
         self.session.fill()
     }
 
+    /// Returns the current event interest for this session.
     pub fn interest(&self) -> Interest {
         self.session.interest()
     }
 
+    /// Attempt to handshake the underlying session.
     pub fn do_handshake(&mut self) -> Result<()> {
         self.session.do_handshake()
     }
 
+    /// Get direct access to the read buffer.
     pub fn read_buffer_mut(&mut self) -> &mut Buffer {
         self.session.read_buffer_mut()
     }
 
+    /// Get direct access to the write buffer.
     pub fn write_buffer_mut(&mut self) -> &mut Buffer {
         self.session.write_buffer_mut()
     }

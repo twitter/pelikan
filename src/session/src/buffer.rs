@@ -22,6 +22,9 @@ unsafe impl Send for Buffer {}
 unsafe impl Sync for Buffer {}
 
 impl Buffer {
+    /// Create a new buffer that can hold up to `target_size` bytes without
+    /// resizing. The buffer may grow beyond the `target_size`, but will shrink
+    /// back down to the `target_size` when possible.
     pub fn new(target_size: usize) -> Self {
         let layout = Layout::array::<u8>(target_size).unwrap();
         let ptr = unsafe { alloc(layout) };
@@ -40,10 +43,12 @@ impl Buffer {
         }
     }
 
+    /// Returns the current capacity of the buffer.
     pub fn capacity(&self) -> usize {
         self.cap
     }
 
+    /// Reserve space for `amt` additional bytes.
     pub fn reserve(&mut self, amt: usize) {
         // if the buffer is empty, reset the offsets
         if self.remaining() == 0 {
@@ -67,6 +72,7 @@ impl Buffer {
         }
     }
 
+    /// Clear the buffer.
     pub fn clear(&mut self) {
         self.read_offset = 0;
         self.write_offset = 0;
@@ -83,6 +89,9 @@ impl Buffer {
         }
     }
 
+    /// Compact the buffer by moving contents to the beginning and freeing any
+    /// excess space. As an optimization, this will not always compact the
+    /// buffer to its `target_size`.
     pub fn compact(&mut self) {
         // if the buffer is empty, we clear the buffer and return
         if self.remaining() == 0 {
@@ -121,14 +130,14 @@ impl Buffer {
         }
     }
 
-    // get the current write position as a pointer
-    // remaining_mut should be used as the length
+    /// Get the current write position as a pointer. `remaining_mut` should be
+    /// used as the length.
     pub fn write_ptr(&mut self) -> *mut u8 {
         unsafe { self.ptr.add(self.write_offset) }
     }
 
-    // get the current read position as a pointer
-    // remaining should be used as the length
+    /// Get the current read position as a pointer. `remaining` should be used
+    /// as the length.
     pub fn read_ptr(&mut self) -> *mut u8 {
         unsafe { self.ptr.add(self.read_offset) }
     }

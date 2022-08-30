@@ -15,6 +15,9 @@ impl TcpStream {
     pub fn connect(addr: SocketAddr) -> Result<Self> {
         let inner = mio::net::TcpStream::connect(addr)?;
 
+        TCP_CONN_CURR.increment();
+        TCP_CONNECT.increment();
+
         Ok(Self { inner })
     }
 
@@ -30,6 +33,13 @@ impl TcpStream {
 
     pub fn set_nodelay(&mut self, nodelay: bool) -> Result<()> {
         self.inner.set_nodelay(nodelay)
+    }
+}
+
+impl Drop for TcpStream {
+    fn drop(&mut self) {
+        TCP_CONN_CURR.decrement();
+        TCP_CLOSE.increment();
     }
 }
 
@@ -49,13 +59,25 @@ impl Deref for TcpStream {
 
 impl Read for TcpStream {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        self.inner.read(buf)
+        match self.inner.read(buf) {
+            Ok(amt) => {
+                TCP_RECV_BYTE.add(amt as _);
+                Ok(amt)
+            }
+            Err(e) => Err(e),
+        }
     }
 }
 
 impl Write for TcpStream {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.inner.write(buf)
+        match self.inner.write(buf) {
+            Ok(amt) => {
+                TCP_SEND_BYTE.add(amt as _);
+                Ok(amt)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     fn flush(&mut self) -> Result<()> {
@@ -120,9 +142,17 @@ impl TcpListener {
     }
 
     pub fn accept(&self) -> Result<(TcpStream, SocketAddr)> {
-        self.inner
+        let result = self
+            .inner
             .accept()
-            .map(|(stream, addr)| (TcpStream { inner: stream }, addr))
+            .map(|(stream, addr)| (TcpStream { inner: stream }, addr));
+
+        if result.is_ok() {
+            TCP_ACCEPT.increment();
+            TCP_CONN_CURR.increment();
+        }
+
+        result
     }
 
     pub fn local_addr(&self) -> Result<SocketAddr> {

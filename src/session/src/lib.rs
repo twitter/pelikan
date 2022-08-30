@@ -173,23 +173,38 @@ impl Session {
         }
     }
 
+    /// Mark `amt` bytes as consumed from the read buffer.
     pub fn consume(&mut self, amt: usize) {
         self.read_buffer.advance(amt)
     }
 
+    /// Return the number of bytes currently in the write buffer.
     pub fn write_pending(&self) -> usize {
         self.write_buffer.remaining()
     }
 
+    /// Attempts to flush the `Session` to the underlying `Stream`. This may
+    /// result in multiple calls
     pub fn flush(&mut self) -> Result<usize> {
         let mut flushed = 0;
         while self.write_buffer.has_remaining() {
             match self.stream.write(self.write_buffer.borrow()) {
                 Ok(amt) => {
+                    // successfully wrote `amt` bytes to the stream, advance the
+                    // write buffer and increment the flushed stat
                     self.write_buffer.advance(amt);
                     flushed += amt;
                 }
                 Err(e) => match e.kind() {
+                    ErrorKind::WouldBlock => {
+                        // returns `WouldBlock` if this is the first time
+                        if flushed == 0 {
+                            return Err(e);
+                        }
+                        // otherwise, break from the loop and return the amount
+                        // written until now
+                        break;
+                    }
                     ErrorKind::Interrupted => {
                         // this should be retried immediately
                     }

@@ -4,11 +4,20 @@
 
 use super::*;
 
+/// A basic session to represent the server side of a framed session, meaning
+/// that is is used by a server to talk to a client.
 pub struct ServerSession<Parser, Tx, Rx> {
+    // the actual session
     session: Session,
+    // a parser which produces requests from the session buffer
     parser: Parser,
+    // tracks the timestamps of any pending requests
     pending: VecDeque<Instant>,
+    // tracks outstanding responses and the number of bytes remaining for each
     outstanding: VecDeque<(Option<Instant>, usize)>,
+    // tracks the time the session buffer was last filled
+    timestamp: Instant,
+    // markers for the receive and transmit types
     _rx: PhantomData<Rx>,
     _tx: PhantomData<Tx>,
 }
@@ -30,27 +39,30 @@ where
     Tx: Compose,
     Parser: Parse<Rx>,
 {
+    // Create a new `ServerSession` from a `Session` and a `Parser`
     pub fn new(session: Session, parser: Parser) -> Self {
         Self {
             session,
             parser,
             pending: VecDeque::with_capacity(256),
             outstanding: VecDeque::with_capacity(256),
+            timestamp: Instant::now(),
             _rx: PhantomData,
             _tx: PhantomData,
         }
     }
 
+    /// Consume the `ServerSession` and return the inner `Session`
     pub fn into_inner(self) -> Session {
         self.session
     }
 
+    /// Attempt to receive a single message from the current session buffer.
     pub fn receive(&mut self) -> Result<Rx> {
         let src: &[u8] = self.session.borrow();
         match self.parser.parse(src) {
             Ok(res) => {
-                let now = Instant::now();
-                self.pending.push_back(now);
+                self.pending.push_back(self.timestamp);
                 let consumed = res.consumed();
                 let msg = res.into_inner();
                 self.session.consume(consumed);
@@ -60,6 +72,7 @@ where
         }
     }
 
+    /// Send a message to the session buffer.
     pub fn send(&mut self, tx: Tx) -> Result<usize> {
         SESSION_SEND.increment();
 
@@ -83,6 +96,8 @@ where
         Ok(size)
     }
 
+    /// Advances the read pointer for the session write buffer by `amt` bytes.
+    /// This is used to mark the data as sent to the underlying session.
     pub fn advance_write(&mut self, amt: usize) {
         if amt == 0 {
             return;
@@ -131,9 +146,11 @@ where
         self.session.write_pending()
     }
 
-    /// Reads from the underlying stream and returns the number of bytes read.
+    /// Reads from the underlying stream into the read buffer and returns the
+    /// number of bytes read.
     pub fn fill(&mut self) -> Result<usize> {
         SESSION_RECV.increment();
+        self.timestamp = Instant::now();
 
         match self.session.fill() {
             Ok(amt) => {
@@ -149,18 +166,22 @@ where
         }
     }
 
+    /// Returns the current event interest for this session.
     pub fn interest(&self) -> Interest {
         self.session.interest()
     }
 
+    /// Attempt to handshake the underlying session.
     pub fn do_handshake(&mut self) -> Result<()> {
         self.session.do_handshake()
     }
 
+    /// Get direct access to the read buffer.
     pub fn read_buffer_mut(&mut self) -> &mut Buffer {
         self.session.read_buffer_mut()
     }
 
+    /// Get direct access to the write buffer.
     pub fn write_buffer_mut(&mut self) -> &mut Buffer {
         self.session.write_buffer_mut()
     }

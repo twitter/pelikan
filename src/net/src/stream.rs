@@ -7,13 +7,6 @@ use std::os::unix::prelude::AsRawFd;
 
 use crate::*;
 
-counter!(STREAM_ACCEPT);
-counter!(STREAM_ACCEPT_EX);
-counter!(STREAM_SHUTDOWN);
-counter!(STREAM_SHUTDOWN_EX);
-counter!(STREAM_HANDSHAKE);
-counter!(STREAM_HANDSHAKE_EX);
-
 /// A wrapper type that unifies types which represent a stream. For example,
 /// plaintext TCP streams and TLS/SSL over TCP can both be wrapped by this type.
 /// This allows dynamic behaviors at runtime, such as enabling TLS/SSL through

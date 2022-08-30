@@ -30,3 +30,37 @@ use foreign_types_shared::{ForeignType, ForeignTypeRef};
 use rustcommon_metrics::*;
 
 type Result<T> = std::io::Result<T>;
+
+// stats
+
+counter!(
+    TCP_ACCEPT,
+    "number of TCP streams passively opened with accept"
+);
+counter!(
+    TCP_CONNECT,
+    "number of TCP streams actively opened with connect"
+);
+counter!(TCP_CLOSE, "number of TCP streams closed");
+gauge!(TCP_CONN_CURR, "current number of open TCP streams");
+counter!(TCP_RECV_BYTE, "number of bytes received on TCP streams");
+counter!(TCP_SEND_BYTE, "number of bytes sent on TCP streams");
+
+counter!(STREAM_ACCEPT, "number of calls to accept");
+counter!(
+    STREAM_ACCEPT_EX,
+    "number of times calling accept resulted in an exception"
+);
+counter!(STREAM_SHUTDOWN, "number of streams gracefully shutdown");
+counter!(
+    STREAM_SHUTDOWN_EX,
+    "number of exceptions while attempting to gracefully shutdown a stream"
+);
+counter!(
+    STREAM_HANDSHAKE,
+    "number of times stream handshaking was attempted"
+);
+counter!(
+    STREAM_HANDSHAKE_EX,
+    "number of exceptions while handshaking"
+);
