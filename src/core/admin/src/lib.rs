@@ -44,8 +44,6 @@ counter!(RU_NSIGNALS);
 counter!(RU_NVCSW);
 counter!(RU_NIVCSW);
 
-// new stats below
-
 counter!(
     ADMIN_SESSION_ACCEPT,
     "total number of attempts to accept a session"
@@ -231,8 +229,6 @@ impl Admin {
     }
 
     fn read(&mut self, token: Token) -> Result<()> {
-        ADMIN_EVENT_READ.increment();
-
         let session = self
             .sessions
             .get_mut(token.0)
@@ -246,6 +242,8 @@ impl Admin {
 
         match session.receive() {
             Ok(request) => {
+                ADMIN_REQUEST_PARSE.increment();
+
                 // do some request handling
                 match request {
                     AdminRequest::FlushAll => {
@@ -262,6 +260,8 @@ impl Admin {
                         session.send(AdminResponse::version(self.version.clone()))?;
                     }
                 }
+
+                ADMIN_RESPONSE_COMPOSE.increment();
 
                 match session.flush() {
                     Ok(_) => Ok(()),
@@ -286,8 +286,6 @@ impl Admin {
     }
 
     fn write(&mut self, token: Token) -> Result<()> {
-        ADMIN_EVENT_WRITE.increment();
-
         let session = self
             .sessions
             .get_mut(token.0)
