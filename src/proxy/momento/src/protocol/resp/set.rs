@@ -1,7 +1,7 @@
-use protocol_resp::SetRequest;
 use crate::klog::klog_set;
 use crate::Error;
 use crate::*;
+use protocol_resp::SetRequest;
 
 use protocol_memcache::*;
 

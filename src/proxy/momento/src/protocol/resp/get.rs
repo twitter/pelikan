@@ -1,6 +1,6 @@
 use crate::klog::klog_get;
-use crate::*;
 use crate::Error;
+use crate::*;
 
 pub use protocol_resp::{Request, RequestParser};
 

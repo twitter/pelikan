@@ -3,8 +3,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::klog::klog_set;
-use crate::*;
 use crate::Error;
+use crate::*;
 use protocol_memcache::*;
 
 pub async fn set(

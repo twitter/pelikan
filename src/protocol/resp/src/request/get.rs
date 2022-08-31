@@ -45,7 +45,7 @@ impl TryFrom<Message> for GetRequest {
 
             Ok(Self { key })
         } else {
-            return Err(Error::new(ErrorKind::Other, "malformed command"));
+            Err(Error::new(ErrorKind::Other, "malformed command"))
         }
     }
 }
