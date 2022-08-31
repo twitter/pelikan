@@ -6,13 +6,19 @@ use crate::*;
 use rustcommon_metrics::*;
 use std::time::Duration;
 
-counter!(LISTENER_EVENT_ERROR);
-counter!(LISTENER_EVENT_WRITE);
-counter!(LISTENER_EVENT_READ);
-counter!(LISTENER_EVENT_LOOP);
-counter!(LISTENER_EVENT_TOTAL);
+counter!(LISTENER_EVENT_ERROR, "the number of error events received");
+counter!(
+    LISTENER_EVENT_LOOP,
+    "the number of times the event loop has run"
+);
+counter!(LISTENER_EVENT_READ, "the number of read events received");
+counter!(LISTENER_EVENT_TOTAL, "the total number of events received");
+counter!(LISTENER_EVENT_WRITE, "the number of write events received");
 
-counter!(LISTENER_SESSION_DISCARD);
+counter!(
+    LISTENER_SESSION_DISCARD,
+    "the number of sessions discarded by the listener"
+);
 
 pub struct ListenerBuilder {
     listener: ::net::Listener,

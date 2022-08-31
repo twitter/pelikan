@@ -5,13 +5,19 @@
 use crate::*;
 use std::time::Duration;
 
-counter!(LISTENER_EVENT_ERROR);
-counter!(LISTENER_EVENT_WRITE);
-counter!(LISTENER_EVENT_READ);
-counter!(LISTENER_EVENT_LOOP);
-counter!(LISTENER_EVENT_TOTAL);
+counter!(LISTENER_EVENT_ERROR, "the number of error events received");
+counter!(
+    LISTENER_EVENT_LOOP,
+    "the number of times the event loop has run"
+);
+counter!(LISTENER_EVENT_READ, "the number of read events received");
+counter!(LISTENER_EVENT_TOTAL, "the total number of events received");
+counter!(LISTENER_EVENT_WRITE, "the number of write events received");
 
-counter!(LISTENER_SESSION_DROP);
+counter!(
+    LISTENER_SESSION_DISCARD,
+    "the number of sessions discarded by the listener"
+);
 
 pub struct Listener {
     /// The actual network listener server
@@ -207,7 +213,7 @@ impl Listener {
                 for attempt in 1..=QUEUE_RETRIES {
                     if let Err(s) = self.session_queue.try_send_any(session) {
                         if attempt == QUEUE_RETRIES {
-                            LISTENER_SESSION_DROP.increment();
+                            LISTENER_SESSION_DISCARD.increment();
                         } else {
                             let _ = self.session_queue.wake();
                         }
