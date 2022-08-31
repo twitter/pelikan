@@ -8,13 +8,23 @@ use session::ClientSession;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
-heatmap!(BACKEND_EVENT_DEPTH, 100_000);
-counter!(BACKEND_EVENT_ERROR);
-counter!(BACKEND_EVENT_LOOP);
-counter!(BACKEND_EVENT_MAX_REACHED);
-counter!(BACKEND_EVENT_READ);
-counter!(BACKEND_EVENT_TOTAL);
-counter!(BACKEND_EVENT_WRITE);
+heatmap!(
+    BACKEND_EVENT_DEPTH,
+    100_000,
+    "distribution of the number of events received per iteration of the event loop"
+);
+counter!(BACKEND_EVENT_ERROR, "the number of error events received");
+counter!(
+    BACKEND_EVENT_LOOP,
+    "the number of times the event loop has run"
+);
+counter!(
+    BACKEND_EVENT_MAX_REACHED,
+    "the number of times the maximum number of events was returned"
+);
+counter!(BACKEND_EVENT_READ, "the number of read events received");
+counter!(BACKEND_EVENT_TOTAL, "the total number of events received");
+counter!(BACKEND_EVENT_WRITE, "the number of write events received");
 
 pub struct BackendWorkerBuilder<Parser, Request, Response> {
     free_queue: VecDeque<Token>,

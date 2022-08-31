@@ -5,13 +5,23 @@
 use super::map_result;
 use crate::*;
 
-heatmap!(FRONTEND_EVENT_DEPTH, 100_000);
-counter!(FRONTEND_EVENT_ERROR);
-counter!(FRONTEND_EVENT_LOOP);
-counter!(FRONTEND_EVENT_MAX_REACHED);
-counter!(FRONTEND_EVENT_READ);
-counter!(FRONTEND_EVENT_TOTAL);
-counter!(FRONTEND_EVENT_WRITE);
+heatmap!(
+    FRONTEND_EVENT_DEPTH,
+    100_000,
+    "distribution of the number of events received per iteration of the event loop"
+);
+counter!(FRONTEND_EVENT_ERROR, "the number of error events received");
+counter!(
+    FRONTEND_EVENT_LOOP,
+    "the number of times the event loop has run"
+);
+counter!(
+    FRONTEND_EVENT_MAX_REACHED,
+    "the number of times the maximum number of events was returned"
+);
+counter!(FRONTEND_EVENT_READ, "the number of read events received");
+counter!(FRONTEND_EVENT_TOTAL, "the total number of events received");
+counter!(FRONTEND_EVENT_WRITE, "the number of write events received");
 
 pub struct FrontendWorkerBuilder<
     FrontendParser,
