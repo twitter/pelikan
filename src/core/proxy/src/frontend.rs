@@ -1,9 +1,89 @@
-// Copyright 2021 Twitter, Inc.
+// Copyright 2022 Twitter, Inc.
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use super::map_result;
 use crate::*;
+
+pub struct FrontendWorkerBuilder<
+    FrontendParser,
+    FrontendRequest,
+    FrontendResponse,
+    BackendRequest,
+    BackendResponse,
+> {
+    nevent: usize,
+    parser: FrontendParser,
+    poll: Poll,
+    sessions: Slab<ServerSession<FrontendParser, FrontendResponse, FrontendRequest>>,
+    timeout: Duration,
+    waker: Arc<Box<dyn Waker>>,
+    _backend_request: PhantomData<BackendRequest>,
+    _backend_response: PhantomData<BackendResponse>,
+}
+
+impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>
+    FrontendWorkerBuilder<
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+        BackendRequest,
+        BackendResponse,
+    >
+{
+    pub fn new<T: FrontendConfig>(config: &T, parser: FrontendParser) -> Result<Self> {
+        let config = config.frontend();
+
+        let poll = Poll::new()?;
+
+        let waker = Arc::new(
+            Box::new(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()) as Box<dyn Waker>,
+        );
+
+        let nevent = config.nevent();
+        let timeout = Duration::from_millis(config.timeout() as u64);
+
+        Ok(Self {
+            nevent,
+            parser,
+            poll,
+            sessions: Slab::new(),
+            timeout,
+            waker,
+            _backend_request: PhantomData,
+            _backend_response: PhantomData,
+        })
+    }
+
+    pub fn waker(&self) -> Arc<Box<dyn Waker>> {
+        self.waker.clone()
+    }
+
+    pub fn build(
+        self,
+        data_queue: Queues<(BackendRequest, Token), (BackendRequest, BackendResponse, Token)>,
+        session_queue: Queues<Session, Session>,
+        signal_queue: Queues<(), Signal>,
+    ) -> FrontendWorker<
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+        BackendRequest,
+        BackendResponse,
+    > {
+        FrontendWorker {
+            data_queue,
+            nevent: self.nevent,
+            parser: self.parser,
+            poll: self.poll,
+            session_queue,
+            sessions: self.sessions,
+            signal_queue,
+            timeout: self.timeout,
+            waker: self.waker,
+        }
+    }
+}
 
 pub struct FrontendWorker<
     FrontendParser,
@@ -194,86 +274,6 @@ where
 
             // wakes the storage thread if necessary
             let _ = self.data_queue.wake();
-        }
-    }
-}
-
-pub struct FrontendWorkerBuilder<
-    FrontendParser,
-    FrontendRequest,
-    FrontendResponse,
-    BackendRequest,
-    BackendResponse,
-> {
-    nevent: usize,
-    parser: FrontendParser,
-    poll: Poll,
-    sessions: Slab<ServerSession<FrontendParser, FrontendResponse, FrontendRequest>>,
-    timeout: Duration,
-    waker: Arc<Box<dyn Waker>>,
-    _backend_request: PhantomData<BackendRequest>,
-    _backend_response: PhantomData<BackendResponse>,
-}
-
-impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>
-    FrontendWorkerBuilder<
-        FrontendParser,
-        FrontendRequest,
-        FrontendResponse,
-        BackendRequest,
-        BackendResponse,
-    >
-{
-    pub fn new<T: FrontendConfig>(config: &T, parser: FrontendParser) -> Result<Self> {
-        let config = config.frontend();
-
-        let poll = Poll::new()?;
-
-        let waker = Arc::new(
-            Box::new(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()) as Box<dyn Waker>,
-        );
-
-        let nevent = config.nevent();
-        let timeout = Duration::from_millis(config.timeout() as u64);
-
-        Ok(Self {
-            nevent,
-            parser,
-            poll,
-            sessions: Slab::new(),
-            timeout,
-            waker,
-            _backend_request: PhantomData,
-            _backend_response: PhantomData,
-        })
-    }
-
-    pub fn waker(&self) -> Arc<Box<dyn Waker>> {
-        self.waker.clone()
-    }
-
-    pub fn build(
-        self,
-        data_queue: Queues<(BackendRequest, Token), (BackendRequest, BackendResponse, Token)>,
-        session_queue: Queues<Session, Session>,
-        signal_queue: Queues<(), Signal>,
-    ) -> FrontendWorker<
-        FrontendParser,
-        FrontendRequest,
-        FrontendResponse,
-        BackendRequest,
-        BackendResponse,
-    > {
-        FrontendWorker {
-            data_queue,
-            nevent: self.nevent,
-            parser: self.parser,
-            poll: self.poll,
-            session_queue,
-            sessions: self.sessions,
-            signal_queue,
-            timeout: self.timeout,
-            waker: self.waker,
         }
     }
 }

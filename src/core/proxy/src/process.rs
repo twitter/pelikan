@@ -1,4 +1,4 @@
-// Copyright 2021 Twitter, Inc.
+// Copyright 2022 Twitter, Inc.
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
@@ -27,7 +27,6 @@ pub struct ProcessBuilder<
     >,
     listener: ListenerBuilder,
     log_drain: Box<dyn Drain>,
-    // workers: WorkersBuilder<Parser, Request, Response, Storage>,
 }
 
 impl<
@@ -65,7 +64,6 @@ where
         let backend = BackendBuilder::new(config, backend_parser, 1)?;
         let frontend = FrontendBuilder::new(config, frontend_parser, 1)?;
         let listener = ListenerBuilder::new(config)?;
-        // let workers = WorkersBuilder::new(config, parser, storage)?;
 
         Ok(Self {
             admin,

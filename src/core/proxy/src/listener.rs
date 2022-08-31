@@ -1,4 +1,4 @@
-// Copyright 2021 Twitter, Inc.
+// Copyright 2022 Twitter, Inc.
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
@@ -13,26 +13,6 @@ counter!(LISTENER_EVENT_LOOP);
 counter!(LISTENER_EVENT_TOTAL);
 
 counter!(LISTENER_SESSION_DISCARD);
-
-pub struct Listener {
-    /// The actual network listener server
-    listener: ::net::Listener,
-    /// The maximum number of events to process per call to poll
-    nevent: usize,
-    /// The actual poll instantance
-    poll: Poll,
-    /// Sessions which have been opened, but are not fully established
-    sessions: Slab<Session>,
-    /// Queues for sending established sessions to the worker thread(s) and to
-    /// receive sessions which should be closed
-    session_queue: Queues<Session, Session>,
-    /// Queue for receieving signals from the admin thread
-    signal_queue: Queues<(), Signal>,
-    /// The timeout for each call to poll
-    timeout: Duration,
-    /// The waker handle for this thread
-    waker: Arc<Box<dyn Waker>>,
-}
 
 pub struct ListenerBuilder {
     listener: ::net::Listener,
@@ -103,6 +83,26 @@ impl ListenerBuilder {
             waker: self.waker,
         }
     }
+}
+
+pub struct Listener {
+    /// The actual network listener server
+    listener: ::net::Listener,
+    /// The maximum number of events to process per call to poll
+    nevent: usize,
+    /// The actual poll instantance
+    poll: Poll,
+    /// Sessions which have been opened, but are not fully established
+    sessions: Slab<Session>,
+    /// Queues for sending established sessions to the worker thread(s) and to
+    /// receive sessions which should be closed
+    session_queue: Queues<Session, Session>,
+    /// Queue for receieving signals from the admin thread
+    signal_queue: Queues<(), Signal>,
+    /// The timeout for each call to poll
+    timeout: Duration,
+    /// The waker handle for this thread
+    waker: Arc<Box<dyn Waker>>,
 }
 
 impl Listener {

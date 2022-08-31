@@ -1,4 +1,4 @@
-// Copyright 2021 Twitter, Inc.
+// Copyright 2022 Twitter, Inc.
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
@@ -7,6 +7,84 @@ use crate::*;
 use session::ClientSession;
 use std::collections::HashMap;
 use std::collections::VecDeque;
+
+pub struct BackendWorkerBuilder<Parser, Request, Response> {
+    free_queue: VecDeque<Token>,
+    nevent: usize,
+    parser: Parser,
+    poll: Poll,
+    sessions: Slab<ClientSession<Parser, Request, Response>>,
+    timeout: Duration,
+    waker: Arc<Box<dyn Waker>>,
+}
+
+impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response>
+where
+    Parser: Clone + Parse<Response>,
+    Request: Compose,
+{
+    pub fn new<T: BackendConfig>(config: &T, parser: Parser) -> Result<Self> {
+        let config = config.backend();
+
+        let poll = Poll::new()?;
+
+        let waker = Arc::new(
+            Box::new(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()) as Box<dyn Waker>,
+        );
+
+        let nevent = config.nevent();
+        let timeout = Duration::from_millis(config.timeout() as u64);
+
+        let mut sessions = Slab::new();
+        let mut free_queue = VecDeque::new();
+
+        for endpoint in config.socket_addrs()? {
+            let stream = TcpStream::connect(endpoint)?;
+            let mut session = ClientSession::new(Session::from(stream), parser.clone());
+            let s = sessions.vacant_entry();
+            session
+                .register(poll.registry(), Token(s.key()), session.interest())
+                .expect("failed to register");
+            free_queue.push_back(Token(s.key()));
+            s.insert(session);
+        }
+
+        Ok(Self {
+            free_queue,
+            nevent,
+            parser,
+            poll,
+            sessions,
+            timeout,
+            waker,
+        })
+    }
+
+    pub fn waker(&self) -> Arc<Box<dyn Waker>> {
+        self.waker.clone()
+    }
+
+    pub fn build(
+        self,
+        data_queue: Queues<(Request, Response, Token), (Request, Token)>,
+        signal_queue: Queues<(), Signal>,
+    ) -> BackendWorker<Parser, Request, Response> {
+        BackendWorker {
+            backlog: VecDeque::new(),
+            data_queue,
+            free_queue: self.free_queue,
+            nevent: self.nevent,
+            parser: self.parser,
+            pending: HashMap::new(),
+            poll: self.poll,
+            sessions: self.sessions,
+            signal_queue,
+            timeout: self.timeout,
+            waker: self.waker,
+        }
+    }
+}
+
 
 pub struct BackendWorker<Parser, Request, Response> {
     backlog: VecDeque<(Request, Token)>,
@@ -157,83 +235,6 @@ where
     }
 }
 
-pub struct BackendWorkerBuilder<Parser, Request, Response> {
-    free_queue: VecDeque<Token>,
-    nevent: usize,
-    parser: Parser,
-    poll: Poll,
-    sessions: Slab<ClientSession<Parser, Request, Response>>,
-    timeout: Duration,
-    waker: Arc<Box<dyn Waker>>,
-}
-
-impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response>
-where
-    Parser: Clone + Parse<Response>,
-    Request: Compose,
-{
-    pub fn new<T: BackendConfig>(config: &T, parser: Parser) -> Result<Self> {
-        let config = config.backend();
-
-        let poll = Poll::new()?;
-
-        let waker = Arc::new(
-            Box::new(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()) as Box<dyn Waker>,
-        );
-
-        let nevent = config.nevent();
-        let timeout = Duration::from_millis(config.timeout() as u64);
-
-        let mut sessions = Slab::new();
-        let mut free_queue = VecDeque::new();
-
-        for endpoint in config.socket_addrs()? {
-            let stream = TcpStream::connect(endpoint)?;
-            let mut session = ClientSession::new(Session::from(stream), parser.clone());
-            let s = sessions.vacant_entry();
-            session
-                .register(poll.registry(), Token(s.key()), session.interest())
-                .expect("failed to register");
-            free_queue.push_back(Token(s.key()));
-            s.insert(session);
-        }
-
-        Ok(Self {
-            free_queue,
-            nevent,
-            parser,
-            poll,
-            sessions,
-            timeout,
-            waker,
-        })
-    }
-
-    pub fn waker(&self) -> Arc<Box<dyn Waker>> {
-        self.waker.clone()
-    }
-
-    pub fn build(
-        self,
-        data_queue: Queues<(Request, Response, Token), (Request, Token)>,
-        signal_queue: Queues<(), Signal>,
-    ) -> BackendWorker<Parser, Request, Response> {
-        BackendWorker {
-            backlog: VecDeque::new(),
-            data_queue,
-            free_queue: self.free_queue,
-            nevent: self.nevent,
-            parser: self.parser,
-            pending: HashMap::new(),
-            poll: self.poll,
-            sessions: self.sessions,
-            signal_queue,
-            timeout: self.timeout,
-            waker: self.waker,
-        }
-    }
-}
-
 pub struct BackendBuilder<Parser, Request, Response> {
     builders: Vec<BackendWorkerBuilder<Parser, Request, Response>>,
 }
@@ -242,7 +243,6 @@ impl<BackendParser, BackendRequest, BackendResponse>
     BackendBuilder<BackendParser, BackendRequest, BackendResponse>
 where
     BackendParser: Parse<BackendResponse> + Clone,
-    // BackendResponse: Compose,
     BackendRequest: Compose,
 {
     pub fn new<T: BackendConfig>(
