@@ -173,8 +173,7 @@ where
 
                         // handle all pending messages on the data queue
                         self.data_queue.try_recv_all(&mut messages);
-                        for (request, response, token) in
-                            messages.drain(..).map(|v| v.into_inner())
+                        for (request, response, token) in messages.drain(..).map(|v| v.into_inner())
                         {
                             request.klog(&response);
                             if let Some(session) = self.sessions.get_mut(token.0) {

@@ -110,12 +110,7 @@ impl Klog for Delete {
                 return;
             }
         };
-        klog!(
-            "\"delete {}\" {} {}",
-            string_key(self.key()),
-            code,
-            len
-        );
+        klog!("\"delete {}\" {} {}", string_key(self.key()), code, len);
     }
 }
 

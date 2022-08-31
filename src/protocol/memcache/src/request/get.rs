@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::ops::Deref;
 use super::*;
+use std::ops::Deref;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Get {
@@ -120,7 +120,12 @@ impl Klog for Get {
                 if value_index >= values.len() || values[value_index].key() != key {
                     klog!("\"get {}\" {} 0", String::from_utf8_lossy(key), MISS);
                 } else {
-                    klog!("\"get {}\" {} {}", String::from_utf8_lossy(key), HIT, values[value_index].len());
+                    klog!(
+                        "\"get {}\" {} {}",
+                        String::from_utf8_lossy(key),
+                        HIT,
+                        values[value_index].len()
+                    );
                     value_index += 1;
                 }
             }

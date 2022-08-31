@@ -11,9 +11,9 @@ mod parse;
 #[cfg(test)]
 mod test;
 
-use logger::Klog;
 use crate::Response;
 pub use keyword::Keyword;
+use logger::Klog;
 
 pub use parse::Parser as RequestParser;
 

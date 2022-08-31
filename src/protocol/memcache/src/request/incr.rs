@@ -119,12 +119,7 @@ impl Klog for Incr {
                 return;
             }
         };
-        klog!(
-            "\"incr {}\" {} {}",
-            string_key(self.key()),
-            code,
-            len
-        );
+        klog!("\"incr {}\" {} {}", string_key(self.key()), code, len);
     }
 }
 

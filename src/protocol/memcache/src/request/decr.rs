@@ -90,12 +90,7 @@ impl Klog for Decr {
                 return;
             }
         };
-        klog!(
-            "\"decr {}\" {} {}",
-            string_key(self.key()),
-            code,
-            len
-        );
+        klog!("\"decr {}\" {} {}", string_key(self.key()), code, len);
     }
 }
 
