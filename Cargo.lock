@@ -1180,7 +1180,6 @@ dependencies = [
  "libc",
  "mio 0.8.4",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
- "tempfile",
 ]
 
 [[package]]
@@ -1540,7 +1539,7 @@ dependencies = [
 
 [[package]]
 name = "protocol-memcache"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "common",
  "criterion",
@@ -1552,7 +1551,7 @@ dependencies = [
 
 [[package]]
 name = "protocol-ping"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "common",
  "config",
@@ -1565,16 +1564,19 @@ dependencies = [
 
 [[package]]
 name = "protocol-resp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
+ "common",
  "nom 5.1.2",
  "protocol-common",
+ "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",
 ]
 
 [[package]]
 name = "protocol-thrift"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
+ "common",
  "logger",
  "protocol-common",
  "rustcommon-metrics 0.1.1 (git+https://github.com/twitter/rustcommon)",

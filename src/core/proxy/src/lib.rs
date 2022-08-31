@@ -82,3 +82,5 @@ fn map_result(result: Result<usize>) -> Result<()> {
         Err(e) => map_err(e),
     }
 }
+
+common::metrics::test_no_duplicates!();

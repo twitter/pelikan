@@ -486,3 +486,7 @@ impl Admin {
         }
     }
 }
+
+common::metrics::test_no_duplicates!();
+
+

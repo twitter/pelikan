@@ -25,19 +25,6 @@ pub trait Execute<Request, Response: Compose> {
     fn execute(&mut self, request: &Request) -> Response;
 }
 
-// pub trait ExecutionResult<Request, Response: Compose>: Send + Compose {
-//     fn request(&self) -> &Request;
-
-//     fn response(&self) -> &Response;
-// }
-
-// #[derive(Debug, PartialEq)]
-// pub enum ParseError {
-//     Invalid,
-//     Incomplete,
-//     Unknown,
-// }
-
 #[derive(Debug, PartialEq)]
 pub struct ParseOk<T> {
     message: T,

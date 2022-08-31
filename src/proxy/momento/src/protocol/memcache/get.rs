@@ -1,3 +1,7 @@
+// Copyright 2022 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
 use crate::klog::klog_get;
 use crate::*;
 
@@ -9,13 +13,13 @@ pub async fn get(
     socket: &mut tokio::net::TcpStream,
     keys: &[Box<[u8]>],
 ) -> Result<(), Error> {
-    // GET.increment();
+    GET.increment();
 
     // check if any of the keys are invalid before
     // sending the requests to the backend
     for key in keys.iter() {
         if std::str::from_utf8(key).is_err() {
-            // GET_EX.increment();
+            GET_EX.increment();
 
             // invalid key
             let _ = socket.write_all(b"ERROR\r\n").await;

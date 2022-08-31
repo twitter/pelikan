@@ -2,8 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use super::map_result;
-use crate::*;
+use super::*;
 
 pub struct MultiWorkerBuilder<Parser, Request, Response> {
     nevent: usize,
@@ -128,25 +127,24 @@ where
         // events and queue messages
         let mut events = Events::with_capacity(self.nevent);
         let mut messages = Vec::with_capacity(QUEUE_CAPACITY);
-        // let mut sessions = Vec::with_capacity(QUEUE_CAPACITY);
 
         loop {
-            // WORKER_EVENT_LOOP.increment();
+            WORKER_EVENT_LOOP.increment();
 
             // get events with timeout
             if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
                 error!("Error polling");
             }
 
-            // let timestamp = Instant::now();
+            let timestamp = Instant::now();
 
-            // let count = events.iter().count();
-            // WORKER_EVENT_TOTAL.add(count as _);
-            // if count == self.nevent {
-            //     WORKER_EVENT_MAX_REACHED.increment();
-            // } else {
-            //     WORKER_EVENT_DEPTH.increment(timestamp, count as _, 1);
-            // }
+            let count = events.iter().count();
+            WORKER_EVENT_TOTAL.add(count as _);
+            if count == self.nevent {
+                WORKER_EVENT_MAX_REACHED.increment();
+            } else {
+                WORKER_EVENT_DEPTH.increment(timestamp, count as _, 1);
+            }
 
             // process all events
             for event in events.iter() {
@@ -217,16 +215,28 @@ where
                     }
                     _ => {
                         if event.is_error() {
+                            WORKER_EVENT_ERROR.increment();
+
                             self.close(token);
                             continue;
                         }
-                        if event.is_writable() && self.write(token).is_err() {
-                            self.close(token);
-                            continue;
+
+                        if event.is_writable() {
+                            WORKER_EVENT_WRITE.increment();
+
+                            if self.write(token).is_err() {
+                                self.close(token);
+                                continue;
+                            }
                         }
-                        if event.is_readable() && self.read(token).is_err() {
-                            self.close(token);
-                            continue;
+
+                        if event.is_readable() {
+                            WORKER_EVENT_READ.increment();
+
+                            if self.read(token).is_err() {
+                                self.close(token);
+                                continue;
+                            }
                         }
                     }
                 }

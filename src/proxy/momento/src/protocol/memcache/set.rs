@@ -1,3 +1,7 @@
+// Copyright 2022 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
 use crate::klog::klog_set;
 use crate::*;
 
@@ -20,16 +24,12 @@ pub async fn set(
 
         if value.is_empty() {
             error!("empty values are not supported by momento");
-            // SESSION_SEND.increment();
-            // SESSION_SEND_BYTE.add(7);
-            // TCP_SEND_BYTE.add(7);
-            if socket.write_all(b"ERROR\r\n").await.is_err() {
-                // SESSION_SEND_EX.increment();
-            }
+            let _ = socket.write_all(b"ERROR\r\n").await;
+
             return Err(Error::from(ErrorKind::InvalidInput));
         }
 
-        let value = if let Ok(value) = std::str::from_utf8(&request.value()) {
+        let value = if let Ok(value) = std::str::from_utf8(request.value()) {
             value.to_owned()
         } else {
             debug!("value is not valid utf8: {:?}", request.value());

@@ -5,6 +5,9 @@
 #[macro_use]
 extern crate logger;
 
+#[macro_use]
+extern crate rustcommon_metrics;
+
 mod request;
 mod response;
 mod result;
@@ -21,6 +24,7 @@ pub use storage::*;
 pub use protocol_common::*;
 
 use logger::Klog;
+use rustcommon_metrics::*;
 
 // use common::expiry::TimeType;
 
@@ -32,16 +36,14 @@ pub enum MemcacheError {
     ServerError(ServerError),
 }
 
-use rustcommon_metrics::*;
-
 type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
 
 counter!(GET);
-// heatmap!(
-//     GET_CARDINALITY,
-//     1_000_000,
-//     "distribution of key cardinality for get requests"
-// );
+heatmap!(
+    GET_CARDINALITY,
+    1_000_000,
+    "distribution of key cardinality for get requests"
+);
 counter!(GET_EX);
 counter!(GET_KEY);
 counter!(GET_KEY_HIT);
@@ -103,3 +105,6 @@ counter!(FLUSH_ALL);
 counter!(FLUSH_ALL_EX);
 
 counter!(QUIT);
+
+common::metrics::test_no_duplicates!();
+

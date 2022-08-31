@@ -1,3 +1,7 @@
+// Copyright 2022 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
 pub(crate) fn klog_get(key: &str, response_len: usize) {
     if response_len == 0 {
         klog!("\"get {}\" 0 {}", key, response_len);

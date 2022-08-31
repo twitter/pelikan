@@ -17,3 +17,5 @@ pub static PERCENTILES: &[(&str, f64)] = &[
     ("p999", 99.9),
     ("p9999", 99.99),
 ];
+
+common::metrics::test_no_duplicates!();

@@ -5,6 +5,10 @@
 use crate::*;
 use session::Buf;
 
+gauge!(ADMIN_CONN_CURR);
+counter!(ADMIN_CONN_ACCEPT);
+counter!(ADMIN_CONN_CLOSE);
+
 pub(crate) async fn admin(mut log_drain: Box<dyn logger::Drain>, admin_listener: TcpListener) {
     loop {
         let _ = log_drain.flush();
@@ -13,12 +17,12 @@ pub(crate) async fn admin(mut log_drain: Box<dyn logger::Drain>, admin_listener:
         if let Ok(Ok((socket, _))) =
             timeout(Duration::from_millis(1), admin_listener.accept()).await
         {
-            // TCP_CONN_CURR.increment();
-            // TCP_ACCEPT.increment();
+            ADMIN_CONN_CURR.increment();
+            ADMIN_CONN_ACCEPT.increment();
             tokio::spawn(async move {
                 admin::handle_admin_client(socket).await;
-                // TCP_CLOSE.increment();
-                // TCP_CONN_CURR.decrement();
+                ADMIN_CONN_CLOSE.increment();
+                ADMIN_CONN_CURR.decrement();
             });
         };
 
@@ -81,15 +85,17 @@ async fn handle_admin_client(mut socket: tokio::net::TcpStream) {
             break;
         }
 
-        // ADMIN_REQUEST_PARSE.increment();
-
         match parser.parse(buf.borrow()) {
             Ok(request) => {
+                ADMIN_REQUEST_PARSE.increment();
+
                 let consumed = request.consumed();
                 let request = request.into_inner();
 
                 match request {
                     AdminRequest::Stats { .. } => {
+                        ADMIN_RESPONSE_COMPOSE.increment();
+
                         if stats_response(&mut socket).await.is_err() {
                             break;
                         }
@@ -159,7 +165,6 @@ async fn stats_response(socket: &mut tokio::net::TcpStream) -> Result<(), Error>
     }
 
     data.sort();
-    // ADMIN_RESPONSE_COMPOSE.increment();
     for line in data {
         socket.write_all(line.as_bytes()).await?;
     }

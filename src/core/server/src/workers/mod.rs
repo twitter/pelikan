@@ -13,18 +13,29 @@ use multi::*;
 use single::*;
 use storage::*;
 
+heatmap!(
+    WORKER_EVENT_DEPTH,
+    100_000,
+    "distribution of the number of events received per iteration of the event loop"
+);
+counter!(WORKER_EVENT_ERROR, "the number of error events received");
+counter!(
+    WORKER_EVENT_LOOP,
+    "the number of times the event loop has run"
+);
+counter!(
+    WORKER_EVENT_MAX_REACHED,
+    "the number of times the maximum number of events was returned"
+);
+counter!(WORKER_EVENT_READ, "the number of read events received");
+counter!(WORKER_EVENT_TOTAL, "the total number of events received");
+counter!(WORKER_EVENT_WRITE, "the number of write events received");
+
 fn map_result(result: Result<usize>) -> Result<()> {
     match result {
         Ok(0) => Err(Error::new(ErrorKind::Other, "client hangup")),
         Ok(_) => Ok(()),
         Err(e) => map_err(e),
-    }
-}
-
-fn map_err(e: std::io::Error) -> Result<()> {
-    match e.kind() {
-        ErrorKind::WouldBlock => Ok(()),
-        _ => Err(e),
     }
 }
 

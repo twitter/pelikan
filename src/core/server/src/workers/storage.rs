@@ -4,6 +4,16 @@
 
 use crate::*;
 
+counter!(
+    STORAGE_EVENT_LOOP,
+    "the number of times the event loop has run"
+);
+heatmap!(
+    STORAGE_QUEUE_DEPTH,
+    1_000_000,
+    "the distribution of the depth of the storage queue on each loop"
+);
+
 pub struct StorageWorkerBuilder<Request, Response, Storage> {
     nevent: usize,
     poll: Poll,
@@ -86,7 +96,7 @@ where
         let mut messages = Vec::with_capacity(1024);
 
         loop {
-            // STORAGE_EVENT_LOOP.increment();
+            STORAGE_EVENT_LOOP.increment();
 
             self.storage.expire();
 
@@ -95,14 +105,14 @@ where
                 error!("Error polling");
             }
 
-            // let timestamp = Instant::now();
+            let timestamp = Instant::now();
 
             if !events.is_empty() {
                 trace!("handling events");
 
                 self.data_queue.try_recv_all(&mut messages);
 
-                // STORAGE_QUEUE_DEPTH.increment(timestamp, requests.len() as _, 1);
+                STORAGE_QUEUE_DEPTH.increment(timestamp, messages.len() as _, 1);
 
                 for message in messages.drain(..) {
                     let sender = message.sender();

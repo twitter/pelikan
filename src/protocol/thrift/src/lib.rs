@@ -98,3 +98,5 @@ mod tests {
         assert_eq!(*parsed.data, body);
     }
 }
+
+common::metrics::test_no_duplicates!();

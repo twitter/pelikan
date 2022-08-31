@@ -387,3 +387,5 @@ async fn do_read(
         }
     }
 }
+
+common::metrics::test_no_duplicates!();
