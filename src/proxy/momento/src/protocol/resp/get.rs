@@ -3,11 +3,9 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::klog::klog_get;
-use crate::Error;
-use crate::*;
+use crate::{Error, *};
 use ::net::*;
 use protocol_memcache::*;
-use session::*;
 
 pub async fn get(
     client: &mut SimpleCacheClient,

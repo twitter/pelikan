@@ -3,8 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::klog::klog_set;
-use crate::Error;
-use crate::*;
+use crate::{Error, *};
 use ::net::*;
 use protocol_memcache::*;
 use protocol_resp::SetRequest;
