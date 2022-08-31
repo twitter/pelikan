@@ -8,7 +8,6 @@ use crate::*;
 use ::net::*;
 use protocol_memcache::*;
 use protocol_resp::SetRequest;
-use session::*;
 
 pub async fn set(
     client: &mut SimpleCacheClient,
@@ -32,6 +31,7 @@ pub async fn set(
             SESSION_SEND.increment();
             SESSION_SEND_BYTE.add(7);
             TCP_SEND_BYTE.add(7);
+
             if socket.write_all(b"ERROR\r\n").await.is_err() {
                 SESSION_SEND_EX.increment();
             }
@@ -75,8 +75,9 @@ pub async fn set(
                         SESSION_SEND.increment();
                         SESSION_SEND_BYTE.add(8);
                         TCP_SEND_BYTE.add(8);
+
                         if let Err(e) = socket.write_all(b"+OK\r\n").await {
-                            // SESSION_SEND_EX.increment();
+                            SESSION_SEND_EX.increment();
                             // hangup if we can't send a response back
                             return Err(e);
                         }
@@ -94,6 +95,7 @@ pub async fn set(
                         SESSION_SEND.increment();
                         SESSION_SEND_BYTE.add(12);
                         TCP_SEND_BYTE.add(12);
+
                         // let client know this wasn't stored
                         if let Err(e) = socket.write_all(b"-ERR backend error\r\n").await {
                             SESSION_SEND_EX.increment();

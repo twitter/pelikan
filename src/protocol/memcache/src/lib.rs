@@ -7,7 +7,6 @@ extern crate logger;
 
 mod request;
 mod response;
-mod result;
 mod storage;
 mod util;
 
@@ -15,7 +14,6 @@ pub(crate) use util::*;
 
 pub use request::*;
 pub use response::*;
-pub use result::*;
 pub use storage::*;
 
 pub use protocol_common::*;

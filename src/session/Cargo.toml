@@ -2,6 +2,10 @@
 name = "session"
 version = "0.1.0"
 edition = "2021"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+homepage = "https://pelikan.io"
+repository = "https://github.com/twitter/pelikan"
+license = "Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

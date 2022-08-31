@@ -33,11 +33,6 @@ impl Segcache {
         // initialize storage
         let storage = Storage::new(&config)?;
 
-        // let max_buffer_size = std::cmp::max(
-        //     server::DEFAULT_BUFFER_SIZE,
-        //     config.seg().segment_size() as usize * 2,
-        // );
-
         // initialize parser
         let parser = Parser::new()
             .max_value_size(config.seg().segment_size() as usize)
@@ -45,12 +40,7 @@ impl Segcache {
 
         // initialize process
         let process_builder = ProcessBuilder::<Parser, Request, Response, Storage>::new(
-            &config, log_drain, parser,
-            storage,
-            // storage,
-            // max_buffer_size,
-            // parser,
-            // log_drain,
+            &config, log_drain, parser, storage,
         )?
         .version(env!("CARGO_PKG_VERSION"));
 

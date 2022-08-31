@@ -2,14 +2,13 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::message::*;
 pub use nom::bytes::streaming::*;
 pub use nom::character::streaming::*;
-// pub use nom::error::ErrorKind;
 pub use nom::{AsChar, Err, IResult, InputTakeAtPosition, Needed};
 pub use protocol_common::Compose;
-// use protocol_common::ParseError;
 pub use std::io::{Error, ErrorKind, Write};
+
+use crate::message::*;
 use std::sync::Arc;
 
 // consumes one or more literal spaces

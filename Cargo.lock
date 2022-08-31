@@ -1393,7 +1393,7 @@ dependencies = [
 
 [[package]]
 name = "pingserver"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "backtrace",
  "clap",
@@ -1605,7 +1605,7 @@ dependencies = [
 
 [[package]]
 name = "queues"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "crossbeam-queue",
  "net",

@@ -35,19 +35,12 @@ impl Pingserver {
         // initialize storage
         let storage = Storage::new();
 
-        // use a fixed buffer size for the pingserver
-        // let max_buffer_size = server::DEFAULT_BUFFER_SIZE;
-
         // initialize parser
         let parser = Parser::new();
 
         // initialize process
         let process_builder = ProcessBuilder::<Parser, Request, Response, Storage>::new(
-            &config, log_drain, parser,
-            storage,
-            // max_buffer_size,
-            // parser,
-            // log_drain,
+            &config, log_drain, parser, storage,
         )?
         .version(env!("CARGO_PKG_VERSION"));
 
