@@ -8,6 +8,11 @@ use session::ClientSession;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
+heatmap!(BACKEND_WORKER_EVENT_DEPTH, 100_000);
+counter!(BACKEND_WORKER_EVENT_LOOP);
+counter!(BACKEND_WORKER_EVENT_MAX_REACHED);
+counter!(BACKEND_WORKER_EVENT_TOTAL);
+
 pub struct BackendWorkerBuilder<Parser, Request, Response> {
     free_queue: VecDeque<Token>,
     nevent: usize,
@@ -85,7 +90,6 @@ where
     }
 }
 
-
 pub struct BackendWorker<Parser, Request, Response> {
     backlog: VecDeque<(Request, Token)>,
     data_queue: Queues<(Request, Response, Token), (Request, Token)>,
@@ -161,22 +165,22 @@ where
         // let mut sessions = Vec::with_capacity(QUEUE_CAPACITY);
 
         loop {
-            // WORKER_EVENT_LOOP.increment();
+            BACKEND_WORKER_EVENT_LOOP.increment();
 
             // get events with timeout
             if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
                 error!("Error polling");
             }
 
-            // let timestamp = Instant::now();
+            let timestamp = Instant::now();
 
-            // let count = events.iter().count();
-            // WORKER_EVENT_TOTAL.add(count as _);
-            // if count == self.nevent {
-            //     WORKER_EVENT_MAX_REACHED.increment();
-            // } else {
-            //     WORKER_EVENT_DEPTH.increment(timestamp, count as _, 1);
-            // }
+            let count = events.iter().count();
+            BACKEND_WORKER_EVENT_TOTAL.add(count as _);
+            if count == self.nevent {
+                BACKEND_WORKER_EVENT_MAX_REACHED.increment();
+            } else {
+                BACKEND_WORKER_EVENT_DEPTH.increment(timestamp, count as _, 1);
+            }
 
             // process all events
             for event in events.iter() {
@@ -261,6 +265,7 @@ where
         self.builders.iter().map(|b| b.waker()).collect()
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn build(
         mut self,
         mut data_queues: Vec<

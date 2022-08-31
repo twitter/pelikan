@@ -8,6 +8,9 @@
 #[macro_use]
 extern crate logger;
 
+#[macro_use]
+extern crate rustcommon_metrics;
+
 use ::net::event::{Event, Source};
 use ::net::*;
 use admin::AdminBuilder;
@@ -22,11 +25,14 @@ use entrystore::EntryStore;
 use logger::Drain;
 use protocol_common::{Compose, Execute, Parse};
 use queues::Queues;
+use rustcommon_metrics::*;
 use session::{Buf, ServerSession, Session};
 use slab::Slab;
 use std::io::{Error, ErrorKind, Result};
 use std::sync::Arc;
 use waker::Waker;
+
+type Instant = rustcommon_metrics::Instant<rustcommon_metrics::Nanoseconds<u64>>;
 
 // mod admin;
 mod backend;
