@@ -15,7 +15,7 @@ use core::marker::PhantomData;
 use core::time::Duration;
 use crossbeam_channel::{bounded, Sender};
 use entrystore::EntryStore;
-use logger::Drain;
+use logger::{Drain, Klog};
 use protocol_common::{Compose, Execute, Parse};
 use queues::Queues;
 use rustcommon_metrics::*;

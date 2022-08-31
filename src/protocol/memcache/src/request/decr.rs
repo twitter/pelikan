@@ -73,6 +73,32 @@ impl Compose for Decr {
     }
 }
 
+impl Klog for Decr {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        let (code, len) = match response {
+            Response::Numeric(ref res) => {
+                DECR_STORED.increment();
+                (STORED, res.len())
+            }
+            Response::NotFound(ref res) => {
+                DECR_NOT_FOUND.increment();
+                (NOT_FOUND, res.len())
+            }
+            _ => {
+                return;
+            }
+        };
+        klog!(
+            "\"decr {}\" {} {}",
+            string_key(self.key()),
+            code,
+            len
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

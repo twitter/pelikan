@@ -11,6 +11,8 @@ mod parse;
 #[cfg(test)]
 mod test;
 
+use logger::Klog;
+use crate::Response;
 pub use keyword::Keyword;
 
 pub use parse::Parser as RequestParser;
@@ -19,4 +21,14 @@ pub use parse::Parser as RequestParser;
 /// A collection of all possible `Ping` request types.
 pub enum Request {
     Ping,
+}
+
+impl Klog for Request {
+    type Response = Response;
+
+    fn klog(&self, _response: &Self::Response) {
+        match self {
+            Request::Ping => klog!("ping {}", 6),
+        }
+    }
 }

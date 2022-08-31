@@ -52,6 +52,12 @@ macro_rules! klog {
     )
 }
 
+pub trait Klog {
+    type Response;
+
+    fn klog(&self, response: &Self::Response);
+}
+
 pub fn configure_logging<T: DebugConfig + KlogConfig>(config: &T) -> Box<dyn Drain> {
     let debug_config = config.debug();
 

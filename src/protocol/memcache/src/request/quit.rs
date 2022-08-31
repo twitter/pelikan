@@ -28,6 +28,12 @@ impl Compose for Quit {
     }
 }
 
+impl Klog for Quit {
+    type Response = Response;
+
+    fn klog(&self, _response: &Self::Response) { }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

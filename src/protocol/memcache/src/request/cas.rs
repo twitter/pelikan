@@ -169,6 +169,45 @@ impl Compose for Cas {
     }
 }
 
+impl Klog for Cas {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        let ttl: i64 = match self.ttl() {
+            None => 0,
+            Some(0) => -1,
+            Some(t) => t as _,
+        };
+        let (code, len) = match response {
+            Response::Stored(ref res) => {
+                CAS_STORED.increment();
+                (STORED, res.len())
+            }
+            Response::Exists(ref res) => {
+                CAS_EXISTS.increment();
+                (EXISTS, res.len())
+            }
+            Response::NotFound(ref res) => {
+                CAS_NOT_FOUND.increment();
+                (NOT_FOUND, res.len())
+            }
+            _ => {
+                return;
+            }
+        };
+        klog!(
+            "\"cas {} {} {} {} {}\" {} {}",
+            string_key(self.key()),
+            self.flags(),
+            ttl,
+            self.value().len(),
+            self.cas(),
+            code,
+            len
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

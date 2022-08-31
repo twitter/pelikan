@@ -41,7 +41,7 @@ pub enum Workers<Parser, Request, Response, Storage> {
 impl<Parser, Request, Response, Storage> Workers<Parser, Request, Response, Storage>
 where
     Parser: 'static + Parse<Request> + Clone + Send,
-    Request: 'static + Send,
+    Request: 'static + Klog + Klog<Response = Response> + Send,
     Response: 'static + Compose + Send,
     Storage: 'static + EntryStore + Execute<Request, Response> + Send,
 {

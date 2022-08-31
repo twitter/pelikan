@@ -98,6 +98,40 @@ impl Compose for Append {
     }
 }
 
+impl Klog for Append {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        let ttl: i64 = match self.ttl() {
+            None => 0,
+            Some(0) => -1,
+            Some(t) => t as _,
+        };
+        let (code, len) = match response {
+            Response::Stored(ref res) => {
+                APPEND_STORED.increment();
+                (STORED, res.len())
+            }
+            Response::NotStored(ref res) => {
+                APPEND_NOT_STORED.increment();
+                (NOT_STORED, res.len())
+            }
+            _ => {
+                return;
+            }
+        };
+        klog!(
+            "\"append {} {} {} {}\" {} {}",
+            string_key(self.key()),
+            self.flags(),
+            ttl,
+            self.value().len(),
+            code,
+            len
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

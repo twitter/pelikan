@@ -98,6 +98,40 @@ impl Compose for Prepend {
     }
 }
 
+impl Klog for Prepend {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        let ttl: i64 = match self.ttl() {
+            None => 0,
+            Some(0) => -1,
+            Some(t) => t as _,
+        };
+        let (code, len) = match response {
+            Response::Stored(ref res) => {
+                PREPEND_STORED.increment();
+                (STORED, res.len())
+            }
+            Response::NotStored(ref res) => {
+                PREPEND_NOT_STORED.increment();
+                (NOT_STORED, res.len())
+            }
+            _ => {
+                return;
+            }
+        };
+        klog!(
+            "\"prepend {} {} {} {}\" {} {}",
+            string_key(self.key()),
+            self.flags(),
+            ttl,
+            self.value().len(),
+            code,
+            len
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

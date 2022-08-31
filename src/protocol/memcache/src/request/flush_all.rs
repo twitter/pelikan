@@ -105,6 +105,12 @@ impl Compose for FlushAll {
     }
 }
 
+impl Klog for FlushAll {
+    type Response = Response;
+
+    fn klog(&self, _response: &Self::Response) { }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

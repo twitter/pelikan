@@ -82,6 +82,7 @@ pub struct SingleWorker<Parser, Request, Response, Storage> {
 impl<Parser, Request, Response, Storage> SingleWorker<Parser, Request, Response, Storage>
 where
     Parser: Parse<Request> + Clone,
+    Request: Klog + Klog<Response = Response>,
     Response: Compose,
     Storage: EntryStore + Execute<Request, Response>,
 {
@@ -114,6 +115,7 @@ where
                     let _ = session.send(response);
                     return Err(Error::new(ErrorKind::Other, "should hangup"));
                 }
+                request.klog(&response);
                 match session.send(response) {
                     Ok(_) => {
                         // attempt to flush immediately if there's now data in

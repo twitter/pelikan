@@ -15,7 +15,7 @@ pub struct ProcessBuilder<Parser, Request, Response, Storage> {
 impl<Parser, Request, Response, Storage> ProcessBuilder<Parser, Request, Response, Storage>
 where
     Parser: 'static + Parse<Request> + Clone + Send,
-    Request: 'static + Send,
+    Request: 'static + Klog + Klog<Response = Response> + Send,
     Response: 'static + Compose + Send,
     Storage: 'static + Execute<Request, Response> + EntryStore + Send,
 {

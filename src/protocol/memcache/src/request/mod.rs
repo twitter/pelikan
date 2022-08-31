@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::borrow::Cow;
 use crate::*;
 use common::expiry::TimeType;
 use core::fmt::{Display, Formatter};
@@ -38,6 +39,19 @@ pub use set::Set;
 pub const DEFAULT_MAX_BATCH_SIZE: usize = 1024;
 pub const DEFAULT_MAX_KEY_LEN: usize = 250;
 pub const DEFAULT_MAX_VALUE_SIZE: usize = 512 * 1024 * 1024; // 512MB max value size
+
+// response codes for klog
+const MISS: u8 = 0;
+const HIT: u8 = 4;
+const STORED: u8 = 5;
+const EXISTS: u8 = 6;
+const DELETED: u8 = 7;
+const NOT_FOUND: u8 = 8;
+const NOT_STORED: u8 = 9;
+
+fn string_key(key: &[u8]) -> Cow<'_, str> {
+    String::from_utf8_lossy(key)
+}
 
 #[derive(Copy, Clone)]
 pub struct RequestParser {
@@ -191,6 +205,28 @@ impl Compose for Request {
             Self::Quit(r) => r.compose(session),
             Self::Replace(r) => r.compose(session),
             Self::Set(r) => r.compose(session),
+        }
+    }
+}
+
+impl Klog for Request {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        match self {
+            Self::Add(r) => r.klog(response),
+            Self::Append(r) => r.klog(response),
+            Self::Cas(r) => r.klog(response),
+            Self::Decr(r) => r.klog(response),
+            Self::Delete(r) => r.klog(response),
+            Self::FlushAll(r) => r.klog(response),
+            Self::Incr(r) => r.klog(response),
+            Self::Get(r) => r.klog(response),
+            Self::Gets(r) => r.klog(response),
+            Self::Prepend(r) => r.klog(response),
+            Self::Quit(r) => r.klog(response),
+            Self::Replace(r) => r.klog(response),
+            Self::Set(r) => r.klog(response),
         }
     }
 }

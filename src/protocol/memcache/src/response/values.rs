@@ -40,6 +40,10 @@ impl Value {
     pub fn key(&self) -> &[u8] {
         &self.key
     }
+
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
 }
 
 impl Compose for Values {

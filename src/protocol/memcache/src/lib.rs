@@ -2,6 +2,9 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+#[macro_use]
+extern crate logger;
+
 mod request;
 mod response;
 mod result;
@@ -16,6 +19,8 @@ pub use result::*;
 pub use storage::*;
 
 pub use protocol_common::*;
+
+use logger::Klog;
 
 // use common::expiry::TimeType;
 
@@ -32,11 +37,11 @@ use rustcommon_metrics::*;
 type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
 
 counter!(GET);
-heatmap!(
-    GET_CARDINALITY,
-    1_000_000,
-    "distribution of key cardinality for get requests"
-);
+// heatmap!(
+//     GET_CARDINALITY,
+//     1_000_000,
+//     "distribution of key cardinality for get requests"
+// );
 counter!(GET_EX);
 counter!(GET_KEY);
 counter!(GET_KEY_HIT);

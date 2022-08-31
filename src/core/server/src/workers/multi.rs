@@ -76,6 +76,7 @@ pub struct MultiWorker<Parser, Request, Response> {
 impl<Parser, Request, Response> MultiWorker<Parser, Request, Response>
 where
     Parser: Parse<Request> + Clone,
+    Request: Klog + Klog<Response = Response>,
     Response: Compose,
 {
     /// Return the `Session` to the `Listener` to handle flush/close
@@ -172,9 +173,10 @@ where
 
                         // handle all pending messages on the data queue
                         self.data_queue.try_recv_all(&mut messages);
-                        for (_request, response, token) in
+                        for (request, response, token) in
                             messages.drain(..).map(|v| v.into_inner())
                         {
+                            request.klog(&response);
                             if let Some(session) = self.sessions.get_mut(token.0) {
                                 if response.should_hangup() {
                                     let _ = session.send(response);

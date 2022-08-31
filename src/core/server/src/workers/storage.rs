@@ -77,6 +77,7 @@ pub struct StorageWorker<Request, Response, Storage, Token> {
 impl<Request, Response, Storage, Token> StorageWorker<Request, Response, Storage, Token>
 where
     Storage: Execute<Request, Response> + EntryStore,
+    Request: Klog + Klog<Response = Response>,
     Response: Compose,
 {
     /// Run the `StorageWorker` in a loop, handling new session events.

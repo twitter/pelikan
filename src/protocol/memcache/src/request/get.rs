@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::ops::Deref;
 use super::*;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -67,7 +68,7 @@ impl RequestParser {
                 GET.increment();
                 let keys = request.keys.len() as u64;
                 GET_KEY.add(keys);
-                GET_CARDINALITY.increment(Instant::now(), keys, 1);
+                // GET_CARDINALITY.increment(Instant::now(), keys, 1);
                 Ok((input, request))
             }
             Err(e) => {
@@ -96,6 +97,34 @@ impl Compose for Get {
         session.put_slice(CRLF);
 
         size
+    }
+}
+
+impl Klog for Get {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        if let Response::Values(ref res) = response {
+            let total_keys = self.keys.len();
+            let hit_keys = res.values.len();
+            let miss_keys = total_keys - hit_keys;
+            GET_KEY_HIT.add(hit_keys as _);
+            GET_KEY_MISS.add(miss_keys as _);
+
+            let values = res.values();
+            let mut value_index = 0;
+
+            for key in self.keys() {
+                let key = key.deref();
+                // if we are out of values or the keys don't match, it's a miss
+                if value_index >= values.len() || values[value_index].key() != key {
+                    klog!("\"get {}\" {} 0", String::from_utf8_lossy(key), MISS);
+                } else {
+                    klog!("\"get {}\" {} {}", String::from_utf8_lossy(key), HIT, values[value_index].len());
+                    value_index += 1;
+                }
+            }
+        }
     }
 }
 
