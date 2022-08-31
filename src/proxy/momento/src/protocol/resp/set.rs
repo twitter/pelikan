@@ -1,9 +1,14 @@
+// Copyright 2022 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
 use crate::klog::klog_set;
 use crate::Error;
 use crate::*;
-use protocol_resp::SetRequest;
-
+use ::net::*;
 use protocol_memcache::*;
+use protocol_resp::SetRequest;
+use session::*;
 
 pub async fn set(
     client: &mut SimpleCacheClient,
@@ -24,11 +29,11 @@ pub async fn set(
 
         if value.is_empty() {
             error!("empty values are not supported by momento");
-            // SESSION_SEND.increment();
-            // SESSION_SEND_BYTE.add(7);
-            // TCP_SEND_BYTE.add(7);
+            SESSION_SEND.increment();
+            SESSION_SEND_BYTE.add(7);
+            TCP_SEND_BYTE.add(7);
             if socket.write_all(b"ERROR\r\n").await.is_err() {
-                // SESSION_SEND_EX.increment();
+                SESSION_SEND_EX.increment();
             }
             return Err(Error::from(ErrorKind::InvalidInput));
         }
@@ -42,7 +47,7 @@ pub async fn set(
             }
             Some(_) => {
                 if socket.write_all(b"-ERR expire time\r\n").await.is_err() {
-                    // SESSION_SEND_EX.increment();
+                    SESSION_SEND_EX.increment();
                 }
                 return Err(Error::from(ErrorKind::InvalidInput));
             }
@@ -67,9 +72,9 @@ pub async fn set(
                             5,
                             8,
                         );
-                        // SESSION_SEND.increment();
-                        // SESSION_SEND_BYTE.add(8);
-                        // TCP_SEND_BYTE.add(8);
+                        SESSION_SEND.increment();
+                        SESSION_SEND_BYTE.add(8);
+                        TCP_SEND_BYTE.add(8);
                         if let Err(e) = socket.write_all(b"+OK\r\n").await {
                             // SESSION_SEND_EX.increment();
                             // hangup if we can't send a response back
@@ -86,12 +91,12 @@ pub async fn set(
                             9,
                             12,
                         );
-                        // SESSION_SEND.increment();
-                        // SESSION_SEND_BYTE.add(12);
-                        // TCP_SEND_BYTE.add(12);
+                        SESSION_SEND.increment();
+                        SESSION_SEND_BYTE.add(12);
+                        TCP_SEND_BYTE.add(12);
                         // let client know this wasn't stored
                         if let Err(e) = socket.write_all(b"-ERR backend error\r\n").await {
-                            // SESSION_SEND_EX.increment();
+                            SESSION_SEND_EX.increment();
                             // hangup if we can't send a response back
                             return Err(e);
                         }
@@ -104,13 +109,13 @@ pub async fn set(
 
                 SET_EX.increment();
                 SET_NOT_STORED.increment();
-                // SESSION_SEND.increment();
-                // SESSION_SEND_BYTE.add(12);
-                // TCP_SEND_BYTE.add(12);
+                SESSION_SEND.increment();
+                SESSION_SEND_BYTE.add(12);
+                TCP_SEND_BYTE.add(12);
 
                 // let client know this wasn't stored
                 if let Err(e) = socket.write_all(b"-ERR ratelimit exceeded\r\n").await {
-                    // SESSION_SEND_EX.increment();
+                    SESSION_SEND_EX.increment();
                     // hangup if we can't send a response back
                     return Err(e);
                 }
@@ -121,13 +126,13 @@ pub async fn set(
                 BACKEND_EX.increment();
                 SET_EX.increment();
                 SET_NOT_STORED.increment();
-                // SESSION_SEND.increment();
-                // SESSION_SEND_BYTE.add(12);
-                // TCP_SEND_BYTE.add(12);
+                SESSION_SEND.increment();
+                SESSION_SEND_BYTE.add(12);
+                TCP_SEND_BYTE.add(12);
 
                 // let client know this wasn't stored
                 if let Err(e) = socket.write_all(b"-ERR backend error\r\n").await {
-                    // SESSION_SEND_EX.increment();
+                    SESSION_SEND_EX.increment();
                     // hangup if we can't send a response back
                     return Err(e);
                 }
@@ -138,9 +143,9 @@ pub async fn set(
                 BACKEND_EX_TIMEOUT.increment();
                 SET_EX.increment();
                 SET_NOT_STORED.increment();
-                // SESSION_SEND.increment();
-                // SESSION_SEND_BYTE.add(12);
-                // TCP_SEND_BYTE.add(12);
+                SESSION_SEND.increment();
+                SESSION_SEND_BYTE.add(12);
+                TCP_SEND_BYTE.add(12);
 
                 // let client know this wasn't stored
                 if let Err(e) = socket.write_all(b"-ERR backend error\r\n").await {
@@ -153,11 +158,11 @@ pub async fn set(
     } else {
         SET_EX.increment();
         // invalid key
-        // SESSION_SEND.increment();
-        // SESSION_SEND_BYTE.add(7);
-        // TCP_SEND_BYTE.add(7);
+        SESSION_SEND.increment();
+        SESSION_SEND_BYTE.add(7);
+        TCP_SEND_BYTE.add(7);
         if socket.write_all(b"-ERR invalid key\r\n").await.is_err() {
-            // SESSION_SEND_EX.increment();
+            SESSION_SEND_EX.increment();
         }
         return Err(Error::from(ErrorKind::InvalidInput));
     }

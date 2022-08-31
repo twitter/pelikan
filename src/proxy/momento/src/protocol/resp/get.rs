@@ -1,10 +1,13 @@
+// Copyright 2022 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
 use crate::klog::klog_get;
 use crate::Error;
 use crate::*;
-
-pub use protocol_resp::{Request, RequestParser};
-
+use ::net::*;
 use protocol_memcache::*;
+use session::*;
 
 pub async fn get(
     client: &mut SimpleCacheClient,
@@ -92,11 +95,11 @@ pub async fn get(
         }
     }
 
-    // SESSION_SEND.increment();
-    // SESSION_SEND_BYTE.add(response_buf.len() as _);
-    // TCP_SEND_BYTE.add(response_buf.len() as _);
+    SESSION_SEND.increment();
+    SESSION_SEND_BYTE.add(response_buf.len() as _);
+    TCP_SEND_BYTE.add(response_buf.len() as _);
     if let Err(e) = socket.write_all(&response_buf).await {
-        // SESSION_SEND_EX.increment();
+        SESSION_SEND_EX.increment();
         return Err(e);
     }
     Ok(())

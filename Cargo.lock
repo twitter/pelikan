@@ -376,7 +376,7 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "common",
  "log",
@@ -1149,6 +1149,7 @@ dependencies = [
  "libc",
  "logger",
  "momento",
+ "net",
  "protocol-admin",
  "protocol-memcache",
  "protocol-resp",
