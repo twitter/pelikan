@@ -8,10 +8,13 @@ use session::ClientSession;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
-heatmap!(BACKEND_WORKER_EVENT_DEPTH, 100_000);
-counter!(BACKEND_WORKER_EVENT_LOOP);
-counter!(BACKEND_WORKER_EVENT_MAX_REACHED);
-counter!(BACKEND_WORKER_EVENT_TOTAL);
+heatmap!(BACKEND_EVENT_DEPTH, 100_000);
+counter!(BACKEND_EVENT_ERROR);
+counter!(BACKEND_EVENT_LOOP);
+counter!(BACKEND_EVENT_MAX_REACHED);
+counter!(BACKEND_EVENT_READ);
+counter!(BACKEND_EVENT_TOTAL);
+counter!(BACKEND_EVENT_WRITE);
 
 pub struct BackendWorkerBuilder<Parser, Request, Response> {
     free_queue: VecDeque<Token>,
@@ -165,7 +168,7 @@ where
         // let mut sessions = Vec::with_capacity(QUEUE_CAPACITY);
 
         loop {
-            BACKEND_WORKER_EVENT_LOOP.increment();
+            BACKEND_EVENT_LOOP.increment();
 
             // get events with timeout
             if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
@@ -175,11 +178,11 @@ where
             let timestamp = Instant::now();
 
             let count = events.iter().count();
-            BACKEND_WORKER_EVENT_TOTAL.add(count as _);
+            BACKEND_EVENT_TOTAL.add(count as _);
             if count == self.nevent {
-                BACKEND_WORKER_EVENT_MAX_REACHED.increment();
+                BACKEND_EVENT_MAX_REACHED.increment();
             } else {
-                BACKEND_WORKER_EVENT_DEPTH.increment(timestamp, count as _, 1);
+                BACKEND_EVENT_DEPTH.increment(timestamp, count as _, 1);
             }
 
             // process all events
@@ -218,16 +221,28 @@ where
                     }
                     _ => {
                         if event.is_error() {
+                            BACKEND_EVENT_ERROR.increment();
+
                             self.close(token);
                             continue;
                         }
-                        if event.is_writable() && self.write(token).is_err() {
-                            self.close(token);
-                            continue;
+
+                        if event.is_writable() {
+                            BACKEND_EVENT_WRITE.increment();
+
+                            if self.write(token).is_err() {
+                                self.close(token);
+                                continue;
+                            }
                         }
-                        if event.is_readable() && self.read(token).is_err() {
-                            self.close(token);
-                            continue;
+
+                        if event.is_readable() {
+                            BACKEND_EVENT_READ.increment();
+
+                            if self.read(token).is_err() {
+                                self.close(token);
+                                continue;
+                            }
                         }
                     }
                 }

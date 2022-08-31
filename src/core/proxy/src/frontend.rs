@@ -5,13 +5,13 @@
 use super::map_result;
 use crate::*;
 
-heatmap!(FRONTEND_WORKER_EVENT_DEPTH, 100_000);
-counter!(FRONTEND_WORKER_EVENT_ERROR);
-counter!(FRONTEND_WORKER_EVENT_LOOP);
-counter!(FRONTEND_WORKER_EVENT_MAX_REACHED);
-counter!(FRONTEND_WORKER_EVENT_READ);
-counter!(FRONTEND_WORKER_EVENT_TOTAL);
-counter!(FRONTEND_WORKER_EVENT_WRITE);
+heatmap!(FRONTEND_EVENT_DEPTH, 100_000);
+counter!(FRONTEND_EVENT_ERROR);
+counter!(FRONTEND_EVENT_LOOP);
+counter!(FRONTEND_EVENT_MAX_REACHED);
+counter!(FRONTEND_EVENT_READ);
+counter!(FRONTEND_EVENT_TOTAL);
+counter!(FRONTEND_EVENT_WRITE);
 
 pub struct FrontendWorkerBuilder<
     FrontendParser,
@@ -178,7 +178,7 @@ where
         let mut messages = Vec::with_capacity(QUEUE_CAPACITY);
 
         loop {
-            FRONTEND_WORKER_EVENT_LOOP.increment();
+            FRONTEND_EVENT_LOOP.increment();
 
             // get events with timeout
             if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
@@ -188,11 +188,11 @@ where
             let timestamp = Instant::now();
 
             let count = events.iter().count();
-            FRONTEND_WORKER_EVENT_TOTAL.add(count as _);
+            FRONTEND_EVENT_TOTAL.add(count as _);
             if count == self.nevent {
-                FRONTEND_WORKER_EVENT_MAX_REACHED.increment();
+                FRONTEND_EVENT_MAX_REACHED.increment();
             } else {
-                FRONTEND_WORKER_EVENT_DEPTH.increment(timestamp, count as _, 1);
+                FRONTEND_EVENT_DEPTH.increment(timestamp, count as _, 1);
             }
 
             // process all events
@@ -264,14 +264,14 @@ where
                     }
                     _ => {
                         if event.is_error() {
-                            FRONTEND_WORKER_EVENT_ERROR.increment();
+                            FRONTEND_EVENT_ERROR.increment();
 
                             self.close(token);
                             continue;
                         }
 
                         if event.is_writable() {
-                            FRONTEND_WORKER_EVENT_WRITE.increment();
+                            FRONTEND_EVENT_WRITE.increment();
 
                             if self.write(token).is_err() {
                                 self.close(token);
@@ -280,7 +280,7 @@ where
                         }
 
                         if event.is_readable() {
-                            FRONTEND_WORKER_EVENT_READ.increment();
+                            FRONTEND_EVENT_READ.increment();
 
                             if self.read(token).is_err() {
                                 self.close(token);
