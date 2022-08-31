@@ -2,8 +2,10 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use protocol_memcache::*;
 use crate::klog::klog_get;
 use crate::*;
+use crate::Error;
 
 pub use protocol_memcache::{Request, RequestParser};
 

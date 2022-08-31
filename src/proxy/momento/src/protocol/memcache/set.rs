@@ -4,6 +4,8 @@
 
 use crate::klog::klog_set;
 use crate::*;
+use crate::Error;
+use protocol_memcache::*;
 
 pub async fn set(
     client: &mut SimpleCacheClient,

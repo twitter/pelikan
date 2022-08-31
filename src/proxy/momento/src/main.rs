@@ -85,18 +85,6 @@ counter!(BACKEND_EX);
 counter!(BACKEND_EX_RATE_LIMITED);
 counter!(BACKEND_EX_TIMEOUT);
 
-counter!(GET);
-counter!(GET_EX);
-counter!(GET_KEY);
-counter!(GET_KEY_EX);
-counter!(GET_KEY_HIT);
-counter!(GET_KEY_MISS);
-
-counter!(SET);
-counter!(SET_EX);
-counter!(SET_NOT_STORED);
-counter!(SET_STORED);
-
 counter!(RU_UTIME);
 counter!(RU_STIME);
 gauge!(RU_MAXRSS);

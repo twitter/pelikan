@@ -1,7 +1,10 @@
 use crate::klog::klog_get;
 use crate::*;
+use crate::Error;
 
 pub use protocol_resp::{Request, RequestParser};
+
+use protocol_memcache::*;
 
 pub async fn get(
     client: &mut SimpleCacheClient,
@@ -37,8 +40,6 @@ pub async fn get(
                     // the backend.
                     BACKEND_EX.increment();
 
-                    GET_KEY_EX.increment();
-
                     // TODO: what is the right
                     // way to handle this?
                     //
@@ -72,7 +73,6 @@ pub async fn get(
         Ok(Err(MomentoError::LimitExceeded(_))) => {
             BACKEND_EX.increment();
             BACKEND_EX_RATE_LIMITED.increment();
-            GET_KEY_EX.increment();
             response_buf.extend_from_slice(b"-ERR ratelimit exceed\r\n");
         }
         Ok(Err(e)) => {
@@ -80,14 +80,12 @@ pub async fn get(
             // log and incr stats and move on treating it
             // as a miss
             error!("error for get: {}", e);
-            GET_KEY_EX.increment();
             BACKEND_EX.increment();
             response_buf.extend_from_slice(b"-ERR backend error\r\n");
         }
         Err(_) => {
             // we had a timeout, incr stats and move on
             // treating it as a miss
-            GET_KEY_EX.increment();
             BACKEND_EX.increment();
             BACKEND_EX_TIMEOUT.increment();
             response_buf.extend_from_slice(b"-ERR backend timeout\r\n");
