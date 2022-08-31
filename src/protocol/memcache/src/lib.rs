@@ -5,9 +5,6 @@
 #[macro_use]
 extern crate logger;
 
-#[macro_use]
-extern crate rustcommon_metrics;
-
 mod request;
 mod response;
 mod result;
@@ -107,4 +104,3 @@ counter!(FLUSH_ALL_EX);
 counter!(QUIT);
 
 common::metrics::test_no_duplicates!();
-
