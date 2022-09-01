@@ -51,11 +51,7 @@ counter!(
     STREAM_ACCEPT_EX,
     "number of times calling accept resulted in an exception"
 );
-counter!(STREAM_SHUTDOWN, "number of streams gracefully shutdown");
-counter!(
-    STREAM_SHUTDOWN_EX,
-    "number of exceptions while attempting to gracefully shutdown a stream"
-);
+counter!(STREAM_CLOSE, "number of streams closed");
 counter!(
     STREAM_HANDSHAKE,
     "number of times stream handshaking was attempted"
@@ -63,4 +59,9 @@ counter!(
 counter!(
     STREAM_HANDSHAKE_EX,
     "number of exceptions while handshaking"
+);
+counter!(STREAM_SHUTDOWN, "number of streams gracefully shutdown");
+counter!(
+    STREAM_SHUTDOWN_EX,
+    "number of exceptions while attempting to gracefully shutdown a stream"
 );

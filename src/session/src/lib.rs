@@ -216,6 +216,8 @@ impl Session {
             }
         }
 
+        SESSION_SEND_BYTE.add(flushed as _);
+
         Ok(flushed)
     }
 

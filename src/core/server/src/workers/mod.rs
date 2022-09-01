@@ -60,7 +60,7 @@ where
         match self {
             Self::Single { mut worker } => {
                 vec![std::thread::Builder::new()
-                    .name(format!("{}_worker", THREAD_PREFIX))
+                    .name(format!("{}_work", THREAD_PREFIX))
                     .spawn(move || worker.run())
                     .unwrap()]
             }
@@ -76,7 +76,7 @@ where
                 for (id, mut worker) in workers.drain(..).enumerate() {
                     join_handles.push(
                         std::thread::Builder::new()
-                            .name(format!("{}_worker_{}", THREAD_PREFIX, id))
+                            .name(format!("{}_work_{}", THREAD_PREFIX, id))
                             .spawn(move || worker.run())
                             .unwrap(),
                     )

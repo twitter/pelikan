@@ -82,6 +82,12 @@ impl Stream {
     }
 }
 
+impl Drop for Stream {
+    fn drop(&mut self) {
+        STREAM_CLOSE.increment();
+    }
+}
+
 impl Debug for Stream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         match &self.inner {

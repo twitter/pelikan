@@ -143,6 +143,12 @@ impl Buffer {
     }
 }
 
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        SESSION_BUFFER_BYTE.sub(self.cap as _);
+    }
+}
+
 impl Borrow<[u8]> for Buffer {
     fn borrow(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self.ptr.add(self.read_offset), self.remaining()) }
