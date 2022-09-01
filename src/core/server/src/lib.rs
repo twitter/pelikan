@@ -154,4 +154,3 @@ fn map_err(e: std::io::Error) -> Result<()> {
 }
 
 common::metrics::test_no_duplicates!();
-

@@ -50,10 +50,7 @@ impl TcpStream {
             State::Connecting
         };
 
-        Self {
-            inner,
-            state,
-        }
+        Self { inner, state }
     }
 
     pub fn set_nodelay(&mut self, nodelay: bool) -> Result<()> {
@@ -172,10 +169,15 @@ impl TcpListener {
     }
 
     pub fn accept(&self) -> Result<(TcpStream, SocketAddr)> {
-        let result = self
-            .inner
-            .accept()
-            .map(|(stream, addr)| (TcpStream { inner: stream, state: State::Established }, addr));
+        let result = self.inner.accept().map(|(stream, addr)| {
+            (
+                TcpStream {
+                    inner: stream,
+                    state: State::Established,
+                },
+                addr,
+            )
+        });
 
         if result.is_ok() {
             TCP_ACCEPT.increment();

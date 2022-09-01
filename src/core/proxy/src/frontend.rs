@@ -245,12 +245,9 @@ where
                                 } else if session.write_pending() > 0 {
                                     let interest = session.interest();
                                     if session
-                                        .reregister(
-                                            self.poll.registry(),
-                                            token,
-                                            interest,
-                                        )
-                                        .is_err() {
+                                        .reregister(self.poll.registry(), token, interest)
+                                        .is_err()
+                                    {
                                         self.close(token);
                                         continue;
                                     }

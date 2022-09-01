@@ -184,17 +184,27 @@ where
                                     self.close(token);
                                     continue;
                                 } else if session.write_pending() > 0 {
-                                    let interest = session.interest();
-                                    if session
-                                        .reregister(
-                                            self.poll.registry(),
-                                            token,
-                                            interest,
-                                        )
-                                        .is_err() {
+                                    // try to immediately flush, if we still
+                                    // have pending bytes, reregister. This
+                                    // saves us one syscall when flushing would
+                                    // not block.
+                                    if let Err(e) = session.flush() {
+                                        if map_err(e).is_err() {
                                             self.close(token);
                                             continue;
                                         }
+                                    }
+
+                                    if session.write_pending() > 0 {
+                                        let interest = session.interest();
+                                        if session
+                                            .reregister(self.poll.registry(), token, interest)
+                                            .is_err()
+                                        {
+                                            self.close(token);
+                                            continue;
+                                        }
+                                    }
                                 }
 
                                 if session.remaining() > 0 && self.read(token).is_err() {

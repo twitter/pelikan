@@ -322,7 +322,8 @@ impl Admin {
                     let interest = session.interest();
                     if session
                         .reregister(self.poll.registry(), token, interest)
-                        .is_err() {
+                        .is_err()
+                    {
                         return Err(Error::new(ErrorKind::Other, "failed to reregister"));
                     }
                 }
@@ -489,5 +490,3 @@ impl Admin {
 }
 
 common::metrics::test_no_duplicates!();
-
-
