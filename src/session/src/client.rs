@@ -113,7 +113,7 @@ where
     }
 
     /// Returns the current event interest for this session.
-    pub fn interest(&self) -> Interest {
+    pub fn interest(&mut self) -> Interest {
         self.session.interest()
     }
 

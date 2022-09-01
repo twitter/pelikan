@@ -26,8 +26,8 @@ impl AsRawFd for Stream {
 }
 
 impl Stream {
-    pub fn interest(&self) -> Interest {
-        match &self.inner {
+    pub fn interest(&mut self) -> Interest {
+        match &mut self.inner {
             StreamType::Tcp(s) => {
                 if !s.is_established() {
                     Interest::READABLE.add(Interest::WRITABLE)
@@ -39,8 +39,8 @@ impl Stream {
         }
     }
 
-    pub fn is_established(&self) -> bool {
-        match &self.inner {
+    pub fn is_established(&mut self) -> bool {
+        match &mut self.inner {
             StreamType::Tcp(s) => s.is_established(),
             StreamType::TlsTcp(s) => !s.is_handshaking(),
         }

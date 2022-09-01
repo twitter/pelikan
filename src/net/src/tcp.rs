@@ -7,8 +7,15 @@ use std::os::unix::prelude::FromRawFd;
 
 pub use std::net::Shutdown;
 
+#[derive(PartialEq)]
+enum State {
+    Connecting,
+    Established,
+}
+
 pub struct TcpStream {
     inner: mio::net::TcpStream,
+    state: State,
 }
 
 impl TcpStream {
@@ -18,17 +25,35 @@ impl TcpStream {
         TCP_CONN_CURR.increment();
         TCP_CONNECT.increment();
 
-        Ok(Self { inner })
+        Ok(Self {
+            inner,
+            state: State::Connecting,
+        })
     }
 
-    pub fn is_established(&self) -> bool {
-        self.inner.peer_addr().is_ok()
+    pub fn is_established(&mut self) -> bool {
+        if self.state == State::Established {
+            true
+        } else if self.inner.peer_addr().is_ok() {
+            self.state = State::Established;
+            true
+        } else {
+            false
+        }
     }
 
     pub fn from_std(stream: std::net::TcpStream) -> Self {
         let inner = mio::net::TcpStream::from_std(stream);
+        let state = if inner.peer_addr().is_ok() {
+            State::Established
+        } else {
+            State::Connecting
+        };
 
-        Self { inner }
+        Self {
+            inner,
+            state,
+        }
     }
 
     pub fn set_nodelay(&mut self, nodelay: bool) -> Result<()> {
@@ -112,8 +137,13 @@ impl event::Source for TcpStream {
 impl FromRawFd for TcpStream {
     unsafe fn from_raw_fd(raw_fd: i32) -> Self {
         let inner = mio::net::TcpStream::from_raw_fd(raw_fd);
+        let state = if inner.peer_addr().is_ok() {
+            State::Established
+        } else {
+            State::Connecting
+        };
 
-        Self { inner }
+        Self { inner, state }
     }
 }
 
@@ -145,7 +175,7 @@ impl TcpListener {
         let result = self
             .inner
             .accept()
-            .map(|(stream, addr)| (TcpStream { inner: stream }, addr));
+            .map(|(stream, addr)| (TcpStream { inner: stream, state: State::Established }, addr));
 
         if result.is_ok() {
             TCP_ACCEPT.increment();

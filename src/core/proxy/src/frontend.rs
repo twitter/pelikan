@@ -215,8 +215,9 @@ where
                             self.session_queue.try_recv().map(|v| v.into_inner())
                         {
                             let s = self.sessions.vacant_entry();
+                            let interest = session.interest();
                             if session
-                                .register(self.poll.registry(), Token(s.key()), session.interest())
+                                .register(self.poll.registry(), Token(s.key()), interest)
                                 .is_ok()
                             {
                                 s.insert(ServerSession::new(session, self.parser.clone()));
@@ -238,18 +239,21 @@ where
                                     let _ = session.send(FrontendResponse::from(response));
                                     self.close(token);
                                     continue;
-                                } else if session.send(FrontendResponse::from(response)).is_err()
-                                    || (session.write_pending() > 0
-                                        && session
-                                            .reregister(
-                                                self.poll.registry(),
-                                                token,
-                                                session.interest(),
-                                            )
-                                            .is_err())
-                                {
+                                } else if session.send(FrontendResponse::from(response)).is_err() {
                                     self.close(token);
                                     continue;
+                                } else if session.write_pending() > 0 {
+                                    let interest = session.interest();
+                                    if session
+                                        .reregister(
+                                            self.poll.registry(),
+                                            token,
+                                            interest,
+                                        )
+                                        .is_err() {
+                                        self.close(token);
+                                        continue;
+                                    }
                                 }
                                 if session.remaining() > 0 && self.read(token).is_err() {
                                     self.close(token);

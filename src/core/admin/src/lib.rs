@@ -251,9 +251,9 @@ impl Admin {
         {
             Ok(mut session) => {
                 let s = self.sessions.vacant_entry();
-
+                let interest = session.interest();
                 if session
-                    .register(self.poll.registry(), Token(s.key()), session.interest())
+                    .register(self.poll.registry(), Token(s.key()), interest)
                     .is_ok()
                 {
                     ADMIN_SESSION_ACCEPT_OK.increment();
@@ -318,15 +318,15 @@ impl Admin {
                     Err(e) => map_err(e),
                 }?;
 
-                if (session.write_pending() > 0 || session.remaining() > 0)
-                    && session
-                        .reregister(self.poll.registry(), token, session.interest())
-                        .is_err()
-                {
-                    Err(Error::new(ErrorKind::Other, "failed to reregister"))
-                } else {
-                    Ok(())
+                if session.write_pending() > 0 || session.remaining() > 0 {
+                    let interest = session.interest();
+                    if session
+                        .reregister(self.poll.registry(), token, interest)
+                        .is_err() {
+                        return Err(Error::new(ErrorKind::Other, "failed to reregister"));
+                    }
                 }
+                Ok(())
             }
             Err(e) => match e.kind() {
                 ErrorKind::WouldBlock => Ok(()),
@@ -370,7 +370,8 @@ impl Admin {
         match session.do_handshake() {
             Ok(()) => {
                 if session.remaining() > 0 {
-                    session.reregister(self.poll.registry(), token, session.interest())?;
+                    let interest = session.interest();
+                    session.reregister(self.poll.registry(), token, interest)?;
                     Ok(())
                 } else {
                     Ok(())

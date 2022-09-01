@@ -116,8 +116,9 @@ impl Listener {
         if let Ok(mut session) = self.listener.accept().map(Session::from) {
             if session.is_handshaking() {
                 let s = self.sessions.vacant_entry();
+                let interest = session.interest();
                 if session
-                    .register(self.poll.registry(), Token(s.key()), session.interest())
+                    .register(self.poll.registry(), Token(s.key()), interest)
                     .is_ok()
                 {
                     s.insert(session);

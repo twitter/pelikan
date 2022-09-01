@@ -127,14 +127,16 @@ where
                         }
 
                         // reregister to get writable event
-                        if session.write_pending() > 0
-                            && self
+                        if session.write_pending() > 0 {
+                            let interest = session.interest();
+                            if self
                                 .poll
                                 .registry()
-                                .reregister(session, token, session.interest())
+                                .reregister(session, token, interest)
                                 .is_err()
-                        {
-                            return Err(Error::new(ErrorKind::Other, "failed to reregister"));
+                            {
+                                return Err(Error::new(ErrorKind::Other, "failed to reregister"));
+                            }
                         }
 
                         // if there's still data to read, put the token on the
@@ -225,8 +227,9 @@ where
                             self.session_queue.try_recv().map(|v| v.into_inner())
                         {
                             let s = self.sessions.vacant_entry();
+                            let interest = session.interest();
                             if session
-                                .register(self.poll.registry(), Token(s.key()), session.interest())
+                                .register(self.poll.registry(), Token(s.key()), interest)
                                 .is_ok()
                             {
                                 s.insert(ServerSession::new(session, self.parser.clone()));

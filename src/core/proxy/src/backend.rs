@@ -60,8 +60,9 @@ where
             let stream = TcpStream::connect(endpoint)?;
             let mut session = ClientSession::new(Session::from(stream), parser.clone());
             let s = sessions.vacant_entry();
+            let interest = session.interest();
             session
-                .register(poll.registry(), Token(s.key()), session.interest())
+                .register(poll.registry(), Token(s.key()), interest)
                 .expect("failed to register");
             free_queue.push_back(Token(s.key()));
             s.insert(session);

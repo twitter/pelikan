@@ -111,7 +111,7 @@ impl Session {
     }
 
     /// Return the event `Interest`s for the `Session`.
-    pub fn interest(&self) -> Interest {
+    pub fn interest(&mut self) -> Interest {
         if self.write_buffer.has_remaining() {
             self.stream.interest().add(Interest::WRITABLE)
         } else {
@@ -121,7 +121,7 @@ impl Session {
 
     /// Indicates if the `Session` can be considered established, meaning that
     /// any underlying stream negotation and handshaking is completed.
-    pub fn is_established(&self) -> bool {
+    pub fn is_established(&mut self) -> bool {
         self.stream.is_established()
     }
 
