@@ -129,6 +129,9 @@ const QUEUE_RETRIES: usize = 3;
 
 const QUEUE_CAPACITY: usize = 64 * 1024;
 
+// determines the max number of calls to accept when the listener is ready
+const ACCEPT_BATCH: usize = 8;
+
 const LISTENER_TOKEN: Token = Token(usize::MAX - 1);
 const WAKER_TOKEN: Token = Token(usize::MAX);
 

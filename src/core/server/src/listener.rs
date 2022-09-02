@@ -111,45 +111,49 @@ impl ListenerBuilder {
 }
 
 impl Listener {
-    /// Call accept one time
+    /// Accept new sessions
     fn accept(&mut self) {
-        if let Ok(mut session) = self.listener.accept().map(Session::from) {
-            if session.is_handshaking() {
-                let s = self.sessions.vacant_entry();
-                let interest = session.interest();
-                if session
-                    .register(self.poll.registry(), Token(s.key()), interest)
-                    .is_ok()
-                {
-                    s.insert(session);
+        for _ in 0..ACCEPT_BATCH {
+            if let Ok(mut session) = self.listener.accept().map(Session::from) {
+                if session.is_handshaking() {
+                    let s = self.sessions.vacant_entry();
+                    let interest = session.interest();
+                    if session
+                        .register(self.poll.registry(), Token(s.key()), interest)
+                        .is_ok()
+                    {
+                        s.insert(session);
+                    } else {
+                        // failed to register
+                    }
                 } else {
-                    // failed to register
+                    for attempt in 1..=QUEUE_RETRIES {
+                        if let Err(s) = self.session_queue.try_send_any(session) {
+                            if attempt == QUEUE_RETRIES {
+                                LISTENER_SESSION_DISCARD.increment();
+                            } else {
+                                let _ = self.session_queue.wake();
+                            }
+                            session = s;
+                        } else {
+                            break;
+                        }
+                    }
+                    // if pushing to the session queues fails, the session will be
+                    // closed on drop here
                 }
             } else {
-                for attempt in 1..=QUEUE_RETRIES {
-                    if let Err(s) = self.session_queue.try_send_any(session) {
-                        if attempt == QUEUE_RETRIES {
-                            LISTENER_SESSION_DISCARD.increment();
-                        } else {
-                            let _ = self.session_queue.wake();
-                        }
-                        session = s;
-                    } else {
-                        break;
-                    }
-                }
-                // if pushing to the session queues fails, the session will be
-                // closed on drop here
+                return;
             }
+        }
 
-            // reregister is needed here so we will call accept if there is a backlog
-            if self
-                .listener
-                .reregister(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE)
-                .is_err()
-            {
-                // failed to reregister listener? how do we handle this?
-            }
+        // reregister is needed here so we will call accept if there is a backlog
+        if self
+            .listener
+            .reregister(self.poll.registry(), LISTENER_TOKEN, Interest::READABLE)
+            .is_err()
+        {
+            // failed to reregister listener? how do we handle this?
         }
     }
 
