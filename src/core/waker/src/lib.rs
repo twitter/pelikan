@@ -69,7 +69,7 @@ pub use self::eventfd::EventfdWaker;
 
 #[cfg(target_os = "linux")]
 mod eventfd {
-    use crate::Waker;
+    use crate::*;
     use std::fs::File;
     use std::io::{ErrorKind, Result, Write};
     use std::os::unix::io::{AsRawFd, FromRawFd};
