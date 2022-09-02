@@ -138,6 +138,8 @@ impl Listener {
                         break;
                     }
                 }
+                // if pushing to the session queues fails, the session will be
+                // closed on drop here
             }
 
             // reregister is needed here so we will call accept if there is a backlog
@@ -234,6 +236,8 @@ impl Listener {
                         break;
                     }
                 }
+                // if pushing to the session queues fails, the session will be
+                // closed on drop here
             }
             Err(e) => match e.kind() {
                 ErrorKind::WouldBlock => {}
