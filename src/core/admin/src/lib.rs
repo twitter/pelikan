@@ -139,8 +139,9 @@ impl AdminBuilder {
         let poll = Poll::new()?;
         listener.register(poll.registry(), LISTENER_TOKEN, Interest::READABLE)?;
 
-        let waker =
-            Arc::new(Waker::from(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()));
+        let waker = Arc::new(Waker::from(
+            ::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap(),
+        ));
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -451,6 +452,7 @@ impl Admin {
                         self.accept();
                     }
                     WAKER_TOKEN => {
+                        self.waker.reset();
                         let tokens: Vec<Token> = self.backlog.drain(..).collect();
                         for token in tokens {
                             if token == LISTENER_TOKEN {

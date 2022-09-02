@@ -164,8 +164,7 @@ where
                 mut workers,
             } => {
                 let storage_wakers = vec![storage.waker()];
-                let worker_wakers: Vec<Arc<Waker>> =
-                    workers.iter().map(|v| v.waker()).collect();
+                let worker_wakers: Vec<Arc<Waker>> = workers.iter().map(|v| v.waker()).collect();
                 let (mut worker_data_queues, mut storage_data_queues) =
                     Queues::new(worker_wakers, storage_wakers, QUEUE_CAPACITY);
 

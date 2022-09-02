@@ -54,9 +54,9 @@ impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendR
 
         let poll = Poll::new()?;
 
-        let waker = Arc::new(
-            Waker::from(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()),
-        );
+        let waker = Arc::new(Waker::from(
+            ::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap(),
+        ));
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -210,6 +210,7 @@ where
                 let token = event.token();
                 match token {
                     WAKER_TOKEN => {
+                        self.waker.reset();
                         // handle up to one new session
                         if let Some(mut session) =
                             self.session_queue.try_recv().map(|v| v.into_inner())

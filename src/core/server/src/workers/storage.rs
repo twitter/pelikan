@@ -30,9 +30,9 @@ impl<Request, Response, Storage> StorageWorkerBuilder<Request, Response, Storage
 
         let poll = Poll::new()?;
 
-        let waker = Arc::new(
-            Waker::from(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()),
-        );
+        let waker = Arc::new(Waker::from(
+            ::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap(),
+        ));
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -108,6 +108,8 @@ where
             let timestamp = Instant::now();
 
             if !events.is_empty() {
+                self.waker.reset();
+
                 trace!("handling events");
 
                 self.data_queue.try_recv_all(&mut messages);

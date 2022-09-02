@@ -50,9 +50,9 @@ impl ListenerBuilder {
         let poll = Poll::new()?;
         listener.register(poll.registry(), LISTENER_TOKEN, Interest::READABLE)?;
 
-        let waker = Arc::new(
-            Waker::from(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()),
-        );
+        let waker = Arc::new(Waker::from(
+            ::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap(),
+        ));
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -260,6 +260,7 @@ impl Listener {
                         self.accept();
                     }
                     WAKER_TOKEN => {
+                        self.waker.reset();
                         // handle any closing sessions
                         if let Some(mut session) =
                             self.session_queue.try_recv().map(|v| v.into_inner())

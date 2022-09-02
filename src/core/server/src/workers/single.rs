@@ -22,9 +22,9 @@ impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Re
 
         let poll = Poll::new()?;
 
-        let waker = Arc::new(
-            Waker::from(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()),
-        );
+        let waker = Arc::new(Waker::from(
+            ::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap(),
+        ));
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -213,6 +213,7 @@ where
 
                 match token {
                     WAKER_TOKEN => {
+                        self.waker.reset();
                         // handle outstanding reads
                         for _ in 0..self.pending.len() {
                             if let Some(token) = self.pending.pop_front() {

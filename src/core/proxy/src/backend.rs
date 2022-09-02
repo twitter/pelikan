@@ -46,9 +46,9 @@ where
 
         let poll = Poll::new()?;
 
-        let waker = Arc::new(
-            Waker::from(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()),
-        );
+        let waker = Arc::new(Waker::from(
+            ::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap(),
+        ));
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -201,6 +201,7 @@ where
                 let token = event.token();
                 match token {
                     WAKER_TOKEN => {
+                        self.waker.reset();
                         // handle all pending messages on the data queue
                         self.data_queue.try_recv_all(&mut messages);
                         for (request, fe_token) in messages.drain(..).map(|v| v.into_inner()) {
