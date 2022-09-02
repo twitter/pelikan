@@ -125,8 +125,19 @@ impl Listener {
                 } else {
                     // failed to register
                 }
-            } else if self.session_queue.try_send_any(session).is_err() {
-                // we probably want to wake and retry here
+            } else {
+                for attempt in 1..=QUEUE_RETRIES {
+                    if let Err(s) = self.session_queue.try_send_any(session) {
+                        if attempt == QUEUE_RETRIES {
+                            LISTENER_SESSION_DISCARD.increment();
+                        } else {
+                            let _ = self.session_queue.wake();
+                        }
+                        session = s;
+                    } else {
+                        break;
+                    }
+                }
             }
 
             // reregister is needed here so we will call accept if there is a backlog
