@@ -33,7 +33,7 @@ pub struct BackendWorkerBuilder<Parser, Request, Response> {
     poll: Poll,
     sessions: Slab<ClientSession<Parser, Request, Response>>,
     timeout: Duration,
-    waker: Arc<Box<dyn Waker>>,
+    waker: Arc<Waker>,
 }
 
 impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response>
@@ -47,7 +47,7 @@ where
         let poll = Poll::new()?;
 
         let waker = Arc::new(
-            Box::new(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()) as Box<dyn Waker>,
+            Waker::from(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()),
         );
 
         let nevent = config.nevent();
@@ -79,7 +79,7 @@ where
         })
     }
 
-    pub fn waker(&self) -> Arc<Box<dyn Waker>> {
+    pub fn waker(&self) -> Arc<Waker> {
         self.waker.clone()
     }
 
@@ -115,7 +115,7 @@ pub struct BackendWorker<Parser, Request, Response> {
     sessions: Slab<ClientSession<Parser, Request, Response>>,
     signal_queue: Queues<(), Signal>,
     timeout: Duration,
-    waker: Arc<Box<dyn Waker>>,
+    waker: Arc<Waker>,
 }
 
 impl<Parser, Request, Response> BackendWorker<Parser, Request, Response>
@@ -287,7 +287,7 @@ where
         Ok(Self { builders })
     }
 
-    pub fn wakers(&self) -> Vec<Arc<Box<dyn Waker>>> {
+    pub fn wakers(&self) -> Vec<Arc<Waker>> {
         self.builders.iter().map(|b| b.waker()).collect()
     }
 

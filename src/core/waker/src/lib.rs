@@ -10,7 +10,41 @@
 //! provided by `mio` is not directly usable in io_uring based code due to the
 //! fact that it must be registered to an event loop (such as epoll).
 
-pub trait Waker: Send + Sync {
+use core::sync::atomic::{AtomicU64, Ordering};
+
+pub struct Waker {
+    inner: Box<dyn GenericWaker>,
+    pending: AtomicU64,
+}
+
+impl From<MioWaker> for Waker {
+    fn from(other: MioWaker) -> Self {
+        Self {
+            inner: Box::new(other),
+            pending: AtomicU64::new(0),
+        }
+    }
+}
+
+impl Waker {
+    pub fn wake(&self) -> std::io::Result<()> {
+        if self.pending.fetch_add(1, Ordering::Relaxed) == 0 {
+            self.inner.wake()
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn as_raw_fd(&self) -> Option<RawFd> {
+        self.inner.as_raw_fd()
+    }
+
+    pub fn reset(&self) {
+        self.pending.store(0, Ordering::Relaxed);
+    }
+}
+
+pub trait GenericWaker: Send + Sync {
     fn wake(&self) -> std::io::Result<()>;
 
     fn as_raw_fd(&self) -> Option<RawFd>;
@@ -20,7 +54,7 @@ use std::os::unix::prelude::RawFd;
 
 pub use mio::Waker as MioWaker;
 
-impl Waker for MioWaker {
+impl GenericWaker for MioWaker {
     fn wake(&self) -> std::io::Result<()> {
         self.wake()
     }
@@ -92,13 +126,22 @@ mod eventfd {
         }
     }
 
-    impl Waker for EventfdWaker {
+    impl GenericWaker for EventfdWaker {
         fn wake(&self) -> Result<()> {
             self.wake()
         }
 
         fn as_raw_fd(&self) -> Option<RawFd> {
             Some(self.inner.as_raw_fd())
+        }
+    }
+
+    impl From<EventfdWaker> for Waker {
+        fn from(other: EventfdWaker) -> Self {
+            Self {
+                inner: Box::new(other),
+                pending: AtomicU64::new(0),
+            }
         }
     }
 }

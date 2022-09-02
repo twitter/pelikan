@@ -35,7 +35,7 @@ pub struct FrontendWorkerBuilder<
     poll: Poll,
     sessions: Slab<ServerSession<FrontendParser, FrontendResponse, FrontendRequest>>,
     timeout: Duration,
-    waker: Arc<Box<dyn Waker>>,
+    waker: Arc<Waker>,
     _backend_request: PhantomData<BackendRequest>,
     _backend_response: PhantomData<BackendResponse>,
 }
@@ -55,7 +55,7 @@ impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendR
         let poll = Poll::new()?;
 
         let waker = Arc::new(
-            Box::new(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()) as Box<dyn Waker>,
+            Waker::from(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()),
         );
 
         let nevent = config.nevent();
@@ -73,7 +73,7 @@ impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendR
         })
     }
 
-    pub fn waker(&self) -> Arc<Box<dyn Waker>> {
+    pub fn waker(&self) -> Arc<Waker> {
         self.waker.clone()
     }
 
@@ -118,7 +118,7 @@ pub struct FrontendWorker<
     sessions: Slab<ServerSession<FrontendParser, FrontendResponse, FrontendRequest>>,
     signal_queue: Queues<(), Signal>,
     timeout: Duration,
-    waker: Arc<Box<dyn Waker>>,
+    waker: Arc<Waker>,
 }
 
 impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>
@@ -353,7 +353,7 @@ where
         Ok(Self { builders })
     }
 
-    pub fn wakers(&self) -> Vec<Arc<Box<dyn Waker>>> {
+    pub fn wakers(&self) -> Vec<Arc<Waker>> {
         self.builders.iter().map(|b| b.waker()).collect()
     }
 

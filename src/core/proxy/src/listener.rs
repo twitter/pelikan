@@ -26,7 +26,7 @@ pub struct ListenerBuilder {
     poll: Poll,
     sessions: Slab<Session>,
     timeout: Duration,
-    waker: Arc<Box<dyn Waker>>,
+    waker: Arc<Waker>,
 }
 
 impl ListenerBuilder {
@@ -51,7 +51,7 @@ impl ListenerBuilder {
         listener.register(poll.registry(), LISTENER_TOKEN, Interest::READABLE)?;
 
         let waker = Arc::new(
-            Box::new(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()) as Box<dyn Waker>,
+            Waker::from(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()),
         );
 
         let nevent = config.nevent();
@@ -69,7 +69,7 @@ impl ListenerBuilder {
         })
     }
 
-    pub fn waker(&self) -> Arc<Box<dyn Waker>> {
+    pub fn waker(&self) -> Arc<Waker> {
         self.waker.clone()
     }
 
@@ -108,7 +108,7 @@ pub struct Listener {
     /// The timeout for each call to poll
     timeout: Duration,
     /// The waker handle for this thread
-    waker: Arc<Box<dyn Waker>>,
+    waker: Arc<Waker>,
 }
 
 impl Listener {

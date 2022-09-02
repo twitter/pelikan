@@ -27,7 +27,7 @@ pub struct Queues<T, U> {
 
 struct WakingSender<T> {
     inner: Arc<ArrayQueue<T>>,
-    waker: Arc<Box<dyn Waker>>,
+    waker: Arc<Waker>,
     needs_wake: bool,
 }
 
@@ -98,7 +98,7 @@ impl<T, U> Queues<T, U> {
     /// NOTE: the return vectors maintain the ordering of the wakers that were
     /// provided. Care must be taken to ensure that the corresponding queues are
     /// given to the event loop with the corresponding waker.
-    pub fn new<A: AsRef<[Arc<Box<dyn Waker>>]>, B: AsRef<[Arc<Box<dyn Waker>>]>>(
+    pub fn new<A: AsRef<[Arc<Waker>]>, B: AsRef<[Arc<Waker>]>>(
         a_wakers: A,
         b_wakers: B,
         capacity: usize,
@@ -280,9 +280,9 @@ mod tests {
     #[test]
     fn basic() {
         let poll = Poll::new().expect("failed to create event loop");
-        let waker = Arc::new(Box::new(
+        let waker = Arc::new(Waker::from(
             MioWaker::new(poll.registry(), WAKER_TOKEN).expect("failed to create waker"),
-        ) as Box<dyn Waker>);
+        ));
 
         let a_wakers = vec![waker.clone()];
         let b_wakers = vec![waker];

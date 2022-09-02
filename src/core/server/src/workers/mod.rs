@@ -124,7 +124,7 @@ where
         }
     }
 
-    pub fn worker_wakers(&self) -> Vec<Arc<Box<dyn waker::Waker>>> {
+    pub fn worker_wakers(&self) -> Vec<Arc<Waker>> {
         match self {
             Self::Single { worker } => {
                 vec![worker.waker()]
@@ -136,7 +136,7 @@ where
         }
     }
 
-    pub fn wakers(&self) -> Vec<Arc<Box<dyn waker::Waker>>> {
+    pub fn wakers(&self) -> Vec<Arc<Waker>> {
         match self {
             Self::Single { worker } => {
                 vec![worker.waker()]
@@ -164,7 +164,7 @@ where
                 mut workers,
             } => {
                 let storage_wakers = vec![storage.waker()];
-                let worker_wakers: Vec<Arc<Box<dyn waker::Waker>>> =
+                let worker_wakers: Vec<Arc<Waker>> =
                     workers.iter().map(|v| v.waker()).collect();
                 let (mut worker_data_queues, mut storage_data_queues) =
                     Queues::new(worker_wakers, storage_wakers, QUEUE_CAPACITY);

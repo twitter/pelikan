@@ -18,6 +18,7 @@ use std::collections::VecDeque;
 use std::io::{Error, ErrorKind, Result};
 use std::sync::Arc;
 use std::time::Duration;
+use waker::Waker;
 
 counter!(ADMIN_REQUEST_PARSE);
 counter!(ADMIN_RESPONSE_COMPOSE);
@@ -104,7 +105,7 @@ pub struct Admin {
     /// The version of the service
     version: String,
     /// The waker for this thread
-    waker: Arc<Box<dyn waker::Waker>>,
+    waker: Arc<Waker>,
 }
 
 pub struct AdminBuilder {
@@ -115,7 +116,7 @@ pub struct AdminBuilder {
     sessions: Slab<ServerSession<AdminRequestParser, AdminResponse, AdminRequest>>,
     timeout: Duration,
     version: String,
-    waker: Arc<Box<dyn waker::Waker>>,
+    waker: Arc<Waker>,
 }
 
 impl AdminBuilder {
@@ -139,8 +140,7 @@ impl AdminBuilder {
         listener.register(poll.registry(), LISTENER_TOKEN, Interest::READABLE)?;
 
         let waker =
-            Arc::new(Box::new(Waker::new(poll.registry(), WAKER_TOKEN).unwrap())
-                as Box<dyn waker::Waker>);
+            Arc::new(Waker::from(::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap()));
 
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
@@ -167,7 +167,7 @@ impl AdminBuilder {
         self.version = version.to_string();
     }
 
-    pub fn waker(&self) -> Arc<Box<dyn waker::Waker>> {
+    pub fn waker(&self) -> Arc<Waker> {
         self.waker.clone()
     }
 
