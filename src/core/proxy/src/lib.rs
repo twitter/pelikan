@@ -34,7 +34,6 @@ use waker::Waker;
 
 type Instant = rustcommon_metrics::Instant<rustcommon_metrics::Nanoseconds<u64>>;
 
-// mod admin;
 mod backend;
 mod frontend;
 mod listener;

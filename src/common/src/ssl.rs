@@ -17,10 +17,10 @@ pub trait TlsConfig {
     fn ca_file(&self) -> Option<String>;
 }
 
-/// Create an `SslContext` from the given `TlsConfig`. Returns an error if there
-/// was any issues during initialization. Otherwise, returns a `SslContext`
-/// wrapped in an option, where the `None` variant indicates that TLS should not
-/// be used.
+/// Create an `TlsTcpAcceptor` from the given `TlsConfig`. Returns an error if
+/// there were any issues during initialization. Otherwise, returns a
+/// `TlsTcpAcceptor` wrapped in an option, where the `None` variant indicates
+/// that TLS should not be used.
 pub fn tls_acceptor(config: &dyn TlsConfig) -> Result<Option<TlsTcpAcceptor>, std::io::Error> {
     let mut builder = TlsTcpAcceptor::mozilla_intermediate_v5()?;
 
