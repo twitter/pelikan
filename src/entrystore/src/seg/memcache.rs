@@ -82,7 +82,8 @@ impl Storage for Seg {
     }
 
     fn set(&mut self, set: &Set) -> Response {
-        if let Some(0) = set.ttl() {
+        if set.ttl() == Some(0) {
+            // immediate expire maps to a delete
             self.data.delete(set.key());
             Response::stored(set.noreply())
         } else if let Ok(s) = std::str::from_utf8(set.value()) {
@@ -136,7 +137,8 @@ impl Storage for Seg {
             return Response::not_stored(add.noreply());
         }
 
-        if let Some(0) = add.ttl() {
+        if add.ttl() == Some(0) {
+            // immediate expire maps to a delete
             self.data.delete(add.key());
             Response::stored(add.noreply())
         } else if let Ok(s) = std::str::from_utf8(add.value()) {
@@ -190,7 +192,8 @@ impl Storage for Seg {
             return Response::not_stored(replace.noreply());
         }
 
-        if let Some(0) = replace.ttl() {
+        if replace.ttl() == Some(0) {
+            // immediate expire maps to a delete
             self.data.delete(replace.key());
             Response::stored(replace.noreply())
         } else if let Ok(s) = std::str::from_utf8(replace.value()) {
