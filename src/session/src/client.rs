@@ -47,7 +47,7 @@ where
         Self {
             session,
             parser,
-            pending: VecDeque::with_capacity(256),
+            pending: VecDeque::with_capacity(NUM_PENDING),
             _rx: PhantomData,
         }
     }

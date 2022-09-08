@@ -77,6 +77,10 @@ const BUFFER_MIN_FREE: usize = 4 * KB;
 // https://datatracker.ietf.org/doc/html/rfc5246#section-6.2.1
 const TARGET_READ_SIZE: usize = 16 * KB;
 
+// The initial size of any queues which track pending requests and responses.
+// This is *not* a hard bound, but is used to size the initial allocations.
+const NUM_PENDING: usize = 256;
+
 /// A `Session` is an underlying `Stream` with its read and write buffers. This
 /// abstraction allows the caller to efficiently read from the underlying stream
 /// by buffering the incoming bytes. It also allows for efficient writing by

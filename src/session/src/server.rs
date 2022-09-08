@@ -56,8 +56,8 @@ where
         Self {
             session,
             parser,
-            pending: VecDeque::with_capacity(256),
-            outstanding: VecDeque::with_capacity(256),
+            pending: VecDeque::with_capacity(NUM_PENDING),
+            outstanding: VecDeque::with_capacity(NUM_PENDING),
             timestamp: Instant::now(),
             _rx: PhantomData,
             _tx: PhantomData,
