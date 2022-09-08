@@ -6,6 +6,18 @@ use super::*;
 
 /// A basic session to represent the server side of a framed session, meaning
 /// that is is used by a server to talk to a client.
+///
+/// `ServerSession` latency tracking counts the time from data being read into
+/// the session buffer until a corresponding message is flushed entirely to the
+/// socket buffer. This means that if it takes multiple reads of the socket
+/// buffer until a message from the client is parsable, the time of the last
+/// read is the start of our latency tracking. Similarly, if it takes multiple
+/// writes to flush a message back to the client, the time of the last write to
+/// the socket buffer is the stop point for latency tracking. This means that
+/// the server latency will be lower than that seen by the client, as delays in
+/// the kernel, network, and client itself do not count towards server latency.
+/// Instead, the latency represents the time it takes to parse the message, take
+/// some possible action, and write a response back out to the socket buffer.
 pub struct ServerSession<Parser, Tx, Rx> {
     // the actual session
     session: Session,
