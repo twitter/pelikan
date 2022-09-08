@@ -7,11 +7,9 @@ use std::thread::JoinHandle;
 
 mod multi;
 mod single;
-mod storage;
 
 use multi::*;
 use single::*;
-use storage::*;
 
 heatmap!(
     WORKER_EVENT_DEPTH,
@@ -44,8 +42,7 @@ pub enum Workers<Parser, Request, Response, Storage> {
         worker: SingleWorker<Parser, Request, Response, Storage>,
     },
     Multi {
-        workers: Vec<MultiWorker<Parser, Request, Response>>,
-        storage: StorageWorker<Request, Response, Storage, Token>,
+        workers: Vec<MultiWorker<Parser, Request, Response, Storage>>,
     },
 }
 
@@ -66,12 +63,8 @@ where
             }
             Self::Multi {
                 mut workers,
-                mut storage,
             } => {
-                let mut join_handles = vec![std::thread::Builder::new()
-                    .name(format!("{}_storage", THREAD_PREFIX))
-                    .spawn(move || storage.run())
-                    .unwrap()];
+                let mut join_handles = vec![];
 
                 for (id, mut worker) in workers.drain(..).enumerate() {
                     join_handles.push(
@@ -93,8 +86,7 @@ pub enum WorkersBuilder<Parser, Request, Response, Storage> {
         worker: SingleWorkerBuilder<Parser, Request, Response, Storage>,
     },
     Multi {
-        workers: Vec<MultiWorkerBuilder<Parser, Request, Response>>,
-        storage: StorageWorkerBuilder<Request, Response, Storage>,
+        workers: Vec<MultiWorkerBuilder<Parser, Request, Response, Storage>>,
     },
 }
 
@@ -108,14 +100,15 @@ where
         let threads = config.worker().threads();
 
         if threads > 1 {
+            let storage = Arc::new(Mutex::new(storage));
+
             let mut workers = vec![];
             for _ in 0..threads {
-                workers.push(MultiWorkerBuilder::new(config, parser.clone())?)
+                workers.push(MultiWorkerBuilder::new(config, parser.clone(), storage.clone())?)
             }
 
             Ok(Self::Multi {
                 workers,
-                storage: StorageWorkerBuilder::new(config, storage)?,
             })
         } else {
             Ok(Self::Single {
@@ -131,7 +124,6 @@ where
             }
             Self::Multi {
                 workers,
-                storage: _,
             } => workers.iter().map(|w| w.waker()).collect(),
         }
     }
@@ -141,8 +133,8 @@ where
             Self::Single { worker } => {
                 vec![worker.waker()]
             }
-            Self::Multi { workers, storage } => {
-                let mut wakers = vec![storage.waker()];
+            Self::Multi { workers } => {
+                let mut wakers = vec![];
                 for worker in workers {
                     wakers.push(worker.waker());
                 }
@@ -160,33 +152,18 @@ where
         let mut session_queues = session_queues;
         match self {
             Self::Multi {
-                storage,
+                // storage,
                 mut workers,
             } => {
-                let storage_wakers = vec![storage.waker()];
-                let worker_wakers: Vec<Arc<Waker>> = workers.iter().map(|v| v.waker()).collect();
-                let (mut worker_data_queues, mut storage_data_queues) =
-                    Queues::new(worker_wakers, storage_wakers, QUEUE_CAPACITY);
-
-                // The storage thread precedes the worker threads in the set of
-                // wakers, so its signal queue is the first element of
-                // `signal_queues`. Its request queue is also the first (and
-                // only) element of `request_queues`. We remove these and build
-                // the storage so we can loop through the remaining signal
-                // queues when launching the worker threads.
-                let s = storage.build(storage_data_queues.remove(0), signal_queues.remove(0));
-
                 let mut w = Vec::new();
                 for worker_builder in workers.drain(..) {
                     w.push(worker_builder.build(
-                        worker_data_queues.remove(0),
                         session_queues.remove(0),
                         signal_queues.remove(0),
                     ));
                 }
 
                 Workers::Multi {
-                    storage: s,
                     workers: w,
                 }
             }

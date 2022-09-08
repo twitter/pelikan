@@ -97,7 +97,6 @@ use admin::AdminBuilder;
 use common::signal::Signal;
 use common::ssl::tls_acceptor;
 use config::*;
-use core::marker::PhantomData;
 use core::time::Duration;
 use crossbeam_channel::{bounded, Sender};
 use entrystore::EntryStore;
@@ -108,7 +107,7 @@ use rustcommon_metrics::*;
 use session::{Buf, ServerSession, Session};
 use slab::Slab;
 use std::io::{Error, ErrorKind, Result};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use waker::Waker;
 
 mod listener;
