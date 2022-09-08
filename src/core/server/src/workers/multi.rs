@@ -185,6 +185,16 @@ where
         loop {
             WORKER_EVENT_LOOP.increment();
 
+            {
+                let mut storage = self.storage.lock().unwrap();
+                (*storage).expire();
+            }
+
+            // we need another wakeup if there are still pending reads
+            if !self.pending.is_empty() {
+                let _ = self.waker.wake();
+            }
+
             // get events with timeout
             if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
                 error!("Error polling");
@@ -240,7 +250,10 @@ where
                             self.signal_queue.try_recv().map(|v| v.into_inner())
                         {
                             match signal {
-                                Signal::FlushAll => {}
+                                Signal::FlushAll => {
+                                    let mut storage = self.storage.lock().unwrap();
+                                    (*storage).clear();
+                                }
                                 Signal::Shutdown => {
                                     // if we received a shutdown, we can return
                                     // and stop processing events
