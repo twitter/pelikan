@@ -3,7 +3,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use super::*;
-use std::ops::Deref;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Gets {
@@ -61,30 +60,32 @@ impl Klog for Gets {
 
     fn klog(&self, response: &Self::Response) {
         if let Response::Values(ref res) = response {
-            let total_keys = self.keys.len();
-            let hit_keys = res.values.len();
-            let miss_keys = total_keys - hit_keys;
-            GETS_KEY_HIT.add(hit_keys as _);
-            GETS_KEY_MISS.add(miss_keys as _);
+            let mut hit_keys = 0;
+            let mut miss_keys = 0;
 
-            let values = res.values();
-            let mut value_index = 0;
+            for value in res.values() {
+                if value.len().is_none() {
+                    miss_keys += 1;
 
-            for key in self.keys() {
-                let key = key.deref();
-                // if we are out of values or the keys don't match, it's a miss
-                if value_index >= values.len() || values[value_index].key() != key {
-                    klog!("\"get {}\" {} 0", String::from_utf8_lossy(key), MISS);
-                } else {
                     klog!(
-                        "\"get {}\" {} {}",
-                        String::from_utf8_lossy(key),
-                        HIT,
-                        values[value_index].len()
+                        "\"gets {}\" {} 0",
+                        String::from_utf8_lossy(value.key()),
+                        MISS
                     );
-                    value_index += 1;
+                } else {
+                    hit_keys += 1;
+
+                    klog!(
+                        "\"gets {}\" {} {}",
+                        String::from_utf8_lossy(value.key()),
+                        HIT,
+                        value.len().unwrap(),
+                    );
                 }
             }
+
+            GETS_KEY_HIT.add(hit_keys as _);
+            GETS_KEY_MISS.add(miss_keys as _);
         }
     }
 }

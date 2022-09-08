@@ -52,6 +52,8 @@ impl Storage for Seg {
                         ));
                     }
                 }
+            } else {
+                values.push(Value::none(key));
             }
         }
         Values::new(values.into_boxed_slice()).into()
@@ -76,6 +78,8 @@ impl Storage for Seg {
                         ));
                     }
                 }
+            } else {
+                values.push(Value::none(key));
             }
         }
         Values::new(values.into_boxed_slice()).into()
