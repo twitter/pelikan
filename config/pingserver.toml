@@ -18,6 +18,8 @@ nevent = 1024
 timeout = 100
 # epoll max events returned
 nevent = 1024
+# the number of worker threads to use
+threads = 1
 
 # NOTE: not currently implemented
 [time]

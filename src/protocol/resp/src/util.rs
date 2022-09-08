@@ -2,14 +2,13 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::message::*;
 pub use nom::bytes::streaming::*;
 pub use nom::character::streaming::*;
-pub use nom::error::ErrorKind;
 pub use nom::{AsChar, Err, IResult, InputTakeAtPosition, Needed};
 pub use protocol_common::Compose;
-use protocol_common::ParseError;
-pub use std::io::Write;
+pub use std::io::{Error, ErrorKind, Write};
+
+use crate::message::*;
 use std::sync::Arc;
 
 // consumes one or more literal spaces
@@ -19,7 +18,7 @@ pub fn space1(input: &[u8]) -> IResult<&[u8], &[u8]> {
             let c = item.as_char();
             c != ' '
         },
-        ErrorKind::Space,
+        nom::error::ErrorKind::Space,
     )
 }
 
@@ -39,24 +38,27 @@ pub fn string(input: &[u8]) -> IResult<&[u8], &[u8]> {
 }
 
 #[allow(clippy::redundant_allocation)]
-pub fn take_bulk_string(array: &mut Vec<Message>) -> Result<Arc<Box<[u8]>>, ParseError> {
+pub fn take_bulk_string(array: &mut Vec<Message>) -> Result<Arc<Box<[u8]>>, Error> {
     if let Message::BulkString(s) = array.remove(1) {
         if s.inner.is_none() {
-            return Err(ParseError::Invalid);
+            return Err(Error::new(ErrorKind::Other, "bulk string is null"));
         }
 
         let s = s.inner.unwrap();
 
         Ok(s)
     } else {
-        Err(ParseError::Invalid)
+        Err(Error::new(
+            ErrorKind::Other,
+            "next array element is not a bulk string",
+        ))
     }
 }
 
-pub fn take_bulk_string_as_u64(array: &mut Vec<Message>) -> Result<u64, ParseError> {
+pub fn take_bulk_string_as_u64(array: &mut Vec<Message>) -> Result<u64, Error> {
     let s = take_bulk_string(array)?;
     std::str::from_utf8(&s)
-        .map_err(|_| ParseError::Invalid)?
+        .map_err(|_| Error::new(ErrorKind::Other, "bulk string not valid utf8"))?
         .parse::<u64>()
-        .map_err(|_| ParseError::Invalid)
+        .map_err(|_| Error::new(ErrorKind::Other, "bulk string is not a u64"))
 }

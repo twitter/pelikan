@@ -96,7 +96,7 @@ fn main() {
         match PingserverConfig::load(file) {
             Ok(c) => c,
             Err(e) => {
-                error!("{}", e);
+                println!("error launching pingserver: {}", e);
                 std::process::exit(1);
             }
         }
@@ -105,5 +105,11 @@ fn main() {
     };
 
     // launch
-    Pingserver::new(config).wait()
+    match Pingserver::new(config) {
+        Ok(s) => s.wait(),
+        Err(e) => {
+            println!("error launching pingserver: {}", e);
+            std::process::exit(1);
+        }
+    }
 }

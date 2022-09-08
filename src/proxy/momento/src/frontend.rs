@@ -4,6 +4,7 @@
 
 use crate::protocol::*;
 use crate::*;
+use session::Buf;
 
 pub(crate) async fn handle_memcache_client(
     mut socket: tokio::net::TcpStream,
@@ -11,7 +12,7 @@ pub(crate) async fn handle_memcache_client(
     cache_name: String,
 ) {
     // initialize a buffer for incoming bytes from the client
-    let mut buf = Buffer::with_capacity(INITIAL_BUFFER_SIZE);
+    let mut buf = Buffer::new(INITIAL_BUFFER_SIZE);
 
     // initialize the request parser
     let parser = memcache::RequestParser::new();
@@ -48,19 +49,16 @@ pub(crate) async fn handle_memcache_client(
                         debug!("unsupported command: {}", request);
                     }
                 }
-                buf.consume(consumed);
+                buf.advance(consumed);
             }
-            Err(ParseError::Incomplete) => {}
-            Err(ParseError::Invalid) => {
-                // invalid request
-                let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
-                break;
-            }
-            Err(ParseError::Unknown) => {
-                // unknown command
-                let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
-                break;
-            }
+            Err(e) => match e.kind() {
+                ErrorKind::WouldBlock => {}
+                _ => {
+                    // invalid request
+                    let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
+                    break;
+                }
+            },
         }
     }
 }
@@ -71,7 +69,7 @@ pub(crate) async fn handle_resp_client(
     cache_name: String,
 ) {
     // initialize a buffer for incoming bytes from the client
-    let mut buf = Buffer::with_capacity(INITIAL_BUFFER_SIZE);
+    let mut buf = Buffer::new(INITIAL_BUFFER_SIZE);
 
     // initialize the request parser
     let parser = resp::RequestParser::new();
@@ -105,21 +103,16 @@ pub(crate) async fn handle_resp_client(
                         }
                     }
                 }
-                buf.consume(consumed);
+                buf.advance(consumed);
             }
-            Err(ParseError::Incomplete) => {}
-            Err(ParseError::Invalid) => {
-                // invalid request
-                println!("bad request");
-                let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
-                break;
-            }
-            Err(ParseError::Unknown) => {
-                // unknown command
-                println!("unknown command");
-                let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
-                break;
-            }
+            Err(e) => match e.kind() {
+                ErrorKind::WouldBlock => {}
+                _ => {
+                    println!("bad request");
+                    let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
+                    break;
+                }
+            },
         }
     }
 }

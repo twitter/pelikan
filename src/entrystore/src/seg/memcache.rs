@@ -13,24 +13,22 @@ use protocol_memcache::*;
 use std::time::Duration;
 
 impl Execute<Request, Response> for Seg {
-    fn execute(&mut self, request: Request) -> Box<dyn ExecutionResult<Request, Response>> {
-        let response = match request {
-            Request::Get(ref get) => self.get(&get),
-            Request::Gets(ref gets) => self.gets(&gets),
-            Request::Set(ref set) => self.set(&set),
-            Request::Add(ref add) => self.add(&add),
-            Request::Replace(ref replace) => self.replace(&replace),
-            Request::Cas(ref cas) => self.cas(&cas),
-            Request::Incr(ref incr) => self.incr(&incr),
-            Request::Decr(ref decr) => self.decr(&decr),
-            Request::Append(ref append) => self.append(&append),
-            Request::Prepend(ref prepend) => self.prepend(&prepend),
-            Request::Delete(ref delete) => self.delete(&delete),
-            Request::FlushAll(ref flush_all) => self.flush_all(&flush_all),
-            Request::Quit(ref quit) => self.quit(&quit),
-        };
-
-        Box::new(MemcacheExecutionResult::new(request, response))
+    fn execute(&mut self, request: &Request) -> Response {
+        match request {
+            Request::Get(get) => self.get(get),
+            Request::Gets(gets) => self.gets(gets),
+            Request::Set(set) => self.set(set),
+            Request::Add(add) => self.add(add),
+            Request::Replace(replace) => self.replace(replace),
+            Request::Cas(cas) => self.cas(cas),
+            Request::Incr(incr) => self.incr(incr),
+            Request::Decr(decr) => self.decr(decr),
+            Request::Append(append) => self.append(append),
+            Request::Prepend(prepend) => self.prepend(prepend),
+            Request::Delete(delete) => self.delete(delete),
+            Request::FlushAll(flush_all) => self.flush_all(flush_all),
+            Request::Quit(quit) => self.quit(quit),
+        }
     }
 }
 
@@ -50,10 +48,12 @@ impl Storage for Seg {
                             item.key(),
                             flags,
                             None,
-                            &format!("{}", v).as_bytes(),
+                            format!("{}", v).as_bytes(),
                         ));
                     }
                 }
+            } else {
+                values.push(Value::none(key));
             }
         }
         Values::new(values.into_boxed_slice()).into()
@@ -74,58 +74,29 @@ impl Storage for Seg {
                             item.key(),
                             flags,
                             Some(item.cas().into()),
-                            &format!("{}", v).as_bytes(),
+                            format!("{}", v).as_bytes(),
                         ));
                     }
                 }
+            } else {
+                values.push(Value::none(key));
             }
         }
         Values::new(values.into_boxed_slice()).into()
     }
 
     fn set(&mut self, set: &Set) -> Response {
-        if let Some(0) = set.ttl() {
+        if set.ttl() == Some(0) {
+            // immediate expire maps to a delete
             self.data.delete(set.key());
             Response::stored(set.noreply())
-        } else {
-            if let Ok(s) = std::str::from_utf8(set.value()) {
-                if let Ok(v) = s.parse::<u64>() {
-                    if self
-                        .data
-                        .insert(
-                            set.key(),
-                            v,
-                            Some(&set.flags().to_be_bytes()),
-                            Duration::from_secs(set.ttl().unwrap_or(0).into()),
-                        )
-                        .is_ok()
-                    {
-                        Response::stored(set.noreply())
-                    } else {
-                        Response::server_error("")
-                    }
-                } else {
-                    if self
-                        .data
-                        .insert(
-                            set.key(),
-                            set.value(),
-                            Some(&set.flags().to_be_bytes()),
-                            Duration::from_secs(set.ttl().unwrap_or(0).into()),
-                        )
-                        .is_ok()
-                    {
-                        Response::stored(set.noreply())
-                    } else {
-                        Response::server_error("")
-                    }
-                }
-            } else {
+        } else if let Ok(s) = std::str::from_utf8(set.value()) {
+            if let Ok(v) = s.parse::<u64>() {
                 if self
                     .data
                     .insert(
                         set.key(),
-                        set.value(),
+                        v,
                         Some(&set.flags().to_be_bytes()),
                         Duration::from_secs(set.ttl().unwrap_or(0).into()),
                     )
@@ -135,7 +106,33 @@ impl Storage for Seg {
                 } else {
                     Response::server_error("")
                 }
+            } else if self
+                .data
+                .insert(
+                    set.key(),
+                    set.value(),
+                    Some(&set.flags().to_be_bytes()),
+                    Duration::from_secs(set.ttl().unwrap_or(0).into()),
+                )
+                .is_ok()
+            {
+                Response::stored(set.noreply())
+            } else {
+                Response::server_error("")
             }
+        } else if self
+            .data
+            .insert(
+                set.key(),
+                set.value(),
+                Some(&set.flags().to_be_bytes()),
+                Duration::from_secs(set.ttl().unwrap_or(0).into()),
+            )
+            .is_ok()
+        {
+            Response::stored(set.noreply())
+        } else {
+            Response::server_error("")
         }
     }
 
@@ -144,48 +141,17 @@ impl Storage for Seg {
             return Response::not_stored(add.noreply());
         }
 
-        if let Some(0) = add.ttl() {
+        if add.ttl() == Some(0) {
+            // immediate expire maps to a delete
             self.data.delete(add.key());
             Response::stored(add.noreply())
-        } else {
-            if let Ok(s) = std::str::from_utf8(add.value()) {
-                if let Ok(v) = s.parse::<u64>() {
-                    if self
-                        .data
-                        .insert(
-                            add.key(),
-                            v,
-                            Some(&add.flags().to_be_bytes()),
-                            Duration::from_secs(add.ttl().unwrap_or(0).into()),
-                        )
-                        .is_ok()
-                    {
-                        Response::stored(add.noreply())
-                    } else {
-                        Response::server_error("")
-                    }
-                } else {
-                    if self
-                        .data
-                        .insert(
-                            add.key(),
-                            add.value(),
-                            Some(&add.flags().to_be_bytes()),
-                            Duration::from_secs(add.ttl().unwrap_or(0).into()),
-                        )
-                        .is_ok()
-                    {
-                        Response::stored(add.noreply())
-                    } else {
-                        Response::server_error("")
-                    }
-                }
-            } else {
+        } else if let Ok(s) = std::str::from_utf8(add.value()) {
+            if let Ok(v) = s.parse::<u64>() {
                 if self
                     .data
                     .insert(
                         add.key(),
-                        add.value(),
+                        v,
                         Some(&add.flags().to_be_bytes()),
                         Duration::from_secs(add.ttl().unwrap_or(0).into()),
                     )
@@ -195,7 +161,33 @@ impl Storage for Seg {
                 } else {
                     Response::server_error("")
                 }
+            } else if self
+                .data
+                .insert(
+                    add.key(),
+                    add.value(),
+                    Some(&add.flags().to_be_bytes()),
+                    Duration::from_secs(add.ttl().unwrap_or(0).into()),
+                )
+                .is_ok()
+            {
+                Response::stored(add.noreply())
+            } else {
+                Response::server_error("")
             }
+        } else if self
+            .data
+            .insert(
+                add.key(),
+                add.value(),
+                Some(&add.flags().to_be_bytes()),
+                Duration::from_secs(add.ttl().unwrap_or(0).into()),
+            )
+            .is_ok()
+        {
+            Response::stored(add.noreply())
+        } else {
+            Response::server_error("")
         }
     }
 
@@ -204,48 +196,17 @@ impl Storage for Seg {
             return Response::not_stored(replace.noreply());
         }
 
-        if let Some(0) = replace.ttl() {
+        if replace.ttl() == Some(0) {
+            // immediate expire maps to a delete
             self.data.delete(replace.key());
             Response::stored(replace.noreply())
-        } else {
-            if let Ok(s) = std::str::from_utf8(replace.value()) {
-                if let Ok(v) = s.parse::<u64>() {
-                    if self
-                        .data
-                        .insert(
-                            replace.key(),
-                            v,
-                            Some(&replace.flags().to_be_bytes()),
-                            Duration::from_secs(replace.ttl().unwrap_or(0).into()),
-                        )
-                        .is_ok()
-                    {
-                        Response::stored(replace.noreply())
-                    } else {
-                        Response::server_error("")
-                    }
-                } else {
-                    if self
-                        .data
-                        .insert(
-                            replace.key(),
-                            replace.value(),
-                            Some(&replace.flags().to_be_bytes()),
-                            Duration::from_secs(replace.ttl().unwrap_or(0).into()),
-                        )
-                        .is_ok()
-                    {
-                        Response::stored(replace.noreply())
-                    } else {
-                        Response::server_error("")
-                    }
-                }
-            } else {
+        } else if let Ok(s) = std::str::from_utf8(replace.value()) {
+            if let Ok(v) = s.parse::<u64>() {
                 if self
                     .data
                     .insert(
                         replace.key(),
-                        replace.value(),
+                        v,
                         Some(&replace.flags().to_be_bytes()),
                         Duration::from_secs(replace.ttl().unwrap_or(0).into()),
                     )
@@ -255,7 +216,33 @@ impl Storage for Seg {
                 } else {
                     Response::server_error("")
                 }
+            } else if self
+                .data
+                .insert(
+                    replace.key(),
+                    replace.value(),
+                    Some(&replace.flags().to_be_bytes()),
+                    Duration::from_secs(replace.ttl().unwrap_or(0).into()),
+                )
+                .is_ok()
+            {
+                Response::stored(replace.noreply())
+            } else {
+                Response::server_error("")
             }
+        } else if self
+            .data
+            .insert(
+                replace.key(),
+                replace.value(),
+                Some(&replace.flags().to_be_bytes()),
+                Duration::from_secs(replace.ttl().unwrap_or(0).into()),
+            )
+            .is_ok()
+        {
+            Response::stored(replace.noreply())
+        } else {
+            Response::server_error("")
         }
     }
 

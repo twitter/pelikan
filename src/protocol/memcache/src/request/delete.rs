@@ -75,14 +75,42 @@ impl RequestParser {
 }
 
 impl Compose for Delete {
-    fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(b"delete ");
-        let _ = session.write_all(&self.key);
-        if self.noreply {
-            let _ = session.write_all(b" noreply\r\n");
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let verb = b"delete ";
+        let header_end = if self.noreply {
+            " noreply\r\n".as_bytes()
         } else {
-            let _ = session.write_all(b"\r\n");
-        }
+            "\r\n".as_bytes()
+        };
+
+        let size = verb.len() + self.key.len() + header_end.len();
+
+        session.put_slice(verb);
+        session.put_slice(&self.key);
+        session.put_slice(header_end);
+
+        size
+    }
+}
+
+impl Klog for Delete {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        let (code, len) = match response {
+            Response::Deleted(ref res) => {
+                DELETE_DELETED.increment();
+                (DELETED, res.len())
+            }
+            Response::NotFound(ref res) => {
+                DELETE_NOT_FOUND.increment();
+                (NOT_FOUND, res.len())
+            }
+            _ => {
+                return;
+            }
+        };
+        klog!("\"delete {}\" {} {}", string_key(self.key()), code, len);
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "protocol-memcache"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,9 +15,7 @@ common = { path = "../../common" }
 logger = { path = "../../logger" }
 nom = "5.1.2"
 protocol-common = { path = "../../protocol/common" }
-rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
-session = { path = "../../session" }
-
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon", features = ["heatmap"] }
 
 [dev-dependencies]
 criterion = "0.3.4"

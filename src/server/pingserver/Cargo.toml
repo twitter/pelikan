@@ -1,6 +1,6 @@
 [package]
 name = "pingserver"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Brian Martin <bmartin@twitter.com>"]
 edition = "2018"
 description = "a simple ascii ping/pong server"
@@ -28,8 +28,6 @@ name = "benchmark"
 path = "benches/benchmark.rs"
 harness = false
 
-[features]
-
 [dependencies]
 backtrace = "0.3.56"
 clap = "2.33.3"
@@ -40,7 +38,6 @@ logger = { path = "../../logger" }
 protocol-ping = { path = "../../protocol/ping", features = ["server"] }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 server = { path = "../../core/server" }
-
 
 [dev-dependencies]
 criterion = "0.3"

@@ -10,10 +10,11 @@ pub struct SimpleString {
 }
 
 impl Compose for SimpleString {
-    fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(b"+");
-        let _ = session.write_all(self.inner.as_bytes());
-        let _ = session.write_all(b"\r\n");
+    fn compose(&self, buf: &mut dyn BufMut) -> usize {
+        let _ = buf.put_slice(b"+");
+        let _ = buf.put_slice(self.inner.as_bytes());
+        let _ = buf.put_slice(b"\r\n");
+        self.inner.as_bytes().len() + 3
     }
 }
 

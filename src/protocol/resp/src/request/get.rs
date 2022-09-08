@@ -3,6 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use super::*;
+use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -12,39 +13,39 @@ pub struct GetRequest {
 }
 
 impl TryFrom<Message> for GetRequest {
-    type Error = ParseError;
+    type Error = Error;
 
-    fn try_from(other: Message) -> Result<Self, ParseError> {
+    fn try_from(other: Message) -> Result<Self, Error> {
         if let Message::Array(array) = other {
             if array.inner.is_none() {
-                return Err(ParseError::Invalid);
+                return Err(Error::new(ErrorKind::Other, "malformed command"));
             }
 
             let mut array = array.inner.unwrap();
 
             if array.len() != 2 {
-                return Err(ParseError::Invalid);
+                return Err(Error::new(ErrorKind::Other, "malformed command"));
             }
 
             let key = if let Message::BulkString(key) = array.remove(1) {
                 if key.inner.is_none() {
-                    return Err(ParseError::Invalid);
+                    return Err(Error::new(ErrorKind::Other, "malformed command"));
                 }
 
                 let key = key.inner.unwrap();
 
                 if key.len() == 0 {
-                    return Err(ParseError::Invalid);
+                    return Err(Error::new(ErrorKind::Other, "malformed command"));
                 }
 
                 key
             } else {
-                return Err(ParseError::Invalid);
+                return Err(Error::new(ErrorKind::Other, "malformed command"));
             };
 
             Ok(Self { key })
         } else {
-            Err(ParseError::Invalid)
+            Err(Error::new(ErrorKind::Other, "malformed command"))
         }
     }
 }
@@ -73,9 +74,9 @@ impl From<&GetRequest> for Message {
 }
 
 impl Compose for GetRequest {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, buf: &mut dyn BufMut) -> usize {
         let message = Message::from(self);
-        message.compose(session)
+        message.compose(buf)
     }
 }
 

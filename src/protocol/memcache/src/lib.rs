@@ -2,9 +2,11 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+#[macro_use]
+extern crate logger;
+
 mod request;
 mod response;
-mod result;
 mod storage;
 mod util;
 
@@ -12,18 +14,22 @@ pub(crate) use util::*;
 
 pub use request::*;
 pub use response::*;
-pub use result::*;
 pub use storage::*;
 
-use common::expiry::TimeType;
+pub use protocol_common::*;
+
+use logger::Klog;
+use rustcommon_metrics::*;
+
+// use common::expiry::TimeType;
+
+const CRLF: &[u8] = b"\r\n";
 
 pub enum MemcacheError {
     Error(Error),
     ClientError(ClientError),
     ServerError(ServerError),
 }
-
-use rustcommon_metrics::*;
 
 type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
 
@@ -94,3 +100,5 @@ counter!(FLUSH_ALL);
 counter!(FLUSH_ALL_EX);
 
 counter!(QUIT);
+
+common::metrics::test_no_duplicates!();

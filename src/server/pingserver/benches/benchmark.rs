@@ -23,7 +23,7 @@ fn ping_benchmark(c: &mut Criterion) {
     let config = PingserverConfig::default();
 
     // launch the server
-    let server = Pingserver::new(config);
+    let server = Pingserver::new(config).expect("failed to launch pingserver");
 
     // wait for server to startup. duration is chosen to be longer than we'd
     // expect startup to take in a slow ci environment.

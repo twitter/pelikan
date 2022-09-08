@@ -9,6 +9,14 @@ use proxy::{Process, ProcessBuilder};
 
 const MAX_SIZE: usize = 16 * 1024 * 1024; // 16MB
 
+type BackendParser = MessageParser;
+type BackendRequest = Message;
+type BackendResponse = Message;
+
+type FrontendParser = MessageParser;
+type FrontendRequest = Message;
+type FrontendResponse = Message;
+
 #[allow(dead_code)]
 pub struct Thriftproxy {
     process: Process,
@@ -34,9 +42,15 @@ impl Thriftproxy {
         let response_parser = MessageParser::new(MAX_SIZE);
 
         // initialize process
-        let process_builder =
-            ProcessBuilder::new(config, request_parser, response_parser, log_drain)
-                .expect("failed to launch");
+        let process_builder = ProcessBuilder::<
+            BackendParser,
+            BackendRequest,
+            BackendResponse,
+            FrontendParser,
+            FrontendRequest,
+            FrontendResponse,
+        >::new(&config, log_drain, response_parser, request_parser)
+        .expect("failed to launch");
         let process = process_builder.spawn();
 
         Self { process }

@@ -2,9 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use crate::*;
-use common::time::Seconds;
-use common::time::UnixInstant;
+use super::*;
+use common::time::{Seconds, UnixInstant};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Set {
@@ -123,24 +122,70 @@ impl RequestParser {
 }
 
 impl Compose for Set {
-    fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(b"set ");
-        let _ = session.write_all(&self.key);
-        let _ = session.write_all(format!(" {}", self.flags).as_bytes());
-        match self.ttl {
-            None => {
-                let _ = session.write_all(b" 0");
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let verb = b"set ";
+        let flags = format!(" {}", self.flags).into_bytes();
+        let ttl = convert_ttl(self.ttl);
+        let vlen = format!(" {}", self.value.len()).into_bytes();
+        let header_end = if self.noreply {
+            " noreply\r\n".as_bytes()
+        } else {
+            "\r\n".as_bytes()
+        };
+
+        let size = verb.len()
+            + self.key.len()
+            + flags.len()
+            + ttl.len()
+            + vlen.len()
+            + header_end.len()
+            + self.value.len()
+            + CRLF.len();
+
+        session.put_slice(verb);
+        session.put_slice(&self.key);
+        session.put_slice(&flags);
+        session.put_slice(&ttl);
+        session.put_slice(&vlen);
+        session.put_slice(header_end);
+        session.put_slice(&self.value);
+        session.put_slice(CRLF);
+
+        size
+    }
+}
+
+impl Klog for Set {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        let ttl: i64 = match self.ttl() {
+            None => 0,
+            Some(0) => -1,
+            Some(t) => t as _,
+        };
+        let (code, len) = match response {
+            Response::Stored(ref res) => {
+                SET_STORED.increment();
+                (STORED, res.len())
             }
-            Some(0) => {
-                let _ = session.write_all(b" -1");
+            Response::NotStored(ref res) => {
+                SET_NOT_STORED.increment();
+                (NOT_STORED, res.len())
             }
-            Some(s) => {
-                let _ = session.write_all(format!(" {}", s).as_bytes());
+            _ => {
+                return;
             }
-        }
-        let _ = session.write_all(format!(" {}\r\n", self.value.len()).as_bytes());
-        let _ = session.write_all(&self.value);
-        let _ = session.write_all(b"\r\n");
+        };
+        klog!(
+            "\"set {} {} {} {}\" {} {}",
+            string_key(self.key()),
+            self.flags(),
+            ttl,
+            self.value().len(),
+            code,
+            len
+        );
     }
 }
 

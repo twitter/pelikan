@@ -3,6 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use super::*;
+use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -45,23 +46,23 @@ impl SetRequest {
 }
 
 impl TryFrom<Message> for SetRequest {
-    type Error = ParseError;
+    type Error = Error;
 
-    fn try_from(other: Message) -> Result<Self, ParseError> {
+    fn try_from(other: Message) -> Result<Self, Error> {
         if let Message::Array(array) = other {
             if array.inner.is_none() {
-                return Err(ParseError::Invalid);
+                return Err(Error::new(ErrorKind::Other, "malformed command"));
             }
 
             let mut array = array.inner.unwrap();
 
             if array.len() < 3 {
-                return Err(ParseError::Invalid);
+                return Err(Error::new(ErrorKind::Other, "malformed command"));
             }
 
             let key = take_bulk_string(&mut array)?;
             if key.is_empty() {
-                return Err(ParseError::Invalid);
+                return Err(Error::new(ErrorKind::Other, "malformed command"));
             }
 
             let value = take_bulk_string(&mut array)?;
@@ -75,14 +76,14 @@ impl TryFrom<Message> for SetRequest {
             while i < array.len() {
                 if let Message::BulkString(field) = &array[i] {
                     if field.inner.is_none() {
-                        return Err(ParseError::Invalid);
+                        return Err(Error::new(ErrorKind::Other, "malformed command"));
                     }
                     let field = field.inner.as_ref().unwrap();
 
                     match field.as_ref().as_ref() {
                         b"EX" => {
                             if expire_time.is_some() || array.len() < i + 2 {
-                                return Err(ParseError::Invalid);
+                                return Err(Error::new(ErrorKind::Other, "malformed command"));
                             }
                             let s = take_bulk_string_as_u64(&mut array)?;
                             expire_time = Some(ExpireTime::Seconds(s));
@@ -90,7 +91,7 @@ impl TryFrom<Message> for SetRequest {
                         }
                         b"PX" => {
                             if expire_time.is_some() || array.len() < i + 2 {
-                                return Err(ParseError::Invalid);
+                                return Err(Error::new(ErrorKind::Other, "malformed command"));
                             }
                             let ms = take_bulk_string_as_u64(&mut array)?;
                             expire_time = Some(ExpireTime::Milliseconds(ms));
@@ -98,7 +99,7 @@ impl TryFrom<Message> for SetRequest {
                         }
                         b"EXAT" => {
                             if expire_time.is_some() || array.len() < i + 2 {
-                                return Err(ParseError::Invalid);
+                                return Err(Error::new(ErrorKind::Other, "malformed command"));
                             }
                             let s = take_bulk_string_as_u64(&mut array)?;
                             expire_time = Some(ExpireTime::UnixSeconds(s));
@@ -106,7 +107,7 @@ impl TryFrom<Message> for SetRequest {
                         }
                         b"PXAT" => {
                             if expire_time.is_some() || array.len() < i + 2 {
-                                return Err(ParseError::Invalid);
+                                return Err(Error::new(ErrorKind::Other, "malformed command"));
                             }
                             let ms = take_bulk_string_as_u64(&mut array)?;
                             expire_time = Some(ExpireTime::UnixMilliseconds(ms));
@@ -114,37 +115,37 @@ impl TryFrom<Message> for SetRequest {
                         }
                         b"KEEPTTL" => {
                             if expire_time.is_some() {
-                                return Err(ParseError::Invalid);
+                                return Err(Error::new(ErrorKind::Other, "malformed command"));
                             }
                             expire_time = Some(ExpireTime::KeepTtl);
                         }
                         b"NX" => {
                             if mode != SetMode::Set {
-                                return Err(ParseError::Invalid);
+                                return Err(Error::new(ErrorKind::Other, "malformed command"));
                             }
 
                             mode = SetMode::Add;
                         }
                         b"XX" => {
                             if mode != SetMode::Set {
-                                return Err(ParseError::Invalid);
+                                return Err(Error::new(ErrorKind::Other, "malformed command"));
                             }
 
                             mode = SetMode::Replace;
                         }
                         b"GET" => {
                             if get_old {
-                                return Err(ParseError::Invalid);
+                                return Err(Error::new(ErrorKind::Other, "malformed command"));
                             }
 
                             get_old = true;
                         }
                         _ => {
-                            return Err(ParseError::Invalid);
+                            return Err(Error::new(ErrorKind::Other, "malformed command"));
                         }
                     }
                 } else {
-                    return Err(ParseError::Invalid);
+                    return Err(Error::new(ErrorKind::Other, "malformed command"));
                 }
 
                 i += 1;
@@ -158,7 +159,7 @@ impl TryFrom<Message> for SetRequest {
                 get_old,
             })
         } else {
-            Err(ParseError::Invalid)
+            Err(Error::new(ErrorKind::Other, "malformed command"))
         }
     }
 }
@@ -213,9 +214,9 @@ impl From<&SetRequest> for Message {
 }
 
 impl Compose for SetRequest {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, buf: &mut dyn BufMut) -> usize {
         let message = Message::from(self);
-        message.compose(session)
+        message.compose(buf)
     }
 }
 

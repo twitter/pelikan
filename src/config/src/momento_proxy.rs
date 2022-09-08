@@ -21,7 +21,7 @@ impl Default for Protocol {
 }
 
 // struct definitions
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Default, Deserialize, Debug)]
 pub struct MomentoProxyConfig {
     // application modules
     #[serde(default)]
@@ -126,18 +126,5 @@ impl DebugConfig for MomentoProxyConfig {
 impl KlogConfig for MomentoProxyConfig {
     fn klog(&self) -> &Klog {
         &self.klog
-    }
-}
-
-// trait implementations
-impl Default for MomentoProxyConfig {
-    fn default() -> Self {
-        Self {
-            admin: Default::default(),
-            proxy: Default::default(),
-            cache: Default::default(),
-            debug: Default::default(),
-            klog: Default::default(),
-        }
     }
 }

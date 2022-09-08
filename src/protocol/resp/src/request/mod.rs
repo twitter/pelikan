@@ -4,9 +4,10 @@
 
 use crate::message::*;
 use crate::*;
+use protocol_common::BufMut;
 use protocol_common::Parse;
-use protocol_common::{ParseError, ParseOk};
-use session::Session;
+use protocol_common::ParseOk;
+use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 
 mod get;
@@ -29,11 +30,11 @@ impl RequestParser {
 }
 
 impl Parse<Request> for RequestParser {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Request>, protocol_common::ParseError> {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Request>, Error> {
         // we have two different parsers, one for RESP and one for inline
         // both require that there's at least one character in the buffer
         if buffer.is_empty() {
-            return Err(ParseError::Incomplete);
+            return Err(Error::from(ErrorKind::WouldBlock));
         }
 
         let (message, consumed) = if matches!(buffer[0], b'*' | b'+' | b'-' | b':' | b'$') {
@@ -65,7 +66,7 @@ impl Parse<Request> for RequestParser {
             }
 
             if &remaining[0..2] != b"\r\n" {
-                return Err(ParseError::Incomplete);
+                return Err(Error::from(ErrorKind::WouldBlock));
             }
 
             let message = Message::Array(Array {
@@ -80,13 +81,13 @@ impl Parse<Request> for RequestParser {
         match &message {
             Message::Array(array) => {
                 if array.inner.is_none() {
-                    return Err(ParseError::Invalid);
+                    return Err(Error::new(ErrorKind::Other, "malformed command"));
                 }
 
                 let array = array.inner.as_ref().unwrap();
 
                 if array.is_empty() {
-                    return Err(ParseError::Invalid);
+                    return Err(Error::new(ErrorKind::Other, "malformed command"));
                 }
 
                 match &array[0] {
@@ -97,17 +98,17 @@ impl Parse<Request> for RequestParser {
                         Some(b"set") | Some(b"SET") => {
                             SetRequest::try_from(message).map(Request::from)
                         }
-                        _ => Err(ParseError::Invalid),
+                        _ => Err(Error::new(ErrorKind::Other, "unknown command")),
                     },
                     _ => {
                         // all valid commands are encoded as a bulk string
-                        Err(ParseError::Invalid)
+                        Err(Error::new(ErrorKind::Other, "malformed command"))
                     }
                 }
             }
             _ => {
                 // all valid requests are arrays
-                Err(ParseError::Invalid)
+                Err(Error::new(ErrorKind::Other, "malformed command"))
             }
         }
         .map(|v| ParseOk::new(v, consumed))
@@ -115,10 +116,10 @@ impl Parse<Request> for RequestParser {
 }
 
 impl Compose for Request {
-    fn compose(&self, session: &mut Session) {
+    fn compose(&self, buf: &mut dyn BufMut) -> usize {
         match self {
-            Self::Get(r) => r.compose(session),
-            Self::Set(r) => r.compose(session),
+            Self::Get(r) => r.compose(buf),
+            Self::Set(r) => r.compose(buf),
         }
     }
 }

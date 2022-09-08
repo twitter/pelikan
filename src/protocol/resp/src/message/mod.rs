@@ -53,13 +53,13 @@ impl Message {
 }
 
 impl Compose for Message {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, buf: &mut dyn BufMut) -> usize {
         match self {
-            Self::SimpleString(s) => s.compose(session),
-            Self::BulkString(s) => s.compose(session),
-            Self::Error(e) => e.compose(session),
-            Self::Integer(i) => i.compose(session),
-            Self::Array(a) => a.compose(session),
+            Self::SimpleString(s) => s.compose(buf),
+            Self::BulkString(s) => s.compose(buf),
+            Self::Error(e) => e.compose(buf),
+            Self::Integer(i) => i.compose(buf),
+            Self::Array(a) => a.compose(buf),
         }
     }
 }
@@ -117,11 +117,14 @@ pub(crate) fn message(input: &[u8]) -> IResult<&[u8], Message> {
 }
 
 impl Parse<Message> for MessageParser {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Message>, protocol_common::ParseError> {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Message>, std::io::Error> {
         match message(buffer) {
             Ok((input, message)) => Ok(ParseOk::new(message, buffer.len() - input.len())),
-            Err(Err::Incomplete(_)) => Err(ParseError::Incomplete),
-            Err(_) => Err(ParseError::Invalid),
+            Err(Err::Incomplete(_)) => Err(std::io::Error::from(std::io::ErrorKind::WouldBlock)),
+            Err(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "malformed message",
+            )),
         }
     }
 }

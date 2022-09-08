@@ -5,6 +5,8 @@
 use super::*;
 use std::sync::Arc;
 
+use std::io::{Error, ErrorKind};
+
 #[derive(Debug, PartialEq, Eq)]
 #[allow(clippy::redundant_allocation)]
 pub struct BulkString {
@@ -26,28 +28,31 @@ impl From<Arc<Box<[u8]>>> for BulkString {
 }
 
 impl TryInto<u64> for BulkString {
-    type Error = ParseError;
+    type Error = Error;
 
-    fn try_into(self) -> std::result::Result<u64, ParseError> {
+    fn try_into(self) -> std::result::Result<u64, Error> {
         if self.inner.is_none() {
-            return Err(ParseError::Invalid);
+            return Err(Error::new(ErrorKind::Other, "null bulk string"));
         }
 
         std::str::from_utf8(self.inner.as_ref().unwrap())
-            .map_err(|_| ParseError::Invalid)?
+            .map_err(|_| Error::new(ErrorKind::Other, "bulk string is not valid utf8"))?
             .parse::<u64>()
-            .map_err(|_| ParseError::Invalid)
+            .map_err(|_| Error::new(ErrorKind::Other, "bulk string is not a valid u64"))
     }
 }
 
 impl Compose for BulkString {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, buf: &mut dyn BufMut) -> usize {
         if let Some(value) = &self.inner {
-            let _ = session.write_all(format!("${}\r\n", value.len()).as_bytes());
-            let _ = session.write_all(value);
-            let _ = session.write_all(b"\r\n");
+            let header = format!("${}\r\n", value.len());
+            let _ = buf.put_slice(header.as_bytes());
+            let _ = buf.put_slice(value);
+            let _ = buf.put_slice(b"\r\n");
+            header.as_bytes().len() + value.len() + 2
         } else {
-            let _ = session.write_all(b"$-1\r\n");
+            let _ = buf.put_slice(b"$-1\r\n");
+            5
         }
     }
 }

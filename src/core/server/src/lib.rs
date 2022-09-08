@@ -91,33 +91,70 @@
 #[macro_use]
 extern crate logger;
 
-mod poll;
+use ::net::event::{Event, Source};
+use ::net::*;
+use admin::AdminBuilder;
+use common::signal::Signal;
+use common::ssl::tls_acceptor;
+use config::*;
+use core::marker::PhantomData;
+use core::time::Duration;
+use crossbeam_channel::{bounded, Sender};
+use entrystore::EntryStore;
+use logger::{Drain, Klog};
+use protocol_common::{Compose, Execute, Parse};
+use queues::Queues;
+use rustcommon_metrics::*;
+use session::{Buf, ServerSession, Session};
+use slab::Slab;
+use std::io::{Error, ErrorKind, Result};
+use std::sync::Arc;
+use waker::Waker;
+
+mod listener;
 mod process;
-mod threads;
+mod workers;
+
+use listener::ListenerBuilder;
+use workers::WorkersBuilder;
 
 pub use process::{Process, ProcessBuilder};
-pub use threads::PERCENTILES;
 
-use rustcommon_metrics::*;
-
-counter!(TCP_ACCEPT_EX);
-
-// The default buffer size is matched to the upper-bound on TLS fragment size as
-// per RFC 5246 https://datatracker.ietf.org/doc/html/rfc5246#section-6.2.1
-pub const DEFAULT_BUFFER_SIZE: usize = 16 * 1024; // 16KB
-
-// The admin thread (control plane) sessions use a fixed upper-bound on the
-// session buffer size. The max buffer size for data plane sessions are to be
-// specified during `Listener` initialization. This allows protocol and config
-// specific upper bounds.
-const ADMIN_MAX_BUFFER_SIZE: usize = 2 * 1024 * 1024; // 1MB
+type Instant = rustcommon_metrics::Instant<rustcommon_metrics::Nanoseconds<u64>>;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
 // full, and a single wakeup should drain at least one message and make room for
 // the response. A stat to prove that this is sufficient would be good.
 const QUEUE_RETRIES: usize = 3;
 
-const THREAD_PREFIX: &str = "pelikan";
 const QUEUE_CAPACITY: usize = 64 * 1024;
+
+// determines the max number of calls to accept when the listener is ready
+const ACCEPT_BATCH: usize = 8;
+
+const LISTENER_TOKEN: Token = Token(usize::MAX - 1);
+const WAKER_TOKEN: Token = Token(usize::MAX);
+
+const THREAD_PREFIX: &str = "pelikan";
+
+pub static PERCENTILES: &[(&str, f64)] = &[
+    ("p25", 25.0),
+    ("p50", 50.0),
+    ("p75", 75.0),
+    ("p90", 90.0),
+    ("p99", 99.0),
+    ("p999", 99.9),
+    ("p9999", 99.99),
+];
+
+// stats
+counter!(PROCESS_REQ);
+
+fn map_err(e: std::io::Error) -> Result<()> {
+    match e.kind() {
+        ErrorKind::WouldBlock => Ok(()),
+        _ => Err(e),
+    }
+}
 
 common::metrics::test_no_duplicates!();

@@ -38,13 +38,55 @@ impl RequestParser {
 }
 
 impl Compose for Gets {
-    fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(b"gets");
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let verb = b"gets";
+
+        let mut size = verb.len() + CRLF.len();
+
+        session.put_slice(verb);
         for key in self.keys.iter() {
-            let _ = session.write_all(b" ");
-            let _ = session.write_all(key);
+            session.put_slice(b" ");
+            session.put_slice(key);
+            size += 1 + key.len();
         }
-        let _ = session.write_all(b"\r\n");
+        session.put_slice(CRLF);
+
+        size
+    }
+}
+
+impl Klog for Gets {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        if let Response::Values(ref res) = response {
+            let mut hit_keys = 0;
+            let mut miss_keys = 0;
+
+            for value in res.values() {
+                if value.len().is_none() {
+                    miss_keys += 1;
+
+                    klog!(
+                        "\"gets {}\" {} 0",
+                        String::from_utf8_lossy(value.key()),
+                        MISS
+                    );
+                } else {
+                    hit_keys += 1;
+
+                    klog!(
+                        "\"gets {}\" {} {}",
+                        String::from_utf8_lossy(value.key()),
+                        HIT,
+                        value.len().unwrap(),
+                    );
+                }
+            }
+
+            GETS_KEY_HIT.add(hit_keys as _);
+            GETS_KEY_MISS.add(miss_keys as _);
+        }
     }
 }
 

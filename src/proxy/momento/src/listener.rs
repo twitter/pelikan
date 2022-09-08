@@ -3,6 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::*;
+use ::net::{TCP_ACCEPT, TCP_CLOSE, TCP_CONN_CURR};
 
 pub(crate) async fn listener(
     listener: TcpListener,
@@ -31,8 +32,8 @@ pub(crate) async fn listener(
                     }
                 }
 
-                TCP_CLOSE.increment();
                 TCP_CONN_CURR.decrement();
+                TCP_CLOSE.increment();
             });
         }
     }

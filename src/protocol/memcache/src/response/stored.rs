@@ -30,9 +30,12 @@ impl Stored {
 }
 
 impl Compose for Stored {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
         if !self.noreply {
-            let _ = session.write_all(MSG);
+            session.put_slice(MSG);
+            MSG.len()
+        } else {
+            0
         }
     }
 }

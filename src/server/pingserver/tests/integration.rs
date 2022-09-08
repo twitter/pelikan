@@ -16,7 +16,7 @@ use std::time::Duration;
 
 fn main() {
     debug!("launching server");
-    let server = Pingserver::new(PingserverConfig::default());
+    let server = Pingserver::new(PingserverConfig::default()).expect("failed to launch");
 
     // wait for server to startup. duration is chosen to be longer than we'd
     // expect startup to take in a slow ci environment.
@@ -75,14 +75,19 @@ fn test(name: &str, data: &[(&str, Option<&str>)]) {
         let mut buf = vec![0; 4096];
 
         if let Some(response) = response {
-            if stream.read(&mut buf).is_err() {
-                panic!("error reading response");
-            } else if response.as_bytes() != &buf[0..response.len()] {
-                error!("expected: {:?}", response.as_bytes());
-                error!("received: {:?}", &buf[0..response.len()]);
-                panic!("status: failed\n");
-            } else {
-                debug!("correct response");
+            match stream.read(&mut buf) {
+                Err(e) => {
+                    panic!("error reading response: {}", e);
+                }
+                Ok(_) => {
+                    if response.as_bytes() != &buf[0..response.len()] {
+                        error!("expected: {:?}", response.as_bytes());
+                        error!("received: {:?}", &buf[0..response.len()]);
+                        panic!("status: failed\n");
+                    } else {
+                        debug!("correct response");
+                    }
+                }
             }
             assert_eq!(response.as_bytes(), &buf[0..response.len()]);
         } else if let Err(e) = stream.read(&mut buf) {

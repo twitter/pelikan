@@ -5,9 +5,8 @@
 use crate::*;
 use common::expiry::TimeType;
 use core::fmt::{Display, Formatter};
-use protocol_common::Parse;
-use protocol_common::{ParseError, ParseOk};
-use session::Session;
+use protocol_common::{BufMut, Parse, ParseOk};
+use std::borrow::Cow;
 
 mod add;
 mod append;
@@ -40,6 +39,19 @@ pub use set::Set;
 pub const DEFAULT_MAX_BATCH_SIZE: usize = 1024;
 pub const DEFAULT_MAX_KEY_LEN: usize = 250;
 pub const DEFAULT_MAX_VALUE_SIZE: usize = 512 * 1024 * 1024; // 512MB max value size
+
+// response codes for klog
+const MISS: u8 = 0;
+const HIT: u8 = 4;
+const STORED: u8 = 5;
+const EXISTS: u8 = 6;
+const DELETED: u8 = 7;
+const NOT_FOUND: u8 = 8;
+const NOT_STORED: u8 = 9;
+
+fn string_key(key: &[u8]) -> Cow<'_, str> {
+    String::from_utf8_lossy(key)
+}
 
 #[derive(Copy, Clone)]
 pub struct RequestParser {
@@ -168,17 +180,17 @@ impl Default for RequestParser {
 }
 
 impl Parse<Request> for RequestParser {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Request>, protocol_common::ParseError> {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Request>, std::io::Error> {
         match self.parse_request(buffer) {
             Ok((input, request)) => Ok(ParseOk::new(request, buffer.len() - input.len())),
-            Err(Err::Incomplete(_)) => Err(ParseError::Incomplete),
-            Err(_) => Err(ParseError::Invalid),
+            Err(Err::Incomplete(_)) => Err(std::io::Error::from(std::io::ErrorKind::WouldBlock)),
+            Err(_) => Err(std::io::Error::from(std::io::ErrorKind::InvalidInput)),
         }
     }
 }
 
 impl Compose for Request {
-    fn compose(&self, session: &mut Session) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
         match self {
             Self::Add(r) => r.compose(session),
             Self::Append(r) => r.compose(session),
@@ -193,6 +205,28 @@ impl Compose for Request {
             Self::Quit(r) => r.compose(session),
             Self::Replace(r) => r.compose(session),
             Self::Set(r) => r.compose(session),
+        }
+    }
+}
+
+impl Klog for Request {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        match self {
+            Self::Add(r) => r.klog(response),
+            Self::Append(r) => r.klog(response),
+            Self::Cas(r) => r.klog(response),
+            Self::Decr(r) => r.klog(response),
+            Self::Delete(r) => r.klog(response),
+            Self::FlushAll(r) => r.klog(response),
+            Self::Incr(r) => r.klog(response),
+            Self::Get(r) => r.klog(response),
+            Self::Gets(r) => r.klog(response),
+            Self::Prepend(r) => r.klog(response),
+            Self::Quit(r) => r.klog(response),
+            Self::Replace(r) => r.klog(response),
+            Self::Set(r) => r.klog(response),
         }
     }
 }
@@ -255,6 +289,17 @@ pub enum Command {
 pub enum ExpireTime {
     Seconds(u32),
     UnixSeconds(u32),
+}
+
+fn convert_ttl(ttl: Option<u32>) -> Vec<u8> {
+    match ttl {
+        None => " 0".to_owned(),
+        Some(0) => " -1".to_owned(),
+        Some(s) => {
+            format!(" {}", s)
+        }
+    }
+    .into_bytes()
 }
 
 #[cfg(test)]

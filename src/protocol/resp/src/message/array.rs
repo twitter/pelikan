@@ -11,16 +11,22 @@ pub struct Array {
 }
 
 impl Compose for Array {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let mut len = 0;
         if let Some(values) = &self.inner {
-            let _ = session.write_all(format!("${}\r\n", values.len()).as_bytes());
+            let header = format!("${}\r\n", values.len());
+            let _ = session.put_slice(header.as_bytes());
+            len += header.as_bytes().len();
             for value in values {
-                value.compose(session);
+                len += value.compose(session);
             }
-            let _ = session.write_all(b"\r\n");
+            let _ = session.put_slice(b"\r\n");
+            len += 2;
         } else {
-            let _ = session.write_all(b"*-1\r\n");
+            let _ = session.put_slice(b"*-1\r\n");
+            len += 5;
         }
+        len
     }
 }
 

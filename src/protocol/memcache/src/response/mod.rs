@@ -3,7 +3,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::*;
-use protocol_common::*;
+use protocol_common::{BufMut, Parse, ParseOk};
 
 mod client_error;
 mod deleted;
@@ -99,7 +99,7 @@ impl From<Values> for Response {
 }
 
 impl Compose for Response {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
         match self {
             Self::Error(e) => e.compose(session),
             Self::ClientError(e) => e.compose(session),
@@ -111,7 +111,7 @@ impl Compose for Response {
             Self::Values(e) => e.compose(session),
             Self::Numeric(e) => e.compose(session),
             Self::Deleted(e) => e.compose(session),
-            Self::Hangup => {}
+            Self::Hangup => 0,
         }
     }
 
@@ -223,11 +223,11 @@ pub(crate) fn response(input: &[u8]) -> IResult<&[u8], Response> {
 }
 
 impl Parse<Response> for ResponseParser {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Response>, protocol_common::ParseError> {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Response>, std::io::Error> {
         match response(buffer) {
             Ok((input, response)) => Ok(ParseOk::new(response, buffer.len() - input.len())),
-            Err(Err::Incomplete(_)) => Err(ParseError::Incomplete),
-            Err(_) => Err(ParseError::Invalid),
+            Err(Err::Incomplete(_)) => Err(std::io::Error::from(std::io::ErrorKind::WouldBlock)),
+            Err(_) => Err(std::io::Error::from(std::io::ErrorKind::InvalidInput)),
         }
     }
 }

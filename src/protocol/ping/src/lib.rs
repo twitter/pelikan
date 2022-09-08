@@ -9,6 +9,9 @@
 // TODO(bmartin): this crate should probably be split into one crate per
 // protocol to help separate the metrics namespaces.
 
+#[macro_use]
+extern crate logger;
+
 pub use protocol_common::*;
 
 mod ping;
