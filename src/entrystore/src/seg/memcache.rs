@@ -86,7 +86,9 @@ impl Storage for Seg {
     }
 
     fn set(&mut self, set: &Set) -> Response {
-        if set.ttl() == Some(0) {
+        let ttl = set.ttl().get().unwrap_or(0);
+
+        if ttl < 0 {
             // immediate expire maps to a delete
             self.data.delete(set.key());
             Response::stored(set.noreply())
@@ -98,7 +100,7 @@ impl Storage for Seg {
                         set.key(),
                         v,
                         Some(&set.flags().to_be_bytes()),
-                        Duration::from_secs(set.ttl().unwrap_or(0).into()),
+                        Duration::from_secs(ttl as u64),
                     )
                     .is_ok()
                 {
@@ -112,7 +114,7 @@ impl Storage for Seg {
                     set.key(),
                     set.value(),
                     Some(&set.flags().to_be_bytes()),
-                    Duration::from_secs(set.ttl().unwrap_or(0).into()),
+                    Duration::from_secs(ttl as u64),
                 )
                 .is_ok()
             {
@@ -126,7 +128,7 @@ impl Storage for Seg {
                 set.key(),
                 set.value(),
                 Some(&set.flags().to_be_bytes()),
-                Duration::from_secs(set.ttl().unwrap_or(0).into()),
+                Duration::from_secs(ttl as u64),
             )
             .is_ok()
         {
@@ -141,7 +143,9 @@ impl Storage for Seg {
             return Response::not_stored(add.noreply());
         }
 
-        if add.ttl() == Some(0) {
+        let ttl = add.ttl().get().unwrap_or(0);
+
+        if ttl < 0 {
             // immediate expire maps to a delete
             self.data.delete(add.key());
             Response::stored(add.noreply())
@@ -153,7 +157,7 @@ impl Storage for Seg {
                         add.key(),
                         v,
                         Some(&add.flags().to_be_bytes()),
-                        Duration::from_secs(add.ttl().unwrap_or(0).into()),
+                        Duration::from_secs(ttl as u64),
                     )
                     .is_ok()
                 {
@@ -167,7 +171,7 @@ impl Storage for Seg {
                     add.key(),
                     add.value(),
                     Some(&add.flags().to_be_bytes()),
-                    Duration::from_secs(add.ttl().unwrap_or(0).into()),
+                    Duration::from_secs(ttl as u64),
                 )
                 .is_ok()
             {
@@ -181,7 +185,7 @@ impl Storage for Seg {
                 add.key(),
                 add.value(),
                 Some(&add.flags().to_be_bytes()),
-                Duration::from_secs(add.ttl().unwrap_or(0).into()),
+                Duration::from_secs(ttl as u64),
             )
             .is_ok()
         {
@@ -196,7 +200,9 @@ impl Storage for Seg {
             return Response::not_stored(replace.noreply());
         }
 
-        if replace.ttl() == Some(0) {
+        let ttl = replace.ttl().get().unwrap_or(0);
+
+        if ttl < 0 {
             // immediate expire maps to a delete
             self.data.delete(replace.key());
             Response::stored(replace.noreply())
@@ -208,7 +214,7 @@ impl Storage for Seg {
                         replace.key(),
                         v,
                         Some(&replace.flags().to_be_bytes()),
-                        Duration::from_secs(replace.ttl().unwrap_or(0).into()),
+                        Duration::from_secs(ttl as u64),
                     )
                     .is_ok()
                 {
@@ -222,7 +228,7 @@ impl Storage for Seg {
                     replace.key(),
                     replace.value(),
                     Some(&replace.flags().to_be_bytes()),
-                    Duration::from_secs(replace.ttl().unwrap_or(0).into()),
+                    Duration::from_secs(ttl as u64),
                 )
                 .is_ok()
             {
@@ -236,7 +242,7 @@ impl Storage for Seg {
                 replace.key(),
                 replace.value(),
                 Some(&replace.flags().to_be_bytes()),
-                Duration::from_secs(replace.ttl().unwrap_or(0).into()),
+                Duration::from_secs(ttl as u64),
             )
             .is_ok()
         {
@@ -283,7 +289,13 @@ impl Storage for Seg {
         // no way of checking the cas value without performing a cas
         // and checking the result, setting the shortest possible ttl
         // results in nearly immediate expiry
-        let ttl = Duration::from_secs(cas.ttl().unwrap_or(1).into());
+        let ttl = cas.ttl().get().unwrap_or(1);
+
+        let ttl = if ttl < 0 {
+            Duration::from_secs(0)
+        } else {
+            Duration::from_secs(ttl as u64)
+        };
 
         if let Ok(s) = std::str::from_utf8(cas.value()) {
             if let Ok(v) = s.parse::<u64>() {

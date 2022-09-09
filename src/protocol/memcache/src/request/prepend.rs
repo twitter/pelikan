@@ -9,7 +9,7 @@ pub struct Prepend {
     pub(crate) key: Box<[u8]>,
     pub(crate) value: Box<[u8]>,
     pub(crate) flags: u32,
-    pub(crate) ttl: Option<u32>,
+    pub(crate) ttl: Ttl,
     pub(crate) noreply: bool,
 }
 
@@ -22,7 +22,7 @@ impl Prepend {
         &self.value
     }
 
-    pub fn ttl(&self) -> Option<u32> {
+    pub fn ttl(&self) -> Ttl {
         self.ttl
     }
 
@@ -68,7 +68,7 @@ impl Compose for Prepend {
     fn compose(&self, session: &mut dyn BufMut) -> usize {
         let verb = b"prepend ";
         let flags = format!(" {}", self.flags).into_bytes();
-        let ttl = convert_ttl(self.ttl);
+        let ttl = format!(" {}", self.ttl.get().unwrap_or(0)).into_bytes();
         let vlen = format!(" {}", self.value.len()).into_bytes();
         let header_end = if self.noreply {
             " noreply\r\n".as_bytes()
@@ -102,11 +102,6 @@ impl Klog for Prepend {
     type Response = Response;
 
     fn klog(&self, response: &Self::Response) {
-        let ttl: i64 = match self.ttl() {
-            None => 0,
-            Some(0) => -1,
-            Some(t) => t as _,
-        };
         let (code, len) = match response {
             Response::Stored(ref res) => {
                 PREPEND_STORED.increment();
@@ -124,7 +119,7 @@ impl Klog for Prepend {
             "\"prepend {} {} {} {}\" {} {}",
             string_key(self.key()),
             self.flags(),
-            ttl,
+            self.ttl.get().unwrap_or(0),
             self.value().len(),
             code,
             len
@@ -149,7 +144,7 @@ mod tests {
                     key: b"0".to_vec().into_boxed_slice(),
                     value: b"0".to_vec().into_boxed_slice(),
                     flags: 0,
-                    ttl: None,
+                    ttl: Ttl::none(),
                     noreply: false,
                 })
             ))
@@ -164,7 +159,7 @@ mod tests {
                     key: b"0".to_vec().into_boxed_slice(),
                     value: b"0".to_vec().into_boxed_slice(),
                     flags: 0,
-                    ttl: None,
+                    ttl: Ttl::none(),
                     noreply: true,
                 })
             ))
