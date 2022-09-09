@@ -329,13 +329,13 @@ impl Ttl {
 
         // all zero values are treated as no expiration
         if exptime == 0 {
-            return Self {
-                inner: None
-            }
+            return Self { inner: None };
         }
 
         // normalize all expiration times into delta
-        let exptime = if time_type == TimeType::Unix || (time_type == TimeType::Memcache && exptime > 60 * 60 * 24 * 30) {
+        let exptime = if time_type == TimeType::Unix
+            || (time_type == TimeType::Memcache && exptime > 60 * 60 * 24 * 30)
+        {
             // treat it as a unix timestamp
 
             // clamp to a valid u32
@@ -354,7 +354,7 @@ impl Ttl {
             // zero would be immediate expiration, early return
             if seconds == 0 {
                 return Self {
-                    inner: NonZeroI32::new(-1)
+                    inner: NonZeroI32::new(-1),
                 };
             }
 
@@ -366,11 +366,11 @@ impl Ttl {
         // clamp long TTLs
         if exptime > i32::MAX as i64 {
             Self {
-                inner: NonZeroI32::new(i32::MAX)
+                inner: NonZeroI32::new(i32::MAX),
             }
         } else {
-             Self {
-                inner: NonZeroI32::new(exptime as i32)
+            Self {
+                inner: NonZeroI32::new(exptime as i32),
             }
         }
     }
@@ -384,9 +384,7 @@ impl Ttl {
     }
 
     pub fn none() -> Self {
-        Self {
-            inner: None
-        }
+        Self { inner: None }
     }
 }
 
