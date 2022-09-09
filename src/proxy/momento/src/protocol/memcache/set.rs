@@ -41,8 +41,12 @@ pub async fn set(
 
         BACKEND_REQUEST.increment();
 
-        let ttl = if let Some(ttl) = request.ttl() {
-            NonZeroU64::new(ttl as u64)
+        let ttl = if let Some(ttl) = request.ttl().get() {
+            if ttl < 0 {
+                NonZeroU64::new(1)
+            } else {
+                NonZeroU64::new(ttl as u64)
+            }
         } else {
             None
         };
@@ -61,7 +65,7 @@ pub async fn set(
                             klog_set(
                                 key,
                                 request.flags(),
-                                request.ttl().unwrap_or(0),
+                                request.ttl().get().unwrap_or(0),
                                 value.len(),
                                 5,
                                 0,
@@ -70,7 +74,7 @@ pub async fn set(
                             klog_set(
                                 key,
                                 request.flags(),
-                                request.ttl().unwrap_or(0),
+                                request.ttl().get().unwrap_or(0),
                                 value.len(),
                                 5,
                                 8,
@@ -91,7 +95,7 @@ pub async fn set(
                             klog_set(
                                 key,
                                 request.flags(),
-                                request.ttl().unwrap_or(0),
+                                request.ttl().get().unwrap_or(0),
                                 value.len(),
                                 9,
                                 0,
@@ -100,7 +104,7 @@ pub async fn set(
                             klog_set(
                                 key,
                                 request.flags(),
-                                request.ttl().unwrap_or(0),
+                                request.ttl().get().unwrap_or(0),
                                 value.len(),
                                 9,
                                 12,

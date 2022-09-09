@@ -5,10 +5,13 @@
 pub use nom::bytes::streaming::*;
 pub use nom::character::streaming::*;
 pub use nom::error::ErrorKind;
-use nom::error::ParseError;
 pub use nom::{AsChar, Err, IResult, InputTakeAtPosition, Needed};
 pub use protocol_common::Compose;
 pub use std::io::Write;
+
+use crate::{TimeType, Ttl};
+
+use nom::error::ParseError;
 
 // consumes one or more literal spaces
 pub fn space1(input: &[u8]) -> IResult<&[u8], &[u8]> {
@@ -104,6 +107,14 @@ pub fn parse_i64(input: &[u8]) -> IResult<&[u8], i64> {
     let value = value
         .parse::<i64>()
         .map_err(|_| nom::Err::Failure((input, nom::error::ErrorKind::Tag)))?;
+    Ok((input, value))
+}
+
+pub fn parse_ttl(input: &[u8], time_type: TimeType) -> IResult<&[u8], Ttl> {
+    let (input, value) = parse_i64(input)?;
+
+    let value = Ttl::new(value, time_type);
+
     Ok((input, value))
 }
 

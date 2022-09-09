@@ -18,10 +18,9 @@ pub use storage::*;
 
 pub use protocol_common::*;
 
+use common::expiry::TimeType;
 use logger::Klog;
 use rustcommon_metrics::*;
-
-// use common::expiry::TimeType;
 
 const CRLF: &[u8] = b"\r\n";
 
