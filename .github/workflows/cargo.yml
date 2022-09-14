@@ -246,8 +246,7 @@ jobs:
           tls: true
 
   smoketest-exposition:
-    name: smoketest_exposition
-    runs-on: ubuntu-18.04
+    name: smoketest-exposition
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
