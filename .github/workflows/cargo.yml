@@ -244,3 +244,25 @@ jobs:
           protocol: ping
           port: 12322
           tls: true
+
+  smoketest-exposition:
+    name: smoketest_exposition
+    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: pelikan
+      - name: Build Cache for Pelikan
+        uses: Swatinem/rust-cache@v1
+        with:
+          key: pelikan
+          working-directory: pelikan
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: ./pelikan/.github/actions/pingserver
+        with:
+          tls: false   
+      - name: Validate
+        run: sleep 60 && curl -s http://localhost:9998/vars.json | jq '.' > /dev/null
