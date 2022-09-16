@@ -3,14 +3,13 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use super::*;
-use common::time::{Seconds, UnixInstant};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Set {
     pub(crate) key: Box<[u8]>,
     pub(crate) value: Box<[u8]>,
     pub(crate) flags: u32,
-    pub(crate) ttl: Option<u32>,
+    pub(crate) ttl: Ttl,
     pub(crate) noreply: bool,
 }
 
@@ -23,7 +22,7 @@ impl Set {
         &self.value
     }
 
-    pub fn ttl(&self) -> Option<u32> {
+    pub fn ttl(&self) -> Ttl {
         self.ttl
     }
 
@@ -54,7 +53,7 @@ impl RequestParser {
         let (input, _) = space1(input)?;
         let (input, flags) = parse_u32(input)?;
         let (input, _) = space1(input)?;
-        let (input, exptime) = parse_i64(input)?;
+        let (input, ttl) = parse_ttl(input, self.time_type)?;
         let (input, _) = space1(input)?;
         let (mut input, bytes) = parse_usize(input)?;
 
@@ -74,23 +73,6 @@ impl RequestParser {
         let (input, _) = crlf(input)?;
         let (input, value) = take(bytes)(input)?;
         let (input, _) = crlf(input)?;
-
-        let ttl = if exptime < 0 {
-            Some(0)
-        } else if exptime == 0 {
-            None
-        } else if self.time_type == TimeType::Unix
-            || (self.time_type == TimeType::Memcache && exptime > 60 * 60 * 24 * 30)
-        {
-            Some(
-                UnixInstant::from_secs(exptime as u32)
-                    .checked_duration_since(UnixInstant::<Seconds<u32>>::recent())
-                    .map(|v| v.as_secs())
-                    .unwrap_or(0),
-            )
-        } else {
-            Some(exptime as u32)
-        };
 
         Ok((
             input,
@@ -125,7 +107,7 @@ impl Compose for Set {
     fn compose(&self, session: &mut dyn BufMut) -> usize {
         let verb = b"set ";
         let flags = format!(" {}", self.flags).into_bytes();
-        let ttl = convert_ttl(self.ttl);
+        let ttl = format!(" {}", self.ttl.get().unwrap_or(0)).into_bytes();
         let vlen = format!(" {}", self.value.len()).into_bytes();
         let header_end = if self.noreply {
             " noreply\r\n".as_bytes()
@@ -159,11 +141,6 @@ impl Klog for Set {
     type Response = Response;
 
     fn klog(&self, response: &Self::Response) {
-        let ttl: i64 = match self.ttl() {
-            None => 0,
-            Some(0) => -1,
-            Some(t) => t as _,
-        };
         let (code, len) = match response {
             Response::Stored(ref res) => {
                 SET_STORED.increment();
@@ -181,7 +158,7 @@ impl Klog for Set {
             "\"set {} {} {} {}\" {} {}",
             string_key(self.key()),
             self.flags(),
-            ttl,
+            self.ttl.get().unwrap_or(0),
             self.value().len(),
             code,
             len
@@ -206,7 +183,7 @@ mod tests {
                     key: b"0".to_vec().into_boxed_slice(),
                     value: b"0".to_vec().into_boxed_slice(),
                     flags: 0,
-                    ttl: None,
+                    ttl: Ttl::none(),
                     noreply: false,
                 })
             ))
@@ -221,7 +198,7 @@ mod tests {
                     key: b"0".to_vec().into_boxed_slice(),
                     value: b"0".to_vec().into_boxed_slice(),
                     flags: 0,
-                    ttl: None,
+                    ttl: Ttl::none(),
                     noreply: true,
                 })
             ))

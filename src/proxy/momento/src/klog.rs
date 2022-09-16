@@ -13,7 +13,7 @@ pub(crate) fn klog_get(key: &str, response_len: usize) {
 pub fn klog_set(
     key: &str,
     flags: u32,
-    ttl: u32,
+    ttl: i32,
     value_len: usize,
     result_code: usize,
     response_len: usize,

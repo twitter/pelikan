@@ -66,7 +66,7 @@ pub async fn set(
                         klog_set(
                             key,
                             0,
-                            ttl.map(|v| v.get()).unwrap_or(0) as u32,
+                            ttl.map(|v| v.get()).unwrap_or(0) as i32,
                             value.len(),
                             5,
                             8,
@@ -86,7 +86,7 @@ pub async fn set(
                         klog_set(
                             key,
                             0,
-                            ttl.map(|v| v.get()).unwrap_or(0) as u32,
+                            ttl.map(|v| v.get()).unwrap_or(0) as i32,
                             value.len(),
                             9,
                             12,
