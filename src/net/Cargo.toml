@@ -1,0 +1,20 @@
+[package]
+name = "net"
+version = "0.1.0"
+edition = "2021"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+description = "Networking abstractions for non-blocking event loops"
+homepage = "https://pelikan.io"
+repository = "https://github.com/twitter/pelikan"
+license = "Apache-2.0"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+boring = "2.0.0"
+boring-sys = "2.0.0"
+foreign-types-shared = "0.3.1"
+libc = "0.2"
+mio = { version = "0.8.0", features = ["os-poll", "net"] }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }

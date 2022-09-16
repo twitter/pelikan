@@ -8,105 +8,81 @@
 #[macro_use]
 extern crate logger;
 
-use mio::event::Event;
-use mio::net::{TcpListener, TcpStream};
-use mio::{Events, Interest, Token};
-use mpmc::Queue;
-use poll::Poll;
-use slab::Slab;
-use std::collections::VecDeque;
-use std::io::*;
-use std::net::SocketAddr;
+#[macro_use]
+extern crate rustcommon_metrics;
 
-mod admin;
+use ::net::event::{Event, Source};
+use ::net::*;
+use admin::AdminBuilder;
+use common::signal::Signal;
+use common::ssl::tls_acceptor;
+use config::proxy::*;
+use config::*;
+use core::marker::PhantomData;
+use core::time::Duration;
+use crossbeam_channel::{bounded, Receiver, Sender};
+use entrystore::EntryStore;
+use logger::Drain;
+use protocol_common::{Compose, Execute, Parse};
+use queues::Queues;
+use rustcommon_metrics::*;
+use session::{Buf, ServerSession, Session};
+use slab::Slab;
+use std::io::{Error, ErrorKind, Result};
+use std::sync::Arc;
+use waker::Waker;
+
+type Instant = rustcommon_metrics::Instant<rustcommon_metrics::Nanoseconds<u64>>;
+
 mod backend;
-mod event_loop;
 mod frontend;
 mod listener;
-mod poll;
 mod process;
 
-pub use admin::PERCENTILES;
-use backend::BackendWorker;
-use event_loop::EventLoop;
-use frontend::FrontendWorker;
-use listener::Listener;
+use backend::BackendBuilder;
+use frontend::FrontendBuilder;
+use listener::ListenerBuilder;
+
 pub use process::{Process, ProcessBuilder};
-
-type Result<T> = std::result::Result<T, std::io::Error>;
-
-use rustcommon_metrics::*;
-
-counter!(TCP_ACCEPT_EX);
-
-// The default buffer size is matched to the upper-bound on TLS fragment size as
-// per RFC 5246 https://datatracker.ietf.org/doc/html/rfc5246#section-6.2.1
-pub const DEFAULT_BUFFER_SIZE: usize = 16 * 1024; // 16KB
-
-// The admin thread (control plane) sessions use a fixed upper-bound on the
-// session buffer size. The max buffer size for data plane sessions are to be
-// specified during `Listener` initialization. This allows protocol and config
-// specific upper bounds.
-const ADMIN_MAX_BUFFER_SIZE: usize = 2 * 1024 * 1024; // 1MB
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
 // full, and a single wakeup should drain at least one message and make room for
 // the response. A stat to prove that this is sufficient would be good.
 const QUEUE_RETRIES: usize = 3;
 
-const THREAD_PREFIX: &str = "pelikan";
 const QUEUE_CAPACITY: usize = 64 * 1024;
 
-#[derive(PartialEq, Copy, Clone, Eq, Debug)]
-pub enum ConnectionState {
-    Open,
-    HalfClosed,
-}
+// determines the max number of calls to accept when the listener is ready
+const ACCEPT_BATCH: usize = 8;
 
-pub struct ClientConnection {
-    addr: SocketAddr,
-    stream: TcpStream,
-    r_buf: Box<[u8]>,
-    state: ConnectionState,
-    pipeline_depth: usize,
-}
+const LISTENER_TOKEN: Token = Token(usize::MAX - 1);
+const WAKER_TOKEN: Token = Token(usize::MAX);
 
-impl ClientConnection {
-    #[allow(clippy::slow_vector_initialization)]
-    pub fn new(addr: SocketAddr, stream: TcpStream) -> Self {
-        let mut r_buf = Vec::with_capacity(16384);
-        r_buf.resize(16384, 0);
-        let r_buf = r_buf.into_boxed_slice();
+const THREAD_PREFIX: &str = "pelikan";
 
-        Self {
-            addr,
-            stream,
-            r_buf,
-            state: ConnectionState::Open,
-            pipeline_depth: 0,
-        }
-    }
+pub static PERCENTILES: &[(&str, f64)] = &[
+    ("p25", 25.0),
+    ("p50", 50.0),
+    ("p75", 75.0),
+    ("p90", 90.0),
+    ("p99", 99.0),
+    ("p999", 99.9),
+    ("p9999", 99.99),
+];
 
-    pub fn do_read(&mut self) -> Result<usize> {
-        self.stream.read(&mut self.r_buf)
+fn map_err(e: std::io::Error) -> Result<()> {
+    match e.kind() {
+        ErrorKind::WouldBlock => Ok(()),
+        _ => Err(e),
     }
 }
 
-pub struct TokenWrapper<T> {
-    inner: T,
-    token: Token,
-}
-
-impl<T> TokenWrapper<T> {
-    pub fn new(inner: T, token: Token) -> Self {
-        Self { inner, token }
-    }
-
-    pub fn token(&self) -> Token {
-        self.token
-    }
-
-    pub fn into_inner(self) -> T {
-        self.inner
+fn map_result(result: Result<usize>) -> Result<()> {
+    match result {
+        Ok(0) => Err(Error::new(ErrorKind::Other, "client hangup")),
+        Ok(_) => Ok(()),
+        Err(e) => map_err(e),
     }
 }
+
+common::metrics::test_no_duplicates!();

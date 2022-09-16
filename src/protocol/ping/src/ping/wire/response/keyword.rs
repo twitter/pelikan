@@ -4,7 +4,6 @@
 
 //! This module defines all possible `Ping` commands.
 
-use crate::ParseError;
 use core::convert::TryFrom;
 
 /// Ping response keywords
@@ -13,13 +12,13 @@ pub enum Keyword {
 }
 
 impl TryFrom<&[u8]> for Keyword {
-    type Error = ParseError;
+    type Error = std::io::Error;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         let keyword = match value {
             b"pong" | b"PONG" => Self::Pong,
             _ => {
-                return Err(ParseError::Unknown);
+                return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
             }
         };
         Ok(keyword)

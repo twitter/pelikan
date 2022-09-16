@@ -22,9 +22,16 @@ impl RequestParser {
 }
 
 impl Compose for Quit {
-    fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(b"quit\r\n");
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        session.put_slice(b"quit\r\n");
+        6
     }
+}
+
+impl Klog for Quit {
+    type Response = Response;
+
+    fn klog(&self, _response: &Self::Response) {}
 }
 
 #[cfg(test)]

@@ -5,9 +5,9 @@
 use crate::*;
 use common::expiry::TimeType;
 use core::fmt::{Display, Formatter};
-use protocol_common::Parse;
-use protocol_common::{ParseError, ParseOk};
-use session::Session;
+use core::num::NonZeroI32;
+use protocol_common::{BufMut, Parse, ParseOk};
+use std::borrow::Cow;
 
 mod add;
 mod append;
@@ -40,6 +40,19 @@ pub use set::Set;
 pub const DEFAULT_MAX_BATCH_SIZE: usize = 1024;
 pub const DEFAULT_MAX_KEY_LEN: usize = 250;
 pub const DEFAULT_MAX_VALUE_SIZE: usize = 512 * 1024 * 1024; // 512MB max value size
+
+// response codes for klog
+const MISS: u8 = 0;
+const HIT: u8 = 4;
+const STORED: u8 = 5;
+const EXISTS: u8 = 6;
+const DELETED: u8 = 7;
+const NOT_FOUND: u8 = 8;
+const NOT_STORED: u8 = 9;
+
+fn string_key(key: &[u8]) -> Cow<'_, str> {
+    String::from_utf8_lossy(key)
+}
 
 #[derive(Copy, Clone)]
 pub struct RequestParser {
@@ -168,17 +181,17 @@ impl Default for RequestParser {
 }
 
 impl Parse<Request> for RequestParser {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Request>, protocol_common::ParseError> {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<Request>, std::io::Error> {
         match self.parse_request(buffer) {
             Ok((input, request)) => Ok(ParseOk::new(request, buffer.len() - input.len())),
-            Err(Err::Incomplete(_)) => Err(ParseError::Incomplete),
-            Err(_) => Err(ParseError::Invalid),
+            Err(Err::Incomplete(_)) => Err(std::io::Error::from(std::io::ErrorKind::WouldBlock)),
+            Err(_) => Err(std::io::Error::from(std::io::ErrorKind::InvalidInput)),
         }
     }
 }
 
 impl Compose for Request {
-    fn compose(&self, session: &mut Session) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
         match self {
             Self::Add(r) => r.compose(session),
             Self::Append(r) => r.compose(session),
@@ -193,6 +206,28 @@ impl Compose for Request {
             Self::Quit(r) => r.compose(session),
             Self::Replace(r) => r.compose(session),
             Self::Set(r) => r.compose(session),
+        }
+    }
+}
+
+impl Klog for Request {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        match self {
+            Self::Add(r) => r.klog(response),
+            Self::Append(r) => r.klog(response),
+            Self::Cas(r) => r.klog(response),
+            Self::Decr(r) => r.klog(response),
+            Self::Delete(r) => r.klog(response),
+            Self::FlushAll(r) => r.klog(response),
+            Self::Incr(r) => r.klog(response),
+            Self::Get(r) => r.klog(response),
+            Self::Gets(r) => r.klog(response),
+            Self::Prepend(r) => r.klog(response),
+            Self::Quit(r) => r.klog(response),
+            Self::Replace(r) => r.klog(response),
+            Self::Set(r) => r.klog(response),
         }
     }
 }
@@ -255,6 +290,102 @@ pub enum Command {
 pub enum ExpireTime {
     Seconds(u32),
     UnixSeconds(u32),
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub struct Ttl {
+    inner: Option<NonZeroI32>,
+}
+
+impl Ttl {
+    /// Converts an expiration time from the Memcache ASCII format into a valid
+    /// TTL. Negative values are always treated as immediate expiration. An
+    /// expiration time of zero is always treated as no expiration. Positive
+    /// value handling depends on the `TimeType`.
+    ///
+    /// For `TimeType::Unix` the expiration time is interpreted as a UNIX epoch
+    /// time between 1970-01-01 T 00:00:00Z and 2106-02-06 T 06:28:15Z. If the
+    /// provided expiration time is a previous or the current UNIX time, it is
+    /// treated as immediate expiration. Times in the future are converted to a
+    /// duration in seconds which is handled using the same logic as
+    /// `TimeType::Delta`.
+    ///
+    /// For `TimeType::Delta` the expiration time is interpreted as a number of
+    /// whole seconds and must be in the range of a signed 32bit integer. Values
+    /// which exceed `i32::MAX` will be clamped, resulting in a max TTL of
+    /// approximately 68 years.
+    ///
+    /// For `TimeType::Memcache` the expiration time is treated as
+    /// `TimeType::Delta` if it is a duration of less than 30 days in seconds.
+    /// If the provided expiration time is larger than that, it is treated as
+    /// a UNIX epoch time following the `TimeType::Unix` rules.
+    pub fn new(exptime: i64, time_type: TimeType) -> Self {
+        // all negative values mean to expire immediately, early return
+        if exptime < 0 {
+            return Self {
+                inner: NonZeroI32::new(-1),
+            };
+        }
+
+        // all zero values are treated as no expiration
+        if exptime == 0 {
+            return Self { inner: None };
+        }
+
+        // normalize all expiration times into delta
+        let exptime = if time_type == TimeType::Unix
+            || (time_type == TimeType::Memcache && exptime > 60 * 60 * 24 * 30)
+        {
+            // treat it as a unix timestamp
+
+            // clamp to a valid u32
+            let exptime = if exptime > u32::MAX as i64 {
+                u32::MAX
+            } else {
+                exptime as u32
+            };
+
+            // calculate the ttl in seconds
+            let seconds = UnixInstant::from_secs(exptime)
+                .checked_duration_since(UnixInstant::<Seconds<u32>>::recent())
+                .map(|v| v.as_secs())
+                .unwrap_or(0);
+
+            // zero would be immediate expiration, early return
+            if seconds == 0 {
+                return Self {
+                    inner: NonZeroI32::new(-1),
+                };
+            }
+
+            seconds as i64
+        } else {
+            exptime
+        };
+
+        // clamp long TTLs
+        if exptime > i32::MAX as i64 {
+            Self {
+                inner: NonZeroI32::new(i32::MAX),
+            }
+        } else {
+            Self {
+                inner: NonZeroI32::new(exptime as i32),
+            }
+        }
+    }
+
+    /// Return the TTL in seconds. A `None` variant should be treated as no
+    /// expiration. Some storage implementations may treat it as the maximum
+    /// TTL. Positive values will always be one second or greater. Negative
+    /// values must be treated as immediate expiration.
+    pub fn get(&self) -> Option<i32> {
+        self.inner.map(|v| v.get())
+    }
+
+    pub fn none() -> Self {
+        Self { inner: None }
+    }
 }
 
 #[cfg(test)]

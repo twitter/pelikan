@@ -2,255 +2,388 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use super::map_result;
 use crate::*;
-use common::signal::Signal;
-use common::time::Instant;
-use config::proxy::FrontendConfig;
-use core::marker::PhantomData;
-use core::time::Duration;
-use mio::Waker;
-use poll::*;
-use protocol_common::*;
-use queues::Queues;
-use session::Session;
-use std::sync::Arc;
 
-use rustcommon_metrics::*;
-
-counter!(FRONTEND_EVENT_ERROR);
-counter!(FRONTEND_EVENT_READ);
-counter!(FRONTEND_EVENT_WRITE);
+heatmap!(
+    FRONTEND_EVENT_DEPTH,
+    100_000,
+    "distribution of the number of events received per iteration of the event loop"
+);
+counter!(FRONTEND_EVENT_ERROR, "the number of error events received");
+counter!(
+    FRONTEND_EVENT_LOOP,
+    "the number of times the event loop has run"
+);
 counter!(
     FRONTEND_EVENT_MAX_REACHED,
     "the number of times the maximum number of events was returned"
 );
-heatmap!(FRONTEND_EVENT_DEPTH, 100_000);
+counter!(FRONTEND_EVENT_READ, "the number of read events received");
+counter!(FRONTEND_EVENT_TOTAL, "the total number of events received");
+counter!(FRONTEND_EVENT_WRITE, "the number of write events received");
 
-pub const QUEUE_RETRIES: usize = 3;
-
-pub struct FrontendWorkerBuilder<Parser, Request, Response> {
-    poll: Poll,
-    parser: Parser,
+pub struct FrontendWorkerBuilder<
+    FrontendParser,
+    FrontendRequest,
+    FrontendResponse,
+    BackendRequest,
+    BackendResponse,
+> {
     nevent: usize,
+    parser: FrontendParser,
+    poll: Poll,
+    sessions: Slab<ServerSession<FrontendParser, FrontendResponse, FrontendRequest>>,
     timeout: Duration,
-    _request: PhantomData<Request>,
-    _response: PhantomData<Response>,
+    waker: Arc<Waker>,
+    _backend_request: PhantomData<BackendRequest>,
+    _backend_response: PhantomData<BackendResponse>,
 }
 
-impl<Parser, Request, Response> FrontendWorkerBuilder<Parser, Request, Response> {
-    pub fn new<T: FrontendConfig>(config: &T, parser: Parser) -> Result<Self> {
+impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>
+    FrontendWorkerBuilder<
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+        BackendRequest,
+        BackendResponse,
+    >
+{
+    pub fn new<T: FrontendConfig>(config: &T, parser: FrontendParser) -> Result<Self> {
         let config = config.frontend();
 
+        let poll = Poll::new()?;
+
+        let waker = Arc::new(Waker::from(
+            ::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap(),
+        ));
+
+        let nevent = config.nevent();
+        let timeout = Duration::from_millis(config.timeout() as u64);
+
         Ok(Self {
-            poll: Poll::new()?,
+            nevent,
             parser,
-            nevent: config.nevent(),
-            timeout: Duration::from_millis(config.timeout() as u64),
-            _request: PhantomData,
-            _response: PhantomData,
+            poll,
+            sessions: Slab::new(),
+            timeout,
+            waker,
+            _backend_request: PhantomData,
+            _backend_response: PhantomData,
         })
     }
 
     pub fn waker(&self) -> Arc<Waker> {
-        self.poll.waker()
+        self.waker.clone()
     }
 
     pub fn build(
         self,
+        data_queue: Queues<(BackendRequest, Token), (BackendRequest, BackendResponse, Token)>,
+        session_queue: Queues<Session, Session>,
         signal_queue: Queues<(), Signal>,
-        connection_queues: Queues<(), Session>,
-        data_queues: Queues<TokenWrapper<Request>, TokenWrapper<Response>>,
-    ) -> FrontendWorker<Parser, Request, Response> {
+    ) -> FrontendWorker<
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+        BackendRequest,
+        BackendResponse,
+    > {
         FrontendWorker {
-            poll: self.poll,
-            parser: self.parser,
+            data_queue,
             nevent: self.nevent,
-            timeout: self.timeout,
+            parser: self.parser,
+            poll: self.poll,
+            session_queue,
+            sessions: self.sessions,
             signal_queue,
-            connection_queues,
-            data_queues,
+            timeout: self.timeout,
+            waker: self.waker,
         }
     }
 }
 
-pub struct FrontendWorker<Parser, Request, Response> {
-    poll: Poll,
-    parser: Parser,
+pub struct FrontendWorker<
+    FrontendParser,
+    FrontendRequest,
+    FrontendResponse,
+    BackendRequest,
+    BackendResponse,
+> {
+    data_queue: Queues<(BackendRequest, Token), (BackendRequest, BackendResponse, Token)>,
     nevent: usize,
-    timeout: Duration,
+    parser: FrontendParser,
+    poll: Poll,
+    session_queue: Queues<Session, Session>,
+    sessions: Slab<ServerSession<FrontendParser, FrontendResponse, FrontendRequest>>,
     signal_queue: Queues<(), Signal>,
-    connection_queues: Queues<(), Session>,
-    data_queues: Queues<TokenWrapper<Request>, TokenWrapper<Response>>,
+    timeout: Duration,
+    waker: Arc<Waker>,
 }
 
-impl<Parser, Request, Response> FrontendWorker<Parser, Request, Response>
+impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>
+    FrontendWorker<
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+        BackendRequest,
+        BackendResponse,
+    >
 where
-    Parser: Parse<Request>,
-    Response: Compose,
+    FrontendParser: Parse<FrontendRequest> + Clone,
+    FrontendResponse: Compose,
+    FrontendResponse: From<BackendResponse>,
+    BackendRequest: From<FrontendRequest>,
+    BackendRequest: Compose,
+    BackendResponse: Compose,
 {
-    #[allow(clippy::match_single_binding)]
-    pub fn run(mut self) {
+    /// Return the `Session` to the `Listener` to handle flush/close
+    fn close(&mut self, token: Token) {
+        if self.sessions.contains(token.0) {
+            let mut session = self.sessions.remove(token.0).into_inner();
+            let _ = session.deregister(self.poll.registry());
+            let _ = self.session_queue.try_send_any(session);
+            let _ = self.session_queue.wake();
+        }
+    }
+
+    /// Handle up to one request for a session
+    fn read(&mut self, token: Token) -> Result<()> {
+        let session = self
+            .sessions
+            .get_mut(token.0)
+            .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
+
+        // fill the session
+        map_result(session.fill())?;
+
+        // process up to one request
+        match session.receive() {
+            Ok(request) => self
+                .data_queue
+                .try_send_to(0, (BackendRequest::from(request), token))
+                .map_err(|_| Error::new(ErrorKind::Other, "data queue is full")),
+            Err(e) => map_err(e),
+        }
+    }
+
+    /// Handle write by flushing the session
+    fn write(&mut self, token: Token) -> Result<()> {
+        let session = self
+            .sessions
+            .get_mut(token.0)
+            .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
+
+        match session.flush() {
+            Ok(_) => Ok(()),
+            Err(e) => map_err(e),
+        }
+    }
+
+    /// Run the worker in a loop, handling new events.
+    pub fn run(&mut self) {
+        // these are buffers which are re-used in each loop iteration to receive
+        // events and queue messages
         let mut events = Events::with_capacity(self.nevent);
-        let mut sessions = Vec::with_capacity(self.nevent);
-        let mut responses = Vec::with_capacity(self.nevent);
+        let mut messages = Vec::with_capacity(QUEUE_CAPACITY);
+
         loop {
-            let _ = self.poll.poll(&mut events, self.timeout);
-            for event in &events {
-                match event.token() {
+            FRONTEND_EVENT_LOOP.increment();
+
+            // get events with timeout
+            if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
+                error!("Error polling");
+            }
+
+            let timestamp = Instant::now();
+
+            let count = events.iter().count();
+            FRONTEND_EVENT_TOTAL.add(count as _);
+            if count == self.nevent {
+                FRONTEND_EVENT_MAX_REACHED.increment();
+            } else {
+                FRONTEND_EVENT_DEPTH.increment(timestamp, count as _, 1);
+            }
+
+            // process all events
+            for event in events.iter() {
+                let token = event.token();
+                match token {
                     WAKER_TOKEN => {
-                        self.connection_queues.try_recv_all(&mut sessions);
-                        for session in sessions.drain(..).map(|v| v.into_inner()) {
-                            if self.poll.add_session(session).is_ok() {
-                                trace!("frontend registered new session");
+                        self.waker.reset();
+                        // handle up to one new session
+                        if let Some(mut session) =
+                            self.session_queue.try_recv().map(|v| v.into_inner())
+                        {
+                            let s = self.sessions.vacant_entry();
+                            let interest = session.interest();
+                            if session
+                                .register(self.poll.registry(), Token(s.key()), interest)
+                                .is_ok()
+                            {
+                                s.insert(ServerSession::new(session, self.parser.clone()));
                             } else {
-                                warn!("frontend failed to register new session");
+                                let _ = self.session_queue.try_send_any(session);
+                            }
+
+                            // trigger a wake-up in case there are more sessions
+                            let _ = self.waker.wake();
+                        }
+
+                        // handle all pending messages on the data queue
+                        self.data_queue.try_recv_all(&mut messages);
+                        for (_request, response, token) in
+                            messages.drain(..).map(|v| v.into_inner())
+                        {
+                            if let Some(session) = self.sessions.get_mut(token.0) {
+                                if response.should_hangup() {
+                                    let _ = session.send(FrontendResponse::from(response));
+                                    self.close(token);
+                                    continue;
+                                } else if session.send(FrontendResponse::from(response)).is_err() {
+                                    self.close(token);
+                                    continue;
+                                } else if session.write_pending() > 0 {
+                                    let interest = session.interest();
+                                    if session
+                                        .reregister(self.poll.registry(), token, interest)
+                                        .is_err()
+                                    {
+                                        self.close(token);
+                                        continue;
+                                    }
+                                }
+                                if session.remaining() > 0 && self.read(token).is_err() {
+                                    self.close(token);
+                                    continue;
+                                }
                             }
                         }
-                        self.data_queues.try_recv_all(&mut responses);
-                        for response in responses.drain(..).map(|v| v.into_inner()) {
-                            let token = response.token();
-                            let response = response.into_inner();
-                            if let Ok(session) = self.poll.get_mut_session(token) {
-                                response.compose(&mut session.session);
-                                session.session.finalize_response();
 
-                                // if we have pending writes, we should attempt to flush the session
-                                // now. if we still have pending bytes, we should re-register to
-                                // remove the read interest.
-                                if session.session.write_pending() > 0 {
-                                    let _ = session.session.flush();
-                                    if session.session.write_pending() > 0 {
-                                        self.poll.reregister(token);
-                                    }
+                        // check if we received any signals from the admin thread
+                        while let Some(signal) =
+                            self.signal_queue.try_recv().map(|v| v.into_inner())
+                        {
+                            match signal {
+                                Signal::FlushAll => {}
+                                Signal::Shutdown => {
+                                    // if we received a shutdown, we can return
+                                    // and stop processing events
+                                    return;
                                 }
                             }
                         }
                     }
                     _ => {
-                        self.handle_event(event);
-                    }
-                }
-            }
-            let count = events.iter().count();
-            if count == self.nevent {
-                FRONTEND_EVENT_MAX_REACHED.increment();
-            } else {
-                FRONTEND_EVENT_DEPTH.increment(
-                    common::time::Instant::<common::time::Nanoseconds<u64>>::now(),
-                    count as _,
-                    1,
-                );
-            }
-            let _ = self.data_queues.wake();
-        }
-    }
+                        if event.is_error() {
+                            FRONTEND_EVENT_ERROR.increment();
 
-    fn handle_event(&mut self, event: &Event) {
-        let token = event.token();
-
-        // handle error events first
-        if event.is_error() {
-            FRONTEND_EVENT_ERROR.increment();
-            self.handle_error(token);
-        }
-
-        // handle write events before read events to reduce write buffer
-        // growth if there is also a readable event
-        if event.is_writable() {
-            FRONTEND_EVENT_WRITE.increment();
-            self.do_write(token);
-        }
-
-        // read events are handled last
-        if event.is_readable() {
-            FRONTEND_EVENT_READ.increment();
-            if let Ok(session) = self.poll.get_mut_session(token) {
-                session.session.set_timestamp(rustcommon_time::Instant::<
-                    rustcommon_time::Nanoseconds<u64>,
-                >::recent());
-            }
-            let _ = self.do_read(token);
-        }
-
-        if let Ok(session) = self.poll.get_mut_session(token) {
-            if session.session.read_pending() > 0 {
-                trace!(
-                    "session: {:?} has {} bytes pending in read buffer",
-                    session.session,
-                    session.session.read_pending()
-                );
-            }
-            if session.session.write_pending() > 0 {
-                trace!(
-                    "session: {:?} has {} bytes pending in write buffer",
-                    session.session,
-                    session.session.read_pending()
-                );
-            }
-        }
-    }
-
-    fn handle_session_read(&mut self, token: Token) -> Result<()> {
-        let s = self.poll.get_mut_session(token)?;
-        let session = &mut s.session;
-        match self.parser.parse(session.buffer()) {
-            Ok(request) => {
-                let consumed = request.consumed();
-                let request = request.into_inner();
-                trace!("parsed request for sesion: {:?}", session);
-                session.consume(consumed);
-                let mut message = TokenWrapper::new(request, token);
-
-                for retry in 0..QUEUE_RETRIES {
-                    if let Err(m) = self.data_queues.try_send_any(message) {
-                        if (retry + 1) == QUEUE_RETRIES {
-                            warn!("queue full trying to send message to backend thread");
-                            let _ = self.poll.close_session(token);
+                            self.close(token);
+                            continue;
                         }
-                        // try to wake backend thread
-                        let _ = self.data_queues.wake();
-                        message = m;
-                    } else {
-                        break;
+
+                        if event.is_writable() {
+                            FRONTEND_EVENT_WRITE.increment();
+
+                            if self.write(token).is_err() {
+                                self.close(token);
+                                continue;
+                            }
+                        }
+
+                        if event.is_readable() {
+                            FRONTEND_EVENT_READ.increment();
+
+                            if self.read(token).is_err() {
+                                self.close(token);
+                                continue;
+                            }
+                        }
                     }
                 }
-                Ok(())
             }
-            Err(ParseError::Incomplete) => {
-                trace!("incomplete request for session: {:?}", session);
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::WouldBlock,
-                    "incomplete request",
-                ))
-            }
-            Err(_) => {
-                debug!("bad request for session: {:?}", session);
-                trace!("session: {:?} read buffer: {:?}", session, session.buffer());
-                let _ = self.poll.close_session(token);
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "bad request",
-                ))
-            }
-        }
-    }
 
-    pub fn try_close(&mut self, token: Token) {
-        let _ = self.poll.remove_session(token);
+            // wakes the storage thread if necessary
+            let _ = self.data_queue.wake();
+        }
     }
 }
 
-impl<Parser, Request, Response> EventLoop for FrontendWorker<Parser, Request, Response>
+pub struct FrontendBuilder<
+    FrontendParser,
+    FrontendRequest,
+    FrontendResponse,
+    BackendRequest,
+    BackendResponse,
+> {
+    builders: Vec<
+        FrontendWorkerBuilder<
+            FrontendParser,
+            FrontendRequest,
+            FrontendResponse,
+            BackendRequest,
+            BackendResponse,
+        >,
+    >,
+}
+
+impl<FrontendParser, FrontendRequest, FrontendResponse, BackendRequest, BackendResponse>
+    FrontendBuilder<
+        FrontendParser,
+        FrontendRequest,
+        FrontendResponse,
+        BackendRequest,
+        BackendResponse,
+    >
 where
-    Parser: Parse<Request>,
-    Response: Compose,
+    FrontendParser: Parse<FrontendRequest> + Clone,
+    FrontendResponse: Compose,
+    FrontendResponse: From<BackendResponse>,
+    BackendRequest: From<FrontendRequest>,
+    BackendRequest: Compose,
 {
-    fn handle_data(&mut self, token: Token) -> Result<()> {
-        let _ = self.handle_session_read(token);
-        Ok(())
+    pub fn new<T: FrontendConfig>(
+        config: &T,
+        parser: FrontendParser,
+        threads: usize,
+    ) -> Result<Self> {
+        let mut builders = Vec::new();
+        for _ in 0..threads {
+            builders.push(FrontendWorkerBuilder::new(config, parser.clone())?);
+        }
+        Ok(Self { builders })
     }
 
-    fn poll(&mut self) -> &mut poll::Poll {
-        &mut self.poll
+    pub fn wakers(&self) -> Vec<Arc<Waker>> {
+        self.builders.iter().map(|b| b.waker()).collect()
+    }
+
+    #[allow(clippy::type_complexity)]
+    pub fn build(
+        mut self,
+        mut data_queues: Vec<
+            Queues<(BackendRequest, Token), (BackendRequest, BackendResponse, Token)>,
+        >,
+        mut session_queues: Vec<Queues<Session, Session>>,
+        mut signal_queues: Vec<Queues<(), Signal>>,
+    ) -> Vec<
+        FrontendWorker<
+            FrontendParser,
+            FrontendRequest,
+            FrontendResponse,
+            BackendRequest,
+            BackendResponse,
+        >,
+    > {
+        self.builders
+            .drain(..)
+            .map(|b| {
+                b.build(
+                    data_queues.pop().unwrap(),
+                    session_queues.pop().unwrap(),
+                    signal_queues.pop().unwrap(),
+                )
+            })
+            .collect()
     }
 }

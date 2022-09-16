@@ -13,6 +13,7 @@ license = "Apache-2.0"
 [dependencies]
 boring = "2.0.0"
 serde = { version = "1.0.117", features = ["derive"] }
+net = { path = "../net" }
 macros = { path = "../macros" }
 
 [dependencies.rustcommon-metrics]

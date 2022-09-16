@@ -16,8 +16,10 @@ config = { path = "../../config" }
 libc = "0.2.83"
 logger = { path = "../../logger" }
 momento = "0.3.1"
+net = { path = "../../net" }
 protocol-admin = { path = "../../protocol/admin" }
 protocol-memcache = { path = "../../protocol/memcache" }
+protocol-resp = { path = "../../protocol/resp" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 session = { path = "../../session" }
 storage-types = { path = "../../storage/types" }

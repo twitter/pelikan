@@ -4,8 +4,8 @@
 
 //! Tests for the `Ping` protocol implementation.
 
-use crate::RequestParser;
 use crate::*;
+use std::io::ErrorKind;
 
 #[test]
 fn ping() {
@@ -20,7 +20,7 @@ fn incomplete() {
     let parser = RequestParser::new();
 
     if let Err(e) = parser.parse(b"ping") {
-        if e != ParseError::Incomplete {
+        if e.kind() != ErrorKind::WouldBlock {
             panic!("invalid parse result");
         }
     } else {
@@ -41,7 +41,7 @@ fn unknown() {
 
     for request in &["unknown\r\n"] {
         if let Err(e) = parser.parse(request.as_bytes()) {
-            if e != ParseError::Unknown {
+            if e.kind() != ErrorKind::InvalidInput {
                 panic!("invalid parse result");
             }
         } else {

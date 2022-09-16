@@ -9,6 +9,9 @@
 
 use crate::*;
 use common::bytes::SliceExtension;
+use rustcommon_metrics::*;
+
+use std::io::{Error, ErrorKind, Result};
 
 // TODO(bmartin): see TODO for protocol::data::Request, this is cleaner here
 // since the variants are simple, but better to take the same approach in both
@@ -31,7 +34,7 @@ impl AdminRequestParser {
 }
 
 impl Parse<AdminRequest> for AdminRequestParser {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<AdminRequest>, ParseError> {
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<AdminRequest>> {
         // check if we got a CRLF
         if let Some(command_end) = buffer
             .windows(CRLF.len())
@@ -47,7 +50,7 @@ impl Parse<AdminRequest> for AdminRequestParser {
                 // remove the need for ignoring this lint.
                 #[allow(clippy::match_single_binding)]
                 match command_verb {
-                    _ => Err(ParseError::Unknown),
+                    _ => Err(Error::from(ErrorKind::InvalidInput)),
                 }
             } else {
                 match &trimmed_buffer[0..] {
@@ -61,11 +64,99 @@ impl Parse<AdminRequest> for AdminRequestParser {
                         AdminRequest::Version,
                         command_end + CRLF.len(),
                     )),
-                    _ => Err(ParseError::Unknown),
+                    _ => Err(Error::from(ErrorKind::InvalidInput)),
                 }
             }
         } else {
-            Err(ParseError::Incomplete)
+            Err(Error::from(ErrorKind::WouldBlock))
+        }
+    }
+}
+
+pub struct Version {
+    version: String,
+}
+
+impl Compose for Version {
+    fn compose(&self, buf: &mut dyn BufMut) -> usize {
+        buf.put_slice(b"VERSION ");
+        buf.put_slice(self.version.as_bytes());
+        buf.put_slice(b"\r\n");
+
+        10 + self.version.as_bytes().len()
+    }
+}
+
+pub enum AdminResponse {
+    Hangup,
+    Ok,
+    Stats,
+    Version(Version),
+}
+
+impl AdminResponse {
+    pub fn hangup() -> Self {
+        Self::Hangup
+    }
+
+    pub fn ok() -> Self {
+        Self::Ok
+    }
+
+    pub fn stats() -> Self {
+        Self::Stats
+    }
+
+    pub fn version(version: String) -> Self {
+        Self::Version(Version { version })
+    }
+}
+
+impl Compose for AdminResponse {
+    fn compose(&self, buf: &mut dyn BufMut) -> usize {
+        match self {
+            Self::Hangup => 0,
+            Self::Ok => {
+                buf.put_slice(b"OK\r\n");
+                4
+            }
+            Self::Stats => {
+                let mut size = 0;
+                let mut data = Vec::new();
+                for metric in &rustcommon_metrics::metrics() {
+                    let any = match metric.as_any() {
+                        Some(any) => any,
+                        None => {
+                            continue;
+                        }
+                    };
+
+                    if let Some(counter) = any.downcast_ref::<Counter>() {
+                        data.push(format!("STAT {} {}\r\n", metric.name(), counter.value()));
+                    } else if let Some(gauge) = any.downcast_ref::<Gauge>() {
+                        data.push(format!("STAT {} {}\r\n", metric.name(), gauge.value()));
+                    } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
+                        for (label, value) in PERCENTILES {
+                            let percentile = heatmap.percentile(*value).unwrap_or(0);
+                            data.push(format!(
+                                "STAT {}_{} {}\r\n",
+                                metric.name(),
+                                label,
+                                percentile
+                            ));
+                        }
+                    }
+                }
+
+                data.sort();
+                for line in data {
+                    size += line.as_bytes().len();
+                    buf.put_slice(line.as_bytes());
+                }
+                buf.put_slice(b"END\r\n");
+                size + 5
+            }
+            Self::Version(v) => v.compose(buf),
         }
     }
 }
@@ -80,7 +171,11 @@ mod tests {
 
         let buffers: Vec<&[u8]> = vec![b"", b"stats", b"stats\r"];
         for buffer in buffers.iter() {
-            assert_eq!(parser.parse(buffer), Err(ParseError::Incomplete));
+            if let Err(e) = parser.parse(buffer) {
+                assert_eq!(e.kind(), ErrorKind::WouldBlock);
+            } else {
+                panic!("parser should not have returned a request");
+            }
         }
     }
 

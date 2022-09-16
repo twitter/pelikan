@@ -2,305 +2,307 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use super::map_result;
 use crate::*;
-use common::signal::Signal;
-use config::proxy::BackendConfig;
-use core::marker::PhantomData;
-use core::time::Duration;
-use mio::Waker;
-use poll::*;
-use protocol_common::*;
-use queues::Queues;
-use queues::TrackedItem;
-use session::Session;
-use std::sync::Arc;
+use session::ClientSession;
+use std::collections::HashMap;
+use std::collections::VecDeque;
 
-use rustcommon_metrics::*;
-
-const KB: usize = 1024;
-
-const SESSION_BUFFER_MIN: usize = 16 * KB;
-const SESSION_BUFFER_MAX: usize = 1024 * KB;
-
-counter!(BACKEND_EVENT_ERROR);
-counter!(BACKEND_EVENT_READ);
-counter!(BACKEND_EVENT_WRITE);
+heatmap!(
+    BACKEND_EVENT_DEPTH,
+    100_000,
+    "distribution of the number of events received per iteration of the event loop"
+);
+counter!(BACKEND_EVENT_ERROR, "the number of error events received");
+counter!(
+    BACKEND_EVENT_LOOP,
+    "the number of times the event loop has run"
+);
 counter!(
     BACKEND_EVENT_MAX_REACHED,
     "the number of times the maximum number of events was returned"
 );
-heatmap!(BACKEND_EVENT_DEPTH, 100_000);
-
-pub const QUEUE_RETRIES: usize = 3;
+counter!(BACKEND_EVENT_READ, "the number of read events received");
+counter!(BACKEND_EVENT_TOTAL, "the total number of events received");
+counter!(BACKEND_EVENT_WRITE, "the number of write events received");
 
 pub struct BackendWorkerBuilder<Parser, Request, Response> {
-    poll: Poll,
-    parser: Parser,
     free_queue: VecDeque<Token>,
     nevent: usize,
+    parser: Parser,
+    poll: Poll,
+    sessions: Slab<ClientSession<Parser, Request, Response>>,
     timeout: Duration,
-    _request: PhantomData<Request>,
-    _response: PhantomData<Response>,
+    waker: Arc<Waker>,
 }
 
-impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response> {
+impl<Parser, Request, Response> BackendWorkerBuilder<Parser, Request, Response>
+where
+    Parser: Clone + Parse<Response>,
+    Request: Compose,
+{
     pub fn new<T: BackendConfig>(config: &T, parser: Parser) -> Result<Self> {
         let config = config.backend();
 
-        let mut poll = Poll::new()?;
+        let poll = Poll::new()?;
 
-        let server_endpoints = config.socket_addrs()?;
+        let waker = Arc::new(Waker::from(
+            ::net::Waker::new(poll.registry(), WAKER_TOKEN).unwrap(),
+        ));
 
-        let mut free_queue = VecDeque::with_capacity(server_endpoints.len() * config.poolsize());
+        let nevent = config.nevent();
+        let timeout = Duration::from_millis(config.timeout() as u64);
 
-        for addr in server_endpoints {
-            for _ in 0..config.poolsize() {
-                let connection = std::net::TcpStream::connect(addr).expect("failed to connect");
-                connection
-                    .set_nonblocking(true)
-                    .expect("failed to set non-blocking");
-                let connection = TcpStream::from_std(connection);
-                let session = Session::plain_with_capacity(
-                    session::TcpStream::try_from(connection).expect("failed to convert"),
-                    SESSION_BUFFER_MIN,
-                    SESSION_BUFFER_MAX,
-                );
-                if let Ok(token) = poll.add_session(session) {
-                    println!("new backend connection with token: {}", token.0);
-                    free_queue.push_back(token);
-                }
-            }
+        let mut sessions = Slab::new();
+        let mut free_queue = VecDeque::new();
+
+        for endpoint in config.socket_addrs()? {
+            let stream = TcpStream::connect(endpoint)?;
+            let mut session = ClientSession::new(Session::from(stream), parser.clone());
+            let s = sessions.vacant_entry();
+            let interest = session.interest();
+            session
+                .register(poll.registry(), Token(s.key()), interest)
+                .expect("failed to register");
+            free_queue.push_back(Token(s.key()));
+            s.insert(session);
         }
 
         Ok(Self {
-            poll,
             free_queue,
+            nevent,
             parser,
-            nevent: config.nevent(),
-            timeout: Duration::from_millis(config.timeout() as u64),
-            _request: PhantomData,
-            _response: PhantomData,
+            poll,
+            sessions,
+            timeout,
+            waker,
         })
     }
+
     pub fn waker(&self) -> Arc<Waker> {
-        self.poll.waker()
+        self.waker.clone()
     }
 
     pub fn build(
         self,
+        data_queue: Queues<(Request, Response, Token), (Request, Token)>,
         signal_queue: Queues<(), Signal>,
-        queues: Queues<TokenWrapper<Response>, TokenWrapper<Request>>,
     ) -> BackendWorker<Parser, Request, Response> {
         BackendWorker {
-            poll: self.poll,
+            backlog: VecDeque::new(),
+            data_queue,
             free_queue: self.free_queue,
-            signal_queue,
-            queues,
-            parser: self.parser,
             nevent: self.nevent,
+            parser: self.parser,
+            pending: HashMap::new(),
+            poll: self.poll,
+            sessions: self.sessions,
+            signal_queue,
             timeout: self.timeout,
+            waker: self.waker,
         }
     }
 }
 
 pub struct BackendWorker<Parser, Request, Response> {
-    poll: Poll,
-    queues: Queues<TokenWrapper<Response>, TokenWrapper<Request>>,
+    backlog: VecDeque<(Request, Token)>,
+    data_queue: Queues<(Request, Response, Token), (Request, Token)>,
     free_queue: VecDeque<Token>,
-    signal_queue: Queues<(), Signal>,
-    parser: Parser,
     nevent: usize,
+    parser: Parser,
+    pending: HashMap<Token, Token>,
+    poll: Poll,
+    sessions: Slab<ClientSession<Parser, Request, Response>>,
+    signal_queue: Queues<(), Signal>,
     timeout: Duration,
+    waker: Arc<Waker>,
 }
 
 impl<Parser, Request, Response> BackendWorker<Parser, Request, Response>
 where
+    Parser: Parse<Response> + Clone,
     Request: Compose,
-    Parser: Parse<Response>,
 {
-    #[allow(clippy::match_single_binding)]
-    pub fn run(mut self) {
-        let mut events = Events::with_capacity(self.nevent);
-        let mut requests = Vec::with_capacity(self.nevent);
-        loop {
-            let _ = self.poll.poll(&mut events, self.timeout);
-            for event in &events {
-                match event.token() {
-                    WAKER_TOKEN => {
-                        self.handle_waker(&mut requests);
-                        if !requests.is_empty() {
-                            let _ = self.poll.waker().wake();
-                        }
-                    }
-                    _ => {
-                        self.handle_event(event);
-                    }
+    /// Return the `Session` to the `Listener` to handle flush/close
+    fn close(&mut self, token: Token) {
+        if self.sessions.contains(token.0) {
+            let mut session = self.sessions.remove(token.0);
+            let _ = session.flush();
+        }
+    }
+
+    /// Handle up to one response for a session
+    fn read(&mut self, token: Token) -> Result<()> {
+        let session = self
+            .sessions
+            .get_mut(token.0)
+            .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
+
+        // fill the session
+        map_result(session.fill())?;
+
+        // process up to one request
+        match session.receive() {
+            Ok((request, response)) => {
+                if let Some(fe_token) = self.pending.remove(&token) {
+                    self.free_queue.push_back(token);
+                    self.data_queue
+                        .try_send_to(0, (request, response, fe_token))
+                        .map_err(|_| Error::new(ErrorKind::Other, "data queue is full"))
+                } else {
+                    panic!("corrupted state");
                 }
             }
+            Err(e) => map_err(e),
+        }
+    }
+
+    /// Handle write by flushing the session
+    fn write(&mut self, token: Token) -> Result<()> {
+        let session = self
+            .sessions
+            .get_mut(token.0)
+            .ok_or_else(|| Error::new(ErrorKind::Other, "non-existant session"))?;
+
+        match session.flush() {
+            Ok(_) => Ok(()),
+            Err(e) => map_err(e),
+        }
+    }
+
+    /// Run the worker in a loop, handling new events.
+    pub fn run(&mut self) {
+        // these are buffers which are re-used in each loop iteration to receive
+        // events and queue messages
+        let mut events = Events::with_capacity(self.nevent);
+        let mut messages = Vec::with_capacity(QUEUE_CAPACITY);
+        // let mut sessions = Vec::with_capacity(QUEUE_CAPACITY);
+
+        loop {
+            BACKEND_EVENT_LOOP.increment();
+
+            // get events with timeout
+            if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
+                error!("Error polling");
+            }
+
+            let timestamp = Instant::now();
+
             let count = events.iter().count();
+            BACKEND_EVENT_TOTAL.add(count as _);
             if count == self.nevent {
                 BACKEND_EVENT_MAX_REACHED.increment();
             } else {
-                BACKEND_EVENT_DEPTH.increment(
-                    common::time::Instant::<common::time::Nanoseconds<u64>>::now(),
-                    count as _,
-                    1,
-                );
+                BACKEND_EVENT_DEPTH.increment(timestamp, count as _, 1);
             }
-            let _ = self.queues.wake();
-        }
-    }
 
-    fn handle_event(&mut self, event: &Event) {
-        let token = event.token();
+            // process all events
+            for event in events.iter() {
+                let token = event.token();
+                match token {
+                    WAKER_TOKEN => {
+                        self.waker.reset();
+                        // handle all pending messages on the data queue
+                        self.data_queue.try_recv_all(&mut messages);
+                        for (request, fe_token) in messages.drain(..).map(|v| v.into_inner()) {
+                            if let Some(be_token) = self.free_queue.pop_front() {
+                                let session = &mut self.sessions[be_token.0];
+                                if session.send(request).is_err() {
+                                    panic!("we don't handle this right now");
+                                } else {
+                                    self.pending.insert(be_token, fe_token);
+                                }
+                            } else {
+                                self.backlog.push_back((request, token));
+                            }
+                        }
 
-        // handle error events first
-        if event.is_error() {
-            BACKEND_EVENT_ERROR.increment();
-            self.handle_error(token);
-        }
+                        // check if we received any signals from the admin thread
+                        while let Some(signal) =
+                            self.signal_queue.try_recv().map(|v| v.into_inner())
+                        {
+                            match signal {
+                                Signal::FlushAll => {}
+                                Signal::Shutdown => {
+                                    // if we received a shutdown, we can return
+                                    // and stop processing events
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                    _ => {
+                        if event.is_error() {
+                            BACKEND_EVENT_ERROR.increment();
 
-        // handle write events before read events to reduce write buffer
-        // growth if there is also a readable event
-        if event.is_writable() {
-            BACKEND_EVENT_WRITE.increment();
-            self.do_write(token);
-        }
+                            self.close(token);
+                            continue;
+                        }
 
-        // read events are handled last
-        if event.is_readable() {
-            BACKEND_EVENT_READ.increment();
-            if let Ok(session) = self.poll.get_mut_session(token) {
-                session.session.set_timestamp(rustcommon_time::Instant::<
-                    rustcommon_time::Nanoseconds<u64>,
-                >::recent());
-            }
-            let _ = self.do_read(token);
-        }
+                        if event.is_writable() {
+                            BACKEND_EVENT_WRITE.increment();
 
-        if let Ok(session) = self.poll.get_mut_session(token) {
-            if session.session.read_pending() > 0 {
-                trace!(
-                    "session: {:?} has {} bytes pending in read buffer",
-                    session.session,
-                    session.session.read_pending()
-                );
-            }
-            if session.session.write_pending() > 0 {
-                trace!(
-                    "session: {:?} has {} bytes pending in write buffer",
-                    session.session,
-                    session.session.read_pending()
-                );
-            }
-        }
-    }
+                            if self.write(token).is_err() {
+                                self.close(token);
+                                continue;
+                            }
+                        }
 
-    pub fn handle_waker(&mut self, requests: &mut Vec<TrackedItem<TokenWrapper<Request>>>) {
-        // try to get requests from the queue if we don't already
-        // have a backlog
-        if requests.is_empty() {
-            self.queues.try_recv_all(requests);
-        }
+                        if event.is_readable() {
+                            BACKEND_EVENT_READ.increment();
 
-        // as long as we have free backend connections and we
-        // have requests from the most recent read of the queue
-        // we can dispatch requests
-        while !self.free_queue.is_empty() && !requests.is_empty() {
-            let backend_token = self.free_queue.pop_front().unwrap();
-            let request = requests.remove(0);
-
-            // check if this token is still a valid connection
-            if let Ok(session) = self.poll.get_mut_session(backend_token) {
-                if session.token.is_none() && session.sender.is_none() {
-                    let sender = request.sender();
-                    let request = request.into_inner();
-                    let token = request.token();
-                    let request = request.into_inner();
-
-                    session.sender = Some(sender);
-                    session.token = Some(token);
-                    request.compose(&mut session.session);
-                    session.session.finalize_response();
-
-                    if session.session.write_pending() > 0 {
-                        let _ = session.session.flush();
-                        if session.session.write_pending() > 0 {
-                            self.poll.reregister(token);
+                            if self.read(token).is_err() {
+                                self.close(token);
+                                continue;
+                            }
                         }
                     }
                 }
             }
 
-            self.poll.reregister(backend_token);
-        }
-    }
-
-    fn handle_session_read(&mut self, token: Token) -> Result<()> {
-        let s = self.poll.get_mut_session(token)?;
-        let session = &mut s.session;
-        match self.parser.parse(session.buffer()) {
-            Ok(response) => {
-                let consumed = response.consumed();
-                let response = response.into_inner();
-                session.consume(consumed);
-
-                let fe_worker = s.sender.take().unwrap();
-                let client_token = s.token.take().unwrap();
-
-                let mut message = TokenWrapper::new(response, client_token);
-
-                for retry in 0..QUEUE_RETRIES {
-                    if let Err(m) = self.queues.try_send_to(fe_worker, message) {
-                        if (retry + 1) == QUEUE_RETRIES {
-                            error!("queue full trying to send response to frontend");
-                            let _ = self.poll.close_session(token);
-                        }
-                        // try to wake frontend thread
-                        let _ = self.queues.wake();
-                        message = m;
-                    } else {
-                        break;
-                    }
-                }
-
-                self.free_queue.push_back(token);
-
-                let _ = self.queues.wake();
-
-                Ok(())
-            }
-            Err(ParseError::Incomplete) => {
-                trace!("incomplete response for session: {:?}", session);
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::WouldBlock,
-                    "incomplete response",
-                ))
-            }
-            Err(_) => {
-                debug!("bad response for session: {:?}", session);
-                trace!("session: {:?} read buffer: {:?}", session, session.buffer());
-                let _ = self.poll.close_session(token);
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "bad response",
-                ))
-            }
+            // wakes the storage thread if necessary
+            let _ = self.data_queue.wake();
         }
     }
 }
 
-impl<Parser, Request, Response> EventLoop for BackendWorker<Parser, Request, Response>
+pub struct BackendBuilder<Parser, Request, Response> {
+    builders: Vec<BackendWorkerBuilder<Parser, Request, Response>>,
+}
+
+impl<BackendParser, BackendRequest, BackendResponse>
+    BackendBuilder<BackendParser, BackendRequest, BackendResponse>
 where
-    Request: Compose,
-    Parser: Parse<Response>,
+    BackendParser: Parse<BackendResponse> + Clone,
+    BackendRequest: Compose,
 {
-    fn handle_data(&mut self, token: Token) -> Result<()> {
-        let _ = self.handle_session_read(token);
-        Ok(())
+    pub fn new<T: BackendConfig>(
+        config: &T,
+        parser: BackendParser,
+        threads: usize,
+    ) -> Result<Self> {
+        let mut builders = Vec::new();
+        for _ in 0..threads {
+            builders.push(BackendWorkerBuilder::new(config, parser.clone())?);
+        }
+        Ok(Self { builders })
     }
 
-    fn poll(&mut self) -> &mut poll::Poll {
-        &mut self.poll
+    pub fn wakers(&self) -> Vec<Arc<Waker>> {
+        self.builders.iter().map(|b| b.waker()).collect()
+    }
+
+    #[allow(clippy::type_complexity)]
+    pub fn build(
+        mut self,
+        mut data_queues: Vec<
+            Queues<(BackendRequest, BackendResponse, Token), (BackendRequest, Token)>,
+        >,
+        mut signal_queues: Vec<Queues<(), Signal>>,
+    ) -> Vec<BackendWorker<BackendParser, BackendRequest, BackendResponse>> {
+        self.builders
+            .drain(..)
+            .map(|b| b.build(data_queues.pop().unwrap(), signal_queues.pop().unwrap()))
+            .collect()
     }
 }

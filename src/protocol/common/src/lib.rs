@@ -6,12 +6,12 @@
 //! traits so that the a server implementation can easily switch between
 //! protocol implementations.
 
-use session::Session;
+pub use bytes::BufMut;
 
 pub const CRLF: &str = "\r\n";
 
 pub trait Compose {
-    fn compose(&self, dst: &mut Session);
+    fn compose(&self, dst: &mut dyn BufMut) -> usize;
 
     /// Indicates that the connection should be closed.
     /// Override this function as appropriate for the
@@ -22,20 +22,7 @@ pub trait Compose {
 }
 
 pub trait Execute<Request, Response: Compose> {
-    fn execute(&mut self, request: Request) -> Box<dyn ExecutionResult<Request, Response>>;
-}
-
-pub trait ExecutionResult<Request, Response: Compose>: Send + Compose {
-    fn request(&self) -> &Request;
-
-    fn response(&self) -> &Response;
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ParseError {
-    Invalid,
-    Incomplete,
-    Unknown,
+    fn execute(&mut self, request: &Request) -> Response;
 }
 
 #[derive(Debug, PartialEq)]
@@ -59,5 +46,5 @@ impl<T> ParseOk<T> {
 }
 
 pub trait Parse<T> {
-    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<T>, ParseError>;
+    fn parse(&self, buffer: &[u8]) -> Result<ParseOk<T>, std::io::Error>;
 }

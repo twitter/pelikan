@@ -7,6 +7,7 @@ extern crate logger;
 
 use backtrace::Backtrace;
 use clap::{App, Arg};
+use config::momento_proxy::Protocol;
 use config::*;
 use core::num::NonZeroU64;
 use core::num::NonZeroUsize;
@@ -18,8 +19,8 @@ use momento::response::cache_get_response::*;
 use momento::response::cache_set_response::*;
 use momento::response::error::*;
 use momento::simple_cache_client::*;
+use net::TCP_RECV_BYTE;
 use protocol_admin::*;
-use protocol_memcache::*;
 use rustcommon_metrics::*;
 use session::*;
 use std::borrow::{Borrow, BorrowMut};
@@ -36,9 +37,10 @@ const S: u64 = 1_000_000_000; // one second in nanoseconds
 const US: u64 = 1_000; // one microsecond in nanoseconds
 
 mod admin;
-mod commands;
 mod frontend;
+mod klog;
 mod listener;
+mod protocol;
 
 // NOTES:
 //
@@ -76,8 +78,6 @@ pub static PERCENTILES: &[(&str, f64)] = &[
     ("p9999", 99.99),
 ];
 
-// define metrics that are part of the proxy
-
 counter!(ADMIN_REQUEST_PARSE);
 counter!(ADMIN_RESPONSE_COMPOSE);
 
@@ -85,18 +85,6 @@ counter!(BACKEND_REQUEST);
 counter!(BACKEND_EX);
 counter!(BACKEND_EX_RATE_LIMITED);
 counter!(BACKEND_EX_TIMEOUT);
-
-counter!(GET);
-counter!(GET_EX);
-counter!(GET_KEY);
-counter!(GET_KEY_EX);
-counter!(GET_KEY_HIT);
-counter!(GET_KEY_MISS);
-
-counter!(SET);
-counter!(SET_EX);
-counter!(SET_NOT_STORED);
-counter!(SET_STORED);
 
 counter!(RU_UTIME);
 counter!(RU_STIME);
@@ -335,7 +323,13 @@ async fn spawn(
             );
             let tcp_listener =
                 TcpListener::from_std(tcp_listener).expect("could not convert to tokio listener");
-            listener::listener(tcp_listener, client_builder, cache.cache_name()).await;
+            listener::listener(
+                tcp_listener,
+                client_builder,
+                cache.cache_name(),
+                cache.protocol(),
+            )
+            .await;
         });
     }
 
@@ -359,11 +353,13 @@ async fn do_read(
             TCP_RECV_BYTE.add(n as _);
             // non-zero means we have some data, mark the buffer as
             // having additional content
-            buf.increase_len(n);
+            unsafe {
+                buf.advance_mut(n);
+            }
 
             // if the buffer is low on space, we will grow the
             // buffer
-            if buf.available_capacity() * 2 < INITIAL_BUFFER_SIZE {
+            if buf.remaining_mut() * 2 < INITIAL_BUFFER_SIZE {
                 buf.reserve(INITIAL_BUFFER_SIZE);
             }
 
@@ -380,3 +376,5 @@ async fn do_read(
         }
     }
 }
+
+common::metrics::test_no_duplicates!();

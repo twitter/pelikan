@@ -24,7 +24,7 @@ pub struct Value {
     key: Box<[u8]>,
     flags: u32,
     cas: Option<u64>,
-    data: Box<[u8]>,
+    data: Option<Box<[u8]>>,
 }
 
 impl Value {
@@ -33,37 +33,68 @@ impl Value {
             key: key.to_owned().into_boxed_slice(),
             flags,
             cas,
-            data: data.to_owned().into_boxed_slice(),
+            data: Some(data.to_owned().into_boxed_slice()),
+        }
+    }
+
+    pub fn none(key: &[u8]) -> Self {
+        Self {
+            key: key.to_owned().into_boxed_slice(),
+            flags: 0,
+            cas: None,
+            data: None,
         }
     }
 
     pub fn key(&self) -> &[u8] {
         &self.key
     }
+
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> Option<usize> {
+        self.data.as_ref().map(|v| v.len())
+    }
 }
 
 impl Compose for Values {
-    fn compose(&self, session: &mut session::Session) {
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let suffix = b"END\r\n";
+
+        let mut size = suffix.len();
+
         for value in self.values.iter() {
-            value.compose(session);
+            size += value.compose(session);
         }
-        let _ = session.write_all(b"END\r\n");
+        session.put_slice(suffix);
+
+        size
     }
 }
 
 impl Compose for Value {
-    fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(b"VALUE ");
-        let _ = session.write_all(&self.key);
-        if let Some(cas) = self.cas {
-            let _ = session
-                .write_all(format!(" {} {} {}\r\n", self.flags, self.data.len(), cas).as_bytes());
-        } else {
-            let _ =
-                session.write_all(format!(" {} {}\r\n", self.flags, self.data.len()).as_bytes());
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        if self.data.is_none() {
+            return 0;
         }
-        let _ = session.write_all(&self.data);
-        let _ = session.write_all(b"\r\n");
+
+        let data = self.data.as_ref().unwrap();
+
+        let prefix = b"VALUE ";
+        let header_fields = if let Some(cas) = self.cas {
+            format!(" {} {} {}\r\n", self.flags, data.len(), cas).into_bytes()
+        } else {
+            format!(" {} {}\r\n", self.flags, data.len()).into_bytes()
+        };
+
+        let size = prefix.len() + self.key.len() + header_fields.len() + data.len() + CRLF.len();
+
+        session.put_slice(prefix);
+        session.put_slice(&self.key);
+        session.put_slice(&header_fields);
+        session.put_slice(data);
+        session.put_slice(CRLF);
+
+        size
     }
 }
 
@@ -115,7 +146,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], Values> {
             key: key.to_owned().into_boxed_slice(),
             flags,
             cas,
-            data: data.to_owned().into_boxed_slice(),
+            data: Some(data.to_owned().into_boxed_slice()),
         });
 
         // look for a space or the start of a CRLF

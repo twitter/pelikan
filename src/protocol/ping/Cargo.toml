@@ -1,9 +1,8 @@
 [package]
 name = "protocol-ping"
-version = "0.0.1"
+version = "0.0.2"
+edition = "2021"
 authors = ["Brian Martin <bmartin@twitter.com>"]
-edition = "2018"
-description = "protocols used in Pelikan servers"
 homepage = "https://pelikan.io"
 repository = "https://github.com/twitter/pelikan"
 license = "Apache-2.0"
@@ -19,7 +18,6 @@ config = { path = "../../config" }
 logger = { path = "../../logger" }
 protocol-common = { path = "../../protocol/common" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
-session = { path = "../../session" }
 storage-types = { path = "../../storage/types" }
 
 [dev-dependencies]

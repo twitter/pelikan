@@ -25,7 +25,7 @@ pub struct Pingserver {
 
 impl Pingserver {
     /// Creates a new `Pingserver` process from the given `PingserverConfig`.
-    pub fn new(config: PingserverConfig) -> Self {
+    pub fn new(config: PingserverConfig) -> Result<Self, std::io::Error> {
         // initialize logging
         let log_drain = configure_logging(&config);
 
@@ -35,26 +35,19 @@ impl Pingserver {
         // initialize storage
         let storage = Storage::new();
 
-        // use a fixed buffer size for the pingserver
-        let max_buffer_size = server::DEFAULT_BUFFER_SIZE;
-
         // initialize parser
         let parser = Parser::new();
 
         // initialize process
-        let process_builder = ProcessBuilder::<Storage, Parser, Request, Response>::new(
-            config,
-            storage,
-            max_buffer_size,
-            parser,
-            log_drain,
-        )
+        let process_builder = ProcessBuilder::<Parser, Request, Response, Storage>::new(
+            &config, log_drain, parser, storage,
+        )?
         .version(env!("CARGO_PKG_VERSION"));
 
         // spawn threads
         let process = process_builder.spawn();
 
-        Self { process }
+        Ok(Self { process })
     }
 
     /// Wait for all threads to complete. Blocks until the process has fully

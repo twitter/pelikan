@@ -9,7 +9,7 @@ pub struct Replace {
     pub(crate) key: Box<[u8]>,
     pub(crate) value: Box<[u8]>,
     pub(crate) flags: u32,
-    pub(crate) ttl: Option<u32>,
+    pub(crate) ttl: Ttl,
     pub(crate) noreply: bool,
 }
 
@@ -22,7 +22,7 @@ impl Replace {
         &self.value
     }
 
-    pub fn ttl(&self) -> Option<u32> {
+    pub fn ttl(&self) -> Ttl {
         self.ttl
     }
 
@@ -65,24 +65,65 @@ impl RequestParser {
 }
 
 impl Compose for Replace {
-    fn compose(&self, session: &mut session::Session) {
-        let _ = session.write_all(b"replace ");
-        let _ = session.write_all(&self.key);
-        let _ = session.write_all(format!(" {}", self.flags).as_bytes());
-        match self.ttl {
-            None => {
-                let _ = session.write_all(b" 0");
+    fn compose(&self, session: &mut dyn BufMut) -> usize {
+        let verb = b"replace ";
+        let flags = format!(" {}", self.flags).into_bytes();
+        let ttl = format!(" {}", self.ttl.get().unwrap_or(0)).into_bytes();
+        let vlen = format!(" {}", self.value.len()).into_bytes();
+        let header_end = if self.noreply {
+            " noreply\r\n".as_bytes()
+        } else {
+            "\r\n".as_bytes()
+        };
+
+        let size = verb.len()
+            + self.key.len()
+            + flags.len()
+            + ttl.len()
+            + vlen.len()
+            + header_end.len()
+            + self.value.len()
+            + CRLF.len();
+
+        session.put_slice(verb);
+        session.put_slice(&self.key);
+        session.put_slice(&flags);
+        session.put_slice(&ttl);
+        session.put_slice(&vlen);
+        session.put_slice(header_end);
+        session.put_slice(&self.value);
+        session.put_slice(CRLF);
+
+        size
+    }
+}
+
+impl Klog for Replace {
+    type Response = Response;
+
+    fn klog(&self, response: &Self::Response) {
+        let (code, len) = match response {
+            Response::Stored(ref res) => {
+                REPLACE_STORED.increment();
+                (STORED, res.len())
             }
-            Some(0) => {
-                let _ = session.write_all(b" -1");
+            Response::NotStored(ref res) => {
+                REPLACE_NOT_STORED.increment();
+                (NOT_STORED, res.len())
             }
-            Some(s) => {
-                let _ = session.write_all(format!(" {}", s).as_bytes());
+            _ => {
+                return;
             }
-        }
-        let _ = session.write_all(format!(" {}\r\n", self.value.len()).as_bytes());
-        let _ = session.write_all(&self.value);
-        let _ = session.write_all(b"\r\n");
+        };
+        klog!(
+            "\"replace {} {} {} {}\" {} {}",
+            string_key(self.key()),
+            self.flags(),
+            self.ttl.get().unwrap_or(0),
+            self.value().len(),
+            code,
+            len
+        );
     }
 }
 
@@ -103,7 +144,7 @@ mod tests {
                     key: b"0".to_vec().into_boxed_slice(),
                     value: b"0".to_vec().into_boxed_slice(),
                     flags: 0,
-                    ttl: None,
+                    ttl: Ttl::none(),
                     noreply: false,
                 })
             ))
@@ -118,7 +159,7 @@ mod tests {
                     key: b"0".to_vec().into_boxed_slice(),
                     value: b"0".to_vec().into_boxed_slice(),
                     flags: 0,
-                    ttl: None,
+                    ttl: Ttl::none(),
                     noreply: true,
                 })
             ))

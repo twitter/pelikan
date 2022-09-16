@@ -1,8 +1,8 @@
 [package]
 name = "segcache"
-version = "0.1.0"
+version = "0.2.0"
+edition = "2021"
 authors = ["Brian Martin <bmartin@twitter.com>"]
-edition = "2018"
 description = "a Memcache protocol server with segment-structured storage"
 homepage = "https://pelikan.io"
 repository = "https://github.com/twitter/pelikan"

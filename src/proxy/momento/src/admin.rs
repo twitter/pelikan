@@ -3,6 +3,11 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use crate::*;
+use session::Buf;
+
+gauge!(ADMIN_CONN_CURR);
+counter!(ADMIN_CONN_ACCEPT);
+counter!(ADMIN_CONN_CLOSE);
 
 pub(crate) async fn admin(mut log_drain: Box<dyn logger::Drain>, admin_listener: TcpListener) {
     loop {
@@ -12,12 +17,12 @@ pub(crate) async fn admin(mut log_drain: Box<dyn logger::Drain>, admin_listener:
         if let Ok(Ok((socket, _))) =
             timeout(Duration::from_millis(1), admin_listener.accept()).await
         {
-            TCP_CONN_CURR.increment();
-            TCP_ACCEPT.increment();
+            ADMIN_CONN_CURR.increment();
+            ADMIN_CONN_ACCEPT.increment();
             tokio::spawn(async move {
                 admin::handle_admin_client(socket).await;
-                TCP_CLOSE.increment();
-                TCP_CONN_CURR.decrement();
+                ADMIN_CONN_CLOSE.increment();
+                ADMIN_CONN_CURR.decrement();
             });
         };
 
@@ -71,7 +76,7 @@ pub(crate) async fn admin(mut log_drain: Box<dyn logger::Drain>, admin_listener:
 
 async fn handle_admin_client(mut socket: tokio::net::TcpStream) {
     // initialize a buffer for incoming bytes from the client
-    let mut buf = Buffer::with_capacity(INITIAL_BUFFER_SIZE);
+    let mut buf = Buffer::new(INITIAL_BUFFER_SIZE);
 
     // initialize the request parser
     let parser = AdminRequestParser::new();
@@ -80,15 +85,17 @@ async fn handle_admin_client(mut socket: tokio::net::TcpStream) {
             break;
         }
 
-        ADMIN_REQUEST_PARSE.increment();
-
         match parser.parse(buf.borrow()) {
             Ok(request) => {
+                ADMIN_REQUEST_PARSE.increment();
+
                 let consumed = request.consumed();
                 let request = request.into_inner();
 
                 match request {
                     AdminRequest::Stats { .. } => {
+                        ADMIN_RESPONSE_COMPOSE.increment();
+
                         if stats_response(&mut socket).await.is_err() {
                             break;
                         }
@@ -97,19 +104,16 @@ async fn handle_admin_client(mut socket: tokio::net::TcpStream) {
                         debug!("unsupported command: {:?}", request);
                     }
                 }
-                buf.consume(consumed);
+                buf.advance(consumed);
             }
-            Err(ParseError::Incomplete) => {}
-            Err(ParseError::Invalid) => {
-                // invalid request
-                let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
-                break;
-            }
-            Err(ParseError::Unknown) => {
-                // unknown command
-                let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
-                break;
-            }
+            Err(e) => match e.kind() {
+                ErrorKind::WouldBlock => {}
+                _ => {
+                    // invalid request
+                    let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
+                    break;
+                }
+            },
         }
     }
 }
@@ -161,7 +165,6 @@ async fn stats_response(socket: &mut tokio::net::TcpStream) -> Result<(), Error>
     }
 
     data.sort();
-    ADMIN_RESPONSE_COMPOSE.increment();
     for line in data {
         socket.write_all(line.as_bytes()).await?;
     }
