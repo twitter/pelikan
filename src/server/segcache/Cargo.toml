@@ -47,5 +47,8 @@ protocol-memcache = { path = "../../protocol/memcache" }
 rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
 server = { path = "../../core/server" }
 
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+jemallocator = "0.5.0"
+
 [dev-dependencies]
 criterion = "0.3"
