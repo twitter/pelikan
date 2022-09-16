@@ -1,7 +1,17 @@
 daemonize = false
 
-# NOTE: not currently implemented
 [admin]
+# interfaces listening on
+host = "0.0.0.0"
+# port listening on
+port = "9999"
+
+# enable the http admin port?
+http_enabled = true
+# http listening interface
+http_host = "0.0.0.0"
+# http listening port
+http_port = "9998"
 
 [server]
 # interfaces listening on
