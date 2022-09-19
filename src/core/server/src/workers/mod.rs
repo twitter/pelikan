@@ -61,9 +61,7 @@ where
                     .spawn(move || worker.run())
                     .unwrap()]
             }
-            Self::Multi {
-                mut workers,
-            } => {
+            Self::Multi { mut workers } => {
                 let mut join_handles = vec![];
 
                 for (id, mut worker) in workers.drain(..).enumerate() {
@@ -104,12 +102,14 @@ where
 
             let mut workers = vec![];
             for _ in 0..threads {
-                workers.push(MultiWorkerBuilder::new(config, parser.clone(), storage.clone())?)
+                workers.push(MultiWorkerBuilder::new(
+                    config,
+                    parser.clone(),
+                    storage.clone(),
+                )?)
             }
 
-            Ok(Self::Multi {
-                workers,
-            })
+            Ok(Self::Multi { workers })
         } else {
             Ok(Self::Single {
                 worker: SingleWorkerBuilder::new(config, parser, storage)?,
@@ -122,9 +122,7 @@ where
             Self::Single { worker } => {
                 vec![worker.waker()]
             }
-            Self::Multi {
-                workers,
-            } => workers.iter().map(|w| w.waker()).collect(),
+            Self::Multi { workers } => workers.iter().map(|w| w.waker()).collect(),
         }
     }
 
@@ -157,15 +155,10 @@ where
             } => {
                 let mut w = Vec::new();
                 for worker_builder in workers.drain(..) {
-                    w.push(worker_builder.build(
-                        session_queues.remove(0),
-                        signal_queues.remove(0),
-                    ));
+                    w.push(worker_builder.build(session_queues.remove(0), signal_queues.remove(0)));
                 }
 
-                Workers::Multi {
-                    workers: w,
-                }
+                Workers::Multi { workers: w }
             }
             Self::Single { worker } => Workers::Single {
                 worker: worker.build(session_queues.remove(0), signal_queues.remove(0)),

@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::collections::VecDeque;
 use super::*;
+use std::collections::VecDeque;
 
 pub struct MultiWorkerBuilder<Parser, Request, Response, Storage> {
     nevent: usize,
@@ -17,7 +17,11 @@ pub struct MultiWorkerBuilder<Parser, Request, Response, Storage> {
 }
 
 impl<Parser, Request, Response, Storage> MultiWorkerBuilder<Parser, Request, Response, Storage> {
-    pub fn new<T: WorkerConfig>(config: &T, parser: Parser, storage: Arc<Mutex<Storage>>) -> Result<Self> {
+    pub fn new<T: WorkerConfig>(
+        config: &T,
+        parser: Parser,
+        storage: Arc<Mutex<Storage>>,
+    ) -> Result<Self> {
         let config = config.worker();
 
         let poll = Poll::new()?;
