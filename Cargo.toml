@@ -23,6 +23,7 @@ members = [
     "src/server/pingserver",
     "src/server/segcache",
     "src/session",
+    "src/storage/bloom",
     "src/storage/datapool",
     "src/storage/seg",
     "src/storage/types",
