@@ -28,7 +28,7 @@ jobs:
         shell: bash
       - name: Update cargo flags
         if: ${{ matrix.profile == 'debug' }}
-        run: echo 'CARGO_FLAGS=' >> $GITHUB_ENV
+        run: echo 'CARGO_FLAGS=-C opt-level 3' >> $GITHUB_ENV
         shell: bash
 
       - uses: Swatinem/rust-cache@v1
