@@ -1,3 +1,7 @@
+// Copyright 2022 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
 //! This library contains an implementation of a bloom filter.
 //!
 //! There are two types exported by this library:

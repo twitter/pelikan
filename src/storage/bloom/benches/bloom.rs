@@ -1,3 +1,7 @@
+// Copyright 2022 Twitter, Inc.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+
 use bloom::BloomFilter;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
