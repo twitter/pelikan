@@ -55,10 +55,6 @@ pub fn tests() {
         &[("add 1 0 0 1\r\n2\r\n", Some("STORED\r\n"))],
     );
     test(
-        "get value (key: 0)",
-        &[("get 0\r\n", Some("VALUE 0 0 1\r\n1\r\nEND\r\n"))],
-    );
-    test(
         "get value (key: 1)",
         &[("get 1\r\n", Some("VALUE 1 0 1\r\n2\r\nEND\r\n"))],
     );

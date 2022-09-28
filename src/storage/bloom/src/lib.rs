@@ -1,5 +1,5 @@
 //! This library contains an implementation of a bloom filter.
-//! 
+//!
 //! There are two types exported by this library:
 //! - [`BloomFilter`] is a typed bloom filter that allows for inserting keys
 //!   and probabilistically checking whether they are present. This is what
@@ -9,20 +9,20 @@
 //!   this if you need absolute control over how items are placed in the bloom
 //!   filter or if you need to store items with different types into the same
 //!   bloom filter.
-//! 
+//!
 //! # Choosing bloom filter parameters
 //! A bloom filter only has two parameters:
 //! - _k_ - the number of bits that we set in the bloom filter for each value
 //!   inserted, and
 //! - _m_ - the size of the bloom filter in bits.
-//! 
-//! To figure out what these should be you need your desired error rate 
+//!
+//! To figure out what these should be you need your desired error rate
 //! _ε_ and a rough estimate of _n_, the number of elements that will be
 //! stored in the bloom filter. Then, the optimal values of _k_ and _m_ are
 //! given by
 //! - _k_ = - (_m_ / _n_) ln(2)
 //! - _m_ = - (_n_ ln _ε_) / (ln 2)<sup>2</sup>
-//! 
+//!
 
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
@@ -53,7 +53,7 @@ pub struct RawBloomFilter {
 impl RawBloomFilter {
     /// Create a new bloom filter with `m` bits that stores `k` hashes for each
     /// value inserted.
-    /// 
+    ///
     /// # Panics
     /// Panics if
     /// - `m` is 0
@@ -132,9 +132,9 @@ pub struct BloomFilter<T: ?Sized> {
 impl<T: Hash + ?Sized> BloomFilter<T> {
     /// Create a new bloom filter with a random seed and `m` bits which stores
     /// `k` hashes for each inserted element.
-    /// 
+    ///
     /// Note that `m` will be rounded up to the next multiple of `usize::BITS`.
-    /// 
+    ///
     /// # Panics
     /// Panics if
     /// - `m` is 0
@@ -147,9 +147,9 @@ impl<T: Hash + ?Sized> BloomFilter<T> {
 
     /// Create a bloom filter with the provided seen and `m` bits which stores
     /// `k` hashes for each inserted element.
-    /// 
+    ///
     /// Note that `m` will be rounded up to the next multiple of `usize::BITS`.
-    /// 
+    ///
     /// # Panics
     /// Panics if
     /// - `m` is 0
@@ -179,7 +179,7 @@ impl<T: Hash + ?Sized> BloomFilter<T> {
     }
 
     /// Check whether this bloom filter contains a given value.
-    /// 
+    ///
     /// This may return true even if `value` has not been inserted into the
     /// filter.
     pub fn contains(&self, value: &T) -> bool {
