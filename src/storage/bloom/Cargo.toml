@@ -1,0 +1,21 @@
+[package]
+name = "bloom"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["rand"]
+
+[dependencies]
+bitvec = "1.0.1"
+metrohash = "1.0.6"
+twox-hash = { version = "1.6.3", default-features = false }
+
+rand = { version = "0.8.5", optional = true }
+
+[dev-dependencies]
+criterion = "0.4"
+
+[[bench]]
+name = "bloom"
+harness = false
