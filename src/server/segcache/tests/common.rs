@@ -27,7 +27,7 @@ pub fn tests() {
             // store the key
             ("set 1 0 0 1\r\n1\r\n", Some("STORED\r\n")),
             // retrieve the key
-            ("get 1\r\n", Some("VALUE 1 0 1\r\n1\r\nEND\r\n"))
+            ("get 1\r\n", Some("VALUE 1 0 1\r\n1\r\nEND\r\n")),
         ],
     );
 
@@ -37,7 +37,7 @@ pub fn tests() {
             // try to cas on key that is not in the cache
             ("cas 2 0 0 1 0\r\n0\r\n", Some("NOT_FOUND\r\n")),
             // confirm that the key is still not in the cache
-            ("get 2\r\n", Some("END\r\n"))
+            ("get 2\r\n", Some("END\r\n")),
         ],
     );
 
@@ -49,7 +49,7 @@ pub fn tests() {
             // try to cas with a bad cas value
             ("cas 3 0 0 1 0\r\n0\r\n", Some("EXISTS\r\n")),
             // check that it was not updated
-            ("get 3\r\n", Some("VALUE 3 0 1\r\n3\r\nEND\r\n"))
+            ("get 3\r\n", Some("VALUE 3 0 1\r\n3\r\nEND\r\n")),
         ],
     );
 
@@ -61,7 +61,7 @@ pub fn tests() {
             // cas with the correct cas value
             ("cas 4 0 0 1 1\r\n0\r\n", Some("STORED\r\n")),
             // check that the value was updated
-            ("get 4\r\n", Some("VALUE 4 0 1\r\n0\r\nEND\r\n"))
+            ("get 4\r\n", Some("VALUE 4 0 1\r\n0\r\nEND\r\n")),
         ],
     );
 
@@ -73,7 +73,7 @@ pub fn tests() {
             // try to add a key that exists
             ("add 5 0 0 1\r\n0\r\n", Some("NOT_STORED\r\n")),
             // check that the value was not updated
-            ("get 5\r\n", Some("VALUE 5 0 1\r\n5\r\nEND\r\n"))
+            ("get 5\r\n", Some("VALUE 5 0 1\r\n5\r\nEND\r\n")),
         ],
     );
 
@@ -83,7 +83,7 @@ pub fn tests() {
             // try to add a new key
             ("add 6 0 0 1\r\n6\r\n", Some("STORED\r\n")),
             // check that the key exists now
-            ("get 6\r\n", Some("VALUE 6 0 1\r\n6\r\nEND\r\n"))
+            ("get 6\r\n", Some("VALUE 6 0 1\r\n6\r\nEND\r\n")),
         ],
     );
 
@@ -93,7 +93,7 @@ pub fn tests() {
             // try to replace a key that does not exist
             ("replace 7 0 0 1\r\n7\r\n", Some("NOT_STORED\r\n")),
             // check that the value was not stored
-            ("get 7\r\n", Some("END\r\n"))
+            ("get 7\r\n", Some("END\r\n")),
         ],
     );
 
@@ -105,7 +105,7 @@ pub fn tests() {
             // replace a key that does exist
             ("replace 8 0 0 1\r\n0\r\n", Some("STORED\r\n")),
             // check that the value was updated
-            ("get 8\r\n", Some("VALUE 8 0 1\r\n0\r\nEND\r\n"))
+            ("get 8\r\n", Some("VALUE 8 0 1\r\n0\r\nEND\r\n")),
         ],
     );
 
@@ -115,7 +115,7 @@ pub fn tests() {
             // store the key
             ("set 9 42 0 1\r\n1\r\n", Some("STORED\r\n")),
             // retrieve with correct flags
-            ("get 9\r\n", Some("VALUE 9 42 1\r\n1\r\nEND\r\n"))
+            ("get 9\r\n", Some("VALUE 9 42 1\r\n1\r\nEND\r\n")),
         ],
     );
 
@@ -130,11 +130,17 @@ pub fn tests() {
     );
     test(
         "pipelined get and add (key 4, depth 2)",
-        &[("get 12 \r\nadd 12 0 0 1\r\n1\r\n", Some("END\r\nSTORED\r\n"))],
+        &[(
+            "get 12 \r\nadd 12 0 0 1\r\n1\r\n",
+            Some("END\r\nSTORED\r\n"),
+        )],
     );
     test(
         "pipelined get and set (key 5, depth 2)",
-        &[("get 13 \r\nset 13 0 0 1 \r\n1\r\n", Some("END\r\nSTORED\r\n"))],
+        &[(
+            "get 13 \r\nset 13 0 0 1 \r\n1\r\n",
+            Some("END\r\nSTORED\r\n"),
+        )],
     );
     test(
         "pipelined set and get (key 6, depth 3)",
@@ -145,7 +151,10 @@ pub fn tests() {
     );
 
     // test increment
-    test("incr not_found", &[("incr 15 1\r\n", Some("NOT_FOUND\r\n"))]);
+    test(
+        "incr not_found",
+        &[("incr 15 1\r\n", Some("NOT_FOUND\r\n"))],
+    );
     test(
         "incr stored",
         &[
@@ -154,7 +163,7 @@ pub fn tests() {
             // increment it
             ("incr 15 1\r\n", Some("1\r\n")),
             // increment it again
-            ("incr 15 2\r\n", Some("3\r\n"))
+            ("incr 15 2\r\n", Some("3\r\n")),
         ],
     );
     test(
@@ -182,15 +191,12 @@ pub fn tests() {
             // decrement it again
             ("decr 18 2\r\n", Some("7\r\n")),
             // decrement it again, saturates at zero
-            ("decr 18 255\r\n", Some("0\r\n"))
+            ("decr 18 255\r\n", Some("0\r\n")),
         ],
     );
 
     // test unsupported commands
-    test(
-        "append",
-        &[("append 7 0 0 1\r\n0\r\n", Some("ERROR\r\n"))],
-    );
+    test("append", &[("append 7 0 0 1\r\n0\r\n", Some("ERROR\r\n"))]);
     test(
         "prepend",
         &[("prepend 8 0 0 1\r\n0\r\n", Some("ERROR\r\n"))],
