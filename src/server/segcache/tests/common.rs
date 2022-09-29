@@ -16,140 +16,183 @@ pub fn tests() {
     debug!("beginning tests");
     println!();
 
-    test(
-        "cas not found (key: 0)",
-        &[("cas 0 0 0 1 1\r\n0\r\n", Some("NOT_FOUND\r\n"))],
-    );
-    test("get empty (key: 0)", &[("get 0\r\n", Some("END\r\n"))]);
-    test("gets empty (key: 0)", &[("gets 0\r\n", Some("END\r\n"))]);
-    test(
-        "cas not found (key: 0)",
-        &[("cas 0 0 0 1 0\r\n0\r\n", Some("NOT_FOUND\r\n"))],
-    );
-    test(
-        "set value (key: 0)",
-        &[("set 0 0 0 1\r\n1\r\n", Some("STORED\r\n"))],
-    );
-    test(
-        "get value (key: 0)",
-        &[("get 0\r\n", Some("VALUE 0 0 1\r\n1\r\nEND\r\n"))],
-    );
-    test(
-        "gets value (key: 0)",
-        &[("gets 0\r\n", Some("VALUE 0 0 1 1\r\n1\r\nEND\r\n"))],
-    );
-    test(
-        "cas fail (key: 0)",
-        &[("cas 0 0 0 1 0\r\n1\r\n", Some("EXISTS\r\n"))],
-    );
-    test(
-        "cas success (key: 0)",
-        &[("cas 0 0 0 1 1\r\n1\r\n", Some("STORED\r\n"))],
-    );
-    test(
-        "add value (key: 0)",
-        &[("add 0 0 0 1\r\n2\r\n", Some("NOT_STORED\r\n"))],
-    );
-    test(
-        "add value (key: 1)",
-        &[("add 1 0 0 1\r\n2\r\n", Some("STORED\r\n"))],
-    );
-    test(
-        "get value (key: 1)",
-        &[("get 1\r\n", Some("VALUE 1 0 1\r\n2\r\nEND\r\n"))],
-    );
-    test(
-        "replace value (key: 1)",
-        &[("replace 1 0 0 1\r\n3\r\n", Some("STORED\r\n"))],
-    );
-    test(
-        "replace value (key: 2)",
-        &[("replace 2 0 0 1\r\n2\r\n", Some("NOT_STORED\r\n"))],
-    );
-    test(
-        "get value (key: 1)",
-        &[("get 1\r\n", Some("VALUE 1 0 1\r\n3\r\nEND\r\n"))],
-    );
-    test("get value (key: 2)", &[("get 2\r\n", Some("END\r\n"))]);
+    // get and gets on a key that is not in the cache results in a miss
+    test("get miss", &[("get 0\r\n", Some("END\r\n"))]);
+    test("gets miss", &[("gets 0\r\n", Some("END\r\n"))]);
 
-    // test storing and retrieving flags
+    // check that we can store and retrieve a key
     test(
-        "set value (key: 3)",
-        &[("set 3 42 0 1\r\n1\r\n", Some("STORED\r\n"))],
+        "set and get",
+        &[
+            // store the key
+            ("set 1 0 0 1\r\n1\r\n", Some("STORED\r\n")),
+            // retrieve the key
+            ("get 1\r\n", Some("VALUE 1 0 1\r\n1\r\nEND\r\n"))
+        ],
     );
+
     test(
-        "get value (key: 3)",
-        &[("get 3\r\n", Some("VALUE 3 42 1\r\n1\r\nEND\r\n"))],
+        "cas not_found",
+        &[
+            // try to cas on key that is not in the cache
+            ("cas 2 0 0 1 0\r\n0\r\n", Some("NOT_FOUND\r\n")),
+            // confirm that the key is still not in the cache
+            ("get 2\r\n", Some("END\r\n"))
+        ],
+    );
+
+    test(
+        "cas exists",
+        &[
+            // store the key
+            ("set 3 0 0 1\r\n3\r\n", Some("STORED\r\n")),
+            // try to cas with a bad cas value
+            ("cas 3 0 0 1 0\r\n0\r\n", Some("EXISTS\r\n")),
+            // check that it was not updated
+            ("get 3\r\n", Some("VALUE 3 0 1\r\n3\r\nEND\r\n"))
+        ],
+    );
+
+    test(
+        "cas stored",
+        &[
+            // store the key
+            ("set 4 0 0 1\r\n4\r\n", Some("STORED\r\n")),
+            // cas with the correct cas value
+            ("cas 4 0 0 1 1\r\n0\r\n", Some("STORED\r\n")),
+            // check that the value was updated
+            ("get 4\r\n", Some("VALUE 4 0 1\r\n0\r\nEND\r\n"))
+        ],
+    );
+
+    test(
+        "add not_stored",
+        &[
+            // store the key
+            ("set 5 0 0 1\r\n5\r\n", Some("STORED\r\n")),
+            // try to add a key that exists
+            ("add 5 0 0 1\r\n0\r\n", Some("NOT_STORED\r\n")),
+            // check that the value was not updated
+            ("get 5\r\n", Some("VALUE 5 0 1\r\n5\r\nEND\r\n"))
+        ],
+    );
+
+    test(
+        "add stored",
+        &[
+            // try to add a new key
+            ("add 6 0 0 1\r\n6\r\n", Some("STORED\r\n")),
+            // check that the key exists now
+            ("get 6\r\n", Some("VALUE 6 0 1\r\n6\r\nEND\r\n"))
+        ],
+    );
+
+    test(
+        "replace not_stored",
+        &[
+            // try to replace a key that does not exist
+            ("replace 7 0 0 1\r\n7\r\n", Some("NOT_STORED\r\n")),
+            // check that the value was not stored
+            ("get 7\r\n", Some("END\r\n"))
+        ],
+    );
+
+    test(
+        "replace stored",
+        &[
+            // store the key
+            ("set 8 0 0 1\r\n8\r\n", Some("STORED\r\n")),
+            // replace a key that does exist
+            ("replace 8 0 0 1\r\n0\r\n", Some("STORED\r\n")),
+            // check that the value was updated
+            ("get 8\r\n", Some("VALUE 8 0 1\r\n0\r\nEND\r\n"))
+        ],
+    );
+
+    test(
+        "set flags",
+        &[
+            // store the key
+            ("set 9 42 0 1\r\n1\r\n", Some("STORED\r\n")),
+            // retrieve with correct flags
+            ("get 9\r\n", Some("VALUE 9 42 1\r\n1\r\nEND\r\n"))
+        ],
     );
 
     // test pipelined commands
     test(
         "pipelined get (key: 4 depth: 2)",
-        &[("get 4\r\nget 4\r\n", Some("END\r\nEND\r\n"))],
+        &[("get 10\r\nget 10\r\n", Some("END\r\nEND\r\n"))],
     );
     test(
         "pipelined get and invalid (key 4, depth 2)",
-        &[("get 4\r\n ", Some("END\r\n"))],
+        &[("get 11\r\n ", Some("END\r\n"))],
     );
     test(
         "pipelined get and add (key 4, depth 2)",
-        &[("get 4 \r\nadd 4 0 0 1\r\n1\r\n", Some("END\r\nSTORED\r\n"))],
+        &[("get 12 \r\nadd 12 0 0 1\r\n1\r\n", Some("END\r\nSTORED\r\n"))],
     );
     test(
         "pipelined get and set (key 5, depth 2)",
-        &[("get 5 \r\nset 5 0 0 1 \r\n1\r\n", Some("END\r\nSTORED\r\n"))],
+        &[("get 13 \r\nset 13 0 0 1 \r\n1\r\n", Some("END\r\nSTORED\r\n"))],
     );
     test(
         "pipelined set and get (key 6, depth 3)",
         &[(
-            "set 6 0 0 2 \r\nhi\r\nset 6 0 0 6\r\nhello!\r\nget 6 \r\n",
-            Some("STORED\r\nSTORED\r\nVALUE 6 0 6\r\nhello!\r\nEND\r\n"),
+            "set 14 0 0 2 \r\nhi\r\nset 14 0 0 6\r\nhello!\r\nget 14 \r\n",
+            Some("STORED\r\nSTORED\r\nVALUE 14 0 6\r\nhello!\r\nEND\r\n"),
         )],
     );
 
     // test increment
-    test("incr (key: 9)", &[("incr 9 1\r\n", Some("NOT_FOUND\r\n"))]);
+    test("incr not_found", &[("incr 15 1\r\n", Some("NOT_FOUND\r\n"))]);
     test(
-        "set value (key: 9)",
-        &[("set 9 0 0 1\r\n0\r\n", Some("STORED\r\n"))],
+        "incr stored",
+        &[
+            // set the key
+            ("set 15 0 0 1\r\n0\r\n", Some("STORED\r\n")),
+            // increment it
+            ("incr 15 1\r\n", Some("1\r\n")),
+            // increment it again
+            ("incr 15 2\r\n", Some("3\r\n"))
+        ],
     );
-    test("incr (key: 9)", &[("incr 9 1\r\n", Some("1\r\n"))]);
-    test("incr (key: 9)", &[("incr 9 2\r\n", Some("3\r\n"))]);
     test(
-        "incr (key: 9)",
-        &[(&format!("incr 9 {}\r\n", u64::MAX), Some("2\r\n"))],
+        "incr error",
+        &[
+            // set the key
+            ("set 16 0 0 1\r\na\r\n", Some("STORED\r\n")),
+            // increment non-numeric value is an error
+            ("incr 16 1\r\n", Some("ERROR\r\n")),
+        ],
     );
-    test(
-        "set value (key: 9)",
-        &[("set 9 0 0 1\r\na\r\n", Some("STORED\r\n"))],
-    );
-    test("incr (key: 9)", &[("incr 9 1\r\n", Some("ERROR\r\n"))]);
 
     // test decrement
     test(
-        "decr (key: 10)",
-        &[("decr 10 1\r\n", Some("NOT_FOUND\r\n"))],
+        "decr not_found",
+        &[("decr 17 1\r\n", Some("NOT_FOUND\r\n"))],
     );
     test(
-        "set value (key: 10)",
-        &[("set 10 0 0 2\r\n10\r\n", Some("STORED\r\n"))],
+        "decr stored",
+        &[
+            // set the key
+            ("set 18 0 0 2\r\n10\r\n", Some("STORED\r\n")),
+            // decrement it
+            ("decr 18 1\r\n", Some("9\r\n")),
+            // decrement it again
+            ("decr 18 2\r\n", Some("7\r\n")),
+            // decrement it again, saturates at zero
+            ("decr 18 255\r\n", Some("0\r\n"))
+        ],
     );
-    test("decr (key: 10)", &[("decr 10 1\r\n", Some("9\r\n"))]);
-    test("decr (key: 10)", &[("decr 10 2\r\n", Some("7\r\n"))]);
-    test("decr (key: 10)", &[("decr 10 8\r\n", Some("0\r\n"))]);
-    test(
-        "set value (key: 10)",
-        &[("set 10 0 0 1\r\na\r\n", Some("STORED\r\n"))],
-    );
-    test("decr (key: 10)", &[("decr 10 1\r\n", Some("ERROR\r\n"))]);
 
     // test unsupported commands
     test(
-        "append (key: 7)",
+        "append",
         &[("append 7 0 0 1\r\n0\r\n", Some("ERROR\r\n"))],
     );
     test(
-        "prepend (key: 8)",
+        "prepend",
         &[("prepend 8 0 0 1\r\n0\r\n", Some("ERROR\r\n"))],
     );
 
