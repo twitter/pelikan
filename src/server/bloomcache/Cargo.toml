@@ -1,0 +1,16 @@
+[package]
+name = "bloomcache"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+backtrace = "0.3.56"
+clap = "4.0.4"
+common = { path = "../../common" }
+config = { path = "../../config" }
+entrystore = { path = "../../entrystore" }
+logger = { path = "../../logger" }
+protocol-http = { path="../../protocol/http" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+server = { path = "../../core/server" }
