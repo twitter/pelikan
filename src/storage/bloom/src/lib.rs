@@ -24,8 +24,8 @@
 //! _ε_ and a rough estimate of _n_, the number of elements that will be
 //! stored in the bloom filter. Then, the optimal values of _k_ and _m_ are
 //! given by
-//! - _k_ = - (_m_ / _n_) ln(2)
-//! - _m_ = - (_n_ ln _ε_) / (ln 2)<sup>2</sup>
+//! - _k_ = (_m_ / _n_) ln(2)
+//! - _m_ = -(_n_ ln _ε_) / (ln 2)<sup>2</sup>
 //!
 
 use std::hash::{Hash, Hasher};
