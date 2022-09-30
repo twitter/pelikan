@@ -3,11 +3,11 @@ name = "momento_proxy"
 description = "a proxy to access Momento cache(s) over memcache protocol"
 authors = ["Brian Martin <brayniac@gmail.com>"]
 
-version.workspace = true
-edition.workspace = true
-homepage.workspace = true
-repository.workspace = true
-license.workspace = true
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [dependencies]
 backtrace = { workspace = true }

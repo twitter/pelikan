@@ -3,11 +3,11 @@ name = "entrystore"
 description = "a collection of entry storage types for use in Pelikan servers"
 authors = ["Brian Martin <bmartin@twitter.com>"]
 
-version.workspace = true
-edition.workspace = true
-homepage.workspace = true
-repository.workspace = true
-license.workspace = true
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [features]
 debug = ["seg/debug"]

@@ -3,11 +3,11 @@ name = "protocol-common"
 description = "Traits and shared code for Pelikan protocols"
 authors = ["Brian Martin <bmartin@twitter.com>"]
 
-version.workspace = true
-edition.workspace = true
-homepage.workspace = true
-repository.workspace = true
-license.workspace = true
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [dependencies]
 bytes = { workspace = true }

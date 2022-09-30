@@ -3,11 +3,11 @@ name = "queues"
 description = "queue types for inter-process communication"
 authors = ["Brian Martin <bmartin@twitter.com>"]
 
-version.workspace = true
-edition.workspace = true
-homepage.workspace = true
-repository.workspace = true
-license.workspace = true
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [dependencies]
 crossbeam-queue = { workspace = true }

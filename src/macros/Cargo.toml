@@ -3,11 +3,11 @@ name = "macros"
 description = "Utility macros for use within pelikan"
 authors = ["Sean Lynch <seanl@twitter.com>"]
 
-version.workspace = true
-edition.workspace = true
-homepage.workspace = true
-repository.workspace = true
-license.workspace = true
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [lib]
 proc-macro = true

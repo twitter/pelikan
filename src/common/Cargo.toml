@@ -3,14 +3,14 @@ name = "common"
 description = "common types, traits, and helper functions for Pelikan servers"
 authors = ["Brian Martin <bmartin@twitter.com>"]
 
-version.workspace = true
-edition.workspace = true
-homepage.workspace = true
-repository.workspace = true
-license.workspace = true
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [dependencies]
-boring.workspace = true
+boring = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 net = { path = "../net" }
 macros = { path = "../macros" }

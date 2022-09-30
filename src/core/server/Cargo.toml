@@ -3,11 +3,11 @@ name = "server"
 description = "core server event loops and threads for Pelikan servers"
 authors = ["Brian Martin <bmartin@twitter.com>"]
 
-version.workspace = true
-edition.workspace = true
-homepage.workspace = true
-repository.workspace = true
-license.workspace = true
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [dependencies]
 admin = { path = "../admin" }
