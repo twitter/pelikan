@@ -5,7 +5,7 @@
 use config::*;
 use entrystore::Bloom;
 use logger::*;
-use protocol_http::{ParseResult, RequestParser, Response};
+use protocol_http::{request::ParseData, RequestParser, Response};
 use server::{Process, ProcessBuilder};
 
 type Parser = RequestParser;
@@ -24,7 +24,7 @@ impl BloomCache {
         let storage = Storage::new(&config)?;
         let parser = Parser::new();
 
-        let builder = ProcessBuilder::<Parser, ParseResult, Response, Storage>::new(
+        let builder = ProcessBuilder::<Parser, ParseData, Response, Storage>::new(
             &config, log, parser, storage,
         )?
         .version(env!("CARGO_PKG_VERSION"));

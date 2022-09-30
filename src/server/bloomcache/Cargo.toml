@@ -1,12 +1,12 @@
 [package]
-name = "bloomcache"
+name = "pelikan_bloomcache"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 
 backtrace = "0.3.56"
-clap = "4.0.4"
+clap = "2.33.3"
 common = { path = "../../common" }
 config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
