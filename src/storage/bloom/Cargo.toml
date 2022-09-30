@@ -11,8 +11,8 @@ license.workspace = true
 default = ["rand"]
 
 [dependencies]
-bitvec.workspace = true
-metrohash.workspace = true
+bitvec = { workspace = true }
+metrohash = { workspace = true }
 twox-hash = { workspace = true, default-features = false }
 rand = { workspace = true, optional = true }
 

@@ -26,17 +26,17 @@ debug = ["magic"]
 default = []
 
 [dependencies]
-ahash.workspace = true
+ahash = { workspace = true }
 common = { path = "../../common" }
 datapool = { path = "../datapool" }
 logger = { path = "../../logger" }
-memmap2.workspace = true
+memmap2 = { workspace = true }
 rand = { workspace = true , features = ["small_rng", "getrandom"] }
-rand_chacha.workspace = true
-rand_xoshiro.workspace = true
-rustcommon-metrics.workspace = true
+rand_chacha = { workspace = true }
+rand_xoshiro = { workspace = true }
+rustcommon-metrics = { workspace = true }
 storage-types = { path = "../types" }
-thiserror.workspace = true
+thiserror = { workspace = true }
 
 [dev-dependencies]
 criterion = "0.3.4"

@@ -15,9 +15,9 @@ harness = false
 [dependencies]
 common = { path = "../../common" }
 logger = { path = "../../logger" }
-nom.workspace = true
+nom = { workspace = true }
 protocol-common = { path = "../../protocol/common" }
-rustcommon-metrics.workspace = true
+rustcommon-metrics = { workspace = true }
 
 [dev-dependencies]
 criterion = "0.3.4"

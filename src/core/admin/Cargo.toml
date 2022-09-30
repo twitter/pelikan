@@ -11,16 +11,16 @@ license.workspace = true
 [dependencies]
 common = { path = "../../common" }
 config = { path = "../../config" }
-crossbeam-channel.workspace = true
+crossbeam-channel = { workspace = true }
 entrystore = { path = "../../entrystore" }
-libc.workspace = true
+libc = { workspace = true }
 logger = { path = "../../logger" }
 net = { path = "../../net" }
 protocol-admin = { path = "../../protocol/admin" }
 protocol-common = { path = "../../protocol/common" }
 queues = { path = "../../queues" }
-rustcommon-metrics.workspace = true
+rustcommon-metrics = { workspace = true }
 session = { path = "../../session" }
-slab.workspace = true
-tiny_http.workspace = true
+slab = { workspace = true }
+tiny_http = { workspace = true }
 waker = { path = "../waker" }

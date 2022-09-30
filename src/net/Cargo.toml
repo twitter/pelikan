@@ -10,9 +10,9 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-boring.workspace = true
-boring-sys.workspace = true
-foreign-types-shared.workspace = true
-libc.workspace = true
+boring = { workspace = true }
+boring-sys = { workspace = true }
+foreign-types-shared = { workspace = true }
+libc = { workspace = true }
 mio = { workspace = true, features = ["os-poll", "net"] }
-rustcommon-metrics.workspace = true
+rustcommon-metrics = { workspace = true }

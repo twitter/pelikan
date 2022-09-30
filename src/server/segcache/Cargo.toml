@@ -38,14 +38,14 @@ harness = false
 debug = ["entrystore/debug"]
 
 [dependencies]
-backtrace.workspace = true
-clap.workspace = true
+backtrace = { workspace = true }
+clap = { workspace = true }
 common = { path = "../../common" }
 config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
 protocol-memcache = { path = "../../protocol/memcache" }
-rustcommon-metrics.workspace = true
+rustcommon-metrics = { workspace = true }
 server = { path = "../../core/server" }
 
 [dev-dependencies]

@@ -10,6 +10,6 @@ license.workspace = true
 
 [dependencies]
 common = { path = "../../common" }
-nom.workspace = true
+nom = { workspace = true }
 protocol-common = { path = "../../protocol/common" }
-rustcommon-metrics.workspace = true
+rustcommon-metrics = { workspace = true }

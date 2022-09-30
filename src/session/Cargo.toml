@@ -9,9 +9,9 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-bytes.workspace = true
-log.workspace = true
+bytes = { workspace = true }
+log = { workspace = true }
 net = { path = "../net" }
 protocol-common = { path = "../protocol/common" }
-rustcommon-metrics.workspace = true
-rustcommon-time.workspace = true
+rustcommon-metrics = { workspace = true }
+rustcommon-time = { workspace = true }

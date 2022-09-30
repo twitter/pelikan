@@ -19,11 +19,11 @@ path = "src/main.rs"
 doc = false
 
 [dependencies]
-backtrace.workspace = true
-clap.workspace = true
+backtrace = { workspace = true }
+clap = { workspace = true }
 common = { path = "../../common" }
 config = { path = "../../config" }
 logger = { path = "../../logger" }
 proxy = { path = "../../core/proxy" }
 protocol-thrift = { path = "../../protocol/thrift" }
-rustcommon-metrics.workspace = true
+rustcommon-metrics = { workspace = true }

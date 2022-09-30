@@ -14,7 +14,7 @@ common = { path = "../../common" }
 config = { path = "../../config" }
 logger = { path = "../../logger" }
 protocol-common = { path = "../../protocol/common" }
-rustcommon-metrics.workspace = true
+rustcommon-metrics = { workspace = true }
 storage-types = { path = "../../storage/types" }
 
 [dev-dependencies]

@@ -10,4 +10,4 @@ license.workspace = true
 [dependencies]
 common = { path = "../common" }
 config = { path = "../config" }
-rustcommon-logger.workspace = true
+rustcommon-logger = { workspace = true }

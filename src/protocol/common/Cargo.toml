@@ -10,7 +10,7 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-bytes.workspace = true
+bytes = { workspace = true }
 common = { path = "../../common" }
 config = { path = "../../config" }
 logger = { path = "../../logger" }

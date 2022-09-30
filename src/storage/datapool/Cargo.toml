@@ -10,10 +10,10 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-blake3.workspace = true
+blake3 = { workspace = true }
 common = { path = "../../common" }
-libc.workspace = true
-memmap2.workspace = true
+libc = { workspace = true }
+memmap2 = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.3.0"

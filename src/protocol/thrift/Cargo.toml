@@ -12,4 +12,4 @@ license.workspace = true
 common = { path = "../../common" }
 logger = { path = "../../logger" }
 protocol-common = { path = "../../protocol/common" }
-rustcommon-metrics.workspace = true
+rustcommon-metrics = { workspace = true }

@@ -10,9 +10,9 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-crossbeam-queue.workspace = true
-rand.workspace = true
-rand_chacha.workspace = true
+crossbeam-queue = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
 waker = { path = "../core/waker" }
 
 [dev-dependencies]

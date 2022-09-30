@@ -13,14 +13,14 @@ license.workspace = true
 admin = { path = "../admin" }
 common = { path = "../../common" }
 config = { path = "../../config" }
-crossbeam-channel.workspace = true
+crossbeam-channel = { workspace = true }
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
 net = { path = "../../net" }
 protocol-admin = { path = "../../protocol/admin" }
 protocol-common = { path = "../../protocol/common" }
 queues = { path = "../../queues" }
-rustcommon-metrics.workspace = true
+rustcommon-metrics = { workspace = true }
 session = { path = "../../session" }
-slab.workspace = true
+slab = { workspace = true }
 waker = { path = "../waker" }

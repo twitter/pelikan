@@ -30,14 +30,14 @@ path = "benches/benchmark.rs"
 harness = false
 
 [dependencies]
-backtrace.workspace = true
-clap.workspace = true
+backtrace = { workspace = true }
+clap = { workspace = true }
 common = { path = "../../common" }
 config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
 protocol-ping = { path = "../../protocol/ping", features = ["server"] }
-rustcommon-metrics.workspace = true
+rustcommon-metrics = { workspace = true }
 server = { path = "../../core/server" }
 
 [dev-dependencies]
