@@ -2,8 +2,6 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::io::Write;
-
 use bytes::buf::UninitSlice;
 use protocol_common::BufMut;
 
@@ -31,10 +29,6 @@ where
     }
 
     unsafe fn advance_mut(&mut self, cnt: usize) {
-        let data = self.chunk_mut();
-        let slice = std::slice::from_raw_parts(data.as_mut_ptr(), cnt);
-        let _ = std::io::stdout().write_all(slice);
-
         self.count += cnt;
         self.buf.advance_mut(cnt)
     }
