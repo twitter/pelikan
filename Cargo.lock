@@ -31,7 +31,7 @@ dependencies = [
  "protocol-admin",
  "protocol-common",
  "queues",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
  "session",
  "slab",
  "tiny_http",
@@ -468,8 +468,8 @@ dependencies = [
  "macros",
  "net",
  "rustcommon-logger",
- "rustcommon-metrics",
- "rustcommon-time",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
+ "rustcommon-time 0.0.13 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
  "serde",
 ]
 
@@ -696,9 +696,11 @@ checksum = "90e5c1c8368803113bf0c9584fc495a58b86dc8a29edbf8fe877d21d9507e797"
 name = "entrystore"
 version = "0.3.0"
 dependencies = [
+ "bloom",
  "common",
  "config",
  "protocol-common",
+ "protocol-http",
  "protocol-memcache",
  "protocol-ping",
  "seg",
@@ -891,8 +893,18 @@ name = "heatmap"
 version = "0.0.0"
 source = "git+https://github.com/twitter/rustcommon?rev=87e0c87#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
 dependencies = [
- "histogram",
- "rustcommon-time",
+ "histogram 0.0.0 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
+ "rustcommon-time 0.0.13 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
+ "thiserror",
+]
+
+[[package]]
+name = "heatmap"
+version = "0.0.0"
+source = "git+https://github.com/twitter/rustcommon#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
+dependencies = [
+ "histogram 0.0.0 (git+https://github.com/twitter/rustcommon)",
+ "rustcommon-time 0.0.13 (git+https://github.com/twitter/rustcommon)",
  "thiserror",
 ]
 
@@ -918,6 +930,14 @@ dependencies = [
 name = "histogram"
 version = "0.0.0"
 source = "git+https://github.com/twitter/rustcommon?rev=87e0c87#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "histogram"
+version = "0.0.0"
+source = "git+https://github.com/twitter/rustcommon#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
 dependencies = [
  "thiserror",
 ]
@@ -1339,7 +1359,7 @@ dependencies = [
  "protocol-admin",
  "protocol-memcache",
  "protocol-resp",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
  "session",
  "storage-types",
  "tokio",
@@ -1366,7 +1386,7 @@ dependencies = [
  "foreign-types-shared",
  "libc",
  "mio 0.8.4",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
 ]
 
 [[package]]
@@ -1513,6 +1533,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
+name = "pelikan_bloomcache"
+version = "0.1.0"
+dependencies = [
+ "backtrace",
+ "clap 2.34.0",
+ "common",
+ "config",
+ "entrystore",
+ "logger",
+ "protocol-http",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon)",
+ "server",
+]
+
+[[package]]
 name = "pem"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1535,6 +1570,48 @@ checksum = "e6d5014253a1331579ce62aa67443b4a658c5e7dd03d4bc6d302b94474888143"
 dependencies = [
  "fixedbitset",
  "indexmap",
+]
+
+[[package]]
+name = "phf"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "928c6535de93548188ef63bb7c4036bd415cd8f36ad25af44b9789b2ee72a48c"
+dependencies = [
+ "phf_macros",
+ "phf_shared",
+]
+
+[[package]]
+name = "phf_generator"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1181c94580fa345f50f19d738aaa39c0ed30a600d95cb2d3e23f94266f14fbf"
+dependencies = [
+ "phf_shared",
+ "rand",
+]
+
+[[package]]
+name = "phf_macros"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92aacdc5f16768709a569e913f7451034034178b05bdc8acda226659a3dccc66"
+dependencies = [
+ "phf_generator",
+ "phf_shared",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "phf_shared"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1fb5f6f826b772a8d4c0394209441e7d37cbbb967ae9c7e0e8134365c9ee676"
+dependencies = [
+ "siphasher",
 ]
 
 [[package]]
@@ -1580,7 +1657,7 @@ dependencies = [
  "logger",
  "protocol-ping",
  "proxy",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
 ]
 
 [[package]]
@@ -1595,7 +1672,7 @@ dependencies = [
  "entrystore",
  "logger",
  "protocol-ping",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
  "server",
 ]
 
@@ -1715,7 +1792,7 @@ dependencies = [
  "criterion 0.3.6",
  "logger",
  "protocol-common",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
  "storage-types",
 ]
 
@@ -1732,6 +1809,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "protocol-http"
+version = "0.1.0"
+dependencies = [
+ "arrayvec 0.7.2",
+ "bytes 1.2.1",
+ "httparse",
+ "logger",
+ "phf",
+ "protocol-common",
+ "thiserror",
+ "urlencoding",
+]
+
+[[package]]
 name = "protocol-memcache"
 version = "0.3.0"
 dependencies = [
@@ -1740,7 +1831,7 @@ dependencies = [
  "logger",
  "nom 5.1.2",
  "protocol-common",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
 ]
 
 [[package]]
@@ -1752,7 +1843,7 @@ dependencies = [
  "criterion 0.3.6",
  "logger",
  "protocol-common",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
  "storage-types",
 ]
 
@@ -1763,7 +1854,7 @@ dependencies = [
  "common",
  "nom 5.1.2",
  "protocol-common",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
 ]
 
 [[package]]
@@ -1773,7 +1864,7 @@ dependencies = [
  "common",
  "logger",
  "protocol-common",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
 ]
 
 [[package]]
@@ -1790,7 +1881,7 @@ dependencies = [
  "protocol-admin",
  "protocol-common",
  "queues",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
  "session",
  "slab",
  "waker",
@@ -1961,8 +2052,8 @@ dependencies = [
  "ahash",
  "log",
  "mpmc",
- "rustcommon-metrics",
- "rustcommon-time",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
+ "rustcommon-time 0.0.13 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
 ]
 
 [[package]]
@@ -1970,12 +2061,25 @@ name = "rustcommon-metrics"
 version = "0.1.2"
 source = "git+https://github.com/twitter/rustcommon?rev=87e0c87#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
 dependencies = [
- "heatmap",
+ "heatmap 0.0.0 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
  "linkme",
  "once_cell",
  "parking_lot",
- "rustcommon-metrics-derive",
- "rustcommon-time",
+ "rustcommon-metrics-derive 0.1.1 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
+ "rustcommon-time 0.0.13 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
+]
+
+[[package]]
+name = "rustcommon-metrics"
+version = "0.1.2"
+source = "git+https://github.com/twitter/rustcommon#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
+dependencies = [
+ "heatmap 0.0.0 (git+https://github.com/twitter/rustcommon)",
+ "linkme",
+ "once_cell",
+ "parking_lot",
+ "rustcommon-metrics-derive 0.1.1 (git+https://github.com/twitter/rustcommon)",
+ "rustcommon-time 0.0.13 (git+https://github.com/twitter/rustcommon)",
 ]
 
 [[package]]
@@ -1990,9 +2094,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustcommon-metrics-derive"
+version = "0.1.1"
+source = "git+https://github.com/twitter/rustcommon#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "rustcommon-time"
 version = "0.0.13"
 source = "git+https://github.com/twitter/rustcommon?rev=87e0c87#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
+dependencies = [
+ "lazy_static",
+ "libc",
+ "mach",
+ "time 0.3.14",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "rustcommon-time"
+version = "0.0.13"
+source = "git+https://github.com/twitter/rustcommon#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
 dependencies = [
  "lazy_static",
  "libc",
@@ -2103,7 +2230,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "rand_xoshiro",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
  "storage-types",
  "thiserror",
 ]
@@ -2120,7 +2247,7 @@ dependencies = [
  "entrystore",
  "logger",
  "protocol-memcache",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
  "server",
 ]
 
@@ -2179,7 +2306,7 @@ dependencies = [
  "protocol-admin",
  "protocol-common",
  "queues",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
  "session",
  "slab",
  "waker",
@@ -2193,8 +2320,8 @@ dependencies = [
  "log",
  "net",
  "protocol-common",
- "rustcommon-metrics",
- "rustcommon-time",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
+ "rustcommon-time 0.0.13 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
 ]
 
 [[package]]
@@ -2223,6 +2350,12 @@ dependencies = [
  "thiserror",
  "time 0.3.14",
 ]
+
+[[package]]
+name = "siphasher"
+version = "0.3.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
 
 [[package]]
 name = "slab"
@@ -2360,7 +2493,7 @@ dependencies = [
  "logger",
  "protocol-thrift",
  "proxy",
- "rustcommon-metrics",
+ "rustcommon-metrics 0.1.2 (git+https://github.com/twitter/rustcommon?rev=87e0c87)",
 ]
 
 [[package]]
@@ -2722,6 +2855,12 @@ dependencies = [
  "idna",
  "percent-encoding",
 ]
+
+[[package]]
+name = "urlencoding"
+version = "2.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8db7427f936968176eaa7cdf81b7f98b980b18495ec28f1b5791ac3bfe3eea9"
 
 [[package]]
 name = "vec_map"
