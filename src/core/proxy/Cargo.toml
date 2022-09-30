@@ -1,26 +1,25 @@
 [package]
 name = "proxy"
-version = "0.0.2"
-edition = "2021"
 authors = ["Brian Martin <bmartin@twitter.com>"]
-homepage = "https://pelikan.io"
-repository = "https://github.com/twitter/pelikan"
-license = "Apache-2.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 admin = { path = "../admin" }
 common = { path = "../../common" }
 config = { path = "../../config" }
-crossbeam-channel = "0.5.0"
+crossbeam-channel.workspace = true
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
 net = { path = "../../net" }
 protocol-admin = { path = "../../protocol/admin" }
 protocol-common = { path = "../../protocol/common" }
 queues = { path = "../../queues" }
-rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-metrics.workspace = true
 session = { path = "../../session" }
-slab = "0.4.2"
+slab.workspace = true
 waker = { path = "../waker" }

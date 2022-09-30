@@ -1,27 +1,26 @@
 [package]
 name = "admin"
-version = "0.1.0"
-edition = "2021"
 authors = ["Brian Martin <bmartin@twitter.com>"]
-homepage = "https://pelikan.io"
-repository = "https://github.com/twitter/pelikan"
-license = "Apache-2.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 common = { path = "../../common" }
 config = { path = "../../config" }
-crossbeam-channel = "0.5.0"
+crossbeam-channel.workspace = true
 entrystore = { path = "../../entrystore" }
-libc = "0.2.132"
+libc.workspace = true
 logger = { path = "../../logger" }
 net = { path = "../../net" }
 protocol-admin = { path = "../../protocol/admin" }
 protocol-common = { path = "../../protocol/common" }
 queues = { path = "../../queues" }
-rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-metrics.workspace = true
 session = { path = "../../session" }
-slab = "0.4.2"
-tiny_http = "0.11.0"
+slab.workspace = true
+tiny_http.workspace = true
 waker = { path = "../waker" }

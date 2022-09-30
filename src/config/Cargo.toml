@@ -1,19 +1,20 @@
 [package]
 name = "config"
-version = "0.1.1"
-authors = ["Brian Martin <bmartin@twitter.com>"]
-edition = "2018"
 description = "component configurations for Pelikan"
-homepage = "https://pelikan.io"
-repository = "https://github.com/twitter/pelikan"
-license = "Apache-2.0"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 common = { path = "../common" }
-log = "0.4.11"
-serde = { version = "1.0.117", features = ["derive"] }
-serde_json = "1.0.79"
-toml = "0.5.7"
-zookeeper = "0.6.1"
+log.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+toml.workspace = true
+zookeeper.workspace = true

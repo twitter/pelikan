@@ -1,11 +1,13 @@
 [package]
 name = "logger"
-version = "0.1.0"
-edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 common = { path = "../common" }
 config = { path = "../config" }
-rustcommon-logger = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-logger.workspace = true

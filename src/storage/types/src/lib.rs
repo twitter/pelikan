@@ -2,13 +2,13 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum Value<'a> {
     Bytes(&'a [u8]),
     U64(u64),
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum OwnedValue {
     Bytes(Box<[u8]>),
     U64(u64),

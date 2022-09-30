@@ -1,15 +1,18 @@
 [package]
 name = "macros"
-version = "0.1.0"
-authors = ["Sean Lynch <seanl@twitter.com>"]
-edition = "2018"
-license = "Apache-2.0"
 description = "Utility macros for use within pelikan"
+authors = ["Sean Lynch <seanl@twitter.com>"]
+
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [lib]
 proc-macro = true
 
 [dependencies]
-quote = "1.0.9"
-syn = "1.0.0"
-proc-macro2 = "1.0.0"
+quote.workspace = true
+syn.workspace = true
+proc-macro2.workspace = true

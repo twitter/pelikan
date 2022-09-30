@@ -25,7 +25,7 @@ pub trait Execute<Request, Response: Compose> {
     fn execute(&mut self, request: &Request) -> Response;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ParseOk<T> {
     message: T,
     consumed: usize,

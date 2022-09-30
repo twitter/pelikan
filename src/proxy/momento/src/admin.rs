@@ -153,7 +153,7 @@ async fn stats_response(socket: &mut tokio::net::TcpStream) -> Result<(), Error>
             data.push(format!("STAT {} {}\r\n", metric.name(), gauge.value()));
         } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
             for (label, value) in PERCENTILES {
-                let percentile = heatmap.percentile(*value).unwrap_or(0);
+                let percentile = heatmap.percentile(*value).map(|b| b.high()).unwrap_or(0);
                 data.push(format!(
                     "STAT {}_{} {}\r\n",
                     metric.name(),
