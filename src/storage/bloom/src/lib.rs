@@ -130,7 +130,7 @@ impl RawBloomFilter {
 pub struct BloomFilter<T: ?Sized> {
     raw: RawBloomFilter,
     seed: u64,
-    _dummy: PhantomData<*const T>,
+    _dummy: PhantomData<T>,
 }
 
 impl<T: Hash + ?Sized> BloomFilter<T> {
