@@ -2,19 +2,17 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use std::borrow::Cow;
-
 use protocol_common::Execute;
 use protocol_http::{
-    request::{Request, RequestData},
-    Headers, ParseResult, Response, Storage,
+    request::{ParseData, Request, RequestData},
+    Headers, Response, Storage,
 };
 
 use crate::Bloom;
 
-impl Execute<ParseResult, Response> for Bloom {
-    fn execute(&mut self, result: &ParseResult) -> Response {
-        let request = match result {
+impl Execute<ParseData, Response> for Bloom {
+    fn execute(&mut self, data: &ParseData) -> Response {
+        let request = match &data.0 {
             Ok(request) => request,
             Err(e) => return e.to_response(),
         };
@@ -31,20 +29,26 @@ impl Execute<ParseResult, Response> for Bloom {
 impl Storage for Bloom {
     fn get(&mut self, key: &[u8], _headers: &Headers) -> Response {
         if self.data.contains(key) {
-            Response::builder(204).empty()
+            Response::builder(200).body(b"")
         } else {
-            Response::builder(404).empty()
+            Response::builder(404).body(b"")
         }
     }
 
     fn put(&mut self, key: &[u8], _value: &[u8], _headers: &Headers) -> Response {
+        let exists = self.data.contains(key);
         self.data.insert(key);
-        Response::builder(204).empty()
+
+        if exists {
+            Response::builder(200).body(b"")
+        } else {
+            Response::builder(201).body(b"")
+        }
     }
 
     fn delete(&mut self, _key: &[u8], _headers: &Headers) -> Response {
         let mut builder = Response::builder(405);
         builder.header("Content-Type", b"text/plain");
-        builder.body(Cow::Borrowed(b"DELETE method not supported"))
+        builder.body(b"DELETE method not supported")
     }
 }
