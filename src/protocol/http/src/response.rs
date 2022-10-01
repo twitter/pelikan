@@ -41,7 +41,7 @@ impl ResponseBuilder {
     }
 
     pub fn header(&mut self, key: &str, value: &[u8]) -> &mut Self {
-        assert!(self.headers.is_empty());
+        assert!(!self.headers.is_empty());
 
         self.headers.extend_from_slice(key.as_bytes());
         self.headers.extend_from_slice(b": ");
