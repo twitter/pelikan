@@ -1793,7 +1793,7 @@ dependencies = [
 
 [[package]]
 name = "protocol-http"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "arrayvec 0.7.2",
  "assert_matches",
