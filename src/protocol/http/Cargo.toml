@@ -1,0 +1,22 @@
+[package]
+name = "protocol-http"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
+arrayvec = { workspace = true }
+bytes = { workspace = true }
+bstr = { workspace = true }
+httparse = { workspace = true }
+phf = { workspace = true, features = ["macros"] }
+thiserror = { workspace = true }
+urlencoding = { workspace = true }
+
+protocol-common = { path = "../common" }
+logger = { path = "../../logger" }
+
+[dev-dependencies]
+assert_matches = "1.5.0"
