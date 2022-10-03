@@ -5,7 +5,7 @@
 use std::fmt;
 use std::mem::MaybeUninit;
 
-use crate::{Error, ParseResult};
+use crate::{response::status_line, Error, ParseResult};
 use httparse::{Header, ParserConfig, Status};
 use logger::{error, klog};
 use protocol_common::{Parse, ParseOk};
@@ -146,16 +146,25 @@ impl Parse<ParseData> for RequestParser {
 impl logger::Klog for Request {
     type Response = crate::Response;
 
-    fn klog(&self, _: &Self::Response) {
+    fn klog(&self, response: &Self::Response) {
         use bstr::BStr;
 
+        let status = response.status();
+        let line = status_line(status).unwrap_or("");
+
         match self.data() {
-            RequestData::Get(key) => klog!("GET {}", BStr::new(key)),
-            RequestData::Delete(key) => klog!("DELETE {}", BStr::new(key)),
+            RequestData::Get(key) => klog!("GET '{}' => {} {}", BStr::new(key), status, line),
+            RequestData::Delete(key) => klog!("DELETE '{}' => {} {}", BStr::new(key), status, line),
             RequestData::Put(key, val) => {
-                klog!("PUT {} length={}", BStr::new(key), val.len())
+                klog!(
+                    "PUT '{}' {} => {} {}",
+                    BStr::new(key),
+                    val.len(),
+                    status,
+                    line
+                )
             }
-        }
+        };
     }
 }
 

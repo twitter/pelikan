@@ -16,10 +16,15 @@ impl Response {
     pub fn builder(status: u16) -> ResponseBuilder {
         ResponseBuilder::new(status)
     }
+
+    pub fn status(&self) -> u16 {
+        self.builder.status
+    }
 }
 
 pub struct ResponseBuilder {
     headers: Vec<u8>,
+    status: u16,
     close: bool,
 }
 
@@ -30,13 +35,14 @@ impl ResponseBuilder {
             &mut data,
             "HTTP/1.1 {} {}\r\n",
             status,
-            STATUSES.get(&status).copied().unwrap_or("")
+            status_line(status).unwrap_or("")
         )
         .unwrap();
 
         Self {
             headers: data,
             close: false,
+            status,
         }
     }
 
@@ -82,6 +88,7 @@ impl ResponseBuilder {
         Self {
             headers: std::mem::take(&mut self.headers),
             close: self.close,
+            status: self.status,
         }
     }
 }
@@ -120,6 +127,10 @@ impl Compose for Response {
     fn should_hangup(&self) -> bool {
         self.builder.close
     }
+}
+
+pub(crate) fn status_line(status: u16) -> Option<&'static str> {
+    STATUSES.get(&status).copied()
 }
 
 const STATUSES: Map<u16, &'static str> = phf_map! {
