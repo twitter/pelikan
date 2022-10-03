@@ -3,13 +3,13 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 //! HTTP protocol for pelikan.
-//! 
+//!
 //! This crate contains definitions for a basic REST protocol for interacting
 //! with a cache. It supports just 3 operations:
 //! - `GET` - get the value associated with the provided key, if present
 //! - `PUT` - set the value associated with the provided key
 //! - `DELETE` - remove a key from the cache
-//! 
+//!
 //! In all cases the key is passed in as the request path in the request
 //! and the value is passed in as the request body. The protocol supports
 //! reusing the HTTP connection for multiple requests. The only length
