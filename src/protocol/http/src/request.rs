@@ -143,23 +143,28 @@ impl Parse<ParseData> for RequestParser {
     }
 }
 
-impl logger::Klog for ParseData {
+impl logger::Klog for Request {
     type Response = crate::Response;
 
     fn klog(&self, _: &Self::Response) {
         use bstr::BStr;
 
-        let req = match &self.0 {
-            Ok(req) => req,
-            Err(_) => return,
-        };
-
-        match req.data() {
+        match self.data() {
             RequestData::Get(key) => klog!("GET {}", BStr::new(key)),
             RequestData::Delete(key) => klog!("DELETE {}", BStr::new(key)),
             RequestData::Put(key, val) => {
                 klog!("PUT {} length={}", BStr::new(key), val.len())
             }
+        }
+    }
+}
+
+impl logger::Klog for ParseData {
+    type Response = crate::Response;
+
+    fn klog(&self, response: &Self::Response) {
+        if let Ok(request) = &self.0 {
+            request.klog(response);
         }
     }
 }
