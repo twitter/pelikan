@@ -7,6 +7,7 @@ use std::mem::MaybeUninit;
 
 use crate::{Error, ParseResult};
 use httparse::{Header, ParserConfig, Status};
+use logger::{error, klog};
 use protocol_common::{Parse, ParseOk};
 
 #[derive(Clone)]
@@ -146,7 +147,20 @@ impl logger::Klog for ParseData {
     type Response = crate::Response;
 
     fn klog(&self, _: &Self::Response) {
-        // todo: ignore for now
+        use bstr::BStr;
+
+        let req = match &self.0 {
+            Ok(req) => req,
+            Err(_) => return,
+        };
+
+        match req.data() {
+            RequestData::Get(key) => klog!("GET {}", BStr::new(key)),
+            RequestData::Delete(key) => klog!("DELETE {}", BStr::new(key)),
+            RequestData::Put(key, val) => {
+                klog!("PUT {} length={}", BStr::new(key), val.len())
+            }
+        }
     }
 }
 
