@@ -214,6 +214,7 @@ where
                 match token {
                     WAKER_TOKEN => {
                         self.waker.reset();
+
                         // handle outstanding reads
                         for _ in 0..self.pending.len() {
                             if let Some(token) = self.pending.pop_front() {

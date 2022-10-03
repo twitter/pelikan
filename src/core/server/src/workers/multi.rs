@@ -3,18 +3,25 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 use super::*;
+use std::collections::VecDeque;
 
-pub struct MultiWorkerBuilder<Parser, Request, Response> {
+pub struct MultiWorkerBuilder<Parser, Request, Response, Storage> {
     nevent: usize,
     parser: Parser,
+    pending: VecDeque<Token>,
     poll: Poll,
     sessions: Slab<ServerSession<Parser, Response, Request>>,
+    storage: Arc<Mutex<Storage>>,
     timeout: Duration,
     waker: Arc<Waker>,
 }
 
-impl<Parser, Request, Response> MultiWorkerBuilder<Parser, Request, Response> {
-    pub fn new<T: WorkerConfig>(config: &T, parser: Parser) -> Result<Self> {
+impl<Parser, Request, Response, Storage> MultiWorkerBuilder<Parser, Request, Response, Storage> {
+    pub fn new<T: WorkerConfig>(
+        config: &T,
+        parser: Parser,
+        storage: Arc<Mutex<Storage>>,
+    ) -> Result<Self> {
         let config = config.worker();
 
         let poll = Poll::new()?;
@@ -29,8 +36,10 @@ impl<Parser, Request, Response> MultiWorkerBuilder<Parser, Request, Response> {
         Ok(Self {
             nevent,
             parser,
+            pending: VecDeque::new(),
             poll,
             sessions: Slab::new(),
+            storage,
             timeout,
             waker,
         })
@@ -42,41 +51,43 @@ impl<Parser, Request, Response> MultiWorkerBuilder<Parser, Request, Response> {
 
     pub fn build(
         self,
-        data_queue: Queues<(Request, Token), (Request, Response, Token)>,
         session_queue: Queues<Session, Session>,
         signal_queue: Queues<(), Signal>,
-    ) -> MultiWorker<Parser, Request, Response> {
+    ) -> MultiWorker<Parser, Request, Response, Storage> {
         MultiWorker {
-            data_queue,
             nevent: self.nevent,
             parser: self.parser,
+            pending: self.pending,
             poll: self.poll,
             session_queue,
             sessions: self.sessions,
             signal_queue,
+            storage: self.storage,
             timeout: self.timeout,
             waker: self.waker,
         }
     }
 }
 
-pub struct MultiWorker<Parser, Request, Response> {
-    data_queue: Queues<(Request, Token), (Request, Response, Token)>,
+pub struct MultiWorker<Parser, Request, Response, Storage> {
     nevent: usize,
     parser: Parser,
+    pending: VecDeque<Token>,
     poll: Poll,
     session_queue: Queues<Session, Session>,
     sessions: Slab<ServerSession<Parser, Response, Request>>,
     signal_queue: Queues<(), Signal>,
+    storage: Arc<Mutex<Storage>>,
     timeout: Duration,
     waker: Arc<Waker>,
 }
 
-impl<Parser, Request, Response> MultiWorker<Parser, Request, Response>
+impl<Parser, Request, Response, Storage> MultiWorker<Parser, Request, Response, Storage>
 where
     Parser: Parse<Request> + Clone,
     Request: Klog + Klog<Response = Response>,
     Response: Compose,
+    Storage: EntryStore + Execute<Request, Response>,
 {
     /// Return the `Session` to the `Listener` to handle flush/close
     fn close(&mut self, token: Token) {
@@ -100,10 +111,58 @@ where
 
         // process up to one request
         match session.receive() {
-            Ok(request) => self
-                .data_queue
-                .try_send_to(0, (request, token))
-                .map_err(|_| Error::new(ErrorKind::Other, "data queue is full")),
+            Ok(request) => {
+                let response = {
+                    let mut storage = self.storage.lock().unwrap();
+                    (*storage).execute(&request)
+                };
+                PROCESS_REQ.increment();
+                if response.should_hangup() {
+                    let _ = session.send(response);
+                    return Err(Error::new(ErrorKind::Other, "should hangup"));
+                }
+                request.klog(&response);
+                match session.send(response) {
+                    Ok(_) => {
+                        // attempt to flush immediately if there's now data in
+                        // the write buffer
+                        if session.write_pending() > 0 {
+                            match session.flush() {
+                                Ok(_) => Ok(()),
+                                Err(e) => map_err(e),
+                            }?;
+                        }
+
+                        // reregister to get writable event
+                        if session.write_pending() > 0 {
+                            let interest = session.interest();
+                            if self
+                                .poll
+                                .registry()
+                                .reregister(session, token, interest)
+                                .is_err()
+                            {
+                                return Err(Error::new(ErrorKind::Other, "failed to reregister"));
+                            }
+                        }
+
+                        // if there's still data to read, put the token on the
+                        // pending queue
+                        if session.remaining() > 0 {
+                            self.pending.push_back(token);
+                        }
+
+                        Ok(())
+                    }
+                    Err(e) => {
+                        if e.kind() == ErrorKind::WouldBlock {
+                            Ok(())
+                        } else {
+                            Err(e)
+                        }
+                    }
+                }
+            }
             Err(e) => map_err(e),
         }
     }
@@ -126,10 +185,19 @@ where
         // these are buffers which are re-used in each loop iteration to receive
         // events and queue messages
         let mut events = Events::with_capacity(self.nevent);
-        let mut messages = Vec::with_capacity(QUEUE_CAPACITY);
 
         loop {
             WORKER_EVENT_LOOP.increment();
+
+            {
+                let mut storage = self.storage.lock().unwrap();
+                (*storage).expire();
+            }
+
+            // we need another wakeup if there are still pending reads
+            if !self.pending.is_empty() {
+                let _ = self.waker.wake();
+            }
 
             // get events with timeout
             if self.poll.poll(&mut events, Some(self.timeout)).is_err() {
@@ -152,6 +220,16 @@ where
                 match token {
                     WAKER_TOKEN => {
                         self.waker.reset();
+
+                        // handle outstanding reads
+                        for _ in 0..self.pending.len() {
+                            if let Some(token) = self.pending.pop_front() {
+                                if self.read(token).is_err() {
+                                    self.close(token);
+                                }
+                            }
+                        }
+
                         // handle up to one new session
                         if let Some(mut session) =
                             self.session_queue.try_recv().map(|v| v.into_inner())
@@ -171,56 +249,15 @@ where
                             let _ = self.waker.wake();
                         }
 
-                        // handle all pending messages on the data queue
-                        self.data_queue.try_recv_all(&mut messages);
-                        for (request, response, token) in messages.drain(..).map(|v| v.into_inner())
-                        {
-                            request.klog(&response);
-                            if let Some(session) = self.sessions.get_mut(token.0) {
-                                if response.should_hangup() {
-                                    let _ = session.send(response);
-                                    self.close(token);
-                                    continue;
-                                } else if session.send(response).is_err() {
-                                    self.close(token);
-                                    continue;
-                                } else if session.write_pending() > 0 {
-                                    // try to immediately flush, if we still
-                                    // have pending bytes, reregister. This
-                                    // saves us one syscall when flushing would
-                                    // not block.
-                                    if let Err(e) = session.flush() {
-                                        if map_err(e).is_err() {
-                                            self.close(token);
-                                            continue;
-                                        }
-                                    }
-
-                                    if session.write_pending() > 0 {
-                                        let interest = session.interest();
-                                        if session
-                                            .reregister(self.poll.registry(), token, interest)
-                                            .is_err()
-                                        {
-                                            self.close(token);
-                                            continue;
-                                        }
-                                    }
-                                }
-
-                                if session.remaining() > 0 && self.read(token).is_err() {
-                                    self.close(token);
-                                    continue;
-                                }
-                            }
-                        }
-
                         // check if we received any signals from the admin thread
                         while let Some(signal) =
                             self.signal_queue.try_recv().map(|v| v.into_inner())
                         {
                             match signal {
-                                Signal::FlushAll => {}
+                                Signal::FlushAll => {
+                                    let mut storage = self.storage.lock().unwrap();
+                                    (*storage).clear();
+                                }
                                 Signal::Shutdown => {
                                     // if we received a shutdown, we can return
                                     // and stop processing events
@@ -257,9 +294,6 @@ where
                     }
                 }
             }
-
-            // wakes the storage thread if necessary
-            let _ = self.data_queue.wake();
         }
     }
 }

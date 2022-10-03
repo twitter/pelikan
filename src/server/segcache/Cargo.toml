@@ -48,5 +48,8 @@ protocol-memcache = { path = "../../protocol/memcache" }
 rustcommon-metrics = { workspace = true }
 server = { path = "../../core/server" }
 
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+jemallocator = { workspace = true }
+
 [dev-dependencies]
 criterion = "0.3"
