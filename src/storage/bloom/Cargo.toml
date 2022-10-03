@@ -1,17 +1,20 @@
 [package]
 name = "bloom"
-version = "0.1.0"
-edition = "2021"
+
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [features]
 default = ["rand"]
 
 [dependencies]
-bitvec = "1.0.1"
-metrohash = "1.0.6"
-twox-hash = { version = "1.6.3", default-features = false }
-
-rand = { version = "0.8.5", optional = true }
+bitvec = { workspace = true }
+metrohash = { workspace = true }
+twox-hash = { workspace = true, default-features = false }
+rand = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = "0.4"

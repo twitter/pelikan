@@ -1,9 +1,11 @@
 [package]
 name = "protocol-memcache"
-version = "0.2.0"
-edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [[bench]]
 name = "request-parsing"
@@ -13,9 +15,9 @@ harness = false
 [dependencies]
 common = { path = "../../common" }
 logger = { path = "../../logger" }
-nom = "5.1.2"
+nom = { workspace = true }
 protocol-common = { path = "../../protocol/common" }
-rustcommon-metrics = { git = "https://github.com/twitter/rustcommon", features = ["heatmap"] }
+rustcommon-metrics = { workspace = true }
 
 [dev-dependencies]
 criterion = "0.3.4"

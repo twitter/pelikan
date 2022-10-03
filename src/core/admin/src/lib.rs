@@ -474,7 +474,7 @@ impl Admin {
                 data.push(format!("{}: {}", metric.name(), gauge.value()));
             } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
                 for (label, value) in PERCENTILES {
-                    let percentile = heatmap.percentile(*value).unwrap_or(0);
+                    let percentile = heatmap.percentile(*value).map(|b| b.high()).unwrap_or(0);
                     data.push(format!("{}_{}: {}", metric.name(), label, percentile));
                 }
             }
@@ -512,7 +512,7 @@ impl Admin {
                 data.push(format!("\"{}\": {}", metric.name(), gauge.value()));
             } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
                 for (label, value) in PERCENTILES {
-                    let percentile = heatmap.percentile(*value).unwrap_or(0);
+                    let percentile = heatmap.percentile(*value).map(|b| b.high()).unwrap_or(0);
                     data.push(format!("\"{}_{}\": {}", metric.name(), label, percentile));
                 }
             }
@@ -583,7 +583,7 @@ impl Admin {
                 ));
             } else if let Some(heatmap) = any.downcast_ref::<Heatmap>() {
                 for (label, value) in PERCENTILES {
-                    let percentile = heatmap.percentile(*value).unwrap_or(0);
+                    let percentile = heatmap.percentile(*value).map(|b| b.high()).unwrap_or(0);
                     data.push(format!(
                         "# TYPE {} gauge\n{}{{percentile=\"{}\"}} {}",
                         metric.name(),

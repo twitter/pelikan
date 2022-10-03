@@ -1,12 +1,13 @@
 [package]
 name = "seg"
-version = "0.1.0"
-authors = ["Brian Martin <bmartin@twitter.com>"]
-edition = "2018"
 description = "segment-structured in-memory storage with eager expiration"
-homepage = "https://pelikan.io"
-repository = "https://github.com/twitter/pelikan"
-license = "Apache-2.0"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [[bench]]
 name = "benchmark"
@@ -25,20 +26,17 @@ debug = ["magic"]
 default = []
 
 [dependencies]
-ahash = "0.7.2"
+ahash = { workspace = true }
 common = { path = "../../common" }
 datapool = { path = "../datapool" }
 logger = { path = "../../logger" }
-memmap2 = "0.2.2"
-rand = { version = "0.8.3", features = ["small_rng", "getrandom"] }
-rand_chacha = { version = "0.3.0" }
-rand_xoshiro = { version = "0.6.0" }
+memmap2 = { workspace = true }
+rand = { workspace = true , features = ["small_rng", "getrandom"] }
+rand_chacha = { workspace = true }
+rand_xoshiro = { workspace = true }
+rustcommon-metrics = { workspace = true }
 storage-types = { path = "../types" }
-thiserror = "1.0.24"
-
-[dependencies.rustcommon-metrics]
-git = "https://github.com/twitter/rustcommon"
-features = ["heatmap"]
+thiserror = { workspace = true }
 
 [dev-dependencies]
 criterion = "0.3.4"
