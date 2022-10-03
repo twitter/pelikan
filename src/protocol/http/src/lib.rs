@@ -14,7 +14,7 @@ mod util;
 
 pub use crate::error::Error;
 pub use crate::request::Headers;
-pub use crate::request::{Request, RequestData, RequestParser, ParseData};
+pub use crate::request::{ParseData, Request, RequestData, RequestParser};
 pub use crate::response::Response;
 
 pub type Result<T> = std::result::Result<T, Error>;

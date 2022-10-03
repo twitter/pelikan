@@ -155,16 +155,13 @@ impl fmt::Debug for RequestData {
         use bstr::BStr;
 
         match self {
-            Self::Get(key) => f.debug_tuple("Get")
-                .field(&BStr::new(key))
-                .finish(),
-            Self::Put(key, value) => f.debug_tuple("Put")
+            Self::Get(key) => f.debug_tuple("Get").field(&BStr::new(key)).finish(),
+            Self::Put(key, value) => f
+                .debug_tuple("Put")
                 .field(&BStr::new(key))
                 .field(&BStr::new(value))
                 .finish(),
-            Self::Delete(key) => f.debug_tuple("Delete")
-                .field(&BStr::new(key))
-                .finish()
+            Self::Delete(key) => f.debug_tuple("Delete").field(&BStr::new(key)).finish(),
         }
     }
 }
