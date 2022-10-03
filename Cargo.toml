@@ -19,6 +19,7 @@ members = [
     "src/net",
     "src/protocol/admin",
     "src/protocol/common",
+    "src/protocol/http",
     "src/protocol/memcache",
     "src/protocol/ping",
     "src/protocol/resp",
