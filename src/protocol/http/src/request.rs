@@ -51,19 +51,17 @@ pub enum RequestData {
     Delete(Vec<u8>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct RequestParser {
     config: ParserConfig,
 }
 
 impl RequestParser {
     pub fn new() -> Self {
-        Self {
-            config: ParserConfig::default(),
-        }
+        Self::default()
     }
 
-    fn do_parse(&self, buf: &mut &[u8]) -> ParseResult {
+    pub fn do_parse(&self, buf: &mut &[u8]) -> ParseResult {
         let mut headers = [MaybeUninit::uninit(); 32];
         let mut request = httparse::Request::new(&mut []);
         let status =
