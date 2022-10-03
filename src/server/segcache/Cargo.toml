@@ -1,12 +1,13 @@
 [package]
 name = "segcache"
-version = "0.2.0"
-edition = "2021"
-authors = ["Brian Martin <bmartin@twitter.com>"]
 description = "a Memcache protocol server with segment-structured storage"
-homepage = "https://pelikan.io"
-repository = "https://github.com/twitter/pelikan"
-license = "Apache-2.0"
+authors = ["Brian Martin <bmartin@twitter.com>"]
+
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [lib]
 name = "pelikan_segcache_rs"
@@ -37,14 +38,14 @@ harness = false
 debug = ["entrystore/debug"]
 
 [dependencies]
-backtrace = "0.3.56"
-clap = "2.33.3"
+backtrace = { workspace = true }
+clap = { workspace = true }
 common = { path = "../../common" }
 config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
 protocol-memcache = { path = "../../protocol/memcache" }
-rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+rustcommon-metrics = { workspace = true }
 server = { path = "../../core/server" }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]

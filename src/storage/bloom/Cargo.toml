@@ -1,0 +1,24 @@
+[package]
+name = "bloom"
+
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[features]
+default = ["rand"]
+
+[dependencies]
+bitvec = { workspace = true }
+metrohash = { workspace = true }
+twox-hash = { workspace = true, default-features = false }
+rand = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion = "0.4"
+
+[[bench]]
+name = "bloom"
+harness = false
