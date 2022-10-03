@@ -2,12 +2,14 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::fmt;
 use std::mem::MaybeUninit;
 
 use crate::{Error, ParseResult};
 use httparse::{Header, ParserConfig, Status};
 use protocol_common::{Parse, ParseOk};
 
+#[derive(Clone)]
 pub struct Headers(Vec<(String, Vec<u8>)>);
 
 pub struct ParseData(pub Result<Request, Error>);
@@ -30,6 +32,7 @@ impl Headers {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Request {
     pub data: RequestData,
     pub headers: Headers,
@@ -45,6 +48,7 @@ impl Request {
     }
 }
 
+#[derive(Clone)]
 pub enum RequestData {
     Get(Vec<u8>),
     Put(Vec<u8>, Vec<u8>),
@@ -143,5 +147,36 @@ impl logger::Klog for ParseData {
 
     fn klog(&self, _: &Self::Response) {
         // todo: ignore for now
+    }
+}
+
+impl fmt::Debug for RequestData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use bstr::BStr;
+
+        match self {
+            Self::Get(key) => f.debug_tuple("Get")
+                .field(&BStr::new(key))
+                .finish(),
+            Self::Put(key, value) => f.debug_tuple("Put")
+                .field(&BStr::new(key))
+                .field(&BStr::new(value))
+                .finish(),
+            Self::Delete(key) => f.debug_tuple("Delete")
+                .field(&BStr::new(key))
+                .finish()
+        }
+    }
+}
+
+impl fmt::Debug for Headers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        let mut list = f.debug_list();
+
+        for (name, value) in self.0.iter() {
+            list.entry(&(name.as_str(), bstr::BStr::new(value)));
+        }
+
+        list.finish()
     }
 }
