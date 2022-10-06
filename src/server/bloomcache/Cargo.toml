@@ -1,16 +1,19 @@
 [package]
 name = "pelikan_bloomcache"
-version = "0.1.0"
-edition = "2021"
+
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [dependencies]
-
-backtrace = "0.3.56"
-clap = "2.33.3"
+backtrace = { workspace = true }
+clap = { workspace = true }
 common = { path = "../../common" }
 config = { path = "../../config" }
 entrystore = { path = "../../entrystore" }
 logger = { path = "../../logger" }
-protocol-http = { path="../../protocol/http" }
-rustcommon-metrics = { git = "https://github.com/twitter/rustcommon" }
+protocol-http = { path = "../../protocol/http" }
+rustcommon-metrics = { workspace = true }
 server = { path = "../../core/server" }
