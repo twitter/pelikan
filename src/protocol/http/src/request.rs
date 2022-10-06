@@ -1,13 +1,16 @@
-// Copyright 2021 Twitter, Inc.
+// Copyright 2022 Twitter, Inc.
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use std::fmt;
 use std::mem::MaybeUninit;
 
-use crate::{Error, ParseResult};
+use crate::{response::status_line, Error, ParseResult};
 use httparse::{Header, ParserConfig, Status};
+use logger::{error, klog};
 use protocol_common::{Parse, ParseOk};
 
+#[derive(Clone)]
 pub struct Headers(Vec<(String, Vec<u8>)>);
 
 pub struct ParseData(pub Result<Request, Error>);
@@ -30,6 +33,7 @@ impl Headers {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Request {
     pub data: RequestData,
     pub headers: Headers,
@@ -45,25 +49,24 @@ impl Request {
     }
 }
 
+#[derive(Clone)]
 pub enum RequestData {
     Get(Vec<u8>),
     Put(Vec<u8>, Vec<u8>),
     Delete(Vec<u8>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct RequestParser {
     config: ParserConfig,
 }
 
 impl RequestParser {
     pub fn new() -> Self {
-        Self {
-            config: ParserConfig::default(),
-        }
+        Self::default()
     }
 
-    fn do_parse(&self, buf: &mut &[u8]) -> ParseResult {
+    pub fn do_parse(&self, buf: &mut &[u8]) -> ParseResult {
         let mut headers = [MaybeUninit::uninit(); 32];
         let mut request = httparse::Request::new(&mut []);
         let status =
@@ -140,10 +143,65 @@ impl Parse<ParseData> for RequestParser {
     }
 }
 
+impl logger::Klog for Request {
+    type Response = crate::Response;
+
+    fn klog(&self, response: &Self::Response) {
+        use bstr::BStr;
+
+        let status = response.status();
+        let line = status_line(status).unwrap_or("");
+
+        match self.data() {
+            RequestData::Get(key) => klog!("GET '{}' => {} {}", BStr::new(key), status, line),
+            RequestData::Delete(key) => klog!("DELETE '{}' => {} {}", BStr::new(key), status, line),
+            RequestData::Put(key, val) => {
+                klog!(
+                    "PUT '{}' {} => {} {}",
+                    BStr::new(key),
+                    val.len(),
+                    status,
+                    line
+                )
+            }
+        };
+    }
+}
+
 impl logger::Klog for ParseData {
     type Response = crate::Response;
 
-    fn klog(&self, _: &Self::Response) {
-        // todo: ignore for now
+    fn klog(&self, response: &Self::Response) {
+        if let Ok(request) = &self.0 {
+            request.klog(response);
+        }
+    }
+}
+
+impl fmt::Debug for RequestData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use bstr::BStr;
+
+        match self {
+            Self::Get(key) => f.debug_tuple("Get").field(&BStr::new(key)).finish(),
+            Self::Put(key, value) => f
+                .debug_tuple("Put")
+                .field(&BStr::new(key))
+                .field(&BStr::new(value))
+                .finish(),
+            Self::Delete(key) => f.debug_tuple("Delete").field(&BStr::new(key)).finish(),
+        }
+    }
+}
+
+impl fmt::Debug for Headers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        let mut list = f.debug_list();
+
+        for (name, value) in self.0.iter() {
+            list.entry(&(name.as_str(), bstr::BStr::new(value)));
+        }
+
+        list.finish()
     }
 }

@@ -1,16 +1,22 @@
 [package]
 name = "protocol-http"
-version = "0.1.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
 
 [dependencies]
-httparse = "1.8.0"
-thiserror = "1.0.37"
-urlencoding = "2.1.2"
-arrayvec = "0.7.2"
-bytes = "1.2.1"
-
-phf = { version = "0.11.1", features = ["macros"] }
+arrayvec = { workspace = true }
+bytes = { workspace = true }
+bstr = { workspace = true }
+httparse = { workspace = true }
+phf = { workspace = true, features = ["macros"] }
+thiserror = { workspace = true }
+urlencoding = { workspace = true }
 
 protocol-common = { path = "../common" }
-logger = { path="../../logger" }
+logger = { path = "../../logger" }
+
+[dev-dependencies]
+assert_matches = "1.5.0"
