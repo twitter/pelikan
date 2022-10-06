@@ -8,7 +8,6 @@ COPY . .
 RUN apt-get update
 RUN apt-get install -y cmake
 RUN apt-get install -y clang
-RUN mkdir .cargo
 RUN cargo vendor > .cargo/config
 
 RUN cargo build --release
