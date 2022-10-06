@@ -50,7 +50,7 @@ impl<Parser, Request, Response, Storage> Workers<Parser, Request, Response, Stor
 where
     Parser: 'static + Parse<Request> + Clone + Send,
     Request: 'static + Klog + Klog<Response = Response> + Send,
-    Response: 'static + Compose + Send,
+    Response: 'static + Compose + IntoBuffers + Send,
     Storage: 'static + EntryStore + Execute<Request, Response> + Send,
 {
     pub fn spawn(self) -> Vec<JoinHandle<()>> {

@@ -237,10 +237,10 @@ where
                         {
                             if let Some(session) = self.sessions.get_mut(token.0) {
                                 if response.should_hangup() {
-                                    let _ = session.send(FrontendResponse::from(response));
+                                    let _ = session.send(&FrontendResponse::from(response));
                                     self.close(token);
                                     continue;
-                                } else if session.send(FrontendResponse::from(response)).is_err() {
+                                } else if session.send(&FrontendResponse::from(response)).is_err() {
                                     self.close(token);
                                     continue;
                                 } else if session.write_pending() > 0 {

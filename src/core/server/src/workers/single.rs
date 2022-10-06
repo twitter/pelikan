@@ -14,6 +14,7 @@ pub struct SingleWorkerBuilder<Parser, Request, Response, Storage> {
     storage: Storage,
     timeout: Duration,
     waker: Arc<Waker>,
+    buffers: Vec<Vec<u8>>,
 }
 
 impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Response, Storage> {
@@ -38,6 +39,7 @@ impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Re
             storage,
             timeout,
             waker,
+            buffers: Vec::new(),
         })
     }
 
@@ -61,6 +63,7 @@ impl<Parser, Request, Response, Storage> SingleWorkerBuilder<Parser, Request, Re
             storage: self.storage,
             timeout: self.timeout,
             waker: self.waker,
+            buffers: self.buffers,
         }
     }
 }
@@ -76,13 +79,14 @@ pub struct SingleWorker<Parser, Request, Response, Storage> {
     storage: Storage,
     timeout: Duration,
     waker: Arc<Waker>,
+    buffers: Vec<Vec<u8>>,
 }
 
 impl<Parser, Request, Response, Storage> SingleWorker<Parser, Request, Response, Storage>
 where
     Parser: Parse<Request> + Clone,
     Request: Klog + Klog<Response = Response>,
-    Response: Compose,
+    Response: Compose + IntoBuffers,
     Storage: EntryStore + Execute<Request, Response>,
 {
     /// Return the `Session` to the `Listener` to handle flush/close
@@ -108,14 +112,14 @@ where
         // process up to one pending request
         match session.receive() {
             Ok(request) => {
-                let response = self.storage.execute(&request);
+                let response = self.storage.execute(&request, &mut self.buffers);
                 PROCESS_REQ.increment();
                 if response.should_hangup() {
-                    let _ = session.send(response);
+                    let _ = session.send(&response);
                     return Err(Error::new(ErrorKind::Other, "should hangup"));
                 }
                 request.klog(&response);
-                match session.send(response) {
+                let result = match session.send(&response) {
                     Ok(_) => {
                         // attempt to flush immediately if there's now data in
                         // the write buffer
@@ -154,7 +158,13 @@ where
                             Err(e)
                         }
                     }
+                };
+                if let Some(mut buffers) = response.into_buffers() {
+                    for buffer in buffers.drain(..) {
+                        self.buffers.push(buffer);
+                    }
                 }
+                result
             }
             Err(e) => {
                 if e.kind() == ErrorKind::WouldBlock {

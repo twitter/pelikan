@@ -75,7 +75,7 @@ impl Response {
         Self::NotFound(NotFound::new(noreply))
     }
 
-    pub fn values(values: Box<[Value]>) -> Self {
+    pub fn values(values: Vec<Value>) -> Self {
         Self::Values(Values { values })
     }
 
@@ -117,6 +117,19 @@ impl Compose for Response {
 
     fn should_hangup(&self) -> bool {
         matches!(self, Self::Error(_) | Self::ClientError(_) | Self::Hangup)
+    }
+}
+
+impl IntoBuffers for Response {
+    fn into_buffers(self) -> Option<Vec<Vec<u8>>> {
+        match self {
+            Self::Values(mut e) => {
+                Some(e.values.drain(..).map(|v| v.into_buf()).collect())
+            }
+            _ => {
+                None
+            }
+        }
     }
 }
 
@@ -205,7 +218,7 @@ pub(crate) fn response(input: &[u8]) -> IResult<&[u8], Response> {
             Ok((
                 input,
                 Response::Values(Values {
-                    values: Vec::new().into_boxed_slice(),
+                    values: Vec::new(),
                 }),
             ))
         }

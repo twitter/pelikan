@@ -11,7 +11,7 @@ use protocol_ping::*;
 impl PingStorage for Noop {}
 
 impl Execute<Request, Response> for Noop {
-    fn execute(&mut self, request: &Request) -> Response {
+    fn execute(&mut self, request: &Request, _buffers: &mut Vec<Vec<u8>>) -> Response {
         match request {
             Request::Ping => Response::Pong,
         }

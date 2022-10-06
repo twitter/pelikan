@@ -85,7 +85,7 @@ where
     }
 
     /// Send a message to the session buffer.
-    pub fn send(&mut self, tx: Tx) -> Result<usize> {
+    pub fn send(&mut self, tx: &Tx) -> Result<usize> {
         SESSION_SEND.increment();
 
         let timestamp = self.pending.pop_front();

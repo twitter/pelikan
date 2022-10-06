@@ -13,9 +13,9 @@ use protocol_memcache::*;
 use std::time::Duration;
 
 impl Execute<Request, Response> for Seg {
-    fn execute(&mut self, request: &Request) -> Response {
+    fn execute(&mut self, request: &Request, buffers: &mut Vec<Vec<u8>>) -> Response {
         match request {
-            Request::Get(get) => self.get(get),
+            Request::Get(get) => self.get(get, buffers),
             Request::Gets(gets) => self.gets(gets),
             Request::Set(set) => self.set(set),
             Request::Add(add) => self.add(add),
@@ -33,30 +33,35 @@ impl Execute<Request, Response> for Seg {
 }
 
 impl Storage for Seg {
-    fn get(&mut self, get: &Get) -> Response {
+    fn get(&mut self, get: &Get, buffers: &mut Vec<Vec<u8>>) -> Response {
         let mut values = Vec::with_capacity(get.keys().len());
+
         for key in get.keys().iter() {
+            let buffer = buffers.pop().unwrap_or_default();
+
             if let Some(item) = self.data.get(key) {
                 let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
                 let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
                 match item.value() {
-                    seg::Value::Bytes(b) => {
-                        values.push(Value::new(item.key(), flags, None, b));
+                    seg::Value::Bytes(value) => {
+                        values.push(Value::new_with_buffer(item.key(), flags, None, value, buffer));
                     }
-                    seg::Value::U64(v) => {
-                        values.push(Value::new(
+                    seg::Value::U64(value) => {
+                        values.push(Value::new_with_buffer(
                             item.key(),
                             flags,
                             None,
-                            format!("{}", v).as_bytes(),
+                            format!("{}", value).as_bytes(),
+                            buffer
                         ));
                     }
                 }
             } else {
-                values.push(Value::none(key));
+                values.push(Value::none_with_buffer(key, buffer));
             }
         }
-        Values::new(values.into_boxed_slice()).into()
+
+        Values::new(values).into()
     }
 
     fn gets(&mut self, get: &Gets) -> Response {
@@ -82,7 +87,7 @@ impl Storage for Seg {
                 values.push(Value::none(key));
             }
         }
-        Values::new(values.into_boxed_slice()).into()
+        Values::new(values).into()
     }
 
     fn set(&mut self, set: &Set) -> Response {

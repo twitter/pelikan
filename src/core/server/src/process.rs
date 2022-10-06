@@ -16,7 +16,7 @@ impl<Parser, Request, Response, Storage> ProcessBuilder<Parser, Request, Respons
 where
     Parser: 'static + Parse<Request> + Clone + Send,
     Request: 'static + Klog + Klog<Response = Response> + Send,
-    Response: 'static + Compose + Send,
+    Response: 'static + Compose + IntoBuffers + Send,
     Storage: 'static + Execute<Request, Response> + EntryStore + Send,
 {
     pub fn new<T: AdminConfig + ServerConfig + TlsConfig + WorkerConfig>(

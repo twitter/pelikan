@@ -101,7 +101,7 @@ use core::time::Duration;
 use crossbeam_channel::{bounded, Sender};
 use entrystore::EntryStore;
 use logger::{Drain, Klog};
-use protocol_common::{Compose, Execute, Parse};
+use protocol_common::{Compose, Execute, Parse, IntoBuffers};
 use queues::Queues;
 use rustcommon_metrics::*;
 use session::{Buf, ServerSession, Session};

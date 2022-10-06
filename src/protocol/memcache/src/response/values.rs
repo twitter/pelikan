@@ -6,11 +6,11 @@ use super::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Values {
-    pub(crate) values: Box<[Value]>,
+    pub(crate) values: Vec<Value>,
 }
 
 impl Values {
-    pub fn new(values: Box<[Value]>) -> Self {
+    pub fn new(values: Vec<Value>) -> Self {
         Self { values }
     }
 
@@ -21,38 +21,73 @@ impl Values {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Value {
-    key: Box<[u8]>,
+    // data holds both key and value (if present)
+    data: Vec<u8>,
+    klen: usize,
+    vlen: Option<usize>,
+
     flags: u32,
     cas: Option<u64>,
-    data: Option<Box<[u8]>>,
 }
 
 impl Value {
-    pub fn new(key: &[u8], flags: u32, cas: Option<u64>, data: &[u8]) -> Self {
-        Self {
-            key: key.to_owned().into_boxed_slice(),
+    pub fn new(key: &[u8], flags: u32, cas: Option<u64>, value: &[u8]) -> Self {
+        Self::new_with_buffer(
+            key,
             flags,
             cas,
-            data: Some(data.to_owned().into_boxed_slice()),
-        }
+            value,
+            Vec::with_capacity(key.len() + value.len())
+        )
     }
 
     pub fn none(key: &[u8]) -> Self {
+        Self::none_with_buffer(key, Vec::with_capacity(key.len()))
+    }
+
+    pub fn new_with_buffer(key: &[u8], flags: u32, cas: Option<u64>, value: &[u8], mut buf: Vec<u8>) -> Self {
+        buf.clear();
+        buf.reserve(key.len() + value.len());
+        buf.extend_from_slice(key);
+        buf.extend_from_slice(value);
+
+        let klen = key.len();
+        let vlen = Some(value.len());
+
         Self {
-            key: key.to_owned().into_boxed_slice(),
+            data: buf,
+            klen,
+            vlen,
+
+            flags,
+            cas,
+        }
+    }
+
+    pub fn none_with_buffer(key: &[u8], mut buf: Vec<u8>) -> Self {
+        buf.clear();
+        buf.extend_from_slice(key);
+
+        Self {
+            data: buf,
+            klen: key.len(),
+            vlen: None,
             flags: 0,
             cas: None,
-            data: None,
         }
     }
 
     pub fn key(&self) -> &[u8] {
-        &self.key
+        &self.data[0..self.klen]
     }
 
-    #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> Option<usize> {
-        self.data.as_ref().map(|v| v.len())
+    pub fn vlen(&self) -> Option<usize> {
+        self.vlen
+    }
+
+    pub fn into_buf(mut self) -> Vec<u8> {
+        self.data.clear();
+        self.data
     }
 }
 
@@ -73,25 +108,26 @@ impl Compose for Values {
 
 impl Compose for Value {
     fn compose(&self, session: &mut dyn BufMut) -> usize {
-        if self.data.is_none() {
+        if self.vlen.is_none() {
             return 0;
         }
 
-        let data = self.data.as_ref().unwrap();
+        let key = &self.data[0..self.klen];
+        let value = &self.data[self.klen..];
 
         let prefix = b"VALUE ";
         let header_fields = if let Some(cas) = self.cas {
-            format!(" {} {} {}\r\n", self.flags, data.len(), cas).into_bytes()
+            format!(" {} {} {}\r\n", self.flags, value.len(), cas).into_bytes()
         } else {
-            format!(" {} {}\r\n", self.flags, data.len()).into_bytes()
+            format!(" {} {}\r\n", self.flags, value.len()).into_bytes()
         };
 
-        let size = prefix.len() + self.key.len() + header_fields.len() + data.len() + CRLF.len();
+        let size = prefix.len() + key.len() + header_fields.len() + value.len() + CRLF.len();
 
         session.put_slice(prefix);
-        session.put_slice(&self.key);
+        session.put_slice(key);
         session.put_slice(&header_fields);
-        session.put_slice(data);
+        session.put_slice(value);
         session.put_slice(CRLF);
 
         size
@@ -137,17 +173,12 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], Values> {
         let (i, _) = space0(input)?;
         let (i, _) = crlf(i)?;
 
-        // we know how many bytes of data, and that its followed by a CRLF
-        let (i, data) = take(bytes)(i)?;
+        // we know how many bytes of value, and that its followed by a CRLF
+        let (i, value) = take(bytes)(i)?;
         let (i, _) = crlf(i)?;
 
         // add to the collection of values
-        values.push(Value {
-            key: key.to_owned().into_boxed_slice(),
-            flags,
-            cas,
-            data: Some(data.to_owned().into_boxed_slice()),
-        });
+        values.push(Value::new(key, flags, cas, value));
 
         // look for a space or the start of a CRLF
         let (i, s) = take_till(|b| (b == b' ' || b == b'\r'))(i)?;
@@ -175,7 +206,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], Values> {
     Ok((
         input,
         Values {
-            values: values.into_boxed_slice(),
+            values,
         },
     ))
 }
@@ -192,7 +223,7 @@ mod tests {
             response(b"VALUE 0 0 1\r\n1\r\nEND\r\n"),
             Ok((
                 &b""[..],
-                Response::values(vec![value_0.clone()].into_boxed_slice()),
+                Response::values(vec![value_0.clone()]),
             ))
         );
 
@@ -202,7 +233,7 @@ mod tests {
             response(b"VALUE 1 1 1\r\n\0\r\nEND\r\n"),
             Ok((
                 &b""[..],
-                Response::values(vec![value_1.clone()].into_boxed_slice()),
+                Response::values(vec![value_1.clone()]),
             ))
         );
 
@@ -211,7 +242,7 @@ mod tests {
             response(b"VALUE 0 0 1\r\n1\r\nVALUE 1 1 1\r\n\0\r\nEND\r\n"),
             Ok((
                 &b""[..],
-                Response::values(vec![value_0, value_1].into_boxed_slice()),
+                Response::values(vec![value_0, value_1]),
             ))
         );
 
@@ -219,13 +250,13 @@ mod tests {
         let value_2 = Value::new(b"2", 100, Some(42), b"");
         assert_eq!(
             response(b"VALUE 2 100 0 42\r\n\r\nEND\r\n"),
-            Ok((&b""[..], Response::values(vec![value_2].into_boxed_slice()),))
+            Ok((&b""[..], Response::values(vec![value_2]),))
         );
 
         // empty values response
         assert_eq!(
             response(b"END\r\n"),
-            Ok((&b""[..], Response::values(vec![].into_boxed_slice()),))
+            Ok((&b""[..], Response::values(vec![]),))
         );
     }
 }

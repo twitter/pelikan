@@ -64,7 +64,7 @@ impl Klog for Gets {
             let mut miss_keys = 0;
 
             for value in res.values() {
-                if value.len().is_none() {
+                if value.vlen().is_none() {
                     miss_keys += 1;
 
                     klog!(
@@ -79,7 +79,7 @@ impl Klog for Gets {
                         "\"gets {}\" {} {}",
                         String::from_utf8_lossy(value.key()),
                         HIT,
-                        value.len().unwrap(),
+                        value.vlen().unwrap(),
                     );
                 }
             }

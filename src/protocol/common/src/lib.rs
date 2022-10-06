@@ -21,8 +21,12 @@ pub trait Compose {
     }
 }
 
+pub trait IntoBuffers {
+    fn into_buffers(self) -> Option<Vec<Vec<u8>>>;
+}
+
 pub trait Execute<Request, Response: Compose> {
-    fn execute(&mut self, request: &Request) -> Response;
+    fn execute(&mut self, request: &Request, buffers: &mut Vec<Vec<u8>>) -> Response;
 }
 
 #[derive(Debug, PartialEq, Eq)]

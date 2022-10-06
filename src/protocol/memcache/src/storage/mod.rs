@@ -11,7 +11,7 @@ pub trait Storage {
     fn decr(&mut self, request: &Decr) -> Response;
     fn delete(&mut self, request: &Delete) -> Response;
     fn flush_all(&mut self, request: &FlushAll) -> Response;
-    fn get(&mut self, request: &Get) -> Response;
+    fn get(&mut self, request: &Get, buffers: &mut Vec<Vec<u8>>) -> Response;
     fn gets(&mut self, request: &Gets) -> Response;
     fn incr(&mut self, request: &Incr) -> Response;
     fn prepend(&mut self, request: &Prepend) -> Response;

@@ -316,16 +316,16 @@ impl Admin {
                 match request {
                     AdminRequest::FlushAll => {
                         let _ = self.signal_queue_tx.try_send_all(Signal::FlushAll);
-                        session.send(AdminResponse::Ok)?;
+                        session.send(&AdminResponse::Ok)?;
                     }
                     AdminRequest::Quit => {
                         return Err(Error::new(ErrorKind::Other, "should hangup"));
                     }
                     AdminRequest::Stats => {
-                        session.send(AdminResponse::Stats)?;
+                        session.send(&AdminResponse::Stats)?;
                     }
                     AdminRequest::Version => {
-                        session.send(AdminResponse::version(self.version.clone()))?;
+                        session.send(&AdminResponse::version(self.version.clone()))?;
                     }
                 }
 

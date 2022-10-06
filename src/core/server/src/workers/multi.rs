@@ -14,6 +14,7 @@ pub struct MultiWorkerBuilder<Parser, Request, Response, Storage> {
     storage: Arc<Mutex<Storage>>,
     timeout: Duration,
     waker: Arc<Waker>,
+    buffers: Vec<Vec<u8>>,
 }
 
 impl<Parser, Request, Response, Storage> MultiWorkerBuilder<Parser, Request, Response, Storage> {
@@ -33,6 +34,8 @@ impl<Parser, Request, Response, Storage> MultiWorkerBuilder<Parser, Request, Res
         let nevent = config.nevent();
         let timeout = Duration::from_millis(config.timeout() as u64);
 
+        let buffers = Vec::new();
+
         Ok(Self {
             nevent,
             parser,
@@ -42,6 +45,7 @@ impl<Parser, Request, Response, Storage> MultiWorkerBuilder<Parser, Request, Res
             storage,
             timeout,
             waker,
+            buffers,
         })
     }
 
@@ -65,6 +69,7 @@ impl<Parser, Request, Response, Storage> MultiWorkerBuilder<Parser, Request, Res
             storage: self.storage,
             timeout: self.timeout,
             waker: self.waker,
+            buffers: self.buffers,
         }
     }
 }
@@ -80,13 +85,14 @@ pub struct MultiWorker<Parser, Request, Response, Storage> {
     storage: Arc<Mutex<Storage>>,
     timeout: Duration,
     waker: Arc<Waker>,
+    buffers: Vec<Vec<u8>>,
 }
 
 impl<Parser, Request, Response, Storage> MultiWorker<Parser, Request, Response, Storage>
 where
     Parser: Parse<Request> + Clone,
     Request: Klog + Klog<Response = Response>,
-    Response: Compose,
+    Response: Compose + IntoBuffers,
     Storage: EntryStore + Execute<Request, Response>,
 {
     /// Return the `Session` to the `Listener` to handle flush/close
@@ -114,15 +120,15 @@ where
             Ok(request) => {
                 let response = {
                     let mut storage = self.storage.lock().unwrap();
-                    (*storage).execute(&request)
+                    (*storage).execute(&request, &mut self.buffers)
                 };
                 PROCESS_REQ.increment();
                 if response.should_hangup() {
-                    let _ = session.send(response);
+                    let _ = session.send(&response);
                     return Err(Error::new(ErrorKind::Other, "should hangup"));
                 }
                 request.klog(&response);
-                match session.send(response) {
+                let result = match session.send(&response) {
                     Ok(_) => {
                         // attempt to flush immediately if there's now data in
                         // the write buffer
@@ -161,7 +167,13 @@ where
                             Err(e)
                         }
                     }
+                };
+                if let Some(mut buffers) = response.into_buffers() {
+                    for buffer in buffers.drain(..) {
+                        self.buffers.push(buffer);
+                    }
                 }
+                result
             }
             Err(e) => map_err(e),
         }

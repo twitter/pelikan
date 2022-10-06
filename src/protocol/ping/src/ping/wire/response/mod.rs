@@ -12,9 +12,17 @@ mod parse;
 #[cfg(test)]
 mod test;
 
+use protocol_common::IntoBuffers;
+
 pub use parse::Parser as ResponseParser;
 
 /// A collection of all possible `Ping` responses
 pub enum Response {
     Pong,
+}
+
+impl IntoBuffers for Response {
+    fn into_buffers(self) -> Option<Vec<Vec<u8>>> {
+        None
+    }
 }
