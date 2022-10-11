@@ -123,12 +123,8 @@ impl Compose for Response {
 impl IntoBuffers for Response {
     fn into_buffers(self) -> Option<Vec<Vec<u8>>> {
         match self {
-            Self::Values(mut e) => {
-                Some(e.values.drain(..).map(|v| v.into_buf()).collect())
-            }
-            _ => {
-                None
-            }
+            Self::Values(mut e) => Some(e.values.drain(..).map(|v| v.into_buf()).collect()),
+            _ => None,
         }
     }
 }
@@ -215,12 +211,7 @@ pub(crate) fn response(input: &[u8]) -> IResult<&[u8], Response> {
         // this is for empty set of values, incidated by "END"
         (input, ResponseType::Empty) => {
             let (input, _) = crlf(input)?;
-            Ok((
-                input,
-                Response::Values(Values {
-                    values: Vec::new(),
-                }),
-            ))
+            Ok((input, Response::Values(Values { values: Vec::new() })))
         }
         // this is for numeric responses from incr/decr
         (input, ResponseType::Numeric(value)) => {

@@ -37,7 +37,7 @@ impl Value {
             flags,
             cas,
             value,
-            Vec::with_capacity(key.len() + value.len())
+            Vec::with_capacity(key.len() + value.len()),
         )
     }
 
@@ -45,7 +45,13 @@ impl Value {
         Self::none_with_buffer(key, Vec::with_capacity(key.len()))
     }
 
-    pub fn new_with_buffer(key: &[u8], flags: u32, cas: Option<u64>, value: &[u8], mut buf: Vec<u8>) -> Self {
+    pub fn new_with_buffer(
+        key: &[u8],
+        flags: u32,
+        cas: Option<u64>,
+        value: &[u8],
+        mut buf: Vec<u8>,
+    ) -> Self {
         buf.clear();
         buf.reserve(key.len() + value.len());
         buf.extend_from_slice(key);
@@ -203,12 +209,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], Values> {
         }
     }
 
-    Ok((
-        input,
-        Values {
-            values,
-        },
-    ))
+    Ok((input, Values { values }))
 }
 
 #[cfg(test)]
@@ -221,29 +222,20 @@ mod tests {
         let value_0 = Value::new(b"0", 0, None, b"1");
         assert_eq!(
             response(b"VALUE 0 0 1\r\n1\r\nEND\r\n"),
-            Ok((
-                &b""[..],
-                Response::values(vec![value_0.clone()]),
-            ))
+            Ok((&b""[..], Response::values(vec![value_0.clone()]),))
         );
 
         // binary data for the value
         let value_1 = Value::new(b"1", 1, None, b"\0");
         assert_eq!(
             response(b"VALUE 1 1 1\r\n\0\r\nEND\r\n"),
-            Ok((
-                &b""[..],
-                Response::values(vec![value_1.clone()]),
-            ))
+            Ok((&b""[..], Response::values(vec![value_1.clone()]),))
         );
 
         // two values in the same response
         assert_eq!(
             response(b"VALUE 0 0 1\r\n1\r\nVALUE 1 1 1\r\n\0\r\nEND\r\n"),
-            Ok((
-                &b""[..],
-                Response::values(vec![value_0, value_1]),
-            ))
+            Ok((&b""[..], Response::values(vec![value_0, value_1]),))
         );
 
         // a value with zero-length data and a cas value

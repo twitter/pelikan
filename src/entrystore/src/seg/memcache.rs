@@ -44,7 +44,13 @@ impl Storage for Seg {
                 let flags = u32::from_be_bytes([o[0], o[1], o[2], o[3]]);
                 match item.value() {
                     seg::Value::Bytes(value) => {
-                        values.push(Value::new_with_buffer(item.key(), flags, None, value, buffer));
+                        values.push(Value::new_with_buffer(
+                            item.key(),
+                            flags,
+                            None,
+                            value,
+                            buffer,
+                        ));
                     }
                     seg::Value::U64(value) => {
                         values.push(Value::new_with_buffer(
@@ -52,7 +58,7 @@ impl Storage for Seg {
                             flags,
                             None,
                             format!("{}", value).as_bytes(),
-                            buffer
+                            buffer,
                         ));
                     }
                 }
