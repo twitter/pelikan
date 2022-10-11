@@ -29,7 +29,7 @@ fn main() {
     // custom panic hook to terminate whole process after unwinding
     std::panic::set_hook(Box::new(|s| {
         error!("{}", s);
-        println!("{:?}", Backtrace::new());
+        eprintln!("{:?}", Backtrace::new());
         std::process::exit(101);
     }));
 
@@ -103,7 +103,7 @@ fn main() {
         match SegcacheConfig::load(file) {
             Ok(c) => c,
             Err(e) => {
-                println!("{}", e);
+                eprintln!("unable to load config file: {}", e);
                 std::process::exit(1);
             }
         }
@@ -120,7 +120,7 @@ fn main() {
     match Segcache::new(config) {
         Ok(segcache) => segcache.wait(),
         Err(e) => {
-            println!("error launching segcache: {}", e);
+            eprintln!("error launching segcache: {}", e);
             std::process::exit(1);
         }
     }
