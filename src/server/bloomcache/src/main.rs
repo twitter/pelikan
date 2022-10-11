@@ -78,7 +78,7 @@ fn main() {
         match BloomcacheConfig::load(file) {
             Ok(c) => c,
             Err(e) => {
-                println!("error launching bloomcache: {}", e);
+                eprintln!("error launching bloomcache: {}", e);
                 std::process::exit(1);
             }
         }
@@ -89,7 +89,7 @@ fn main() {
     match BloomCache::new(config) {
         Ok(s) => s.wait(),
         Err(e) => {
-            println!("error launching bloomcache: {}", e);
+            eprintln!("error launching bloomcache: {}", e);
             std::process::exit(1);
         }
     }
