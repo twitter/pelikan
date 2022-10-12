@@ -210,7 +210,10 @@ impl TlsTcpAcceptorBuilder {
         // load the CA file, if provided
         if let Some(f) = self.ca_file {
             self.inner.set_ca_file(f.clone()).map_err(|e| {
-                Error::new(ErrorKind::Other, format!("failed to load CA file: {}\n{}", f.display(), e))
+                Error::new(
+                    ErrorKind::Other,
+                    format!("failed to load CA file: {}\n{}", f.display(), e),
+                )
             })?;
         }
 
@@ -248,20 +251,32 @@ impl TlsTcpAcceptorBuilder {
                 let pem = std::fs::read(chain.clone()).map_err(|e| {
                     Error::new(
                         ErrorKind::Other,
-                        format!("failed to load certificate chain file: {}\n{}", chain.display(), e),
+                        format!(
+                            "failed to load certificate chain file: {}\n{}",
+                            chain.display(),
+                            e
+                        ),
                     )
                 })?;
                 let cert_chain = X509::stack_from_pem(&pem).map_err(|e| {
                     Error::new(
                         ErrorKind::Other,
-                        format!("failed to load certificate chain file: {}\n{}", chain.display(), e),
+                        format!(
+                            "failed to load certificate chain file: {}\n{}",
+                            chain.display(),
+                            e
+                        ),
                     )
                 })?;
                 for cert in cert_chain {
                     self.inner.add_extra_chain_cert(cert).map_err(|e| {
                         Error::new(
                             ErrorKind::Other,
-                            format!("bad certificate in certificate chain file: {}\n{}", chain.display(), e),
+                            format!(
+                                "bad certificate in certificate chain file: {}\n{}",
+                                chain.display(),
+                                e
+                            ),
                         )
                     })?;
                 }
@@ -271,12 +286,18 @@ impl TlsTcpAcceptorBuilder {
                 // one file
 
                 // load the entire chain
-                self.inner.set_certificate_chain_file(chain.clone()).map_err(|e| {
-                    Error::new(
-                        ErrorKind::Other,
-                        format!("failed to load certificate chain file: {}\n{}", chain.display(), e),
-                    )
-                })?;
+                self.inner
+                    .set_certificate_chain_file(chain.clone())
+                    .map_err(|e| {
+                        Error::new(
+                            ErrorKind::Other,
+                            format!(
+                                "failed to load certificate chain file: {}\n{}",
+                                chain.display(),
+                                e
+                            ),
+                        )
+                    })?;
             }
             (None, Some(cert)) => {
                 // this will just load the leaf certificate from the file
