@@ -103,9 +103,8 @@ fn main() {
         debug!("loading config: {}", file);
         match SegcacheConfig::load(file) {
             Ok(c) => c,
-            Err(e) => {
-                eprintln!("error loading config file: {file}");
-                eprintln!("{}", e);
+            Err(error) => {
+                eprintln!("error loading config file: {file}\n{error}");
                 std::process::exit(1);
             }
         }
