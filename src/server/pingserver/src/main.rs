@@ -25,7 +25,7 @@ fn main() {
     // custom panic hook to terminate whole process after unwinding
     std::panic::set_hook(Box::new(|s| {
         error!("{}", s);
-        println!("{:?}", Backtrace::new());
+        eprintln!("{:?}", Backtrace::new());
         std::process::exit(101);
     }));
 
@@ -96,7 +96,7 @@ fn main() {
         match PingserverConfig::load(file) {
             Ok(c) => c,
             Err(e) => {
-                println!("error launching pingserver: {}", e);
+                eprintln!("error loading config file: {}", e);
                 std::process::exit(1);
             }
         }
@@ -108,7 +108,7 @@ fn main() {
     match Pingserver::new(config) {
         Ok(s) => s.wait(),
         Err(e) => {
-            println!("error launching pingserver: {}", e);
+            eprintln!("error launching pingserver: {}", e);
             std::process::exit(1);
         }
     }
