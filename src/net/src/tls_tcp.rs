@@ -209,19 +209,22 @@ impl TlsTcpAcceptorBuilder {
     pub fn build(mut self) -> Result<TlsTcpAcceptor> {
         // load the CA file, if provided
         if let Some(f) = self.ca_file {
-            self.inner.set_ca_file(f).map_err(|e| {
-                Error::new(ErrorKind::Other, format!("failed to load CA file: {}", e))
+            self.inner.set_ca_file(f.clone()).map_err(|e| {
+                Error::new(
+                    ErrorKind::Other,
+                    format!("failed to load CA file: {}\n{}", f.display(), e),
+                )
             })?;
         }
 
         // load the private key from file
         if let Some(f) = self.private_key_file {
             self.inner
-                .set_private_key_file(f, SslFiletype::PEM)
+                .set_private_key_file(f.clone(), SslFiletype::PEM)
                 .map_err(|e| {
                     Error::new(
                         ErrorKind::Other,
-                        format!("failed to load private key file: {}", e),
+                        format!("failed to load private key file: {}\n{}", f.display(), e),
                     )
                 })?;
         } else {
@@ -236,32 +239,44 @@ impl TlsTcpAcceptorBuilder {
 
                 // first load the leaf
                 self.inner
-                    .set_certificate_file(cert, SslFiletype::PEM)
+                    .set_certificate_file(cert.clone(), SslFiletype::PEM)
                     .map_err(|e| {
                         Error::new(
                             ErrorKind::Other,
-                            format!("failed to load certificate file: {}", e),
+                            format!("failed to load certificate file: {}\n{}", cert.display(), e),
                         )
                     })?;
 
                 // append the rest of the chain
-                let pem = std::fs::read(chain).map_err(|e| {
+                let pem = std::fs::read(chain.clone()).map_err(|e| {
                     Error::new(
                         ErrorKind::Other,
-                        format!("failed to load certificate chain file: {}", e),
+                        format!(
+                            "failed to load certificate chain file: {}\n{}",
+                            chain.display(),
+                            e
+                        ),
                     )
                 })?;
-                let chain = X509::stack_from_pem(&pem).map_err(|e| {
+                let cert_chain = X509::stack_from_pem(&pem).map_err(|e| {
                     Error::new(
                         ErrorKind::Other,
-                        format!("failed to load certificate chain file: {}", e),
+                        format!(
+                            "failed to load certificate chain file: {}\n{}",
+                            chain.display(),
+                            e
+                        ),
                     )
                 })?;
-                for cert in chain {
+                for cert in cert_chain {
                     self.inner.add_extra_chain_cert(cert).map_err(|e| {
                         Error::new(
                             ErrorKind::Other,
-                            format!("bad certificate in certificate chain file: {}", e),
+                            format!(
+                                "bad certificate in certificate chain file: {}\n{}",
+                                chain.display(),
+                                e
+                            ),
                         )
                     })?;
                 }
@@ -271,21 +286,27 @@ impl TlsTcpAcceptorBuilder {
                 // one file
 
                 // load the entire chain
-                self.inner.set_certificate_chain_file(chain).map_err(|e| {
-                    Error::new(
-                        ErrorKind::Other,
-                        format!("failed to load certificate chain file: {}", e),
-                    )
-                })?;
+                self.inner
+                    .set_certificate_chain_file(chain.clone())
+                    .map_err(|e| {
+                        Error::new(
+                            ErrorKind::Other,
+                            format!(
+                                "failed to load certificate chain file: {}\n{}",
+                                chain.display(),
+                                e
+                            ),
+                        )
+                    })?;
             }
             (None, Some(cert)) => {
                 // this will just load the leaf certificate from the file
                 self.inner
-                    .set_certificate_file(cert, SslFiletype::PEM)
+                    .set_certificate_file(cert.clone(), SslFiletype::PEM)
                     .map_err(|e| {
                         Error::new(
                             ErrorKind::Other,
-                            format!("failed to load certificate file: {}", e),
+                            format!("failed to load certificate file: {}\n{}", cert.display(), e),
                         )
                     })?;
             }

@@ -24,7 +24,7 @@ use server::PERCENTILES;
 fn main() {
     // custom panic hook to terminate whole process after unwinding
     std::panic::set_hook(Box::new(|s| {
-        error!("{}", s);
+        eprintln!("{}", s);
         eprintln!("{:?}", Backtrace::new());
         std::process::exit(101);
     }));
@@ -95,8 +95,8 @@ fn main() {
         debug!("loading config: {}", file);
         match PingserverConfig::load(file) {
             Ok(c) => c,
-            Err(e) => {
-                eprintln!("error loading config file: {}", e);
+            Err(error) => {
+                eprintln!("error loading config file: {file}\n{error}");
                 std::process::exit(1);
             }
         }
