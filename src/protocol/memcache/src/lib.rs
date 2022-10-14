@@ -30,6 +30,8 @@ pub enum MemcacheError {
     ServerError(ServerError),
 }
 
+const MAX_BATCH_SIZE: usize = 128;
+
 type Instant = common::time::Instant<common::time::Nanoseconds<u64>>;
 
 counter!(GET);

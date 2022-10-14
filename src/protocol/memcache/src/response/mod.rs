@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
+use arrayvec::ArrayVec;
 use crate::*;
 use protocol_common::{BufMut, Parse, ParseOk};
 
@@ -76,7 +77,12 @@ impl Response {
     }
 
     pub fn values(values: Vec<Value>) -> Self {
-        Self::Values(Values { values })
+        let mut values = values;
+        let mut v = ArrayVec::new();
+        for value in values.drain(..) {
+            v.push(value)
+        }
+        Self::Values(Values { values: v })
     }
 
     pub fn hangup() -> Self {
@@ -211,7 +217,7 @@ pub(crate) fn response(input: &[u8]) -> IResult<&[u8], Response> {
         // this is for empty set of values, incidated by "END"
         (input, ResponseType::Empty) => {
             let (input, _) = crlf(input)?;
-            Ok((input, Response::Values(Values { values: Vec::new() })))
+            Ok((input, Response::Values(Values::new())))
         }
         // this is for numeric responses from incr/decr
         (input, ResponseType::Numeric(value)) => {

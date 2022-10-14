@@ -34,7 +34,7 @@ impl Execute<Request, Response> for Seg {
 
 impl Storage for Seg {
     fn get(&mut self, get: &Get, buffers: &mut Vec<Vec<u8>>) -> Response {
-        let mut values = Vec::with_capacity(get.keys().len());
+        let mut values = Values::new();
 
         for key in get.keys().iter() {
             let buffer = buffers.pop().unwrap_or_default();
@@ -67,11 +67,11 @@ impl Storage for Seg {
             }
         }
 
-        Values::new(values).into()
+        values.into()
     }
 
     fn gets(&mut self, get: &Gets) -> Response {
-        let mut values = Vec::with_capacity(get.keys().len());
+        let mut values = Values::new();
         for key in get.keys().iter() {
             if let Some(item) = self.data.get(key) {
                 let o = item.optional().unwrap_or(&[0, 0, 0, 0]);
@@ -93,7 +93,7 @@ impl Storage for Seg {
                 values.push(Value::none(key));
             }
         }
-        Values::new(values).into()
+        values.into()
     }
 
     fn set(&mut self, set: &Set) -> Response {

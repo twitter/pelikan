@@ -13,6 +13,7 @@ path = "benches/request_parsing.rs"
 harness = false
 
 [dependencies]
+arrayvec = { workspace = true }
 common = { path = "../../common" }
 logger = { path = "../../logger" }
 nom = { workspace = true }

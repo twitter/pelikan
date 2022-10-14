@@ -4,18 +4,30 @@
 
 use super::*;
 
+use arrayvec::ArrayVec;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Values {
-    pub(crate) values: Vec<Value>,
+    pub(crate) values: ArrayVec<Value, MAX_BATCH_SIZE>,
+}
+
+impl Default for Values {
+    fn default() -> Self {
+        Self { values: ArrayVec::new() }
+    }
 }
 
 impl Values {
-    pub fn new(values: Vec<Value>) -> Self {
-        Self { values }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn values(&self) -> &[Value] {
         &self.values
+    }
+
+    pub fn push(&mut self, value: Value) {
+        self.values.push(value)
     }
 }
 
@@ -141,7 +153,7 @@ impl Compose for Value {
 }
 
 pub fn parse(input: &[u8]) -> IResult<&[u8], Values> {
-    let mut values = Vec::new();
+    let mut values = ArrayVec::new();
     let mut input = input;
     loop {
         let (i, _) = space1(input)?;

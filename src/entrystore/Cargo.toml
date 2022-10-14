@@ -13,6 +13,7 @@ license = { workspace = true }
 debug = ["seg/debug"]
 
 [dependencies]
+arrayvec = { workspace = true }
 common = { path = "../common" }
 config = { path = "../config" }
 protocol-common = { path = "../protocol/common" }
