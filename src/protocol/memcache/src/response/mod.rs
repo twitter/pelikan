@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0
 // http://www.apache.org/licenses/LICENSE-2.0
 
-use arrayvec::ArrayVec;
 use crate::*;
+use arrayvec::ArrayVec;
 use protocol_common::{BufMut, Parse, ParseOk};
 
 mod client_error;

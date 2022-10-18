@@ -13,7 +13,9 @@ pub struct Values {
 
 impl Default for Values {
     fn default() -> Self {
-        Self { values: ArrayVec::new() }
+        Self {
+            values: ArrayVec::new(),
+        }
     }
 }
 
