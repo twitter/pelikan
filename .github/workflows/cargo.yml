@@ -9,11 +9,53 @@ env:
   RUST_BACKTRACE: full
 
 jobs:
-  build:
+  build-linux:
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-12 ]
+        os: [ ubuntu-latest ]
         profile: [ release, debug ]
+    name: build-${{ matrix.os }}-${{ matrix.profile }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Update cargo flags
+        if: ${{ matrix.profile == 'release' }}
+        run: echo 'CARGO_FLAGS=--release' >> $GITHUB_ENV
+        shell: bash
+      - name: Update cargo flags
+        if: ${{ matrix.profile == 'debug' }}
+        run: echo 'CARGO_FLAGS=' >> $GITHUB_ENV
+        shell: bash
+
+      - uses: Swatinem/rust-cache@v1
+        with:
+          key: ${{ matrix.profile }}
+      - uses: actions-rs/cargo@v1
+        name: build
+        with:
+          command: test
+          args: ${{ env.CARGO_FLAGS }} --workspace --all-features --tests --lib --bins --examples --no-run
+      - uses: actions-rs/cargo@v1
+        name: test
+        with:
+          command: test
+          args: ${{ env.CARGO_FLAGS }} --workspace  --all-features --tests --lib --bins --examples
+      - uses: actions-rs/cargo@v1
+        if: ${{ matrix.profile == 'debug' }}
+        name: doctests
+        with:
+          command: test
+          args: ${{ env.CARGO_FLAGS }} --workspace --all-features --doc -- --test-threads 16
+
+  build-macos:
+    strategy:
+      matrix:
+        os: [ macos-12 ]
+        profile: [ release ]
     name: build-${{ matrix.os }}-${{ matrix.profile }}
     runs-on: ${{ matrix.os }}
     steps:
