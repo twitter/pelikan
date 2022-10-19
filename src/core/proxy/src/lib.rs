@@ -32,7 +32,7 @@ use std::io::{Error, ErrorKind, Result};
 use std::sync::Arc;
 use waker::Waker;
 
-type Instant = rustcommon_metrics::Instant<rustcommon_metrics::Nanoseconds<u64>>;
+type Instant = rustcommon_metrics::time::Instant<rustcommon_metrics::time::Nanoseconds<u64>>;
 
 mod backend;
 mod frontend;

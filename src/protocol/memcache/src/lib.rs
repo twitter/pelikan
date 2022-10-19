@@ -20,6 +20,7 @@ pub use protocol_common::*;
 
 use common::expiry::TimeType;
 use logger::Klog;
+use rustcommon_metrics::time::*;
 use rustcommon_metrics::*;
 
 const CRLF: &[u8] = b"\r\n";

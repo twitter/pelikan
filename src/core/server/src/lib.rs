@@ -120,7 +120,7 @@ use workers::WorkersBuilder;
 
 pub use process::{Process, ProcessBuilder};
 
-type Instant = rustcommon_metrics::Instant<rustcommon_metrics::Nanoseconds<u64>>;
+type Instant = rustcommon_metrics::time::Instant<rustcommon_metrics::time::Nanoseconds<u64>>;
 
 // TODO(bmartin): this *should* be plenty safe, the queue should rarely ever be
 // full, and a single wakeup should drain at least one message and make room for
