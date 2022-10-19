@@ -47,16 +47,11 @@ impl Parse<Request> for RequestParser {
 
             let mut message = Vec::new();
 
-            // build up the array of bulk strings
-            loop {
-                if let Ok((r, string)) = string(remaining) {
-                    message.push(Message::BulkString(BulkString {
-                        inner: Some(Arc::new(string.to_owned().into_boxed_slice())),
-                    }));
-                    remaining = r;
-                } else {
-                    break;
-                }
+            while let Ok((r, string)) = string(remaining) {
+                message.push(Message::BulkString(BulkString {
+                    inner: Some(Arc::new(string.to_owned().into_boxed_slice())),
+                }));
+                remaining = r;
 
                 if let Ok((r, _)) = space1(remaining) {
                     remaining = r;
