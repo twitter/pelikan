@@ -11,9 +11,9 @@ pub struct SimpleString {
 
 impl Compose for SimpleString {
     fn compose(&self, buf: &mut dyn BufMut) -> usize {
-        let _ = buf.put_slice(b"+");
-        let _ = buf.put_slice(self.inner.as_bytes());
-        let _ = buf.put_slice(b"\r\n");
+        buf.put_slice(b"+");
+        buf.put_slice(self.inner.as_bytes());
+        buf.put_slice(b"\r\n");
         self.inner.as_bytes().len() + 3
     }
 }

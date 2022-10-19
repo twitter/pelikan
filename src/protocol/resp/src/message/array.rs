@@ -15,15 +15,15 @@ impl Compose for Array {
         let mut len = 0;
         if let Some(values) = &self.inner {
             let header = format!("${}\r\n", values.len());
-            let _ = session.put_slice(header.as_bytes());
+            session.put_slice(header.as_bytes());
             len += header.as_bytes().len();
             for value in values {
                 len += value.compose(session);
             }
-            let _ = session.put_slice(b"\r\n");
+            session.put_slice(b"\r\n");
             len += 2;
         } else {
-            let _ = session.put_slice(b"*-1\r\n");
+            session.put_slice(b"*-1\r\n");
             len += 5;
         }
         len
@@ -31,7 +31,7 @@ impl Compose for Array {
 }
 
 pub fn parse(input: &[u8]) -> IResult<&[u8], Array> {
-    match input.get(0) {
+    match input.first() {
         Some(b'-') => {
             let (input, _) = take(1usize)(input)?;
             let (input, len) = digit1(input)?;

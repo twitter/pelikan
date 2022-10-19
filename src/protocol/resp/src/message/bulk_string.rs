@@ -46,19 +46,19 @@ impl Compose for BulkString {
     fn compose(&self, buf: &mut dyn BufMut) -> usize {
         if let Some(value) = &self.inner {
             let header = format!("${}\r\n", value.len());
-            let _ = buf.put_slice(header.as_bytes());
-            let _ = buf.put_slice(value);
-            let _ = buf.put_slice(b"\r\n");
+            buf.put_slice(header.as_bytes());
+            buf.put_slice(value);
+            buf.put_slice(b"\r\n");
             header.as_bytes().len() + value.len() + 2
         } else {
-            let _ = buf.put_slice(b"$-1\r\n");
+            buf.put_slice(b"$-1\r\n");
             5
         }
     }
 }
 
 pub fn parse(input: &[u8]) -> IResult<&[u8], BulkString> {
-    match input.get(0) {
+    match input.first() {
         Some(b'-') => {
             let (input, _) = take(1usize)(input)?;
             let (input, len) = digit1(input)?;

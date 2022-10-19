@@ -25,7 +25,7 @@ pub fn space1(input: &[u8]) -> IResult<&[u8], &[u8]> {
 // parses a string that is binary safe if wrapped in quotes, otherwise it must
 // not contain a space, carriage return, or newline
 pub fn string(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    match input.get(0) {
+    match input.first() {
         Some(b'\"') => {
             let (input, _) = take(1usize)(input)?;
             let (input, key) = take_till(|b| b == b'\"')(input)?;

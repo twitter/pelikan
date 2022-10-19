@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use std::time::SystemTime;
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TimeType {
     Unix = 0,
     Delta = 1,

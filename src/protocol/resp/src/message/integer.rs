@@ -12,7 +12,7 @@ pub struct Integer {
 impl Compose for Integer {
     fn compose(&self, buf: &mut dyn BufMut) -> usize {
         let data = format!(":{}\r\n", self.inner);
-        let _ = buf.put_slice(data.as_bytes());
+        buf.put_slice(data.as_bytes());
         data.as_bytes().len()
     }
 }
