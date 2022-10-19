@@ -19,7 +19,7 @@ cache offering without any code changes.
 
 ## Building
 
-Follow the [build steps](../../README.md#building-pelikan-rust) in the readme.
+Follow the [build steps](https://github.com/twitter/pelikan#building-pelikan) in the readme.
 
 ## Configuration
 
@@ -41,7 +41,7 @@ use with the proxy.
 
 The Momento proxy uses a TOML configuration file. As there aren't any sensible
 defaults, we require that you provide a configuration file when using the proxy.
-See the [example config](../../../../config/momento_proxy.toml) and modify it to suit
+See the [example config](https://github.com/twitter/pelikan/blob/master/config/momento_proxy.toml) and modify it to suit
 your requirements.
 
 ## Running
@@ -63,14 +63,25 @@ You can run the `momento-proxy` container by pulling it from [Momento's](https:/
 
 ```
 docker pull gomomento/momento-proxy
-docker run -d -p 11211:11211 -p 9999:9999 -e MOMENTO_AUTHENTICATION=<YOUR_MOMENTO_TOKEN> gomomento/momento-proxy
+docker run -d \
+  -p 11211:11211 \
+  -p 6379:6379 \
+  -p 9999:9999 \
+  -e MOMENTO_AUTHENTICATION=<YOUR_MOMENTO_TOKEN> \
+  gomomento/momento-proxy
 ```
 
-By default, [this configuration](../../../../config/momento_proxy.toml) is used for the Momento proxy.
+By default, [this configuration](https://github.com/twitter/pelikan/blob/master/config/momento_proxy.toml) is used for the Momento proxy.
 To set your own, please provide an env variable `CONFIG` as well as the directory where your config file is located to `-v` when running a container.
 
 ```
-docker run -d -p 11211:11211 -p 9999:9999 -e MOMENTO_AUTHENTICATION=<YOUR_MOMENTO_TOKEN> -e CONFIG=<YOUR_CONFIG_FILE> -v /your/path/to/config/dir:/app/config gomomento/momento-proxy
+docker run -d \
+  -p 11211:11211 \
+  -p 6379:6379 \
+  -p 9999:9999 \
+  -e MOMENTO_AUTHENTICATION=<YOUR_MOMENTO_TOKEN> \
+  -e CONFIG=my_custom_config.toml \
+  -v /your/path/to/config/dir:/app/config gomomento/momento-proxy
 ```
 
 ### momento-proxy Docker image local development
@@ -84,16 +95,28 @@ docker build --tag momento-proxy .
 - Running the newly built image with the default config:
 
 ```
-docker run -d -p 11211:11211 -p 9999:9999 -e MOMENTO_AUTHENTICATION=<YOUR_MOMENTO_TOKEN> momento-proxy
+docker run -d \
+  -p 11211:11211 \
+  -p 6379:6379 \
+  -p 9999:9999 \
+  -e MOMENTO_AUTHENTICATION=<YOUR_MOMENTO_TOKEN> \
+  momento-proxy
 ```
 
 - Running the newly built image with your custom config:
 
 ```
-docker run -d -p 11211:11211 -p 9999:9999 -e MOMENTO_AUTHENTICATION=<YOUR_MOMENTO_TOKEN> -e CONFIG=<YOUR_CONFIG_FILE> -v /your/path/to/config/dir:/app/config momento-proxy
+docker run -d \
+  -p 11211:11211 \
+  -p 6379:6379 \
+  -p 9999:9999 \
+  -e MOMENTO_AUTHENTICATION=<YOUR_MOMENTO_TOKEN> \
+  -e CONFIG=<YOUR_CONFIG_FILE> \
+  -v /your/path/to/config/dir:/app/config \
+  momento-proxy
 ```
 
-- Testing to see if a container with the momento-proxy is running properly with telnet:
+- Testing to see if a container with the `momento-proxy` is running properly with `telnet` for Memcache:
 
 ```
 telnet 0.0.0.0 11211
@@ -103,4 +126,12 @@ Escape character is '^]'
 set foo 0 0  3
 bar
 STORED
+```
+
+- Or you can use `redis-cli` to test to see if `momento-proxy` is running properly for Redis:
+```
+redis-cli -h 0.0.0.0 -p 6379 SET FOO BAR
+OK
+redis-cli -h 0.0.0.0 -p 6379 GET FOO
+"BAR"
 ```
