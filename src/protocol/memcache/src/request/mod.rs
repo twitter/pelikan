@@ -322,6 +322,7 @@ impl Ttl {
     pub fn new(exptime: i64, time_type: TimeType) -> Self {
         // all negative values mean to expire immediately, early return
         if exptime < 0 {
+            info!("TTL is negative, should immediately expire");
             return Self {
                 inner: NonZeroI32::new(-1),
             };
@@ -336,6 +337,7 @@ impl Ttl {
         let exptime = if time_type == TimeType::Unix
             || (time_type == TimeType::Memcache && exptime > 60 * 60 * 24 * 30)
         {
+            info!("TTL is unix timestamp, converting to relative time");
             // treat it as a unix timestamp
 
             // clamp to a valid u32
@@ -360,11 +362,13 @@ impl Ttl {
 
             seconds as i64
         } else {
+            info!("TTL is relative, returning");
             exptime
         };
 
         // clamp long TTLs
         if exptime > i32::MAX as i64 {
+            info!("TTL is greater than i32::MAX, clamping value");
             Self {
                 inner: NonZeroI32::new(i32::MAX),
             }
