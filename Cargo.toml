@@ -64,9 +64,9 @@ quote = "1.0.21"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 rand_xoshiro = "0.6.0"
-rustcommon-logger = { git = "https://github.com/twitter/rustcommon", rev = "87e0c87" }
-rustcommon-metrics = { git = "https://github.com/twitter/rustcommon", rev = "87e0c87" }
-rustcommon-time = { git = "https://github.com/twitter/rustcommon", rev = "87e0c87" }
+rustcommon-logger = { git = "https://github.com/twitter/rustcommon", rev = "d550e01" }
+rustcommon-metrics = { git = "https://github.com/twitter/rustcommon", rev = "d550e01" }
+rustcommon-time = { git = "https://github.com/twitter/rustcommon", rev = "d550e01" }
 serde = "1.0.145"
 serde_json = "1.0.85"
 slab = "0.4.7"
