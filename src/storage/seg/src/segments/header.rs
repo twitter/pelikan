@@ -65,6 +65,7 @@ pub struct SegmentHeader {
 
 impl SegmentHeader {
     pub fn new(id: NonZeroU32) -> Self {
+        let now = Instant::now();
         Self {
             id,
             write_offset: 0,
@@ -72,9 +73,9 @@ impl SegmentHeader {
             live_items: 0,
             prev_seg: None,
             next_seg: None,
-            create_at: Instant::recent(),
+            create_at: now,
             ttl: 0,
-            merge_at: Instant::recent(),
+            merge_at: now,
             accessible: false,
             evictable: false,
             _pad: [0; 25],
@@ -89,12 +90,13 @@ impl SegmentHeader {
         assert!(!self.evictable());
 
         self.reset();
+        let now = Instant::now();
 
         self.prev_seg = None;
         self.next_seg = None;
         self.live_items = 0;
-        self.create_at = Instant::recent();
-        self.merge_at = Instant::recent();
+        self.create_at = now;
+        self.merge_at = now;
         self.accessible = true;
     }
 
@@ -249,7 +251,7 @@ impl SegmentHeader {
     #[inline]
     /// Update the created time
     pub fn mark_created(&mut self) {
-        self.create_at = Instant::recent();
+        self.create_at = Instant::now();
     }
 
     #[inline]
@@ -261,7 +263,7 @@ impl SegmentHeader {
     #[inline]
     /// Update the created time
     pub fn mark_merged(&mut self) {
-        self.merge_at = Instant::recent();
+        self.merge_at = Instant::now();
     }
 
     #[inline]
@@ -273,6 +275,6 @@ impl SegmentHeader {
     pub fn can_evict(&self) -> bool {
         self.evictable()
             && self.next_seg().is_some()
-            && (self.create_at() + self.ttl()) >= (Instant::recent() + SEG_MATURE_TIME)
+            && (self.create_at() + self.ttl()) >= (Instant::now() + SEG_MATURE_TIME)
     }
 }

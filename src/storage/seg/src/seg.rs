@@ -288,15 +288,13 @@ impl Seg {
     /// assert!(cache.get(b"coffee").is_none());
     /// ```
     pub fn expire(&mut self) -> usize {
-        common::time::refresh_clock();
-        self.time = Instant::recent();
+        self.time = Instant::now();
         self.ttl_buckets
             .expire(&mut self.hashtable, &mut self.segments)
     }
 
     pub fn clear(&mut self) -> usize {
-        common::time::refresh_clock();
-        self.time = Instant::recent();
+        self.time = Instant::now();
         self.ttl_buckets
             .clear(&mut self.hashtable, &mut self.segments)
     }
