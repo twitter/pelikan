@@ -12,9 +12,11 @@ use std::sync::Arc;
 
 mod get;
 mod set;
+mod badd;
 
 pub use get::GetRequest;
 pub use set::SetRequest;
+pub use badd::BAddRequest;
 
 #[derive(Default)]
 pub struct RequestParser {
@@ -93,6 +95,9 @@ impl Parse<Request> for RequestParser {
                         Some(b"set") | Some(b"SET") => {
                             SetRequest::try_from(message).map(Request::from)
                         }
+                        Some(b"badd") | Some(b"BADD") => {
+                          BAddRequest::try_from(message).map(Request::from)
+                        }
                         _ => Err(Error::new(ErrorKind::Other, "unknown command")),
                     },
                     _ => {
@@ -115,6 +120,7 @@ impl Compose for Request {
         match self {
             Self::Get(r) => r.compose(buf),
             Self::Set(r) => r.compose(buf),
+            Self::BAdd(r) => r.compose(buf),
         }
     }
 }
@@ -123,6 +129,7 @@ impl Compose for Request {
 pub enum Request {
     Get(GetRequest),
     Set(SetRequest),
+    BAdd(BAddRequest),
 }
 
 impl From<GetRequest> for Request {
@@ -137,10 +144,17 @@ impl From<SetRequest> for Request {
     }
 }
 
+impl From<BAddRequest> for Request {
+    fn from(other: BAddRequest) -> Self {
+        Self::BAdd(other)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
     Get,
     Set,
+    BAdd,
 }
 
 impl TryFrom<&[u8]> for Command {
@@ -150,6 +164,7 @@ impl TryFrom<&[u8]> for Command {
         match other {
             b"get" | b"GET" => Ok(Command::Get),
             b"set" | b"SET" => Ok(Command::Set),
+            b"badd" | b"BADD" => Ok(Command::BAdd),
             _ => Err(()),
         }
     }
