@@ -28,7 +28,6 @@ extern crate logger;
 
 // external crate includes
 use common::time::Seconds;
-use rustcommon_metrics::*;
 
 // includes from core/std
 use core::hash::{BuildHasher, Hasher};

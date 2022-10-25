@@ -26,6 +26,16 @@ counter!(
     "total number of segments returned to the free pool"
 );
 counter!(SEGMENT_MERGE, "total number of segments merged");
+counter!(SEGMENT_CLEAR, "number of segments cleared");
+counter!(SEGMENT_EXPIRE, "number of segments expired");
+counter!(
+    CLEAR_TIME,
+    "amount of time, in nanoseconds, spent clearing segments"
+);
+counter!(
+    EXPIRE_TIME,
+    "amount of time, in nanoseconds, spent expiring segments"
+);
 gauge!(EVICT_TIME, "time, in nanoseconds, spent evicting segments");
 gauge!(SEGMENT_FREE, "current number of free segments");
 gauge!(SEGMENT_CURRENT, "current number of segments");
