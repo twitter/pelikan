@@ -10,16 +10,6 @@ use std::cmp::min;
 
 const RESERVE_RETRIES: usize = 3;
 
-counter!(SEGMENT_REQUEST, "number of segment allocation attempts");
-counter!(
-    SEGMENT_REQUEST_FAILURE,
-    "number of segment allocation attempts which failed"
-);
-counter!(
-    SEGMENT_REQUEST_SUCCESS,
-    "number of segment allocation attempts which were successful"
-);
-
 /// A pre-allocated key-value store with eager expiration. It uses a
 /// segment-structured design that stores data in fixed-size segments, grouping
 /// objects with nearby expiration time into the same segment, and lifting most

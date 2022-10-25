@@ -4,7 +4,6 @@
 
 use crate::eviction::*;
 use crate::item::*;
-use crate::seg::{SEGMENT_REQUEST, SEGMENT_REQUEST_SUCCESS};
 use crate::segments::*;
 use core::num::NonZeroU32;
 use datapool::*;

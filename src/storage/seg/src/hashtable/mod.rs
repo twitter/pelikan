@@ -82,29 +82,6 @@ mod hash_bucket;
 
 pub(crate) use hash_bucket::*;
 
-counter!(HASH_TAG_COLLISION, "number of partial hash collisions");
-counter!(HASH_INSERT, "number of inserts into the hash table");
-counter!(
-    HASH_INSERT_EX,
-    "number of hash table inserts which failed, likely due to capacity"
-);
-counter!(
-    HASH_REMOVE,
-    "number of hash table entries which have been removed"
-);
-counter!(
-    HASH_LOOKUP,
-    "total number of lookups against the hash table"
-);
-counter!(
-    ITEM_RELINK,
-    "number of times items have been relinked to different locations"
-);
-counter!(ITEM_REPLACE, "number of times items have been replaced");
-counter!(ITEM_DELETE, "number of items removed from the hash table");
-counter!(ITEM_EXPIRE, "number of items removed due to expiration");
-counter!(ITEM_EVICT, "number of items removed due to eviction");
-
 #[derive(Debug)]
 struct IterState {
     bucket_id: usize,
