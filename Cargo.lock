@@ -907,7 +907,7 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 [[package]]
 name = "heatmap"
 version = "0.0.0"
-source = "git+https://github.com/twitter/rustcommon?rev=87e0c87#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
+source = "git+https://github.com/twitter/rustcommon?rev=d550e01#d550e01d3aeb7b334ed44e87652706acb5b3aea8"
 dependencies = [
  "histogram",
  "rustcommon-time",
@@ -935,7 +935,7 @@ dependencies = [
 [[package]]
 name = "histogram"
 version = "0.0.0"
-source = "git+https://github.com/twitter/rustcommon?rev=87e0c87#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
+source = "git+https://github.com/twitter/rustcommon?rev=d550e01#d550e01d3aeb7b334ed44e87652706acb5b3aea8"
 dependencies = [
  "thiserror",
 ]
@@ -2032,7 +2032,7 @@ checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 [[package]]
 name = "rustcommon-logger"
 version = "0.1.1"
-source = "git+https://github.com/twitter/rustcommon?rev=87e0c87#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
+source = "git+https://github.com/twitter/rustcommon?rev=d550e01#d550e01d3aeb7b334ed44e87652706acb5b3aea8"
 dependencies = [
  "ahash",
  "log",
@@ -2044,7 +2044,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-metrics"
 version = "0.1.2"
-source = "git+https://github.com/twitter/rustcommon?rev=87e0c87#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
+source = "git+https://github.com/twitter/rustcommon?rev=d550e01#d550e01d3aeb7b334ed44e87652706acb5b3aea8"
 dependencies = [
  "heatmap",
  "linkme",
@@ -2057,7 +2057,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-metrics-derive"
 version = "0.1.1"
-source = "git+https://github.com/twitter/rustcommon?rev=87e0c87#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
+source = "git+https://github.com/twitter/rustcommon?rev=d550e01#d550e01d3aeb7b334ed44e87652706acb5b3aea8"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -2068,7 +2068,7 @@ dependencies = [
 [[package]]
 name = "rustcommon-time"
 version = "0.0.13"
-source = "git+https://github.com/twitter/rustcommon?rev=87e0c87#87e0c87cc8ad42466ec0eeba0fee8742325e52c0"
+source = "git+https://github.com/twitter/rustcommon?rev=d550e01#d550e01d3aeb7b334ed44e87652706acb5b3aea8"
 dependencies = [
  "lazy_static",
  "libc",

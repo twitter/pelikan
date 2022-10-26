@@ -4,24 +4,9 @@
 
 use crate::eviction::*;
 use crate::item::*;
-use crate::seg::{SEGMENT_REQUEST, SEGMENT_REQUEST_SUCCESS};
 use crate::segments::*;
 use core::num::NonZeroU32;
 use datapool::*;
-
-gauge!(EVICT_TIME, "time, in nanoseconds, spent evicting segments");
-counter!(SEGMENT_EVICT, "number of segments evicted");
-counter!(
-    SEGMENT_EVICT_EX,
-    "number of exceptions while evicting segments"
-);
-counter!(
-    SEGMENT_RETURN,
-    "total number of segments returned to the free pool"
-);
-gauge!(SEGMENT_FREE, "current number of free segments");
-counter!(SEGMENT_MERGE, "total number of segments merged");
-gauge!(SEGMENT_CURRENT, "current number of segments");
 
 /// `Segments` contain all items within the cache. This struct is a collection
 /// of individual `Segment`s which are represented by a `SegmentHeader` and a

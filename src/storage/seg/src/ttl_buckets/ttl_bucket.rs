@@ -26,7 +26,6 @@
 //! └──────────────────────────────────────────────────────────┘
 //! ```
 
-use super::{SEGMENT_CLEAR, SEGMENT_EXPIRE};
 use crate::*;
 use core::num::NonZeroU32;
 

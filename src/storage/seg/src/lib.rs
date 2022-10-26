@@ -28,7 +28,6 @@ extern crate logger;
 
 // external crate includes
 use common::time::Seconds;
-use rustcommon_metrics::*;
 
 // includes from core/std
 use core::hash::{BuildHasher, Hasher};
@@ -44,6 +43,7 @@ mod error;
 mod eviction;
 mod hashtable;
 mod item;
+mod metrics;
 mod rand;
 mod seg;
 mod segments;
@@ -71,6 +71,7 @@ pub(crate) type Instant = common::time::Instant<Seconds<u32>>;
 pub(crate) use crate::rand::*;
 pub(crate) use hashtable::*;
 pub(crate) use item::*;
+pub(crate) use metrics::*;
 pub(crate) use segments::*;
 pub(crate) use ttl_buckets::*;
 

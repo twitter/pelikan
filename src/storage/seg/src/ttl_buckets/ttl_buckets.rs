@@ -20,7 +20,6 @@
 //! [Segcache paper](https://www.usenix.org/system/files/nsdi21-yang.pdf) for
 //! more detail.
 
-use super::{CLEAR_TIME, EXPIRE_TIME};
 use crate::*;
 
 const N_BUCKET_PER_STEP_N_BIT: usize = 8;

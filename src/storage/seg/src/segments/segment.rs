@@ -6,18 +6,6 @@ use super::{SegmentHeader, SegmentsError};
 use crate::*;
 use core::num::NonZeroU32;
 
-gauge!(ITEM_CURRENT, "current number of live items");
-gauge!(
-    ITEM_CURRENT_BYTES,
-    "current number of live bytes for storing items"
-);
-gauge!(ITEM_DEAD, "current number of dead items");
-gauge!(
-    ITEM_DEAD_BYTES,
-    "current number of dead bytes for storing items"
-);
-counter!(ITEM_COMPACTED, "number of items which have been compacted");
-
 pub const SEG_MAGIC: u64 = 0xBADC0FFEEBADCAFE;
 
 /// A `Segment` is a contiguous allocation of bytes and an associated header
@@ -289,6 +277,7 @@ impl<'a> Segment<'a> {
     pub(crate) fn alloc_item(&mut self, size: i32) -> RawItem {
         let offset = self.write_offset() as usize;
         self.incr_item(size);
+        ITEM_ALLOCATE.increment();
         ITEM_CURRENT.increment();
         ITEM_CURRENT_BYTES.add(size as _);
 

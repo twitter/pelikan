@@ -23,16 +23,3 @@ mod tests;
 pub use error::TtlBucketsError;
 pub use ttl_bucket::TtlBucket;
 pub use ttl_buckets::TtlBuckets;
-
-use rustcommon_metrics::*;
-
-counter!(SEGMENT_CLEAR, "number of segments cleared");
-counter!(SEGMENT_EXPIRE, "number of segments expired");
-counter!(
-    CLEAR_TIME,
-    "amount of time, in nanoseconds, spent clearing segments"
-);
-counter!(
-    EXPIRE_TIME,
-    "amount of time, in nanoseconds, spent expiring segments"
-);
