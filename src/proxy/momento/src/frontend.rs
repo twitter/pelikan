@@ -102,6 +102,7 @@ pub(crate) async fn handle_resp_client(
                             break;
                         }
                     }
+                    resp::Request::BAdd(_r) => todo!("BAdd")
                 }
                 buf.advance(consumed);
             }
