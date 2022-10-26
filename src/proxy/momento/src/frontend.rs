@@ -86,6 +86,7 @@ pub(crate) async fn handle_resp_client(
                 let request = request.into_inner();
 
                 match request {
+                    resp::Request::BAdd(_) => todo!(),
                     resp::Request::Get(r) => {
                         if resp::get(&mut client, &cache_name, &mut socket, r.key())
                             .await

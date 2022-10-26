@@ -10,9 +10,11 @@ use protocol_common::ParseOk;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 
+mod badd;
 mod get;
 mod set;
 
+pub use badd::BAddRequest;
 pub use get::GetRequest;
 pub use set::SetRequest;
 
@@ -87,6 +89,9 @@ impl Parse<Request> for RequestParser {
 
                 match &array[0] {
                     Message::BulkString(c) => match c.inner.as_ref().map(|v| v.as_ref().as_ref()) {
+                        Some(b"badd") | Some(b"BADD") => {
+                            BAddRequest::try_from(message).map(Request::from)
+                        }
                         Some(b"get") | Some(b"GET") => {
                             GetRequest::try_from(message).map(Request::from)
                         }
@@ -113,6 +118,7 @@ impl Parse<Request> for RequestParser {
 impl Compose for Request {
     fn compose(&self, buf: &mut dyn BufMut) -> usize {
         match self {
+            Self::BAdd(r) => r.compose(buf),
             Self::Get(r) => r.compose(buf),
             Self::Set(r) => r.compose(buf),
         }
@@ -121,8 +127,15 @@ impl Compose for Request {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Request {
+    BAdd(BAddRequest),
     Get(GetRequest),
     Set(SetRequest),
+}
+
+impl From<BAddRequest> for Request {
+    fn from(other: BAddRequest) -> Self {
+        Self::BAdd(other)
+    }
 }
 
 impl From<GetRequest> for Request {
@@ -139,6 +152,7 @@ impl From<SetRequest> for Request {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
+    BAdd,
     Get,
     Set,
 }
@@ -148,6 +162,7 @@ impl TryFrom<&[u8]> for Command {
 
     fn try_from(other: &[u8]) -> Result<Self, ()> {
         match other {
+            b"badd" | b"BADD" => Ok(Command::BAdd),
             b"get" | b"GET" => Ok(Command::Get),
             b"set" | b"SET" => Ok(Command::Set),
             _ => Err(()),
