@@ -10,13 +10,13 @@ use protocol_common::ParseOk;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 
+mod badd;
 mod get;
 mod set;
-mod badd;
 
+pub use badd::BAddRequest;
 pub use get::GetRequest;
 pub use set::SetRequest;
-pub use badd::BAddRequest;
 
 #[derive(Default)]
 pub struct RequestParser {
@@ -96,7 +96,7 @@ impl Parse<Request> for RequestParser {
                             SetRequest::try_from(message).map(Request::from)
                         }
                         Some(b"badd") | Some(b"BADD") => {
-                          BAddRequest::try_from(message).map(Request::from)
+                            BAddRequest::try_from(message).map(Request::from)
                         }
                         _ => Err(Error::new(ErrorKind::Other, "unknown command")),
                     },
