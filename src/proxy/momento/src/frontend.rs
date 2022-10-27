@@ -86,7 +86,6 @@ pub(crate) async fn handle_resp_client(
                 let request = request.into_inner();
 
                 match request {
-                    resp::Request::BAdd(_) => todo!(),
                     resp::Request::Get(r) => {
                         if resp::get(&mut client, &cache_name, &mut socket, r.key())
                             .await
@@ -102,6 +101,11 @@ pub(crate) async fn handle_resp_client(
                         {
                             break;
                         }
+                    }
+                    _ => {
+                        println!("bad request");
+                        let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
+                        break;
                     }
                 }
                 buf.advance(consumed);
