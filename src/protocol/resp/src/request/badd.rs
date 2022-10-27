@@ -10,7 +10,7 @@ type ArcByteSlice = Arc<Box<[u8]>>;
 type ArcKeyValuePair = (ArcByteSlice, ArcByteSlice);
 
 /// Represents the btree add command which was added to Twitter's internal version of redis32.
-/// format is: badd outer_key (inner_key value)+t q
+/// format is: badd outer_key (inner_key value)+
 #[derive(Debug, PartialEq, Eq)]
 pub struct BAddRequest {
     outer_key: Arc<Box<[u8]>>,
