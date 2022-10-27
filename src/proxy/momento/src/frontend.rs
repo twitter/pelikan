@@ -102,6 +102,11 @@ pub(crate) async fn handle_resp_client(
                             break;
                         }
                     }
+                    _ => {
+                        println!("bad request");
+                        let _ = socket.write_all(b"CLIENT_ERROR\r\n").await;
+                        break;
+                    }
                 }
                 buf.advance(consumed);
             }
