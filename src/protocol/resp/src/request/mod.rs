@@ -12,10 +12,12 @@ use std::sync::Arc;
 
 mod badd;
 mod get;
+mod hmget;
 mod set;
 
 pub use badd::BAddRequest;
 pub use get::GetRequest;
+pub use hmget::HmGetRequest;
 pub use set::SetRequest;
 
 #[derive(Default)]
@@ -95,6 +97,9 @@ impl Parse<Request> for RequestParser {
                         Some(b"get") | Some(b"GET") => {
                             GetRequest::try_from(message).map(Request::from)
                         }
+                        Some(b"hmget") | Some(b"HMGET") => {
+                            HmGetRequest::try_from(message).map(Request::from)
+                        }
                         Some(b"set") | Some(b"SET") => {
                             SetRequest::try_from(message).map(Request::from)
                         }
@@ -120,6 +125,7 @@ impl Compose for Request {
         match self {
             Self::BAdd(r) => r.compose(buf),
             Self::Get(r) => r.compose(buf),
+            Self::HmGet(r) => r.compose(buf),
             Self::Set(r) => r.compose(buf),
         }
     }
@@ -129,6 +135,7 @@ impl Compose for Request {
 pub enum Request {
     BAdd(BAddRequest),
     Get(GetRequest),
+    HmGet(HmGetRequest),
     Set(SetRequest),
 }
 
@@ -144,6 +151,12 @@ impl From<GetRequest> for Request {
     }
 }
 
+impl From<HmGetRequest> for Request {
+    fn from(other: HmGetRequest) -> Self {
+        Self::HmGet(other)
+    }
+}
+
 impl From<SetRequest> for Request {
     fn from(other: SetRequest) -> Self {
         Self::Set(other)
@@ -154,6 +167,7 @@ impl From<SetRequest> for Request {
 pub enum Command {
     BAdd,
     Get,
+    HmGet,
     Set,
 }
 
@@ -164,6 +178,7 @@ impl TryFrom<&[u8]> for Command {
         match other {
             b"badd" | b"BADD" => Ok(Command::BAdd),
             b"get" | b"GET" => Ok(Command::Get),
+            b"hmget" | b"HMGET" => Ok(Command::HmGet),
             b"set" | b"SET" => Ok(Command::Set),
             _ => Err(()),
         }
