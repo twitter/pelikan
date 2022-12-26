@@ -1,5 +1,10 @@
 # Pelikan
 
+
+**Note: After Nov 17, 2022, maintainers of the Pelikan project have lost access
+to the Twitter Github. Active development of Pelikan will continue at
+[pelikan-io/pelikan](https://github.com/pelikan-io/pelikan). Please update your bookmark, thanks!**
+
 Pelikan is Twitter's framework for developing cache services. It is:
 
 * **Fast**: Pelikan provides high-throughput and low-latency caching solutions.
