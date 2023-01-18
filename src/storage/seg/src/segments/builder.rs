@@ -29,7 +29,7 @@ impl Default for SegmentsBuilder {
     }
 }
 
-impl<'a> SegmentsBuilder {
+impl SegmentsBuilder {
     /// Set the segment size in bytes.
     ///
     /// # Panics

@@ -84,7 +84,7 @@ impl TtlBucket {
         }
 
         let mut expired = 0;
-        let ts = Instant::recent();
+        let ts = Instant::now();
 
         loop {
             let seg_id = self.head;
@@ -98,7 +98,7 @@ impl TtlBucket {
                         self.head = None;
                         self.tail = None;
                     }
-                    let _ = segment.clear(hashtable, true);
+                    segment.clear(hashtable, true);
                     segments.push_free(seg_id);
                     SEGMENT_EXPIRE.increment();
                     expired += 1;
@@ -130,7 +130,7 @@ impl TtlBucket {
                     self.head = None;
                     self.tail = None;
                 }
-                let _ = segment.clear(hashtable, true);
+                segment.clear(hashtable, true);
                 segments.push_free(seg_id);
                 SEGMENT_CLEAR.increment();
                 cleared += 1;

@@ -70,7 +70,7 @@ impl Eviction {
     }
 
     pub fn should_rerank(&mut self) -> bool {
-        let now = Instant::recent();
+        let now = Instant::now();
         match self.policy {
             Policy::None | Policy::Random | Policy::RandomFifo | Policy::Merge { .. } => false,
             Policy::Fifo | Policy::Cte | Policy::Util => {
