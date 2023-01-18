@@ -33,7 +33,7 @@ use crate::*;
 
 // the minimum age of a segment before it is eligible for eviction
 // TODO(bmartin): this should be parameterized.
-const SEG_MATURE_TIME: Duration = Duration::from_secs(20);
+const SEG_MATURE_TIME: Duration = Duration::from_secs(0);
 
 #[derive(Debug)]
 #[repr(C)]
