@@ -7,6 +7,8 @@ extern crate log;
 
 mod admin;
 mod array;
+mod bloom;
+mod bloomcache;
 mod buf;
 mod dbuf;
 mod debug;
@@ -28,6 +30,8 @@ mod worker;
 
 pub use admin::{Admin, AdminConfig};
 pub use array::ArrayConfig;
+pub use bloom::{Bloom, BloomConfig};
+pub use bloomcache::BloomcacheConfig;
 pub use buf::{Buf, BufConfig};
 pub use dbuf::DbufConfig;
 pub use debug::{Debug, DebugConfig};

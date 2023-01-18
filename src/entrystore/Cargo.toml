@@ -18,4 +18,6 @@ config = { path = "../config" }
 protocol-common = { path = "../protocol/common" }
 protocol-memcache = { path = "../protocol/memcache" }
 protocol-ping = { path = "../protocol/ping" }
+protocol-http = { path = "../protocol/http" }
 seg = { path = "../storage/seg" }
+bloom = { path = "../storage/bloom" }
