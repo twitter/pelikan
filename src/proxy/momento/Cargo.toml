@@ -24,4 +24,4 @@ protocol-resp = { path = "../../protocol/resp" }
 rustcommon-metrics = { workspace = true }
 session = { path = "../../session" }
 storage-types = { path = "../../storage/types" }
-tokio = { version = "1.17.0", features = ["full"] }
+tokio = { version = "1.24.2", features = ["full"] }
