@@ -5,7 +5,19 @@
 //! A builder for configuring a new [`Seg`] instance.
 
 use crate::*;
-use std::path::Path;
+use datapool::{Datapool, Memory};
+use rspdk::{
+    bdev::BdevDesc,
+    complete::LocalComplete,
+    consumer::SpdkConsumer,
+    dma::DmaBuf,
+    producer::{Action, Request, SpdkProducer},
+};
+use std::{
+    path::Path,
+    sync::mpsc::{channel, Receiver},
+    thread,
+};
 
 /// A builder that is used to construct a new [`Seg`] instance.
 pub struct Builder {
@@ -162,12 +174,47 @@ impl Builder {
         let hashtable = HashTable::new(self.hash_power, self.overflow_factor);
         let segments = self.segments_builder.build()?;
         let ttl_buckets = TtlBuckets::default();
-
+        let (tx, rx) = channel();
+        thread::spawn(|| {
+            SpdkConsumer::new()
+                .name("pelikan")
+                .config_file("./config/example.json")
+                .block_on(serve(rx))
+        });
+        let producer = SpdkProducer::new(tx);
+        let buf: Box<dyn Datapool> = Box::new(Memory::create(512)?);
         Ok(Seg {
             hashtable,
             segments,
             ttl_buckets,
             time: Instant::recent(),
+            producer,
+            buf,
         })
+    }
+}
+
+async fn serve(rx: Receiver<Request>) {
+    let bdev_desc = BdevDesc::create_desc("NVMe0n1").unwrap();
+
+    for request in rx {
+        let dma_buf = DmaBuf::alloc(request.length, 0x1000);
+        match request.action {
+            Action::Read => {
+                let _ = bdev_desc
+                    .read(request.offset, request.length, dma_buf.as_mut_ptr())
+                    .await;
+                unsafe { std::ptr::copy(dma_buf.as_ptr(), request.buf, request.length) };
+            }
+            Action::Write => {
+                unsafe { std::ptr::copy(request.buf, dma_buf.as_mut_ptr(), request.length) };
+                let _ = bdev_desc
+                    .write(request.offset, request.length, dma_buf.as_mut_ptr())
+                    .await;
+            }
+        };
+        let complete =
+            unsafe { &mut *(request.arg as *mut LocalComplete<rspdk::error::Result<u64>>) };
+        complete.complete(Ok(0));
     }
 }

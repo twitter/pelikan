@@ -6,6 +6,8 @@
 
 use crate::Value;
 use crate::*;
+use datapool::Datapool;
+use rspdk::producer::{Action, SpdkProducer};
 use std::cmp::min;
 
 const RESERVE_RETRIES: usize = 3;
@@ -19,6 +21,8 @@ pub struct Seg {
     pub(crate) segments: Segments,
     pub(crate) ttl_buckets: TtlBuckets,
     pub(crate) time: Instant,
+    pub(crate) producer: SpdkProducer,
+    pub(crate) buf: Box<dyn Datapool>,
 }
 
 impl Seg {
@@ -71,7 +75,26 @@ impl Seg {
     /// assert_eq!(item.value(), b"strong");
     /// ```
     pub fn get(&mut self, key: &[u8]) -> Option<Item> {
-        self.hashtable.get(key, self.time, &mut self.segments)
+        if let Some(item) = self.hashtable.get(key, self.time, &mut self.segments) {
+            Some(item)
+        } else {
+            let block_id = self.hashtable.map(key);
+            let _ = self.producer.produce(
+                Action::Read,
+                512 * block_id as usize,
+                512,
+                self.buf.as_mut_slice(),
+            );
+            let raw_item = RawItem::from_ptr(self.buf.as_mut_slice().as_mut_ptr());
+            if raw_item.key() == key {
+                let item = Item::new(raw_item, 0);
+                item.check_magic();
+                let _ = self.insert_inner(key, item.value(), None, std::time::Duration::ZERO);
+                Some(item)
+            } else {
+                None
+            }
+        }
     }
 
     /// Get the item in the `Seg` with the provided key without
@@ -105,6 +128,31 @@ impl Seg {
     /// assert_eq!(item.value(), b"whisky");
     /// ```
     pub fn insert<'a, T: Into<Value<'a>>>(
+        &mut self,
+        key: &'a [u8],
+        value: T,
+        optional: Option<&[u8]>,
+        ttl: std::time::Duration,
+    ) -> Result<(), SegError> {
+        let value: Value = value.into();
+        if let Err(err) = self.insert_inner(key, value, optional, ttl) {
+            Err(err)
+        } else {
+            let optional = optional.unwrap_or(&[]);
+            let block_id = self.hashtable.map(key);
+            let mut raw_item = RawItem::from_ptr(self.buf.as_mut_slice().as_mut_ptr());
+            raw_item.define(key, value, optional);
+            let _ = self.producer.produce(
+                Action::Write,
+                512 * block_id as usize,
+                512,
+                self.buf.as_mut_slice(),
+            );
+            Ok(())
+        }
+    }
+
+    fn insert_inner<'a, T: Into<Value<'a>>>(
         &mut self,
         key: &'a [u8],
         value: T,

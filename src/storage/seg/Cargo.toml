@@ -37,6 +37,7 @@ rand_xoshiro = { workspace = true }
 rustcommon-metrics = { workspace = true }
 storage-types = { path = "../types" }
 thiserror = { workspace = true }
+rspdk = { workspace = true }
 
 [dev-dependencies]
 criterion = "0.3.4"

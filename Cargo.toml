@@ -77,6 +77,7 @@ toml = "0.5.9"
 twox-hash = { version = "1.6.3", default-features = false }
 urlencoding = "2.1.2"
 zookeeper = "0.6.1"
+rspdk = { git = "https://github.com/linzs148/rspdk" }
 
 [profile.release]
 opt-level = 3

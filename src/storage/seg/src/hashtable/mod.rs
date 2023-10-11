@@ -623,4 +623,12 @@ impl HashTable {
         hasher.write(key);
         hasher.finish()
     }
+
+    pub fn map(&self, key: &[u8]) -> u64 {
+        let hash = self.hash(key);
+        let ssd_size = 512 * 1024 * 1024 * 1024;
+        let block_size = 512;
+        let block_num = ssd_size / block_size;
+        hash & (block_num - 1)
+    }
 }
