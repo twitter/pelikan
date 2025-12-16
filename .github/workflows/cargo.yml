@@ -17,7 +17,7 @@ jobs:
     name: build-${{ matrix.os }}-${{ matrix.profile }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -58,7 +58,7 @@ jobs:
     name: build-${{ matrix.os }}-bench
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -89,7 +89,7 @@ jobs:
     name: check-${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -103,7 +103,7 @@ jobs:
     name: rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -121,7 +121,7 @@ jobs:
     name: clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: Swatinem/rust-cache@v1
         with:
           key: clippy
@@ -133,7 +133,7 @@ jobs:
     name: audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - name: cargo audit
         run: |
           cargo install cargo-audit
@@ -143,7 +143,7 @@ jobs:
     name: smoketest-pingserver
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           path: pelikan
       - name: Build Cache for Pelikan
@@ -168,7 +168,7 @@ jobs:
     name: smoketest-pingserver-tls
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           path: pelikan
       - name: Build Cache for Pelikan
@@ -193,7 +193,7 @@ jobs:
     name: smoketest-pingproxy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           path: pelikan
       - name: Build Cache for Pelikan
@@ -221,7 +221,7 @@ jobs:
     name: smoketest-pingproxy-tls-terminating
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           path: pelikan
       - name: Build Cache for Pelikan
@@ -249,7 +249,7 @@ jobs:
     name: smoketest-exposition
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           path: pelikan
       - name: Build Cache for Pelikan
