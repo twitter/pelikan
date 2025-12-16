@@ -25,7 +25,7 @@ jobs:
     name: fuzz-${{ matrix.os }}-${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
